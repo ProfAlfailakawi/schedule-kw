@@ -485,11 +485,12 @@
       "acceptance": [
         { "ar": "رقم غير مكتمل يُردّ بـ400، ورقم لا يطابق السجل بـ403 «الرقم المدني لا يطابق صاحب هذا الرابط».", "en": "An incomplete number is refused with 400, and a number not matching the record with 403 civil ID does not match the owner of this link." },
         { "ar": "الأرقام العربية والفارسية تُطبَّع قبل المطابقة، والمحاولة الحادية عشرة الخاطئة تعيد 429.", "en": "Arabic and Persian digits are normalised before matching, and the eleventh wrong attempt returns 429." },
-        { "ar": "الرد العام لا يتضمن البصمة، ويعيد التاريخ ورمز التحقق فقط.", "en": "The public reply omits the fingerprint and returns only the date and verification code." }
+        { "ar": "الرد العام لا يتضمن البصمة، ويعيد التاريخ ورمز التحقق فقط.", "en": "The public reply omits the fingerprint and returns only the date and verification code." },
+        {"ar": "صيغةُ الرقم المدني تُفحص قبل حجز محاولة التوقيع فلا يأكل خطأُ الكتابة من المحاولات، وورقةُ التوقيع لا تعيد طلبَ الرقم إلا حين خالف صاحبَ الرابط (code: civil-mismatch)؛ 403 لبابٍ أُغلق يُقال برسالته.", "en": "The civil-ID format is validated before a signing attempt is reserved, so a typo never consumes attempts, and the signing sheet re-asks for the number only on a mismatch (code civil-mismatch); a 403 for a closed window shows its own message."}
       ],
       "evidence": {
-        "code": ["src/server/core/instructorRequests.ts#verifyRequestSigner", "src/server/core/shareLinks.ts#publicAttemptReserve", "src/server/publicAttemptLimiter.ts"],
-        "tests": ["tests/request-signature-audit.ts", "tests/instructor-request-server-audit.ts"]
+        "code": ["src/server/core/instructorRequests.ts#verifyRequestSigner", "src/server/core/shareLinks.ts#publicAttemptReserve", "src/server/publicAttemptLimiter.ts", "src/server/publicKit.ts"],
+        "tests": ["tests/request-signature-audit.ts", "tests/instructor-request-server-audit.ts", "tests/teacher-card-r5-audit.ts"]
       }
     },
     {
@@ -569,11 +570,12 @@
       "acceptance": [
         { "ar": "حجز ثانٍ للوقت والقاعة نفسيهما يعيد 409 برمز race-lost وحقل alternatives بعنصرين على الأكثر.", "en": "A second hold for the same time and room returns 409 with code race-lost and an alternatives field of at most two entries." },
         { "ar": "الحجز المؤقت الذي مضت عليه عشر دقائق لا يحجز شيئاً، وإلغاء إضافة يفرج حجزها وحدها بهويتها لا برقمها.", "en": "A temporary hold older than ten minutes holds nothing, and cancelling an addition releases only its own hold by identity, not by index." },
-        { "ar": "تصفّح الخيارات وفحص الأوقات لا يحجزان شيئاً، وتثبيت البند أو رفضه يفكّ الحجز.", "en": "Browsing options and checking times hold nothing, and fixing or rejecting the item releases the hold." }
+        { "ar": "تصفّح الخيارات وفحص الأوقات لا يحجزان شيئاً، وتثبيت البند أو رفضه يفكّ الحجز.", "en": "Browsing options and checking times hold nothing, and fixing or rejecting the item releases the hold." },
+        {"ar": "حجوزُ التحرير لرابطٍ واحد لا تزيد على عدد ما يُعدَّل وواحدٍ فوقه، وثلاثةٍ في الأكثر؛ الزائدُ يُفرج أقدمُه أولاً وحجزُ البند نفسه يُستبدل، وإنشاءُ الحجوز محدودٌ بعشرين في الدقيقة لكل رابط.", "en": "Draft holds per link are capped at the number of items being edited plus one, three at most; the oldest is released first, the same item's hold is replaced, and hold creation is rate-limited to twenty a minute per link."}
       ],
       "evidence": {
-        "code": ["src/utils/instructorRequestReservations.ts", "src/server/routes/publicRequestRoutes.ts#REQUEST_HOLD_TTL_MS", "src/components/RequestHoldSheet.tsx", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/hold"],
-        "tests": ["tests/instructor-request-availability-audit.ts", "tests/teacher-card-logic-audit.ts", "tests/teacher-card-flow-audit.ts"]
+        "code": ["src/utils/instructorRequestReservations.ts", "src/server/routes/publicRequestRoutes.ts#REQUEST_HOLD_TTL_MS", "src/components/RequestHoldSheet.tsx", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/hold", "src/utils/instructorRequestReservations.ts#holdRequestReservation"],
+        "tests": ["tests/instructor-request-availability-audit.ts", "tests/teacher-card-logic-audit.ts", "tests/teacher-card-flow-audit.ts", "tests/teacher-card-r5-audit.ts"]
       }
     },
     {
@@ -694,11 +696,12 @@
       "acceptance": [
         { "ar": "ردّ GET /api/public/request/:token لا يحوي roomCandidates ولا roomOptions ولا offeringRows ولا reservedRoom ولا roomSwitch ولا signatureHistory.", "en": "The reply of GET /api/public/request/:token contains no roomCandidates, roomOptions, offeringRows, reservedRoom, roomSwitch or signatureHistory." },
         { "ar": "ملاحظة رفض كتبها المنسّق وفيها رمز قاعة تصل الأستاذ بالكلمة العامة بدل الرمز.", "en": "A rejection note written by the coordinator that contains a room code reaches the member with the generic word instead of the code." },
-        { "ar": "حركة الجدول على صفحة الطلب بلا اسم قاعة، وتعديل لم يمسّ إلا القاعة لا يصل حدثاً.", "en": "Schedule movement on the request page carries no room name, and an edit that touched only the room does not arrive as an event." }
+        { "ar": "حركة الجدول على صفحة الطلب بلا اسم قاعة، وتعديل لم يمسّ إلا القاعة لا يصل حدثاً.", "en": "Schedule movement on the request page carries no room name, and an edit that touched only the room does not arrive as an event." },
+        {"ar": "الكرتُ لا يعرض قاعةً ولا مبنى في أي موضع، ولا يقرأ حقلاً لهما، ويُسقط أيَّ رمز قاعةٍ أو مبنى من نصوص الخادم (الحكم، ملاحظة القسم، الحوار، الحركة)؛ التوفّرُ وحده أيقونةُ بابٍ و✓ «قاعة مناسبة تُحجز لك تلقائياً». ولا «مانع» في نصٍّ يراه الأستاذ: «الوقت غير متاح»، «راجع ما يحتاج تعديلاً».", "en": "The card shows no room or building anywhere, reads no such field and strips any room or building code from server text; availability alone is a door icon with a check. No blocker wording reaches the member: time not available, review what needs changing."}
       ],
       "evidence": {
-        "code": ["src/server/routes/publicRequestRoutes.ts#stripForInstructor", "src/server/core/staffCard.ts#scheduleMovementEntries"],
-        "tests": ["tests/instructor-request-server-audit.ts", "tests/teacher-card-logic-audit.ts", "tests/teacher-card-r4-audit.ts"]
+        "code": ["src/server/routes/publicRequestRoutes.ts#stripForInstructor", "src/server/core/staffCard.ts#scheduleMovementEntries", "src/server/teacherCardLogic.ts#tcNoPlace"],
+        "tests": ["tests/instructor-request-server-audit.ts", "tests/teacher-card-logic-audit.ts", "tests/teacher-card-r4-audit.ts", "tests/teacher-card-r5-audit.ts"]
       }
     },
     {
@@ -714,11 +717,12 @@
       "actors": ["instructor", "system"],
       "acceptance": [
         { "ar": "الاتصال الخامس لطلب واحد يعيد 429 «اتصالات كثيرة بهذا الرابط»، وبعد انقطاع الاتصال يُنظَّف التسجيل.", "en": "The fifth connection for one request returns 429 too many connections on this link, and the registration is cleaned when the connection drops." },
-        { "ar": "قرار القسم يصل بطاقة مفتوحة خلال ثانيتين دون إعادة تحميل.", "en": "A department decision reaches an open card within two seconds without reloading." }
+        { "ar": "قرار القسم يصل بطاقة مفتوحة خلال ثانيتين دون إعادة تحميل.", "en": "A department decision reaches an open card within two seconds without reloading." },
+        {"ar": "«وصل ردّ من القسم» لما يغيّره القسمُ وحده (القرار والحوار والحالة والموعد)، لا لتبدّل التوفّر؛ وما سواه يُقرأ بصمت تحت المسودة. وزرُّ «حدّث مع الإبقاء على تعديلي» يقرأ الطلب ويعيد المسودةَ فوقه فيمرّ الإرسال، وبندٌ قرّر فيه القسمُ يبقى على قراره بسطرٍ واحد. والبثُّ العائد بعد انقطاع يقرأ مرّة، وأحداثُ «الحركة» كلُّها بأسماءٍ عربية بلا رمزٍ ولا تفصيلٍ آليّ.", "en": "The department-reply banner fires only for department-side changes, not for derived availability; anything else is read silently under the draft. Refresh-keeping-my-edit refetches and reapplies the draft so sending succeeds, keeping the department's decision on an item it decided, in one line. A reconnected stream refetches once, and every timeline kind has an Arabic label with no raw code or machine detail."}
       ],
       "evidence": {
-        "code": ["src/server/routes/publicRequestRoutes.ts#CARD_STREAMS_PER_REQUEST", "src/server/routes/publicRequestRoutes.ts", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/events"],
-        "tests": ["tests/teacher-card-flow-audit.ts"]
+        "code": ["src/server/routes/publicRequestRoutes.ts#CARD_STREAMS_PER_REQUEST", "src/server/routes/publicRequestRoutes.ts", "src/server/routes/publicRequestRoutes.ts#/api/public/request/:token/events", "src/server/teacherCardLogic.ts#tcDeptSig", "src/server/pages/instructorRequestPage.ts#rebaseDraft"],
+        "tests": ["tests/teacher-card-flow-audit.ts", "tests/teacher-card-r5-audit.ts"]
       }
     },
     {
@@ -1288,10 +1292,13 @@
       "actors": ["instructor"],
       "acceptance": [
         { "ar": "مسودة عمرها 15 يوماً ← لا تُستعاد.", "en": "A 15-day-old draft ← not restored." },
-        { "ar": "وقتان متاحان فقط ← لا يظهر «أفضل ثلاثة مواعيد».", "en": "Only two available times ← «best three times» is not shown." },
-        { "ar": "بقي يومان على الإغلاق ← السطر كهرماني (data-urgent = 1).", "en": "Two days before closing ← the line is amber (data-urgent = 1)." }
+        { "ar": "وقتان متاحان فقط ← يظهران في «مقترحة لك» (لم يعد شرطُ الثلاثة)، ولا وقتَ متاحاً على الأيام ← أقربُ ما اقترحه الخادم بأيامه.", "en": "Only two available times ← both appear under suggested for you (the three-time condition is gone); none on these days ← the server's nearest times with their days." },
+        { "ar": "يومُ الإغلاق أو اليومُ قبله بتقويم الكويت ← السطر كهرماني (data-urgent = 1) ويقول «اليوم» أو «غداً».", "en": "Closing day or the day before in the Kuwait calendar ← the line is amber (data-urgent = 1) and reads today or tomorrow." },
+        {"ar": "المسودةُ تحمل نسخةَ الطلب ولحظةَ آخر إرسالٍ بُنيت عليهما؛ تبويبٌ جديد ينقل أحدثَ مسودة إليه ولا ينسخها، وما كُتب قبل آخر إرسالٍ لا يُستعاد، والإرسالُ الناجح والطلبُ المثبَّت يمحوان مسوداتِ الرابط كلَّها. وحالةُ «تعديلٌ لم يُرسل» مشتقّة: ما سيُرسل يخالف ما حمّله الخادم، فـ«إلغاء التعديل» لا يترك سؤالَ «مغادرة الموقع؟».", "en": "The draft records the request revision and last submission it was built on; a new tab moves the newest draft rather than copying it, a draft older than the last submission is never restored, and a successful send or a settled request clears every draft of the link. The unsent-edit state is derived (the payload differs from the server baseline), so cancelling an edit leaves no leave-site prompt."},
+        {"ar": "عدّادُ المهلة بأيام تقويم الكويت: اليومُ الأخير «يُغلق استقبال الطلبات اليوم» من صباحه، وقبله «غداً»، والموعدُ موعدُ الأستاذ نفسه (استثناؤه الفرديّ المفتوح إن امتدّ)، والتاريخُ بتوقيت الكويت وأرقامٍ لاتينية.", "en": "The deadline counter counts Kuwait calendar days: the last day reads closes today from its morning, the day before reads tomorrow, the deadline is the member's own (an open individual exception when later), and the date is shown in Kuwait time with Latin digits."},
+        {"ar": "«مقترحة لك» تظهر كلما اختيرت الأيام لموعدٍ يُغيَّر أو يُضاف، ولو كان الاختيارُ الحاليّ سليماً: حتى ثلاثة أوقاتٍ حكم الخادمُ بأنها متاحة بطاقاتٍ (الأيام والوقت كاملاً وسببٌ بأيقونة) تُطبَّق بضغطة، وإلا أقربُ ما اقترحه الخادم بأيامه. بلا قاعةٍ ولا مبنى ولا جدولٍ كامل.", "en": "Suggested for you appears whenever days are chosen for a changed or added meeting, even when the current pick is fine: up to three server-judged available times as cards (days, full time range and an icon reason) applied in one tap, otherwise the server's nearest times with their days. No room, no building, never a whole timetable."}
       ],
-      "evidence": { "code": ["src/server/pages/instructorRequestPage.ts#readDraft", "src/server/pages/instructorRequestPage.ts#saveDraft", "src/server/pages/instructorRequestPage.ts#clearAllDrafts", "src/server/pages/instructorRequestPage.ts#deadlineHtml", "src/server/pages/instructorRequestPage.ts#bestTimes"], "tests": ["tests/teacher-card-polish-2-audit.ts"] }
+      "evidence": {"code": ["src/server/pages/instructorRequestPage.ts#readDraft", "src/server/pages/instructorRequestPage.ts#saveDraft", "src/server/pages/instructorRequestPage.ts#clearAllDrafts", "src/server/pages/instructorRequestPage.ts#deadlineHtml", "src/server/pages/instructorRequestPage.ts#bestTimes", "src/server/teacherCardLogic.ts#tcDraftTake", "src/server/pages/instructorRequestPage.ts#syncDirty", "src/server/teacherCardLogic.ts#tcDeadline", "src/server/routes/publicRequestRoutes.ts#teacherDeadline"], "tests": ["tests/teacher-card-polish-2-audit.ts", "tests/teacher-card-r5-audit.ts"]}
     },
     {
       "id": "FR-REQ-052",
@@ -1419,6 +1426,23 @@
         { "ar": "لا يُعبّأ النموذج إلا إن فُتح فعلاً (لا قفل ولا بوابة هاتف)، وأوقاتٌ تختلف بين الأيام تفتح الموعد كما هو.", "en": "The form is only filled when it actually opened (no lock, no phone gate), and times that differ between days open the appointment as it is." }
       ],
       "evidence": { "code": ["src/utils/requestOpenRow.ts#requestedChangeOf", "src/components/InstructorInbox.tsx#openRowInSchedule", "src/components/Schedules.tsx"], "tests": ["tests/proposal-open-row-audit.ts", "tests/instructor-requests-owner-notes-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-060",
+      "kind": "functional",
+      "title": { "ar": "كرت الأستاذ: المخالفات صفّاً لكل مقرر وإنفوجرافيك التخطيط", "en": "Teacher card: one row per course for violations and a planning infographic" },
+      "text": {
+        "ar": "يجب أن تُجمع مخالفاتُ اللائحة في كرت الأستاذ صفّاً واحداً لكل مقرر بأيقونةٍ وعبارةٍ قصيرة («المدة أقصر من المقرر») وزرّ «عدّل» واحدٍ يأخذه إلى موعده، والتفصيلُ كاملاً عند الضغط. ويجب أن يُعرض في تفصيل كل موعد إنفوجرافيك صغير من «تخطيط الشعب» وحده (لا رغبات مساري ولا الاستبيان): نقاطٌ للشعب القائمة من المخطَّطة، وأيقونةُ أشخاصٍ بعدد الطلبة المتوقَّع، بكلماتٍ قليلة؛ وما لا تخطيطَ له لا يُرسم.",
+        "en": "Regulation violations on the teacher card shall be grouped into one row per course with an icon, a short phrase and one Edit button that goes to the meeting, with the full text on tap. Each meeting detail shall show a small infographic sourced only from section planning (never Masari wishes or the survey): dots for existing versus planned sections and a people icon with the expected students, in few words; a course without planning shows nothing."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["instructor"],
+      "acceptance": [
+        { "ar": "الخادمُ يرسل مع كل مخالفة اسمَ المقرر وقاعدتَها وأيقونتَها وعبارتَها القصيرة (pinIssueShort)، والصفحةُ تجمعها بالمقرر (tcPinGroups).", "en": "The server sends each violation with its course name, rule, icon and short phrase (pinIssueShort); the page groups them by course (tcPinGroups)." },
+        { "ar": "قراءةُ التخطيط لمقرّرات الأستاذ وحدها، أرقاماً مجمَّعة (المخطَّط، القائم، المتوقَّع) بلا هوية طالب، وتُحفظ خمس دقائق لكل طلب.", "en": "The planning read covers only the member's own courses, as aggregate numbers (planned, existing, expected) without student identities, cached five minutes per request." }
+      ],
+      "evidence": { "code": ["src/utils/pinIssueShort.ts", "src/utils/teacherPlanFacts.ts", "src/server/routes/publicRequestRoutes.ts#teacherPlanningFor", "src/server/teacherCardLogic.ts#tcPinGroups"], "tests": ["tests/teacher-card-r5-audit.ts"] }
     }
   ],
   "edgeCases": [

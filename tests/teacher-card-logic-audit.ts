@@ -177,7 +177,7 @@ type Day = typeof DAYS[number];
   const server = readServerSource();
   check(server.includes("function draftHoldKey(entry: any): string") && server.includes("{ ...proposal, itemId: holdKey }") && !server.includes("itemId: `draft:${index}`")
     && server.includes('...(raceLost ? { code: "race-lost" } : { code: "hold-refused" })')
-    && server.includes("Repository.holdInstructorRequestSlot({ ...resolved.request, items }, { ...proposal, itemId: holdKey }, REQUEST_HOLD_TTL_MS)"),
+    && server.includes("Repository.holdInstructorRequestSlot({ ...resolved.request, items }, { ...proposal, itemId: holdKey }, REQUEST_HOLD_TTL_MS, undefined, Math.min(DRAFT_HOLDS_PER_REQUEST, editing + 1))"),
     "والخادمُ يحجز بهويّة البند لا برقمه وعلى المسودّة، و«سبقك زميل» لسباقٍ مع زميلٍ وحده");
 }
 
@@ -214,10 +214,12 @@ type Day = typeof DAYS[number];
   const keep7 = { rowId: 7, action: "keep", days: [], start: "", excuse: "" };
   const moved7 = { rowId: 7, action: "change", days: ["fsunday", "ftuesday"], start: "14:00", excuse: "" };
   check(untouchedSrc.length > 0 && untouchedIn({ base: [keep7] }, keep7) && !untouchedIn({ base: [keep7] }, moved7) && !untouchedIn({ items: [keep7] }, keep7)
-    && script.includes("items:payloadItems(),base:baseItems,") && script.includes("if(applied){restoredDraft=true;dirty=true}else clearDraft()"),
+    && script.includes("items:payloadItems(),base:baseItems,") && script.includes("if(draft){var applied=applyDraft(draft,[]).applied;if(applied){restoredDraft=true;syncDirty()}else clearDraft()}"),
     "والمسودةُ تُطبَّق على ما لمسه تبويبُها وحده: «كما هو» الذي لم يُلمس لا يمحو تعديلاً أرسله تبويبٌ آخر، ولا «استعدنا» بلا شيء");
-  check(script.includes("e.server=true;e.itemIndex=d.itemIndex;throw e") && script.includes("it.note=said||\"تعذّر فحص الموعد الآن. أعد المحاولة قبل الإرسال.\""),
-    "وسببُ الخادم يُقال على بنده بدل «تعذّر فحص الموعد» على كل البنود");
+  /* وانقطاعُ الاتصال حالةٌ محايدة «تعذّر الفحص — أعد المحاولة» بزرّ، لا «الوقت غير متاح» (الجولة الخامسة). */
+  check(script.includes("e.server=true;e.itemIndex=d.itemIndex;throw e") && script.includes("if(said){it.tone=\"bad\";it.note=tcNoPlace(said);return}")
+    && script.includes("it.tone=\"retry\";it.note=\"تعذّر الفحص — أعد المحاولة\""),
+    "وسببُ الخادم يُقال على بنده بدل «تعذّر فحص الموعد» على كل البنود، وانقطاعُ الاتصال حالةٌ محايدة بزرّ إعادة");
   check(script.includes("function uniqueShapes(list)") && script.includes("var shs=state[i]&&state[i].shapes&&state[i].shapes.length?[]:uniqueShapes(heatShapes[i]||[]);"),
     "والأنماطُ المقترحة مرّةً واحدة");
   check(script.includes("if(act===\"cancel-add\"){releaseHold(it);") && script.includes("if(it.action===\"keep\"||it.action===\"delete\"){releaseHold(it);")
