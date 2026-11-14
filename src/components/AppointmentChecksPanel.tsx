@@ -1,4 +1,5 @@
 import React from "react";
+import { parseHoursIssue } from "../utils/hoursIssue";
 import {
   AlertTriangle, Building2, Check, Clock3, Info, Loader2, LockOpen, Minus, MonitorPlay, Puzzle, Ruler, UserRound, WandSparkles, X, DoorOpen,
 } from "lucide-react";
@@ -54,10 +55,9 @@ function Ring({ verdict }: { verdict: AppointmentVerdict }) {
 export const isPatternDetail = (text: string) => /الساعات المعتمدة|نمط اللائحة|خارج اللائحة|النمط غير معتمد/.test(String(text || ""));
 
 function hoursVisual(text: string): { label: string; current: string; allowed: string; unit: string } | null {
-  const over = /ساعات هذا المقرر المعتمدة (\d+) ساعات أسبوعيًا، والمجموع بعد هذا الموعد يزيدها \((\d+) ساعات/.exec(text);
-  if (over) return { label: "ساعات الشعبة زائدة", current: over[2], allowed: over[1], unit: "س" };
-  const under = /ساعات الشعبة .+ أقل من ساعات المقرر · (\d+)\/(\d+) د/.exec(text);
-  return under ? { label: "ساعات الشعبة ناقصة", current: under[1], allowed: under[2], unit: "د" } : null;
+  const issue = parseHoursIssue(text);
+  if (issue?.kind === "over") return { label: "ساعات الشعبة زائدة", current: String(issue.total), allowed: String(issue.hours), unit: "س" };
+  return issue?.kind === "under" ? { label: "ساعات الشعبة ناقصة", current: String(issue.got), allowed: String(issue.need), unit: "د" } : null;
 }
 
 const patternBlock = (detail: VerdictDetail) => detail.blocks && /ليست نمطاً معتمداً|ليس نمطاً معتمداً|النمط غير معتمد|خارج اللائحة/.test(detail.text);

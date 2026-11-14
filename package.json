@@ -245,6 +245,8 @@
     "test:actual-demand": "tsx tests/actual-demand-audit.ts",
     "test:actual-demand-supply": "tsx tests/actual-demand-supply-audit.ts",
     "test:actual-demand-graduates": "tsx tests/actual-demand-graduates-audit.ts",
+    "test:appointment-review-1114": "tsx tests/appointment-review-1114-audit.ts",
+    "test:section-plan": "tsx tests/section-plan-audit.ts",
     "test:colleagues-advising-registration": "tsx tests/colleagues-advising-registration-audit.ts",
     "test:quick-studio-family": "tsx tests/quick-studio-family-audit.ts",
     "test:lecture-stick-own": "tsx tests/lecture-stick-own-audit.ts",

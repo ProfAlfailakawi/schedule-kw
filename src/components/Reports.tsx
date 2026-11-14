@@ -4991,7 +4991,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
      ورقة «تقرير الأستاذ» نفسها — رأسُ مجموعةٍ وجدول — لكل قسم: عدّادُ عاجل/مهم/فرصة،
      ثم مقرراته المصنّفة كما تعرضها اللوحة. */
   if (kind === "decision") {
-    const tierLabel: Record<string, string> = { urgent: "عاجل", important: "مهم", opportunity: "فرصة" };
+    const tierLabel: Record<string, string> = { urgent: "الخريجون", important: "ينقص", opportunity: "فائض" };
     const departments = decision || [];
     const pages = departments.flatMap(department => {
       const chunks = paginateItems(department.items, PAGE_ROWS.list);
@@ -5005,7 +5005,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
             <section className="print-query-group">
               <header>
                 <div><strong>{department.name}</strong></div>
-                <span><b>{department.counts.urgent}</b> عاجل</span><span><b>{department.counts.important}</b> مهم</span><span><b>{department.counts.opportunity}</b> فرصة</span>
+                <span><b>{department.counts.urgent}</b> للخريجين</span><span><b>{department.counts.important}</b> ناقصة</span><span><b>{department.counts.opportunity}</b> فائضة</span>
               </header>
               {department.status !== "ready" ? <p className="print-empty">{department.status === "failed" ? "تعذّرت قراءة التخطيط لهذا القسم." : "لم تكتمل قراءة التخطيط لهذا القسم بعد."}</p>
                 : items.length ? <table>

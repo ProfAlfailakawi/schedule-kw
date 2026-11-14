@@ -2513,7 +2513,7 @@
         "en": "«Place sections» from section planning shall open a review in the import tab, separate from file imports, holding the department's current appointments and the proposed sections, editable by quick edit and deletion; it shall keep a current appointment that has a building but no hall as «pending hall» and never make a proposed section pending by itself; it shall compute its counters from the rows still on screen (current, proposed, current ones deleted, proposed without a hall); placing shall replace the department's schedule with what the user sees through the same import path (a draft named «place sections (from section planning)» then published); and the review shall be cleared when the user leaves for another tab."
       },
       "priority": "must",
-      "status": "implemented",
+      "status": "planned",
       "actors": [
         "departmentHead",
         "committeeChair"
@@ -2540,13 +2540,16 @@
         "code": [
           "src/components/ScheduleTransfer.tsx#previewWorksheetRows",
           "src/components/ScheduleTransfer.tsx#planningMeta",
-          "src/components/ScheduleTransfer.tsx#goTab",
-          "src/components/SectionPlanning.tsx"
+          "src/components/ScheduleTransfer.tsx#goTab"
         ],
         "tests": [
           "tests/section-build-live-audit.ts",
           "tests/section-planning-import-audit.ts"
         ]
+      },
+      "rationale": {
+        "ar": "زرّ «نزّل الشعب» أُزيل مع تخطيط الشعب القديم؛ مسار المراجعة باقٍ في أدوات البيانات بلا مدخل.",
+        "en": "The 'build sections' button was removed with the old section planning; the review path remains in the data tools without an entry point."
       }
     },
     {

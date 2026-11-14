@@ -10,7 +10,7 @@ import { departmentFamily } from "../utils/sectionLabel";
 import { usePageAwake } from "../utils/pageAwake";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import PlanSheetPublisher from "./PlanSheetPublisher";
-import ActualDemandPanel, { type DemandReadingView } from "./ActualDemandPanel";
+import SectionPlan, { type PlanReadingView } from "./SectionPlan";
 import { WhatIfDesk } from "./TimeMachine";
 import { roleDefinition } from "../utils/academicRoles";
 import { mergeDemandReadings, mergeOperationsReadings, mergeDecisionReadings, scopedReadingList, sameIntelligenceScope, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
@@ -516,7 +516,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   const canPublishSheets = isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair";
   const [sheetSummary, setSheetSummary] = useState<{ published: number; total: number } | null>(null);
   /* رقمُ بطاقة «الطلب الفعلي»: يُقرأ مع النطاق، وتحدّثه اللوحةُ نفسها بعد كل رفعٍ أو ربط. */
-  const [actualDemand, setActualDemand] = useState<DemandReadingView | null>(null);
+  const [actualDemand, setActualDemand] = useState<PlanReadingView | null>(null);
   const loadSheetSummary = useCallback(() => {
     if (!canPublishSheets) return;
     fetch("/api/plan-sheets").then(res => (res.ok ? res.json() : null)).then(body => {
@@ -2256,11 +2256,11 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           : []),
         {
           value: "actualDemand" as const,
-          label: "الطلب الفعلي",
-          detail: "نسبة خدمة الطلب من تقرير التسجيل",
-          /* «نسبة خدمة الطلب» على البطاقة نفسها، وتُقرأ من الجدول الحيّ في كل فتح. */
-          metric: actualDemand?.service
-            ? `${Math.round(actualDemand.service.general ?? actualDemand.service.graduates ?? 0)}%`
+          label: "تخطيط الشعب",
+          detail: "الخريجون أولاً ثم بقية الطلبة، من تقرير التسجيل",
+          /* رقمُ البطاقة: الخريجون الذين لهم مقعد إن رُفع تقريرهم، وإلا الشعب الناقصة. */
+          metric: actualDemand?.plan
+            ? actualDemand.plan.graduatesServed !== null ? `${actualDemand.plan.graduatesServed}%` : `${actualDemand.plan.totals.open}`
             : actualDemand && (actualDemand.variants.general || actualDemand.variants.graduates) ? "—" : "ارفع",
           icon: <ClipboardList />,
         },
@@ -3810,7 +3810,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           ) : null}
           {activeInsightKey === "actualDemand" && collegeId && sectionId && termId ? (
             <div className="content-stack insight-scene-panel" id="insight-panel-actualDemand" role="tabpanel" aria-labelledby="insight-tab-actualDemand" tabIndex={0}>
-              <ActualDemandPanel collegeId={Number(collegeId)} sectionId={Number(sectionId)} termId={Number(termId)} initial={actualDemand} onReading={setActualDemand} />
+              <SectionPlan collegeId={Number(collegeId)} sectionId={Number(sectionId)} termId={Number(termId)} onReading={setActualDemand} />
             </div>
           ) : null}
           {activeInsightKey === "improve" && collegeId && sectionId && termId ? (

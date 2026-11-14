@@ -23,12 +23,10 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { safeStorage } from "../utils/safeStorage";
 import { Notice, PrimaryButton, SecondaryButton } from "./ui";
-import { SectionGapBadge, SectionGapPanel, showQuickCompareBadge, useSectionGap, type GapKind } from "./SectionGapNote";
-import { flushPlanDecisions, loadPlanDecisions, readPlanDecisions, savePlanDecision, triagePlanItems, type PlanDecision } from "../utils/planTriage";
-import { reconcilePlanAdjustments, type GapItem } from "../utils/sectionGap";
-import QuickPlanSheet from "./QuickPlanSheet";
-import { DemandAlertBadge, DemandAlertPanel, useActualDemand } from "./ActualDemandAlert";
-import { demandAlertSummary } from "../utils/actualDemandSupply";
+import { SectionGapBadge, SectionGapPanel, useSectionGap } from "./SectionGapNote";
+import type { GapItem } from "../utils/sectionGap";
+import SectionPlan, { SectionPlanningBadge, useSectionPlan } from "./SectionPlan";
+import type { PlanCourseFact } from "../utils/sectionPlan";
 import {
   APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, additionsAwaitingHead, awaitsHeadSignature, blockingSummaryPhrase, deadlinePassed,
 } from "../utils/approvalWorkflow";
@@ -167,45 +165,18 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   const [revealSteps, setRevealSteps] = useState(false);
   /* قائمة البيانات الناقصة تُفتح من عنصرها هي، لا من طيّ تفاصيل الاعتماد. */
   const [readinessOpen, setReadinessOpen] = useState(false);
-  const [gapOpen, setGapOpen] = useState<GapKind | null>(null);
-  const [planSheet, setPlanSheet] = useState(false);
-  const gap = useSectionGap(collegeId, sectionId, termId, refreshSignal, gapOpen !== null);
-  /* الطلب الفعلي (تقرير التسجيل): شارةٌ بجانب شارة التخطيط، ولا شيء بلا تقرير أو بلا عجز. */
-  const demand = useActualDemand(collegeId, sectionId, termId, refreshSignal);
-  const demandSummary = useMemo(() => (demand ? demand.alertSummary ?? demandAlertSummary(demand.supply) : null), [demand]);
-  const [demandOpen, setDemandOpen] = useState(false);
-  const planAdjustments = useMemo(() => reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems), [gap.planItems, gap.planSurplusItems]);
-  /* K2: three shelves, decisions folded out, duplicates merged — the badge counts what is still open. */
-  const triageScope = `${collegeId}:${sectionId}:${termId}`;
-  /* Shared on the server for everyone in the scope; the browser mirror only covers offline. */
-  const [planDecisions, setPlanDecisions] = useState<Record<string, PlanDecision>>(() => readPlanDecisions(triageScope));
-  const [planDecisionsOffline, setPlanDecisionsOffline] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    setPlanDecisions(readPlanDecisions(triageScope));
-    if (!collegeId || !sectionId || !termId) return;
-    const load = () => void loadPlanDecisions(triageScope).then(result => { if (alive) { setPlanDecisions(result.decisions); setPlanDecisionsOffline(result.offline); } });
-    load();
-    const online = () => void flushPlanDecisions(triageScope).then(load);
-    window.addEventListener("online", online);
-    return () => { alive = false; window.removeEventListener("online", online); };
-  }, [triageScope, refreshSignal, collegeId, sectionId, termId]);
-  const planTriage = useMemo(() => triagePlanItems(planAdjustments, planDecisions), [planAdjustments, planDecisions]);
-  const livePlanItems = useMemo(() => planTriage.live.map(entry => entry.item), [planTriage]);
-  const decidePlanItem = (id: number, decision: PlanDecision | null) => {
-    const previous = planDecisions;
-    const apply = (value: PlanDecision | null) => setPlanDecisions(current => {
-      const next = { ...current };
-      if (value) next[String(id)] = value; else delete next[String(id)];
-      return next;
-    });
-    apply(decision);
-    void savePlanDecision(triageScope, id, decision)
-      .then(result => { apply(result.decision); setPlanDecisionsOffline(result.queued); })
-      .catch((error: any) => { setPlanDecisions(previous); setError(String(error?.message || "تعذّر حفظ القرار")); });
-  };
+  /* «مساري» (رغبات الطلبة) شارةٌ مستقلة؛ وتخطيط الشعب من تقرير التسجيل شارةٌ واحدة. */
+  const [gapOpen, setGapOpen] = useState(false);
+  const gap = useSectionGap(collegeId, sectionId, termId, refreshSignal, gapOpen);
+  const plan = useSectionPlan(collegeId, sectionId, termId, refreshSignal);
+  const [planOpen, setPlanOpen] = useState(false);
+  /* ما يقرؤه محرّر الموعد («بعد هذا الموعد يصبح للمقرر…»): المطلوب لنسخة هذا القسم من سطر حرمه. */
+  const planTargets = useMemo<GapItem[]>(() => (Object.entries(plan.reading?.facts || {}) as Array<[string, PlanCourseFact]>)
+    .filter(([, fact]) => fact.sectionId === Number(sectionId) && fact.tier !== "nocap")
+    .map(([id, fact]) => ({ id: Number(id), code: fact.courseCode, name: fact.name, existing: fact.offered, required: fact.required, extra: fact.gap, basis: "plan" as const, demand: fact.students })),
+  [plan.reading, sectionId]);
   useEffect(() => { onStudentGaps?.(gap.studentItems); }, [gap.studentItems, onStudentGaps]);
-  useEffect(() => { onPlanningGaps?.(gap.planTargets); }, [gap.planTargets, onPlanningGaps]);
+  useEffect(() => { onPlanningGaps?.(planTargets); }, [planTargets, onPlanningGaps]);
   /* الشريط يزول (كل الأقسام، أو فصلٌ مؤرشف): تزول علاماتُه من مفتاح الألوان معه. */
   useEffect(() => () => onStudentGaps?.([]), [onStudentGaps]);
   useEffect(() => () => onPlanningGaps?.([]), [onPlanningGaps]);
@@ -592,14 +563,8 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   };
   const ITEM_ICON: Record<string, LucideIcon> = { course: Landmark, schedule: CalendarClock, location: DoorOpen, room: DoorOpen };
   const ITEM_ACTION: Record<string, string> = { course: "افتح المقررات", schedule: "اذهب للموعد", location: "اذهب للموعد", room: "اذهب للموعد" };
-  /* Merge both independently computed decisions by course. Reduction advice
-     must remain visible from this term's report even if historical opening
-     suggestions have not finished loading. */
-  const gapList = gapOpen === "plan" ? planAdjustments : gapOpen === "students" ? gap.studentItems : [];
-  const planPanelOpen = gapOpen === "plan" && (planTriage.live.length > 0 || planTriage.handled.length > 0);
-  const gapPanel = gapOpen && (gapList.length || planPanelOpen) ? <SectionGapPanel items={gapList} kind={gapOpen} onClose={() => setGapOpen(null)} staffing={gap.staffing} freeSlots={gap.freeSlots} triage={gapOpen === "plan" ? planTriage : undefined} onDecide={decidePlanItem} triageOffline={planDecisionsOffline} /> : null;
-  const demandPanel = demandOpen && demand && demandSummary?.show
-    ? <DemandAlertPanel reading={demand} summary={demandSummary} termId={termId} onClose={() => setDemandOpen(false)} /> : null;
+  const gapPanel = gapOpen && gap.studentItems.length ? <SectionGapPanel items={gap.studentItems} kind="students" onClose={() => setGapOpen(false)} /> : null;
+  const planPanel = planOpen ? <SectionPlan collegeId={collegeId} sectionId={sectionId} termId={termId} mode="bar" inPlace reading={plan.reading} onReading={plan.set} onClose={() => setPlanOpen(false)} onOpenCourses={onOpenCourses} /> : null;
   const readinessPanel = state.dataReadiness ? (
     <section className="apb-data-readiness" data-ready={state.dataReadiness.ready || undefined} aria-label="بيانات تحتاج استكمالاً">
       <header>
@@ -744,17 +709,8 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             <ChevronDown aria-hidden="true" className="apb-data-chev" />
           </button>
         ) : null}
-        <SectionGapBadge items={livePlanItems} kind="plan" open={gapOpen === "plan"} onToggle={() => setGapOpen(open => open === "plan" ? null : "plan")} />
-        <SectionGapBadge items={gap.studentItems} kind="students" open={gapOpen === "students"} onToggle={() => setGapOpen(open => open === "students" ? null : "students")} />
-        <DemandAlertBadge summary={demandSummary} open={Boolean(demandPanel)} onToggle={() => setDemandOpen(open => !open)} />
-        {showQuickCompareBadge(gap) ? (
-          <button type="button" className="apb-badge apb-gap-ghost" onClick={() => setPlanSheet(true)} aria-haspopup="dialog"
-            title="قارن شعبك بكشف المتبقي" aria-label="ارفع كشف المتبقي لتظهر لك الشعب المقترحة"
-            data-guide-ignore="أيقونة اختيارية: تفتح شاشةً مختصرة لرفع كشف المتبقي">
-            <FileUp aria-hidden="true" />
-          </button>
-        ) : null}
-        {planSheet ? <QuickPlanSheet collegeId={collegeId} sectionId={sectionId} termId={termId} gap={gap} demoMode={demoMode} onClose={() => setPlanSheet(false)} /> : null}
+        <SectionPlanningBadge reading={plan.reading} open={planOpen} onToggle={() => setPlanOpen(open => !open)} />
+        <SectionGapBadge items={gap.studentItems} kind="students" open={gapOpen} onToggle={() => setGapOpen(open => !open)} />
         {canSignNow && blockingConflicts === 0 && missingCapacity === 0 && !requiredCourseFieldsBlocksSign ? (
           <span className="apb-badge apb-ready" data-tone="success" data-guide-ignore="شارة جاهزية التوقيع — عرضٌ لا فعل">
             <ShieldCheck aria-hidden="true" /><span>جاهز للتوقيع</span>
@@ -914,12 +870,12 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
 
       {!showDetails && readinessOpen && readinessPanel ? <div className="apb-expanded apb-expanded-solo">{readinessPanel}</div> : null}
       {!showDetails && gapPanel ? <div className="apb-expanded apb-expanded-solo">{gapPanel}</div> : null}
-      {!showDetails && demandPanel ? <div className="apb-expanded apb-expanded-solo">{demandPanel}</div> : null}
+      {!showDetails && planPanel ? <div className="apb-expanded apb-expanded-solo">{planPanel}</div> : null}
       {showDetails ? (
         <div className="apb-expanded" data-reveal={revealSteps || undefined}>
           {readinessPanel}
           {gapPanel}
-          {demandPanel}
+          {planPanel}
           <div className="apb-expanded-row">
             <Stepper steps={steps} size="lg" returnFrom={returnFrom}
               stamp={(step) => step.sig?.length ? (
