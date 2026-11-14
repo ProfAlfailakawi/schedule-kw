@@ -114,6 +114,7 @@
 .adl-live-heading strong{font-size:12px;line-height:1.5;flex:1}
 .adl-live-heading small{font-size:10px;color:var(--adl-muted)}
 .adl-live-courses .adl-watch-list{padding:0;gap:7px}
+.adl-grad-badge{display:flex;align-items:center;gap:5px;width:fit-content;margin-bottom:3px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.7;color:var(--adl-accent);background:color-mix(in srgb,var(--adl-accent) 13%,transparent);border:1px solid color-mix(in srgb,var(--adl-accent) 35%,transparent)}
 .adl-live-courses .adl-watch-item{padding:10px;min-height:48px}
 .adl-live-courses .adl-watch-item strong{font-size:11.5px}
 .adl-live-foot{font-size:9.5px;color:var(--adl-muted);line-height:1.6}

@@ -25,6 +25,7 @@ import { canExtendDeadline, canManageDeadline, canReviewSubmissions, canAnnotate
 import { seedDemoRadar, seedDemoMasariDemand } from "../demoRadarSeed";
 import { seedDemoOtherDepartmentStories, seedDemoWishHistory } from "../demoPreviousTermSeed";
 import { seedDemoSectionRequests } from "../demoSectionRequestsSeed";
+import { seedDemoActualDemand } from "../demoActualDemandSeed";
 import { demoActivityTrail } from "../../db/demoActivityTrail";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { adminSetPasswordFields, claimPasswordReset, currentPasswordWaived, decidePasswordChange, INITIAL_PASSWORD_EXPIRED, initialPasswordExpired, initialPasswordMark, LEGACY_SHARED_PASSWORD, passwordResetApplies, passwordResetId, type PasswordResetRecord, TEMPORARY_PASSWORD_EXPIRED, TEMPORARY_PASSWORD_USED } from "../accountPassword";
@@ -193,6 +194,8 @@ function scheduleDemoExtras(sessionId: string): void {
     await run("Masari demand", seedDemoMasariDemand);
     /* طلباتُ الشعب بعد رغبات «مساري»: الطلبُ المرسَل للتوّ يحمل الطلبةَ الذين طلبوا المقرر. */
     await run("section requests", () => seedDemoSectionRequests({ sealIdentity: sealStudentIdentity }));
+    /* «الطلب الفعلي» المحفوظ بالنسختين، من مقررات الصندوق ومواعيده: تخطيط الشعب ونبض الطلبة لا يُفتحان فارغين. */
+    await run("actual demand", seedDemoActualDemand);
     /* «👣 الأثر»: أسبوعُ عملٍ محكيّ لكل فريق، على مواعيد القسم الجارية نفسها (فتظهر البصمةُ عليها). */
     await run("activity trail", async () => {
       const [terms, users, rows] = await Promise.all([
