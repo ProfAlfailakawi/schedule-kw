@@ -1411,15 +1411,15 @@
       "kind": "functional",
       "title": { "ar": "أوامر المرشد في شاشة الجدول", "en": "Guide commands on the schedule screen" },
       "text": {
-        "ar": "يجب أن تستقبل شاشة الجدول أوامر المرشد الآمنة وتنفذها دون حفظ شيء: تبديل العرض (قائمة أو أسبوع أو قاعات)، وفتح المراجعة، وفتح أدوات البيانات، وإبراز موعد بعينه، وفتح المحرر على حقل الوقت أو المقرر أو الأستاذ لموعد محدد بعد إبرازه بعلامة «هنا»، والبحث عن بدائل لموعد دون تعارض جديد، وتجهيز نقل موعد في عرض القاعات؛ وأن ترد على كل أمر بنتيجة (نجح أو فشل مع إشارة) يقرؤها المرشد، وأن تُبلغ المرشد بسياقها: النطاق والعرض والموعد المحدد وتعارضه والمهمة الحالية ومستوى إتقان المستخدم للعرض.",
-        "en": "The schedule screen shall receive the Guide's safe commands and carry them out without saving anything: switching the view (list, week or rooms), opening the review, opening the data tools, highlighting a given appointment, opening the editor on the time, course or instructor field of a selected appointment after marking it with «here», looking for alternatives for an appointment without a new conflict, and preparing an appointment move in the rooms view; it shall answer each command with a result (success or failure with a signal) the Guide reads, and shall report its context to the Guide: scope, view, selected appointment and its conflict, current task and the user's mastery of the view."
+        "ar": "يجب أن تستقبل شاشة الجدول أوامر المرشد الآمنة وتنفذها دون حفظ شيء: تبديل العرض (قائمة أو أسبوع أو قاعات)، وفتح المراجعة، وفتح أدوات الجدول، وإبراز موعد بعينه، وفتح المحرر على حقل الوقت أو المقرر أو الأستاذ لموعد محدد بعد إبرازه بعلامة «هنا»، والبحث عن بدائل لموعد دون تعارض جديد، وتجهيز نقل موعد في عرض القاعات؛ وأن ترد على كل أمر بنتيجة (نجح أو فشل مع إشارة) يقرؤها المرشد، وأن تُبلغ المرشد بسياقها: النطاق والعرض والموعد المحدد وتعارضه والمهمة الحالية ومستوى إتقان المستخدم للعرض.",
+        "en": "The schedule screen shall receive the Guide's safe commands and carry them out without saving anything: switching the view (list, week or rooms), opening the review, opening the schedule tools, highlighting a given appointment, opening the editor on the time, course or instructor field of a selected appointment after marking it with «here», looking for alternatives for an appointment without a new conflict, and preparing an appointment move in the rooms view; it shall answer each command with a result (success or failure with a signal) the Guide reads, and shall report its context to the Guide: scope, view, selected appointment and its conflict, current task and the user's mastery of the view."
       },
       "priority": "should",
       "status": "implemented",
       "actors": ["standard", "departmentHead", "committeeChair"],
       "acceptance": [
         { "ar": "أمر يحتاج موعداً محدداً ولا تحديد ← «حدد مقررًا أولًا، ثم أعد طلب المساعدة.» وفشل بإشارة schedule.editor.no-selection؛ وتجهيز النقل يفتح عرض القاعات ويقول إنه لم تبدأ أي معاملة.", "en": "A command needing a selected appointment with none selected writes «select a course first, then ask for help again.» and fails with signal schedule.editor.no-selection; the move preparation opens the rooms view and says no transaction has started." },
-        { "ar": "لا يُفتح المحرر إلا بعد العثور على البطاقة في عرض الأسبوع (حتى 30 إطاراً) وتعليمها 760 مللي ثانية؛ وفتح أدوات البيانات على هاتف في عرض غير القائمة يُرفض بإشارة schedule.transfer.blocked.", "en": "The editor opens only after the card is found on the week view (up to 30 frames) and marked for 760 ms; opening the data tools on a phone outside the list view is refused with signal schedule.transfer.blocked." },
+        { "ar": "لا يُفتح المحرر إلا بعد العثور على البطاقة في عرض الأسبوع (حتى 30 إطاراً) وتعليمها 760 مللي ثانية؛ وفتح أدوات الجدول على هاتف في عرض غير القائمة يُرفض بإشارة schedule.transfer.blocked.", "en": "The editor opens only after the card is found on the week view (up to 30 frames) and marked for 760 ms; opening the schedule tools on a phone outside the list view is refused with signal schedule.transfer.blocked." },
         { "ar": "لوحة الأوامر تعرض تحت «المرشد» كل إجراء مرشد مسموح لشاشة الجدول غير حساس وغير موجود فيها أصلاً (وتعطّل الوقت والمقرر والأستاذ والبحث عن قاعة بلا تحديد)، وتحت «وجهات المرشد» صفحات الشاشات الأخرى.", "en": "The command palette lists under «Guide» every allowed, non-sensitive Guide action of the schedule screen not already in it (time, course, instructor and find-room disabled without a selection), and under «Guide destinations» the pages of other screens." },
         { "ar": "يُعدّ المستخدم خبيراً بالعرض عند إتقان 0.72 فأكثر؛ وأمر التراجع من المرشد لا ينفّذ إلا قيد تراجع لم يُستعمل بعد.", "en": "The user counts as expert in a view at mastery 0.72 or more; an undo asked by the Guide runs only an undo entry not yet used." }
       ],
@@ -1441,7 +1441,7 @@
         { "ar": "شريط الاعتماد (التوقيع والإرسال والملاحظات) موقوفٌ أثناء التجربة، ويظهر مكانه سطرٌ يقول إنه يعود عند الخروج منها.", "en": "The approval bar (signing, sending and notes) is paused during practice, replaced by a line saying it returns when practice ends." },
         { "ar": "الحذف في التجربة يسأل «حذف من التجربة الآمنة» بزر «حذف تجريبي»؛ والموعد الجديد يأخذ معرّفاً سالباً مؤقتاً والتعديل يُبقي معرّف الصف.", "en": "Deleting in practice asks «delete from the practice copy» with a «practice delete» button; a new appointment gets a temporary negative id and an edit keeps the row id." },
         { "ar": "يبدأ الوضع بأمر المرشد، ومن زرّ «تجربة آمنة» تحت «المزيد» في شريط الجدول، ومن بنده في لوحة الأوامر؛ وجولة «أرني» للميزة تفتح «المزيد» وتشير إلى ذلك الزر قبل التجربة، وإلى شريطها بعد بدئها.", "en": "The mode starts by the Guide command, from a «safe practice» button under «more» on the schedule toolbar, and from its command-palette entry; the feature's «show me» tour opens «more» and points at that button before practice, and at the strip once it has started." },
-        { "ar": "يُحوَّل إلى النسخة الحفظ من المحرر والحذف والنقل بالسحب في الأسبوع وفي لوحة القاعات؛ وما سواها (التراجع، وسلسلة الإصلاح، والنسخ واسترجاعه، ونقطة الأمان، وأفعال الخانة المؤقتة، والاستعارة، والتعليقات، والإضافة السريعة، وأدوات البيانات، وبداية الفصل، وتحويل هيئة التدريب) يُمنع بعبارة «أنت في «وضع تجربة»: هذا الإجراء يكتب في الجدول الحقيقي فلم يُنفَّذ.»، ويغيب مسح الجدول وسوق الاستعارة؛ وكل طلب كتابة يمرّ بحاجزٍ أخير قبل الشبكة وطابور ما دون الاتصال لا يُفلت منه إلا فحص التعارض وقراءات الشرح.", "en": "Saving from the editor, deleting and moving by drag in the week and on the halls board are diverted to the copy; everything else (undo, the repair chain, copying and its undo, the safety-net point, placeholder actions, hall borrowing, comments, quick add, the data tools, start of term and trainee conversion) is refused with a message that practice mode is on and the action writes to the real schedule, and the wipe button and the hall market are hidden; every write request also passes a last barrier before the network and the offline queue that lets only the conflict check and the explanation reads through." }
+        { "ar": "يُحوَّل إلى النسخة الحفظ من المحرر والحذف والنقل بالسحب في الأسبوع وفي لوحة القاعات؛ وما سواها (التراجع، وسلسلة الإصلاح، والنسخ واسترجاعه، ونقطة الأمان، وأفعال الخانة المؤقتة، والاستعارة، والتعليقات، والإضافة السريعة، وأدوات الجدول، وبداية الفصل، وتحويل هيئة التدريب) يُمنع بعبارة «أنت في «وضع تجربة»: هذا الإجراء يكتب في الجدول الحقيقي فلم يُنفَّذ.»، ويغيب مسح الجدول وسوق الاستعارة؛ وكل طلب كتابة يمرّ بحاجزٍ أخير قبل الشبكة وطابور ما دون الاتصال لا يُفلت منه إلا فحص التعارض وقراءات الشرح.", "en": "Saving from the editor, deleting and moving by drag in the week and on the halls board are diverted to the copy; everything else (undo, the repair chain, copying and its undo, the safety-net point, placeholder actions, hall borrowing, comments, quick add, the schedule tools, start of term and trainee conversion) is refused with a message that practice mode is on and the action writes to the real schedule, and the wipe button and the hall market are hidden; every write request also passes a last barrier before the network and the offline queue that lets only the conflict check and the explanation reads through." }
       ],
       "evidence": { "code": ["src/components/Schedules.tsx#practiceMode", "src/components/Schedules.tsx#practiceSnapshotRef", "src/components/Schedules.tsx#refuseInPractice", "src/components/Schedules.tsx#PRACTICE_READ_POSTS", "src/guide/smartGuide.ts#GUIDE_ACTIONS", "src/guide/bank.ts"], "tests": ["tests/schedule-board-fixes-audit.ts"] },
       "inferred": true
@@ -1602,8 +1602,8 @@
         "en": "Section-planning figures in the analytics center"
       },
       "text": {
-        "ar": "يجب أن تحمل بطاقة «تخطيط الشعب» في مركز التحليلات نسبة الخريجين الذين لهم مقعد إن رُفع تقريرهم، وإلا عدد الشعب الناقصة، وأن تفتح الشاشة نفسها التي في أدوات البيانات.",
-        "en": "The 'Section planning' card in the analytics center shall carry the share of graduates seated when their report is uploaded, otherwise the number of sections short, and open the same screen as in the data tools."
+        "ar": "يجب أن تحمل بطاقة «تخطيط الشعب» في مركز التحليلات نسبة الخريجين الذين لهم مقعد إن رُفع تقريرهم، وإلا عدد الشعب الناقصة، وأن تفتح الشاشة نفسها التي في أدوات الجدول.",
+        "en": "The 'Section planning' card in the analytics center shall carry the share of graduates seated when their report is uploaded, otherwise the number of sections short, and open the same screen as in the schedule tools."
       },
       "priority": "must",
       "status": "implemented",
@@ -1741,12 +1741,12 @@
       "id": "FR-INT-080",
       "kind": "functional",
       "title": {
-        "ar": "تخطيط الشعب في أدوات البيانات",
-        "en": "Section planning in the data tools"
+        "ar": "تخطيط الشعب في أدوات الجدول",
+        "en": "Section planning in the schedule tools"
       },
       "text": {
-        "ar": "يجب أن تحمل «أدوات البيانات» لساناً واحداً «تخطيط الشعب» يعرض الشاشة نفسها: رفع تقرير التسجيل (الكل والخريجون) ومعاينته قبل الحفظ، والدرجتان، والمنتدبون، وربط المقررات غير المطابَقة.",
-        "en": "The data tools shall carry one 'Section planning' tab showing the same screen: uploading the registrar report (all and graduates) with a preview before saving, the two stages, visiting instructors, and linking unmatched courses."
+        "ar": "يجب أن تحمل «أدوات الجدول» لساناً واحداً «تخطيط الشعب» يعرض الشاشة نفسها: رفع تقرير التسجيل (الكل والخريجون) ومعاينته قبل الحفظ، والدرجتان، والمنتدبون، وربط المقررات غير المطابَقة.",
+        "en": "The schedule tools shall carry one 'Section planning' tab showing the same screen: uploading the registrar report (all and graduates) with a preview before saving, the two stages, visiting instructors, and linking unmatched courses."
       },
       "priority": "should",
       "status": "implemented",

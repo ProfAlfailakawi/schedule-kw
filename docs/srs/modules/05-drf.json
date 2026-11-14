@@ -1722,8 +1722,8 @@
       ],
       "acceptance": [
         {
-          "ar": "زر الرجوع وEscape يغلقان الورقة دون كتابة، وفي حوار «أدوات البيانات» يُغلق Escape الورقة العليا وحدها.",
-          "en": "The back button and Escape close the sheet without writing, and inside the «data tools» dialog Escape closes only the topmost sheet."
+          "ar": "زر الرجوع وEscape يغلقان الورقة دون كتابة، وفي حوار «أدوات الجدول» يُغلق Escape الورقة العليا وحدها.",
+          "en": "The back button and Escape close the sheet without writing, and inside the «schedule tools» dialog Escape closes only the topmost sheet."
         },
         {
           "ar": "أكثر من 6 تغييرات يظهر منها 6 ويُقال «و N أخرى».",
