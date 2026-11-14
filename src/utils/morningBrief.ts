@@ -25,7 +25,17 @@ export interface MorningBriefInput {
   blockers: number;
   regulationNotes: number;
   changes: { added: number; removed: number; changed: number } | null;
+  /** الموانع نفسها (من قراءة الخادم بنطاق القارئ ذاته): تُعرض بأسمائها، وتُقصّ على BRIEF_ITEM_CAP. */
+  blockerItems?: ReadonlyArray<unknown>;
+  /** الملاحظات اللائحية نفسها، بالقصّ ذاته. */
+  noteItems?: ReadonlyArray<unknown>;
 }
+
+/** أكثرُ ما يُسرد من الموانع أو الملاحظات في الموجز؛ والرقمُ في البطاقة يبقى العدّ الكامل. */
+export const BRIEF_ITEM_CAP = 10;
+
+/** بندٌ مسرود: عنوانٌ وسببٌ قصير، ومواعيدُ القسم المعنيّة به. */
+export interface BriefItem { title: string; detail: string; rowIds: number[] }
 
 export interface MorningBrief {
   since: string;
@@ -33,6 +43,10 @@ export interface MorningBrief {
   moveCount: number;
   people: number;
   lines: Array<{ tone: "good" | "warn" | "danger" | "info"; text: string }>;
+  blockerItems: BriefItem[];
+  noteItems: BriefItem[];
+  /** تاريخ التسليم مكتوباً، إن عُرف. */
+  deadlineDate: string;
   /** الأرقام نفسها للشاشة: أيقونةٌ ورقمٌ بدل جملة (الجمل للورقة المطبوعة). */
   stats: {
     moves: number;
@@ -49,6 +63,18 @@ export interface MorningBrief {
 }
 
 const DAY_MS = 86_400_000;
+
+/** يقرأ بنداً من أي صيغةٍ يردّ بها الخادم (title/detail/rowIds)، ويسقط ما لا عنوان له. */
+export function briefItemsOf(list: ReadonlyArray<unknown> | undefined): BriefItem[] {
+  return (Array.isArray(list) ? list : [])
+    .map((raw: any) => ({
+      title: String(raw?.title || "").trim(),
+      detail: String(raw?.detail || "").trim(),
+      rowIds: (Array.isArray(raw?.rowIds) ? raw.rowIds : []).map(Number).filter((id: number) => Number.isFinite(id) && id > 0),
+    }))
+    .filter(item => item.title)
+    .slice(0, BRIEF_ITEM_CAP);
+}
 
 export function buildMorningBrief(input: MorningBriefInput): MorningBrief {
   const since = new Date(input.now.getTime() - DAY_MS).toISOString();
@@ -97,6 +123,9 @@ export function buildMorningBrief(input: MorningBriefInput): MorningBrief {
       round: input.approval?.round || 0,
     },
     since,
+    blockerItems: briefItemsOf(input.blockerItems),
+    noteItems: briefItemsOf(input.noteItems),
+    deadlineDate: input.deadline?.date || "",
     moves: recent.slice(0, 8).map(entry => ({ at: entry.at, who: entry.who, what: input.kindLabel(entry.kind), target: entry.target })),
     moveCount: recent.length,
     people: new Set(recent.map(entry => entry.who)).size,

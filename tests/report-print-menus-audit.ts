@@ -99,7 +99,7 @@ const base = { normalize: (value: string) => value, nameOf: (id: number) => name
   const css = fs.readFileSync(path.join(process.cwd(), "src/styles/08-print.css"), "utf8");
   const rule = css.slice(css.indexOf('html[data-print-rotate="1"] .print-sheet-attestation{'));
   check(rule.length > 0 && css.includes('html[data-print-rotate="1"] .print-sheet-attestation{'), "للشريط موضعٌ خاص في الطباعة المدوَّرة");
-  check(/writing-mode:vertical-rl/.test(rule.slice(0, 600)) && /left:0/.test(rule.slice(0, 600)), "يُرسم في ذيل الورقة المدوَّرة (حافة الصفحة اليسرى) باتجاهها");
+  check(/writing-mode:vertical-rl/.test(rule.slice(0, 600)) && /left:calc\(210mm - 210mm \* var\(--safari-rot-scale\)\)/.test(rule.slice(0, 600)), "يُرسم في ذيل الورقة المدوَّرة (حافتها اليسرى، تتبع إزاحة الورقة) باتجاهها");
   check(/\.print-visiting-campuses>i\{/.test(css), "مواقع المنتدب وسومٌ لا جملة");
 }
 
