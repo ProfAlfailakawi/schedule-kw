@@ -294,3 +294,4 @@ test:proposal-open-row
 test:changes-unified-review
 test:academic-console
 test:radar-suggestions
+test:inbox-pilot

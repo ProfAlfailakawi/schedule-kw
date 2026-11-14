@@ -1,0 +1,102 @@
+/* ── «وضع الطيّار» في «رغبات الأساتذة» (src/components/inbox/InboxPilot.tsx) ─────
+   شاشةٌ تملأ النافذة: بندٌ واحد في الوسط وثلاثةُ أزرارٍ كبيرة تحته. الألوانُ من
+   رموز التصميم وحدها فيصحّ في الوضع الداكن، والأزرارُ ٥٢px على الأقل للمس على الهاتف. */
+.inbox-pilot{position:fixed;inset:0;z-index:var(--z-sheet,200);display:grid;place-items:center;padding:20px;background:color-mix(in srgb,#0b1210 52%,transparent);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);overscroll-behavior:contain}
+.inbox-pilot-frame{inline-size:min(640px,100%);max-block-size:100%;overflow:auto;display:grid;gap:14px;padding:20px;border:1px solid var(--line);border-radius:var(--r-lg,20px);background:var(--surface);color:var(--ink);box-shadow:var(--shadow-lg);animation:inbox-pilot-in .18s ease-out}
+.inbox-pilot-head{display:flex;align-items:center;gap:10px}
+.inbox-pilot-mark{display:grid;place-items:center;inline-size:36px;block-size:36px;flex:none;border-radius:12px;background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--accent)}
+.inbox-pilot-mark svg{inline-size:19px;block-size:19px}
+.inbox-pilot-head strong{font-size:1.08rem;font-weight:800}
+.inbox-pilot-count{margin-inline-start:auto;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+.inbox-pilot-exit{display:inline-flex;align-items:center;gap:6px;min-block-size:44px;min-inline-size:44px;padding:0 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink-2)}
+.inbox-pilot-exit:hover{background:var(--surface-3);color:var(--ink)}
+.inbox-pilot-exit svg{inline-size:18px;block-size:18px}
+.inbox-pilot kbd{display:inline-grid;place-items:center;min-inline-size:1.7em;padding:1px 6px;border:1px solid var(--line);border-block-end-width:2px;border-radius:6px;background:var(--surface-2);color:var(--ink-2);font:700 11.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+.inbox-pilot-progress{block-size:8px;border-radius:999px;background:var(--surface-3);overflow:hidden}
+.inbox-pilot-progress>i{display:block;block-size:100%;border-radius:inherit;background:var(--success,var(--accent));transition:inline-size .25s ease}
+.inbox-pilot-frozen{display:flex;align-items:center;gap:8px;margin:0;padding:10px 12px;border-radius:12px;background:var(--surface-2);color:var(--ink-2);font-weight:700}
+.inbox-pilot-frozen svg{inline-size:17px;block-size:17px;flex:none}
+
+.inbox-pilot-card{display:grid;gap:12px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2);outline:none}
+.inbox-pilot-card:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent)}
+.inbox-pilot-card[data-readiness="blocked"]{border-color:color-mix(in srgb,var(--danger,#b42318) 40%,var(--line))}
+.inbox-pilot-who{display:grid;gap:3px}
+.inbox-pilot-who strong{font-size:1.15rem;font-weight:800}
+.inbox-pilot-who>span{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted);font-size:.88rem}
+.inbox-pilot-who small{display:inline-flex;align-items:center;gap:4px}
+.inbox-pilot-who svg{inline-size:14px;block-size:14px}
+.inbox-pilot-what{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.inbox-pilot-what strong{font-size:1.05rem;font-weight:800}
+.inbox-pilot-what small{color:var(--muted)}
+.inbox-pilot-action{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:.82rem;font-weight:700;color:var(--ink-2)}
+.inbox-pilot-action svg{inline-size:14px;block-size:14px}
+.inbox-pilot-change{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px}
+.inbox-pilot-slot{flex:1 1 180px;display:grid;gap:3px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.inbox-pilot-slot>span{color:var(--muted);font-size:.78rem;font-weight:700}
+.inbox-pilot-slot>b{font-weight:800}
+.inbox-pilot-slot>bdi{font-variant-numeric:tabular-nums;font-weight:700}
+.inbox-pilot-slot small{display:inline-flex;align-items:center;gap:4px;color:var(--ink-2);font-size:.82rem}
+.inbox-pilot-slot small svg{inline-size:14px;block-size:14px}
+.inbox-pilot-slot[data-side="after"]{border-color:color-mix(in srgb,var(--accent) 38%,var(--line))}
+.inbox-pilot-slot[data-side="gone"]{border-style:dashed}
+.inbox-pilot-arrow{align-self:center;inline-size:20px;block-size:20px;flex:none;color:var(--muted)}
+.inbox-pilot-excuse{margin:0;color:var(--ink-2);font-size:.9rem}
+.inbox-pilot-readiness{display:inline-flex;align-items:center;gap:6px;margin:0;font-weight:800;color:var(--ink-2)}
+.inbox-pilot-readiness svg{inline-size:17px;block-size:17px}
+.inbox-pilot-readiness[data-readiness="ready"]{color:var(--success,var(--accent))}
+.inbox-pilot-readiness[data-readiness="blocked"]{color:var(--danger,#b42318)}
+.inbox-pilot-readiness[data-readiness="review"],.inbox-pilot-readiness[data-readiness="waiting"]{color:var(--brass,#8a5a12)}
+.inbox-pilot-issues{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.inbox-pilot-issues li{padding:8px 10px;border-radius:10px;background:var(--surface);border-inline-start:3px solid var(--brass,#8a5a12);font-size:.9rem}
+.inbox-pilot-issues li[data-severity="high"]{border-inline-start-color:var(--danger,#b42318)}
+.inbox-pilot-issues li small{color:var(--muted)}
+.inbox-pilot-note{margin:0;color:var(--ink-2);font-size:.88rem}
+.inbox-pilot-alternatives{display:grid;gap:6px}
+.inbox-pilot-alternatives>span{color:var(--muted);font-size:.82rem;font-weight:700}
+.inbox-pilot-alternatives ul{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.inbox-pilot-alternatives li{padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:.85rem}
+.inbox-pilot-error{display:flex;align-items:flex-start;gap:8px;margin:0;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--danger,#b42318) 10%,var(--surface));color:var(--danger,#b42318);font-weight:700}
+.inbox-pilot-error svg{inline-size:17px;block-size:17px;flex:none;margin-block-start:2px}
+.inbox-pilot-sheet-error{position:fixed;inset-inline:16px;inset-block-start:16px;z-index:70;max-inline-size:520px;margin-inline:auto;box-shadow:var(--shadow-lg)}
+
+.inbox-pilot-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.inbox-pilot-big{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-block-size:52px;font-size:1rem;font-weight:800}
+.inbox-pilot-big svg{inline-size:19px;block-size:19px}
+.inbox-pilot-big kbd{margin-inline-start:2px}
+.inbox-pilot-big:disabled{opacity:.55}
+.inbox-pilot-undo{grid-column:1/-1;justify-self:center;display:inline-flex;align-items:center;gap:6px;min-block-size:44px;padding:0 14px;border:0;border-radius:12px;background:transparent;color:var(--ink-2);font-weight:700}
+.inbox-pilot-undo:hover{background:var(--surface-2)}
+.inbox-pilot-undo svg{inline-size:16px;block-size:16px}
+.inbox-pilot-keys{margin:0;text-align:center;color:var(--muted);font-size:.8rem;line-height:2}
+
+.inbox-pilot-done{justify-items:center;text-align:center;padding-block:28px}
+.inbox-pilot-done>svg{inline-size:36px;block-size:36px;color:var(--success,var(--accent))}
+.inbox-pilot-done strong{font-size:1.1rem}
+.inbox-pilot-done span{color:var(--ink-2)}
+
+/* زرُّ الدخول بجانب مرشّحات الوارد. */
+.inbox-pilot-go{display:inline-flex;align-items:center;gap:8px;min-block-size:44px;padding:0 16px;border:1px solid color-mix(in srgb,var(--accent) 36%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));color:var(--accent);font-weight:800}
+.inbox-pilot-go:hover{background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.inbox-pilot-go svg{inline-size:18px;block-size:18px}
+.inbox-pilot-go b{font-variant-numeric:tabular-nums}
+
+/* الهاتف (390px): ملءُ الشاشة، والأزرارُ عمودٌ واحد بلمسٍ كبير، والمفاتيحُ تُخفى (لا لوحة). */
+@media (max-width:560px){
+  .inbox-pilot{place-items:stretch;padding:0}
+  .inbox-pilot-frame{inline-size:100%;border-radius:0;border:0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));align-content:start}
+  .inbox-pilot-actions{grid-template-columns:1fr;position:sticky;bottom:0;padding-block-start:8px;background:var(--surface)}
+  .inbox-pilot-big{min-block-size:56px}
+  .inbox-pilot-big kbd,.inbox-pilot-exit kbd,.inbox-pilot-keys{display:none}
+  .inbox-pilot-change{flex-direction:column}
+  .inbox-pilot-slot{flex-basis:auto}
+  .inbox-pilot-arrow{align-self:center;transform:rotate(-90deg)}
+}
+@media (hover:none) and (pointer:coarse){.inbox-pilot-keys{display:none}}
+
+@keyframes inbox-pilot-in{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+  .inbox-pilot-frame{animation:none}
+  .inbox-pilot-progress>i{transition:none}
+  .inbox-pilot .spin{animation-duration:0s}
+}
+@media print{.inbox-pilot,.inbox-pilot-go{display:none!important}}

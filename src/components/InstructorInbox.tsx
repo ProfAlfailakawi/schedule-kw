@@ -55,6 +55,7 @@ import { effectiveStatus } from "../utils/studyProposal";
 import { ProposalLauncherBar, ProposalStrip, type OpenWorkspace } from "./proposal/ProposalInboxParts";
 import { proposalApi, type StaffProposalView } from "./proposal/proposalApi";
 const StudyProposalWorkspace = React.lazy(() => import("./proposal/StudyProposalWorkspace"));
+import InboxPilot, { InboxPilotLauncher } from "./inbox/InboxPilot";
 import TermFrozenRibbon, { TermFrozenContext, useFrozenScreen, useTermFrozen } from "./TermFrozenRibbon";
 import { useScopedTerms } from "./useScopedTerms";
 import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBar";
@@ -1387,6 +1388,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     });
   }, []);
   const [bulk, setBulk] = useState<BulkState | null>(null);
+  /* «وضع الطيّار» (inbox/InboxPilot.tsx): بندٌ واحد في كل مرّة بـ`decide` نفسها. */
+  const [pilotOpen, setPilotOpen] = useState(false);
   const bulkStop = useRef(false);
   const bulkTrigger = useRef<HTMLButtonElement>(null);
   /* آخرُ سببٍ ردّ به الخادمُ تثبيتاً — يقرؤه التثبيتُ الجماعيّ ليقول أين توقّف ولماذا. */
@@ -2260,6 +2263,10 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             );
           })()}
 
+          {counts.pending && !frozen && stateFilter !== "absent" && stateFilter !== "confirmed-unchanged" ? (
+            <InboxPilotLauncher count={counts.pending} onOpen={() => setPilotOpen(true)} />
+          ) : null}
+
           {/* حاويةٌ كتلية (لا شبكة) كي يلتصق شريطُ «ثبّت الجاهز كله» بأسفل الشاشة طوال القائمة. */}
           <div className="inbox-deck">
           {stateFilter === "absent" ? (absentRows.length ? (
@@ -2432,6 +2439,22 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           entries={notifyOpen}
           onNotified={id => { const row = (rows || []).find(entry => entry.id === id); if (row) void markNotified(row); }}
           onClose={() => setNotifyOpen(null)}
+        />
+      ) : null}
+
+      {pilotOpen ? (
+        <InboxPilot
+          rows={rows || []}
+          include={(item, row) => itemInCampus(row as any, item as any, campusFilter)}
+          currentRows={currentRows}
+          busyKey={busyKey}
+          rowErrors={rowErrors}
+          frozen={frozen}
+          onDecide={decide}
+          candidateOf={proposedRow}
+          useLiveCheck={useLiveCheck}
+          RejectSheet={RejectSheet}
+          onClose={() => setPilotOpen(false)}
         />
       ) : null}
 
