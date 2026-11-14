@@ -92,12 +92,13 @@
     "scripts/guide-behavior-tests.mjs",
     "scripts/make-scan-pdf.mjs",
     "scripts/make-graduation-sheet-example.mjs",
-    "src/utils/vaultPhrases.ts"
+    "src/utils/vaultPhrases.ts",
+    "src/server/vaultJobPlanner.ts"
   ],
   "screens": [
     {
       "name": {
-        "ar": "خزنة النظام",
+        "ar": "«النسخة الاحتياطية»",
         "en": "System vault"
       },
       "file": "src/server/routes/adminRoutes.ts",
@@ -138,7 +139,7 @@
       },
       "steps": [
         {
-          "ar": "يفتح حساب الإدارة الرئيسي خزنة النظام ويبدأ مهمة تصدير؛ يردّ الخادم 202 ومعها المهمة.",
+          "ar": "يفتح حساب الإدارة الرئيسي «النسخة الاحتياطية» ويبدأ مهمة تصدير؛ يردّ الخادم 202 ومعها المهمة.",
           "en": "The root account opens the system vault and starts an export job; the server answers 202 with the job."
         },
         {
@@ -183,7 +184,7 @@
           "en": "He switches role from the bar (30 switches per minute) and sees the screens with that role's real scope and permissions."
         },
         {
-          "ar": "إن حاول تعديل شاشة إدارية (المستخدمون، الصلاحيات، خزنة النظام) رُفض بـ 403 وبيان أنها شاشة عرض.",
+          "ar": "إن حاول تعديل شاشة إدارية (المستخدمون، الصلاحيات، «النسخة الاحتياطية») رُفض بـ 403 وبيان أنها شاشة عرض.",
           "en": "Trying to edit an administrative screen (users, permissions, system vault) is refused with 403 and a note that it is display-only."
         },
         {
@@ -1418,7 +1419,7 @@
         "en": "Demo sandbox limits and management"
       },
       "text": {
-        "ar": "يجب على النظام أن يرفض في الصندوق التجريبي كل كتابة على المستخدمين والصلاحيات والنطاقات وخزنة النظام وحمل التدريس ويوم الجامعة بـ 403، وأن يتيح GET /api/demo/config (مفعّل، 60 دقيقة، معزول، الإدارة للقراءة فقط)، وأن يتيح تبديل الصفة بحدّ 30 تبديلاً في الدقيقة وإعادة الضبط.",
+        "ar": "يجب على النظام أن يرفض في الصندوق التجريبي كل كتابة على المستخدمين والصلاحيات والنطاقات و«النسخة الاحتياطية» وحمل التدريس ويوم الجامعة بـ 403، وأن يتيح GET /api/demo/config (مفعّل، 60 دقيقة، معزول، الإدارة للقراءة فقط)، وأن يتيح تبديل الصفة بحدّ 30 تبديلاً في الدقيقة وإعادة الضبط.",
         "en": "The system shall refuse with 403 every write inside the demo sandbox to users, permissions, scopes, the system vault, teaching load and university day, expose GET /api/demo/config (enabled, 60 minutes, isolated, administration read-only), and allow role switching limited to 30 per minute and reset."
       },
       "priority": "must",
@@ -1832,7 +1833,7 @@
         "en": "Backup and recovery procedure"
       },
       "text": {
-        "ar": "يجب أن يرافق النظامَ إجراءٌ موثق قابل للتنفيذ لحماية قاعدة الإنتاج: تفعيل الاسترجاع الزمني (PITR لسبعة أيام) وحماية الحذف والنسخ المجدولة إلى سلة تخزين، وخطوات الاسترجاع والتحقق منه، وأن يحمي النظام نفسه بياناته في الوضع المحلي وخزنة النظام.",
+        "ar": "يجب أن يرافق النظامَ إجراءٌ موثق قابل للتنفيذ لحماية قاعدة الإنتاج: تفعيل الاسترجاع الزمني (PITR لسبعة أيام) وحماية الحذف والنسخ المجدولة إلى سلة تخزين، وخطوات الاسترجاع والتحقق منه، وأن يحمي النظام نفسه بياناته في الوضع المحلي و«النسخة الاحتياطية».",
         "en": "The system shall ship with a documented, executable procedure to protect the production database: enabling point-in-time recovery (7-day PITR), delete protection and scheduled exports to a storage bucket, with the steps to restore and verify, and the system itself shall protect its data in local mode and in the system vault."
       },
       "rationale": {
@@ -2107,7 +2108,7 @@
       "id": "FR-OPS-033",
       "kind": "functional",
       "title": {
-        "ar": "شاشة خزنة النظام ومحرّك المهام في المتصفح",
+        "ar": "شاشة «النسخة الاحتياطية» ومحرّك المهام في المتصفح",
         "en": "The system vault screen and its in-browser job driver"
       },
       "text": {
@@ -2400,12 +2401,12 @@
       "id": "FR-OPS-040",
       "kind": "functional",
       "title": {
-        "ar": "خزنة النظام: إلغاء استيراد متوقف، وعبارة مكتوبة لكل استبدال",
+        "ar": "«النسخة الاحتياطية»: إلغاء استيراد متوقف، وعبارة مكتوبة لكل استبدال",
         "en": "System vault: abandoning a stalled import, and a typed phrase for every replacement"
       },
       "text": {
-        "ar": "يجب أن يتيح DELETE ‎/api/system-backup/import-jobs/:id بالترويسة x-schedule-confirm=FULL-SYSTEM-IMPORT-ABANDON للحساب الرئيسي إلغاءَ استيرادٍ «جارٍ» أو «متوقف»: إن كان قد بدأ استبدال البيانات يُعاد النظام كاملاً من نقطة الأمان التي حفظتها المهمة قبل أول كتابة وتُعلَّم مستهلكة، وإلا يُلغى بلا تغيير؛ ثم تُعلَّم المهمة «abandoned» وتُحذف مرحلتها المرفوعة فينفتح الاستيراد لملفٍّ جديد، ولا تتقدّم خطوةٌ على مهمةٍ ملغاة. ويجب أن يُعلِّم التراجعُ الكامل الناجح أيَّ استيرادٍ معلّق «ملغى». ويجب أن يُطلب للاستيراد الكامل والتراجع الكامل عبارةٌ عربية تُكتب حرفياً («استيراد النسخة» في ترويسة x-schedule-phrase مرمّزة، و«تراجع كامل» في الجسم) كما يُطلب «تصفير النظام» للتصفير. وتقول نافذةُ تأكيد الاستيراد ما يحدث فعلاً: يبقى التقدم محفوظاً عند التوقف ويُستكمل أو يُلغى فيعود النظام إلى نقطة الأمان. ويتوقف متابِعُ الاستيراد في المتصفح عند مغادرة الشاشة كما يتوقف متابِعُ التصدير. والتصفيرُ والتراجعُ ما زالا طلباً واحداً يستبدل النظام كله؛ على قاعدةٍ كبيرة قد يتجاوزان مهلة الطلب، ونقلُهما إلى شكل المهمة المتدرّجة عملٌ لاحق.",
-        "en": "DELETE /api/system-backup/import-jobs/:id with header x-schedule-confirm=FULL-SYSTEM-IMPORT-ABANDON shall let the root account abandon a running or failed import: when replacement had begun the whole system is restored from the safety point the job saved before its first write and that point is marked consumed, otherwise it is cancelled without change; the job is then marked «abandoned» and its staged upload deleted so a new file can be imported, and no step advances an abandoned job. A successful full undo shall mark any open import abandoned. Full import and full undo shall require an Arabic phrase typed exactly (the import phrase in an encoded x-schedule-phrase header, the undo phrase in the body), as reset already requires its phrase. The import confirmation dialog shall state what actually happens: progress is kept when a step stops and can be resumed or abandoned, which returns the system to the safety point. The browser's import driver shall stop when the screen is left, as the export driver does. Reset and undo remain a single request replacing the whole system; on a large database they may exceed the request deadline, and moving them to the resumable job shape is future work."
+        "ar": "يجب أن يتيح DELETE ‎/api/system-backup/import-jobs/:id بالترويسة x-schedule-confirm=FULL-SYSTEM-IMPORT-ABANDON للحساب الرئيسي إلغاءَ استيرادٍ «جارٍ» أو «متوقف»: إن كان قد بدأ استبدال البيانات يُعاد النظام كاملاً من نقطة الأمان التي حفظتها المهمة قبل أول كتابة وتُعلَّم مستهلكة، وإلا يُلغى بلا تغيير؛ ثم تُعلَّم المهمة «abandoned» وتُحذف مرحلتها المرفوعة فينفتح الاستيراد لملفٍّ جديد، ولا تتقدّم خطوةٌ على مهمةٍ ملغاة. ويجب أن يُعلِّم التراجعُ الكامل الناجح أيَّ استيرادٍ معلّق «ملغى». ويجب أن يُطلب للاستيراد الكامل والتراجع الكامل عبارةٌ عربية تُكتب حرفياً («استيراد النسخة» في ترويسة x-schedule-phrase مرمّزة، و«تراجع كامل» في الجسم) كما يُطلب «تصفير النظام» للتصفير. وتقول نافذةُ تأكيد الاستيراد ما يحدث فعلاً: يبقى التقدم محفوظاً عند التوقف ويُستكمل أو يُلغى فيعود النظام إلى نقطة الأمان. ويتوقف متابِعُ الاستيراد في المتصفح عند مغادرة الشاشة كما يتوقف متابِعُ التصدير. والتصفيرُ والتراجعُ الكامل صارا على شكل المهمة المتدرّجة نفسه (FR-OPS-041) فلا يبقى طلبٌ واحدٌ يتجاوز مهلة الطلب.",
+        "en": "DELETE /api/system-backup/import-jobs/:id with header x-schedule-confirm=FULL-SYSTEM-IMPORT-ABANDON shall let the root account abandon a running or failed import: when replacement had begun the whole system is restored from the safety point the job saved before its first write and that point is marked consumed, otherwise it is cancelled without change; the job is then marked «abandoned» and its staged upload deleted so a new file can be imported, and no step advances an abandoned job. A successful full undo shall mark any open import abandoned. Full import and full undo shall require an Arabic phrase typed exactly (the import phrase in an encoded x-schedule-phrase header, the undo phrase in the body), as reset already requires its phrase. The import confirmation dialog shall state what actually happens: progress is kept when a step stops and can be resumed or abandoned, which returns the system to the safety point. The browser's import driver shall stop when the screen is left, as the export driver does. Reset and full undo now use the same stepped job shape (FR-OPS-041), so no single request can exceed the request deadline."
       },
       "priority": "must",
       "status": "implemented",
@@ -2429,6 +2430,280 @@
         ],
         "tests": [
           "tests/admin-station-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-041",
+      "kind": "functional",
+      "title": {
+        "ar": "خزنة النظام: التصفير والتراجع الكامل مهمّتان متدرجتان قابلتان للاستكمال",
+        "en": "System vault: reset and full undo as resumable stepped jobs"
+      },
+      "text": {
+        "ar": "يجب أن يبدأ POST ‎/api/system-backup/reset و‎/api/system-backup/undo للحساب الرئيسي وحده مهمةً محفوظة (تُردّ 202) بدل طلبٍ واحد طويل، بعد التحقق من العبارة المكتوبة («تصفير النظام» أو «تراجع كامل») والترويسة x-schedule-confirm، ويُرفض الطلب في التجربة. تحفظ المهمةُ نقطةَ أمانٍ كاملة أولاً (مهمة تصدير safety) ثم تتقدّم بطلبات POST ‎/api/system-backup/op-jobs/:id/step، كلٌّ منها مجموعةً واحدة (حذفُ مجموعات العمل ثم إبقاءُ حساب الإدارة الرئيسي وصلاحياته في التصفير، واستعادةُ المجموعات من نقطة التراجع في التراجع)، بتقدّم يُقرأ من GET ‎/api/system-backup/op-jobs/:id وفي ‎/api/system-backup/status (latestOperation)، ثم إتمامٌ يضبط العدّادات ويحدّث الذاكرة. لا تبدأ عمليةٌ (استيراد أو تصفير أو تراجع) فوق مهمةٍ مفتوحة (جارية أو متوقفة). فشلٌ عابر يُعاد حتى ثماني مرات ثم تتوقف المهمة وتبقى قابلةً للاستكمال من نفس المجموعة. ويتيح DELETE ‎/api/system-backup/op-jobs/:id بالترويسة x-schedule-confirm=FULL-SYSTEM-OP-ABANDON إلغاءَها: قبل أول كتابة بلا تغيير، وبعدها يُعاد النظام من نقطة أمانها وتُستهلك. والتراجعُ يبقى رجوعاً وإعادةً: نقطةُ أمانه («قبل التراجع — نقطة إعادة») هي هدفُ التراجع التالي، ونجاحُه يستهلك هدفه ويُلغي أي استيرادٍ معلّق، وتُسجَّل بدايتُه واكتماله وإلغاؤه في سجل التدقيق. وفي الوضع المحلي تُنفَّذ الخطوةُ الواحدة نقطةَ الأمان والاستبدال معاً وتعيد الحالةَ السابقة وحدها عند الفشل. والإلغاءُ بعد بدء الكتابة يبدأ مرحلةً متدرجة «rollback» في المهمة نفسها (مجموعةٌ في الخطوة بتقدّمٍ محفوظ، بآلة التراجع نفسها، ثم يُستهلك نقطةُ الأمان وتُعلَّم المهمة ملغاة)، فلا يبقى إلغاءُ التصفير طلباً واحداً بلا مهلة؛ وفشلُ تصدير نقطة الأمان يجعل المهمة «failed» فيتوقف العميل عن الاستطلاع. تفاصيل التزامن في FR-OPS-043..047.",
+        "en": "POST /api/system-backup/reset and /api/system-backup/undo shall, for the root account only, start a persisted job (answering 202) instead of one long request, after checking the typed phrase (the reset phrase or the full-undo phrase) and the x-schedule-confirm header; demo mode refuses. The job first saves a full safety point (a safety export job) and then advances through POST /api/system-backup/op-jobs/:id/step, each call handling one collection (reset deletes the working collections and keeps the root account and its permissions; undo restores the collections from the restore point), with progress readable from GET /api/system-backup/op-jobs/:id and /api/system-backup/status (latestOperation), then a completion step that resets counters and refreshes caches. No operation (import, reset or undo) may start over an open job (running or stalled). A transient failure is retried up to eight times, after which the job stalls and stays resumable from the same collection. DELETE /api/system-backup/op-jobs/:id with header x-schedule-confirm=FULL-SYSTEM-OP-ABANDON abandons it: before the first write with no change, afterwards the system is restored from its safety point, which is marked consumed. Undo remains undo and redo: its safety point (labelled as the redo point) is the next undo target, success consumes its target and abandons any pending import, and start, completion and abandonment are written to the audit log. In local mode the single step performs the safety point and the replacement together and restores the previous state by itself on failure. Abandoning after writing began starts a stepped «rollback» phase inside the same job (one collection per step with persisted progress, using the undo machinery, then the safety point is consumed and the job marked abandoned), so abandoning a reset is no longer one unbounded request; a failed safety export sets the job to «failed» so clients stop polling. Concurrency details are in FR-OPS-043..047."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "POST reset بلا العبارة ← 409؛ وبها ← 202 وحالة running في مرحلة safety، وكل step يتقدّم مجموعةً واحدة حتى ready بنسبة 100٪.",
+          "en": "POST reset without the phrase ← 409; with it ← 202 and status running in the safety phase, and each step advances one collection until ready at 100%."
+        },
+        {
+          "ar": "مهمةٌ متوقفة ثم إعادة فتح الخزنة ← يظهر «استكمال» من نفس النقطة؛ وDELETE بعد بدء الكتابة ← rolledBack=true والنظام كما كان.",
+          "en": "A stalled job then reopening the vault ← «resume» appears from the same point; DELETE after writing began ← rolledBack=true and the system as before."
+        },
+        {
+          "ar": "POST reset أو import-jobs أو undo فوق مهمةٍ جارية أو متوقفة ← يُرفض.",
+          "en": "POST reset, import-jobs or undo over a running or stalled job ← refused."
+        },
+        {
+          "ar": "DELETE بعد بدء الكتابة ← 200 مع rollingBack=true وphase=rollback؛ ثم step حتى status=abandoned؛ وفشل تصدير الأمان ← status=failed مع السبب.",
+          "en": "DELETE after writing began ← 200 with rollingBack=true and phase=rollback; then step until status=abandoned; a failed safety export ← status=failed with the reason."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/vaultJobPlanner.ts",
+          "src/server/routes/adminRoutes.ts",
+          "src/db/repository.ts",
+          "server.ts"
+        ],
+        "tests": [
+          "tests/vault-jobs-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-042",
+      "kind": "functional",
+      "title": {
+        "ar": "خزنة النظام: واجهة التصفير والتراجع على شكل الاستيراد",
+        "en": "System vault: reset and undo screens shaped like import"
+      },
+      "text": {
+        "ar": "يجب أن تعرض بطاقتا «تصفير النظام» و«تراجع كامل» شريط تقدّمٍ بنسبة ومرحلة (نقطة أمان، ثم مسح أو استعادة، ثم تحقق)، وأن تستكملا مهمةً جارية أو متوقفة بزر «استكمال» بعد إعادة تحميل الصفحة، وتتيحا «إلغاء» بتأكيدٍ مستقل يعيد النظام إلى نقطة الأمان، وتعطّلا بقية العمليات ما دامت مهمةٌ مفتوحة، ويتوقف متابِع المتصفح عند مغادرة الشاشة (والتقدّم محفوظ على الخادم). وتقول نافذةُ التأكيد ما يحدث فعلاً: مراحل يبقى تقدّمها محفوظاً وتُستكمل أو تُلغى فتعود إلى نقطة الأمان. وإن ردّت الخطوةُ بـ busy (خطوةٌ أخرى جارية) تعرض «خطوة جارية…» وتبقي الاستطلاع، وإلغاءٌ يُرفض لأن خطوةً جارية يُعرض سببُه ليُعاد، وتتابع مرحلةُ «العودة إلى نقطة الأمان» بالمتابِع نفسه.",
+        "en": "The «reset» and «full undo» cards shall show a progress bar with percentage and phase (safety point, then wipe or restore, then verification), resume a running or stalled job with a «resume» button after a page reload, offer «abandon» behind its own confirmation that returns the system to the safety point, disable the other operations while a job is open, and stop the browser driver when the screen is left (progress stays on the server). The confirmation dialog says what actually happens: stages whose progress is kept and which can be resumed or abandoned, returning to the safety point. When a step answers busy (another step is running) the card shows «a step is running…» and keeps polling; an abandon refused because a step is running shows its reason so it can be retried; the «return to the safety point» phase is driven by the same driver."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "تحميل الصفحة وفي الخادم تصفيرٌ متوقف ← زر «استكمال التصفير» و«إلغاء التصفير» ظاهران وزرّ التراجع معطّل.",
+          "en": "Loading the page with a stalled reset on the server ← «resume reset» and «abandon reset» show and the undo button is disabled."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/AdminUsers.tsx"
+        ],
+        "tests": [
+          "tests/vault-jobs-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-043",
+      "kind": "functional",
+      "title": {
+        "ar": "خزنة النظام: خطوةٌ واحدة فقط على المهمة (إيجارٌ وإصدار)",
+        "en": "System vault: one step at a time per job (lease and version)"
+      },
+      "text": {
+        "ar": "يجب أن تحمل وثيقةُ كل مهمة خزنةٍ (استيراد أو تصفير أو تراجع) ‎version‎ يزيد مع كل كتابة وإيجاراً (‎leaseOwner/leaseUntil‎، نحو 60 ثانية) تأخذه الخطوةُ في معاملةٍ تعيد قراءة الوثيقة، وأن تكون كلُّ كتابةٍ على الوثيقة داخل الخطوة مشروطةً بأنها ما زالت صاحبة الإيجار والإصدار. خطوةٌ لا تستطيع أخذ الإيجار (خطوةٌ أخرى جارية: نقرةٌ مزدوجة، تبويبٌ ثانٍ، إعادةُ محاولةٍ بعد مهلة) لا تفعل شيئاً وتعود 202 بملخّص المهمة مع ‎busy: true‎ فتُبقي الواجهةُ الاستطلاع وتعرض «خطوة جارية…». والإلغاء (DELETE) يأخذ الإيجارَ نفسه ويُرفض 409 برسالةٍ واضحة ما دام إيجارُ خطوةٍ حيّاً؛ ولا تُكتب حالةُ «running» فوق «abandoned» لأن الكتابة الخاسرة تُرفض. ولا تُنشأ نقطتا أمانٍ لتصدير أمانٍ واحد. وانقضاءُ الإيجار (60 ثانية بلا كتابة) يتيح لخطوةٍ جديدة الاستحواذ.",
+        "en": "Every vault job document (import, reset or undo) shall carry a version incremented on every write and a lease (leaseOwner/leaseUntil, about 60 seconds) that a step takes inside a transaction that re-reads the document, and every write to the document within the step shall be conditional on still holding the lease and version. A step that cannot take the lease (another step is running: double-click, second tab, retry after a timeout) does nothing and answers 202 with the job summary and busy: true, so the UI keeps polling and shows «a step is running…». Abandon (DELETE) takes the same lease and is refused with 409 and a clear message while a live lease belongs to a step; a losing write is rejected so «running» is never written over «abandoned». One safety export never yields two safety points. An expired lease (60 seconds without a write) lets a new step take over."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "خطوتان متزامنتان على المهمة نفسها ← إحداهما تنفّذ والأخرى 202 مع busy=true بلا كتابة.",
+          "en": "Two concurrent steps on the same job ← one runs, the other answers 202 with busy=true and writes nothing."
+        },
+        {
+          "ar": "DELETE أثناء خطوة جارية ← 409 «خطوةٌ من هذه العملية جارية الآن…» ثم ينجح بعد انتهائها.",
+          "en": "DELETE during a running step ← 409 «a step of this operation is running now…», then succeeds after it ends."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/vaultJobPlanner.ts",
+          "src/db/repository.ts",
+          "src/server/routes/adminRoutes.ts",
+          "src/components/AdminUsers.tsx"
+        ],
+        "tests": [
+          "tests/vault-jobs-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-044",
+      "kind": "functional",
+      "title": {
+        "ar": "خزنة النظام: قفلٌ واحد ومهمةٌ مفتوحة واحدة",
+        "en": "System vault: one lock, one open job"
+      },
+      "text": {
+        "ar": "يجب أن تأخذ بدايةُ كل مهمة خزنة (استيراد أو تصفير أو تراجع) قفلاً واحداً في وثيقةٍ مستثناةٍ من التصدير والتصفير والاستعادة (‎_systemVaultLock/current‎) داخل معاملةٍ تعيد قراءة القفل والمهمة المُمسِكة به، فلا يمرّ بدآن متزامنان؛ وتُرفض البدايةُ الثانية 409 برسالةٍ عربية. ويُحرَّر القفل عند كل حالةٍ نهائية (ready أو abandoned) وعند فشل البدء؛ والقفلُ اليتيم لمهمةٍ منتهية يُستعاد. والخطوة والإلغاء يتحققان أن المهمة هي المُمسِكة بالقفل فلا تبقى مهمةٌ أقدم قابلةً للقيادة (يُتبنّى غيابُ القفل لمهمةٍ سبقت هذا الإصدار). وأخطاءُ التعارض هذه تُردّ 409 برسالتها لا 500 عامّاً.",
+        "en": "Starting any vault job (import, reset or undo) shall take one lock in a document excluded from export, reset and restore (_systemVaultLock/current) inside a transaction that re-reads the lock and its holding job, so two concurrent starts cannot both pass; the second start is refused with 409 and an Arabic message. The lock is released at every terminal state (ready or abandoned) and when a start fails; an orphan lock of a finished job is reclaimed. Step and abandon verify that the job holds the lock so an older job stays undrivable (a missing lock for a job that predates this release is adopted). These conflicts answer 409 with their message rather than a generic 500."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "بدآن متزامنان للتصفير والاستيراد ← يمرّ أحدهما والآخر 409.",
+          "en": "Two concurrent starts of reset and import ← one passes, the other 409."
+        },
+        {
+          "ar": "step على مهمةٍ ليست الممسكة بالقفل ← 409 «ليست عملية الخزنة المفتوحة».",
+          "en": "step on a job that does not hold the lock ← 409 «not the open vault operation»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/vaultJobPlanner.ts",
+          "src/db/repository.ts",
+          "src/server/routes/adminRoutes.ts"
+        ],
+        "tests": [
+          "tests/vault-jobs-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-045",
+      "kind": "functional",
+      "title": {
+        "ar": "خزنة النظام: «_meta» خارج النطاق والعدّادات في الإتمام وحده",
+        "en": "System vault: _meta out of scope, counters set only at completion"
+      },
+      "text": {
+        "ar": "يجب ألا يصدّر النسخُ الاحتياطي ولا يمسح التصفيرُ ولا يستبدل التراجعُ أو الاستيرادُ أو العودةُ إلى نقطة الأمان مجموعةَ ‎_meta‎ (عدّادات المعرّفات ‎counters‎ وجيل الهويات ‎identityGeneration‎ ومنارة الجداول) كبقية المستثنيات؛ وتبقى النسخُ القديمة التي تحوي ‎_meta‎ مقبولةً للقراءة ويُتجاهَل مسارُها عند التطبيق. وتُضبط العدّادات في الإتمام وحده: التصفيرُ بالدالة الحالية، وغيرُه برفع كل عدّادٍ إلى أعلى معرّفٍ في البيانات المستعادة دون خفضه أبداً. فلا يحجز كاتبٌ آخر معرّفاً من عدّادٍ مفقود أو مصفّر في منتصف المهمة، ولا يرجع جيلُ هوياتٍ إلى قيمةٍ رآها غيرُنا.",
+        "en": "The backup shall not export, and reset shall not delete, and undo, import or return-to-safety-point shall not replace, the _meta collection (the id counters, the identityGeneration and the schedules beacon), like the other exclusions; older backups containing _meta stay readable and its paths are ignored on apply. Counters are set at completion only: reset with the existing helper, the others by raising each counter to the highest id in the restored data and never lowering it. No other writer can reserve an id from a missing or zeroed counter mid-job, and the identity generation never goes back to a value another instance saw."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "تصفير ← لا يظهر ‎_meta‎ في قائمة المسح وتُضبط العدّادات عند الإتمام.",
+          "en": "Reset ← _meta is not in the wipe queue and counters are set at completion."
+        },
+        {
+          "ar": "استيراد نسخةٍ بمعرّفاتٍ أعلى من العدّاد الحيّ ← يُرفع العدّاد إلى أعلى معرّف.",
+          "en": "Importing a backup with ids above the live counter ← the counter is raised to the highest id."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts",
+          "src/server/vaultJobPlanner.ts"
+        ],
+        "tests": [
+          "tests/vault-jobs-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-046",
+      "kind": "functional",
+      "title": {
+        "ar": "خزنة النظام: العودة المتدرجة إلى نقطة الأمان بعد إلغاء تصفير أو تراجع",
+        "en": "System vault: stepped return to the safety point after abandoning a reset or undo"
+      },
+      "text": {
+        "ar": "يجب أن يبدأ إلغاءُ تصفيرٍ أو تراجعٍ بدأ الكتابة (على Firestore) مرحلةً ‎rollback‎ في المهمة نفسها بدل استبدالٍ واحدٍ غير محدود المدة: قائمةٌ من اتحاد المجموعات الحالية ومجموعات نقطة الأمان، تُطبَّق مجموعةً في كل خطوة بتقدّمٍ محفوظ يُستأنف، وبآلة التراجع نفسها (‎applyImportedCollection‎)، ثم إتمامٌ يرفع العدّادات ويستهلك نقطة الأمان ويحدّث الذاكرة ويعلّم المهمة ملغاة. وفي الوضع المحلي يبقى الاستبدالُ الواحد الصغير. وإلغاءُ الاستيراد ما زال استبدالاً واحداً (مؤجَّل: يحتاج مرحلةً مماثلة في مهمة الاستيراد).",
+        "en": "Abandoning a reset or undo that began writing (on Firestore) shall start a rollback phase in the same job instead of one unbounded replacement: a queue from the union of current collections and the safety point's collections, applied one collection per step with persisted, resumable progress and the same undo machinery (applyImportedCollection), then a completion that raises counters, consumes the safety point, refreshes caches and marks the job abandoned. In local mode the single small replacement remains. Abandoning an import is still one replacement (deferred: it needs the same phase in the import job)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "إلغاء تصفيرٍ في مرحلة apply ← phase=rollback وتقدّم حتى abandoned وعودة المجموعات.",
+          "en": "Abandoning a reset in the apply phase ← phase=rollback and progress until abandoned with the collections restored."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/vaultJobPlanner.ts",
+          "src/db/repository.ts",
+          "src/components/AdminUsers.tsx"
+        ],
+        "tests": [
+          "tests/vault-jobs-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-047",
+      "kind": "functional",
+      "title": {
+        "ar": "خزنة النظام: نقاط الاستعادة لا تُطرد وهي هدفُ مهمةٍ جارية",
+        "en": "System vault: restore points that are a running job's target are never evicted"
+      },
+      "text": {
+        "ar": "يجب ألا يطرد الاحتفاظُ بثماني نقاط هدفَ التراجع الجاري ولا نقطة الأمان الجديدة (كان يُطرد كل ما بعد الأحدث ثمانية فقد يُحذف الهدف إن استُهلكت سبعٌ أحدثُ منه)، وأن تُطرد النقاطُ المستهلكة قبل غير المستهلكة (الأقدمُ أولاً).",
+        "en": "Keeping eight restore points shall never evict the running undo target or the newly created safety point (it used to evict everything beyond the newest eight, which could delete the target when seven newer points were consumed), and consumed points shall be evicted before unconsumed ones (oldest first)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "تسع نقاط سبعٌ أحدثُها مستهلكة وهدفُ التراجع الثامنة ← لا تُحذف الهدف.",
+          "en": "Nine points, the newest seven consumed and the undo target the eighth ← the target is not deleted."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/vaultJobPlanner.ts",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/vault-jobs-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-OPS-039",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "بوابةُ الصيانة: الكتابة العادية متوقفة ما دامت مهمةُ خزنةٍ مفتوحة",
+        "en": "Maintenance gate: ordinary writes stop while a vault job is open"
+      },
+      "text": {
+        "ar": "يجب أن يُرفض أي طلب POST أو PUT أو PATCH أو DELETE من غير الحساب الرئيسي بـ 503 ورسالة «النظام في صيانة: عملية نسخٍ احتياطي جارية» (ورأس Retry-After) ما دامت مهمةُ خزنةٍ (استيراد أو تصفير أو تراجع) قد بدأت استبدالَ البيانات أو الرجوعَ إلى نقطة الأمان (ولو فشلت حتى يُنهيها الجذرُ أو يُلغيها)، أو كانت تعمل في تهيئتها ونقطةِ أمانها وتحرّكت في آخر عشر دقائق؛ فمهمةٌ فاشلةٌ أو متروكةٌ قبل أن تمسّ البيانات لا تحجز الكتابة عن غير الجذر. وتستمر القراءات؛ ويمرّ الحسابُ الرئيسي ومسارات ‎/api/system-backup/*‎ ومسارات ‎/api/auth/*‎ والقياس. العلَمُ مخبَّأ في ذاكرة النسخة ‎≤5‎ ثوانٍ (قراءةٌ واحدة لوثيقة القفل كل خمس ثوانٍ كحدٍّ أقصى لكل نسخة لا لكل طلب) وفشلُ قراءته لا يغلق النظام، ولا أثر لها في الوضعين التجريبي والمحلي. وتُسجَّل في server.ts مع حرّاس الكتابة العامة بعد حارس التجربة.",
+        "en": "Any POST, PUT, PATCH or DELETE from a non-root account shall be refused with 503 and the message «System under maintenance: a backup operation is in progress» (and a Retry-After header) while a vault job (import, reset or undo) has started replacing data or rolling back to its safety point (even when it failed, until the root account finishes or abandons it), or is running in its set-up and safety-point phase and moved within the last ten minutes — a job that failed or was left idle before touching any data does not keep non-root accounts from writing — while reads continue; the root account, /api/system-backup/* and /api/auth/* routes and telemetry pass. The flag is cached in the instance for at most 5 seconds (one read of the lock document every five seconds per instance at most, not per request), a failed read never closes the system, and it is a no-op in demo and local-file modes. It is registered in server.ts with the other global write guards, after the demo guard."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "تصفير مفتوح ← POST من مدير القسم ← 503 والرسالة؛ وGET يمرّ؛ وPOST من الحساب الرئيسي يمرّ.",
+          "en": "Open reset ← POST by a section manager ← 503 and the message; GET passes; POST by the root account passes."
+        },
+        {
+          "ar": "استيرادٌ فشل في نقطة الأمان قبل أن يمسّ البيانات ← POST من مدير القسم يمرّ؛ وتصفيرٌ فشل بعد بدء الاستبدال ← 503 حتى يُلغى.",
+          "en": "An import that failed in its safety-point phase before touching data ← a department head's POST passes; a reset that failed after replacement began ← 503 until abandoned."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "src/server/vaultJobPlanner.ts",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/vault-jobs-audit.ts"
         ]
       }
     }
@@ -2557,7 +2832,7 @@
       }
     },
     {
-      "ar": "خزنة النظام",
+      "ar": "«النسخة الاحتياطية»",
       "en": "System vault",
       "def": {
         "ar": "شاشة الإدارة الرئيسية للتصدير والاستيراد والتصفير والتراجع الكاملة.",

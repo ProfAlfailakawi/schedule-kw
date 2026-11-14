@@ -1,6 +1,7 @@
 import { settleRegulationException } from "./RegulationExceptionSheet";
 import { byArabic } from "../utils/sorting";
 import AdvisorSeatsPanel from "./AdvisorSeatsPanel";
+import DemandAnalysis from "./DemandAnalysis";
 import SectionRequestsPanel from "./sectionRequests/SectionRequestsPanel";
 import AdvisingScopePicker from "./AdvisingScopePicker";
 import StudentRecoveryCard from "./StudentRecoveryCard";
@@ -943,7 +944,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
   if (!terms) return <MicroLoader label="يقرأ الفصول…" />;
 
   return (
-    <div className="content-stack changes-screen visual-minimal">
+    <div className="content-stack changes-screen visual-minimal" role="tabpanel" id="registration-panel-studentRegistration" aria-labelledby="registration-tab-studentRegistration">
       <PageTitle
         eyebrow={<><ClipboardList aria-hidden="true" /> الإرشاد</>}
         subtitle="ما طلبه الطلبة: اللجنة توافق أولاً، ثم يسجّل التسجيل"
@@ -960,6 +961,8 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
 
       {Boolean(collegeId && sectionId && termId) && <details className="surface" style={{ padding: "10px 14px" }}><summary>🎟️ رصيد مقاعد المرشد <CampusChip collegeName={collegeName} /></summary><AdvisorSeatsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} /></details>}
 
+      {/* «تحليل الطلب»: ما قاله الطلاب لمن يبني الجدول (الشاشة ٧) — مطويٌّ حتى يُفتح، ويقرأ وحده (DemandAnalysis). */}
+      {canReadDemand && Boolean(collegeId && sectionId && termId) ? <DemandAnalysis collegeId={collegeId} sectionId={sectionId} termId={termId} terms={terms} collegeName={collegeName} scopes={scopes} powerAdmin={powerAdmin} /> : null}
       {/* الطالبُ أمامك ونسي رمز «مساري»: رمزُ استعادةٍ ليومٍ واحد بعد رؤية بطاقته (الصلاحيةُ والنطاقُ في الخادم). */}
       <StudentRecoveryCard />
 

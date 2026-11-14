@@ -38,7 +38,7 @@ export async function updateSeatLedger<R>(
     if ("refuse" in decided) return { refuse: decided.refuse };
     return { next: { ...decided.next, updatedAt: new Date().toISOString() }, result: decided.result };
   });
-  Repository.notifyIdentityChanged();
+  await Repository.notifyIdentityChanged();
   if (!("next" in out)) return { ok: false, error: String(out.result) };
   return { ok: true, ledger: out.next, result: out.result as R };
 }

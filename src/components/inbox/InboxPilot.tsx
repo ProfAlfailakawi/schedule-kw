@@ -10,15 +10,16 @@
  * ثم /decide. وما ردّه الخادم — تعارضٌ أو فصلٌ مجمَّد أو إصدارٌ أحدث — يبقى على
  * البطاقة نفسها برسالته، ولا ينتقل الوضعُ إلى غيره.
  *
- * **ولا تراجعَ إلا عن التخطّي.** مسارُ الوارد لا يعيد فتحَ بندٍ ثُبّت منه أو رُفض
- * (reopen-fixed للتثبيت من «الجدول» وحده)، فلا يُعرض «تراجع» لهما.
+ * **والتراجعُ عن القرار الأخير بالمسار نفسه.** «رجوع» عن آخر «ثبّت» أو «بديل» يمرّ بدالّة الوارد
+ * `onUndoDecision` (تأكيدٌ ثم نقطةُ التراجع في الخادم)، ما دامت مهلتُه باقية؛ والخادمُ يرفض بسببه إن تغيّر الجدول.
+ * وفي التخطّي «رجوع إلى ما تخطّيته» كما كان.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, ChevronLeft, Clock3, DoorOpen, Loader2, Plus, Replace, RotateCcw, ShieldAlert, ShieldCheck, AlertTriangle, Trash2, X, Plane } from "lucide-react";
 import type { FSchedule, InstructorRequestItem, InstructorRequestRejectReason } from "../../types";
 import {
   buildPilotQueue, pilotAdvance, pilotCommand, pilotHandsOff, pilotJudge, pilotLookup, pilotOpen, pilotSettledCount,
-  pilotUndoSkip, startPilot, type PilotEntry, type PilotKeyTarget, type PilotLiveIssue, type PilotRow, type PilotState,
+  pilotReopen, pilotUndoSkip, startPilot, type PilotEntry, type PilotKeyTarget, type PilotLiveIssue, type PilotRow, type PilotState,
 } from "../../utils/inboxPilot";
 import { PROPOSAL_DAY_NAMES } from "../../utils/studyProposal";
 import { num } from "../proposal/proposalFormat";
@@ -26,6 +27,7 @@ import CourseTags from "../CourseTags";
 import PersonChips from "../PersonChips";
 import { useVisitingLookup } from "../../hooks/useVisitingLookup";
 import { isTaRequest } from "../../utils/requestParticipation";
+import { undoWindowLeftMs } from "../../utils/inboxUndo";
 
 type Decide<R> = (row: R, index: number, state: "fixed" | "rejected", extra?: any) => Promise<boolean>;
 interface RejectSheetProps {
@@ -46,6 +48,8 @@ export interface InboxPilotProps<R extends PilotRow> {
   frozen: boolean;
   /** `decide` في الوارد نفسه. */
   onDecide: Decide<R>;
+  /** «تراجع» عن قرار الوارد: تأكيدٌ ثم نقطةُ الخادم نفسها (ok=false مع cancelled حين يُبقي المنسّقُ القرار). */
+  onUndoDecision: (row: R, index: number) => Promise<{ ok: boolean; cancelled?: boolean; error?: string }>;
   /** `proposedRow` و`useLiveCheck` في الوارد: الفحصُ الحيّ نفسه الذي يسبق زرَّ «ثبّت». */
   candidateOf: (row: R, item: InstructorRequestItem, current?: FSchedule) => any | null;
   useLiveCheck: (candidate: any | null, enabled: boolean) => { loading: boolean; issues: PilotLiveIssue[] | null };
@@ -86,7 +90,7 @@ export function InboxPilotLauncher({ count, onOpen }: { count: number; onOpen: (
 }
 
 export default function InboxPilot<R extends PilotRow>({
-  rows, include, currentRows, busyKey, rowErrors, frozen, onDecide, candidateOf, useLiveCheck, RejectSheet, onClose,
+  rows, include, currentRows, busyKey, rowErrors, frozen, onDecide, onUndoDecision, candidateOf, useLiveCheck, RejectSheet, onClose,
 }: InboxPilotProps<R>) {
   /* القائمةُ تُلتقط مرّةً عند الفتح: عددٌ ثابت يُقاس عليه «٧ من ٣٠». وما يقرّره زميلٌ في
      الأثناء يُتخطّى، لأن كلَّ خطوةٍ تسأل القراءةَ الأخيرة للوارد. */
@@ -97,6 +101,10 @@ export default function InboxPilot<R extends PilotRow>({
   const [state, setState] = useState<PilotState>(() => startPilot(buildPilotQueue(rows, include), entry => pilotOpen(rows, entry)));
   const [sheet, setSheet] = useState(false);
   const [working, setWorking] = useState(false);
+  /* آخرُ قرارٍ اتُّخذ هنا: عنه وحده يُعرض «رجوع». */
+  const [lastDecision, setLastDecision] = useState<{ key: string; rowId: string; index: number } | null>(null);
+  const [undoError, setUndoError] = useState("");
+  const [clock, setClock] = useState(() => Date.now());
   const rootRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLElement>(null);
 
@@ -148,7 +156,7 @@ export default function InboxPilot<R extends PilotRow>({
     setWorking(true);
     try {
       const ok = await onDecide(row, entry.index, "fixed", { current, after: judged.after });
-      if (ok) setState(prev => pilotAdvance(prev, "fixed", open));
+      if (ok) { setUndoError(""); setLastDecision({ key: entry.key, rowId: String(row.id), index: entry.index }); setState(prev => pilotAdvance(prev, "fixed", open)); }
     } finally { setWorking(false); }
   };
 
@@ -159,13 +167,32 @@ export default function InboxPilot<R extends PilotRow>({
     setWorking(true);
     try {
       const ok = await onDecide(row, entry.index, "rejected", { reasonCode, note, alternatives });
-      if (ok) { setSheet(false); setState(prev => pilotAdvance(prev, "rejected", open)); }
+      if (ok) { setSheet(false); setUndoError(""); setLastDecision({ key: entry.key, rowId: String(row.id), index: entry.index }); setState(prev => pilotAdvance(prev, "rejected", open)); }
     } finally { setWorking(false); }
   };
 
   const skip = () => { if (entry && !busy) setState(prev => pilotAdvance(prev, "skipped", open)); };
   const undo = () => { if (!busy) setState(prev => pilotUndoSkip(prev, open)); };
   const exit = () => { if (!working) onClose(); };
+
+  /* «رجوع» عن آخر قرار: ما دام قراراً قابلاً للتراجع (يحسبه الخادم) ومهلتُه باقية. */
+  const lastFound = lastDecision ? rows.find(candidate => String(candidate.id) === lastDecision.rowId) : undefined;
+  const lastItem = lastFound?.items?.[lastDecision!.index];
+  const lastLeft = lastItem?.decision?.undoable ? undoWindowLeftMs(lastItem.decision.decidedAt, clock) : 0;
+  useEffect(() => {
+    if (lastLeft <= 0) return undefined;
+    const timer = window.setInterval(() => setClock(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [lastLeft > 0]);
+  const undoLast = async () => {
+    if (!lastDecision || !lastFound || busy || frozen) return;
+    setWorking(true); setUndoError("");
+    try {
+      const result = await onUndoDecision(lastFound, lastDecision.index);
+      if (result.ok) { setState(prev => pilotReopen(prev, lastDecision.key, open)); setLastDecision(null); }
+      else if (result.error) setUndoError(result.error);
+    } finally { setWorking(false); }
+  };
 
   const canFix = Boolean(judged) && !busy && !frozen && !judged!.blocked && judged!.readiness !== "checking";
   const canReject = Boolean(item) && !busy && !frozen;
@@ -239,6 +266,13 @@ export default function InboxPilot<R extends PilotRow>({
             <ShieldCheck aria-hidden="true" />
             <strong>{total ? "لا شيء ينتظر في هذه القائمة" : "لا بنود تنتظر قرارك"}</strong>
             {total ? <span>ثُبّت {num(fixedCount)} · رُفض {num(rejectedCount)}{settled - fixedCount - rejectedCount > 0 ? ` · قرّر زملاؤك ${num(settled - fixedCount - rejectedCount)}` : ""}</span> : null}
+            {lastLeft > 0 ? (
+              <button type="button" className="inbox-pilot-undo" onClick={() => void undoLast()} disabled={busy || frozen}
+                data-guide-ignore="يتراجع عن آخر قرارٍ في هذا الوضع (ثبّت أو بديل) بعد تأكيدٍ صريح، ويعيد البند إلى القائمة">
+                <RotateCcw aria-hidden="true" />رجوع عن «{lastItem?.decision?.state === "fixed" ? "ثبّت" : "بديل"}» الأخير
+              </button>
+            ) : null}
+            {undoError ? <p className="inbox-pilot-error" role="alert"><ShieldAlert aria-hidden="true" />{undoError}</p> : null}
             <button type="button" className="btn btn-primary inbox-pilot-big" onClick={exit}
               data-guide-ignore="عودة إلى الوارد بعد انتهاء القائمة — لا يغيّر شيئاً">عودة إلى الوارد</button>
           </section>
@@ -311,6 +345,7 @@ export default function InboxPilot<R extends PilotRow>({
             ) : null}
 
             {error ? <p className="inbox-pilot-error" role="alert"><ShieldAlert aria-hidden="true" />{error}</p> : null}
+            {undoError ? <p className="inbox-pilot-error" role="alert"><ShieldAlert aria-hidden="true" />{undoError}</p> : null}
           </section>
         )}
 
@@ -330,6 +365,12 @@ export default function InboxPilot<R extends PilotRow>({
               data-guide-ignore="تخطّي البند إلى التالي في وضع الطيّار — لا يقرّر شيئاً ويعود البندُ في آخر القائمة">
               <span>التالي</span><ChevronLeft aria-hidden="true" /><kbd aria-hidden="true">→</kbd>
             </button>
+            {lastLeft > 0 ? (
+              <button type="button" className="inbox-pilot-undo" onClick={() => void undoLast()} disabled={busy || frozen}
+                data-guide-ignore="يتراجع عن آخر قرارٍ في هذا الوضع (ثبّت أو بديل) بعد تأكيدٍ صريح، ويعيد البند إلى القائمة">
+                <RotateCcw aria-hidden="true" />رجوع عن «{lastItem?.decision?.state === "fixed" ? "ثبّت" : "بديل"}» الأخير
+              </button>
+            ) : null}
             {canUndo ? (
               <button type="button" className="inbox-pilot-undo" onClick={undo}
                 data-guide-ignore="رجوعٌ إلى آخر بندٍ تُخطّي في وضع الطيّار — لا يغيّر شيئاً في الطلب">

@@ -18,7 +18,7 @@ import { useTeamPeers, useTeamWork } from "../hooks/useTeamWork";
 import { onLiveSignal } from "../utils/livePulse";
 import { configAfterLoad, isStaleWrite } from "../utils/staleWrite";
 import { workClashes, type WorkMark } from "../utils/teamWork";
-import { SEAT_CONFIG_MAX } from "../utils/advisorSeats";
+import { SEAT_CONFIG_MAX, quotaResolve, type QuotaSource } from "../utils/advisorSeats";
 
 type State = { capacity: number; quota: number; hardCap: number; limitedBy: "quota" | "room"; advisorAdded: number; remaining: number; fairShare?: number; tone: "green" | "yellow" | "red"; ringLabel: string };
 type Section = { key: string; courseId: number; courseName: string; section: string; time: string; state: State; ledger: { roomCapacity?: number | null };
@@ -39,6 +39,9 @@ type Payload = {
   frozen?: boolean;
 };
 type Message = { tone: "ok" | "warn" | "bad"; text: string; alternatives?: Array<{ key: string; section: string; time: string; remaining: number }> };
+
+/* مصدرُ الرصيد كما يقرؤه المسؤول: «القسم» هو الرصيدُ العامّ لقسم هذه الشاشة. */
+const SOURCE_LABEL: Record<QuotaSource, string> = { section: "الشعبة", course: "المقرر", global: "القسم", default: "القسم" };
 
 const STATUS_LABEL: Record<string, string> = { pending: "عند المسؤول", approved: "وافق المسؤول", declined: "اعتذر المسؤول" };
 
@@ -156,6 +159,9 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, colleg
   const canConfigure = data.canConfigure && !frozen;
   const clamp = (value: string) => Math.max(0, Math.min(max, Math.trunc(Number(value) || 0)));
   const label = (key: string) => { const s = data.sections.find(x => x.key === key); return s ? `${s.courseName} · ${s.section}` : key; };
+  /* الرصيدُ الفعليّ بجانب كل شعبة: المسوّدةُ للمسؤول (يرى أثرَ ما كتبه قبل الحفظ)، والمحفوظُ لغيره. */
+  const effective = (s: Section) => quotaResolve(canConfigure && cfg ? cfg : data.config as any, s.courseId, s.key);
+  const courseList = Array.from(new Map<number, string>(data.sections.map(s => [s.courseId, s.courseName] as [number, string])).entries()).sort((a, b) => String(a[1]).localeCompare(String(b[1]), "ar"));
   const needle = query.trim().toLowerCase();
   const shown = data.sections.filter(s => !needle || `${s.courseName} ${s.section}`.toLowerCase().includes(needle));
   const pending = data.requests.filter(r => r.status === "pending");
@@ -180,11 +186,26 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, colleg
           <small className="of-hint">الحدُّ {max} لكل خانة.</small>
         </div>
       ) : null}
+      {canConfigure && cfg && courseList.length ? (
+        /* رصيدٌ لمقررٍ كاملٍ (كل شعبه) يغلب العامّ ويغلبه رصيدُ الشعبة؛ فارغٌ = يرث العامّ. يُحفظ بزرّ «حفظ» أعلاه. */
+        <details className="of-course-quota">
+          <summary>رصيدٌ لكل مقرر <small>{countOf(courseList.length, AR.course)} · الفارغ يرث رصيد القسم</small></summary>
+          <ul>
+            {courseList.map(([courseId, courseName]) => (
+              <li key={courseId}>
+                <span className="of-course-name"><b>{courseName}</b><CourseTags courseId={courseId} /></span>
+                <input type="number" min={0} max={max} value={cfg.byCourse?.[String(courseId)] ?? ""} placeholder={String(cfg.global)} aria-label={`رصيد المقرر ${courseName}`}
+                  onChange={e => { const byCourse = { ...(cfg.byCourse || {}) }; if (e.target.value === "") delete byCourse[String(courseId)]; else byCourse[String(courseId)] = clamp(e.target.value); editCfg({ ...cfg, byCourse }); }} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
       <input type="search" placeholder="بحث عن مقرر…" aria-label="بحث عن مقرر" value={query} onChange={e => setQuery(e.target.value)} style={{ minHeight: 38, borderRadius: 10, border: "1px solid var(--line)", padding: "4px 10px", font: "inherit", marginBottom: 10, width: "100%", maxWidth: 320 }} />
       <div className="of-grid">
         {shown.map(s => (
           <div className="of-card" key={s.key} onFocusCapture={() => touch(s)}>
-            <header><div><b>{s.courseName}</b><CourseTags courseId={s.courseId} /><small> · شعبة {s.section}</small><br /><small><bdi dir="ltr">{s.time}</bdi>{s.state.limitedBy === "room" ? " · 🏫 سقف القاعة" : ""}</small></div><Ring state={s.state} /></header>
+            <header><div><b>{s.courseName}</b><CourseTags courseId={s.courseId} /><small> · شعبة {s.section}</small>{(() => { const e = effective(s); return <small className="of-quota-src" data-source={e.source}> · الرصيد {e.quota} من {SOURCE_LABEL[e.source]}</small>; })()}<br /><small><bdi dir="ltr">{s.time}</bdi>{s.state.limitedBy === "room" ? " · 🏫 سقف القاعة" : ""}</small></div><Ring state={s.state} /></header>
             <div className="of-row">
               {canAdd ? <>
                 <SecondaryButton data-guide-ignore="رصيد مقاعد المرشد — إجراء محلي واضح في بطاقته" type="button" disabled={!!busy || s.state.remaining <= 0 || !s.state.capacity} onClick={() => void add(s.key, 1)}>+1</SecondaryButton>
@@ -196,7 +217,7 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, colleg
             {canConfigure && cfg ? (
               /* رصيدٌ خاصٌّ بهذه الشعبة يغلب العامّ (الأخصُّ يغلب: الشعبة ثم المقرر ثم العام)؛ فارغٌ = العامّ. يُحفظ بزرّ «حفظ» أعلاه. */
               <label className="of-hint">رصيد هذه الشعبة
-                <input type="number" min={0} max={max} value={cfg.bySection?.[s.key] ?? ""} placeholder={String(cfg.global)}
+                <input type="number" min={0} max={max} value={cfg.bySection?.[s.key] ?? ""} placeholder={String(quotaResolve({ ...cfg, bySection: {} }, s.courseId, s.key).quota)}
                   onChange={e => { const bySection = { ...(cfg.bySection || {}) }; if (e.target.value === "") delete bySection[s.key]; else bySection[s.key] = clamp(e.target.value); editCfg({ ...cfg, bySection }); }}
                   style={{ inlineSize: "5em", marginInlineStart: 6 }} aria-label={`رصيد الشعبة ${s.section}`} />
               </label>

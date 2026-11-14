@@ -14,6 +14,7 @@
     "src/server/routes/usersRoutes.ts",
     "src/server/routes/adminRoutes.ts",
     "src/server/core/auth.ts",
+    "src/server/identityGeneration.ts",
     "src/server/core/scope.ts",
     "src/server/core/rateLimits.ts",
     "src/server/roleGuard.ts",
@@ -652,8 +653,8 @@
       "kind": "nonfunctional",
       "title": { "ar": "تعرّف واحد على الهوية لكل طلب مع ذاكرة قصيرة", "en": "One identity resolution per request with a short cache" },
       "text": {
-        "ar": "يجب على النظام أن يحلّ الجلسة والمستخدم والنطاق والشاشات مرة واحدة ويحتفظ بها دقيقتين لكل جلسة، وأن يمسحها فوراً عند الخروج أو أي تعديل لحساب أو نطاق أو صلاحية، وأن يقرأ المقفل والموقوف والمحذوف مجهولاً ويحذف جلسته.",
-        "en": "The system shall resolve session, user, scope and screens once and hold them for two minutes per session, clear them at once on sign-out or any change to an account, scope or permission, and read a locked, inactive or deleted account as anonymous and delete its session."
+        "ar": "يجب على النظام أن يحلّ الجلسة والمستخدم والنطاق والشاشات مرة واحدة ويحتفظ بها دقيقتين لكل جلسة، وأن يمسحها فوراً في العملية التي كتبت عند الخروج أو أي تعديل لحساب أو نطاق أو صلاحية (وفي بقية النُّسخ خلال نحو عشر ثوانٍ، NFR-ACC-059)، وأن يقرأ المقفل والموقوف والمحذوف مجهولاً ويحذف جلسته.",
+        "en": "The system shall resolve session, user, scope and screens once and hold them for two minutes per session, clear them at once in the writing process on sign-out or any change to an account, scope or permission (and in every other instance within about ten seconds, NFR-ACC-059), and read a locked, inactive or deleted account as anonymous and delete its session."
       },
       "priority": "should",
       "status": "implemented",
@@ -813,7 +814,7 @@
       "kind": "functional",
       "title": { "ar": "حساب الإدارة الرئيسي (الجذر) وما يختصّ به", "en": "The root administration account and what belongs to it alone" },
       "text": {
-        "ar": "يجب على النظام أن يعرّف حساب الإدارة الرئيسي برقم الحساب من المتغيّر ROOT_ADMIN_USER_ID (الافتراضي 1، ولا يقلّ عن 1)، وأن يقصر عليه خزنة النظام وتوحيد حسابات المرشدين وأقسام «إضافة مبانٍ وقاعات» و«النصاب التدريسي» و«نسخ فصل» و«النسخة الاحتياطية» وبطاقة «وقت إدخال المواعيد» في الإدارة، وأن يعدّه «إدارة رئيسية» ولو لم يُعلَّم IsAdminUser.",
+        "ar": "يجب على النظام أن يعرّف حساب الإدارة الرئيسي برقم الحساب من المتغيّر ROOT_ADMIN_USER_ID (الافتراضي 1، ولا يقلّ عن 1)، وأن يقصر عليه «النسخة الاحتياطية» وتوحيد حسابات المرشدين وأقسام «إضافة المباني والقاعات» و«النصاب التدريسي» و«نسخ فصل» و«النسخة الاحتياطية» وبطاقة «وقت إدخال المواعيد» في الإدارة، وأن يعدّه «إدارة رئيسية» ولو لم يُعلَّم IsAdminUser.",
         "en": "The system shall identify the root administration account by the account number in ROOT_ADMIN_USER_ID (default 1, never below 1), shall reserve to it the system vault, advisor-account consolidation, and the administration sections Add buildings and rooms, Teaching load, Copy term, Backup and the appointment-entry time card, and shall treat it as main administration even when IsAdminUser is not set."
       },
       "priority": "must",
@@ -966,7 +967,7 @@
       "kind": "functional",
       "title": { "ar": "أقسام شاشة إدارة النظام ومن يراها", "en": "Sections of the system administration screen and who sees them" },
       "text": {
-        "ar": "يجب على النظام أن يعرض شريط «إدارة النظام» بالأقسام: المستخدمون والفرق لحامل الشاشة 11، والنطاقات لحامل 15، والسجل وأوقات دوام الأقسام للجميع ممن يصل الشاشة، و«إضافة مبانٍ وقاعات» و«النصاب التدريسي» و«نسخ فصل» و«النسخة الاحتياطية» للحساب الجذر وحده.",
+        "ar": "يجب على النظام أن يعرض شريط «إدارة النظام» بالأقسام: المستخدمون والفرق لحامل الشاشة 11، والنطاقات لحامل 15، والسجل وأوقات دوام الأقسام للجميع ممن يصل الشاشة، و«إضافة المباني والقاعات» و«النصاب التدريسي» و«نسخ فصل» و«النسخة الاحتياطية» للحساب الجذر وحده.",
         "en": "The system shall show the system administration rail with the sections Users and Teams for a holder of screen 11, Scopes for a holder of 15, Log and Department working hours for anyone reaching the screen, and Add buildings and rooms, Teaching load, Copy term and Backup for the root account alone."
       },
       "priority": "should",
@@ -977,7 +978,7 @@
         { "ar": "تبويبا «السجل» و«أوقات دوام الأقسام» يظهران لكل من يصل الشاشة، لكن بياناتهما من مسارات للإدارة الرئيسية (السجل) وللحساب الجذر (أوقات الدوام).", "en": "The Log and Department working hours tabs appear to anyone reaching the screen, but their data comes from routes for main administration (log) and the root account (working hours)." },
         { "ar": "تبديل القسم يُفرغ البحث والتصفية والاختيار ويوقف متابعة التصدير في المتصفح دون إلغاء تقدّمه المحفوظ في الخادم.", "en": "Switching section clears the search, filter and selection and stops the browser-side export driver without discarding its progress saved on the server." },
         { "ar": "قائمة المستخدمين تُبحث بالاسم أو اسم الدخول وتعرض لكل حساب صفته وشارة «راجع الصفة» وحالته (مقفل، فعّال، متوقف)، وبطاقته «كلمة السر: محفوظة ومشفّرة» أو «غير مضبوطة».", "en": "The user list is searched by name or login and shows each account's role, a review-role badge and its status (locked, active, stopped), and its card shows the password as saved and encrypted or not set." },
-        { "ar": "في البيئة التجريبية ترفض الواجهة أي كتابة إدارية برسالة «الإدارة للعرض فقط في البيئة التجريبية»، إلا «إضافة مبانٍ وقاعات» فتُحفظ في صندوق الزائر بالذاكرة وحده بملاحظة «ما تضيفه هنا يبقى في جلستك فقط ولا يصل إلى بيانات الجامعة».", "en": "In the demo the interface refuses any administrative write with a display-only message, except «add buildings and halls», which saves into the visitor's in-memory sandbox only with the note that what is added stays in the session and never reaches the university data." }
+        { "ar": "في البيئة التجريبية ترفض الواجهة أي كتابة إدارية برسالة «الإدارة للعرض فقط في البيئة التجريبية»، إلا «إضافة المباني والقاعات» فتُحفظ في صندوق الزائر بالذاكرة وحده بملاحظة «ما تضيفه هنا يبقى في جلستك فقط ولا يصل إلى بيانات الجامعة».", "en": "In the demo the interface refuses any administrative write with a display-only message, except «add buildings and halls», which saves into the visitor's in-memory sandbox only with the note that what is added stays in the session and never reaches the university data." }
       ],
       "evidence": { "code": ["src/components/AdminUsers.tsx", "src/components/LocationQuickSetup.tsx"], "tests": ["tests/handover-fixes-audit.ts", "tests/demo-showcase-audit.ts"] },
       "inferred": true
@@ -1279,6 +1280,27 @@
       "evidence": { "code": ["src/db/repository.ts", "src/server/core/auth.ts"], "tests": ["tests/admin-station-audit.ts"] }
     },
     {
+      "id": "NFR-ACC-059",
+      "kind": "nonfunctional",
+      "title": { "ar": "تغيير الهوية والصلاحية يصل كل نُسخ الخادم خلال نحو عشر ثوانٍ", "en": "Identity and permission changes reach every server instance within about ten seconds" },
+      "text": {
+        "ar": "يجب على كل تغيير لحساب أو نطاق أو صلاحية أن يزيد، بعد كتابته، عدّاداً في وثيقة Firestore صغيرة مشتركة (‎_meta/identityGeneration‎)، وأن تقرأ كل نسخة خادم هذا العدّاد مرةً واحدة كل عشر ثوانٍ كحدٍّ أقصى — كسولاً عند أول طلبٍ بعد انقضاء المدة وبقراءةٍ واحدة تنتظرها الطلباتُ المتزامنة — فإن تغيّر مسحت ذاكرة هوياتها ورفعت جيلها المحلي حتى لا تُحفظ قراءةٌ بدأت قبل التغيير. فيصير الحدُّ الأقصى لتقادم صلاحيةٍ ملغاة على نسخةٍ أخرى نحو عشر ثوانٍ لا دقيقتين، دون قراءة Firestore لكل طلب (نحو 8640 قراءة في اليوم لكل نسخة نشطة بحدٍّ أقصى). تعذّر قراءة العدّاد يمسح الذاكرة احتياطاً، وتعذّر زيادته يُعاد مرةً ثم يُسجَّل (فيعود الحدّ إلى مدة الذاكرة). لا أثر لذلك في الوضع التجريبي ولا في الملف المحلي. والزيادةُ تُنتظَر في المسار بعد الكتابة بمهلةٍ قصيرة (نحو ثانية ونصف) فلا يعود الردّ قبل أن تُحاوَل (فشلُها أو بطؤها يُسجَّل ولا يُفشل طلب المستخدم)؛ وقراءةُ العدّاد بالمهلة نفسها فلا تعلّق كلَّ طلبٍ موثَّق، وانقضاؤها يمسح الذاكرة (فشلٌ مغلق)؛ وأولُ قراءةٍ ناجحة بعد أي فشلٍ تُعدّ تغييراً فلا يفوت تغييرٌ وقع في الفجوة؛ و‎_meta/identityGeneration‎ خارج التصدير والتصفير والاستعادة فلا يرجع العدّادُ إلى قيمةٍ رآها غيرُنا.",
+        "en": "Every change to an account, scope or permission shall, after its write, increment a counter in a small shared Firestore document (_meta/identityGeneration), and every server instance shall read that counter at most once every ten seconds — lazily on the first request after the interval, with one read that concurrent requests wait on — and, when it changed, clear its identity cache and raise its local generation so a read begun before the change is never cached. The worst-case staleness of a revoked permission on another instance is therefore about ten seconds rather than two minutes, with no Firestore read per request (at most about 8,640 reads per day per active instance). A failed counter read clears the cache as a precaution, and a failed increment is retried once and then logged (staleness falls back to the cache lifetime). Demo mode and the local file are unaffected. The increment is awaited in the post-write path with a short timeout (about 1.5 seconds), so the response never returns before it was attempted (a failure or slowness is logged and never fails the user's request); the counter read has the same timeout so it cannot stall every authenticated request, and a timeout clears the cache (fail closed); the first successful read after any failure counts as a change so a change in the gap is not missed; and _meta/identityGeneration is outside export, reset and restore so the counter never goes back to a value another instance saw."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["system"],
+      "acceptance": [
+        { "ar": "تغيير صلاحية على النسخة أ ← تمسح النسخة ب ذاكرتها عند أول طلبٍ بعد عشر ثوانٍ كحدٍّ أقصى.", "en": "A permission change on instance A ← instance B clears its cache on the first request within ten seconds at most." },
+        { "ar": "طلبات متتابعة داخل العشر ثوانٍ لا تقرأ العدّاد مرةً ثانية.", "en": "Requests inside the ten seconds never read the counter again." },
+        {
+          "ar": "قراءةٌ معلّقة ← تُمسح الذاكرة بعد المهلة؛ وأول قراءةٍ ناجحة بعد فشل ← تمسح.",
+          "en": "A hanging read ← the cache is cleared after the timeout; the first successful read after a failure ← clears."
+        }
+      ],
+      "evidence": { "code": ["src/server/identityGeneration.ts", "src/server/core/auth.ts", "src/db/repository.ts"], "tests": ["tests/vault-jobs-audit.ts"] }
+    },
+    {
       "id": "FR-ACC-058",
       "kind": "functional",
       "title": { "ar": "شاشة المستخدمين: لا يضيع ما كُتب، والمعاينة قبل الإنشاء", "en": "Users screen: nothing typed is lost, preview before creating" },
@@ -1294,6 +1316,49 @@
         { "ar": "زر «حسابات رؤساء الأقسام» يطلب ‎/api/users/department-heads/preview ويعرض الخطة قبل أي كتابة.", "en": "The department-head accounts button calls /api/users/department-heads/preview and shows the plan before any write." }
       ],
       "evidence": { "code": ["src/components/AdminUsers.tsx", "src/components/seats/SeatsAdmin.tsx", "src/components/seats/SeatPanel.tsx", "src/styles/35-visual-polish.css"], "tests": ["tests/admin-station-audit.ts"] }
+    },
+    {
+      "id": "FR-ACC-059",
+      "kind": "functional",
+      "title": {
+        "ar": "«لو حذفت؟» قبل حذف حساب",
+        "en": "What-if-I-delete map before deleting an account"
+      },
+      "text": {
+        "ar": "يجب أن تعرض نافذةُ حذف الحساب ما يُحذف معه وما يبقى مرتبطاً به: الصلاحيات والنطاقات (الكليات والأقسام) التي تُحذف معه، وأعضاءُ الفريق على الحساب وشاغله، وارتباطُه بلوحة أستاذ، وأن تعطّل التأكيد وتذكر السبب إن رفض الخادم حذفه (حساب الإدارة الرئيسي، حسابك أنت، آخر مدير فاعل) بالدالة نفسها (userDeleteRefusal) التي يرفض بها المسار. أعدادٌ فقط بلا بياناتٍ شخصية.",
+        "en": "The account delete dialog shall show what goes with the account and what stays linked to it: the permissions and scopes (colleges and departments) deleted with it, the team members on it and its holder, and its instructor-panel link, and shall disable confirmation and state the reason when the server would refuse (the root account, your own account, the last active manager) through the very function (userDeleteRefusal) the route refuses with. Counts only, no personal data."
+      },
+      "rationale": {
+        "ar": "كان التأكيد يذكر الصلاحيات والأقسام بلا أعداد، ولا يُظهر فريق الكرسي المرتبط بالحساب.",
+        "en": "The confirmation named permissions and departments without counts and did not show the seat team tied to the account."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف حسابٍ له صلاحيات ونطاقات ← تُعرض أعدادها قبل التأكيد.",
+          "en": "Deleting an account with permissions and scopes shows their counts before confirming."
+        },
+        {
+          "ar": "حذف آخر مدير فاعل ← «لا يمكن الحذف الآن» بنص الخادم والزرّ معطّل.",
+          "en": "Deleting the last active manager shows «cannot delete now» with the server's text and a disabled button."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/deleteImpact.ts#deleteBlockers",
+          "src/utils/deleteImpact.ts#blockersFor",
+          "src/components/AdminUsers.tsx#deleteUser",
+          "src/server/routes/usersRoutes.ts#registerUsersRoutes"
+        ],
+        "tests": [
+          "tests/delete-impact-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

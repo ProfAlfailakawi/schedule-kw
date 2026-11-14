@@ -38,7 +38,7 @@ import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, Inbox, Link2, Loader2, MailQuestion,
   ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
   DoorOpen, Wrench, RefreshCw, Home, MapPin, History, Users, Scale, BellRing, UserX,
-  CheckCheck, CircleDashed, Plus, Trash2, School,
+  CheckCheck, CircleDashed, Plus, Trash2, School, RotateCcw,
 } from "lucide-react";
 import type { RequestRoomReason } from "../types";
 import { DnaCount } from "./dna";
@@ -60,7 +60,7 @@ import TermFrozenRibbon, { TermFrozenContext, useFrozenScreen, useTermFrozen } f
 import { useScopedTerms } from "./useScopedTerms";
 import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBar";
 import {
-  Badge, EmptyState, KwWhen, MicroLoader, Notice, PageTitle, PrimaryButton, SecondaryButton, Surface,
+  Badge, EmptyState, KwWhen, MicroLoader, Notice, PageTitle, PrimaryButton, SecondaryButton, Surface, visualConfirm,
 } from "./ui";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { reachAboutCard } from "../utils/reachInstructor";
@@ -79,9 +79,12 @@ import { campusChipOf } from "../utils/campusChip";
 import { takeNotifyFocus } from "../utils/notifyFocus";
 import { NEGOTIATION_LABEL, THREAD_TEXT_LIMIT, negotiationState } from "../utils/instructorRequestThread";
 import { isUnchangedConfirmed, unchangedConfirmationKind } from "../utils/instructorRequestConfirmation";
-import { inboxFacetCounts, nameMatches, sortInboxRows, type InboxSort } from "../utils/inboxFacets";
+import { inboxFacetCounts, sortInboxRows, type InboxSort } from "../utils/inboxFacets";
 import { unsentDecisions } from "../utils/requestDecisionDigest";
 import { withApplyBusyRetry } from "../utils/applyBusyRetry";
+import { undoWindowLeftMs } from "../utils/inboxUndo";
+import { asksAboutItems, itemMatchesRequestsAsk, nameMatchesAsk, parseRequestsAsk, requestsAskNote } from "../utils/requestsAsk";
+import { campusOf } from "../utils/campus";
 import type {
   AdTerm, FSchedule, InstructorRequest, InstructorRequestItem, InstructorRequestRejectReason,
 } from "../types";
@@ -597,13 +600,15 @@ function CampusChip({ label }: { key?: React.Key; label?: { chip: string; name: 
   );
 }
 
-function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelScheduled, onReply, onNotified, busyKey, filter, rowErrors, proposals, onOpenProposal, onOpenInSchedule, onBulk }: {
+function RequestCard({ row, currentRows, campusLabels, onDecide, onUndo, onCancelScheduled, onReply, onNotified, busyKey, filter, rowErrors, proposals, onOpenProposal, onOpenInSchedule, onBulk }: {
   key?: React.Key;
   row: InboxRequest;
   currentRows: Map<number, FSchedule>;
   campusLabels: CampusLabels;
   /** null عند النجاح، أو سببُ التعذّر (تعرضه الورقةُ التي أرسلته وتبقى مفتوحة). */
   onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => Promise<string | null>;
+  /** «تراجع» عن قرارٍ حديث: التأكيدُ والخطأ في الوارد نفسه. */
+  onUndo: (index: number) => Promise<unknown>;
   onCancelScheduled: (index: number, note: string) => Promise<string | null>;
   onReply: (index: number, text: string, slots: any[]) => Promise<string | null>;
   /** فُتحت رسالةُ «أبلغ الأستاذ»: يُسجَّل الإبلاغ. */
@@ -748,6 +753,7 @@ function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelSchedul
               onReject={() => setRejecting(index)}
               onCloseReject={() => setRejecting(null)}
               onDecide={onDecide}
+              onUndo={onUndo}
               onCancelScheduled={onCancelScheduled}
               onReply={onReply}
               onOpenInSchedule={() => onOpenInSchedule(row, index)}
@@ -760,16 +766,42 @@ function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelSchedul
   );
 }
 
+/**
+ * «تراجع» عن قرارٍ صدر من الوارد (src/utils/inboxUndo.ts): يظهر ما دامت مهلتُه باقية، ويعدّ ما بقي منها.
+ * التأكيدُ والكتابةُ في `undoDecision`؛ والخادمُ هو الحكم، فقد يرفض والمهلةُ باقية (تغيّر الجدول بعد التثبيت).
+ */
+function UndoDecisionButton({ decidedAt, busy, onUndo }: { key?: React.Key; decidedAt?: string; busy: boolean; onUndo: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  const left = undoWindowLeftMs(decidedAt, now);
+  const live = left > 0;
+  useEffect(() => {
+    if (!live) return undefined;
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [live]);
+  if (!live) return null;
+  const minutes = Math.max(1, Math.ceil(left / 60_000));
+  return (
+    <div className="request-actions request-undo">
+      <SecondaryButton type="button" disabled={busy} onClick={onUndo}
+        data-guide-ignore="يتراجع عن قرارٍ صدر قبل لحظات ويعيد البند إلى «بانتظار قرارك»، بعد تأكيدٍ صريح">
+        <RotateCcw aria-hidden="true" />تراجع<small>متبقٍّ {countOf(minutes, AR.minute)}</small>
+      </SecondaryButton>
+    </div>
+  );
+}
+
 /* ── صفُّ بند ─────────────────────────────────────────────────────────────
  * الحكمُ المحفوظ مع الطلب والفحصُ الحيّ يُقرآن معاً: ما منعه أحدُهما مُنع،
  * وما نبّه إليه أحدُهما قيل. ولا يُكرَّر السببُ نفسُه مرّتين. */
-function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecting, error, onReject, onCloseReject, onDecide, onCancelScheduled, onReply, onOpenInSchedule, onBulk }: {
+function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecting, error, onReject, onCloseReject, onDecide, onUndo, onCancelScheduled, onReply, onOpenInSchedule, onBulk }: {
   key?: React.Key;
   row: InboxRequest; item: InstructorRequestItem; index: number; current?: FSchedule;
   campus?: { chip: string; name: string };
   busy: boolean; rejecting: boolean; error?: string;
   onReject: () => void; onCloseReject: () => void;
   onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => Promise<string | null>;
+  onUndo: (index: number) => Promise<unknown>;
   onCancelScheduled: (index: number, note: string) => Promise<string | null>;
   onReply: (index: number, text: string, slots: any[]) => Promise<string | null>;
   /** «مقترح دراسي»: يفتح الموعدَ الأصلي (أو نموذجَ الإضافة) في الجدول بنموذجه المعتاد. */
@@ -1007,6 +1039,10 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
               </SecondaryButton>
             </div>
           )}
+          {decided && item.decision?.undoable ? (
+            <UndoDecisionButton decidedAt={item.decision.decidedAt} busy={busy} onUndo={() => void onUndo(index)}
+              data-guide-ignore="يتراجع عن قرارٍ صدر قبل لحظات، بعد تأكيدٍ صريح" />
+          ) : null}
           {/* الحوارُ يبدأ من القسم أيضاً (FR-REQ-027): كان مقفلاً حتى يكتب الأستاذ أولاً. */}
           {!hasThread && !talking && decided !== "fixed" ? (
             <div className="request-actions">
@@ -1337,7 +1373,13 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   /* ── المرشّحات ──────────────────────────────────────────────────────────
      أربعةُ أسئلةٍ يسألها المنسّق فعلاً: ما الذي ينتظرني؟ أيُّ نوع؟ ما الجاهزُ
      منه؟ وفي أيّ قسم؟ وكلٌّ منها زرٌّ واحد، لا قائمةٌ منسدلة. */
-  const [stateFilter, setStateFilter] = useState<"pending" | "fixed" | "rejected" | "all" | "confirmed-unchanged" | "absent">("pending");
+  const [stateChoice, setStateFilter] = useState<"pending" | "fixed" | "rejected" | "all" | "confirmed-unchanged" | "absent">("pending");
+  /* حقلُ السؤال (IR-REQ-034): «طلبات الأحد المرفوضة»، «من لم يفتح الرابط»، «مين طلب الصباح»، أو اسمُ أستاذ.
+     يُفهم في المتصفّح (utils/requestsAsk.ts) ويُجمع مع المرشّحات القائمة بـ«و»؛ وإن سمّى حالةً حلّت محلّ شريحة «الحالة»
+     (وإلا أخفت شريحةُ «بانتظار قرارك» الافتراضيةُ «المرفوضة»)، وتتبعه الأعدادُ كلُّها. */
+  const parsedAsk = useMemo(() => parseRequestsAsk(ask), [ask]);
+  const askNote = requestsAskNote(ask, parsedAsk);
+  const stateFilter: typeof stateChoice = parsedAsk.state === "unopened" || parsedAsk.state === "absent" ? "absent" : parsedAsk.state || stateChoice;
   const [actionFilter, setActionFilter] = useState<"all" | "change" | "add" | "delete">("all");
   const [verdictFilter, setVerdictFilter] = useState<"all" | "clear" | "exception" | "conflict">("all");
   const [deptFilter, setDeptFilter] = useState(0);
@@ -1581,9 +1623,11 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     return sortInboxRows((rows || [])
       .filter(row => !isPlaceholderInboxRow(row))
       /* «احمد» تجد «أحمد»، و«فاطمه» تجد «فاطمة» (مفتاحُ المطابقة العربي). */
-      .filter(row => !needle || nameMatches(row.instructorName, needle))
+      .filter(row => !parsedAsk.text || nameMatchesAsk(row.instructorName, parsedAsk.text))
+      /* «من لم يفتح الرابط»: عمودُ الصفّ نفسُه الذي تقرؤه قائمةُ «لم يفتحوا» (requestParticipation). */
+      .filter(row => parsedAsk.state !== "unopened" || notOpened([row as any]).length > 0)
       .filter(row => !instructorFilter || (chosen ? chosen.ids.includes(Number(row.AdInstructorId)) : Number(row.AdInstructorId) === instructorFilter)), sortBy, byArabic);
-  }, [rows, needle, instructorFilter, instructorChoices, sortBy]);
+  }, [rows, parsedAsk, instructorFilter, instructorChoices, sortBy]);
 
   /* «تكدّس الطلبات»: كم موعداً مطلوباً يبدأ في كل خليّة (يوم × وقت بداية).
      عدٌّ لا غير، من بنود الطلبات المُجابة المحمَّلة أصلاً في الشاشة — لا
@@ -1621,9 +1665,13 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const campusLabels = useMemo<CampusLabels>(() => new Map(campusOptions.map(option => [option.collegeId, { chip: option.chip, name: option.name }])), [campusOptions]);
   const campusFilter = effectiveCampus(campusStored, campusOptions);
 
+  /* ما في السؤال عن البند نفسه (اليومُ والفترةُ والنوعُ والموقع): يُجمع مع كل مرشّحٍ آخر، وتتبعه الأعداد. */
+  const askItemOk = useCallback((item: InstructorRequestItem, row: InboxRequest) => !asksAboutItems(parsedAsk)
+    || itemMatchesRequestsAsk(item as any, parsedAsk, campusOf(campusLabels.get(requestItemCollegeId(row as any, item as any))?.name)), [parsedAsk, campusLabels]);
   const itemFilter = useCallback((item: InstructorRequestItem, row: InboxRequest) => {
     if (stateFilter === "confirmed-unchanged") return false;
     if (!itemInCampus(row as any, item as any, campusFilter)) return false;
+    if (!askItemOk(item, row)) return false;
     const state = item.decision?.state;
     if (stateFilter === "pending" && state) return false;
     if (stateFilter === "fixed" && state !== "fixed") return false;
@@ -1631,7 +1679,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     if (actionFilter !== "all" && item.action !== actionFilter) return false;
     if (verdictFilter !== "all" && (item.verdict || "clear") !== verdictFilter) return false;
     return true;
-  }, [stateFilter, actionFilter, verdictFilter, campusFilter]);
+  }, [stateFilter, actionFilter, verdictFilter, campusFilter, askItemOk]);
 
   /* الأقسامُ التي في الوارد فعلاً — لا كلُّ أقسام الكلية. */
   const departments = useMemo(() => {
@@ -1653,7 +1701,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     const scoped = visible.filter(row => (!deptFilter || Number(row.AdSectionId) === deptFilter) && requestInCampus(row as any, campusFilter));
     const inCampus = scoped;
     const items = scoped.filter(row => !taOnly || isTaRequest(row)).flatMap(row => (row.items || [])
-      .filter(item => item.action !== "keep" && !(item as any).hidden && itemInCampus(row as any, item as any, campusFilter))
+      .filter(item => item.action !== "keep" && !(item as any).hidden && itemInCampus(row as any, item as any, campusFilter) && askItemOk(item, row))
       .map(item => ({ state: item.decision?.state, action: item.action, verdict: item.verdict })));
     return {
       ...inboxFacetCounts(items, { state: stateFilter, action: actionFilter, verdict: verdictFilter }),
@@ -1662,7 +1710,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       absent: notParticipated(inCampus.filter(row => !isPlaceholderInboxRow(row))).length,
       ta: inCampus.filter(isTaRequest).length,
     };
-  }, [visible, deptFilter, taOnly, campusFilter, stateFilter, actionFilter, verdictFilter]);
+  }, [visible, deptFilter, taOnly, campusFilter, stateFilter, actionFilter, verdictFilter, askItemOk]);
   /* من صدر له قرارٌ لم يُبلَّغ به (utils/requestDecisionDigest): بالترتيب المعروض نفسه. */
   const unnotified = useMemo(() => visible.filter(row => unsentDecisions(row).length > 0), [visible]);
 
@@ -1684,7 +1732,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   }, [changed]);
   const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note && !row.pinViolations && !isUnchangedConfirmed(row));
   const silent = notOpened<InboxRequest>(visible);
-  const absentRows: InboxRequest[] = notParticipated<InboxRequest>(visible).filter(row => requestInCampus(row as any, campusFilter));
+  const absentRows: InboxRequest[] = notParticipated<InboxRequest>(visible).filter(row => requestInCampus(row as any, campusFilter)
+    && (!parsedAsk.campus || campusOf(row.requestCollegeName) === parsedAsk.campus));
 
   /**
    * التثبيت.
@@ -1781,6 +1830,40 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   /* القرارُ من ورقته (الرفض): السببُ يعود إليها، وما كُتب فيها لا يضيع. */
   const decideFromSheet = async (row: InboxRequest, index: number, state: "fixed" | "rejected", extra: any = {}): Promise<string | null> =>
     (await decide(row, index, state, extra, state === "rejected")) ? null : (decideFailure.current || (frozen ? "الفصل مجمَّد." : ""));
+
+  /**
+   * «تراجع» عن قرار الوارد (POST /undo-decision): تأكيدٌ بصريّ ثم كتابة. الخادمُ يعكس ما كُتب في الجدول بمعاملةٍ واحدة
+   * ويرفض بسببه إن تغيّر شيءٌ بعد القرار؛ والرفضُ يُعرض على البند نفسه ولا يُخفى.
+   */
+  const undoDecision = async (row: InboxRequest, index: number): Promise<{ ok: boolean; cancelled?: boolean; error?: string }> => {
+    if (frozen) return { ok: false, error: "الفصل مجمَّد." };
+    const item = row.items[index];
+    const fixed = item?.decision?.state === "fixed";
+    const sure = await visualConfirm({
+      title: fixed ? "التراجع عن التثبيت؟" : "التراجع عن الرفض؟",
+      message: fixed
+        ? "يعود الموعد في الجدول إلى ما كان عليه ويعود البند «بانتظار قرارك». يُرفض التراجع إن تغيّر الجدول بعد التثبيت."
+        : "يعود البند «بانتظار قرارك» ويُعاد حجز وقته. يُرفض التراجع إن أخذ غيرُه ذلك الوقت.",
+      confirmLabel: "تراجع", cancelLabel: "إبقاء القرار", tone: "warning", safeCancel: true,
+    });
+    if (!sure) return { ok: false, cancelled: true };
+    const key = `${row.id}:${index}`;
+    setBusyKey(key);
+    setRowErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
+    try {
+      await request(`/api/instructor-requests/${row.id}/undo-decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemIndex: index, itemId: requestItemId(item), requestRevision: row.requestRevision || 0 }),
+      });
+      await load();
+      return { ok: true };
+    } catch (e: any) {
+      const message = inboxMessage(e.message);
+      setRowErrors(prev => ({ ...prev, [key]: message }));
+      return { ok: false, error: message };
+    } finally { setBusyKey(null); }
+  };
 
   const cancelScheduled = async (row: InboxRequest, index: number, note: string): Promise<string | null> => {
     if (frozen) return "الفصل مجمَّد.";
@@ -1990,10 +2073,10 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     <div className="content-stack changes-screen visual-minimal inbox-studio" data-term-frozen-scope={frozen || undefined}>
       <PageTitle
         action={rows && rows.length ? <ProposalLauncherBar rows={launcherRows} preferCollegeId={collegeId} proposals={proposals} onOpen={openStudyProposal} /> : undefined}
-        eyebrow={<><Inbox aria-hidden="true" /> رغبات الأساتذة</>}
+        eyebrow={<><Inbox aria-hidden="true" /> الوارد</>}
         subtitle="ما طلبه الأساتذة على مسوّداتهم، لا الجدول كله"
       >
-        وارد الأساتذة
+        رغبات الأساتذة
       </PageTitle>
       <TermFrozenRibbon termId={termId} terms={terms} onGoCurrent={id => { sharedScope.pick({ termId: id }); setTermId(id); }} />
 
@@ -2015,7 +2098,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
         ask={ask}
         onAskChange={setAsk}
         onAskSubmit={setAsk}
-        askPlaceholder="اسأل: باسم الأستاذ"
+        askPlaceholder="اسأل: «طلبات الأحد المرفوضة» أو اسم الأستاذ"
+        askNote={askNote}
         onClear={() => { setAsk(""); setInstructorFilter(0); }}
         selects={trimScopeSelects(selects, scopes, powerAdmin)}
         onSelect={(key, value) => {
@@ -2347,6 +2431,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                       onOpenProposal={openStudyProposal}
                       onOpenInSchedule={openItemInSchedule}
                       onDecide={(index, state, extra) => decideFromSheet(row, index, state, extra)}
+                      onUndo={index => undoDecision(row, index)}
                       onCancelScheduled={(index, note) => cancelScheduled(row, index, note)}
                       onReply={(index, text, slots) => reply(row, index, text, slots)}
                       onNotified={() => void markNotified(row)}
@@ -2359,7 +2444,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           ) : (
             <EmptyState
               title={needle ? "لا نتائج" : stateFilter === "pending" && counts.all ? "لا شيء ينتظرك" : "لا تعديلات تنتظر"}
-              detail={needle ? "لا أستاذَ يطابق البحث." : stateFilter === "pending" && counts.all ? "قرّرتَ في كل الطلبات. غيّر «الحالة» لترى ما ثُبّت أو رُفض." : "كلُّ من أجاب قَبِل جدوله كما أرسله القسم."}
+              detail={needle ? (parsedAsk.understood ? "لا بنودَ تطابق سؤالك مع المرشّحات الحالية." : "لا أستاذَ يطابق البحث.") : stateFilter === "pending" && counts.all ? "قرّرتَ في كل الطلبات. غيّر «الحالة» لترى ما ثُبّت أو رُفض." : "كلُّ من أجاب قَبِل جدوله كما أرسله القسم."}
             />
           )}
           {/* ── شريطُ «ثبّت الجاهز كله» ── يظهر حين يكون في المعروض بندٌ جاهزٌ بلا موانع،
@@ -2466,6 +2551,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           rowErrors={rowErrors}
           frozen={frozen}
           onDecide={decide}
+          onUndoDecision={undoDecision}
           candidateOf={proposedRow}
           useLiveCheck={useLiveCheck}
           RejectSheet={RejectSheet}

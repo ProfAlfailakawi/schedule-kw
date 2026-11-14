@@ -147,7 +147,7 @@ void (async () => {
   check(inbox.includes("maxLength={REJECT_NOTE_LIMIT}") && inbox.includes("export const REJECT_NOTE_LIMIT = 400;"), "FR-REQ-063 سطرُ الرفض بحدّ الخادم 400");
   check(inbox.includes("if (seq !== loadSeq.current) return;") && inbox.includes("if (loadedScope.current !== scopeKey) setRows([]);") && !inbox.includes("setError(e.message); setRows([]);"),
     "FR-REQ-063 تعذّرُ القراءة لا يُفرغ البطاقات، والقراءاتُ متسلسلة");
-  check(inbox.includes("inboxFacetCounts(items, { state: stateFilter, action: actionFilter, verdict: verdictFilter })") && inbox.includes("nameMatches(row.instructorName, needle)"),
+  check(inbox.includes("inboxFacetCounts(items, { state: stateFilter, action: actionFilter, verdict: verdictFilter })") && inbox.includes("nameMatchesAsk(row.instructorName, parsedAsk.text)"),
     "FR-REQ-063 الأعدادُ والبحثُ من utils/inboxFacets");
   check((inbox.match(/withApplyBusyRetry\(\(\) => request\(`\/api\/instructor-requests\/\$\{row\.id\}\/apply`/g) || []).length === 2, "FR-REQ-063 التثبيتُ وبطاقةُ الإضافة يُعادان عند apply-busy");
   check(inbox.includes("onClick={() => { onNotified(current.id); setDone(list => [...list, current.id]); }}") && inbox.includes('`/api/instructor-requests/${row.id}/notified`'),

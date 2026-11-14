@@ -383,7 +383,7 @@ ok('135 graduate required threshold comes from stored department academic data',
 ok('136 conservative generic legibility cannot override sufficient graduate proof facts', 'proofFactsReadable' in server and 'facts.isGraduationSheet&&civilVisible&&Number(facts.passedUnits)>0' in server)
 ok('137 multi-page scans reuse the one warm OCR pool — split only into fully DISJOINT page lanes, never a second engine, sequential on small machines', 'MULTI-PAGE GOLDEN PATH' in doc_ocr and 'ISOLATED PAGE LANES' in doc_ocr and 'pool.eng.length>=4&&pool.ara!==pool.ara2' in doc_ocr and 'pool.eng.slice(0,half)' in doc_ocr and ': [pool]' in doc_ocr and 'getFastLaneWorkerPool' not in doc_ocr)
 ok('138 image-only multi-page landscape contract is checked from every PDF page box before table OCR', 'const portraitPages:number[]=[]' in doc_ocr and 'for(let index=1;index<=pageCount;index++)' in doc_ocr and 'requiresLandscapePages:portraitPages' in doc_ocr)
-ok('139 graduate request keeps approved reason plus a bounded mandatory requirement tied to it', 'ملاحظات الطلب وسبب الاحتياج · إلزامي' in server and 'details:graduateDetails' in server and 'wireGraduateDetails' in server and 'String(item.details||"").trim()' in cases_table and '<StudentCasesTable' in intel)
+ok('139 graduate request keeps approved reason plus a bounded mandatory requirement tied to it', 'ملاحظات الطلب وسبب الاحتياج · إلزامي' in server and 'details:graduateDetails' in server and 'wireGraduateDetails' in server and 'String(item.details||"").trim()' in cases_table and '<StudentCasesTable' in (ROOT/'src/components/StudentRegistration.tsx').read_text(encoding='utf-8'))
 ok('140 deleting every Authority preview row can still publish the immutable baseline as a full-deletion report', 'authorityBaselineCount > 0' in transfer and 'اعتماد حذف جميع مواعيد PDF ونشره' in transfer and 'baselineRows:importKind==="authority-pdf"&&Array.isArray(xlsxPreview.baselineRows)?withoutImportEvidence(xlsxPreview.baselineRows)' in transfer)
 ok('141 successful fill-and-publish closes the transfer sheet automatically', 'await publishImportedDraft(id);' in transfer and 'onClose();' in transfer)
 ok('142 manual rows are permanently post-PDF green and cannot impersonate imported provenance', 'sourceOrder: Math.max(1_000_000, Date.now())' in server and 'Number(order)>=1_000_000' in (ROOT/'src/utils/authorityRowMatching.ts').read_text() and 'candidate=current.map((r,i)=>isAuthorityImportedRow(r)' in (ROOT/'src/utils/authorityRowMatching.ts').read_text())
@@ -642,7 +642,7 @@ repository=(ROOT/'src/db/repository.ts').read_text()
 admin_users=(ROOT/'src/components/AdminUsers.tsx').read_text()
 app_source=(ROOT/'src/App.tsx').read_text()
 ok('212a the lightweight add-buildings-and-rooms icon lives inside System Administration and is root-admin-only',
-   'rootAdmin && permissions.includes(7) ? { value: "roomSetup", label: "إضافة مبانٍ وقاعات"' in admin_users
+   'rootAdmin && permissions.includes(7) ? { value: "roomSetup", label: "إضافة المباني والقاعات"' in admin_users
    and 'case "roomSetup":' in app_source
    and 'user.IsRootAdmin && allowed.admin' in app_source
    and 'mode === "roomSetup"' in admin_users)

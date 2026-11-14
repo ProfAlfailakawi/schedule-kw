@@ -29,6 +29,7 @@ import {
   CatalogFormDrawer,
   visualConfirm,
 } from "./ui";
+import { confirmDeleteWithImpact } from "./DeleteImpact";
 type Mode = "index" | "create" | "edit";
 /** `embedded` means the academic console already supplies the page identity.
  *  `loadAdmin` (المدير الرئيسي): بطاقةُ النصاب واستثناءُ العضو من اسمه في التفاصيل. */
@@ -209,7 +210,7 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
   const remove = async (person: any) => {
     if (submitting) return;
     const id = Number(person.AdInstructorId);
-    if (!(await visualConfirm({ title: `حذف «${person.AdInstructorName}»`, message: `سيُحذف سجل «${person.AdInstructorName}» من النظام. إن كان له أي موعد في الجدول في أي فصل فلن يُحذف — اجعله «متقاعداً» بدلاً من ذلك ليختفي من الإسناد وتبقى بياناته.`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    if (!(await confirmDeleteWithImpact({ entity: "instructor", id: Number(person.AdInstructorId), title: `حذف «${person.AdInstructorName}»`, message: `سيُحذف سجل «${person.AdInstructorName}» من النظام. إن كان له أي موعد في الجدول في أي فصل فلن يُحذف — اجعله «متقاعداً» بدلاً من ذلك ليختفي من الإسناد وتبقى بياناته.` })).confirmed) return;
     setSubmitting(true);
     setError(null);
     try {

@@ -22,6 +22,7 @@ import {
   visualConfirm,
 } from "./ui";
 import StudentUnitCapSetting from "./StudentUnitCapSetting";
+import { confirmDeleteWithImpact } from "./DeleteImpact";
 type Mode = "index" | "create" | "edit";
 /** `embedded` means the academic console already supplies the page identity. */
 /** `rootAdmin`: المدير الرئيسي يرى هنا سقفَ وحدات الطالب في «مساري» للجامعة كلها. */
@@ -156,7 +157,7 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
     const id = Number(term.AdTermId);
     /* الفصلُ الذي تنشئه المهمة التلقائية الآن يعود بعد حذفه في دورتها التالية — يُقال ذلك قبل الحذف. */
     const recreated = sameTermName(autoTermDue().name, term.AdTermName) ? " هذا هو الفصل الذي تنشئه المهمة التلقائية الآن، فسيُعاد إنشاؤه في دورتها التالية." : "";
-    if (!(await visualConfirm({ title: `حذف «${term.AdTermName}»`, message: `سيُحذف الفصل «${term.AdTermName}» من النظام. إن كان له أي موعد في الجدول فلن يُحذف.${recreated}`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    if (!(await confirmDeleteWithImpact({ entity: "term", id, title: `حذف «${term.AdTermName}»`, message: `سيُحذف الفصل «${term.AdTermName}» من النظام. إن كان له أي موعد في الجدول فلن يُحذف.${recreated}` })).confirmed) return;
     setSubmitting(true);
     setError(null);
     try {
