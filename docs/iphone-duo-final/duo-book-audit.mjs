@@ -297,6 +297,8 @@ async function dialogs(browser, report) {
     const page = await context.newPage();
     for (const [route, steps, name] of scenes) {
       if (only && !only.test(name)) continue;
+      /* الجرس يُسقط WebKit في وضع الأتمتة (طلب إذن الإشعارات)، فيُتخطّى إلا بطلبٍ صريح. */
+      if (name === "الإشعارات" && !process.env.DUO_NOTIFY) continue;
       try {
         await goto(page, route);
         let ok = true;

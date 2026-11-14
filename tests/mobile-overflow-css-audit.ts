@@ -128,5 +128,11 @@ check(/@mediascreenand\(min-width:640px\)and\(max-width:1000px\)and\(min-height:
   && /\.app-shell::before\{[^}]*left:var\(--book-page\);width:var\(--book-spine\)/.test(book),
   "الشاشة الداخلية كتابٌ مفتوح: كعبٌ بعرض --book-spine في المنتصف، وiPad (768×1024) خارج الكتلة");
 
+
+/* خلفية النافذة في الكتاب تبقى بعرض الشاشة كلها فتحجب اللمس عن الفهرس (مراجعة #490): تُوضع النافذة
+   على صفحة العمل بحشوة الخلفية، لا بتقليص الخلفية إلى نصف الشاشة وتعتيم الباقي بظلٍّ لا يحجب الضغط. */
+const backdropRule = (book.match(/\[class\*="backdrop"\]:has\([^{]*\{[^}]*\}/) || [""])[0];
+check(/padding-right:calc\(var\(--book-page\)\+var\(--book-spine\)/.test(backdropRule) && !/right:calc|box-shadow/.test(backdropRule.replace(/padding-right:calc/, "")),
+  "خلفية النافذة على الكتاب بعرض الشاشة كلها تحجب الفهرس، والنافذة وحدها على صفحة العمل");
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

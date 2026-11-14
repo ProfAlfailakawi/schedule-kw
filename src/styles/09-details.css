@@ -1510,7 +1510,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .share-survey-shortcut-copy small{font-size:12px;line-height:1.45;color:var(--muted)}
 .share-survey-shortcut-arrow{width:17px;height:17px;color:var(--muted);justify-self:end}
 
-@media screen and (max-width:600px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media screen and (max-width:600px){
   .share-backdrop{padding:0 !important;place-items:stretch !important;background:var(--surface) !important}
   .share-sheet{
     width:100% !important;max-width:none !important;min-height:100dvh;max-height:100dvh !important;
