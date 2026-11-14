@@ -196,6 +196,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
     "GET /api/schedules/meeting-participants": "أرقام المنتدبين والهيئة التدريسية المستبعدين من «متى نلتقي» — أرقامٌ فقط بلا مقرّرٍ ولا قاعة",
     "POST /api/schedules/meeting-slots": "نوافذ فراغٍ لأساتذةٍ يختارهم القارئ — بلا مقرّرٍ ولا قاعة",
     "GET /api/roles": "تعريفات الصفات — لا بيانات",
+    "GET /api/section-roster/ranks": "الدرجات العلمية المعرَّفة (اسمٌ وحدّا نصاب) لنموذج «أستاذ جديد» — إعدادٌ جامعي واحد بلا بيانات أشخاص ولا أقسام، بإذن ٧",
     "POST /api/schedules/pulse": "لسانٌ يُعلن رحيله عن النبضة: يحذف مدخلاً في الذاكرة يملكه الحساب نفسه — بلا بيانات (السؤالُ نفسه GET خلف isScopeAllowed)",
   };
   const routeHead = /\napp\.(get|post|put|delete|patch)\("([^"]+)"/g;

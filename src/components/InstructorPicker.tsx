@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CircleDot, Plus, Search, UserRound, UserRoundX, X } from "lucide-react";
 import { byArabic, sortByName } from "../utils/sorting";
-import { validateCivilId } from "../utils/civilId";
-import { numericText } from "../utils/digits";
 import { instructorCleanName } from "../utils/instructorIdentity";
 import { isFacultyPlaceholder, singleFacultyPlaceholder } from "../utils/placeholderInstructor";
 import PersonChips from "./PersonChips";
+import NewInstructorForm from "./NewInstructorForm";
 import { useTrainees } from "../utils/trainees";
 import { isTrainingAssistant } from "../utils/taConversion";
 
@@ -78,10 +77,6 @@ export default function InstructorPicker({ value, onChange, instructors, departm
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newCivil, setNewCivil] = useState("");
-  const [newMobile, setNewMobile] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
@@ -232,44 +227,6 @@ export default function InstructorPicker({ value, onChange, instructors, departm
     return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", escape); };
   }, [open]);
 
-  const create = async () => {
-    setError(null);
-    const name = newName.trim();
-    const civil = newCivil.trim();
-    if (!name || !civil) { setError("الاسم والرقم المدني مطلوبان."); return; }
-    const check = validateCivilId(civil);
-    if (!check.isValid) { setError(check.message || "الرقم المدني غير صحيح."); return; }
-    /* برقم مدني مسجّل مسبقاً: داخل نطاق قسمٍ يضمّه الخادم إلى القسم ويعيده
-       كاختيار، فلا يُسدّ الطريق هنا. وبلا نطاق يبقى الفحص المحلي أسرع من طلبٍ
-       سيُرفض بنفس الرسالة. */
-    const already = [...knownInstructors, ...wider].find(x => String(x.AdInstructorCivil || "").trim() === civil);
-    if (already && !(collegeId && sectionId)) {
-      setError(`هذا الرقم المدني مسجّل بالفعل باسم «${already.AdInstructorName}» — ابحث عنه بالرقم المدني واختره.`);
-      return;
-    }
-    setBusy(true);
-    try {
-      const response = await fetch("/api/instructors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        /* النطاق يرافق الإضافة كي تُسجَّل العضوية في دليل القسم لا سجلاً
-           جامعياً عائماً: هذا ما يجعل «موجود عندنا» حقيقة تعرفها المطابقة. */
-        body: JSON.stringify({ AdInstructorCivil: civil, AdInstructorName: name, AdInstructorMobile: newMobile.trim(), collegeId, sectionId })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "تعذر إضافة الأستاذ");
-      onCreated?.(data);
-      onChange(Number(data.AdInstructorId));
-      setAdding(false);
-      setOpen(false);
-      setNewName(""); setNewCivil(""); setNewMobile(""); setQuery("");
-    } catch (e: any) {
-      setError(e.message || "تعذر إضافة الأستاذ");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className={`instructor-picker visual-minimal ${open ? "open" : ""}`} ref={boxRef}>
       <button
@@ -354,17 +311,20 @@ export default function InstructorPicker({ value, onChange, instructors, departm
           </div>
 
           {!canCreate ? null : adding ? (
-            <div className="instructor-new">
-              <strong>أستاذ جديد</strong>
-              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="الاسم الكامل" aria-label="اسم الأستاذ" />
-              <input value={newCivil} onChange={e => setNewCivil(numericText(e.target.value).slice(0, 12))} inputMode="numeric" placeholder="12 رقمًا" aria-label="الرقم المدني" />
-              <input value={newMobile} onChange={e => setNewMobile(numericText(e.target.value).slice(0, 8))} inputMode="numeric" placeholder="الهاتف (اختياري)" aria-label="الهاتف" dir="ltr" />
-              {error ? <em>{error}</em> : null}
-              <div>
-                <button type="button" className="btn btn-primary" onClick={create} disabled={busy}>{busy ? "يحفظ…" : "أضف واختر"}</button>
-                <button type="button" className="btn btn-ghost" onClick={() => { setAdding(false); setError(null); }}>إلغاء</button>
-              </div>
-            </div>
+            <NewInstructorForm collegeId={collegeId} sectionId={sectionId} initialName={newName} submitLabel="أضف واختر"
+              precheck={civil => {
+                /* برقم مدني مسجّل مسبقاً: داخل نطاق قسمٍ يضمّه الخادم إلى القسم ويعيده كاختيار، فلا يُسدّ الطريق هنا.
+                   وبلا نطاق يبقى الفحص المحلي أسرع من طلبٍ سيُرفض بنفس الرسالة. */
+                const already = [...knownInstructors, ...wider].find(x => String(x.AdInstructorCivil || "").trim() === civil);
+                return already && !(collegeId && sectionId) ? `هذا الرقم المدني مسجّل بالفعل باسم «${already.AdInstructorName}» — ابحث عنه بالرقم المدني واختره.` : null;
+              }}
+              onCancel={() => setAdding(false)}
+              onCreated={data => {
+                onCreated?.(data as any);
+                onChange(Number(data.AdInstructorId));
+                setAdding(false); setOpen(false);
+                setNewName(""); setQuery("");
+              }} />
           ) : (
             <button
               type="button"
