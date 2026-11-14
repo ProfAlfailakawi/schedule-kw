@@ -19,7 +19,7 @@ export const ACCOUNT_DELETION_DAYS = 30;
 const DAY_MS = 86_400_000;
 
 export const ACCOUNT_DELETION_NOTICE =
-  `سجّلنا طلب حذف حسابك. يراجع مدير النظام الطلب وينفّذه خلال ${ACCOUNT_DELETION_DAYS} يوماً من تاريخه، وقد نحتفظ بما تقتضيه سجلات الجامعة وسجلات التدقيق. خرجتَ من الحساب على هذا الجهاز.`;
+  "سجّلنا طلب حذف حسابك. يراجع مدير النظام الطلب وينفّذه خلال 30 يوماً من تاريخه، وقد نحتفظ بما تقتضيه سجلات الجامعة وسجلات التدقيق. خرجتَ من الحساب على هذا الجهاز.";
 
 export type DeletionStatus = "pending" | "done";
 export interface DeletionRequest {
