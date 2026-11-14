@@ -310,3 +310,4 @@ test:delete-impact
 test:inbox-undo
 test:report-insight
 test:names-one-label
+test:whatif-in-changes

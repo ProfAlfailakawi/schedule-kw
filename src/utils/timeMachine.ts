@@ -800,7 +800,9 @@ export type TmProblem =
   | { kind: "demandUp"; courseId: number }
   | { kind: "clearDay"; day: DayKey }
   | { kind: "reduceGaps" }
-  | { kind: "freeRooms"; count: number };
+  | { kind: "freeRooms"; count: number }
+  /* «جرّب بديلاً» لموعدٍ بعينه (من «تغييرات الجدول»): ما الأماكن والأوقات التي يصلح أن ينتقل إليها هذا الموعد وحده. */
+  | { kind: "moveRow"; rowId: number };
 
 const norm = (value: string) => toEnglishDigits(String(value || "")).replace(/[ً-ْـ]/g, "").replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").toLowerCase();
 const ARABIC_NUMBERS: Array<[RegExp, number]> = [[/قاعتين|قاعتان|اثنتين|اثنين|2/, 2], [/ثلاث|3/, 3], [/اربع|4/, 4], [/خمس|5/, 5]];
@@ -813,6 +815,10 @@ export function describeProblem(problem: TmProblem, context: TmContext): string 
   if (problem.kind === "demandUp") { const c = courses.get(problem.courseId); return `طلبٌ زائد على ${c ? tmCourseNumber(c, context) : ""} ${c?.CourseName || ""}`.trim(); }
   if (problem.kind === "clearDay") return `تفريغ ${dayLabel(problem.day)}`;
   if (problem.kind === "reduceGaps") return "تقليل فجوات الأساتذة";
+  if (problem.kind === "moveRow") {
+    const row = context.rows.find(item => Number(item.id) === problem.rowId);
+    return row ? `بديلٌ لموعد ${row.AdCourseName || "المقرر"} ش${row.SCode}` : "بديلٌ للموعد";
+  }
   return `توفير ${countOf(problem.count, AR.room)}`;
 }
 
@@ -943,6 +949,10 @@ function satisfies(problem: TmProblem, before: FSchedule[], after: FSchedule[], 
   if (problem.kind === "demandUp") return scopeAfter.filter(row => Number(row.AdCourseId) === problem.courseId).map(sectionKey).filter((v, i, a) => a.indexOf(v) === i).length
     > before.filter(inScope).filter(row => Number(row.AdCourseId) === problem.courseId).map(sectionKey).filter((v, i, a) => a.indexOf(v) === i).length;
   if (problem.kind === "clearDay") return !scopeAfter.some(row => row[problem.day]);
+  if (problem.kind === "moveRow") {
+    const placed = (row: FSchedule | undefined) => row ? `${activeDays(row).join()}|${row.fstarttime}|${row.fendtime}|${roomIdentityKey(row)}` : "";
+    return placed(after.find(row => Number(row.id) === problem.rowId)) !== placed(before.find(row => Number(row.id) === problem.rowId));
+  }
   if (problem.kind === "freeRooms") {
     const used = (rows: FSchedule[]) => new Set(rows.filter(inScope).map(roomIdentityKey).filter(Boolean)).size;
     return used(after) <= used(before) - problem.count;
@@ -1114,6 +1124,39 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
         best.studentsServed !== null ? `≈${countOf(best.studentsServed, AR.student)}` : "",
         people.get(best.instructorId)?.AdInstructorName || "",
       ].filter(Boolean) });
+    }
+  }
+
+  if (problem.kind === "moveRow") {
+    const row = base.find(item => Number(item.id) === problem.rowId);
+    if (row) {
+      const ownKey = roomIdentityKey(row);
+      const samePlace = (days: DayKey[], start: string, hall: TmHall) =>
+        days.join() === activeDays(row).join() && start === row.fstarttime && hallKey(hall) === ownKey;
+      /* الطلبة أولاً: الوقتُ والأيامُ كما هما، وقاعةٌ أخرى حرّة. */
+      {
+        const index = new BusyIndex(base, placeholders);
+        const hall = freeHallFor(row, index, context, new Set([ownKey]), "fit");
+        if (hall) drafts.push({
+          philosophy: "students",
+          changes: [{ id: changeId(), op: "move", rowId: Number(row.id), hall, label: `${rowLabel(row)} ← ${hallLabel(hall)}`, why: "الوقت نفسه، قاعة أخرى" }],
+          why: ["الوقت لا يتغيّر للطلبة", hallLabel(hall)],
+        });
+      }
+      /* أقلّ تغيير، ثم راحة الأستاذ: موعدٌ آخر من الأنماط المسموحة، لا يصطدم بأحد. */
+      for (const philosophy of ["minimal", "teachers"] as const) {
+        const index = new BusyIndex(base, placeholders);
+        const spot = relocateRow(row, index, context, {
+          avoidDay: philosophy === "teachers" ? activeDays(row)[0] || null : null, preferTeacherDays: philosophy === "teachers", board: base,
+        });
+        if (!spot || samePlace(spot.days, spot.start, spot.hall)) continue;
+        drafts.push({
+          philosophy,
+          changes: [{ id: changeId(), op: "move", rowId: Number(row.id), days: spot.days, start: spot.start, end: spot.end, hall: spot.hall,
+            label: `${rowLabel(row)} ← ${spot.days.map(dayLabel).join(" ")} ${spot.start} · ${hallLabel(spot.hall)}`, why: philosophy === "minimal" ? "أقرب موعدٍ مسموح" : "في أيامٍ يدرّس فيها الأستاذ" }],
+          why: [philosophy === "minimal" ? "أقلّ تغيير" : "أيام الأستاذ كما هي", `${spot.days.map(dayLabel).join(" ")} ${spot.start}`],
+        });
+      }
     }
   }
 

@@ -220,7 +220,7 @@ export function courseRemovalVerdict(context: TmContext, courseId: number): Remo
   }
   const remainingKnown = context.registration?.remaining ? String(courseId) in context.registration.remaining : false;
   const remaining = Number(context.registration?.remaining?.[String(courseId)] || 0);
-  if (remaining > 0) push("stop", `${countOf(remaining, AR.student)} يحتاجونه بعد (تقرير التسجيل) — قد يتأخر تخرّجهم`);
+  if (remaining > 0) push("stop", `${countOf(remaining, AR.student)} لم يجتازوه بعد (تقرير التسجيل) — قد يتأخر تخرّجهم`);
   /* غيابُ الدليل ليس صفراً: بلا رادارٍ ولا كشفِ متبقٍّ لهذا المقرر لا يُقال «آمن». */
   if (!actual && !demand && !remainingKnown) push("care", "لا بيانات طلبة له (لا رادار ولا كشف متبقٍّ) — أثره على الطلبة غير معروف");
   /* الصحيفة: النوع والمستوى وما يفتحه. */

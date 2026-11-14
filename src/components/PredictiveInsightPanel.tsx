@@ -170,7 +170,7 @@ export default function PredictiveInsightPanel({ canSchedule, onNavigate, onChan
               {row.delta !== 0 ? <em data-sign={row.delta > 0 ? "plus" : "minus"}><bdi dir="ltr">{row.delta > 0 ? "+" : "−"}{nf(Math.abs(row.delta))}</bdi></em> : null}
               {/* نقصٌ متوقَّع ← حلولٌ جاهزة في آلة الزمن، على نسخةٍ افتراضية. */}
               {row.delta > 0 && canSchedule && row.code ? (
-                <button type="button" className="tm-link-btn" title="جرّب الحلول في آلة الزمن" aria-label={`جرّب ${row.name} في آلة الزمن`}
+                <button type="button" className="tm-link-btn" title="جرّب الحلول في «ماذا لو»" aria-label={`جرّب ${row.name} في «ماذا لو»`}
                   data-guide-ignore="يفتح آلة الزمن على نسخة افتراضية؛ لا يكتب في الجدول" onClick={() => openInTimeMachine(demandAsk(row.code))}>
                   <Hourglass aria-hidden="true" />
                 </button>
