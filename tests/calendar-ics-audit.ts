@@ -230,15 +230,20 @@ ok(masari.includes('location.href="/api/public/me/reminder?kind="+kind') && !/ad
 ok(door.includes('app.get("/api/public/me/cal/:file"') && door.includes("await sendCalendar(req, res, CALENDAR_NAME, termId, lectures)"), "مساري: subscription served through the same sender as the teacher feed (ETag, 304, headers)");
 const send = server.slice(server.indexOf("async function sendCalendar"), server.indexOf('app.get("/api/public/ics/:token", '));
 ok(send.includes('"text/calendar; charset=utf-8"') && send.includes("inline;") && send.includes("ETag"), "calendar headers: text/calendar utf-8, inline, ETag");
-// Owner decision 2026-10-29: the stable feed pauses (200, empty, same name) when no live card is left.
-const stable = server.slice(server.indexOf("── الاشتراكُ الثابت (M3)"), server.indexOf("/** رابطُ الاشتراك الثابت لأستاذ، نسبياً للموقع. */"));
-ok(stable.includes("await sendInstructorCalendar(req, res, person, { pauseWithoutLiveCard: true });")
-  && stable.includes("liveCardLinkFor(await Repository.getShareLinksByInstructor(instructorId), instructorId, { termOf })")
-  && stable.includes("staffFamilyShareLinks(Number(row.AdCollegeId), Number(row.AdSectionId), Number(row.AdTermId))"),
-  "stable feed asks for a live card: own links, then the department cards where the teacher teaches");
-ok(stable.includes("الإيقافُ النهائي") && !stable.includes("لا يُشترط أن يكون الرابطُ حياً"), "the M3 comment states the new rule, not the old promise");
+// Owner decisions: 2026-10-29 the stable feed pauses (200, empty, same name) when no live card is left;
+// 2026-11-14 (review) it is also bound to the card link in its path, so revoking/renewing that link ends it.
+const stable = server.slice(server.indexOf("── اشتراكُ الأستاذ (M3)"), server.indexOf("/** رابطُ اشتراك أستاذ، نسبياً للموقع"));
+ok(stable.includes("await sendInstructorCalendar(req, res, person, { liveCardToken: token });")
+  && stable.includes("instructorFromCalendarKey(await calendarSecret(), String(req.params.key || \"\"), token)"),
+  "stable feed: the key is verified against the path token, and the sender is told which token it serves");
+const holds = server.slice(server.indexOf("async function holdsLiveCardLink"), server.indexOf("/** جدول الأستاذ في الفصل الجاري"));
+ok(holds.includes("const link = token ? await Repository.getShareLink(token) : undefined;")
+  && holds.includes("liveCardLinkFor([link], instructorId, { termOf, teachesIn: () => teaches })")
+  && holds.includes("staffFamilyShareLinks(Number(row.AdCollegeId), Number(row.AdSectionId), Number(row.AdTermId))"),
+  "stable feed asks whether the PATH token is a live card of this teacher (own link, request link, or a department card where they teach)");
+ok(stable.includes("رمزُ زميل") && stable.includes("404"), "the M3 comment states the new rule: a colleague's token is refused");
 const personFeed = server.slice(server.indexOf("async function sendInstructorCalendar"), server.indexOf("const STAFF_NOTES_PER_DAY"));
-ok(personFeed.includes("if (options.pauseWithoutLiveCard && !(await holdsLiveCardLink(Number(person.AdInstructorId), rows, terms))) {")
+ok(personFeed.includes("if (options.liveCardToken !== undefined && !(await holdsLiveCardLink(options.liveCardToken, Number(person.AdInstructorId), rows, terms))) {")
   && personFeed.includes("await sendCalendar(req, res, calendarName, liveTermId, [], [], CALENDAR_FEED_PAUSED_NOTE);")
   && personFeed.includes("await sendCalendar(req, res, calendarName, liveTermId, rows.map("),
   "paused and live answers share one name and one sender (ETag, headers)");

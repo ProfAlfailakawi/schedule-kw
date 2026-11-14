@@ -152,7 +152,7 @@ ok(shortCourseCode("0109210") === "210" && shortCourseCode("ART 5") === "ART 5",
   const server = readServerSource();
   ok(server.includes("withReach(offeringView(doc, option.id,") && server.includes("view.state === \"offered\" && view.selectable"), "الكرت: حالة الطرح ثم «لم نصل بعد» من المصدر الواحد");
   ok(server.includes("await lockUnreached((await availableInstructorOfferings(request)).filter(option => (!taAllowed || taAllowed.has(Number(option.courseId))) && !offeringBlocked(termStates"), "كرت المدرّب والشعب الشاغرة: الشعبة المقفلة رمادية");
-  ok(server.includes("if (!prior && reachLocked(await reachOf(") && server.includes("if ([...views.values()].some(view => !view.selectable))"), "الخادم يرفض اختيار المقفل ولو أُرسل من خارج الواجهة");
+  ok(server.includes("if (!prior && reachLocked(await reachOf(") && server.includes("closedAt >= 0 || [...views.values()].some(view => !view.selectable)"), "الخادم يرفض اختيار المقفل ولو أُرسل من خارج الواجهة");
   const page = fs.readFileSync("src/server/pages/instructorRequestPage.ts", "utf8");
   ok(page.includes("(o.locked?' data-locked=\"1\" aria-disabled=\"true\"':'')") && page.includes("if(!o||o.locked||"), "صفحة الكرت: الشعبة المقفلة لا تُختار");
 }

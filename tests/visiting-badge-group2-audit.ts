@@ -32,7 +32,7 @@ check(/isVisitingRow \? isVisitingRow\(row\) : visitingIds\.has/.test(authority)
 
 const inbox = read("src/components/InstructorInbox.tsx");
 check(/useVisitingLookup\(row\.AdTermId\)/.test(inbox) && /<strong className="schedule-instructor-with-badge">\{row\.instructorName\}<PersonChips visiting=\{isVisiting\(row\.AdInstructorId, row\.AdCollegeId, row\.AdSectionId\)\} trainee=\{isTaRequest\(row\)\} \/>/.test(inbox), "ترويسة بطاقة الطلب");
-check((inbox.match(/\{row\.instructorName\}<PersonChips visiting=\{rowVisiting\(row\)\} trainee=\{isTaRequest\(row\)\} \/>/g) || []).length === 4, "رابطا التذكير لمن لم يفتحوا، و«لم يشاركوا» و«ثبّتوا كما هو»");
+check((inbox.match(/\{row\.instructorName\}<PersonChips visiting=\{rowVisiting\(row\)\} trainee=\{isTaRequest\(row\)\} \/>/g) || []).length === 2, "اسمُ الأستاذ بشارته في «لم يشاركوا» و«ثبّتوا كما هو» (سطرُ «لم يفتحوا» صار شريطَ نبض الكروت وتذكيرُه بورقة)");
 check(/withPersonSuffix\(row\.instructorName, rowVisiting\(row\), isTaRequest\(row\)\)\)\.join/.test(inbox), "قائمة «كما هو»");
 check(/label: withPersonSuffix\(row\.instructorName, rowVisiting\(row\), own\.some\(isTaRequest\)\)/.test(inbox), "خيارات مرشّح الأستاذ");
 /* r4: المنتقي يبني من proposalLauncherChoices (الشخص مرّةً واحدة)، وشارةُ المنتدب تبقى على كل خيار. */

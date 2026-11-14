@@ -7,6 +7,7 @@ import { officialCollegeSitePrefix, officialSiteLabel } from "../utils/locationC
 import { byArabic, sortByName } from "../utils/sorting";
 import { AR, countOf } from "../utils/arabicCount";
 import LocationRoomTypeManager from "./LocationRoomTypeManager";
+import LocationCapacityGaps from "./LocationCapacityGaps";
 import { visibleRoomTypes, type RoomTypeScopes } from "../utils/roomTypeForSection";
 import { RoomDoorBuildingActions, RoomDoorQr, useRoomDoorLinks } from "./RoomDoorTools";
 
@@ -47,8 +48,9 @@ export default function LocationQuickSetup({ header, demoReadOnly = false, demoS
   const [editingRoom, setEditingRoom] = useState<MasterRoom | null>(null);
   const [roomDraft, setRoomDraft] = useState<{ canonicalCode: string; sectionIds: number[]; capacity: string; roomType: string; sectionRoomTypes?: Record<string, string>; bookingPolicy: NonNullable<MasterRoom["bookingPolicy"]>; active: boolean }>({ canonicalCode: "", sectionIds: [], capacity: "", roomType: "", bookingPolicy: "normal", active: true });
 
-  const load = async () => {
-    setLoading(true); setError("");
+  const load = async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    setError("");
     try { const [setup,types]=await Promise.all([request("/api/admin/location-setup"),request("/api/location-room-types")]);setData(setup as SetupData);if(Array.isArray(types.types))setRoomTypes(types.types.map((value:unknown)=>String(value))); }
     catch (e: any) { setError(e?.message || "تعذر تحميل سجل المواقع"); }
     finally { setLoading(false); }
@@ -173,6 +175,7 @@ export default function LocationQuickSetup({ header, demoReadOnly = false, demoS
     <PageTitle eyebrow="إدارة النظام · للمدير الرئيسي فقط" subtitle="إضافة المباني وقاعات الأقسام المشتركة، مع بقاء السجل الإداري الكامل كما هو.">إضافة المباني والقاعات</PageTitle>
     {demoReadOnly ? <Notice type="info">العرض التجريبي: الحفظ متوقف.</Notice> : demoSandbox ? <Notice type="info" inline>العرض التجريبي: ما تضيفه هنا يبقى في جلستك فقط ولا يصل إلى بيانات الجامعة.</Notice> : null}
     {error ? <Notice>{error}</Notice> : null}{notice ? <div className="location-quick-notice" role="status">{notice}</div> : null}
+    <LocationCapacityGaps buildings={data.buildings} sections={data.sections} demoReadOnly={demoReadOnly} onSaved={() => void load(true)} />
     <LocationRoomTypeManager demoReadOnly={demoReadOnly} onTypesChange={setRoomTypes} sections={data.sections} onScopesChange={setRoomTypeScopes} />
     <Surface className="location-quick-filters">
       <Field label="الحرم / الموقع"><select value={collegeId || ""} onChange={event => { setCollegeId(Number(event.target.value)); setSectionId(0); setBuildingId(""); }}><option value="">كل المواقع</option>{colleges.map(item => <option key={item.AdCollegeId} value={item.AdCollegeId}>{officialSiteLabel(officialCollegeSitePrefix(item.AdCollegeName), item.AdCollegeName)}</option>)}</select></Field>

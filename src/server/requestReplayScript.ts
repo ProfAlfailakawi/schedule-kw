@@ -8,6 +8,7 @@
  *
  * وما فيها مقصودٌ كما هو:
  *   - ما رُفض في ذلك الفصل لا يُعاد: رُفض مرّةً لسببٍ لا نعرفه، وإعادتُه بصمتٍ تُكرّر الرفض.
+ *   - مقرّرٌ غير مطروح هذا الفصل (يحمل `offering` في قائمة المقرّرات) لا يدخل المسودة: يُقال «غير مطروح هذا الفصل».
  *   - لا تخمّن شعبةً: مقرّرٌ له شعبتان هذا الفصل ولا شعبةَ بالرقم نفسه يُقال للأستاذ أن يختار.
  *   - ما عدّله الأستاذ في مسودته الآن، أو قرّر فيه القسمُ هذا الفصل، لا يُمسّ.
  *   - ما صار موعدَه الحاليَّ نفسَه لا يُعاد (قد يكون ثُبّت وطُبّق).
@@ -26,6 +27,7 @@ function planReplay(prev,state,courses,dayKeys,sameAsOriginal){
   if(p.action==="add"){
    var c=(courses||[]).filter(function(c){return Number(c.id)===p.courseId&&Number(c.collegeId)===p.collegeId&&Number(c.sectionId)===p.sectionId})[0];
    if(!c){skip(p,"لم يعد متاحاً للإضافة");return}
+   if(c.offering){skip(p,"غير مطروح هذا الفصل");return}
    if(!okDays||!okStart){skip(p,"أيامه أو وقته لم تعد صالحة");return}
    if(state.some(function(it){return it.action==="add"&&it.courseId===p.courseId&&String(it.days)===String(p.days)&&it.start===p.start})){skip(p,"مضاف في مسودتك");return}
    ops.push({kind:"add",course:c,days:p.days.slice(),start:p.start,collegeId:p.collegeId,sectionId:p.sectionId,courseId:p.courseId});return}

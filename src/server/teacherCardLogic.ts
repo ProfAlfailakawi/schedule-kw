@@ -11,6 +11,9 @@
  *   المخالفات   تُجمع لكل مقرّر صفّاً واحداً بأيقونةٍ وعبارةٍ قصيرة.
  *   المكان      لا رمزَ قاعةٍ ولا مبنى في أيّ نصٍّ يصل الأستاذ، ولو أرسله الخادمُ سهواً.
  *
+ *   الأسبوع     «محاضرتك القادمة» و«أسبوعي الصحي» من جدوله الرسمي؛ وفاصلُ التنقّل بين الحرمين بقاعدة shortTravelGap الواحدة
+ *               (src/utils/campusTravelHint.ts، تُحقن في الصفحة قبل هذا النص) ودقائقُ سياسة التنقّل لا مخترَعة.
+ *
  * ولا تُكتب هنا علامةُ الاقتباس المائلة ولا علامةُ الدولار مع القوس: النصُّ يُحقن في قالبٍ نصّي.
  */
 export const TEACHER_CARD_LOGIC_JS = String.raw`
@@ -87,6 +90,24 @@ function tcDeptSig(r){r=r||{};return JSON.stringify([r.status||"",r.submittedAt|
 function tcDeptChangedKeys(a,b){var before={},out=[];((a&&a.items)||[]).forEach(function(it){before[tcItemKey(it)]=tcDeptItemSig(it)});
  ((b&&b.items)||[]).forEach(function(it){var k=tcItemKey(it);if(k&&before[k]!==undefined&&before[k]!==tcDeptItemSig(it))out.push(k)});return out}
 
+/* ── مقرّرٌ يُضاف: لا يدخل المسودةَ ما لا يُطرح هذا الفصل ──
+   قائمةُ المقرّرات من الخادم تحمل offering لما لا يُختار (غير مطروح، لم نصل بعد…). مسودةٌ مستعادة أو «أعد الطلب نفسه»
+   كانت تُدخله، فيقول الفحصُ «الوقت متاح» ويرفضه الإرسالُ بلا بند. فيُترك ويُقال في سطرٍ واحد لماذا. */
+function tcCourseFor(courses,d){return (courses||[]).filter(function(c){return Number(c.id)===Number(d.courseId)&&Number(c.collegeId)===Number(d.collegeId)&&Number(c.sectionId)===Number(d.sectionId)})[0]||null}
+function tcCourseClosed(courses,d){var c=tcCourseFor(courses,d);return !!(c&&c.offering)}
+function tcCourseOpen(courses,d){var c=tcCourseFor(courses,d);return !!(c&&!c.offering)}
+function tcClosedLine(names){var list=(names||[]).filter(Boolean);return list.length?"لم نستعد «"+list.join("، ")+"» — غير مطروح هذا الفصل.":""}
+
+/* ── سطرُ «للاطلاع» تحت الموعد: لكل حالةٍ عبارتُها ──
+   كان «انتهت مدّة الطلبات — هذا الموعد للاطلاع» يُكتب تحت كل صفّ في مرحلة التدريب والعرضِ والطلبِ المكتمل ولو كانت
+   المهلةُ مفتوحة. العرضُ: «رابط للعرض فقط». التدريب: عبارتُه. المكتمل قبل الموعد: «اكتمل طلبك». وانقضاءُ المهلة وحده يقول الانتهاء. */
+function tcRowReadOnly(d,now){d=d||{};var r=d.request||{},closes=Date.parse((r.window&&r.window.closesAt)||"");
+ if(d.mode==="view")return "رابط للعرض فقط";
+ if(d.mode==="ta")return "للاطلاع — اختر من الشعب المتاحة أدناه";
+ if(isFinite(closes)&&closes<=now)return "انتهت مدّة الطلبات — هذا الموعد للاطلاع.";
+ if(r.status==="settled")return "اكتمل طلبك";
+ return "هذا الموعد للاطلاع فقط"}
+
 /* ── مخالفاتُ اللائحة: صفٌّ واحدٌ لكل مقرّر، بأيقونةٍ وعبارةٍ قصيرة، والتفصيلُ عند الضغط ── */
 function tcPinGroups(blocks){var groups=[],by={};
  (blocks||[]).forEach(function(p){var name=String(p.course||"").trim()||String(p.text||"").split(":")[0].trim()||"موعد";
@@ -96,6 +117,69 @@ function tcPinGroups(blocks){var groups=[],by={};
   var line=tcNoPlace(String(p.text||"").replace(new RegExp("^"+name.replace(/[.*+?^()|[\]\\{}]/g,"\\$&")+"\\s*:\\s*"),""));
   if(line&&g.texts.indexOf(line)<0)g.texts.push(line)});
  return groups}
+
+/* ── «محاضرتك القادمة» و«أسبوعي الصحي»: من جدول الأستاذ الرسمي وحده (data.week) ──
+   week = { meetings:[{id,day:"fsunday",start,end,course,section,campus}], travel:{"jahra|main":30}, term:{start,end,closed} }.
+   لا قاعةَ ولا مبنى في أيٍّ منها. الأسبوعُ يبدأ بالأحد، وليس للجمعة والسبت مفتاحٌ فلا محاضرةَ فيهما (كتقويم التطبيق)،
+   واليومُ والساعةُ بتوقيت الكويت لا بساعة الجهاز. */
+var TC_DAY_KEYS=["fsunday","fmonday","ftuesday","fwednesday","fthursday"];
+var TC_DAY_NAMES=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس"];
+var TC_DAY_SHORT=["ح","ن","ث","ر","خ"];
+var TC_CAMPUS_NAMES={main:"الرئيسي",jahra:"الجهراء",fahaheel:"الفحيحيل"};
+/* موعدان متتاليان في اليوم نفسه بينهما أقلُّ من هذا (دقيقة) يُعدّان «متتاليين» للتنقّل بين الحرمين. */
+var TC_BACK_TO_BACK=90;
+/* فراغٌ بين محاضرتين يُقال له «طويل»، وتتابعٌ بلا فراغٍ يُقال له «مضغوط». */
+var TC_LONG_GAP=180,TC_PACKED_RUN=240,TC_NO_GAP=15;
+function tcClock(t){var p=String(t||"").split(":");return (Number(p[0])||0)*60+(Number(p[1])||0)}
+function tcYmd(ms){var k=new Date(ms+TC_KW_MS);return k.getUTCFullYear()+"-"+tcPad(k.getUTCMonth()+1)+"-"+tcPad(k.getUTCDate())}
+function tcAfter(n,noun){var o={};for(var k in noun)o[k]=noun[k];o.two=String(noun.two).replace(/ان$/,"ين");return countOf(n,o)}
+/* مدّةٌ بكلمات: «40 دقيقة»، «ساعة واحدة و10 دقائق»، «ساعتان». after = بعد حرف جرّ («بعد ساعتين»). */
+function tcDur(min,after){min=Math.max(1,Math.round(min));var h=Math.floor(min/60),m=min%60,say=after?tcAfter:countOf;
+ if(!h)return say(m,AR.minute);return say(h,AR.hour)+(m?" و"+say(m,AR.minute):"")}
+function tcMeetingsOf(week){return ((week&&week.meetings)||[]).filter(function(m){return m&&TC_DAY_KEYS.indexOf(m.day)>=0&&/^\d{1,2}:\d{2}$/.test(m.start||"")&&/^\d{1,2}:\d{2}$/.test(m.end||"")&&tcClock(m.end)>tcClock(m.start)})}
+function tcByStart(a,b){return tcClock(a.start)-tcClock(b.start)||tcClock(a.end)-tcClock(b.end)}
+/* الفصلُ جارٍ الآن؟ تاريخُ اليوم بالكويت داخل [start,end] ولم يُغلق. */
+function tcTermRunning(term,now){var t=term||{};
+ if(t.closed||!/^\d{4}-\d{2}-\d{2}$/.test(t.start||"")||!/^\d{4}-\d{2}-\d{2}$/.test(t.end||""))return false;
+ var today=tcYmd(now);return today>=t.start&&today<=t.end}
+/* أقربُ محاضرةٍ تبدأ بعد الآن في جدوله الرسمي (اليوم أو أقربِ يوم دوامٍ تالٍ ضمن الفصل)، وإلا null. */
+function tcNextLecture(week,now){var list=tcMeetingsOf(week);if(!list.length||!tcTermRunning(week.term,now))return null;
+ var k=new Date(now+TC_KW_MS),dow=k.getUTCDay(),midnight=Math.floor((now+TC_KW_MS)/864e5)*864e5-TC_KW_MS,best=null;
+ for(var off=0;off<=8&&!best;off++){var date=tcYmd(now+off*864e5);if(date>week.term.end)return null;
+  var key=TC_DAY_KEYS[(dow+off)%7];if(!key)continue;
+  list.filter(function(m){return m.day===key}).sort(tcByStart).forEach(function(m){var at=midnight+(off*1440+tcClock(m.start))*6e4;
+   if(at>now&&(!best||at<best.at))best={m:m,at:at,off:off,day:(dow+off)%7,date:date}})}
+ if(!best)return null;
+ var min=Math.max(1,Math.ceil((best.at-now)/6e4)),m=best.m,start=tcPad(Math.floor(tcClock(m.start)/60))+":"+tcPad(tcClock(m.start)%60);
+ var text=best.off===0?"بعد "+tcDur(min,true):best.off===1?"غداً "+start:TC_DAY_NAMES[best.day]+" "+start;
+ return{rowId:m.id,course:String(m.course||"").trim(),section:String(m.section||"").trim(),start:start,day:best.day,dayName:TC_DAY_NAMES[best.day],
+  off:best.off,date:best.date,minutes:min,soon:best.off===0&&min<=60,text:text,key:[m.id,best.date,start].join("|")}}
+/* سطرُ المحاضرة القادمة تحت العنوان: «التصميم · شعبة 02» (الشعبةُ إن وُجدت). */
+function tcNextSub(n){if(!n)return "";return [n.course,n.section?"شعبة "+n.section:""].filter(Boolean).join(" · ")}
+/* أسبوعُه الصحي: أيامُ الحضور، أطولُ فراغٍ في اليوم، أكثفُ يوم، التنقّلُ بين الحرمين، وجملةٌ واحدة إن برز شيء. null بلا جدولٍ رسمي. */
+function tcWeekHealth(week){var list=tcMeetingsOf(week);if(!list.length)return null;
+ var travel=(week&&week.travel)||{},days=[],gap=null,busiest=null,packed=null,hops=[];
+ TC_DAY_KEYS.forEach(function(key,d){var ms=list.filter(function(m){return m.day===key}).sort(tcByStart),minutes=0,runStart=0,runEnd=0;
+  var closeRun=function(){if(runEnd-runStart>=TC_PACKED_RUN&&(!packed||runEnd-runStart>packed.minutes))packed={minutes:runEnd-runStart,i:d,name:TC_DAY_NAMES[d]}};
+  ms.forEach(function(m,n){var s=tcClock(m.start),e=tcClock(m.end);minutes+=e-s;
+   if(n===0){runStart=s;runEnd=e;return}
+   var between=s-runEnd;
+   if(between>TC_NO_GAP){closeRun();if(!gap||between>gap.minutes)gap={minutes:between,i:d,name:TC_DAY_NAMES[d]};runStart=s;runEnd=e}
+   else runEnd=Math.max(runEnd,e);
+   var prev=ms[n-1],apart=s-tcClock(prev.end),ca=prev.campus||"main",cb=m.campus||"main";
+   if(ca!==cb&&apart>=0&&apart<=TC_BACK_TO_BACK){var need=Number(travel[[ca,cb].sort().join("|")])||0;
+    if(need>0)hops.push({i:d,name:TC_DAY_NAMES[d],from:ca,to:cb,fromLabel:TC_CAMPUS_NAMES[ca]||"",toLabel:TC_CAMPUS_NAMES[cb]||"",need:need,gap:apart,
+     tight:shortTravelGap(need,tcClock(prev.start),tcClock(prev.end),s,e)>=0})}});
+  if(ms.length)closeRun();
+  days.push({key:key,i:d,name:TC_DAY_NAMES[d],short:TC_DAY_SHORT[d],count:ms.length,minutes:minutes,attend:ms.length>0});
+  if(ms.length&&(!busiest||minutes>busiest.minutes||(minutes===busiest.minutes&&ms.length>busiest.count)))busiest={i:d,name:TC_DAY_NAMES[d],count:ms.length,minutes:minutes}});
+ var attend=days.filter(function(x){return x.attend}).length,tight=hops.filter(function(h){return h.tight})[0],s="",kind="";
+ if(packed){s="جدولك مضغوط يوم "+packed.name+": "+countOf(Math.max(4,Math.round(packed.minutes/60)),AR.hour)+" بلا فراغ";kind="packed"}
+ else if(tight){s="يوم "+tight.name+": تنقّلٌ بين "+tight.fromLabel+" و"+tight.toLabel+" والفاصلُ أقصر من اللازم";kind="travel"}
+ else if(gap&&gap.minutes>=TC_LONG_GAP){s="يوم "+gap.name+": فراغٌ طويل، "+tcDur(gap.minutes)+" بين محاضرتين";kind="gap"}
+ else if(attend>0&&attend<=3){s="أسبوعٌ خفيف: تحضر "+tcAfter(attend,AR.day)+" فقط";kind="light"}
+ return{days:days,attend:attend,of:TC_DAY_KEYS.length,gap:gap?{minutes:gap.minutes,i:gap.i,name:gap.name,dur:tcDur(gap.minutes),pct:Math.min(100,Math.round(gap.minutes/300*100)),long:gap.minutes>=TC_LONG_GAP}:null,
+  multi:days.some(function(x){return x.count>1}),busiest:busiest,busiestDur:busiest?tcDur(busiest.minutes):"",hops:hops.slice(0,3),sentence:s,kind:kind}}
 `;
 
 /**
@@ -179,4 +263,59 @@ export const TEACHER_CARD_R5_CSS = String.raw`
 .pf-dots i{inline-size:11px;block-size:11px;border-radius:50%;background:var(--accent)}
 .pf-dots i[data-s=need]{background:transparent;border:1.5px dashed var(--accent)}
 .pf-dots i[data-s=over]{background:#b57f10}
+
+/* ── محاضرتك القادمة ── */
+.tc-next{position:relative;display:flex;align-items:center;gap:12px;inline-size:100%;min-block-size:64px;margin:0 0 14px;padding:12px 14px;overflow:hidden;border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--ok2) 78%,#fff),#fff 72%);color:var(--ink);font:inherit;text-align:start;box-shadow:var(--shadow)}
+button.tc-next{cursor:pointer;min-block-size:64px}
+button.tc-next:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:2px}
+button.tc-next:active{transform:scale(.99)}
+.tc-nx-ic{flex:none;display:grid;place-items:center;inline-size:46px;block-size:46px;border-radius:15px;background:var(--accent);color:#fff}
+.tc-svg{inline-size:20px;block-size:20px;flex:none}
+.tc-nx-ic .tc-svg{inline-size:24px;block-size:24px}
+.tc-nx-b{flex:1 1 auto;min-inline-size:0;display:grid;gap:1px}
+.tc-nx-b small{font-size:12px;font-weight:700;color:var(--muted)}
+.tc-nx-t{font-size:20px;font-weight:800;line-height:1.35;color:var(--ink)}
+.tc-nx-s{font-size:13.5px;line-height:1.5;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tc-nx-time{flex:none;padding:5px 12px;border-radius:999px;background:var(--card);border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));font-size:15px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+.tc-nx-bar{position:absolute;inset-inline:0;inset-block-end:0;block-size:4px;background:var(--line)}
+.tc-nx-bar::after{content:"";position:absolute;inset-block:0;inset-inline-start:0;inline-size:var(--p);background:var(--accent);border-radius:0 4px 4px 0}
+.tc-next[data-soon="1"] .tc-nx-t{color:var(--accent)}
+.appt[data-flash="1"]{animation:tcFlash 1.4s ease-out}
+@keyframes tcFlash{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent)}60%{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 18%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
+@media(prefers-reduced-motion:reduce){.appt[data-flash="1"]{animation:none;outline:3px solid var(--accent)}}
+/* ── أسبوعي الصحي ── */
+.tc-week{margin:0 0 14px;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--card);box-shadow:0 5px 18px rgba(22,57,40,.04)}
+.tc-wk-h{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:15px;font-weight:800;color:var(--ink)}
+.tc-wk-h .tc-svg{color:var(--accent)}
+.tc-wk-grid{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:10px}
+.tc-wk-t{display:grid;align-content:start;gap:4px;min-inline-size:0;padding:10px 12px;border-radius:14px;background:var(--soft)}
+.tc-wk-t small{font-size:12px;font-weight:700;color:var(--muted)}
+.tc-wk-t b{font-size:16px;font-weight:800;line-height:1.35;color:var(--ink)}
+.tc-wk-t em,.tc-wk-sub{font-style:normal;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.tc-wk-att{grid-auto-flow:column;grid-auto-columns:auto 1fr;align-items:center;gap:12px}
+.tc-wk-ring{position:relative;display:grid;place-items:center;inline-size:58px;block-size:58px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p)*1%),var(--line) 0)}
+.tc-wk-ring::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--soft)}
+.tc-wk-ring b{position:relative;z-index:1;font-size:17px;direction:ltr;font-variant-numeric:tabular-nums}
+.tc-wk-ring b small{font-size:12px;font-weight:700;color:var(--muted)}
+.tc-wk-tx{display:grid;gap:6px;min-inline-size:0}
+.tc-wk-dots{display:flex;gap:4px}
+.tc-wk-dots i{display:grid;place-items:center;inline-size:22px;block-size:22px;border-radius:50%;border:1.5px solid var(--line2);background:#fff;font-style:normal;font-size:12px;font-weight:700;color:var(--muted)}
+.tc-wk-dots i[data-on="1"]{border-color:var(--accent);background:var(--accent);color:#fff}
+.tc-wk-bar{display:block;block-size:8px;border-radius:999px;background:var(--line);overflow:hidden}
+.tc-wk-bar i{display:block;block-size:100%;border-radius:999px;background:var(--accent)}
+.tc-wk-bar[data-long="1"] i{background:#b57f10}
+.tc-wk-hops{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.tc-wk-hops li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 12px;border-radius:12px;background:var(--soft);font-size:13px;color:var(--ink)}
+.tc-wk-hops .tc-svg{color:var(--accent)}
+.tc-hp-t{flex:1 1 150px;min-inline-size:0;font-weight:700}
+.tc-hp-n{font-size:12.5px;color:var(--muted);font-weight:700}
+.tc-wk-hops em{display:inline-flex;align-items:center;gap:4px;font-style:normal;font-size:12px;font-weight:700;color:#16523a}
+.tc-wk-hops em .tc-svg{inline-size:15px;block-size:15px;color:#16523a}
+.tc-wk-hops li[data-tight="1"]{background:var(--warn2)}
+.tc-wk-hops li[data-tight="1"] em,.tc-wk-hops li[data-tight="1"] em .tc-svg{color:#6f4b00}
+.tc-wk-say{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--ok2) 70%,#fff);color:#16523a;font-size:13.5px;font-weight:700;line-height:1.6}
+.tc-wk-say .tc-svg{color:var(--accent)}
+.tc-wk-say[data-k="packed"],.tc-wk-say[data-k="travel"]{background:var(--warn2);color:#6f4b00}
+.tc-wk-say[data-k="packed"] .tc-svg,.tc-wk-say[data-k="travel"] .tc-svg{color:#8a6100}
+@media(max-width:520px){.tc-wk-grid{grid-template-columns:1fr 1fr}.tc-wk-att{grid-column:1/-1}}
 `;

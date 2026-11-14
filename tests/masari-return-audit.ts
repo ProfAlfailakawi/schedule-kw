@@ -26,7 +26,7 @@ check(PEER_COURSE_MIN === 5, "الحدُّ الأدنى لعرض عددِ مقر
 check(counts[104] === 7 && counts[105] === undefined, "٧ طلبوا ١٠٤ فيظهر، وثلاثةٌ طلبوا ١٠٥ (ولو كرّروه) فيُحجب", counts);
 check(Object.keys(peerCourseCounts([{ courseIds: [1] }, { courseIds: [1] }])).length === 0, "اثنان لا يظهران");
 const routes = read("src/server/studentDoorRoutes.ts");
-check(/const byCourse = show \? stat\.byCourse : \{\}/.test(routes), "أعدادُ المقررات لا تُرسل إلا في القسم الكبير (عشرةُ ملفاتٍ فأكثر)");
+check(/res\.json\(show \? \{ ready: true, mine, n, of: Math\.max\(stat\.of, n\), show, byCourse: stat\.byCourse \} : \{ ready: true, mine, show, byCourse: \{\} \}\)/.test(routes), "أعدادُ المقررات (وn وof) لا تُرسل إلا في القسم الكبير (عشرةُ ملفاتٍ فأكثر)");
 
 /* ٢. السكربت: دوالُّ ماذا لو والتقويم */
 const fn = (name: string, next: string) => {

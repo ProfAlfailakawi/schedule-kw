@@ -296,10 +296,15 @@ check(/homePart\("request-context"/.test(studentHomeSource) && studentHomeSource
       const cat = (await http("GET", "/api/public/me/catalog")).json;
       const boys = (await http("GET", "/api/public/me/catalog?track=boys")).json;
       const girls = (await http("GET", "/api/public/me/catalog?track=girls")).json;
-      check(cat.specializations.length === 0 && cat.tracks.join() === "boys,girls", "D6 لا تظهر كل الكليات قبل اختيار المسار");
-      check(boys.specializations.length === 2 && boys.specializations.some((item: any) => item.name === "قسم التربية الإسلامية"), "D6 مسار البنين يعرض التخصصات فقط");
-      check(girls.specializations.length === 1 && girls.specializations[0].name === "قسم علم النفس" && girls.specializations[0].id === 21, "D6 تخصص واحد بلا تكرار بين المواقع، ومعرّف القسم الداخلي محفوظ");
-      check(!JSON.stringify(girls).includes("الجهراء") && !JSON.stringify(girls).includes("المقر الرئيسي"), "D6 الطالب لا يرى اسم المقر أو الموقع في قائمة التخصصات");
+      /* السلوك تغيّر عن قصد (قرار المالك): الكتالوج يتبع كلية الطالب، فتعود قائمةُ الكليات ثم أقسامُ الكلية المختارة بمعرّفاتها. */
+      check(cat.specializations.length === 0 && cat.colleges.length === 3 && cat.colleges.map((c: any) => c.id).join() === "1,2,3", "D6 قائمةُ الكليات كلُّها بلا أقسام قبل اختيار الكلية", cat);
+      check(boys.colleges.map((c: any) => c.id).join() === "1" && girls.colleges.map((c: any) => c.id).join() === "2,3", "D6 المساران يُضيّقان قائمةَ الكليات فقط");
+      const collegeOne = (await http("GET", "/api/public/me/catalog?collegeId=1")).json;
+      const collegeTwo = (await http("GET", "/api/public/me/catalog?collegeId=2")).json;
+      const collegeThree = (await http("GET", "/api/public/me/catalog?collegeId=3")).json;
+      check(collegeOne.specializations.length === 2 && collegeOne.specializations.some((item: any) => item.name === "قسم التربية الإسلامية"), "D6 أقسامُ الكلية المختارة فقط");
+      check(collegeTwo.specializations.length === 1 && collegeTwo.specializations[0].id === 21 && collegeThree.specializations.length === 1 && collegeThree.specializations[0].id === 22, "D6 القسمُ نفسه في موقعين قسمان بمعرّفين مختلفين (لا دمج)", [collegeTwo.specializations, collegeThree.specializations]);
+      check((await http("GET", "/api/public/me/catalog?collegeId=999")).json.code === "bad-college", "D6 كليةٌ غير موجودة: خطأ");
       const plan = (await http("GET", "/api/public/me/plan?sectionId=11")).json;
       check(plan.source === "plan" && plan.plans.length === 2 && plan.plans[0].courses.length > 0, "D6 صحيفتان لقسمٍ انتقاليّ", plan.plans?.map((p: any) => p.courses.length));
       check((await http("PUT", "/api/public/me/profile", { sectionId: 999, passedCourseIds: [] })).json.code === "bad-section", "D6 قسمٌ غير موجود");
@@ -323,7 +328,7 @@ check(/homePart\("request-context"/.test(studentHomeSource) && studentHomeSource
       const advice = (await http("GET", "/api/public/me/advice")).json;
       check(advice.ready === true && Array.isArray(advice.picks) && advice.picks.length > 0 && typeof advice.line === "string" && advice.hasRules === false && advice.picks.every((p: any) => typeof p.why === "string" && p.why.length > 0), "D6 مقترحي: مقرراتٌ مطروحة بسببٍ لكلٍّ منها، وتُعلَن غيبةُ القواعد المعتمدة", advice);
       const wishCount = (await http("GET", "/api/public/me/wishes-count")).json;
-      check(wishCount.ready === true && wishCount.n >= 1 && wishCount.show === false, "D6 «أنت واحدٌ من…»: عددٌ فقط، ولا يظهر في قسمٍ صغير (لا يُستدلّ منه على أحد)", wishCount);
+      check(wishCount.ready === true && wishCount.mine === true && wishCount.show === false && !("n" in wishCount) && !("of" in wishCount), "D6 «أنت واحدٌ من…»: في قسمٍ صغير لا يُرسل عددٌ أصلاً (السلوك تغيّر عن قصد: كان يُرسل n وof ويُخفيهما العرضُ فقط)", wishCount);
       const grad = (await http("GET", "/api/public/me/graduate")).json;
       check(grad.ready === true && grad.ruleSaved === false && grad.enough === false && Array.isArray(grad.reasons) && grad.reasons.length === 2, "D6 الخريج في مساري: يعرف وحداته وحدَّه، وبلا قاعدةٍ محفوظة لا يُدّعى استيفاء", grad);
       const noProof = await http("POST", "/api/public/me/request", { requestType: "graduate", graduateReason: "field-conflict", details: "ميداني يتعارض", consent: true });

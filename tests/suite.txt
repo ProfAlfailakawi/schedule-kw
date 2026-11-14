@@ -156,6 +156,7 @@ test:review-family
 test:masari-responsive
 test:masari-ease
 test:masari-door-ux
+test:student-colleges
 test:critical-courses
 test:masari-visual
 test:masari-return
@@ -314,6 +315,10 @@ test:delete-impact
 test:inbox-undo
 test:report-insight
 test:names-one-label
+test:student-next-lecture
+test:student-push
+test:student-share
+test:student-extras-live
 test:weekly-smoke
 test:whatif-in-changes
 test:roster-add-instructor

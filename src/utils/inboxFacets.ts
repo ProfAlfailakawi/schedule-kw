@@ -16,7 +16,7 @@ export interface FacetItem { state?: string; action: string; verdict?: string }
 export interface FacetFilters { state: InboxStateFilter | string; action: InboxActionFilter | string; verdict: InboxVerdictFilter | string }
 
 const stateOk = (item: FacetItem, state: string) =>
-  state === "pending" ? !item.state : state === "fixed" ? item.state === "fixed" : state === "rejected" ? item.state === "rejected" : true;
+  state === "pending" ? !item.state : state === "fixed" ? item.state === "fixed" : state === "rejected" ? item.state === "rejected" : state === "done" ? Boolean(item.state) : true;
 const actionOk = (item: FacetItem, action: string) => action === "all" || item.action === action;
 const verdictOk = (item: FacetItem, verdict: string) => verdict === "all" || (item.verdict || "clear") === verdict;
 
