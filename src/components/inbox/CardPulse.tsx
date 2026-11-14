@@ -108,7 +108,7 @@ function RemindSheet({ termId, ids, onClose, onSent }: { termId: number; ids: st
               ? <>سيصل التذكير إلى <b>{countOf(plan.targets.length, AR.instructor)}</b> {nounFor(plan.targets.length, NOT_SENT)} بعد، في {plan.targets.length === 1 ? "كرته" : "كروتهم"}، وتبقى رسالةُ واتساب بيدك.</>
               : "لا أحدَ يلزمه التذكير الآن."}</p>
             {plan.targets.length ? <ul className="card-pulse-people">{plan.targets.slice(0, 40).map(person => <li key={person.id}>{person.name}</li>)}{plan.targets.length > 40 ? <li>+{num(plan.targets.length - 40)}</li> : null}</ul> : null}
-            {plan.tally.length ? <p className="card-pulse-note">يُستثنى: {skippedLine(plan.tally)}{plan.tally.some(entry => entry.reason === "recent") ? ` (لا تذكيرَ لمن ذُكِّر قبل أقلّ من ${num(plan.cooldownHours)} ساعات)` : ""}</p> : null}
+            {plan.tally.length ? <p className="card-pulse-note">يُستثنى: {skippedLine(plan.tally)}{plan.tally.some(entry => entry.reason === "recent") ? ` (لا تذكيرَ لمن ذُكِّر قبل أقلّ من ${countOf(plan.cooldownHours, AR.hour)})` : ""}</p> : null}
           </> : null}
           {error ? <p className="card-pulse-error" role="alert">{error}</p> : null}
           <div className="changes-extend-actions">

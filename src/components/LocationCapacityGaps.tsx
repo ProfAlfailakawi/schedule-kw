@@ -98,7 +98,7 @@ export default function LocationCapacityGaps({ buildings, sections, demoReadOnly
     setOptimistic(current => ({ ...current, [room.id]: parsed.value }));
     try {
       await call(`/api/admin/location-registry/rooms/${encodeURIComponent(room.id)}`, { method: "PUT", body: JSON.stringify({ capacity: parsed.value }) });
-      setAnnounce(`حُفظت سعة ${room.fullCode}: ${num(parsed.value)} مقعد.`);
+      setAnnounce(`حُفظت سعة ${room.fullCode}: ${countOf(parsed.value, AR.seat)}.`);
       onSaved?.();
     } catch (e: any) {
       /* التراجعُ: تعود البطاقةُ إلى مكانها وتحمل سببَ الرفض. */

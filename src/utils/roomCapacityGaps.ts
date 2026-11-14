@@ -4,6 +4,7 @@
  * تحسب كم قاعةً فعّالةً معتمدةً بلا سعة، ونسبةَ الاكتمال، وتحكم على الرقم المُدخل. الخادمُ والواجهةُ يقرآنها معاً.
  */
 import type { MasterBuilding, MasterRoom } from "../types";
+import { AR, countOf } from "./arabicCount";
 
 export const CAPACITY_GAP_MIN = 1;
 /** حدٌّ معقول لقاعةٍ واحدة في هذا الحرم؛ ما فوقه خطأُ إدخالٍ في الغالب (النموذج الكامل يقبل حتى 5000). */
@@ -69,6 +70,6 @@ export function parseGapCapacity(raw: unknown): CapacityParse {
   if (!/^\d+$/.test(text)) return { ok: false, value: 0, error: "عددٌ صحيحٌ فقط، بلا فواصل." };
   const value = Number(text);
   if (value < CAPACITY_GAP_MIN) return { ok: false, value: 0, error: "السعة لا تقلّ عن مقعدٍ واحد." };
-  if (value > CAPACITY_GAP_MAX) return { ok: false, value: 0, error: `السعة لا تتجاوز ${CAPACITY_GAP_MAX.toLocaleString("en-US")} مقعد.` };
+  if (value > CAPACITY_GAP_MAX) return { ok: false, value: 0, error: `السعة لا تتجاوز ${countOf(CAPACITY_GAP_MAX, AR.seat)}.` };
   return { ok: true, value, error: "" };
 }

@@ -32,6 +32,7 @@ import { pushHooks } from "../pushRoutes";
 import { notedRowsOf } from "../../utils/requestNotedScope";
 import { issueLinkMode, linkMode, linkModeLabel, taPhaseOwns } from "../../utils/linkMode";
 import { notOpened } from "../../utils/requestParticipation";
+import { AR, countOf } from "../../utils/arabicCount";
 import { planReminders, REMIND_COOLDOWN_MS, remindBurst, skipTally } from "../../utils/cardPulse";
 import { offeringBadge } from "../../utils/courseOffering";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
@@ -1342,7 +1343,7 @@ app.post("/api/instructor-requests/remind-pending", requirePermission(7), async 
   if (!plan.targets.length) {
     const onlyRecent = plan.skipped.length > 0 && plan.skipped.every(entry => entry.reason === "recent");
     res.status(onlyRecent ? 429 : 409).json({
-      error: onlyRecent ? `ذُكِّر هؤلاء قبل أقلّ من ${REMIND_COOLDOWN_MS / 3_600_000} ساعات. انتظر قليلاً.` : "لا أحدَ يلزمه التذكير الآن.",
+      error: onlyRecent ? `ذُكِّر هؤلاء قبل أقلّ من ${countOf(REMIND_COOLDOWN_MS / 3_600_000, AR.hour)}. انتظر قليلاً.` : "لا أحدَ يلزمه التذكير الآن.",
       code: onlyRecent ? "reminder-rate-limited" : "nothing-to-remind", skipped, tally: skipTally(plan.skipped),
     });
     return;
