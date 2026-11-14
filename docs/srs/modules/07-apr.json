@@ -1103,12 +1103,12 @@
       "id": "FR-APR-003",
       "kind": "functional",
       "title": {
-        "ar": "موانع التوقيع الأخرى: السعة والمتطلبات واللائحة",
-        "en": "Other signing gates: capacity, requirements, regulation"
+        "ar": "موانع التوقيع الأخرى: السعة والدرجة العلمية والمتطلبات واللائحة",
+        "en": "Other signing gates: capacity, academic rank, requirements, regulation"
       },
       "text": {
-        "ar": "يجب على النظام أن يرفض التوقيع إذا كان في الجدول مقرر بلا سعة مسجّلة (رمز missing-capacity)، أو مقرر بلا نوع قاعة مناسب أو طبيعة تدريس (رمز course-requirements-missing)، وأن يسمّي المقررات الناقصة في الرسالة. كما يجب عليه أن يرفض التوقيع والإرسال برمز regulation-blockers متى أظهرت مراجعة اللائحة بنداً من القرار 1913/2016 أثره على الاعتماد «يمنع» داخل صفوف النطاق (نمط المقرر النظري م.7/8، ثبات وقت الشعبة م.7/9، حدود التدريس المتتالي)، وألا يُشترط ذلك عند قبول التسجيل.",
-        "en": "The system shall refuse signing if the schedule contains a course with no registered capacity (code missing-capacity) or a course lacking its suitable room type or teaching nature (code course-requirements-missing), and shall name the incomplete courses in the message. It shall also refuse signing and sending with code regulation-blockers whenever the regulation review reports a decision 1913/2016 finding whose approval effect is 'block' within the scope's rows (theoretical-course pattern art. 7/8, fixed section time art. 7/9, consecutive teaching limits), and shall not require this check when the registrar accepts."
+        "ar": "يجب على النظام أن يرفض التوقيع إذا كان في الجدول مقرر بلا سعة مسجّلة (رمز missing-capacity)، أو أستاذٌ له مواعيد في الجدول بلا درجةٍ علمية في النصاب (رمز missing-ranks، قرار المالك 2026-11-14، والمنتدبون والمتقاعدون وسجلّ «هيئة تدريسية» خارج العدّ، ولا يُعدّ شيءٌ إن لم تُعرَّف درجاتٌ في النصاب)، أو مقرر بلا نوع قاعة مناسب أو طبيعة تدريس (رمز course-requirements-missing)، وأن يسمّي المقررات الناقصة في الرسالة. كما يجب عليه أن يرفض التوقيع والإرسال برمز regulation-blockers متى أظهرت مراجعة اللائحة بنداً من القرار 1913/2016 أثره على الاعتماد «يمنع» داخل صفوف النطاق (نمط المقرر النظري م.7/8، ثبات وقت الشعبة م.7/9، حدود التدريس المتتالي)، وألا يُشترط ذلك عند قبول التسجيل.",
+        "en": "The system shall refuse signing if the schedule contains a course with no registered capacity (code missing-capacity), or an instructor with appointments in the schedule who has no academic rank in the teaching-load settings (code missing-ranks, owner decision 2026-11-14; visiting instructors, retired ones and the faculty placeholder are not counted, and nothing is counted when no ranks are defined), or a course lacking its suitable room type or teaching nature (code course-requirements-missing), and shall name the incomplete courses in the message. It shall also refuse signing and sending with code regulation-blockers whenever the regulation review reports a decision 1913/2016 finding whose approval effect is 'block' within the scope's rows (theoretical-course pattern art. 7/8, fixed section time art. 7/9, consecutive teaching limits), and shall not require this check when the registrar accepts."
       },
       "priority": "must",
       "status": "implemented",
@@ -1120,6 +1120,10 @@
         {
           "ar": "مقرر بلا سعة يمنع التوقيع برسالة «سجّل السعة ثم وقّع».",
           "en": "A course with no capacity blocks signing with a message to register the capacity first."
+        },
+        {
+          "ar": "أستاذٌ في الجدول بلا درجةٍ علمية يمنع التوقيع برسالة «اختر الدرجة من الأساتذة ثم وقّع» (يُعدّ مرّةً واحدة مهما تعدّدت مواعيدُه)، وشارةُ «الدرجة ناقصة» تفتح «الأساتذة» ولوحةَ استكمال الدرجات، ولا تظهر «جاهز للتوقيع» معها؛ والسعةُ تسبقها في الرسالة والتعارضُ المادي يسبقهما.",
+          "en": "An instructor in the schedule with no academic rank blocks signing with a message to pick the rank from the instructors screen first (counted once however many appointments they have), and the «rank missing» badge opens the instructors screen and the rank-completion panel, with no «ready to sign» shown; capacity comes before it in the message and a material conflict before both."
         },
         {
           "ar": "نواقص البيانات الأخرى تُعرض إشعاراً ولا تمنع التوقيع.",
@@ -1144,7 +1148,8 @@
         ],
         "tests": [
           "tests/approval-workflow-audit.ts",
-          "tests/decision-1913-audit.ts"
+          "tests/decision-1913-audit.ts",
+          "tests/rank-gap-sign-audit.ts"
         ]
       },
       "rationale": {

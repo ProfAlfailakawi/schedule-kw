@@ -20,7 +20,6 @@ import QueryBrief from "./query/QueryBrief";
 import QueryInsights from "./query/QueryInsights";
 import QuerySaved from "./query/QuerySaved";
 import QueryCompare, { type HistoryPoint } from "./query/QueryCompare";
-import QueryPrintPreview from "./query/QueryPrintPreview";
 import QueryPrintMenu from "./query/QueryPrintMenu";
 import PrintTiles from "./query/PrintTiles";
 import QueryEmptyWhy, { type EmptyWhyItem } from "./query/QueryEmptyWhy";
@@ -3072,7 +3071,6 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
               ) : (
                 <>
                   <QueryPrintMenu ink={inkSave} disabled={lens === "occupancy" && familyPending} onPrint={on => { chooseInk(on); printReport(lens); }} />
-                  <QueryPrintPreview refreshKey={`${printKind}:${results.length}:${lens}`} onPrint={on => { chooseInk(on); printReport(lens); }} disabled={lens === "occupancy" && familyPending} label={REPORT_TITLES[lens]} ink={inkSave} />
                 </>
               )}
               {/* ── تصدير Excel (N12) ────────────────────────────────────────

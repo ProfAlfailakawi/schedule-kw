@@ -20,7 +20,9 @@ import { diffSchedules } from "../../utils/scheduleDiff";
 import { approvalBlockerSummary } from "../../utils/scheduleBlockers";
 import { actorMaySign } from "../../utils/seats";
 import { canExtendDeadline, canManageDeadline, canReviewSubmissions, roleLabel, signatureStage, watchesInbox } from "../../utils/academicRoles";
-import { capacityGapItems, computeScheduleDataReadiness } from "../../utils/scheduleDataReadiness";
+import { capacityGapItems, computeScheduleDataReadiness, rankGapItems } from "../../utils/scheduleDataReadiness";
+import { readVisitingStatus } from "../core/visiting";
+import { placeholderInstructorIds as facultyPlaceholderIds } from "../core/smartImport";
 import { AR, countOf, oblique } from "../../utils/arabicCount";
 import { checkStudentPhases, hasStudentPhases } from "../../utils/termStudentPhases";
 import { countBlockingConflicts, readApproval, readDeadlineFor, refuseIfTermClosed, regulationNoticesForScope, scheduleLockRefusal, settleAmendmentMarker, withEvent } from "../core/approvals";
@@ -155,6 +157,16 @@ async function scheduleDataReadiness(collegeId: number, sectionId: number, termI
     for(const value of [room.roomType,room.sectionRoomTypes?.[String(sectionId)]]){const type=String(value||"").normalize("NFKC").trim();if(type)roomTypes.add(type);}
   }
   const registeredRoomTypes=visibleRoomTypes([...roomTypes],sectionId,registry.roomTypeScopes).sort((a,b)=>a.localeCompare(b,"ar"));
+  /* الدرجةُ العلمية لازمة (المالك 2026-11-14): خارجَ العدّ المنتدبون (ليسوا من هيئة القسم) والمتقاعدون وسجلُّ «هيئة تدريسية». */
+  const [teachingLoad, visiting] = await Promise.all([Repository.getTeachingLoadConfig(), readVisitingStatus(collegeId, sectionId, termId)]);
+  const excludedIds = new Set<number>([...facultyPlaceholderIds(instructors as any[]), ...visiting.instructorIds.map(Number),
+    ...(instructors as any[]).filter(person => person.AdInstructorStatus === "retired").map(person => Number(person.AdInstructorId))]);
+  const rankGap = {
+    hasRanks: teachingLoad.ranks.length > 0,
+    rankedIds: new Set<number>(Object.entries(teachingLoad.assignments || {}).filter(([, entry]) => Boolean((entry as any)?.rankId)).map(([id]) => Number(id))),
+    excludedIds,
+    nameById: new Map<number, string>((instructors as any[]).map(person => [Number(person.AdInstructorId), String(person.AdInstructorName || "")])),
+  };
   /* التطبيعُ نفسه الذي يعدّ به `approvalBlockerOptions` الموانع — قاعدةٌ واحدة. */
   return computeScheduleDataReadiness({
     rows: scheduleRows as any[],
@@ -164,6 +176,7 @@ async function scheduleDataReadiness(collegeId: number, sectionId: number, termI
     roomTypeOptions:registeredRoomTypes,
     roomTypeScopes:registry.roomTypeScopes,
     normalizeRow: (row: any) => canonicalizeHistoricalLocationForRuntime(row as FSchedule, registry),
+    rankGap,
   });
 }
 
@@ -300,6 +313,8 @@ app.get("/api/approvals", requireAuth, async (req: AuthenticatedRequest, res: Re
     blockingDuplicates: blocking.duplicates,
     /* مقرراتُ الجدول التي سعتُها غير مسجّلة: تمنع التوقيع كالتعارض (طلب المالك). */
     missingCapacity: capacityGapItems(readiness.items).length,
+    /* أساتذةُ الجدول بلا درجةٍ علمية: يمنعون التوقيع كالسعة (قرار المالك 2026-11-14). أسماؤهم في dataReadiness.items. */
+    missingRanks: rankGapItems(readiness.items).length,
     regulationNotices: notices,
     /* ── ما يمنع الإرسال يُقال قبل الضغط ────────────────────────────────────
      * من العدّاد الواحد نفسه الذي يقرؤه الإرسالُ والإرجاعُ والوارد (R4). */
@@ -416,7 +431,7 @@ app.post("/api/approvals/sign", requireAuth, async (req: AuthenticatedRequest, r
     }
     const regulationBlockers = await regulationNoticeCount(collegeId, sectionId, termId);
     if (regulationBlockers) { res.status(409).json({ error: `توجد ${countOf(regulationBlockers, AR.approvalBlocker)} لائحية. عالجها قبل التوقيع.`, code: "regulation-blockers" }); return; }
-    const verdict = canSign(approval, stage, { blockingConflicts: blocking.conflicts, blockingDuplicates: blocking.duplicates, rowCount: rows.length, missingCapacity: capacityGapItems(readiness.items).length });
+    const verdict = canSign(approval, stage, { blockingConflicts: blocking.conflicts, blockingDuplicates: blocking.duplicates, rowCount: rows.length, missingCapacity: capacityGapItems(readiness.items).length, missingRanks: rankGapItems(readiness.items).length });
     if (verdict.ok !== true) { res.status(409).json({ error: verdict.message, code: verdict.code }); return; }
 
     const notices = await regulationNoticeCount(collegeId, sectionId, termId);

@@ -177,8 +177,9 @@ async function main() {
     check((await desktop.page.locator(".query-whatif").count()) === 0, "البطاقة تُغلق");
 
     /* ── موفّر الحبر: بلاطةٌ في كل قائمة طباعة، وأمر الطباعة يضع السمة، والاختيار يُحفظ ── */
-    await desktop.page.locator('button[aria-label^="معاينة صفحات"]').click();
-    await desktop.page.locator(".query-preview-actions .print-tile-ink").click();
+    check((await desktop.page.locator('button[aria-label^="معاينة صفحات"], .query-preview').count()) === 0, "لا زرّ عينٍ للمعاينة: نافذة طباعة المتصفح تعاين وتطبع وتحفظ PDF");
+    await desktop.page.locator(".query-canvas-actions .query-print-menu > button").first().click();
+    await desktop.page.locator(".print-tiles .print-tile-ink").first().click();
     await desktop.page.waitForTimeout(500);
     check((await desktop.page.evaluate(() => localStorage.getItem("schedule-print-ink"))) === "1", "موفّر الحبر يُحفظ في المتصفح");
     check((await desktop.page.evaluate(() => (window as any).__lastInk)) === "1", "أمر الطباعة وضع سمة موفّر الحبر");
@@ -204,9 +205,7 @@ async function main() {
 
     /* ── موجز الصباح، ومعاينة الصفحات ── */
     check((await desktop.page.locator(".morning-brief-tiles i").count()) === 4, "موجز الصباح: أربع بطاقات بأيقونات وأرقام");
-    await desktop.page.locator('button[aria-label^="معاينة صفحات"]').click();
-    await desktop.page.waitForTimeout(700);
-    check((await desktop.page.locator(".query-preview-pop li").count()) >= 1, "معاينة الطباعة تعرض الأوراق بأرقامها");
+    check((await desktop.page.locator(".query-canvas-actions .query-print-menu > button").count()) >= 1, "زرّ الطباعة باقٍ في مركز الاستعلام");
     check(desktop.issues.length === 0, "لا خطأ متصفحٍ ولا طلبٌ فاشل في كل الرحلة", desktop.issues);
     await desktop.context.close();
 

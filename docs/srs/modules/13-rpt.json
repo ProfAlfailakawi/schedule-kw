@@ -66,7 +66,6 @@
     "src/components/query/QueryInsights.tsx",
     "src/components/query/QuerySaved.tsx",
     "src/components/query/QueryCompare.tsx",
-    "src/components/query/QueryPrintPreview.tsx",
     "src/components/query/QueryEmptyWhy.tsx",
     "src/server/morningBriefPush.ts",
     "src/utils/queryWhatIf.ts",
@@ -2956,39 +2955,6 @@
       }
     },
     {
-      "id": "FR-RPT-053",
-      "kind": "functional",
-      "title": {
-        "ar": "معاينة صفحات الطباعة",
-        "en": "Print page preview"
-      },
-      "text": {
-        "ar": "يجب أن يتيح زرّ العين بجانب الطباعة معاينةً اختيارية: عدد صفحات الورقة بأوراقٍ صغيرة مرقّمة بامتلاء كلٍّ منها، وتتميّز الصفحة الحاملة للتواقيع، مع زرّ طباعة؛ ولا يعترض الطباعة المباشرة.",
-        "en": "An eye button beside print shall offer an optional preview: the sheet's page count as small numbered pages showing how full each is, the page carrying signatures distinguished, with a print button; it shall not intercept direct printing."
-      },
-      "priority": "could",
-      "status": "implemented",
-      "actors": [
-        "departmentHead",
-        "committeeChair",
-        "registrarStaff"
-      ],
-      "acceptance": [
-        {
-          "ar": "الصفحات تُقرأ من الورقة المركّبة للطباعة نفسها قبل أن تُطبع.",
-          "en": "The pages are read from the very sheet composed for printing, before it prints."
-        }
-      ],
-      "evidence": {
-        "code": [
-          "src/components/query/QueryPrintPreview.tsx"
-        ],
-        "tests": [
-          "tests/query-center-e2e.ts"
-        ]
-      }
-    },
-    {
       "id": "IR-RPT-054",
       "kind": "interface",
       "title": {
@@ -3180,7 +3146,6 @@
       "evidence": {
         "code": [
           "src/styles/59-print-ink.css",
-          "src/components/query/QueryPrintPreview.tsx",
           "src/components/Reports.tsx#invokePrint",
           "src/components/query/QueryPrintMenu.tsx",
           "src/components/ReportChoicePanel.tsx"
