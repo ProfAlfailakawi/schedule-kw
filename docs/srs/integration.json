@@ -635,6 +635,15 @@
         }
       },
       {
+        "name": "SCHEDULE_TEST_DELAY_AFTER_CHECK_MS",
+        "group": "diagnostics",
+        "default": "—",
+        "effect": {
+          "ar": "تأخيرٌ اختباري بعد فحص التعارض وقبل الكتابة لإثبات حارس الخانة؛ يُتجاهل في الإنتاج.",
+          "en": "A test-only delay after the conflict check and before the write, used to prove the slot guard; ignored in production."
+        }
+      },
+      {
         "name": "GEMINI_API_KEY",
         "group": "services",
         "default": "—",
