@@ -3960,7 +3960,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                 <WeekShapeDrawer
                   key={group.id}
                   instructorId={Number(group.id)}
-                  name={group.name}
+                  name={<>{group.name}{isVisitingInstructor(Number(group.id)) ? <> <VisitingBadge compact /></> : null}</>}
                   termId={filters.termId}
                   rows={group.rows}
                   canReadWorkspace={canReadWorkspace}
