@@ -11,7 +11,7 @@
 .transfer-tab-group-name{display:inline-flex;align-items:center;gap:6px;padding-inline:4px;font-size:.72rem;font-weight:800;color:var(--muted);letter-spacing:0}
 .transfer-tab-group.is-planning .transfer-tab-group-name{color:var(--brass,#9a6b1f)}
 .transfer-tab-group-name svg{inline-size:14px;block-size:14px;flex:none}
-.transfer-tab-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px;min-width:0}
+.transfer-tab-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px;min-width:0}
 .transfer-sheet .transfer-tabs.transfer-tabs--grouped .transfer-tab-row button{inline-size:100%;min-inline-size:0;white-space:normal;text-align:center}
 @media (max-width:900px){
   .transfer-sheet .transfer-tabs.transfer-tabs--grouped{grid-template-columns:minmax(0,1fr)!important}
