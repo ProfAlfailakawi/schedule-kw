@@ -3557,6 +3557,9 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                       metric: String(scenarioEval?.scenario?.score ?? overview?.score ?? "") },
                     { value: "ledger", label: "سجل التغييرات", detail: "ما غيّرته، موعداً موعداً", icon: <FileClock />,
                       metric: String(changedRows.length) },
+                    /* «عدّل موعداً داخل النسخة»: بلا بطاقةٍ في الشبكة (يُفتح من «تعديل السيناريو» والشعبة والنقلة)،
+                       لكنه في شريط المرحلة فيبقى «كل البطاقات» فوقه كأي بطاقة. */
+                    { value: "editor", label: "تعديل موعد", detail: "عدّل موعداً داخل النسخة", icon: <Pencil />, advanced: true },
                   ]
                 : []),
             ]}
