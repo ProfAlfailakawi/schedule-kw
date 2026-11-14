@@ -2246,8 +2246,8 @@ export default function App() {
   // ذي إذن المقررات، فتظهر في قائمة كل قسم دون حاجة؛ وقرار المالك ألا تُعرض إلا للإدارة.
   const canOpenAcademicCatalog = isPowerAdmin;
   const viewLabels: Partial<Record<View, string>> = {
-    dashboard: "لوحة العمل",
-    schedules: "إدارة الجدول",
+    dashboard: "الرئيسية",
+    schedules: "الجدول الدراسي",
     reportDepartment: "الاستعلامات والتقارير",
     searchAdvanced: "البحث المتقدم",
     instructors: "أساتذة المقررات",

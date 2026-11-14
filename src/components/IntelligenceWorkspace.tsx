@@ -183,7 +183,7 @@ type InsightScene =
      two cards. One reading, one card, one screen — a panel that stacks two is
      exactly the thing this strip exists to end. */
   | "approval"
-  /* «فرصة لتحسين الجدول»: بطاقتُها هنا، وأيقونتُها في «أدوات البيانات» — ولا مكان ثالث. */
+  /* «فرصة لتحسين الجدول»: بطاقتُها هنا، وأيقونتُها في «أدوات الجدول» — ولا مكان ثالث. */
   | "improve"
   /* الطلب الفعلي: تقرير التسجيل (SWRDASH) — الرفعُ والتنبيه والعلاج في بطاقةٍ واحدة. */
   | "actualDemand"
@@ -2522,7 +2522,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           >
             <Network /> النسخة التجريبية
           </button>
-          {/* «آلة الزمن» ومحاكي الشعب والاقتراحات الذكية: لسانٌ واحد هنا بدل زرٍّ في القائمة ولسانين في أدوات البيانات. */}
+          {/* «آلة الزمن» ومحاكي الشعب والاقتراحات الذكية: لسانٌ واحد هنا بدل زرٍّ في القائمة ولسانين في أدوات الجدول. */}
           <button
             type="button"
             data-guide-ignore="وجهةُ «آلة الزمن» مسجّلة في المرشد باسم page.timeMachine"
@@ -2534,7 +2534,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           </button>
           {/* Importing a timetable lives in Data Tools only. Two doors to the
               same reviewed route split attention and let one screen fall behind
-              the other; the guide points at «أدوات البيانات» for this. */}
+              the other; the guide points at «أدوات الجدول» for this. */}
         </nav>
       ) : null}
       {degraded && collegeId && sectionId && termId ? (
@@ -3638,7 +3638,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                   اختبر القواعد والبدائل قبل تطبيقها على الجدول.
                 </p>
               </div>
-              <span className="innovation-suite-status">تجربة آمنة</span>
+              <span className="innovation-suite-status">النسخة التجريبية</span>
             </div>
             <div className="innovation-tabs" role="group" aria-label="أدوات مختبر القرار">
               <button
