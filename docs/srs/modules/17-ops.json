@@ -97,7 +97,7 @@
   "screens": [
     {
       "name": {
-        "ar": "خزنة النظام",
+        "ar": "«النسخة الاحتياطية»",
         "en": "System vault"
       },
       "file": "src/server/routes/adminRoutes.ts",
@@ -138,7 +138,7 @@
       },
       "steps": [
         {
-          "ar": "يفتح حساب الإدارة الرئيسي خزنة النظام ويبدأ مهمة تصدير؛ يردّ الخادم 202 ومعها المهمة.",
+          "ar": "يفتح حساب الإدارة الرئيسي «النسخة الاحتياطية» ويبدأ مهمة تصدير؛ يردّ الخادم 202 ومعها المهمة.",
           "en": "The root account opens the system vault and starts an export job; the server answers 202 with the job."
         },
         {
@@ -183,7 +183,7 @@
           "en": "He switches role from the bar (30 switches per minute) and sees the screens with that role's real scope and permissions."
         },
         {
-          "ar": "إن حاول تعديل شاشة إدارية (المستخدمون، الصلاحيات، خزنة النظام) رُفض بـ 403 وبيان أنها شاشة عرض.",
+          "ar": "إن حاول تعديل شاشة إدارية (المستخدمون، الصلاحيات، «النسخة الاحتياطية») رُفض بـ 403 وبيان أنها شاشة عرض.",
           "en": "Trying to edit an administrative screen (users, permissions, system vault) is refused with 403 and a note that it is display-only."
         },
         {
@@ -1418,7 +1418,7 @@
         "en": "Demo sandbox limits and management"
       },
       "text": {
-        "ar": "يجب على النظام أن يرفض في الصندوق التجريبي كل كتابة على المستخدمين والصلاحيات والنطاقات وخزنة النظام وحمل التدريس ويوم الجامعة بـ 403، وأن يتيح GET /api/demo/config (مفعّل، 60 دقيقة، معزول، الإدارة للقراءة فقط)، وأن يتيح تبديل الصفة بحدّ 30 تبديلاً في الدقيقة وإعادة الضبط.",
+        "ar": "يجب على النظام أن يرفض في الصندوق التجريبي كل كتابة على المستخدمين والصلاحيات والنطاقات و«النسخة الاحتياطية» وحمل التدريس ويوم الجامعة بـ 403، وأن يتيح GET /api/demo/config (مفعّل، 60 دقيقة، معزول، الإدارة للقراءة فقط)، وأن يتيح تبديل الصفة بحدّ 30 تبديلاً في الدقيقة وإعادة الضبط.",
         "en": "The system shall refuse with 403 every write inside the demo sandbox to users, permissions, scopes, the system vault, teaching load and university day, expose GET /api/demo/config (enabled, 60 minutes, isolated, administration read-only), and allow role switching limited to 30 per minute and reset."
       },
       "priority": "must",
@@ -1832,7 +1832,7 @@
         "en": "Backup and recovery procedure"
       },
       "text": {
-        "ar": "يجب أن يرافق النظامَ إجراءٌ موثق قابل للتنفيذ لحماية قاعدة الإنتاج: تفعيل الاسترجاع الزمني (PITR لسبعة أيام) وحماية الحذف والنسخ المجدولة إلى سلة تخزين، وخطوات الاسترجاع والتحقق منه، وأن يحمي النظام نفسه بياناته في الوضع المحلي وخزنة النظام.",
+        "ar": "يجب أن يرافق النظامَ إجراءٌ موثق قابل للتنفيذ لحماية قاعدة الإنتاج: تفعيل الاسترجاع الزمني (PITR لسبعة أيام) وحماية الحذف والنسخ المجدولة إلى سلة تخزين، وخطوات الاسترجاع والتحقق منه، وأن يحمي النظام نفسه بياناته في الوضع المحلي و«النسخة الاحتياطية».",
         "en": "The system shall ship with a documented, executable procedure to protect the production database: enabling point-in-time recovery (7-day PITR), delete protection and scheduled exports to a storage bucket, with the steps to restore and verify, and the system itself shall protect its data in local mode and in the system vault."
       },
       "rationale": {
@@ -2107,7 +2107,7 @@
       "id": "FR-OPS-033",
       "kind": "functional",
       "title": {
-        "ar": "شاشة خزنة النظام ومحرّك المهام في المتصفح",
+        "ar": "شاشة «النسخة الاحتياطية» ومحرّك المهام في المتصفح",
         "en": "The system vault screen and its in-browser job driver"
       },
       "text": {
@@ -2400,7 +2400,7 @@
       "id": "FR-OPS-040",
       "kind": "functional",
       "title": {
-        "ar": "خزنة النظام: إلغاء استيراد متوقف، وعبارة مكتوبة لكل استبدال",
+        "ar": "«النسخة الاحتياطية»: إلغاء استيراد متوقف، وعبارة مكتوبة لكل استبدال",
         "en": "System vault: abandoning a stalled import, and a typed phrase for every replacement"
       },
       "text": {
@@ -2557,7 +2557,7 @@
       }
     },
     {
-      "ar": "خزنة النظام",
+      "ar": "«النسخة الاحتياطية»",
       "en": "System vault",
       "def": {
         "ar": "شاشة الإدارة الرئيسية للتصدير والاستيراد والتصفير والتراجع الكاملة.",

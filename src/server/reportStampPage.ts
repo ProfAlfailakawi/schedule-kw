@@ -120,7 +120,7 @@ export function reportStampPage(view: ReportStampView): string {
         ? "رمز الختم ثمانية أحرف وأرقام، مثل K7Q2-9XMD. راجعه وأعد المحاولة."
         : view.state === "error"
           ? "لم يصل النظام إلى الجدول في هذه اللحظة. أعد المحاولة بعد قليل."
-          : `لا يعرف النظام الختم ${code}. قد يكون الرمز كُتب خطأً، أو طُبعت الورقة من النسخة التجريبية، أو لم يصل تسجيلها بعد. اطلب من القسم نسخةً حديثة.`;
+          : `لا يعرف النظام الختم ${code}. قد يكون الرمز كُتب خطأً، أو طُبعت الورقة من البيئة التجريبية، أو لم يصل تسجيلها بعد. اطلب من القسم نسخةً حديثة.`;
     body = `<div class="verdict unknown"><i aria-hidden="true">?</i><h1>${esc(title)}</h1><p>${esc(lead)}</p></div>${ask(view.state === "invalid" ? view.typed : code)}`;
   } else {
     const current = view.state === "current";

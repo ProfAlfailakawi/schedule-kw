@@ -3,18 +3,24 @@
  *
  * الإلزاميُّ يُحكم في محرّك الحكم نفسه ولا يُكرَّر هنا: القاعةُ خاليةٌ طوال
  * الموعد (بفاصلها)، ومن قاعات الكلية/القسم أو المستعارة المعتمدة، ومعها المرفقُ
- * المطلوب إن كان للمقرر مرفق. وتُضاف هنا السعةُ: سعةُ الشعبة MaxStudent، فإن غابت فسقفُ
- * اللائحة (seatCap، م.8). قاعةٌ سعتُها المعروفة أقلُّ منها لا تُرشَّح، والقاعةُ بلا سعةٍ مسجّلة
- * تأتي بعد كل قاعةٍ سعتُها المعروفة تكفي (ملاحظة المالك 16: السعةُ لا النوع). وسقفٌ مفترَض
- * (مقررٌ بلا سعةٍ ولا طبيعة) لا يُسقط قاعةً: الأصغرُ منه آخرَ الترتيب.
+ * المطلوب إن كان للمقرر مرفق. وتُضاف هنا السعةُ — وهي شرطٌ لا تفضيل (المالك 2026-11-14:
+ * «لما يتم اختيار القاعة له لازم تكون مناسبة لسعة المقرر — هذا ضروري جداً»):
  *
- * ثم التفضيليّ، بالترتيب: قاعاتُ قسم المقرر، قربُ قاعات الأستاذ في اليوم نفسه
+ *   • المقاعدُ المطلوبة = سعةُ الشعبة MaxStudent إن كانت، وإلا سقفُ اللائحة (seatCap، م.8)
+ *     ولو كان مفترَضاً (مقررٌ بلا سعةٍ ولا طبيعة) — ويُقال للقسم إنه مفترَض.
+ *   • قاعةٌ سعتُها المسجّلة أقلُّ من المقاعد لا تُختار آلياً أبداً (لا «آخرَ الترتيب»).
+ *   • قاعةٌ بلا سعةٍ مسجّلة لا تُختار ما دامت قاعةٌ معروفةُ السعة تكفي وخالية؛ فإن لم تكن
+ *     حُجزت موسومةً «سعة غير مسجّلة» ليؤكّدها القسم — لا بصمت.
+ *   • وقتٌ لا قاعةَ فيه تكفي ليس «متاحاً»: يقول الحكمُ للأستاذ «لا قاعة تتسع لشعبتك في هذا الوقت»
+ *     (بلا اسم قاعةٍ ولا مبنى)، ويرى القسمُ المقاعدَ مقابل سعات الخالي، ولا يقترحه محرّكُ البدائل.
+ *
+ * ثم التفضيليّ بين ما يكفي، بالترتيب: قاعاتُ قسم المقرر، قربُ قاعات الأستاذ في اليوم نفسه
  * (المبنى نفسه)، القاعةُ التي كان فيها هذا المقرر، أقربُ سعةٍ لحاجته، وتوزيعٌ
  * عادل (الأقلُّ إشغالاً في الفصل). كلُّ تفضيلٍ رمزٌ يُرسم أيقونة — لا جُمل.
  *
- * دالّةٌ خالصة: تُختبر وحدها، ويستعملها الحكمُ والحجزُ معاً فلا يختلفان.
+ * دوالُّ خالصة: تُختبر وحدها، ويستعملها الحكمُ والحجزُ والبدائلُ معاً فلا يختلفون.
  */
-import type { RequestRoomReason } from "../types";
+import type { RequestRoomReason, RoomSeatFitCode } from "../types";
 
 export interface RankableRoom {
   key: string;
@@ -38,7 +44,7 @@ export interface RoomRankingContext {
   previousRoomIds: ReadonlySet<string>;
   /** مقاعدُ الشعبة: MaxStudent أو سقفُ اللائحة (seatCap)؛ صفرٌ = لا يُحكم بالسعة. */
   seats: number;
-  /** السقفُ مفترَض (لا سعةَ ولا طبيعة للمقرر): لا يُسقط قاعة، والأصغرُ منه آخرَ الترتيب. */
+  /** السقفُ مفترَض (لا سعةَ ولا طبيعة للمقرر): يُحكم به كاملاً، ويُقال للقسم إنه مفترَض. */
   seatsAssumed?: boolean;
   /** كم لقاءً في الفصل تشغله كلُّ قاعة — للتوزيع العادل. */
   usage: ReadonlyMap<string, number>;
@@ -46,19 +52,53 @@ export interface RoomRankingContext {
   facility?: boolean;
 }
 
-export interface RankedRoom extends RankableRoom { why: RequestRoomReason[]; score: number }
+/** ملاءمةُ سعة القاعة للمقاعد: تكفي (معروفةٌ ≥ المقاعد)، غيرُ مسجّلة، أو أصغر (لا تُختار أبداً). */
+export type RoomSeatFit = RoomSeatFitCode;
+
+export interface RankedRoom extends RankableRoom { why: RequestRoomReason[]; score: number; seatFit: RoomSeatFit }
+
+/** النصُّ الذي يقرؤه الأستاذ حين لا قاعةَ تتّسع لشعبته: لا اسمَ قاعةٍ ولا مبنى ولا رقم. */
+export const ROOM_TOO_SMALL_TEXT = "لا قاعة تتسع لشعبتك في هذا الوقت.";
+/** وسمُ القسم لقاعةٍ حُجزت وسعتُها غير مسجّلة. */
+export const ROOM_CAPACITY_UNKNOWN_LABEL = "سعة غير مسجّلة";
+
+/** المقاعدُ المطلوبة للشعبة: MaxStudent إن كانت موجبة، وإلا سقفُ اللائحة (ولو مفترَضاً). */
+export function requiredSeats(maxStudent: unknown, regulationCap: { cap: number; assumed: boolean }): { seats: number; assumed: boolean } {
+  const entered = Number(maxStudent);
+  if (Number.isFinite(entered) && entered > 0) return { seats: Math.round(entered), assumed: false };
+  return { seats: Math.max(0, Math.round(Number(regulationCap?.cap || 0))), assumed: Boolean(regulationCap?.assumed) };
+}
+
+/** القاعدةُ الواحدة: هل تصلح هذه السعةُ لهذه المقاعد؟ صفرُ مقاعد = لا يُحكم بالسعة. */
+export function roomSeatFit(capacity: unknown, seats: number): RoomSeatFit {
+  const known = Number(capacity || 0) > 0;
+  if (!(Number(seats) > 0)) return known ? "fits" : "unknown";
+  if (!known) return "unknown";
+  return Number(capacity) >= Number(seats) ? "fits" : "short";
+}
+
+/**
+ * الاختيارُ الآلي من قاعاتٍ خاليةٍ مرتّبة: أوّلُ ما يكفي، وإلا أوّلُ غيرِ مسجّلةٍ موسومةً للقسم، ولا شيءَ أصغر أبداً.
+ * `free` القاعاتُ الخالية في الوقت نفسه بترتيب rankRequestRooms.
+ */
+export function pickRequestRoom<T extends { seatFit?: RoomSeatFit }>(free: readonly T[]): { room: T; flagged: boolean } | null {
+  const fits = free.find(room => room.seatFit === "fits" || room.seatFit == null);
+  if (fits) return { room: fits, flagged: false };
+  const unknown = free.find(room => room.seatFit === "unknown");
+  return unknown ? { room: unknown, flagged: true } : null;
+}
 
 export function rankRequestRooms(rooms: readonly RankableRoom[], context: RoomRankingContext): RankedRoom[] {
   const seats = Number(context.seats || 0);
-  /* السعةُ المسجّلة دون سعة الشعبة (MaxStudent) لا تُرشَّح. ونوعُ القاعة المخالفُ لنوع المقرر (مختبرٌ لمقررٍ نظري،
-     أو قاعةُ محاضرةٍ لمقررٍ عملي) لا يُرشَّح ما دامت للقسم قاعةٌ من النوع الصحيح (المالك 2026-11-12: اختار النظامُ
-     قاعةً لا تلائم المقرر). فإن لم تكن له قاعةٌ من نوعه أصلاً بقي المخالفُ آخرَ الترتيب، ويراه القسمُ ملاءمةً تحتاج مراجعة. */
-  const known = (room: RankableRoom) => Number(room.capacity || 0) > 0;
-  const short = (room: RankableRoom) => seats > 0 && known(room) && Number(room.capacity) < seats;
-  const roomy = context.seatsAssumed ? [...rooms] : rooms.filter(room => !short(room));
-  /* طبقةُ السعة قبل كل تفضيل: معروفةٌ تكفي، ثم غيرُ مسجّلة، ثم الأصغرُ من سقفٍ مفترَض. */
-  const tier = (room: RankableRoom) => seats > 0 ? (short(room) ? 2 : known(room) ? 0 : 1) : 0;
-  const adequate = rooms.some(room => !room.typeMismatch) ? roomy.filter(room => !room.typeMismatch) : roomy;
+  /* السعةُ المسجّلة دون المقاعد المطلوبة لا تُرشَّح أبداً — ولو كانت المقاعدُ سقفاً مفترَضاً (المالك 2026-11-14).
+     ونوعُ القاعة المخالفُ لنوع المقرر (مختبرٌ لمقررٍ نظري، أو قاعةُ محاضرةٍ لمقررٍ عملي) لا يُرشَّح ما دامت
+     قاعةٌ من النوع الصحيح تتّسع (المالك 2026-11-12: اختار النظامُ قاعةً لا تلائم المقرر). فإن لم تكن قاعةٌ من نوعه
+     تتّسع بقي المخالفُ الذي يتّسع آخرَ الترتيب، ويراه القسمُ ملاءمةً تحتاج مراجعة. السعةُ أوّلاً ثم النوع. */
+  const fitOf = (room: RankableRoom) => roomSeatFit(room.capacity, seats);
+  const roomy = rooms.filter(room => fitOf(room) !== "short");
+  /* طبقةُ السعة قبل كل تفضيل: معروفةٌ تكفي، ثم غيرُ مسجّلة (تُحجز موسومةً للقسم حين لا يخلو غيرُها). */
+  const tier = (room: RankableRoom) => fitOf(room) === "fits" ? 0 : 1;
+  const adequate = roomy.some(room => !room.typeMismatch) ? roomy.filter(room => !room.typeMismatch) : roomy;
   const usages = adequate.map(room => context.usage.get(String(room.roomId || room.key)) || 0);
   const least = usages.length ? Math.min(...usages) : 0;
   const ranked = adequate.map((room, at) => {
@@ -76,8 +116,13 @@ export function rankRequestRooms(rooms: readonly RankableRoom[], context: RoomRa
     if (usages[at] === least && adequate.length > 1) { score += 20; why.push("fair"); }
     score -= usages[at];
     if (context.facility) why.push("facility");
-    return { ...room, why, score };
+    return { ...room, why, score, seatFit: fitOf(room) };
   });
   /* الترتيبُ ثابت: التساوي يُحسم بالمفتاح، فلا يتبدّل «الأنسب» بين قراءتين. */
   return ranked.sort((a, b) => tier(a) - tier(b) || b.score - a.score || a.key.localeCompare(b.key));
+}
+
+/** القاعاتُ التي أسقطتها السعةُ وحدها (معروفةٌ أصغر من المقاعد): ليقول الحكمُ «لا قاعة تتسع» لا «لا قاعة». */
+export function undersizedRequestRooms<T extends RankableRoom>(rooms: readonly T[], seats: number): T[] {
+  return rooms.filter(room => roomSeatFit(room.capacity, seats) === "short");
 }

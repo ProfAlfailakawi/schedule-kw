@@ -137,7 +137,7 @@ app.get("/api/system-backup/export-jobs/:id/download", requireAuth, requireRootA
 // The old one-request export was the source of the 5/12-minute dead wait. Keep
 // a clear response for stale clients instead of silently starting that path.
 app.get("/api/system-backup/export", requireAuth, requireRootAdmin, async (_req: AuthenticatedRequest, res: Response) => {
-  res.status(409).json({ error: "تم استبدال التصدير المباشر بتصدير متدرج وآمن. افتح خزنة النظام وابدأ التصدير من هناك." });
+  res.status(409).json({ error: "تم استبدال التصدير المباشر بتصدير متدرج وآمن. افتح «النسخة الاحتياطية» وابدأ التصدير من هناك." });
 });
 
 app.post("/api/system-backup/preview", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
@@ -194,7 +194,7 @@ app.delete("/api/system-backup/import-jobs/:id", requireAuth, requireRootAdmin, 
 });
 
 app.post("/api/system-backup/import", requireAuth, requireRootAdmin, async (_req: AuthenticatedRequest, res: Response) => {
-  res.status(409).json({ error: "تم استبدال الاستيراد المباشر باستيراد متدرج قابل للاستكمال. افتح خزنة النظام واضغط «استيراد» من جديد." });
+  res.status(409).json({ error: "تم استبدال الاستيراد المباشر باستيراد متدرج قابل للاستكمال. افتح «النسخة الاحتياطية» واضغط «استيراد» من جديد." });
 });
 
 app.post("/api/system-backup/reset", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {

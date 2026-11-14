@@ -5552,8 +5552,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const remove = async (id: number) => {
     if (showMobileReadOnlyGate()) return;
     if (!(await visualConfirm({
-      title: practiceMode ? "حذف من النسخة التجريبية" : "حذف الموعد",
-      message: practiceMode ? "سيُحذف هذا الموعد من النسخة التجريبية فقط دون المساس بالجدول الحقيقي." : "سيُحذف هذا الموعد من الجدول الحالي.",
+      title: practiceMode ? "حذف من التجربة الآمنة" : "حذف الموعد",
+      message: practiceMode ? "سيُحذف هذا الموعد من التجربة الآمنة فقط دون المساس بالجدول الحقيقي." : "سيُحذف هذا الموعد من الجدول الحالي.",
       confirmLabel: practiceMode ? "حذف تجريبي" : "حذف",
       tone: "danger",
       compact: true,

@@ -28,8 +28,9 @@ export interface StudentNoticeInput {
   reportAnswered: boolean;
   reportCourses: number;
   cases: StudentCaseCourse[];
-  /** شعبٌ فتحها القسمُ حديثاً لمقرراتٍ أرادها الطالبُ أو تعثّر فيها (من اقتراح مركز الذكاء). */
-  opened?: Array<{ courseId: number; name: string; section: string }>;
+  /** شعبٌ فتحها القسمُ حديثاً استجابةً لطلب الطلبة لمقرراتٍ أرادها الطالبُ أو تعثّر فيها (أصلُ صفّ الجدول يقول ذلك).
+   *  `wished`: المقررُ في رغباته لهذا الفصل، فيُقال له إنه كان ممن طلبوه. */
+  opened?: Array<{ courseId: number; name: string; section: string; wished?: boolean }>;
 }
 
 export const REJECT_REASON_AR: Record<string, string> = {
@@ -53,7 +54,7 @@ export function buildStudentNotices(input: StudentNoticeInput): StudentNotice[] 
     if (t.stale) out.push({ id: "ticket-stale", tone: "info", icon: "info", title: "عدّلت ملفّك بعد آخر حساب", detail: "سيتحدّث جدولك المقترح في التحديث القادم.", target: "ticket" });
     out.push({
       id: `ticket-ready:${t.window}`, tone: "info", icon: "ticket", title: `جدولك المقترح جاهز — دورك ${t.window} من ${t.of}`,
-      detail: t.start ? `${t.windowName || "دورك"}: ${t.start}${t.end ? ` → ${t.end}` : ""}` : "يحدّد موعدَها صاحبُ القرار.", target: "ticket",
+      detail: t.start ? `${t.windowName || "دورك"}: ${t.start}${t.end ? ` إلى ${t.end}` : ""}` : "يُعلن موعدُه هنا قريباً.", target: "ticket",
     });
   }
   if (phase.canReport && input.reportCourses > 0 && !input.reportAnswered) {
@@ -65,7 +66,10 @@ export function buildStudentNotices(input: StudentNoticeInput): StudentNotice[] 
     out.push({ id: "advice", tone: "info", icon: "spark", title: "مقترحك الشخصي لهذا الفصل", detail: "ما تسجّله ولماذا — من صحيفتك وما يُطرح.", target: "advice" });
   }
   for (const row of input.opened || []) {
-    out.push({ id: `opened:${row.courseId}`, tone: "action", icon: "ticket", title: `فُتحت شعبةٌ جديدة لـ«${row.name}»`, detail: row.section ? `الشعبة ${row.section} — جرّبها في تذكرتك.` : "جرّبها في تذكرتك.", target: "ticket" });
+    const where = row.section ? `الشعبة ${row.section} — جرّبها في جدولك المقترح.` : "جرّبها في جدولك المقترح.";
+    out.push(row.wished
+      ? { id: `opened:${row.courseId}`, tone: "action", icon: "spark", title: `فُتحت شعبة في «${row.name}» — كنتَ ممن طلبوه`, detail: where, target: "ticket" }
+      : { id: `opened:${row.courseId}`, tone: "action", icon: "ticket", title: `فُتحت شعبةٌ جديدة لـ«${row.name}»`, detail: where, target: "ticket" });
   }
   for (const course of input.cases) {
     if (course.dropped) continue;

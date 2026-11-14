@@ -177,7 +177,7 @@ export async function reviewInstructorCard(base: string, card: {
     coordinator.on("pageerror", (error: Error) => errors.push(error.message));
     await coordinator.setViewportSize({ width: 1280, height: 900 });
     await coordinator.goto(`${base}/FSchedule/InstructorRequests`);
-    await coordinator.getByRole("heading", { name: "وارد الأساتذة" }).waitFor({ state: "visible", timeout: 30000 });
+    await coordinator.getByRole("heading", { name: "رغبات الأساتذة" }).waitFor({ state: "visible", timeout: 30000 });
     const requestCard = coordinator.locator(".request-card").filter({ hasText: card.name });
     await requestCard.waitFor({ state: "visible", timeout: 30000 });
     const inboxBefore = await coordinator.request.get(`${base}/api/instructor-requests?collegeId=1&sectionId=1&termId=1`, { headers: { cookie } }).then((response: any) => response.json());
