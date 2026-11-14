@@ -18,6 +18,7 @@ import { demandSupply, type SupplyCapacity } from "../utils/actualDemandSupply";
 import { planCourseFacts, sectionPlan } from "../utils/sectionPlan";
 import type { TeachingRoom } from "./sectionPlanRoom";
 import { graduateClashes, graduateImpactOf } from "../utils/actualDemandGraduates";
+import { studentFitOf, type StudentFit } from "../utils/studentFit";
 import { capacityContextForSection } from "./core/capacityRules";
 import {
   demandDepartmentMatches, demandStudents, demandTermMatches, matchDemandCourses, parseDemandReport,
@@ -234,17 +235,34 @@ export function demandPreview(report: DemandReport, context: DemandContext, term
  * خريجي البرنامج الواحد. null بلا تقرير خريجين أو بلا أثر. لا يرمي.
  */
 export async function graduateImpactFor(req: AuthenticatedRequest, row: any): Promise<{ graduates: number; pairs: string[] } | null> {
+  return (await appointmentDemandFor(req, row)).graduateImpact;
+}
+
+/**
+ * ما يقوله الطلب الفعلي عن موعدٍ قبل حفظه — بقراءةٍ واحدة للعائلة:
+ *  • graduateImpact: التعارضات الجديدة بين مقررات خريجي البرنامج الواحد (src/utils/actualDemandGraduates.ts)؛
+ *  • studentFit: «نبض الطلبة» — كم ممن يحتاجون المقرر يناسبهم هذا الوقت (src/utils/studentFit.ts).
+ * كلاهما ملاحظةٌ لا تمنع. لا يرمي.
+ */
+export async function appointmentDemandFor(req: AuthenticatedRequest, row: any): Promise<{ graduateImpact: { graduates: number; pairs: string[] } | null; studentFit: StudentFit | null }> {
+  const none = { graduateImpact: null, studentFit: null };
   try {
     const collegeId = Number(row?.AdCollegeId || 0), sectionId = Number(row?.AdSectionId || 0), termId = Number(row?.AdTermId || 0);
-    if (!collegeId || !sectionId || !termId || !Number(row?.AdCourseId)) return null;
+    if (!collegeId || !sectionId || !termId || !Number(row?.AdCourseId)) return none;
     const context = await demandContext(req, collegeId, sectionId, termId);
+    const general = context.stored?.variants?.general?.report || null;
     const graduates = context.stored?.variants?.graduates?.report || null;
-    if (!graduates) return null;
-    const impact = graduateImpactOf({ graduates, matches: context.matches, members: context.family.members, rows: context.rows,
-      candidate: { ...row, id: Number(row.excludeId || row.id || 0) || -1 }, replaces: Number(row.excludeId || row.id || 0) });
-    if (!impact) return null;
-    return { graduates: impact.graduates, pairs: impact.clashes.slice(0, 3).map(clash => `${courseFace(context, clash.a.code, clash.a.name).code} × ${courseFace(context, clash.b.code, clash.b.name).code}`) };
-  } catch { return null; }
+    if (!general && !graduates) return none;
+    const replaces = Number(row.excludeId || row.id || 0);
+    const candidate = { ...row, id: replaces || -1 };
+    const impact = graduates ? graduateImpactOf({ graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces }) : null;
+    const fit = studentFitOf({ general, graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces });
+    const face = (side: StudentFit["students"]) => side ? { ...side, clashes: side.clashes.map(clash => ({ ...clash, ...courseFace(context, clash.code, clash.name) })) } : null;
+    return {
+      graduateImpact: impact ? { graduates: impact.graduates, pairs: impact.clashes.slice(0, 3).map(clash => `${courseFace(context, clash.a.code, clash.a.name).code} × ${courseFace(context, clash.b.code, clash.b.name).code}`) } : null,
+      studentFit: fit ? { ...fit, students: face(fit.students), graduates: face(fit.graduates) } : null,
+    };
+  } catch { return none; }
 }
 
 export { parseDemandReport };
