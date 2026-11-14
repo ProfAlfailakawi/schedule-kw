@@ -55,7 +55,17 @@
     "src/utils/reportInsights.ts",
     "src/utils/reportShare.ts",
     "src/utils/lensExport.ts",
-    "src/utils/morningBrief.ts"
+    "src/utils/morningBrief.ts",
+    "src/utils/reportShareCore.ts",
+    "src/hooks/useSavedReports.ts",
+    "src/hooks/useSpeechAsk.ts",
+    "src/components/query/QueryBrief.tsx",
+    "src/components/query/QueryInsights.tsx",
+    "src/components/query/QuerySaved.tsx",
+    "src/components/query/QueryCompare.tsx",
+    "src/components/query/QueryPrintPreview.tsx",
+    "src/components/query/QueryEmptyWhy.tsx",
+    "src/server/morningBriefPush.ts"
   ],
   "screens": [
     {
@@ -2544,6 +2554,10 @@
         {
           "ar": "الفارغة الآن من قاعات القسم الموثّقة وانشغالها في الجامعة كلها؛ والجمعة والسبت «اليوم خارج أيام الدوام»، وخارج 08:00–20:00 «خارج ساعات الدوام».",
           "en": "Free-now uses the department's verified rooms and their university-wide bookings; Friday and Saturday read «outside working days», and outside 08:00–20:00 «outside working hours»."
+        },
+        {
+          "ar": "كل بطاقة أيقونةٌ وقيمة؛ والشرح في التلميح لا على الشاشة.",
+          "en": "Each card is an icon and a value; the explanation is in the tooltip, not on screen."
         }
       ],
       "evidence": {
@@ -2560,12 +2574,12 @@
       "id": "FR-RPT-044",
       "kind": "functional",
       "title": {
-        "ar": "تقاريري والرابط المشارَك",
-        "en": "My reports and the shared link"
+        "ar": "تقاريري: على الخادم، شخصيةً أو للقسم",
+        "en": "My reports: stored on the server, personal or for the department"
       },
       "text": {
-        "ar": "يجب أن يتيح مركز الاستعلام حفظ الاستعلام الحالي (العدسة والنطاق والمرشّحات) باسمٍ قصير في متصفّح صاحبه وفتحه بضغطة، ونسخ رابطٍ يحمل الحال نفسها في المعامل r يفتحه من يملك حساباً بنطاقه هو.",
-        "en": "The query centre shall let the reader save the current query (lens, scope and filters) under a short name in their browser and reopen it with one press, and copy a link carrying the same state in parameter r that any account opens within its own scope."
+        "ar": "يجب أن يتيح مركز الاستعلام حفظ الاستعلام الحالي (العدسة والنطاق والمرشّحات) باسمٍ قصير على الخادم، شخصياً أو مشاركاً مع من له صلاحية القسم، مع خيار «نبّهني إن تغيّر»، وفتحه بضغطة، ونسخ رابطٍ يحمل الحال نفسها في المعامل r يفتحه من يملك حساباً بنطاقه هو.",
+        "en": "The query centre shall let the reader save the current query (lens, scope and filters) under a short name on the server, personal or shared with whoever holds the department's permission, with a «notify me if it changes» option, reopen it with one press, and copy a link carrying the same state in parameter r that any account opens within its own scope."
       },
       "priority": "should",
       "status": "implemented",
@@ -2577,21 +2591,32 @@
       ],
       "acceptance": [
         {
-          "ar": "حتى 20 تقريراً محفوظاً لكل حساب تحت schedule-saved-reports-<الحساب>، والاسم حتى 60 حرفاً، وحفظ اسمٍ موجود يستبدله.",
-          "en": "Up to 20 saved reports per account under schedule-saved-reports-‹account›, names up to 60 characters, and saving an existing name replaces it."
+          "ar": "حتى 30 استعلاماً لكل حساب في المجموعة savedReports، والاسم حتى 60 حرفاً، وحفظ اسمٍ موجود يستبدله؛ ويُرحَّل ما كان محفوظاً في المتصفح مرةً واحدة.",
+          "en": "Up to 30 queries per account in the savedReports collection, names up to 60 characters, saving an existing name replaces it; whatever was saved in the browser is migrated once."
         },
         {
-          "ar": "الرابط لا يحمل صلاحية: النطاق يمرّ بتصفية الصلاحيات نفسها، ويُنزع r من شريط العنوان بعد قراءته؛ والمرشّحات الفارغة لا تُحمل، والرابط التالف يُهمل.",
-          "en": "The link carries no permission: its scope passes the same permission filter, r is removed from the address bar once read, empty filters are not carried and a damaged link is ignored."
+          "ar": "المشاركة تشترط صلاحية القارئ على القسم المحفوظ فيه (403 دونها)، والمشارَك يراه من له صلاحية ذلك القسم وحده، والحذف لصاحبه ولمدير النظام.",
+          "en": "Sharing requires the reader's permission on the saved department (403 otherwise); a shared query is visible only to holders of that department's permission; deleting is for the owner and the system administrator."
+        },
+        {
+          "ar": "ما يُراقَب يحمل نقطةً حمراء حين تتغيّر بصمة نتائجه عمّا رآه صاحبه آخر مرة (للقسم المقروء الآن).",
+          "en": "A watched query shows a red dot when its results' fingerprint differs from what the owner last saw (for the department currently loaded)."
+        },
+        {
+          "ar": "الرابط لا يحمل صلاحية، ويُنزع r من شريط العنوان بعد قراءته، والرابط التالف يُهمل.",
+          "en": "The link carries no permission, r is removed from the address bar once read, and a damaged link is ignored."
         }
       ],
       "evidence": {
         "code": [
-          "src/utils/reportShare.ts",
-          "src/components/Reports.tsx#takeSharedReport"
+          "src/utils/reportShareCore.ts",
+          "src/hooks/useSavedReports.ts",
+          "src/components/query/QuerySaved.tsx",
+          "src/server/routes/reportsRoutes.ts#/api/reports/saved"
         ],
         "tests": [
-          "tests/query-center-plus-audit.ts"
+          "tests/query-center-plus-audit.ts",
+          "tests/query-center-e2e.ts"
         ]
       }
     },
@@ -2642,8 +2667,8 @@
         "en": "Morning brief"
       },
       "text": {
-        "ar": "يجب أن يعرض مركز الاستعلام لقسمٍ مختار «موجز الصباح»: حركات مواعيد القسم في آخر 24 ساعة، وموانع الاعتماد، والملاحظات اللائحية، والتغييرات منذ آخر مراجعة للتسجيل، وحال الاعتماد، والأيام الباقية على موعد التسليم؛ مفتوحاً أوّل زيارةٍ في اليوم لكل حساب ثم مطويّاً، ويُطبع ورقةً واحدة.",
-        "en": "For a chosen department the query centre shall show a «morning brief»: moves on the department's appointments in the last 24 hours, approval blockers, regulation notes, changes since the registrar's last review, the approval state and the days left to the deadline; open on each account's first visit of the day and folded afterwards, and printable as one sheet."
+        "ar": "يجب أن يعرض مركز الاستعلام لقسمٍ مختار «موجز الصباح» شريطاً مطويّاً بأربع بطاقاتٍ بأيقونةٍ ورقم (حركات آخر 24 ساعة، موانع الاعتماد، الملاحظات اللائحية، الأيام الباقية على التسليم)، يُفتح بضغطة على حلقة الأيام وأرقام التغيير (أُضيف/حُذف/عُدّل) وحال الاعتماد وآخر الحركات، وتُطبع جُمَله ورقةً واحدة.",
+        "en": "For a chosen department the query centre shall show a «morning brief» as a collapsed strip of four icon-and-number cards (moves in the last 24 hours, approval blockers, regulation notes, days left to the deadline), opened with one press to a days ring, change numbers (added/removed/changed), the approval state and the latest moves, and printable as one sheet of sentences."
       },
       "rationale": {
         "ar": "الخادم لا يعمل بمؤقّت، فالموجز يُبنى ساعةَ يُفتح من قراءاتٍ قائمة (أثر النشاط وتقرير التغييرات) ولا يُرسل من تلقاء نفسه.",
@@ -2659,12 +2684,16 @@
       ],
       "acceptance": [
         {
-          "ar": "الحركة تدخل الموجز إن حملت كلية القسم المعروض وقسمه وفصله (فالحذف يُعدّ ولو زال الموعد)، أو — لحركةٍ قديمة بلا قسم — إن بقي موعدها في القسم، ووقعت في آخر 24 ساعة؛ وتُعرض آخر 8 حركات. وطيُّ الموجز أثناء قراءته يلغيها، وفتحه يعيدها.",
-          "en": "A move enters the brief when it carries the shown department's college, department and term (so a deletion counts even after its appointment is gone), or — for an older move without a department — when its appointment is still in the department, and it happened in the last 24 hours; the last 8 moves are listed. Folding the brief while it loads cancels the read, and reopening retries it."
+          "ar": "الحركة تدخل الموجز إن حملت كلية القسم المعروض وقسمه وفصله (فالحذف يُعدّ ولو زال الموعد)، أو — لحركةٍ قديمة بلا قسم — إن بقي موعدها في القسم، ووقعت في آخر 24 ساعة؛ وتُعرض آخر 8 حركات.",
+          "en": "A move enters the brief when it carries the shown department's college, department and term (so a deletion counts even after its appointment is gone), or — for an older move without a department — when its appointment is still in the department, and it happened in the last 24 hours; the last 8 moves are listed."
         },
         {
-          "ar": "تعذّر قراءة تقرير التغييرات (العميدان قبل الاعتماد) يُبقي سطور أثر النشاط ويقول ذلك.",
-          "en": "If the changes report cannot be read (deans before approval) the activity lines stay and the brief says so."
+          "ar": "البطاقة خضراء بلا شيء، وكهرمانية لما يستحق نظرة، وحمراء لما يمنع الاعتماد؛ وحلقة الأيام تحذّر حين يبقى 7 أيام أو أقل.",
+          "en": "A card is green for nothing, amber for what deserves a look and red for what blocks approval; the days ring warns at 7 days or fewer."
+        },
+        {
+          "ar": "يُقرأ الموجز مطويّاً حين يُفتح النطاق ولا يُفتح من تلقاء نفسه، وطيّه أثناء القراءة لا يعلّقه.",
+          "en": "The brief is read folded when the scope opens and never opens by itself; folding it while loading does not hang it."
         },
         {
           "ar": "ورقة «موجز الصباح» تُطبع بأصناف الطباعة القائمة على A4 أفقي.",
@@ -2689,8 +2718,8 @@
         "en": "Compare with an earlier version"
       },
       "text": {
-        "ar": "يجب أن تتيح عدستا عدالة الحمل ونسبة الإشغال لرئيس القسم واللجنة اختيار نسخةٍ محفوظة من جدول القسم ومقارنتها بالجدول الآن: عدد المواعيد، ومؤشر العدالة، وإشغال الأسبوع، ومحاضرات الذروة.",
-        "en": "The fairness and occupancy lenses shall let the department head and committee pick a saved version of the department's schedule and compare it with the schedule now: appointment count, fairness score, weekly occupancy and peak lectures."
+        "ar": "يجب أن تتيح عدستا عدالة الحمل ونسبة الإشغال لرئيس القسم واللجنة اختيار نسخةٍ محفوظة من جدول القسم ومقارنتها بالجدول الآن بخريطةٍ بلونين: أخضر لما زاد، أحمر لما نقص، رمادي لما بقي — في شبكة أيامٍ × ساعات — مع ثلاثة أرقام بأيقوناتها ومؤشر العدالة قبل وبعد.",
+        "en": "The fairness and occupancy lenses shall let the department head and committee pick a saved version of the department's schedule and compare it with the schedule now as a two-colour map — green for what grew, red for what shrank, grey for what stayed — on a days × hours grid, with three icon-and-number counts and the fairness score before and after."
       },
       "priority": "could",
       "status": "implemented",
@@ -2701,12 +2730,12 @@
       ],
       "acceptance": [
         {
-          "ar": "القائمة آخر 30 نسخة باسمها وتاريخها وعدد مواعيدها؛ والعميدان لا تُعرض لهما (يقرآن النهائيَّ وحده).",
-          "en": "The list is the last 30 versions with name, date and appointment count; deans are not offered it (they read final schedules only)."
+          "ar": "القائمة آخر 30 نسخة؛ والعميدان لا تُعرض لهما (يقرآن النهائيَّ وحده).",
+          "en": "The list is the last 30 versions; deans are not offered it (they read final schedules only)."
         },
         {
-          "ar": "المقارنة على جدول القسم كاملاً بلا مرشّحات، والفرق في العدالة يُكتب بإشارته (+13).",
-          "en": "The comparison uses the department's whole schedule without filters, and the fairness difference is written with its sign (+13)."
+          "ar": "موعدٌ تحرّك يظهر أحمرَ في خانته القديمة وأخضرَ في الجديدة؛ والمقارنة على جدول القسم كاملاً بلا مرشّحات.",
+          "en": "A moved appointment shows red in its old cell and green in the new one; the comparison uses the department's whole schedule without filters."
         }
       ],
       "evidence": {
@@ -2818,6 +2847,188 @@
         "code": [
           "src/server/reportStampPage.ts",
           "src/server/routes/reportsRoutes.ts"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-051",
+      "kind": "functional",
+      "title": {
+        "ar": "لماذا لا نتائج؟",
+        "en": "Why no results?"
+      },
+      "text": {
+        "ar": "يجب أن تعرض الشاشة الفارغة بسبب المرشّحات كلَّ مرشّحٍ فعّال شريحةً بأيقونته وعدد المواعيد التي تظهر لو أُزيل وحده، وتُبرز أنفعها، وتُزيله بضغطة.",
+        "en": "When filters leave the screen empty it shall show each active filter as a chip with its icon and the number of appointments that would appear if it alone were removed, highlight the most useful, and remove it with one press."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "المرشّح الذي لا يكفي إزالته وحده يظهر معطّلاً بنقطة، وزرّ «مسح الكل» حين يكثر المرشّحون.",
+          "en": "A filter that is not enough alone shows disabled with a dot, and «clear all» appears when several are active."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/query/QueryEmptyWhy.tsx",
+          "src/components/Reports.tsx#applyFiltersWith"
+        ],
+        "tests": [
+          "tests/query-center-e2e.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-052",
+      "kind": "functional",
+      "title": {
+        "ar": "السؤال بالصوت وتقريب الإملاء",
+        "en": "Spoken questions and spelling tolerance"
+      },
+      "text": {
+        "ar": "يجب أن يتيح مركز الاستعلام السؤال بصوت القارئ حيث يدعم المتصفح الكلام (ميكروفونٌ داخل خانة السؤال، جملةٌ واحدة)، وأن يقرّب الاسم المكتوب بخطأ حرفٍ أو حرفين إلى أقرب أستاذٍ أو مقرر فيسأل «هل تقصد؟» ولا يختار عن القارئ.",
+        "en": "The query centre shall let the reader ask by voice where the browser supports speech (a microphone inside the question field, one sentence), and shall match a name typed with a one- or two-letter slip to the nearest instructor or course, asking «did you mean?» without choosing for the reader."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "التفريغ بخدمة الكلام في المتصفح ولا يُحفظ صوت، والعربية إملاءً؛ والأرقام الهندية وصيغة «9 : 30» تُقرأ كأرقام عادية.",
+          "en": "Transcription uses the browser's speech service and no audio is kept; Arabic dictation; Arabic-Indic digits and «9 : 30» are read as ordinary digits."
+        },
+        {
+          "ar": "كلمةٌ أقصر من ثلاثة أحرف أو بعيدةٌ عن كل اسم لا تُخمَّن، فتُقال «لم أجد».",
+          "en": "A word shorter than three letters or far from every name is not guessed, and the answer is «not found»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/hooks/useSpeechAsk.ts",
+          "src/utils/queryAsk.ts#fuzzyNames"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-053",
+      "kind": "functional",
+      "title": {
+        "ar": "معاينة صفحات الطباعة",
+        "en": "Print page preview"
+      },
+      "text": {
+        "ar": "يجب أن يتيح زرّ العين بجانب الطباعة معاينةً اختيارية: عدد صفحات الورقة بأوراقٍ صغيرة مرقّمة بامتلاء كلٍّ منها، وتتميّز الصفحة الحاملة للتواقيع، مع زرّ طباعة؛ ولا يعترض الطباعة المباشرة.",
+        "en": "An eye button beside print shall offer an optional preview: the sheet's page count as small numbered pages showing how full each is, the page carrying signatures distinguished, with a print button; it shall not intercept direct printing."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الصفحات تُقرأ من الورقة المركّبة للطباعة نفسها قبل أن تُطبع.",
+          "en": "The pages are read from the very sheet composed for printing, before it prints."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/query/QueryPrintPreview.tsx"
+        ],
+        "tests": [
+          "tests/query-center-e2e.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-RPT-054",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارات تقاريري",
+        "en": "My-reports routes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم لكل مسجَّلٍ GET /api/reports/saved (ما حفظه وما شاركه زملاء قسمه) وPUT /api/reports/saved (حفظٌ أو تحديث) وDELETE /api/reports/saved/:id، بحدّ 90 طلباً في الدقيقة، وحالٍ منقّاة من مفاتيح المرشّحات المعروفة وحدها.",
+        "en": "The system shall serve every signed-in account GET /api/reports/saved (what it saved and what its department colleagues shared), PUT /api/reports/saved (save or update) and DELETE /api/reports/saved/:id, rate-limited to 90 requests a minute, with state sanitised to the known filter keys only."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "استعلامٌ بلا اسم أو بعدسةٍ غير معروفة ← 400؛ ومشاركةٌ بلا صلاحية القسم ← 403؛ وتجاوز 30 ← 409؛ وحذفُ ما ليس لك ← 403.",
+          "en": "A query without a name or with an unknown lens ← 400; sharing without the department's permission ← 403; more than 30 ← 409; deleting someone else's ← 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts#/api/reports/saved",
+          "src/server/routes/reportsRoutes.ts#/api/reports/saved/:id"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-RPT-055",
+      "kind": "interface",
+      "title": {
+        "ar": "نقطة موجز الصباح بالتنبيه",
+        "en": "Morning-brief push endpoint"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم POST /api/internal/morning-brief لجدولةٍ خارجية بسرٍّ في الترويسة x-brief-token يطابق MORNING_BRIEF_TOKEN، فيرسل لكل حسابٍ مسجَّلٍ للتنبيهات تنبيهاً واحداً في اليوم بسطرٍ لكل قسمٍ من أقسامه (حتى ثلاثة) فيه الموانع والأيام الباقية.",
+        "en": "The system shall serve POST /api/internal/morning-brief to an external scheduler with a secret in header x-brief-token matching MORNING_BRIEF_TOKEN, sending each account registered for notifications one notification a day with a line for each of its departments (up to three) holding the blockers and days left."
+      },
+      "rationale": {
+        "ar": "الخادم بلا مؤقّت عن قصد، فالموعد يأتي من الخارج.",
+        "en": "The server runs no timers on purpose, so the schedule comes from outside."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا المتغيّر أو بسرٍّ خاطئ أو في الديمو ← 404؛ والجمعة والسبت (توقيت الكويت) ← لا إرسال.",
+          "en": "Without the variable, with a wrong secret, or in the demo ← 404; Friday and Saturday (Kuwait time) ← nothing is sent."
+        },
+        {
+          "ar": "لكل حسابٍ مرةً في اليوم ذرّياً (pushCooldowns)؛ ولا يصل مدير النظام، ولا قسمٌ بلا جدولٍ ولا ما يستحق الذكر.",
+          "en": "Once a day per account, atomically (pushCooldowns); the system administrator, a department without a schedule and one with nothing worth saying receive none."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/morningBriefPush.ts",
+          "src/server/pushRoutes.ts"
         ],
         "tests": [
           "tests/query-center-plus-audit.ts"

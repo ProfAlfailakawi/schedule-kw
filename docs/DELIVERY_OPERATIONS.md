@@ -65,3 +65,14 @@ The complete approved rules are in [`CURRICULUM_SHEET_RULES.md`](CURRICULUM_SHEE
 ## Data and credentials
 
 Do not include local database snapshots or production credentials in source control or delivery archives. Configure runtime access using private environment variables or the platform's managed identity. Keep local environment files, service-account keys, vault keys, and user exports outside the project.
+
+## Morning brief notification (optional)
+
+The server has no timers (Cloud Run throttles an idle instance), so the daily brief is started from outside:
+
+1. Set `MORNING_BRIEF_TOKEN` (a long random secret) on the Cloud Run service.
+2. Create a Cloud Scheduler job, cron `30 7 * * 0-4`, time zone `Asia/Kuwait`, that sends
+   `POST https://<service>/api/internal/morning-brief` with the header `x-brief-token: <the secret>`.
+
+The call is safe to repeat: each account receives at most one notification per day, accounts with nothing worth saying receive none,
+and Friday and Saturday are skipped. Without the variable the endpoint answers 404.
