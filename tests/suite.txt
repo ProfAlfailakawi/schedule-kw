@@ -328,4 +328,5 @@ test:system-health
 test:feature-health
 test:wish-patterns
 test:latin-digits
+test:acceptance-rehearsal
 test:ladder-start-hint
