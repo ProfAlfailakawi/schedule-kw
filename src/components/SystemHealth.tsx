@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CalendarClock, CheckCircle2, DatabaseBackup, DoorOpen, HeartPulse, HelpCircle, KeyRound, Lock, RefreshCw } from "lucide-react";
 import { MicroLoader, Notice } from "./ui";
+import FeatureHealth from "./FeatureHealth";
 import { AR, nounFor, type ArabicNoun } from "../utils/arabicCount";
 import { HEALTH_CARD_TITLES, HEALTH_REFRESH_MS, type HealthCard, type HealthPayload, type HealthState } from "../utils/systemHealth";
 
@@ -122,6 +123,7 @@ export default function SystemHealth({ header, onOpenVault }: { header?: React.R
           })}
         </ul>
       ) : null}
+      <FeatureHealth />
     </div>
   );
 }

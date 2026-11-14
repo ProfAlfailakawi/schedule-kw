@@ -2291,10 +2291,70 @@
    "methods": [
     "get"
    ],
+   "path": "/api/admin/location-setup/capacity-import/template",
+   "name": "bound dispatch",
+   "call": "5f00540280590de9",
+   "site": "src/server/routes/capacityImportRoutes.ts:115",
+   "regexp": "/^\\/api\\/admin\\/location-setup\\/capacity-import\\/template\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/admin/location-setup/capacity-import/preview",
+   "name": "bound dispatch",
+   "call": "452f12773fdbb1a6",
+   "site": "src/server/routes/capacityImportRoutes.ts:122",
+   "regexp": "/^\\/api\\/admin\\/location-setup\\/capacity-import\\/preview\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/admin/location-setup/capacity-import/apply",
+   "name": "bound dispatch",
+   "call": "759726c80a7fc78e",
+   "site": "src/server/routes/capacityImportRoutes.ts:141",
+   "regexp": "/^\\/api\\/admin\\/location-setup\\/capacity-import\\/apply\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/admin/location-setup/capacity-import/undo",
+   "name": "bound dispatch",
+   "call": "22e7ed01c8d1f1a9",
+   "site": "src/server/routes/capacityImportRoutes.ts:204",
+   "regexp": "/^\\/api\\/admin\\/location-setup\\/capacity-import\\/undo\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/admin/location-setup/capacity-import/last",
+   "name": "bound dispatch",
+   "call": "839a49335aa5e4c7",
+   "site": "src/server/routes/capacityImportRoutes.ts:255",
+   "regexp": "/^\\/api\\/admin\\/location-setup\\/capacity-import\\/last\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
    "path": "/api/department-rooms",
    "name": "bound dispatch",
    "call": "32fc464ec62e07cc",
-   "site": "src/server/routes/locationsRoutes.ts:46",
+   "site": "src/server/routes/locationsRoutes.ts:48",
    "regexp": "/^\\/api\\/department-rooms\\/?$/i",
    "end": true
   },
@@ -2306,7 +2366,7 @@
    "path": "/api/department-rooms",
    "name": "bound dispatch",
    "call": "71185471b3cbc35f",
-   "site": "src/server/routes/locationsRoutes.ts:53",
+   "site": "src/server/routes/locationsRoutes.ts:55",
    "regexp": "/^\\/api\\/department-rooms\\/?$/i",
    "end": true
   },
@@ -2318,7 +2378,7 @@
    "path": "/api/location-registry",
    "name": "bound dispatch",
    "call": "11a62124deabc51b",
-   "site": "src/server/routes/locationsRoutes.ts:58",
+   "site": "src/server/routes/locationsRoutes.ts:60",
    "regexp": "/^\\/api\\/location-registry\\/?$/i",
    "end": true
   },
@@ -2330,7 +2390,7 @@
    "path": "/api/companion-rooms",
    "name": "bound dispatch",
    "call": "daac1ec05b74bfda",
-   "site": "src/server/routes/locationsRoutes.ts:190",
+   "site": "src/server/routes/locationsRoutes.ts:192",
    "regexp": "/^\\/api\\/companion-rooms\\/?$/i",
    "end": true
   },
@@ -2342,7 +2402,7 @@
    "path": "/api/location-registry/pending",
    "name": "bound dispatch",
    "call": "b2dc5edac514c6dc",
-   "site": "src/server/routes/locationsRoutes.ts:213",
+   "site": "src/server/routes/locationsRoutes.ts:215",
    "regexp": "/^\\/api\\/location-registry\\/pending\\/?$/i",
    "end": true
   },
@@ -2354,7 +2414,7 @@
    "path": "/api/admin/location-registry",
    "name": "bound dispatch",
    "call": "1312e35194fce531",
-   "site": "src/server/routes/locationsRoutes.ts:221",
+   "site": "src/server/routes/locationsRoutes.ts:223",
    "regexp": "/^\\/api\\/admin\\/location-registry\\/?$/i",
    "end": true
   },
@@ -2366,7 +2426,7 @@
    "path": "/api/admin/location-setup",
    "name": "bound dispatch",
    "call": "5ce92d2284a7ce26",
-   "site": "src/server/routes/locationsRoutes.ts:235",
+   "site": "src/server/routes/locationsRoutes.ts:237",
    "regexp": "/^\\/api\\/admin\\/location-setup\\/?$/i",
    "end": true
   },
@@ -2378,7 +2438,7 @@
    "path": "/api/admin/location-setup/capacity-gaps",
    "name": "bound dispatch",
    "call": "b2e38f60662f2511",
-   "site": "src/server/routes/locationsRoutes.ts:241",
+   "site": "src/server/routes/locationsRoutes.ts:243",
    "regexp": "/^\\/api\\/admin\\/location-setup\\/capacity-gaps\\/?$/i",
    "end": true
   },
@@ -2390,7 +2450,7 @@
    "path": "/api/admin/location-setup/buildings",
    "name": "bound dispatch",
    "call": "df52cf8e98e256a6",
-   "site": "src/server/routes/locationsRoutes.ts:246",
+   "site": "src/server/routes/locationsRoutes.ts:248",
    "regexp": "/^\\/api\\/admin\\/location-setup\\/buildings\\/?$/i",
    "end": true
   },
@@ -2402,7 +2462,7 @@
    "path": "/api/admin/location-setup/buildings/:id",
    "name": "bound dispatch",
    "call": "38cac839d4f298f3",
-   "site": "src/server/routes/locationsRoutes.ts:265",
+   "site": "src/server/routes/locationsRoutes.ts:267",
    "regexp": "/^\\/api\\/admin\\/location-setup\\/buildings(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2414,7 +2474,7 @@
    "path": "/api/admin/location-setup/usage",
    "name": "bound dispatch",
    "call": "6a17485169b61454",
-   "site": "src/server/routes/locationsRoutes.ts:277",
+   "site": "src/server/routes/locationsRoutes.ts:279",
    "regexp": "/^\\/api\\/admin\\/location-setup\\/usage\\/?$/i",
    "end": true
   },
@@ -2426,7 +2486,7 @@
    "path": "/api/admin/location-setup/buildings/:id",
    "name": "bound dispatch",
    "call": "abb6c591730190e1",
-   "site": "src/server/routes/locationsRoutes.ts:284",
+   "site": "src/server/routes/locationsRoutes.ts:286",
    "regexp": "/^\\/api\\/admin\\/location-setup\\/buildings(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2438,7 +2498,7 @@
    "path": "/api/admin/location-setup/rooms",
    "name": "bound dispatch",
    "call": "55d0c6c447f06b00",
-   "site": "src/server/routes/locationsRoutes.ts:295",
+   "site": "src/server/routes/locationsRoutes.ts:297",
    "regexp": "/^\\/api\\/admin\\/location-setup\\/rooms\\/?$/i",
    "end": true
   },
@@ -2450,7 +2510,7 @@
    "path": "/api/admin/location-setup/rooms/:id",
    "name": "bound dispatch",
    "call": "16277e5f9fc46709",
-   "site": "src/server/routes/locationsRoutes.ts:320",
+   "site": "src/server/routes/locationsRoutes.ts:322",
    "regexp": "/^\\/api\\/admin\\/location-setup\\/rooms(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2462,7 +2522,7 @@
    "path": "/api/admin/location-registry/buildings",
    "name": "bound dispatch",
    "call": "06d04e35616c72be",
-   "site": "src/server/routes/locationsRoutes.ts:328",
+   "site": "src/server/routes/locationsRoutes.ts:330",
    "regexp": "/^\\/api\\/admin\\/location-registry\\/buildings\\/?$/i",
    "end": true
   },
@@ -2474,7 +2534,7 @@
    "path": "/api/admin/location-registry/buildings/:id",
    "name": "bound dispatch",
    "call": "4c56a726f40b2e61",
-   "site": "src/server/routes/locationsRoutes.ts:351",
+   "site": "src/server/routes/locationsRoutes.ts:353",
    "regexp": "/^\\/api\\/admin\\/location-registry\\/buildings(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2486,7 +2546,7 @@
    "path": "/api/admin/location-registry/rooms",
    "name": "bound dispatch",
    "call": "46ebd45a271369ce",
-   "site": "src/server/routes/locationsRoutes.ts:366",
+   "site": "src/server/routes/locationsRoutes.ts:368",
    "regexp": "/^\\/api\\/admin\\/location-registry\\/rooms\\/?$/i",
    "end": true
   },
@@ -2498,7 +2558,7 @@
    "path": "/api/admin/location-registry/rooms/:id",
    "name": "bound dispatch",
    "call": "1b8d42f9b7309599",
-   "site": "src/server/routes/locationsRoutes.ts:382",
+   "site": "src/server/routes/locationsRoutes.ts:384",
    "regexp": "/^\\/api\\/admin\\/location-registry\\/rooms(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2510,7 +2570,7 @@
    "path": "/api/admin/location-registry/review/:id",
    "name": "bound dispatch",
    "call": "2910740e82d59609",
-   "site": "src/server/routes/locationsRoutes.ts:453",
+   "site": "src/server/routes/locationsRoutes.ts:455",
    "regexp": "/^\\/api\\/admin\\/location-registry\\/review(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2522,7 +2582,7 @@
    "path": "/api/admin/location-registry/migration/preview",
    "name": "bound dispatch",
    "call": "4627e991c8153575",
-   "site": "src/server/routes/locationsRoutes.ts:458",
+   "site": "src/server/routes/locationsRoutes.ts:460",
    "regexp": "/^\\/api\\/admin\\/location-registry\\/migration\\/preview\\/?$/i",
    "end": true
   },
@@ -2534,7 +2594,7 @@
    "path": "/api/admin/location-registry/migration/apply",
    "name": "bound dispatch",
    "call": "2846c46cf2e6fc17",
-   "site": "src/server/routes/locationsRoutes.ts:461",
+   "site": "src/server/routes/locationsRoutes.ts:463",
    "regexp": "/^\\/api\\/admin\\/location-registry\\/migration\\/apply\\/?$/i",
    "end": true
   },
@@ -2546,7 +2606,7 @@
    "path": "/api/admin/location-registry/migration/:id/rollback",
    "name": "bound dispatch",
    "call": "95391c46059a4b2d",
-   "site": "src/server/routes/locationsRoutes.ts:484",
+   "site": "src/server/routes/locationsRoutes.ts:486",
    "regexp": "/^\\/api\\/admin\\/location-registry\\/migration(?:\\/([^/]+?))\\/rollback\\/?$/i",
    "end": true
   },
@@ -3566,7 +3626,7 @@
    "path": "/api/system-backup/status",
    "name": "bound dispatch",
    "call": "054e7eaad499f7a0",
-   "site": "src/server/routes/adminRoutes.ts:95",
+   "site": "src/server/routes/adminRoutes.ts:96",
    "regexp": "/^\\/api\\/system-backup\\/status\\/?$/i",
    "end": true
   },
@@ -3578,7 +3638,7 @@
    "path": "/api/system-backup/export-jobs",
    "name": "bound dispatch",
    "call": "6f79721e93db4f07",
-   "site": "src/server/routes/adminRoutes.ts:122",
+   "site": "src/server/routes/adminRoutes.ts:123",
    "regexp": "/^\\/api\\/system-backup\\/export-jobs\\/?$/i",
    "end": true
   },
@@ -3590,7 +3650,7 @@
    "path": "/api/system-backup/export-jobs",
    "name": "bound dispatch",
    "call": "2b211994d20dc068",
-   "site": "src/server/routes/adminRoutes.ts:128",
+   "site": "src/server/routes/adminRoutes.ts:129",
    "regexp": "/^\\/api\\/system-backup\\/export-jobs\\/?$/i",
    "end": true
   },
@@ -3602,7 +3662,7 @@
    "path": "/api/system-backup/export-jobs/:id",
    "name": "bound dispatch",
    "call": "06a11f01ad078a6e",
-   "site": "src/server/routes/adminRoutes.ts:133",
+   "site": "src/server/routes/adminRoutes.ts:134",
    "regexp": "/^\\/api\\/system-backup\\/export-jobs(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3614,7 +3674,7 @@
    "path": "/api/system-backup/export-jobs/:id/step",
    "name": "bound dispatch",
    "call": "7ae74d7d63246641",
-   "site": "src/server/routes/adminRoutes.ts:137",
+   "site": "src/server/routes/adminRoutes.ts:138",
    "regexp": "/^\\/api\\/system-backup\\/export-jobs(?:\\/([^/]+?))\\/step\\/?$/i",
    "end": true
   },
@@ -3626,7 +3686,7 @@
    "path": "/api/system-backup/export-jobs/:id/download",
    "name": "bound dispatch",
    "call": "8dd24ab554b09756",
-   "site": "src/server/routes/adminRoutes.ts:142",
+   "site": "src/server/routes/adminRoutes.ts:143",
    "regexp": "/^\\/api\\/system-backup\\/export-jobs(?:\\/([^/]+?))\\/download\\/?$/i",
    "end": true
   },
@@ -3638,7 +3698,7 @@
    "path": "/api/system-backup/export",
    "name": "bound dispatch",
    "call": "f27e3b183bde8af0",
-   "site": "src/server/routes/adminRoutes.ts:156",
+   "site": "src/server/routes/adminRoutes.ts:157",
    "regexp": "/^\\/api\\/system-backup\\/export\\/?$/i",
    "end": true
   },
@@ -3650,7 +3710,7 @@
    "path": "/api/system-backup/preview",
    "name": "bound dispatch",
    "call": "9c0cc8a7b6cbc710",
-   "site": "src/server/routes/adminRoutes.ts:160",
+   "site": "src/server/routes/adminRoutes.ts:161",
    "regexp": "/^\\/api\\/system-backup\\/preview\\/?$/i",
    "end": true
   },
@@ -3662,7 +3722,7 @@
    "path": "/api/system-backup/import-jobs",
    "name": "bound dispatch",
    "call": "076db7543db3be83",
-   "site": "src/server/routes/adminRoutes.ts:183",
+   "site": "src/server/routes/adminRoutes.ts:184",
    "regexp": "/^\\/api\\/system-backup\\/import-jobs\\/?$/i",
    "end": true
   },
@@ -3674,7 +3734,7 @@
    "path": "/api/system-backup/import-jobs/:id",
    "name": "bound dispatch",
    "call": "0691ff8f9c0a6d87",
-   "site": "src/server/routes/adminRoutes.ts:193",
+   "site": "src/server/routes/adminRoutes.ts:194",
    "regexp": "/^\\/api\\/system-backup\\/import-jobs(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3686,7 +3746,7 @@
    "path": "/api/system-backup/import-jobs/:id/step",
    "name": "bound dispatch",
    "call": "1222e5d8083a7f86",
-   "site": "src/server/routes/adminRoutes.ts:197",
+   "site": "src/server/routes/adminRoutes.ts:198",
    "regexp": "/^\\/api\\/system-backup\\/import-jobs(?:\\/([^/]+?))\\/step\\/?$/i",
    "end": true
   },
@@ -3698,7 +3758,7 @@
    "path": "/api/system-backup/import-jobs/:id",
    "name": "bound dispatch",
    "call": "e44ccb1c66269ded",
-   "site": "src/server/routes/adminRoutes.ts:203",
+   "site": "src/server/routes/adminRoutes.ts:204",
    "regexp": "/^\\/api\\/system-backup\\/import-jobs(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3710,7 +3770,7 @@
    "path": "/api/system-backup/import",
    "name": "bound dispatch",
    "call": "2dcf0195e0ad2a35",
-   "site": "src/server/routes/adminRoutes.ts:213",
+   "site": "src/server/routes/adminRoutes.ts:214",
    "regexp": "/^\\/api\\/system-backup\\/import\\/?$/i",
    "end": true
   },
@@ -3722,7 +3782,7 @@
    "path": "/api/system-backup/reset",
    "name": "bound dispatch",
    "call": "066dbe97a24ea325",
-   "site": "src/server/routes/adminRoutes.ts:224",
+   "site": "src/server/routes/adminRoutes.ts:225",
    "regexp": "/^\\/api\\/system-backup\\/reset\\/?$/i",
    "end": true
   },
@@ -3734,7 +3794,7 @@
    "path": "/api/system-backup/undo",
    "name": "bound dispatch",
    "call": "f334e55e28631604",
-   "site": "src/server/routes/adminRoutes.ts:234",
+   "site": "src/server/routes/adminRoutes.ts:235",
    "regexp": "/^\\/api\\/system-backup\\/undo\\/?$/i",
    "end": true
   },
@@ -3746,7 +3806,7 @@
    "path": "/api/system-backup/op-jobs/:id",
    "name": "bound dispatch",
    "call": "e9913d52f7aca4a6",
-   "site": "src/server/routes/adminRoutes.ts:244",
+   "site": "src/server/routes/adminRoutes.ts:245",
    "regexp": "/^\\/api\\/system-backup\\/op-jobs(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3758,7 +3818,7 @@
    "path": "/api/system-backup/op-jobs/:id/step",
    "name": "bound dispatch",
    "call": "1c6c66637abfc854",
-   "site": "src/server/routes/adminRoutes.ts:248",
+   "site": "src/server/routes/adminRoutes.ts:249",
    "regexp": "/^\\/api\\/system-backup\\/op-jobs(?:\\/([^/]+?))\\/step\\/?$/i",
    "end": true
   },
@@ -3770,7 +3830,7 @@
    "path": "/api/system-backup/op-jobs/:id",
    "name": "bound dispatch",
    "call": "2dba3981013042e9",
-   "site": "src/server/routes/adminRoutes.ts:255",
+   "site": "src/server/routes/adminRoutes.ts:256",
    "regexp": "/^\\/api\\/system-backup\\/op-jobs(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -3782,8 +3842,20 @@
    "path": "/api/system-health",
    "name": "bound dispatch",
    "call": "aa7cc788ef7930f3",
-   "site": "src/server/routes/adminRoutes.ts:267",
+   "site": "src/server/routes/adminRoutes.ts:268",
    "regexp": "/^\\/api\\/system-health\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/system-health/features",
+   "name": "bound dispatch",
+   "call": "828c1371fbef5bce",
+   "site": "src/server/routes/adminRoutes.ts:270",
+   "regexp": "/^\\/api\\/system-health\\/features\\/?$/i",
    "end": true
   },
   {
@@ -3794,7 +3866,7 @@
    "path": "/api/audit-logs",
    "name": "bound dispatch",
    "call": "9f22acdce55d8bd8",
-   "site": "src/server/routes/adminRoutes.ts:269",
+   "site": "src/server/routes/adminRoutes.ts:272",
    "regexp": "/^\\/api\\/audit-logs\\/?$/i",
    "end": true
   },
@@ -3806,7 +3878,7 @@
    "path": "/api/admin-user-options",
    "name": "bound dispatch",
    "call": "d762cd51b1a16301",
-   "site": "src/server/routes/adminRoutes.ts:277",
+   "site": "src/server/routes/adminRoutes.ts:280",
    "regexp": "/^\\/api\\/admin-user-options\\/?$/i",
    "end": true
   },
@@ -3818,7 +3890,7 @@
    "path": "/api/admin-instructor-options",
    "name": "bound dispatch",
    "call": "2606a11964e34f0a",
-   "site": "src/server/routes/adminRoutes.ts:283",
+   "site": "src/server/routes/adminRoutes.ts:286",
    "regexp": "/^\\/api\\/admin-instructor-options\\/?$/i",
    "end": true
   },
@@ -7735,7 +7807,7 @@
    "path": "/api/public/me/extras",
    "name": "bound dispatch",
    "call": "c45913773900a709",
-   "site": "src/server/studentExtras.ts:271",
+   "site": "src/server/studentExtras.ts:275",
    "regexp": "/^\\/api\\/public\\/me\\/extras\\/?$/i",
    "end": true
   },
@@ -7747,7 +7819,7 @@
    "path": "/api/public/me/push",
    "name": "bound dispatch",
    "call": "7159eb972a151a1e",
-   "site": "src/server/studentExtras.ts:283",
+   "site": "src/server/studentExtras.ts:287",
    "regexp": "/^\\/api\\/public\\/me\\/push\\/?$/i",
    "end": true
   },
@@ -7759,7 +7831,7 @@
    "path": "/api/public/me/push/off",
    "name": "bound dispatch",
    "call": "13314e3fea403aa2",
-   "site": "src/server/studentExtras.ts:310",
+   "site": "src/server/studentExtras.ts:314",
    "regexp": "/^\\/api\\/public\\/me\\/push\\/off\\/?$/i",
    "end": true
   },
@@ -7771,7 +7843,7 @@
    "path": "/api/public/me/push/test",
    "name": "bound dispatch",
    "call": "7785e12a38d0963d",
-   "site": "src/server/studentExtras.ts:325",
+   "site": "src/server/studentExtras.ts:329",
    "regexp": "/^\\/api\\/public\\/me\\/push\\/test\\/?$/i",
    "end": true
   },
@@ -7783,7 +7855,7 @@
    "path": "/api/public/me/push/offered",
    "name": "bound dispatch",
    "call": "c3189db7306f7eb7",
-   "site": "src/server/studentExtras.ts:338",
+   "site": "src/server/studentExtras.ts:342",
    "regexp": "/^\\/api\\/public\\/me\\/push\\/offered\\/?$/i",
    "end": true
   },
@@ -7794,8 +7866,8 @@
    ],
    "path": "/api/public/me/share",
    "name": "bound dispatch",
-   "call": "95a6f5504fe5e4f5",
-   "site": "src/server/studentExtras.ts:346",
+   "call": "4bd8533039c8da9a",
+   "site": "src/server/studentExtras.ts:350",
    "regexp": "/^\\/api\\/public\\/me\\/share\\/?$/i",
    "end": true
   },
@@ -7807,7 +7879,7 @@
    "path": "/api/public/me/share/off",
    "name": "bound dispatch",
    "call": "a8bb1c2f9df00c2f",
-   "site": "src/server/studentExtras.ts:356",
+   "site": "src/server/studentExtras.ts:364",
    "regexp": "/^\\/api\\/public\\/me\\/share\\/off\\/?$/i",
    "end": true
   },
@@ -7817,7 +7889,7 @@
    "path": "/me/share",
    "name": "wrapped",
    "call": "b2032c57ad2af2bf",
-   "site": "src/server/studentExtras.ts:375",
+   "site": "src/server/studentExtras.ts:383",
    "regexp": "/^\\/me\\/share\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -7828,8 +7900,8 @@
    ],
    "path": "/me/share/:token",
    "name": "bound dispatch",
-   "call": "0093e0dc9a69f39e",
-   "site": "src/server/studentExtras.ts:379",
+   "call": "1855894461646e19",
+   "site": "src/server/studentExtras.ts:387",
    "regexp": "/^\\/me\\/share(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },

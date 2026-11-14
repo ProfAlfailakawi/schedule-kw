@@ -229,6 +229,7 @@ test:final-audit-gaps
 test:request-room-capacity
 test:request-room-seat-rule
 test:request-room-seat-http
+test:capacity-import
 test:placeholder-action
 test:course-spelling-merge
 test:teacher-mini-week
@@ -309,6 +310,7 @@ test:inbox-pilot
 test:advising
 test:admin-station
 test:query-center-plus
+test:morning-brief-pills
 test:vault-jobs
 test:advisor-seat-quota
 test:live-board
@@ -325,7 +327,9 @@ test:whatif-in-changes
 test:roster-add-instructor
 test:print-ink
 test:system-health
+test:feature-health
 test:wish-patterns
 test:latin-digits
+test:acceptance-rehearsal
 test:ladder-start-hint
 test:rank-gap-sign
