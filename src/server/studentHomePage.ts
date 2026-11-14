@@ -887,7 +887,7 @@ function noPlan(){var p=S.state&&S.state.profile,pr=p&&p.progress;return!!(p&&p.
 function heroHeadline(pr){var pc=Math.max(0,Math.min(100,Math.round(Number(pr.percent)||0)));
   if(!(Number(pr.totalUnits)>0))return"صحيفتك تحتاج اختياراً من جديد";
   if(pc>=100||!(pr.remainingUnits>0))return"أكملتَ خطتك كاملة";
-  if(!(Number(pr.passedUnits)>0))return'خطتك أمامك: <b>'+pr.remainingUnits+'</b> وحدة';
+  if(!(Number(pr.passedUnits)>0))return'خطتك أمامك: <b>'+pr.remainingUnits+'</b> '+nounFor(pr.remainingUnits,AR.unit);
   return'أنجزتَ <b>'+Math.max(1,pc)+'٪</b> من خطتك'}
 /* الخطوة التالية: واحدةٌ فقط، تتبع مرحلة الفصل ووضع الطالب؛ تُعاد رسمها حين يتغيّر شيءٌ منها. */
 function nextStepInfo(){var s=S.state,p=s&&s.profile;if(!p)return null;var ph=s.phase||{},pr=p.progress||{},w=p.wishes;if(w&&s.term&&w.termId!==s.term.id)w=null;
@@ -1297,10 +1297,10 @@ function whatIfLine(w,units,summer){if(!w.total)return"أكملت وحدات ا�
   return "بمعدل "+countOf(units,AR.unit)+" في الفصل: "+countOf(w.regular,AR.term)+(summer&&w.summers?" عاديّة + "+countOf(w.summers,AR.term)+" صيفية":"")+" · نحو "+countOf(w.years,AR.year)+"."}
 /* ── منتقي الوحدات: − رقمٌ كبير + ومسطرة. الحدّان من الخادم (الأدنى والسقف الجامعي)، فيبقى جميلاً وكلُّ هدفٍ ٤٤px فأكثر عند أيّ سقف. ── */
 function unitPicker(id,val,small){var lo=lim("wishUnitsMin",12),hi=lim("wishUnitsMax",15);val=Math.max(lo,Math.min(hi,Math.round(Number(val))||lo));
-  return '<div class="up'+(small?' sm':'')+'" id="'+id+'" role="group" aria-label="وحداتي في الفصل"><button type="button" class="up-b" data-d="-1" aria-label="وحدةٌ أقل">'+ic("minus")+'</button><div class="up-n"><b aria-hidden="true">'+val+'</b><small>وحدة دراسية</small></div><button type="button" class="up-b" data-d="1" aria-label="وحدةٌ أكثر">'+ic("plus")+'</button>'
+  return '<div class="up'+(small?' sm':'')+'" id="'+id+'" role="group" aria-label="وحداتي في الفصل"><button type="button" class="up-b" data-d="-1" aria-label="وحدةٌ أقل">'+ic("minus")+'</button><div class="up-n"><b aria-hidden="true">'+val+'</b><small>'+nounFor(val,AR.unit)+'</small></div><button type="button" class="up-b" data-d="1" aria-label="وحدةٌ أكثر">'+ic("plus")+'</button>'
    +'<input type="range" class="up-r" min="'+lo+'" max="'+hi+'" step="1" value="'+val+'" aria-label="وحداتي في الفصل" aria-valuetext="'+esc(countOf(val,AR.unit))+'"><div class="up-s" aria-hidden="true"><span><b>'+lo+'</b> الأدنى</span><span>السقف <b>'+hi+'</b></span></div></div>'}
 function wireUnitPicker(id,cb){var box=document.getElementById(id);if(!box)return;var r=box.querySelector(".up-r"),lo=Number(r.min),hi=Number(r.max),bs=box.querySelectorAll(".up-b");
-  function set(v,quiet){v=Math.max(lo,Math.min(hi,Math.round(Number(v))||lo));r.value=String(v);r.setAttribute("aria-valuetext",countOf(v,AR.unit));box.querySelector(".up-n b").textContent=v;
+  function set(v,quiet){v=Math.max(lo,Math.min(hi,Math.round(Number(v))||lo));r.value=String(v);r.setAttribute("aria-valuetext",countOf(v,AR.unit));box.querySelector(".up-n b").textContent=v;box.querySelector(".up-n small").textContent=nounFor(v,AR.unit);
     r.style.setProperty("--p",(hi>lo?(v-lo)/(hi-lo)*100:100)+"%");bs[0].disabled=v<=lo;bs[1].disabled=v>=hi;if(!quiet&&cb)cb(v)}
   box.addEventListener("click",function(e){var b=e.target.closest(".up-b");if(!b||b.disabled)return;set(Number(r.value)+Number(b.getAttribute("data-d")))});
   r.addEventListener("input",function(){set(r.value)});set(r.value,true)}

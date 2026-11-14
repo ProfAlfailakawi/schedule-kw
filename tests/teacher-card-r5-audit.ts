@@ -333,7 +333,7 @@ function fakeStorage(seed: Record<string, unknown> = {}) {
   check(fn.includes("Date.now() - cached.at < 5 * 60_000") && fn.includes("Repository.getRegistrationStats(") && fn.includes('stats?.remainingSource?.column === "notPassed"')
     && fn.includes("(request.items || []).map(") && !/getStudentNeeds|getStudentProfiles|masari|surveyActive|readStudentDemand/i.test(fn),
     "١٢ القراءةُ خفيفة من «تخطيط الشعب» وحده (لا رغبات مساري ولا استبيان)، لمقرّرات الأستاذ، وتُحفظ خمس دقائق");
-  check(script.includes("var h=planHtml(it)+decisionBox(it,i,open)+threadBox(it,i);") && script.includes("خطة القسم") && script.includes('<span class="pf-dots" aria-hidden="true">'),
+  check(script.includes("var plan=planHtml(it),h=decisionBox(it,i,open)+threadBox(it,i);") && script.includes("return plan+h}") && script.includes("خطة القسم") && script.includes('<span class="pf-dots" aria-hidden="true">'),
     "١٢ وتُرسم في تفصيل كل موعد: نقاطُ الشعب وأيقونةُ الطلبة، بكلماتٍ قليلة");
 }
 

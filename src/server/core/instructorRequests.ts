@@ -9,6 +9,7 @@ import { travelShortfalls } from "../../utils/campusTravelPolicy";
 import { campusOf } from "../../utils/campusTravel";
 import { readTravelPolicy } from "./travelPolicy";
 import { roomTypeIn } from "../../utils/roomTypeForSection";
+import { AR, countOf } from "../../utils/arabicCount";
 import { roomSuitability } from "../../utils/roomSuitability";
 import { instructorWeekAfter, requestIdentity, rowsForRequestSlots } from "../../utils/instructorRequestWeek";
 import { rankRequestRooms, requiredSeats, roomSeatFit, undersizedRequestRooms } from "../../utils/requestRoomRanking";
@@ -463,7 +464,7 @@ export async function judgeRequestItems(request: InstructorRequest, options: {
     /* ما أسقطته السعةُ وحدها: لا يُختار أبداً، ويقول به الحكمُ «لا قاعة تتسع لشعبتك» لا «لا قاعة». */
     const undersized = item.offeringRowIds?.length ? [] : undersizedRequestRooms(rankable, need.seats);
     const capacityOfKey = (key: string) => Number(rankable.find(room => room.key === key)?.capacity || 0);
-    const seatsLabel = `${need.seats} مقعداً${need.assumed ? " (سقف اللائحة المفترض: لا سعة ولا طبيعة للمقرر)" : ""}`;
+    const seatsLabel = `${countOf(need.seats, AR.seat)}${need.assumed ? " (سقف اللائحة المفترض: لا سعة ولا طبيعة للمقرر)" : ""}`;
     const rankedByKey = new Map(rankedRooms.map(room => [room.key, room]));
     /* سعةُ القاعة وملاءمتُها للمقاعد على كل خيار: يراها القسمُ «سعة/مقاعد»، ويُوسم ما سعتُه غيرُ مسجّلة. */
     const seatInfo = (key: string) => {

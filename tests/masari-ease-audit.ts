@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { runInNewContext } from "node:vm";
 import { STUDENT_HOME_SCRIPT, STUDENT_HOME_CSS } from "../src/server/studentHomePage";
+import { nounFor, AR as COUNT_AR } from "../src/utils/arabicCount";
 
 let passed = 0;
 const check = (ok: boolean, label: string) => { assert.ok(ok, label); passed++; console.log("✓ " + label); };
@@ -85,7 +86,7 @@ check(!unset.line.includes("لم تُحدَّد") && unset.label.includes("لم 
 check(DEFAULT_TERM_UNITS === 14 && Math.round(TYPICAL_TERM_UNITS) === DEFAULT_TERM_UNITS, "الاقتراح في الخادم يبني على ١٤ وحدةً لمن لم يكتب رغباته، كالصفحة");
 
 /* لوحة الإنجاز والخطوة التالية: عنوانٌ مباشر، وخطوةٌ واحدة تتبع المرحلة ووضع الطالب */
-const nctx: Record<string, any> = { S: { state: null }, fmtShort: (d: string) => d };
+const nctx: Record<string, any> = { S: { state: null }, fmtShort: (d: string) => d, nounFor, AR: COUNT_AR };
 runInNewContext([fn("heroHeadline", "nextStepInfo"), fn("nextStepInfo", "nextStepPaint"), "this.heroHeadline=heroHeadline;this.nextStepInfo=nextStepInfo;"].join("\n"), nctx);
 const hp = (percent: number, passedUnits: number, remainingUnits: number, totalUnits: number) => nctx.heroHeadline({ percent, passedUnits, remainingUnits, totalUnits });
 check(hp(22, 36, 128, 164).includes("22٪") && hp(22, 36, 128, 164).includes("من خطتك"), "العنوان: «أنجزتَ ٢٢٪ من خطتك»");

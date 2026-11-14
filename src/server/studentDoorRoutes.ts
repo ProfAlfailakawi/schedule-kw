@@ -1364,7 +1364,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     }
     if (await verifyCode(code, profile.codeHash, profile.codeSalt)) { attempt.release(); return true; }
     const { left } = await countCodeFailure(fingerprint, now);
-    fail(res, 401, left === 0 ? "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد ١٥ دقيقة." : "الرمز الحالي غير صحيح.", left === 0 ? "locked" : "bad-code", { attemptsLeft: left });
+    fail(res, 401, left === 0 ? "أخطأت في الرمز مراتٍ كثيرة. جرّب بعد 15 دقيقة." : "الرمز الحالي غير صحيح.", left === 0 ? "locked" : "bad-code", { attemptsLeft: left });
     return false;
   };
 
@@ -1441,7 +1441,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       }
       if (reading === "wrong") {
         const { left, voided } = await countCodeFailure(fingerprint, now, true);
-        fail(res, 401, voided ? "أخطأت مراتٍ كثيرة فأُلغي رمز القسم. اطلب رمزاً جديداً من قسمك." : left === 0 ? "أخطأت مراتٍ كثيرة. جرّب بعد ١٥ دقيقة." : "رمز القسم غير صحيح.",
+        fail(res, 401, voided ? "أخطأت مراتٍ كثيرة فأُلغي رمز القسم. اطلب رمزاً جديداً من قسمك." : left === 0 ? "أخطأت مراتٍ كثيرة. جرّب بعد 15 دقيقة." : "رمز القسم غير صحيح.",
           voided ? "recovery-void" : left === 0 ? "locked" : "bad-recovery", { attemptsLeft: left });
         return;
       }

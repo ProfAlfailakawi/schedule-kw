@@ -15,7 +15,7 @@ import { STUDENT_HOME_SCRIPT, STUDENT_HOME_CSS } from "../src/server/studentHome
 import { STUDENT_MAP_SCRIPT } from "../src/server/studentMapUi";
 import { MASARI_ACK_CSS } from "../src/server/masariDisclaimer";
 import { buildStudentNotices } from "../src/utils/studentNotices";
-import { countOf, AR } from "../src/utils/arabicCount";
+import { countOf, nounFor, AR } from "../src/utils/arabicCount";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -29,7 +29,7 @@ const fn = (name: string) => {
   return STUDENT_HOME_SCRIPT.slice(begin, next < 0 ? undefined : next);
 };
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as any)[c]);
-const base = () => ({ countOf, AR, esc, ic: (n: string) => `<i data-i="${n}"></i>`, toast: () => {}, closeSheet: () => {} });
+const base = () => ({ countOf, nounFor, AR, esc, ic: (n: string) => `<i data-i="${n}"></i>`, toast: () => {}, closeSheet: () => {} });
 
 /* U1 */
 {

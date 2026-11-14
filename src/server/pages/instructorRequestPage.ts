@@ -590,11 +590,11 @@ function offeringsHtml(){if(notedScope().length)return "";var list=(data.availab
 function editHtml(it,i){if(it.offeringId)return '<p class="sub">'+gi("check")+'اخترت شعبة قائمة بموعدها. تُسند إليك بعد موافقة القسم.</p>';var h="";h+='<div class="edit"><div class="field-head"><span class="field-title">أيام المحاضرة</span><details class="plib"><summary aria-label="مكتبة الأنماط" title="مكتبة الأنماط">'+PLIB_ICON+'</summary><div class="plib-pop">'+PLIB+'</div></details></div><div class="days">';DAYS.forEach(function(d){h+='<button type="button" data-i="'+i+'" data-day="'+d[0]+'" aria-pressed="'+(it.days.indexOf(d[0])>=0)+'">'+d[1]+'</button>'});
     h+='</div>'+(it.autoNote?'<p class="auto-note" role="status" title="اضغط أيَّ يوم لتبديله">'+gi("star")+'<span>'+esc(it.autoNote)+'</span></p>':'')+bestHtml(it,i)+tcStickHtml(it,i)+'<span class="field-title">وقت البداية</span><div class="starts">'+startList(it).map(function(t){var own=it.start!==t&&ownClash(it,i,t);var bad=it.start!==t&&heat[i]&&heat[i][t]==="bad";if(bad)return '<button type="button" class="start-off" disabled data-heat="bad" aria-label="'+t+' · غير متاح">'+t+whyIcon(i,t)+'</button>';return '<button type="button" data-i="'+i+'" data-quick="'+t+'" aria-pressed="'+(it.start===t)+'"'+(own?' aria-disabled="true" title="لديك محاضرة في هذا الوقت" data-own-clash="1"':'')+heatAttr(i,t)+'>'+t+peerMark(it,t)+'</button>'}).join("")+'</div>'+(it.ownT&&it.ownT!==it.start&&ownClash(it,i,it.ownT)?skOwnClash(it,i,it.ownT):'')+heatLegend(i)+'<p class="ends">'+(sameAsBefore(it)?gi("swap")+"هذا موعدك الحالي — غيّر اليوم أو الوقت.":it.days.length&&it.start?gi("clock")+'<span class="ends-l">'+"ينتهي "+'</span>'+skEnds(slotsFor(it,it.days,it.start),it.days,endOf(it,it.days,it.start))+'<span class="ends-src" title="مدّةُ المحاضرة من اللائحة">'+gi("shield")+'</span>':gi("cal")+"اختر اليوم ثم الوقت")+'</p><div class="verdict" data-i="'+i+'" data-tone="'+(it.tone||"")+'"><i aria-hidden="true">'+(it.tone==="ok"?"✓":it.tone==="bad"?"✕":it.tone==="warn"?"!":it.tone==="retry"?"↻":"…")+'</i><span class="vwrap">'+skVerdict(it)+'</span>'+(it.tone==="retry"?'<button type="button" class="act v-retry" data-recheck="1">'+gi("history")+'أعد المحاولة</button>':'')+roomSignalHtml(it)+(it.advice?skAdvice(it.advice):'')+softHtml(it)+(it.shapes&&it.shapes.length?'<div class="shapes-box"><div class="alts shapes">'+it.shapes.map(function(sh){return '<button type="button" data-i="'+i+'" data-shape="'+esc(sh.days.join(","))+'" aria-label="'+esc(sh.label)+'">'+skShape(sh.label)+'</button>'}).join("")+'</div></div>':'')+(it.alts&&it.alts.length?'<div class="alts">'+it.alts.map(function(a){var ds=a.days&&a.days.length?a.days:[a.day];return '<button type="button" data-i="'+i+'" data-alt="'+esc(ds.join(",")+"|"+a.start)+'" aria-label="'+esc(fmtDays(ds)+" "+a.start)+'">'+skAltBtn(ds,a.start)+'</button>'}).join("")+'</div>':'')+'</div>'+(it.pnote?'<div class="pnote" style="margin:8px 0 0">'+it.pnote+'</div>':'')+notesHtml(it)+academicCardHtml(it)+'<textarea data-i="'+i+'" data-excuse="1" aria-label="سبب الاستثناء" data-vi-field="ex-'+i+'" maxlength="'+${VOICE_INPUT_LIMIT}+'" data-show="'+(it.tone==="warn"?"1":"0")+'" placeholder="سبب الاستثناء — إلزامي">'+esc(it.excuse||"")+'</textarea>'+(it.tone==="warn"?VI.html("ex-"+i):"")+'</div>';return h}
 function bodyHtml(it,i,open){/* ما ثبّته القسم كُتب في الجدول الرسمي: للقراءة فقط، والتغييرُ رسالةٌ للقسم — الخادمُ يرفض تعديلَه أصلاً. */
- var fixed=!!(it.decision&&it.decision.state==="fixed");if(fixed)open=false;var h=planHtml(it)+decisionBox(it,i,open)+threadBox(it,i);
+ var fixed=!!(it.decision&&it.decision.state==="fixed");if(fixed)open=false;var plan=planHtml(it),h=decisionBox(it,i,open)+threadBox(it,i);
  if(open&&data.mode!=="ta"){if(it.negotiation==="proposed")h+='<p class="hint-pro" title="تعديل الموعد من هنا يبدأ طلبًا جديدًا">'+gi("star")+'<span>للرد على اقتراح القسم: بطاقة «قرارك» أعلاه</span></p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
- else if(!h.replace(planHtml(it),""))h+='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
+ else if(!h)h+='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
  if(fixed)h+='<p class="appt-ro">'+gi("shield")+'<span>ثبّته القسم في جدولك الرسمي، فلا يُعدَّل من هنا.</span> <button type="button" class="link-msg" data-msg="'+i+'">'+gi("chat")+'اكتب للقسم</button></p>';
- return h}
+ return plan+h}
 /* ما عدّله الأستاذ في هذه الزيارة ولم يُرسل بعد: قيسٌ على ما حمّله الخادم، لا على «ما تغيّر عن الجدول»
    — فمن أرسل طلبه لا يُقال له «أرسل» وهو لم يلمس شيئاً. */
 var baseItems=null;
@@ -687,7 +687,7 @@ function uniqueShapes(list){var seen={};return (list||[]).filter(function(sh){va
 /* ── أوقاتٌ مقترحة لك (المالك: «تظهر له مقترحات للأوقات المناسبة والمتاحة، وإن ما تظهر لازم تظهر») ──
    كلما اختار الأستاذ أياماً لموعدٍ يغيّره أو يضيفه: حتى ثلاثة أوقاتٍ حكم الخادمُ بأنها متاحة (خريطة الأوقات)، ولو كان
    اختيارُه الحاليّ سليماً — بطاقاتٌ تُطبَّق بضغطة: الأيامُ والوقتُ كبيراً وسببٌ بأيقونة. وإن لم يبقَ على هذه الأيام وقتٌ
-   متاح فأقربُ ما اقترحه الخادمُ بأيامه (nearestTimes). لا قاعةَ فيها ولا مبنى، ولا يُقترح جدولٌ كامل. */
+   متاح فأقربُ ما اقترحه الخادمُ بأيامه (nearestTimes). بلا مكانٍ، ولا يُقترح جدولٌ كامل. */
 var BEST_WHY={students:["users","أقل تعارضاً لطلبتك"],after:["arL","بعد محاضرتك مباشرة"],before:["arR","قبل محاضرتك مباشرة"],day:["cal","يوم فارغ لديك"],morning:["sunrise","صباحاً"],free:["check","وقتٌ متاح"],near:["swap","أقرب وقتٍ متاح"]};
 function bestTimes(it,i){var h=heat[i],out=[];if(!it.days.length)return out;
  if(h&&!heatShape[i]){var currentAcademic=academicClashCount(it,it.start);
@@ -714,9 +714,9 @@ function planFact(it){var p=data&&data.planning;if(!p)return null;var b=(it.acti
  var key=[Number(it.collegeId||b.collegeId||r.AdCollegeId||0),Number(it.sectionId||b.sectionId||r.AdSectionId||0),courseIdOf(it)].join(":");return p[key]||null}
 function planHtml(it){var f=planFact(it);if(!f)return "";var has=typeof f.planned==="number",dots="",n=has?Math.max(f.planned,f.existing):0;
  if(has&&n<=12)for(var k=0;k<n;k++)dots+='<i data-s="'+(k<Math.min(f.existing,f.planned)?"on":k<f.planned?"need":"over")+'"></i>';
- var label="خطة القسم: "+(has?f.existing+" من "+f.planned+" شعب":"")+(has&&f.students?"، ":"")+(f.students?f.students+" طالباً متوقعاً":"");
+ var label="خطة القسم: "+(has?f.existing+" من "+countOf(f.planned,AR.section):"")+(has&&f.students?"، ":"")+(f.students?"المتوقَّع "+countOf(f.students,AR.student):"");
  return '<div class="plan-fact" role="img" aria-label="'+esc(label)+'"><span class="pf-k">'+gi("layers")+'خطة القسم</span>'+
-  (has?'<span class="pf-sec">'+(dots?'<span class="pf-dots" aria-hidden="true">'+dots+'</span>':'')+'<b class="num">'+f.existing+'/'+f.planned+'</b><small>شعب</small></span>':'')+
+  (has?'<span class="pf-sec">'+(dots?'<span class="pf-dots" aria-hidden="true">'+dots+'</span>':'')+'<b class="num">'+f.existing+'/'+f.planned+'</b><small>'+nounFor(f.planned,AR.section)+'</small></span>':'')+
   (f.students?'<span class="pf-st">'+gi("users")+'<b class="num">'+f.students+'</b><small>متوقَّع</small></span>':'')+'</div>'}
 /* المكانُ لا يُسمّى للأستاذ (قرار المالك 2026-10-29: «مخفية اكيد متعمدة»): لا «الأنسب» ولا بدائل ولا اختيار ولا رمز.
    حالةٌ واحدة بأيقونة بابٍ و✓ حين يقول الخادمُ إن للموعد مكاناً مناسباً خالياً (roomAvailable)، والنظامُ يحجزه لحظةَ الإرسال. */
@@ -1185,8 +1185,8 @@ function refresh(){
   if(JSON.stringify(data.request)===JSON.stringify(x.d.request)&&data.windowOpen===x.d.windowOpen)return;
   /* مسودةٌ لم تُرسل لا تُستبدل أبداً. لكنّ الجديد يُقرأ ويُقال له، سواءٌ وصله بالبثّ أو بالقراءة الدورية:
      بثٌّ لا يبلغ نسخةً أخرى من الخادم ولا يُستعمل في متصفحٍ بلا EventSource، فتبقى القراءةُ هي الطريق. */
-  /* والشريطُ لما يغيّره القسمُ وحده (القرار والحوار والحالة والموعد — tcDeptSig)، لا لحكمٍ مشتقٍّ تغيّر (قاعةٌ حجزها زميلٌ
-     ثم أفلتها). وما سوى ذلك يُقرأ بصمت تحت المسودة: نسخةُ الطلب تتجدّد فلا يُردّ الإرسالُ «تغيّر الطلب بعد فتحه». */
+  /* والشريطُ لما يغيّره القسمُ وحده (القرار والحوار والحالة والموعد — tcDeptSig)، لا لحكمٍ مشتقٍّ تغيّر (مكانٌ حجزه زميلٌ
+     ثم أفلته). وما سوى ذلك يُقرأ بصمت تحت المسودة: نسخةُ الطلب تتجدّد فلا يُردّ الإرسالُ «تغيّر الطلب بعد فتحه». */
   if(syncDirty()){if(tcDeptSig(data.request)!==tcDeptSig(x.d.request)){if(!freshNote){freshNote=true;paint()}}else{data=x.d;paint()}return}
   var nowPending=pendingList().length;
   adoptCard(x.d);dirty=false;freshNote=false;paint();

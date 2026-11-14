@@ -99,7 +99,7 @@ function openCalSub(){
     var d=r.d;
     box.innerHTML='<a class="btn" id="calApple" href="'+esc(d.apple)+'">'+ic("phone")+'آيفون وماك</a>'
       +'<div class="pair"><a class="btn alt" id="calGoogle" href="'+esc(d.google)+'" target="_blank" rel="noopener"><span class="brand">Google</span></a><a class="btn alt" id="calOutlook" href="'+esc(d.outlook)+'" target="_blank" rel="noopener"><span class="brand">Outlook</span></a></div>'
-      +'<div class="cal-copy"><code id="calUrl">'+esc(d.https)+'</code><button type="button" class="btn alt" id="calCopy">انسخ</button></div>'
+      +'<div class="cal-copy"><code id="calUrl">'+esc(d.https)+'</code><button type="button" class="btn alt" id="calCopy" aria-label="انسخ رابط الاشتراك">انسخ</button></div>'
       +'<p class="fine">'+ic("shield","")+' لا اسمَ ولا رقمَ في الرابط. إن غيّرت رمزك فاشترك من جديد.</p>';
     document.getElementById("calCopy").addEventListener("click",function(){var t=d.https;
       function done(){toast("نُسخ الرابط")}
