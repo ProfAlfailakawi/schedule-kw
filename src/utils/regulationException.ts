@@ -4,8 +4,8 @@
  * قرار 1913/2016 فيه قواعدُ لا تمنع الحفظ عند القسم لكنها لا تمرّ بصمت: من يحفظ موعداً جديداً أو معدَّلاً
  * يخالفها يرى قائمةً بكل قاعدةٍ ومادّتها، ولا يُحفظ إلا بضغط «المتابعة استثناءً». والمصدرُ هنا واحد:
  * يقرؤه الخادمُ عند الحفظ (createScheduleHandler و updateScheduleHandler والنقلُ الجماعي) ويقرؤه
- * المقترحُ الدراسي قبل أن يضيف عمليةً إلى المسودة. أما ما يمنع اليوم (ساعاتٌ ناقصة أو زائدة، نهايةٌ
- * تخالف النمط، أيامٌ ليست نمطاً معتمداً) فيبقى مانعاً في scheduleRules.ts، لا يُستثنى منه.
+ * المقترحُ الدراسي قبل أن يضيف عمليةً إلى المسودة. أما ما يمنع اليوم (ساعاتُ الشعبة الزائدة أو الناقصة) فيبقى مانعاً في
+ * scheduleRules.ts؛ وأيامٌ ليست نمطاً معتمداً (`pattern-days`) أو نهايةٌ تخالف النمط (`lecture-length`) تُقال وتُحفظ بتأكيد.
  *
  *   • م.7/8 — سُلّم البدايات: الأحد والثلاثاء والخميس على رأس الساعة، والاثنين والأربعاء 8:00 ثم 9:30 ثم 11:00…
  *   • م.7/9 — وقتٌ ثابت لبداية الشعبة في أيامها كلها.
@@ -21,7 +21,7 @@ import { DAY_KEYS, DAY_NAMES, consecutiveTeachingRuns, ladderStepForDays, lectur
 export const REGULATION_EXCEPTION_CODE = "regulation-exception";
 export const REGULATION_EXCEPTION_FLAG = "regulationException";
 
-export type RegulationExceptionRule = "lecture-length" | "start-ladder" | "fixed-start" | "consecutive-long" | "consecutive-one-hour";
+export type RegulationExceptionRule = "lecture-length" | "pattern-days" | "start-ladder" | "fixed-start" | "consecutive-long" | "consecutive-one-hour";
 
 export interface RegulationExceptionIssue {
   rule: RegulationExceptionRule;

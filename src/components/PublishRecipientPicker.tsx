@@ -7,11 +7,12 @@
  * وسومُه (PersonChips) وعددُ شعبه، وبحثٌ وتحديدُ الكل/لا شيء — بإحساس اختيار المدرّبين
  * في مرحلة التدريب. الإرسالُ يقع على كل سجلّات الشخص المختار، ولا يمسّ غيره.
  */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Check, Eye, Search, UserCheck, Users } from "lucide-react";
 import PersonChips from "./PersonChips";
 import PersonCoursesSheet, { selectionSummary, taughtOf, type CourseDefaultsPayload } from "./PersonCoursesSheet";
 import type { FollowUpState } from "../utils/cardRecipients";
+import type { SendNeed } from "../utils/publishNeeds";
 import { instructorPickerPeople } from "../utils/instructorPickerChoices";
 import { AR, countOf } from "../utils/arabicCount";
 import { instructorIdentityKey } from "../utils/instructorIdentity";
@@ -64,7 +65,7 @@ export function AudiencePicker({ value, onChange }: { value: Audience; onChange:
   );
 }
 
-export default function PublishRecipientPicker({ collegeId, sectionId, termId, onChange, visitingOf, traineeOf, perPersonCourses = false, stateOf, onPreview, hintOf, liveOf }: {
+export default function PublishRecipientPicker({ collegeId, sectionId, termId, onChange, visitingOf, traineeOf, perPersonCourses = false, stateOf, onPreview, hintOf, liveOf, needsOf, needsReady = false }: {
   collegeId: number; sectionId: number; termId: number;
   onChange: (people: PickedPerson[]) => void;
   visitingOf: (id: number) => boolean;
@@ -79,6 +80,10 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
   hintOf?: (person: PickedPerson) => ReactNode;
   /** بطاقتُه السارية إن وُجدت (موعدُها): تظهر عند اختياره، ويقرّر المنسّق فيها عند النقر على اسمه لا بعد «إرسال». */
   liveOf?: (ids: number[]) => { closesAt: string } | undefined;
+  /** حاجةُ كل شخصٍ إلى إرسال (لم يصله · لم يفتح · لم يردّ · للعرض فقط)؛ null = لا حاجة. تبدأ القائمةُ بمن يحتاج. */
+  needsOf?: (ids: number[]) => SendNeed | null;
+  /** حالاتُ المتابعة وصلت؟ قبلها لا اقتراح (كلُّ أحدٍ يبدو «لم يصله»). */
+  needsReady?: boolean;
 }) {
   const [rows, setRows] = useState<Recipient[] | null>(null);
   const [error, setError] = useState("");
@@ -90,6 +95,8 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
   const [editing, setEditing] = useState<number | null>(null);
   /* قرارُ كل صاحبِ بطاقةٍ سارية؛ من لا مدخلَ له: «تكرار». */
   const [cardActions, setCardActions] = useState<Map<number, CardAction>>(new Map());
+  /* اختيارُ المنسّق يغلب الاقتراح: متى لمس القائمةَ مرةً لا يُعاد تحديدُها بعدها من تلقاء نفسها. */
+  const touched = useRef(false);
   useEffect(() => {
     if (!perPersonCourses) return;
     let cancelled = false;
@@ -101,7 +108,7 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
 
   useEffect(() => {
     let cancelled = false;
-    setRows(null); setError(""); setSelected(new Set());
+    setRows(null); setError(""); setSelected(new Set()); touched.current = false;
     void fetch(`/api/instructor-requests/recipients?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { credentials: "include" })
       .then(async response => {
         const data = await response.json().catch(() => null);
@@ -125,16 +132,19 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
     }));
   }, [rows]);
 
+  const suggested = useMemo(() => (needsOf && needsReady ? people.filter(person => needsOf(person.ids)).map(person => person.key) : []), [people, needsOf, needsReady]);
+  useEffect(() => { if (!touched.current && suggested.length) setSelected(new Set(suggested)); }, [suggested]);
   useEffect(() => { onChange(people.filter(person => selected.has(person.key)).map(person => ({ ...person, courses: perPersonCourses ? courses.get(person.key) ?? null : null, ...(liveOf?.(person.ids) ? { cardAction: cardActions.get(person.key) ?? "repeat" } : {}) }))); }, [people, selected, courses, perPersonCourses, cardActions, liveOf]);
 
   const needle = instructorIdentityKey(query.trim());
   const shown = needle ? people.filter(person => instructorIdentityKey(person.name).includes(needle) || person.name.includes(query.trim())) : people;
   const toggle = (key: number) => setSelected(current => {
+    touched.current = true;
     const next = new Set(current);
     if (next.has(key)) next.delete(key); else next.add(key);
     return next;
   });
-  const selectShown = () => setSelected(current => new Set([...current, ...shown.map(person => person.key)]));
+  const selectShown = () => { touched.current = true; setSelected(current => new Set([...current, ...shown.map(person => person.key)])); };
 
   if (!rows) return <div className="publish-pick" role="status"><small className="publish-pick-count">جارٍ تحميل أساتذة القسم…</small></div>;
   if (!people.length) return <div className="publish-pick"><p className="of-msg" data-tone="warn">{error || "لا أساتذة في جدول هذا القسم لهذا الفصل بعد."}</p></div>;
@@ -150,10 +160,16 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
           {selected.size ? `اخترت ${countOf(selected.size, AR.instructor)} من ${people.length.toLocaleString("ar-KW-u-nu-latn")}` : `لم تختر أحداً بعد · ${countOf(people.length, AR.instructor)} في الجدول`}
         </small>
         <span className="publish-pick-actions">
+          {suggested.length ? (
+            <button type="button" className="ta-mini" data-guide-ignore="اقتراح: من يحتاج إرسالاً الآن — يحدّد الأسماء فقط ولا يرسل شيئاً"
+              onClick={() => { touched.current = true; setSelected(new Set(suggested)); }}>
+              من يحتاج إرسالاً <b>{suggested.length.toLocaleString("ar-KW-u-nu-latn")}</b>
+            </button>
+          ) : null}
           <button type="button" className="ta-mini" data-guide-ignore="لمن؟ — اختيار من يُرسَل إليه في بطاقة الأستاذ، لا يرسل شيئاً بنفسه" onClick={selectShown} disabled={!shown.length}>
             {needle ? "تحديد النتائج" : "تحديد الكل"}
           </button>
-          <button type="button" className="ta-mini" data-guide-ignore="لمن؟ — اختيار من يُرسَل إليه في بطاقة الأستاذ، لا يرسل شيئاً بنفسه" onClick={() => setSelected(new Set())} disabled={!selected.size}>
+          <button type="button" className="ta-mini" data-guide-ignore="لمن؟ — اختيار من يُرسَل إليه في بطاقة الأستاذ، لا يرسل شيئاً بنفسه" onClick={() => { touched.current = true; setSelected(new Set()); }} disabled={!selected.size}>
             إلغاء التحديد
           </button>
         </span>

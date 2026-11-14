@@ -67,8 +67,8 @@ check((writes.match(/sectionShapeIssue\(/g) || []).length === 1 && /await editSh
   && /scheduleLengthIssue\(row,hypothetical\)\|\|\(options\.skipPattern\?null:await unapprovedPatternIssue\(row,hypothetical\)\)/.test(rules), "P5 بوابتا الإنشاء والتعديل (والشكل الذي لم يتغيّر والاستعادة لا يُرفضان)");
 const machine = fs.readFileSync("src/server/timeMachineRoutes.ts", "utf8");
 check(/dryRunUpdate\(req, op\.rowId, op\.body, finalWeek, kind === "restore"\)/.test(machine) && /inner\.__exactRestore = Boolean\(patch\.exactRestore\)/.test(writes), "P5 استعادةُ «آلة الزمن» تعيد ما كان بالضبط ولا تمنعها قاعدة النمط");
-check(/checkPatternIssue\(row\)/.test(review) && /if\(patternIssue\)validationIssues\.push\(patternIssue\)/.test(review), "P5 الفحصُ المباشر يقول المانع قبل الحفظ");
-check(/await unapprovedPatternIssue\(row, week, \{ skipIfUnchanged: true \}\)/.test(inbox), "P5 تثبيتُ طلب الأستاذ يمرّ بالمانع نفسه (والشعبةُ القائمة المُسندة كما هي لا تُرفض)");
+check(/existing:savedRow/.test(review) && !/validationIssues\.push\(patternIssue\)/.test(review), "P5 الفحصُ المباشر يقول النمطَ استثناءً لائحياً (regulation) لا مانعاً — قرار المالك");
+check(/regulation: true/.test(inbox) && !/unapprovedPatternIssue\(/.test(inbox), "P5 تثبيتُ طلب الأستاذ يُسأل عن النمط في الفحص الجافّ (استثناءٌ بتأكيد) لا في معاملةٍ ترفضه بعد التأكيد");
 
 const verdict = fs.readFileSync("src/utils/instructorRequestVerdict.ts", "utf8");
 check(/daysApprovedForHours\(courseHours, request\.days\) === false/.test(verdict) && !/historyShape/.test(verdict), "P6 طلبُ الأستاذ: ما ليس نمطاً معتمداً يُمنع، ولا يُعفيه التاريخ");

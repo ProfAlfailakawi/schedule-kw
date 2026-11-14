@@ -89,7 +89,10 @@ const FP_A = "a".repeat(32), FP_B = "b".repeat(32);
 await h.put(h.mkProfile(FP_A, SECTION_A));
 await h.put(h.mkProfile(FP_B, SECTION_B));
 const secretsOf = [FP_A, FP_B, CIVIL, NAME, CODE_HASH, "CIPHER", "SALT", "سارة", "العتيبي", "345"];
-const leaks = (text: string) => secretsOf.filter(secret => text.includes(secret));
+/* رسمُ QR (حقل svg) أرقامُ إحداثياتٍ عشوائية: سرٌّ قصير مثل «345» يقع فيه صدفةً فيُسقط الاختبار بلا تسريب (CI 2026-11-14).
+   فيُستثنى الحقل وحده من الفحص؛ والرابطُ الذي يرمّزه يبقى مفحوصاً في حقل url. */
+const bare = (text: string) => text.replace(/"svg":"(?:[^"\\]|\\.)*"/g, '"svg":""');
+const leaks = (text: string) => secretsOf.filter(secret => bare(text).includes(secret));
 const pathOf = (url: string) => new URL(url).pathname;
 try {
   check((await call("POST", "/api/public/me/share")).status === 401, "إنشاءُ الرابط يحتاج جلسة");

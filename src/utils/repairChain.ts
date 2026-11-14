@@ -232,6 +232,8 @@ export function findRepairChain(
     placeholderInstructorIds?: Iterable<number>;
     /** ساعاتُ المقرّر الأسبوعية: بها تُحكم الشعبةُ كلُّها على مكتبة الأنماط حين يتغيّر يومُ أحد لقاءاتها. */
     courseHours?: (row: FSchedule) => number;
+    /** صفوفٌ لا تُزاح أبداً (مجمّدة، معتمدة، قسمٌ آخر، حجزٌ جارٍ): موضعٌ يصطدم بها لا يُجرَّب. */
+    immovable?: (row: FSchedule) => boolean;
   },
 ): RepairChain | null {
   const placeholders = options?.placeholderInstructorIds ? [...options.placeholderInstructorIds] : undefined;
@@ -264,6 +266,7 @@ export function findRepairChain(
       // A card may only displace something that has not already been moved in
       // this chain — otherwise the search walks in circles.
       if (hits.some(hit => seen.has(hit.id))) continue;
+      if (options?.immovable && hits.some(hit => options.immovable!(hit))) continue;
       if (hits.length > 1) continue;              // one domino at a time
       // At the last permitted depth only a placement that displaces nothing can
       // possibly finish the chain, so the rest are not worth opening.

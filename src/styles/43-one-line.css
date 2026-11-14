@@ -208,3 +208,10 @@
   .dept-roster-complete li b{flex:none}
   .dept-roster-complete select{inline-size:100%}
 }
+
+/* تنبيه «مواعيد بلا قاعة» قبل النشر: ناعمٌ لا يمنع، للقسم وحده. */
+.publish-flag.is-roomless{border-color:color-mix(in srgb,var(--warning) 50%,var(--line));background:color-mix(in srgb,var(--warning) 9%,var(--surface))}
+.publish-flag.is-roomless>summary svg{color:var(--warning)}
+.publish-flag.is-roomless>summary em{font-style:normal;font-weight:800;font-size:.8rem;color:var(--accent-strong);padding:4px 10px;border-radius:999px;background:var(--accent-soft)}
+.share-deadline-hint{display:inline-flex;align-items:center;gap:6px;margin-block-start:6px;color:var(--accent-strong);font-size:.8rem;font-weight:700}
+.share-deadline-hint svg{inline-size:14px;block-size:14px}

@@ -33,11 +33,23 @@ import { roomOwnership, SCHEDULE_DAY_KEYS } from "./scheduleRules";
 import { isScopeAllowed } from "./scope";
 import { placeholderInstructorIds } from "./smartImport";
 import { visitingChecker } from "./visiting";
+import { conflictKey } from "./slotGuard";
 
-async function roomScopeNotice(row:any){
+/* تنبيهٌ لا يمنع: المنعُ الفعلي لقاعة قسمٍ آخر في canonicalizeLocationForWrite (room_scope) قبل أن يصل الفحصُ إلى هنا،
+   فلو لم يكن soft لحسبه بوابةُ الحفظ مانعاً بينما تعدّه الواجهةُ تحذيراً (isBlockingConflict) — تناقضٌ بين الشاشة والخادم.
+   والقاعةُ التي أسندتها الجهةُ في الجدول المستورد (importEvidence) ولم تتغيّر لا تُنبَّه كما لا تُرفض (locations.ts). */
+async function roomScopeNotice(row:any,importedRoomId=""){
+  if(importedRoomId&&String(row?.roomId||"")===importedRoomId)return null;
   const owner=await roomOwnership(row?.AdRoomCode,row?.AdRoomHall,Number(row?.AdCollegeId||0),Number(row?.AdSectionId||0));
   if(!owner)return null;
-  return{type:"roomScope",severity:"warning",rowId:0,message:`تنبيه نطاق القاعة: ${owner.room}/${owner.hall} مرتبطة تاريخياً بـ ${owner.owner}`,detail:`القاعة مصنفة في السجل الرسمي لقسم آخر. استخدامها يتطلب نافذة استعارة معتمدة؛ وسيمنع الخادم الحفظ خارج اليوم والوقت المعتمدين.`};
+  return{type:"roomScope",severity:"warning",soft:true,rowId:0,message:`تنبيه نطاق القاعة: ${owner.room}/${owner.hall} مرتبطة تاريخياً بـ ${owner.owner}`,detail:`القاعة مصنفة في السجل الرسمي لقسم آخر. استخدامها يتطلب نافذة استعارة معتمدة؛ وسيمنع الخادم الحفظ خارج اليوم والوقت المعتمدين.`};
+}
+
+/** رمزُ الشعبة للعرض: صفُّ حجزِ طلبٍ ينتظر القسم رمزُه «reservation:0» داخلي — يُسمّى «في طلب أستاذ». */
+function reservationOwnLabel(row:any):string{
+  const code=String(row?.SCode??"").trim();
+  if(/^reservation:/i.test(code))return"أخرى (في طلب أستاذ)";
+  return code||"أخرى";
 }
 
 const CAMPUS_LABEL: Record<string, string> = { jahra: "الجهراء", fahaheel: "الفحيحيل", main: "الحرم الرئيسي" };
@@ -83,15 +95,16 @@ export async function scheduleConflicts(req:AuthenticatedRequest,row:any,exclude
   const termId=Number(row?.AdTermId||0);
   if(!termId||!row?.fstarttime||!row?.fendtime||!SCHEDULE_DAY_KEYS.some(k=>Boolean(row?.[k])))return[];
   const candidate:any={...row,id:excludeId||Number(row?.id||-900000),AdTermId:termId};
-  const [termRowsRaw, instructor, roomNotice, hallBarterRequests, registry]=await Promise.all([
+  const [termRowsRaw, instructor, hallBarterRequests, registry]=await Promise.all([
     // One current-term read (cached by the repository) is intentional here: it closes the
     // pre-migration alias gap without ever scanning ten years during interactive use.
     hypothetical?Promise.resolve(hypothetical):Repository.getSchedulesByScope({termId}),
     Number(candidate.AdInstructorId||0) ? Repository.getInstructorById(Number(candidate.AdInstructorId)) : Promise.resolve(null),
-    roomScopeNotice(candidate),
     Repository.getHallBarterRequests(termId),
     readLocationRegistry(),
   ]);
+  const storedRow:any=excludeId?termRowsRaw.find((item:any)=>Number(item.id)===Number(excludeId)):undefined;
+  const roomNotice=await roomScopeNotice(candidate,storedRow?.importEvidence&&storedRow?.roomId?String(storedRow.roomId):"");
   const ownerValue = (req as any).__requestReservationOwner;
   const reservationOwners = new Set<string>((Array.isArray(ownerValue) ? ownerValue : [ownerValue]).map(value => String(value || "")).filter(Boolean));
   if (!reservationOwners.size && row.instructorRequestId && req.path?.includes("check-conflicts")) {
@@ -304,7 +317,7 @@ export async function scheduleConflicts(req:AuthenticatedRequest,row:any,exclude
   const clashCourse = Number(candidate.AdCourseId || 0) ? await Repository.getCourseById(Number(candidate.AdCourseId)) : null;
   const sectionClash = clashCourse ? sameCourseSectionClash(candidate, all, clashCourse) : undefined;
   const sectionClashNote = sectionClash ? [{ type: "regulation", severity: "low", soft: true, otherId: sectionClash.id,
-    message: `شعبة ${sectionClash.SCode || "أخرى"} من المقرر نفسه في الوقت نفسه`, detail: "م.7/5: يُفضَّل توزيع شعب المقرر على أوقات مختلفة." }] : [];
+    message: `شعبة ${reservationOwnLabel(sectionClash)} من المقرر نفسه في الوقت نفسه`, detail: "م.7/5: يُفضَّل توزيع شعب المقرر على أوقات مختلفة." }] : [];
   /* المقرن (التوأم): يتداخل الموعدُ مع مقرنه ولا تركيبةَ شعبٍ خاليةً بينهما → ملاحظةٌ لينة تُقال ولا تمنع.
      إن وُجدت شعبةٌ بديلة سكتنا. ونطاقُه قسمُ الموعد وفصلُه كورقة المتصفح (coreqScopeRows): مقرنٌ يدرّسه قسمٌ آخر لا يُعدّ. */
   const coreqNotes: any[] = [];
@@ -326,6 +339,21 @@ export async function scheduleConflicts(req:AuthenticatedRequest,row:any,exclude
 }
 
 /**
+ * ── ما كان قائماً لا يُمنع به التعديل (A6) ──────────────────────────────────────────
+ * موعدٌ محفوظٌ يتعارض أصلاً (أستاذٌ أو قاعةٌ مع صفٍّ آخر) كان يُردّ كلُّ تعديلٍ عليه، ولو في حقلٍ لا علاقة له بالتعارض،
+ * ولو أُعيد حفظُه كما هو. يُحسب تعارضُ الصفّ المخزَّن نفسه، ويمنع الحفظَ ما استجدّ وحده (النوعُ + الصفُّ الآخر + الأستاذ/القاعة)؛
+ * وما كان قائماً بعينه يعود ملاحظةً (`soft` و`preexisting`) لا تمنع. الحارسُ الذرّي (slotGuard) يقرأ القاعدةَ نفسها.
+ * بوابةُ التعديل و«فحص موانع الحفظ» يقرآن هذه الدالّة معاً: مصدرٌ واحد ونتيجةٌ واحدة.
+ */
+export async function scheduleConflictsForEdit(req:AuthenticatedRequest,row:any,storedRow:any,excludeId:number,hypothetical?:FSchedule[]){
+  const conflicts=await scheduleConflicts(req,row,excludeId,hypothetical);
+  if(!storedRow||!conflicts.some((c:any)=>!c.soft))return conflicts;
+  const stored=await scheduleConflicts(req,storedRow,excludeId);
+  const known=new Set(stored.filter((c:any)=>!c.soft).map((c:any)=>conflictKey(c,storedRow)));
+  return conflicts.map((c:any)=>!c.soft&&known.has(conflictKey(c,row))?{...c,soft:true,severity:"medium",preexisting:true}:c);
+}
+
+/**
  * ── القسمُ يبقى صاحبَ القرار (A2) ───────────────────────────────────────────
  *
  * اختار الأستاذُ وقتاً فحُجز له حتى يقرّر القسم. فإن أراد المنسّقُ نقلَ ذلك
@@ -335,16 +363,27 @@ export async function scheduleConflicts(req:AuthenticatedRequest,row:any,exclude
  * متجاوزاً حجزَ ذلك الطلب وحده — حجوزُ بقية الأساتذة تبقى حارسة — ويُكتب في
  * خطّ الطلب الزمني، والبندُ الذي صار موعدُه هو المطلوب يُعلَّم «ثُبّت».
  */
+/**
+ * ── حجزُ قسمٍ آخر يُقارَن ولا يمنع أبداً (ملاحظة المالك 10) ───────────────────────────
+ * كان المعرّفُ خارج نطاق المنسّق يُسقَط، فيبقى حجزُ طلبٍ يخصّ قسماً آخر يردّ كلَّ محاولةٍ والواجهةُ تكرّر سؤالها بلا مخرج.
+ * الآن يمرّ التجاوزُ لكل طلبٍ قائم (لا مستبدَل ولا مُنجَز)، لكن طلبَ القسم الآخر يبقى كما هو: لا يُثبَّت بندُه ولا تتغيّر حالتُه
+ * ولا يُسمّى فاعلُه — يُكتب في خطّه الزمني سطرٌ واحد يقول إن موعداً مرّ فوق وقته، فيراه صاحبُه ويقرّر. ولا قدرةَ زائدة للمعرّف
+ * المزوَّر: التجاوزُ لا يُسقط إلا حجزاً يتقاطع فعلاً مع هذه الكتابة (assertRequestReservationWrite)، وهو ما كان سيردّها.
+ */
+const foreignOverrides = new WeakMap<object, Set<string>>();
 export async function applyRequestHoldOverride(req: AuthenticatedRequest): Promise<string[]> {
   const ids: string[] = [...new Set<string>((Array.isArray(req.body?.overrideRequestHolds) ? req.body.overrideRequestHolds as unknown[] : []).map(value => String(value)).filter(Boolean))].slice(0, 10);
   const allowed: string[] = [];
+  const foreign = new Set<string>();
   for (const id of ids) {
     const request = await Repository.getInstructorRequest(id);
     if (!request || request.status === "superseded" || request.status === "settled") continue;
     const visible = isScopeAllowed(req, Number(request.AdCollegeId), Number(request.AdSectionId))
       || (request.items || []).some(item => item.action !== "keep" && (() => { const scope = requestItemScope(request, item); return isScopeAllowed(req, scope.collegeId, scope.sectionId); })());
-    if (visible) allowed.push(id);
+    allowed.push(id);
+    if (!visible) foreign.add(id);
   }
+  foreignOverrides.set(allowed, foreign);
   if (allowed.length) {
     const current = (req as any).__requestReservationOwner;
     (req as any).__requestReservationOwner = [...new Set([...(Array.isArray(current) ? current : current ? [current] : []), ...allowed])];
@@ -356,9 +395,16 @@ export async function applyRequestHoldOverride(req: AuthenticatedRequest): Promi
 export async function noteRequestHoldOverride(requestIds: string[], row: FSchedule | null, by: string): Promise<RequestFixNote[]> {
   const at = new Date().toISOString();
   const fixes: RequestFixNote[] = [];
+  const foreign = foreignOverrides.get(requestIds) || new Set<string>();
   for (const id of requestIds) {
     const request = await Repository.getInstructorRequest(id);
     if (!request) continue;
+    if (foreign.has(id)) {
+      /* طلبُ قسمٍ آخر: يبقى كما هو، وسطرٌ واحد في خطّه الزمني بلا اسم فاعل. */
+      await Repository.saveInstructorRequest({ ...request,
+        timeline: [...(request.timeline || []), { kind: "schedule-edited" as const, at, by: "قسم آخر", detail: "مرّ موعدٌ لقسمٍ آخر فوق وقتٍ محجوزٍ لهذا الطلب. الطلب كما هو وينتظر قرارك." }].slice(-300) }).catch(() => undefined);
+      continue;
+    }
     const days = row ? dayKeysOf(row).sort().join(",") : "";
     const items = request.items.map(item => {
       if (!row || item.decision?.state === "fixed" || item.decision?.state === "rejected") return item;

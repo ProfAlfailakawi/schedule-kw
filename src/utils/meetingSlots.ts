@@ -47,6 +47,8 @@ export type MeetingRow = {
 export type MeetingWindow = {
   day: string; label: string; start: string; end: string;
   free: number; total: number; busy: string[];
+  /** معرّفات المشغولين: المطابقةُ بالمعرّف لا بالاسم (اسمان متشابهان لا يُخفيان المتفرّغ). */
+  busyIds?: number[];
 };
 
 export type MeetingDay = {
@@ -80,7 +82,7 @@ export function inspectMeetingSlot({ rows, ids, nameById, duration, day, start, 
     const busyIds = ids.filter(id => rows.some(row => Number(row.AdInstructorId) === id && Boolean((row as any)[dayKey])
       && timeToMinutes(row.fstarttime) < to && timeToMinutes(row.fendtime) > from));
     return { day: dayKey, label, start: clock(from), end: clock(to), free: ids.length - busyIds.length,
-      total: ids.length, busy: busyIds.map(id => nameById.get(id) || `#${id}`) };
+      total: ids.length, busy: busyIds.map(id => nameById.get(id) || `#${id}`), busyIds };
   };
   const selected = targetDay ? inspect(targetDay.key, targetDay.label, targetStart) : null;
   const alternatives = SCHEDULE_DAYS.flatMap(item => {
@@ -95,7 +97,7 @@ export function inspectMeetingSlot({ rows, ids, nameById, duration, day, start, 
     || Number(a.busy.length > 0) - Number(b.busy.length > 0))
     .slice(0, rankedLimit);
   return { day: day, label: selected?.label || day, start: clock(targetStart), end: clock(targetStart + duration),
-    free: selected ? ids.filter(id => !selected.busy.includes(nameById.get(id) || `#${id}`)).map(id => nameById.get(id) || `#${id}`) : [],
+    free: selected ? ids.filter(id => !selected.busyIds?.includes(id)).map(id => nameById.get(id) || `#${id}`) : [],
     busy: selected?.busy || [], alternatives };
 }
 

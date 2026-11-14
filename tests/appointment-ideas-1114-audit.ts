@@ -114,8 +114,8 @@ function source() {
   check(/slot\.fit \? <FitPill fit=\{slot\.fit\} \/>/.test(cards), "S5 بطاقة الاقتراح تحمل شريحة النسبة");
   check(/useFitGrid\(\{/.test(mini) && /has-fit fit-\$\{fitTone/.test(mini) && /mini-week-legend-fit/.test(mini), "S6 خانات «أسبوع الأستاذ» تُلوَّن ولها وسيلة إيضاح");
   check(/\.mini-week-target\.has-fit\.fit-good/.test(css) && /\.room-suggest-fit\.is-grad/.test(css) && /\.appt-draft\{/.test(css), "S7 الأنماط: الخانة والشريحة والمسودة");
-  check(/schedule-appt-draft:\$\{Number\(user\?\.SystemUserId \|\| 0\)\}/.test(schedules) && /clearDraft\(\);\s*\n\s*markChanged/.test(schedules) && /if \(!leave\) return;\s*\n\s*clearDraft\(\);/.test(schedules), "S8 المسودة: مفتاحٌ لكل مستخدم، وتُمحى بالحفظ وبالإغلاق المقصود");
-  check(/editorDirty \|\| !form\.AdCourseId/.test(schedules) && /readDraft\(\)/.test(schedules) && /draftOffer && !form\.AdCourseId/.test(schedules), "S9 تُحفظ حين يتغيّر النموذج فقط، وتُعرض في محرّرٍ لم يُختر فيه مقرر");
+  check(/schedule-appt-draft:\$\{Number\(user\?\.SystemUserId \|\| 0\)\}/.test(schedules) && /if \(editor === "create"\) clearDraft\(\);\s*\n\s*markChanged/.test(schedules) && /if \(!leave\) return;[\s\S]{0,200}if \(editor === "create"\) clearDraft\(\);/.test(schedules), "S8 المسودة: مفتاحٌ لكل مستخدم، وتُمحى بحفظ «موعد جديد» وبالإغلاق المقصود له وحده (التعديل لا يمسّها)");
+  check(/editorDirty \|\| !form\.AdCourseId/.test(schedules) && /readDraft\(\)/.test(schedules) && /editor === "create" && draftOffer \?/.test(schedules) && /if \(draftOffer\) return;/.test(schedules), "S9 تُحفظ حين يتغيّر النموذج فقط، وتبقى معروضةً حتى يُجاب عنها ولا تُكتب فوقها");
 }
 
 (async () => {

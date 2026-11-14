@@ -552,6 +552,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
     openNotes,
     escalatedNotes: signatureStage === "head" ? escalated : 0,
     historyEvents: events.length,
+    missingRanks,
     hasAction: primaryTaken || notesShown || canHeadReturnNow || Boolean(state.canRequestExtension && signatureStage) || Boolean(mine && !locked && !accepted),
     pinned: Boolean(error || sheet),
   });
@@ -751,12 +752,16 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             <Users aria-hidden="true" /><span>السعة ناقصة</span><b>{missingCapacity.toLocaleString("ar-KW-u-nu-latn")}</b>
           </button>
         ) : null}
-        {ranksBlockSign ? (
-          <button type="button" className="apb-badge apb-blocked apb-capacity-btn" data-tone="danger"
-            title={`${countOf(missingRanks, AR.instructor)} بلا درجةٍ علمية · تمنع التوقيع. اضغط لاختيارها.`}
+        {/* الدرجةُ العلمية تظهر دائماً لكل من يرى الشريط، كشارة «ملاءمة القاعات»، لا حين يتاح التوقيع وحده (المالك 2026-11-14):
+            «للجميع من اليوم لا يُوقَّع إلا بعد استكمال كل الدرجات». الشارةُ تقول السبب وتفتح «الأساتذة» لاستكمالها. */}
+        {missingRanks > 0 ? (
+          <button type="button" className="apb-badge apb-blocked apb-capacity-btn apb-rank-gap" data-tone="danger"
+            title={`${countOf(missingRanks, AR.instructor)} بلا درجةٍ علمية · لا يُوقَّع الجدول حتى تُستكمل (منها تُحسب ساعاتُهم). اضغط لاختيارها.`}
             onClick={() => (onOpenInstructors ? onOpenInstructors() : setReadinessOpen(true))}
-            data-guide-ignore="شارة مانع التوقيع بسبب أساتذةٍ بلا درجةٍ علمية — تفتح «الأساتذة» لاستكمالها">
-            <GraduationCap aria-hidden="true" /><span>الدرجة ناقصة</span><b>{missingRanks.toLocaleString("ar-KW-u-nu-latn")}</b>
+            data-guide-ignore="شارة الأساتذة بلا درجةٍ علمية، وهي تمنع التوقيع — تفتح «الأساتذة» لاستكمال الدرجات">
+            <GraduationCap aria-hidden="true" />
+            <b>{missingRanks.toLocaleString("ar-KW-u-nu-latn")}</b>
+            <span>بلا درجة علمية<small>لا توقيع قبل استكمالها</small></span>
           </button>
         ) : null}
         {requiredCourseFieldsBlocksSign ? <Notice type="warning">استكمل «نوع القاعة المناسب» و«طبيعة التدريس» لكل مقرر قبل التوقيع.</Notice> : null}
@@ -846,11 +851,13 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
           </PrimaryButton>
         ) : null}
 
+        {/* كلُّ مانعٍ يُضاف إلى canSign في الخادم يُضاف هنا في disabled وtitle معاً، لا في الشارة وحدها:
+            نُشرت الدرجةُ الناقصة بشارةٍ وبقي هذا الزرُّ مفعّلاً (عيبٌ 2026-11-14، tests/rank-gap-sign-audit.ts تفحص الزرّ نفسه). */}
         {canSignNow ? (
           <PrimaryButton type="button" className="apb-primary" data-guide-target="approval.action.sign"
             aria-label={signatureStage === "head" ? "اعتماد وإرسال للتسجيل" : "توقيع لجنة الجدول"}
-            title={capacityBlocksSign ? "سجّل السعة لكل مقرر قبل التوقيع" : requiredCourseFieldsBlocksSign ? "استكمل بيانات نوع القاعة وطبيعة التدريس قبل التوقيع" : signatureStage === "head" ? "اعتماد وإرسال للتسجيل" : "توقيع لجنة الجدول"}
-            disabled={busy || blockingConflicts > 0 || capacityBlocksSign || requiredCourseFieldsBlocksSign}
+            title={capacityBlocksSign ? "سجّل السعة لكل مقرر قبل التوقيع" : ranksBlockSign ? "اختر الدرجة العلمية لكل أستاذ قبل التوقيع" : requiredCourseFieldsBlocksSign ? "استكمل بيانات نوع القاعة وطبيعة التدريس قبل التوقيع" : signatureStage === "head" ? "اعتماد وإرسال للتسجيل" : "توقيع لجنة الجدول"}
+            disabled={busy || blockingConflicts > 0 || capacityBlocksSign || ranksBlockSign || requiredCourseFieldsBlocksSign}
             onClick={() => void act("/api/approvals/sign")}>
             {signatureStage === "head" ? <BadgeCheck aria-hidden="true" /> : <PenLine aria-hidden="true" />}
             {busy ? "يوقّع…" : signatureStage === "head" ? "اعتماد وإرسال" : "توقيع"}

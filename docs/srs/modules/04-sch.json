@@ -11,6 +11,11 @@
   "actors": ["committeeChair", "departmentHead", "rootAdmin", "admin", "collegeRegistrar", "registrarStaff", "dean", "system"],
   "sources": [
     "src/components/LadderStartHint.tsx",
+    "src/components/ChainSolveSheet.tsx",
+    "src/utils/chainSolve.ts",
+    "src/utils/clockInput.ts",
+    "src/hooks/useFocusTrap.ts",
+    "src/server/core/slotGuard.ts",
     "src/server/routes/schedulesRoutes.ts",
     "src/server/routes/scheduleToolsRoutes.ts",
     "src/server/core/departmentPickerFamily.ts",
@@ -1683,7 +1688,285 @@
     },
     {"id": "FR-SCH-072", "kind": "functional", "title": {"ar": "تأكيد الاستثناء اللائحي قبل الحفظ", "en": "Explicit regulation-exception confirmation before saving"}, "text": {"ar": "يجب ألّا يُحفظ موعدٌ جديد أو معدَّل من القسم (النموذج الكامل، والبطاقة السريعة، والسحب، والنقل المقترح، والمقترح الدراسي، واعتماد الاقتراحات في كل الشاشات (الرادار، وتخطيط الشعب، وحالة الطالب…)، واعتماد سيناريو آلة الزمن، وموافقة القسم على طلب الأستاذ، وشعبة «هيئة تدريسية»، واستبدال الأستاذ، وتحويل هيئة التدريب، وتثبيت المقترح الدراسي) وهو يخالف قاعدةً من قرار 1913/2016 لا تمنع، إلا بعد ورقة تأكيد تسرد كل قاعدة بمادّتها وزرّ «المتابعة استثناءً»؛ و«تراجع» يُبقي النموذج ولا يكتب شيئاً، ويُسجَّل الحفظ المستثنى في سجل التدقيق. والقواعد هي: طول اللقاء وسُلّم البدايات (م.7/8)، ووقت الشعبة الثابت (م.7/9)، وأكثر من شعبتين طويلتين متتاليتين (م.6/2)، وأكثر من ثلاث شعب من ساعة متتالية (م.6/3). وما يمنع اليوم (الساعات، ونهاية النمط، والأيام خارج المكتبة) يبقى مانعاً، وكرت الأستاذ يمنع بنفسه.", "en": "A new or edited appointment saved by the department (full form, quick card, drag, proposed move, study proposal, applying suggestions on every screen (radar, section planning, student cases…), applying a time-machine scenario, the department approving a teacher request, a faculty-placeholder section, replacing an instructor, converting training staff, and committing a study proposal) that breaks a non-blocking rule of decision 1913/2016 shall be saved only after a confirmation sheet listing every rule with its article and a «continue as an exception» button; «back» keeps the form and writes nothing, and the excepted save is recorded in the audit log. The rules are the meeting length and start ladder (Art. 7/8), a fixed section start (Art. 7/9), more than two consecutive long sections (Art. 6/2) and more than three consecutive one-hour sections (Art. 6/3). What blocks today (hours, pattern end, days outside the library) stays a block, and the teacher's card blocks on its own."}, "priority": "must", "status": "implemented", "actors": ["committeeChair", "departmentHead"], "acceptance": [{"ar": "حفظٌ يخالف قاعدةً من هذه يُردّ 409 برمز regulation-exception وقائمة المخالفات، ويمضي حين يحمل الطلب regulationException=true فقط. والحفظ الذي يطلقه موظّف عبر المسار الداخلي (/api/schedules/apply-proposal و/api/section-build/apply و/api/time-machine/scenarios/:id/apply و/api/instructor-requests/:id/apply و/api/schedules/placeholder-action) يجمع مخالفات خطواته كلها ويُسأل مرةً واحدة قبل أي كتابة؛ ولا تُسأل الاستيرادات والترحيل واستعادة آلة الزمن.", "en": "A save breaking one of these rules gets 409 with code regulation-exception and the list of violations, and proceeds only when the request carries regulationException=true. A staff save through the internal path (/api/schedules/apply-proposal, /api/section-build/apply, /api/time-machine/scenarios/:id/apply, /api/instructor-requests/:id/apply, /api/schedules/placeholder-action) gathers the violations of all its steps and asks once before any write; imports, migrations and time-machine restore are not asked."}, {"ar": "منتقي البداية يعرض سُلّم الأيام المختارة: الاثنين والأربعاء 08:00، 09:30، 11:00، 12:30، 14:00…، والأحد والثلاثاء والخميس على رأس الساعة.", "en": "The start picker offers the ladder of the chosen days: Mon/Wed 08:00, 09:30, 11:00, 12:30, 14:00…, and Sun/Tue/Thu on the hour."}, {"ar": "البطاقة السريعة والنموذج لا يقولان «جاهز للحفظ» ما دامت مخالفةٌ تحتاج تأكيداً.", "en": "The quick card and the form do not say «ready to save» while a violation needs confirmation."}, {"ar": "منتقي الأستاذ يعرض «شاغر · هيئة تدريسية» أولاً، ثم الأعضاء، ثم المنتدبين، ثم «أعضاء هيئة التدريب» بوسم 🎓 كما في المقترح الدراسي.", "en": "The instructor picker offers «vacant · faculty placeholder» first, then members, then delegates, then «training staff» with the 🎓 tag as in the study proposal."}, { "ar": "POST /api/schedules/replace-instructor (عند التنفيذ) وPOST /api/schedules/ta-conversion وPOST /api/study-proposals/:id/commit (عند confirm=true) تسأل البوّابةَ نفسها في الخادم قبل أي كتابة: 409 regulation-exception بلا موافقة، وبـregulationException=true تُكتب ويُسجَّل الاستثناء في سجل التدقيق.", "en": "POST /api/schedules/replace-instructor (on commit), POST /api/schedules/ta-conversion and POST /api/study-proposals/:id/commit (with confirm=true) ask the same gate on the server before any write: 409 regulation-exception without consent, and with regulationException=true they write and the exception is recorded in the audit log." }], "evidence": { "code": ["src/utils/regulationException.ts", "src/components/RegulationExceptionSheet.tsx", "src/server/core/scheduleWrites.ts", "src/server/core/scheduleRules.ts#regulationExceptionsFor", "src/utils/scheduleRegulations.ts#ladderStartsForDays", "src/components/InstructorPicker.tsx", "src/server/core/scheduleRules.ts#reassignmentExceptions"], "tests": ["tests/regulation-exception.ts", "tests/regulation-exception-paths-audit.ts", "tests/final-audit-gaps-audit.ts", "tests/study-proposal-flow-audit.ts"] }},
     {"id": "FR-SCH-073", "kind": "functional", "title": {"ar": "مرشّحاتٌ لائحية من مولّدٍ واحد", "en": "Regulation-compliant candidates from one generator"}, "text": {"ar": "يجب أن يأخذ كلُّ محرّكٍ يقترح موعداً (تخطيطُ الشعب، وآلةُ الزمن، وسلسلةُ الإصلاح، و«اقترح لي وقتاً وقاعة»، وبدائلُ المقترح الدراسي، وتحويلُ النمط، وخططُ الطوارئ، والطيّارُ الآلي، وبدائلُ طلب الأستاذ) أيامَه وأطوالَه من مكتبة الأنماط وحدها وبداياتِه من سُلّم م.7/8 عبر مولّدٍ واحد، فلا يقترح ما تفتح له ورقةُ «المتابعة استثناءً» عند الحفظ.", "en": "Every engine that proposes an appointment (section planning, the time machine, the repair chain, «suggest a time and room», study-proposal alternatives, pattern conversion, emergency plans, the autopilot and teacher-request alternatives) shall take its days and lengths from the pattern library only and its starts from the art. 7/8 ladder through one shared generator, so it never proposes a placement the save would question with the regulation-exception sheet."}, "rationale": {"ar": "قرار المالك: المكتبة وحدها، والاقتراحُ لا يخالف اللائحة من البداية.", "en": "Owner decision: the library only, and a suggestion complies with the regulation from the start."}, "priority": "must", "status": "implemented", "actors": ["departmentHead", "committeeChair"], "acceptance": [{"ar": "الأحد والثلاثاء والخميس على رأس الساعة (8:00، 9:00…)، والاثنين والأربعاء 8:00 ثم 9:30 ثم 11:00 ثم 12:30 ثم 14:00…؛ ولا بدايةَ قبل الثامنة.", "en": "Sun/Tue/Thu start on the hour (8:00, 9:00…); Mon/Wed start 8:00 then 9:30, 11:00, 12:30, 14:00…; no start before 8:00."},{"ar": "لا يُقترح الاثنين·الخميس ولا الأحد·الخميس، وكتلةُ اليوم الواحد على أيّ يوم، والطولُ طولُ النمط (لا 80 دقيقة حيث يلزم 50).", "en": "Mon+Thu and Sun+Thu are never proposed; a single-day block may sit on any day; the length is the pattern's (never 80 minutes where 50 is required)."},{"ar": "صفٌّ بأيامٍ عدة يُصلَح بتحريك وقته وأيامُه كما هي؛ ونقلُه عن يومٍ يأخذ نمطاً وطولاً من المكتبة.", "en": "A multi-day row is repaired by moving its hour with its days kept; moving it off a day takes a pattern and a length from the library."},{"ar": "طولُ نمطٍ معتمد على أيامه (الأحد·الثلاثاء 80/80 لثلاث ساعات، والاثنين·الأربعاء 50/50 لساعتين و110/110 لأربع) لا يُسأل عنه استثناءً.", "en": "An approved pattern's length on its own days (Sun+Tue 80/80 for three hours, Mon+Wed 50/50 for two and 110/110 for four) is not questioned as an exception."}], "evidence": {"code": ["src/utils/regulationCandidates.ts", "src/utils/timeMachine.ts#changedRowsFollowRegulation", "src/utils/repairChain.ts", "src/utils/sectionOpening.ts", "src/server/routes/scheduleToolsRoutes.ts", "src/server/studyProposalEngine.ts", "src/utils/scheduleRegulations.ts#lectureLengthProblem"], "tests": ["tests/engine-regulation-candidates-audit.ts", "tests/time-machine-audit.ts", "tests/section-build-audit.ts", "tests/smart-suggestions-audit.ts"]}, "inferred": false},
-    {"id": "FR-SCH-074", "kind": "functional", "title": {"ar": "«نبض الطلبة»: من يناسبه وقت الموعد قبل حفظه", "en": "«Student pulse»: who the appointment time suits before saving"}, "text": {"ar": "يجب أن يعرض محرّر الموعد، متى اكتملت الأيام والوقت وكان للفصل تقرير طلبٍ فعلي، بطاقة «نبض الطلبة» تقول لمسار الموعد (بنين/بنات) كم ممن يحتاجون المقرر يناسبهم هذا الوقت — الخريجون أولاً ثم الطلبة — وأيَّ مقرراتٍ يحجبهم عنها، وعدد شعب المقرر في المسار قبل الموعد وبعده، وأن يقول بسطرٍ أحمر التعارض الجديد الذي لا مفرّ منه للخريجين؛ ملاحظةً لا تمنع الحفظ.", "en": "The appointment editor shall, once days and time are set and the term has an actual-demand report, show a «student pulse» card telling, for the appointment's track (boys/girls), how many of those who need the course this time suits — graduates first, then students — which courses it blocks them from, and the course's section count in the track before and after the appointment, and shall state in a red line any new unavoidable clash for graduates; a note that never blocks the save."}, "rationale": {"ar": "قرار المالك 2026-11-14: أثر الوقت على الطالب يُرى قبل الحفظ، والخريجون أولاً.", "en": "Owner decision 2026-11-14: a time's effect on students is seen before saving, graduates first."}, "priority": "should", "status": "implemented", "actors": ["committeeChair", "departmentHead"], "acceptance": [{"ar": "بطاقة «نبض الطلبة» مسكّرةٌ افتراضاً: سطرٌ واحد بعنوانها وشريحتَي الخريجين والطلبة (وإنذار الخريجين إن وُجد) وزرّ «أفضل وقت»، ويفتح التفصيل (الحلقتان والمقررات المحجوبة) من أراده، ويتذكّر الجهاز اختياره.", "en": "The student-pulse card is collapsed by default: one line with its title, the graduates and students chips (and the graduate alarm if any) and the best-time button; whoever wants the detail (rings, blocked courses) opens it, and the device remembers the choice."}, {"ar": "الشعبة تحجب طالباً عن مقررٍ آخر يحتاجه حين تتداخل مع كل شعب ذلك المقرر في المسار نفسه؛ ولكل برنامج المحجوبون = min(طلبته في هذا المقرر، أكبر عددٍ منهم في مقررٍ محجوب)، والنسبة = (الحاجة − المحجوبين) ÷ الحاجة.", "en": "A section blocks a student from another course they need when it overlaps every section of that course in the same track; per programme blocked = min(its students in this course, the largest number of them in a blocked course), and the share = (need − blocked) ÷ need."}, {"ar": "شعبةٌ بديلة لا تتداخل تُزيل الحجب، وتعديل موعدٍ قائم يُقرأ بالجديد مكانه، وبلا تقرير أو بمقررٍ غير مطابَق لا بطاقة؛ وتقريرٌ بلا تفصيل برامج يقول عدد من يحتاجونه وحده.", "en": "A non-overlapping alternative section removes the block, editing an existing appointment reads the new one in its place, and with no report or an unmatched course there is no card; a report without programme detail states the need alone."}, {"ar": "الحلقتان: الخريجون نحاسية والطلبة خضراء، وتحمرّ تحت 60٪؛ وكل مقررٍ محجوب شريحةٌ برقمه واسمه وعدد المحجوبين، ويُوسم كل ذلك «تقديرٌ من الطلب الفعلي».", "en": "The two rings: graduates brass and students green, turning red below 60%; each blocked course is a chip with its code, name and blocked count, all labelled «an estimate from actual demand»."}, {"ar": "حين تكون في «أسبوع الأستاذ» خانةٌ حرّة أفضل من الوقت الحالي بخمس نقاط فأكثر يظهر في رأس البطاقة زرٌّ واحد «أفضل وقت HH:MM · N٪»، يضع الأيام والبداية والنهاية بالمسار نفسه الذي تضعها به الخانات (فيُفحص الموعد كأي اختيار)؛ ولا يظهر إن كان الوقت الحالي هو الأفضل أو بلا تقرير.", "en": "When the instructor's week holds a free slot at least five points better than the current time, one «best time HH:MM · N%» button appears in the card header, setting days, start and end through the same path the slots use (so the appointment is checked like any choice); it does not appear when the current time is the best or with no report."}, {"ar": "بعد حفظٍ ناجح يظهر لتسع ثوانٍ سطرٌ واحد «يناسب الخريجين N٪ ← M٪» (أو الطلبة بلا خريجين): من يجد شعبةً تناسبه في المقرر كله قبل هذا الموعد وبعده، فيُحجَب الطالب عن شعبةٍ ويأخذ غيرها ولا يُعدّ غير مخدوم إلا إن حُجب عن كل شعبه، ومقررٌ بلا شعبة يخدم 0٪؛ ولا يظهر إن لم يتغيّر الرقم.", "en": "After a successful save one line «suits graduates N% → M%» (or students when there are no graduates) shows for nine seconds: who finds a suitable section in the whole course before and after this appointment, so a student blocked from one section takes another and counts as unserved only if blocked from all its sections, and a course with no section serves 0%; it does not show when the figure did not change."}, {"ar": "البطاقة السريعة (من رسم خانةٍ على اللوحة) تعرض، متى انتهى فحص الموعد وكان للفصل تقرير طلبٍ فعلي، شريطاً صغيراً من شرائح: «لا مفرّ منه N» حمراء إن صنع الوقتُ تعارضاً لا مفرّ منه للخريجين، ثم «الخريجون N%» و«الطلبة N%» بلون الفئة (85 و60)؛ التفصيل في التلميح، ملاحظةٌ لا تمنع الحفظ.", "en": "The quick card (from painting a slot on the board) shows, once the appointment check has finished and the term has an actual-demand report, a small strip of chips: a red «unavoidable N» when the time creates an unavoidable clash for graduates, then «graduates N%» and «students N%» coloured by band (85 and 60); detail in the tooltip, a note that never blocks the save."}, {"ar": "زرّ «أفضل وقت» يبحث عن القاعة أيضاً: يضع الأيام والبداية والنهاية ثم يسأل محرّك «اقترح قاعة» عن قاعةٍ خالية في ذلك الوقت (القاعة والأستاذ والمرفق والانتقال) فيضع الأولى، وتبقى القاعة المختارة إن كانت خاليةً فيه، وإن لم توجد قاعةٌ بقي الوقتُ وحده؛ والزرّ يقول الوقت والنسبة فقط — لا قاعةً ولا مبنى — وتظهر القاعة في خطوة «أين؟».", "en": "The «best time» button searches for the hall too: it sets days, start and end, then asks the «suggest a hall» engine for a free hall at that time (hall, instructor, facility and transit) and sets the first; the chosen hall stays if it is free then, and if no hall exists the time alone stays; the button says the time and the share only — no hall and no building — and the hall shows in the «where?» step."}, {"ar": "تقدير من يحتاجون المقرّرَين معاً يتبع نوع التقرير: للخريجين الأدنى بين العددين (أقصى تداخلٍ ممكن)، وللطلبة عامةً تداخلٌ متوقَّع باستقلال التسجيل داخل البرنامج — حصّة من يأخذ المقرر الآخر من دفعة البرنامج (أكبر مقررٍ فيه) — فمقررٌ يأخذه الجميع يحجب الجميع ومقررٌ لخُمس الدفعة يحجب خُمس من يحتاجون هذا؛ حتى لا تُشبَع الخانات بـ0٪ على تقريرٍ حقيقي.", "en": "The estimate of those needing both courses follows the report type: for graduates the minimum of the two counts (the largest possible overlap), and for students in general an expected overlap assuming independent enrolment within the programme — the share taking the other course out of the programme cohort (its largest course) — so a course everyone takes blocks everyone and one taking a fifth of the cohort blocks a fifth of those needing this one; so slots are not all saturated at 0% on a real report."}], "evidence": {"code": ["src/utils/studentFit.ts", "src/server/actualDemand.ts#appointmentDemandFor", "src/server/routes/scheduleReviewRoutes.ts", "src/components/StudentPulse.tsx", "src/styles/57-student-pulse.css", "src/components/StudentPulse.tsx#FitImpact", "src/utils/studentFit.ts#coverage", "src/components/StudentPulse.tsx#FitStrip", "src/components/Schedules.tsx#pickBestTime"], "tests": ["tests/appointment-review-1114-audit.ts", "tests/appointment-ideas2-1114-audit.ts", "tests/quick-best-1114-audit.ts"]}, "inferred": false}
+    {"id": "FR-SCH-074", "kind": "functional", "title": {"ar": "«نبض الطلبة»: من يناسبه وقت الموعد قبل حفظه", "en": "«Student pulse»: who the appointment time suits before saving"}, "text": {"ar": "يجب أن يعرض محرّر الموعد، متى اكتملت الأيام والوقت وكان للفصل تقرير طلبٍ فعلي، بطاقة «نبض الطلبة» تقول لمسار الموعد (بنين/بنات) كم ممن يحتاجون المقرر يناسبهم هذا الوقت — الخريجون أولاً ثم الطلبة — وأيَّ مقرراتٍ يحجبهم عنها، وعدد شعب المقرر في المسار قبل الموعد وبعده، وأن يقول بسطرٍ أحمر التعارض الجديد الذي لا مفرّ منه للخريجين؛ ملاحظةً لا تمنع الحفظ.", "en": "The appointment editor shall, once days and time are set and the term has an actual-demand report, show a «student pulse» card telling, for the appointment's track (boys/girls), how many of those who need the course this time suits — graduates first, then students — which courses it blocks them from, and the course's section count in the track before and after the appointment, and shall state in a red line any new unavoidable clash for graduates; a note that never blocks the save."}, "rationale": {"ar": "قرار المالك 2026-11-14: أثر الوقت على الطالب يُرى قبل الحفظ، والخريجون أولاً.", "en": "Owner decision 2026-11-14: a time's effect on students is seen before saving, graduates first."}, "priority": "should", "status": "implemented", "actors": ["committeeChair", "departmentHead"], "acceptance": [{"ar": "بطاقة «نبض الطلبة» مسكّرةٌ افتراضاً: سطرٌ واحد بعنوانها وشريحتَي الخريجين والطلبة (وإنذار الخريجين إن وُجد) وزرّ «أفضل وقت»، ويفتح التفصيل (الحلقتان والمقررات المحجوبة) من أراده، ويتذكّر الجهاز اختياره.", "en": "The student-pulse card is collapsed by default: one line with its title, the graduates and students chips (and the graduate alarm if any) and the best-time button; whoever wants the detail (rings, blocked courses) opens it, and the device remembers the choice."}, {"ar": "الشعبة تحجب طالباً عن مقررٍ آخر يحتاجه حين تتداخل مع كل شعب ذلك المقرر في المسار نفسه؛ ولكل برنامج المحجوبون = min(طلبته في هذا المقرر، أكبر عددٍ منهم في مقررٍ محجوب)، والنسبة = (الحاجة − المحجوبين) ÷ الحاجة.", "en": "A section blocks a student from another course they need when it overlaps every section of that course in the same track; per programme blocked = min(its students in this course, the largest number of them in a blocked course), and the share = (need − blocked) ÷ need."}, {"ar": "شعبةٌ بديلة لا تتداخل تُزيل الحجب، وتعديل موعدٍ قائم يُقرأ بالجديد مكانه، وبلا تقرير أو بمقررٍ غير مطابَق لا بطاقة؛ وتقريرٌ بلا تفصيل برامج يقول عدد من يحتاجونه وحده.", "en": "A non-overlapping alternative section removes the block, editing an existing appointment reads the new one in its place, and with no report or an unmatched course there is no card; a report without programme detail states the need alone."}, {"ar": "الحلقتان: الخريجون نحاسية والطلبة خضراء، وتحمرّ تحت 60٪؛ وكل مقررٍ محجوب شريحةٌ برقمه واسمه وعدد المحجوبين، ويُوسم كل ذلك «تقديرٌ من الطلب الفعلي».", "en": "The two rings: graduates brass and students green, turning red below 60%; each blocked course is a chip with its code, name and blocked count, all labelled «an estimate from actual demand»."}, {"ar": "حين تكون في «أسبوع الأستاذ» خانةٌ حرّة أفضل من الوقت الحالي بخمس نقاط فأكثر يظهر في رأس البطاقة زرٌّ واحد «أفضل وقت HH:MM · N٪»، يضع الأيام والبداية والنهاية بالمسار نفسه الذي تضعها به الخانات (فيُفحص الموعد كأي اختيار)؛ ولا يظهر إن كان الوقت الحالي هو الأفضل أو بلا تقرير.", "en": "When the instructor's week holds a free slot at least five points better than the current time, one «best time HH:MM · N%» button appears in the card header, setting days, start and end through the same path the slots use (so the appointment is checked like any choice); it does not appear when the current time is the best or with no report."}, {"ar": "بعد حفظٍ ناجح يظهر لتسع ثوانٍ سطرٌ واحد «يناسب الخريجين N٪ ← M٪» (أو الطلبة بلا خريجين): من يجد شعبةً تناسبه في المقرر كله قبل هذا الموعد وبعده، فيُحجَب الطالب عن شعبةٍ ويأخذ غيرها ولا يُعدّ غير مخدوم إلا إن حُجب عن كل شعبه، ومقررٌ بلا شعبة يخدم 0٪؛ ولا يظهر إن لم يتغيّر الرقم.", "en": "After a successful save one line «suits graduates N% → M%» (or students when there are no graduates) shows for nine seconds: who finds a suitable section in the whole course before and after this appointment, so a student blocked from one section takes another and counts as unserved only if blocked from all its sections, and a course with no section serves 0%; it does not show when the figure did not change."}, {"ar": "البطاقة السريعة (من رسم خانةٍ على اللوحة) تعرض، متى انتهى فحص الموعد وكان للفصل تقرير طلبٍ فعلي، شريطاً صغيراً من شرائح: «لا مفرّ منه N» حمراء إن صنع الوقتُ تعارضاً لا مفرّ منه للخريجين، ثم «الخريجون N%» و«الطلبة N%» بلون الفئة (85 و60)؛ التفصيل في التلميح، ملاحظةٌ لا تمنع الحفظ.", "en": "The quick card (from painting a slot on the board) shows, once the appointment check has finished and the term has an actual-demand report, a small strip of chips: a red «unavoidable N» when the time creates an unavoidable clash for graduates, then «graduates N%» and «students N%» coloured by band (85 and 60); detail in the tooltip, a note that never blocks the save."}, {"ar": "زرّ «أفضل وقت» يبحث عن القاعة أيضاً: يضع الأيام والبداية والنهاية ثم يسأل محرّك «اقترح قاعة» عن قاعةٍ خالية في ذلك الوقت (القاعة والأستاذ والمرفق والانتقال) فيضع الأولى، وتبقى القاعة المختارة إن كانت خاليةً فيه، وإن لم توجد قاعةٌ بقي الوقتُ وحده؛ والزرّ يقول الوقت والنسبة فقط — لا قاعةً ولا مبنى — وتظهر القاعة في خطوة «أين؟».", "en": "The «best time» button searches for the hall too: it sets days, start and end, then asks the «suggest a hall» engine for a free hall at that time (hall, instructor, facility and transit) and sets the first; the chosen hall stays if it is free then, and if no hall exists the time alone stays; the button says the time and the share only — no hall and no building — and the hall shows in the «where?» step."}, {"ar": "تقدير من يحتاجون المقرّرَين معاً يتبع نوع التقرير: للخريجين الأدنى بين العددين (أقصى تداخلٍ ممكن)، وللطلبة عامةً تداخلٌ متوقَّع باستقلال التسجيل داخل البرنامج — حصّة من يأخذ المقرر الآخر من دفعة البرنامج (أكبر مقررٍ فيه) — فمقررٌ يأخذه الجميع يحجب الجميع ومقررٌ لخُمس الدفعة يحجب خُمس من يحتاجون هذا؛ حتى لا تُشبَع الخانات بـ0٪ على تقريرٍ حقيقي.", "en": "The estimate of those needing both courses follows the report type: for graduates the minimum of the two counts (the largest possible overlap), and for students in general an expected overlap assuming independent enrolment within the programme — the share taking the other course out of the programme cohort (its largest course) — so a course everyone takes blocks everyone and one taking a fifth of the cohort blocks a fifth of those needing this one; so slots are not all saturated at 0% on a real report."}], "evidence": {"code": ["src/utils/studentFit.ts", "src/server/actualDemand.ts#appointmentDemandFor", "src/server/routes/scheduleReviewRoutes.ts", "src/components/StudentPulse.tsx", "src/styles/57-student-pulse.css", "src/components/StudentPulse.tsx#FitImpact", "src/utils/studentFit.ts#coverage", "src/components/StudentPulse.tsx#FitStrip", "src/components/Schedules.tsx#pickBestTime"], "tests": ["tests/appointment-review-1114-audit.ts", "tests/appointment-ideas2-1114-audit.ts", "tests/quick-best-1114-audit.ts"]}, "inferred": false},
+    {
+      "id": "FR-SCH-075",
+      "kind": "functional",
+      "title": {
+        "ar": "حارس الخانة عند الحفظ المتزامن",
+        "en": "Atomic slot guard on concurrent saves"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعيد فحص تعارض القاعة والأستاذ وسقف ساعات الشعبة داخل عملية الكتابة نفسها، فلا يحجز حفظان متزامنان الخانة ذاتها؛ ويردّ الخاسر بـ409 ورمز slot-taken فتعرض الواجهة «سبقك زميل» وبديلين جاهزين دون فقد النموذج.",
+        "en": "The system shall re-check room, instructor and section-hours conflicts inside the write itself, so two simultaneous saves can never take the same slot; the loser receives 409 with code slot-taken and the interface shows a \"a colleague was first\" notice with two ready alternatives without losing the form."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "دفعة من الطلبات المتزامنة لخانة واحدة تنتج حفظاً واحداً (201) والباقي 409 برمز slot-taken.",
+          "en": "A batch of simultaneous requests for one slot yields exactly one save (201) and the rest 409 with code slot-taken."
+        },
+        {
+          "ar": "اختبار التأخير بعد الفحص (SCHEDULE_TEST_DELAY_AFTER_CHECK_MS) معطّل في الإنتاج.",
+          "en": "The post-check delay hook (SCHEDULE_TEST_DELAY_AFTER_CHECK_MS) is ignored in production."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/slotGuard.ts",
+          "src/server/core/scheduleWrites.ts",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/schedule-write-integrity-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-076",
+      "kind": "functional",
+      "title": {
+        "ar": "إعادة حفظ موعد قائم لا تُحجب بتعارضه القديم",
+        "en": "Re-saving an existing appointment is not blocked by inherited conflicts"
+      },
+      "text": {
+        "ar": "يجب على النظام ألّا يمنع حفظ موعد قائم بسبب تعارضٍ كان فيه أصلاً؛ فيُمنع التعارض الجديد وحده، ويُعرض القديم ملاحظةً هادئة، فيمكن إصلاح الموعد حقلاً بعد حقل.",
+        "en": "The system shall not refuse to save an existing appointment because of a conflict it already had; only a new conflict blocks, the inherited one is shown as a quiet note, so an appointment can be repaired one field at a time."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "إعادة حفظ موعد فيه تعارض قديم دون تغيير ترجع 200؛ وتغيير القاعة وحدها يمرّ.",
+          "en": "Re-saving an appointment with an inherited conflict unchanged returns 200; changing only the room passes."
+        },
+        {
+          "ar": "إدخال تعارض جديد يظل يرجع 409.",
+          "en": "Introducing a new conflict still returns 409."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/scheduleConflicts.ts",
+          "src/server/core/scheduleWrites.ts"
+        ],
+        "tests": [
+          "tests/schedule-write-integrity-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-077",
+      "kind": "functional",
+      "title": {
+        "ar": "خروج النمط أو الطول عن اللائحة استثناءٌ بتأكيد",
+        "en": "Off-pattern days or length is an exception needing confirmation"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعامل أيام الشعبة غير المعتمدة وطول المحاضرة المخالف للنمط تنبيهاً في المحرّر لا يعطّل الحفظ، وأن يطلب عند الحفظ تأكيداً صريحاً من القسم (قاعدتا pattern-days وlecture-length)؛ ويبقى سقف ساعات الشعبة والتعارض ونافذة اليوم الجامعي موانع.",
+        "en": "The system shall treat unapproved section days and a non-conforming lecture length as a warning in the editor that does not disable saving, and shall ask the department for explicit confirmation when saving (rules pattern-days and lecture-length); the section-hours cap, conflicts and the university-day window remain blockers."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "حفظ موعد بأيام خارج النمط يرجع 409 regulation-exception ثم ينجح عند إعادة الإرسال بالتأكيد.",
+          "en": "Saving an appointment with off-pattern days returns 409 regulation-exception and succeeds when re-sent with confirmation."
+        },
+        {
+          "ar": "زر الحفظ في المحرّر يبقى مفعّلاً مع ملاحظة اللائحة.",
+          "en": "The editor save button stays enabled with the regulation note."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/scheduleRules.ts",
+          "src/utils/regulationException.ts",
+          "src/utils/appointmentVerdict.ts",
+          "src/components/RegulationExceptionSheet.tsx"
+        ],
+        "tests": [
+          "tests/schedule-write-integrity-audit.ts",
+          "tests/verdict-regulation-warning-audit.tsx",
+          "tests/regulation-parity-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-078",
+      "kind": "functional",
+      "title": {
+        "ar": "حلّ بسلسلة من المحرّر",
+        "en": "Chain solve from the editor"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض عند تعارض الأستاذ أو القاعة زر «حلّ بسلسلة» يقترح حتى ثلاث نقلات لمواعيد أخرى تُخلي الخانة، بمعاينة قبل وبعد وأثرٍ على الطلبة، وتطبيقٍ ذرّي وتراجعٍ عبر آلة الزمن؛ ولا يحرّك موعداً مقفلاً أو محجوزاً أو من قسم لا يملكه المستخدم.",
+        "en": "The system shall offer, on an instructor or room conflict, a chain-solve action proposing up to three moves of other appointments that free the slot, with a before and after preview and a student-impact line, applied atomically with undo through the Time Machine; it shall never move a locked, held or foreign-department appointment."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "سلسلة من نقلة واحدة تحلّ التعارض وتُطبَّق ذرّياً.",
+          "en": "A one-move chain resolves the conflict and applies atomically."
+        },
+        {
+          "ar": "لا سلسلة آمنة تعرض سبباً واحداً بأيقونة وكلمة.",
+          "en": "When no safe chain exists a single reason is shown with an icon and a word."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/chainSolve.ts",
+          "src/components/ChainSolveSheet.tsx",
+          "src/utils/repairChain.ts"
+        ],
+        "tests": [
+          "tests/chain-solve-audit.ts",
+          "tests/chain-pulse-render-audit.tsx"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-079",
+      "kind": "functional",
+      "title": {
+        "ar": "قراءة الساعة المكتوبة يدوياً",
+        "en": "Reading a typed clock"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقرأ الساعة المكتوبة بقاعدة واحدة في كل مدخلات الوقت: الساعات 1 إلى 7 بلا فترة تُقرأ بعد الظهر (7 تصير 19:00)، والأقواس والأرقام العربية والنقطة مقبولة، والقيمة غير الصالحة تعرض رسالة ظاهرة ولا يُرجَع إلى القيمة السابقة بصمت، وEnter يثبّت المكتوب قبل الحفظ.",
+        "en": "The system shall read a typed clock with a single rule across every time input: hours 1 to 7 without a period are afternoon (7 becomes 19:00), Arabic-Indic digits and a dot are accepted, an invalid value shows a visible message instead of silently reverting, and Enter commits the typed value before saving."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "14 تصير 14:00 و7 تصير 19:00 و8.30 تصير 08:30.",
+          "en": "14 becomes 14:00, 7 becomes 19:00, 8.30 becomes 08:30."
+        },
+        {
+          "ar": "25 و14:5 تعرضان رسالة ولا تغيّران الوقت.",
+          "en": "25 and 14:5 show a message and leave the time unchanged."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/clockInput.ts",
+          "src/components/TimeField.tsx",
+          "src/components/MeetingSlots.tsx",
+          "src/utils/oneLineAppointment.ts"
+        ],
+        "tests": [
+          "tests/time-field-parse-audit.tsx",
+          "tests/meeting-slots-clock-audit.ts",
+          "tests/one-line-spoken-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-080",
+      "kind": "functional",
+      "title": {
+        "ar": "الموعد بسطر واحد بالعامية",
+        "en": "One-line appointment in spoken dialect"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يفهم سطر الموعد المكتوب أو المنطوق بالعامية الكويتية (أرقام كلامية مثل ثنتين، ونص وربع، وأسماء أيام عامية، وكلمات الفترة) فيملأ المقرر والأستاذ والأيام والوقت، ويرفض الساعة غير الصالحة ولا يحوّلها إلى رقم شعبة، ويذكر سبب ما لم يفهمه.",
+        "en": "The system shall understand a one-line appointment typed or spoken in Kuwaiti dialect (spoken numbers such as two, half and quarter past, dialect day names, period words), filling course, instructor, days and time, rejecting an invalid clock without turning it into a section number, and stating why anything was not understood."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "جملة تذكر المقرر والأستاذ والأحد والثلاثاء والساعة ثنتين تعطي 14:00.",
+          "en": "A sentence naming course, instructor, Sunday, Tuesday and \"two o'clock\" yields 14:00."
+        },
+        {
+          "ar": "14:60 و24:00 تُرفضان كاملتين.",
+          "en": "14:60 and 24:00 are rejected whole."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/oneLineAppointment.ts",
+          "src/utils/clockInput.ts"
+        ],
+        "tests": [
+          "tests/one-line-spoken-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-081",
+      "kind": "functional",
+      "title": {
+        "ar": "حماية الإصدار عند الحذف والتعديل",
+        "en": "Revision protection on edit and delete"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يطلب إصدار الصف عند الحذف وعند التعديل من المتصفح، فيرفض بـ409 ما تغيّر أثناء عمل المستخدم، ويعامل حذف صف غير موجود بوصفه محذوفاً أصلاً، ولا يتراجع التراجع عن تعديل زميل.",
+        "en": "The system shall require the row revision on delete and on browser edits, rejecting with 409 anything changed while the user worked, treating the deletion of a missing row as already deleted, and never letting undo overwrite a colleague's edit."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف بإصدار قديم يرجع 409؛ وحذف صف غير موجود يرجع 404 للمتصفح.",
+          "en": "Delete with a stale revision returns 409; deleting a missing row returns 404 to the browser."
+        },
+        {
+          "ar": "تعديل من المتصفح بلا إصدار على صف له إصدار يرجع 409 rev-required.",
+          "en": "A browser edit without a revision on a row that has one returns 409 rev-required."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/core/scheduleWrites.ts",
+          "src/components/Schedules.tsx"
+        ],
+        "tests": [
+          "tests/schedule-write-integrity-audit.ts",
+          "tests/schedule-w3-audit.ts"
+        ]
+      },
+      "inferred": false
+    }
   ],
   "edgeCases": [
     {

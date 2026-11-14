@@ -7,6 +7,9 @@ import TAPhasePanel from "./TAPhasePanel";
 import PublishSendLog from "./PublishSendLog";
 import PublishRecipientPicker, { AudiencePicker, FOLLOW_ICON, type Audience, type PickedPerson } from "./PublishRecipientPicker";
 import type { FollowUpState } from "../utils/cardRecipients";
+import { needTally, needsSentence, sendNeed, type FollowEntry } from "../utils/publishNeeds";
+import { roomlessRows } from "../utils/roomlessRows";
+import { suggestedDeadline } from "../utils/teacherRegistry";
 import CourseOfferingPanel from "./CourseOfferingPanel";
 import PrepublishReachSheet from "./PrepublishReachSheet";
 import { gateGenerations, gatePublish, offeringScopeKey, readOffering, rememberReach, type OfferingSnapshot, type PrepublishRow } from "../utils/prepublishReach";
@@ -15,7 +18,7 @@ import { DnaStepper } from "./dna";
 import { WishChip, WishSummary, useWishHints, wishHintsOf } from "./inbox/WishPatterns";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BellRing, CalendarPlus, Check, Copy, Flag, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, UserX, Users, X } from "lucide-react";
+import { BellRing, CalendarPlus, Check, Copy, DoorOpen, Flag, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Sparkles, Trash2, UserX, Users, X } from "lucide-react";
 import MasariQrButton from "./MasariQrButton";
 import { reachAboutCard, unreachable, whatsappNumber } from "../utils/reachInstructor";
 import type { AdInstructor } from "../types";
@@ -410,6 +413,24 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     fetch(`/api/instructor-requests/registrar-noted?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" })
       .then(response => (response.ok ? response.json() : { rows: [] })).then(data => setNotedRows(data.rows || [])).catch(() => setNotedRows([]));
   }, [scoped, kind, collegeId, sectionId, termId]);
+  /* مواعيدُ بلا قاعة قبل النشر: تنبيهٌ للقسم وحده، لا يمنع (قرار المالك). لا قاعةَ تُعرض لأحد — عددٌ وأسماءُ مقرراتٍ وأوقات. */
+  const [roomless, setRoomless] = useState<Array<{ id: number; course: string; section: string; when: string }>>([]);
+  useEffect(() => {
+    if (!open || !scoped) { setRoomless([]); return; }
+    let live = true;
+    const DAYS: Array<[string, string]> = [["fsunday", "الأحد"], ["fmonday", "الاثنين"], ["ftuesday", "الثلاثاء"], ["fwednesday", "الأربعاء"], ["fthursday", "الخميس"]];
+    fetch(`/api/schedules?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store", credentials: "include" })
+      .then(response => (response.ok ? response.json() : []))
+      .then(list => {
+        if (!live) return;
+        setRoomless(roomlessRows(Array.isArray(list) ? list : []).map((row: any) => ({
+          id: Number(row.id), course: String(row.AdCourseName || row.CourseName || `مقرر ${row.AdCourseId ?? ""}`).trim(), section: String(row.SCode || ""),
+          when: `${DAYS.filter(([key]) => row[key]).map(([, name]) => name).join(" و")} ${String(row.fstarttime || "").slice(0, 5)}`.trim(),
+        })));
+      })
+      .catch(() => { if (live) setRoomless([]); });
+    return () => { live = false; };
+  }, [open, scoped, collegeId, sectionId, termId]);
   /* قبل إرسال البطاقات: من في جدوله مخالفةٌ للائحة (م.6/2، م.6/3، م.7/8، م.7/9) — لا يستطيع «ثبّت» حتى تُعدَّل.
      تنبيهٌ لا يمنع الإرسال، يُفتح بضغطة (قرار المالك 2026-11-13). */
   const [regulationTeachers, setRegulationTeachers] = useState<Array<{ AdInstructorId: number; AdInstructorName: string; notes: string[] }>>([]);
@@ -491,11 +512,34 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     }
   };
   const picking = kind === "staff" && sendMode !== "ta" && audience === "picked";
+  /* الموعدُ المقترح مرةً لكل فتح: موعدُ آخر إرسالٍ ما زال سارياً (فتصل المجموعةُ الثانية بموعد الأولى)، وإلا بعد ثلاثة أيام. */
+  const [deadlineHint, setDeadlineHint] = useState("");
+  const deadlineOffered = useRef<"" | "default" | "live">("");
+  useEffect(() => {
+    if (!open) { deadlineOffered.current = ""; setDeadlineHint(""); return; }
+    if (kind !== "staff" || sendMode !== "edit") return;
+    const latest = liveCards.map(card => card.closesAt).filter(at => Date.parse(at) > Date.now()).sort().at(-1);
+    /* موعدٌ سابقٌ يصل متأخراً (بعد قراءة البطاقات) يرقّي الاقتراحَ الافتراضي ما لم يلمسه المنسّق. */
+    if (deadlineOffered.current === "live") return;
+    if (deadlineOffered.current === "default" && !(latest && deadlineHint)) return;
+    if (!deadlineOffered.current && closesAt) return;
+    deadlineOffered.current = latest ? "live" : "default";
+    if (latest) {
+      const at = new Date(latest);
+      setClosesAt(at.toLocaleDateString("sv-SE", { timeZone: "Asia/Kuwait" }));
+      setCloseTime(at.toLocaleTimeString("en-GB", { timeZone: "Asia/Kuwait", hour: "2-digit", minute: "2-digit" }));
+      setDeadlineHint("موعد الإرسال السابق");
+    } else {
+      const [day, time] = suggestedDeadline().split("T");
+      setClosesAt(day); setCloseTime(time);
+      setDeadlineHint(`بعد ${countOf(3, AR.day)}`);
+    }
+  }, [open, kind, sendMode, closesAt, liveCards, deadlineHint]);
 
   /* ── بعد الإرسال: ✉️ لم يفتح · 👀 فتح · ✅ ردّ، و«ذكّر من لم يرد» ─────────────
    * الحالةُ من وقائع الطلب نفسه (فُتح الرابط، أُرسل الطلب). والتذكيرُ يحكم الخادمُ بمن يقع عليه لحظةَ
    * الضغط (من لم يرد في ✏️ وحده)، ويصل كرتَه، ويعود هنا رسالةً جاهزة لكلٍّ يرسلها المنسّق بيده. */
-  const [follow, setFollow] = useState<{ people: Array<{ instructorId: number; name: string; state: FollowUpState; mode: string }>; awaiting: number[] } | null>(null);
+  const [follow, setFollow] = useState<{ people: Array<{ instructorId: number; name: string; state: FollowUpState; mode: string; status?: string; windowOpen?: boolean }>; awaiting: number[] } | null>(null);
   const [remindAsk, setRemindAsk] = useState(false);
   const [reminded, setReminded] = useState<{ demo: boolean; people: Array<PickedPerson & { personalId: string }> } | null>(null);
   /* مسارُ كل أستاذ (ملاحظتا المالك 13 و14): يُقرأ عند فتحه فقط. */
@@ -531,6 +575,9 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     const states = ids.map(id => followState.get(Number(id))).filter(Boolean) as FollowUpState[];
     return states.includes("replied") ? "replied" : states.includes("opened") ? "opened" : states[0];
   };
+  /* من يحتاج إرسالاً الآن (لم يصله · لم يفتح · لم يردّ · بطاقتُه للعرض فقط): الاقتراحُ الأول في «أساتذة محددون». */
+  const followEntries = useMemo(() => new Map<number, FollowEntry>((follow?.people || []).map(row => [Number(row.instructorId), { state: row.state, mode: row.mode, status: row.status, windowOpen: row.windowOpen }])), [follow]);
+  const needsOf = useCallback((ids: number[]) => sendNeed(ids.map(id => followEntries.get(Number(id))).filter(Boolean) as FollowEntry[], sendMode === "view" ? "view" : "edit"), [followEntries, sendMode]);
   const awaitingPeople = (follow?.people || []).filter(row => (follow?.awaiting || []).includes(Number(row.instructorId)));
   /* 👁️ معاينةُ بطاقته كما يراها، بالصفة والموعد والمقررات التي ستُرسل — في لسانٍ جديد، ولا يُصدَر شيء. */
   const previewCard = (person: PickedPerson) => {
@@ -560,7 +607,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   };
   const customCount = pickedPeople.filter(person => person.courses?.length).length;
-  const pickSummary = [countOf(pickedPeople.length, AR.instructor), sendMode === "edit" && customCount ? `${customCount.toLocaleString("ar-KW-u-nu-latn")} بمقررات خاصة` : ""].filter(Boolean).join(" · ");
+  const pickSummary = [follow ? needsSentence(pickedPeople.length, needTally(pickedPeople.map(person => needsOf(person.ids)))) : countOf(pickedPeople.length, AR.instructor), sendMode === "edit" && customCount ? `${customCount.toLocaleString("ar-KW-u-nu-latn")} بمقررات خاصة` : ""].filter(Boolean).join(" · ");
 
   /**
    * ── قبل الإرسال: «لم نصل بعد» ──────────────────────────────────────────
@@ -969,7 +1016,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {kind === "staff" ? <SendModePicker value={sendMode} onChange={setSendMode} /> : null}
               {/* «لمن؟» للعرض والتعديل؛ ومرحلةُ التدريب تختار مدرّبيها في لوحتها. */}
               {kind === "staff" && sendMode !== "ta" ? <AudiencePicker value={audience} onChange={setAudience} /> : null}
-              {regulationTeachers.length || notedRows.length ? (
+              {regulationTeachers.length || notedRows.length || roomless.length ? (
                 <div className="publish-flags" role="group" aria-label="ما يحتاج انتباهك قبل الإرسال">
                   {regulationTeachers.length ? (
                     <details className="publish-flag is-regulation">
@@ -992,6 +1039,20 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                       <small>لا يثبّت صاحبُها جدولَه حتى تُعدَّل · الإرسال متاح.</small>
                     </details>
                   ) : null}
+                  {roomless.length ? (
+                    <details className="publish-flag is-roomless" data-testid="publish-roomless">
+                      <summary>
+                        <DoorOpen aria-hidden="true" />
+                        <span>{countOf(roomless.length, AR.appointment)} بلا قاعة</span>
+                        <em>اعرضها</em>
+                      </summary>
+                      <ul>
+                        {roomless.slice(0, 12).map(row => <li key={row.id}><b>{row.course}</b>{row.section ? ` · ${row.section}` : ""}{row.when ? ` · ${row.when}` : ""}</li>)}
+                        {roomless.length > 12 ? <li>+{(roomless.length - 12).toLocaleString("ar-KW-u-nu-latn")}</li> : null}
+                      </ul>
+                      <small>لن يرى الأساتذةُ والطلبةُ قاعةً لها، ولا يُفحص تعارضُ قاعتها · النشرُ متاح.</small>
+                    </details>
+                  ) : null}
                   {notedRows.length ? (
                     <details className="publish-flag is-noted">
                       <summary>
@@ -1011,7 +1072,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {picking ? <WishSummary data={wishHints} /> : null}
               {picking ? <PublishRecipientPicker collegeId={collegeId} sectionId={sectionId} termId={termId} onChange={setPickedPeople}
                 visitingOf={id => isVisiting(id, collegeId, sectionId)} traineeOf={id => trainees.has(Number(id))}
-                perPersonCourses={sendMode === "edit"} stateOf={stateOf} onPreview={previewCard} liveOf={liveOf}
+                perPersonCourses={sendMode === "edit"} stateOf={stateOf} onPreview={previewCard} liveOf={liveOf} needsOf={needsOf} needsReady={follow !== null}
                 hintOf={person => <WishChip hints={wishHintsOf(wishHints, person.ids)} name={person.name} visiting={person.ids.some(id => isVisiting(id, collegeId, sectionId))} trainee={person.ids.some(id => trainees.has(Number(id)))} />} /> : null}
               {picking && pickedPeople.length ? <p className="publish-summary-line" aria-live="polite">{pickSummary}</p> : null}
               {kind === "staff" && sendMode === "ta" ? <TAPhasePanel collegeId={collegeId} sectionId={sectionId} termId={termId} checking={reachChecking} confirmSend={proceed => void guardSend(proceed)} /> : null}
@@ -1045,14 +1106,15 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                     <label className="share-closes">
                       {/* بجانب «الساعة» عنوانٌ ظاهر، فلا يبدو حقلُ التاريخ الفارغ (iOS لا يرسم له نصّاً) خانةً بلا معنى. */}
                       {kind === "staff" ? <span>التاريخ</span> : <span className="sr-only">تاريخ آخر موعد لاستقبال الطلبات</span>}
-                      <input type="date" dir="ltr" aria-label="تاريخ آخر موعد لاستقبال الطلبات" value={closesAt} onChange={event => setClosesAt(event.target.value)} />
+                      <input type="date" dir="ltr" aria-label="تاريخ آخر موعد لاستقبال الطلبات" value={closesAt} onChange={event => { setClosesAt(event.target.value); setDeadlineHint(""); }} />
                     </label>
                     {kind === "staff" ? (
                       <label className="share-closes">
                         <span>الساعة · الكويت</span>
-                        <input type="time" dir="ltr" value={closeTime} onChange={event => setCloseTime(event.target.value)} />
+                        <input type="time" dir="ltr" value={closeTime} onChange={event => { setCloseTime(event.target.value); setDeadlineHint(""); }} />
                       </label>
                     ) : null}
+                    {kind === "staff" && deadlineHint ? <small className="share-deadline-hint" data-testid="deadline-hint"><Sparkles aria-hidden="true" /> مقترح: {deadlineHint}</small> : null}
                   </div>
                 )}
               </div>

@@ -816,13 +816,16 @@ export default function TeacherMiniWeek({
               const height = pixels(item.start, item.end);
               const label = nameOf(item.row) || String(courses.get(Number(item.row.AdCourseId))?.CourseCode || "");
               const where = [item.row.AdRoomCode, item.row.AdRoomHall].filter(Boolean).join("/");
+              const chipCode = String(courses.get(Number(item.row.AdCourseId))?.CourseCode || "");
               const site = siteOf(item.row);
               return <div key={key} role="group" className={`mini-week-chip${item.otherCollege ? " is-other" : ""}${height >= 80 ? " is-roomy" : height >= 48 ? " is-tall" : height >= 15 ? "" : " is-thin"}${active === key ? " is-active" : ""}`}
                 style={place(item.start, item.end)} onClick={() => setActive(value => value === key ? "" : key)}
                 aria-label={`${nameOf(item.row)}${site ? ` · ${site}` : ""} · ${toClock(item.start)}–${toClock(item.end)}${item.otherCollege ? " · كلية أخرى" : ""}`}
                 title={`${nameOf(item.row)}${item.row.SCode ? ` · ${item.row.SCode}` : ""}${site ? ` · ${site}` : ""}\n${toClock(item.start)}–${toClock(item.end)}${where ? ` · ${where}` : ""}${item.otherCollege ? " · كلية أخرى" : ""}`}>
                 <span className="mini-week-chip-text">
-                  <b>{label}</b>
+                  <b className="mini-week-chip-name">{label}</b>
+                  {/* في الأعمدة الضيقة يُعرض رمز المقرر بدل اسمه (لا يُكسر الاسم حرفاً حرفاً). */}
+                  {chipCode ? <b className="mini-week-chip-code" dir="ltr" aria-hidden="true">{chipCode}</b> : null}
                   {site ? <span className="mini-week-chip-site">{site}</span> : null}
                   {height >= 80 ? <small dir="ltr">{toClock(item.start)}</small> : null}
                 </span>
