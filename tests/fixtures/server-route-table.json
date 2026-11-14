@@ -3277,8 +3277,8 @@
    ],
    "path": "/api/approvals",
    "name": "bound dispatch",
-   "call": "34dc5f033c6c603f",
-   "site": "src/server/routes/approvalsRoutes.ts:274",
+   "call": "e9297fb4e20e0421",
+   "site": "src/server/routes/approvalsRoutes.ts:287",
    "regexp": "/^\\/api\\/approvals\\/?$/i",
    "end": true
   },
@@ -3290,7 +3290,7 @@
    "path": "/api/approvals/term",
    "name": "bound dispatch",
    "call": "1a5bb0d6cf3c5c5a",
-   "site": "src/server/routes/approvalsRoutes.ts:328",
+   "site": "src/server/routes/approvalsRoutes.ts:343",
    "regexp": "/^\\/api\\/approvals\\/term\\/?$/i",
    "end": true
   },
@@ -3301,8 +3301,8 @@
    ],
    "path": "/api/approvals/sign",
    "name": "bound dispatch",
-   "call": "36443794d90e9a4e",
-   "site": "src/server/routes/approvalsRoutes.ts:389",
+   "call": "e211f6c2679d8817",
+   "site": "src/server/routes/approvalsRoutes.ts:404",
    "regexp": "/^\\/api\\/approvals\\/sign\\/?$/i",
    "end": true
   },
@@ -3314,7 +3314,7 @@
    "path": "/api/approvals/withdraw",
    "name": "bound dispatch",
    "call": "9074958751f0e306",
-   "site": "src/server/routes/approvalsRoutes.ts:475",
+   "site": "src/server/routes/approvalsRoutes.ts:490",
    "regexp": "/^\\/api\\/approvals\\/withdraw\\/?$/i",
    "end": true
   },
@@ -3326,7 +3326,7 @@
    "path": "/api/approvals/head-return",
    "name": "bound dispatch",
    "call": "45424fd3f668fdfd",
-   "site": "src/server/routes/approvalsRoutes.ts:506",
+   "site": "src/server/routes/approvalsRoutes.ts:521",
    "regexp": "/^\\/api\\/approvals\\/head-return\\/?$/i",
    "end": true
   },
@@ -3338,7 +3338,7 @@
    "path": "/api/approvals/acknowledge-additions",
    "name": "bound dispatch",
    "call": "1f1de805f0fb30d7",
-   "site": "src/server/routes/approvalsRoutes.ts:531",
+   "site": "src/server/routes/approvalsRoutes.ts:546",
    "regexp": "/^\\/api\\/approvals\\/acknowledge-additions\\/?$/i",
    "end": true
   },
@@ -3350,7 +3350,7 @@
    "path": "/api/approvals/submit",
    "name": "bound dispatch",
    "call": "c7fdb731a3931a5a",
-   "site": "src/server/routes/approvalsRoutes.ts:552",
+   "site": "src/server/routes/approvalsRoutes.ts:567",
    "regexp": "/^\\/api\\/approvals\\/submit\\/?$/i",
    "end": true
   },
@@ -3362,7 +3362,7 @@
    "path": "/api/approvals/return",
    "name": "bound dispatch",
    "call": "ce80332151f7345d",
-   "site": "src/server/routes/approvalsRoutes.ts:575",
+   "site": "src/server/routes/approvalsRoutes.ts:590",
    "regexp": "/^\\/api\\/approvals\\/return\\/?$/i",
    "end": true
   },
@@ -3374,7 +3374,7 @@
    "path": "/api/approvals/accept",
    "name": "bound dispatch",
    "call": "9bd7b7707cfec2c7",
-   "site": "src/server/routes/approvalsRoutes.ts:613",
+   "site": "src/server/routes/approvalsRoutes.ts:628",
    "regexp": "/^\\/api\\/approvals\\/accept\\/?$/i",
    "end": true
   },
@@ -3386,7 +3386,7 @@
    "path": "/api/approvals/deadline",
    "name": "bound dispatch",
    "call": "0fe0ba104786303b",
-   "site": "src/server/routes/approvalsRoutes.ts:658",
+   "site": "src/server/routes/approvalsRoutes.ts:673",
    "regexp": "/^\\/api\\/approvals\\/deadline\\/?$/i",
    "end": true
   },
@@ -3398,7 +3398,7 @@
    "path": "/api/approvals/student-phases",
    "name": "bound dispatch",
    "call": "724b19b4f90f94a4",
-   "site": "src/server/routes/approvalsRoutes.ts:683",
+   "site": "src/server/routes/approvalsRoutes.ts:698",
    "regexp": "/^\\/api\\/approvals\\/student-phases\\/?$/i",
    "end": true
   },
@@ -3410,7 +3410,7 @@
    "path": "/api/approvals/extension",
    "name": "bound dispatch",
    "call": "9fde1d540807508d",
-   "site": "src/server/routes/approvalsRoutes.ts:719",
+   "site": "src/server/routes/approvalsRoutes.ts:734",
    "regexp": "/^\\/api\\/approvals\\/extension\\/?$/i",
    "end": true
   },
@@ -3422,7 +3422,7 @@
    "path": "/api/approvals/extensions",
    "name": "bound dispatch",
    "call": "7dc488fe6df32e45",
-   "site": "src/server/routes/approvalsRoutes.ts:743",
+   "site": "src/server/routes/approvalsRoutes.ts:758",
    "regexp": "/^\\/api\\/approvals\\/extensions\\/?$/i",
    "end": true
   },
@@ -3434,7 +3434,7 @@
    "path": "/api/approvals/extension-request",
    "name": "bound dispatch",
    "call": "33147234d967d0ee",
-   "site": "src/server/routes/approvalsRoutes.ts:815",
+   "site": "src/server/routes/approvalsRoutes.ts:830",
    "regexp": "/^\\/api\\/approvals\\/extension-request\\/?$/i",
    "end": true
   },
@@ -3446,7 +3446,7 @@
    "path": "/api/approvals/badge",
    "name": "bound dispatch",
    "call": "8ab2a5a074a60baf",
-   "site": "src/server/routes/approvalsRoutes.ts:842",
+   "site": "src/server/routes/approvalsRoutes.ts:857",
    "regexp": "/^\\/api\\/approvals\\/badge\\/?$/i",
    "end": true
   },
@@ -3458,7 +3458,7 @@
    "path": "/api/approvals/inbox",
    "name": "bound dispatch",
    "call": "7b10a1c64cfab544",
-   "site": "src/server/routes/approvalsRoutes.ts:854",
+   "site": "src/server/routes/approvalsRoutes.ts:869",
    "regexp": "/^\\/api\\/approvals\\/inbox\\/?$/i",
    "end": true
   },
