@@ -22,6 +22,7 @@ import type { PlanRuleCandidate } from "./src/utils/graduationPlan";
 import { adInjection, registerAdsRoutes } from "./src/server/adsRoutes";
 import { createLandingInquiryHandler, INQUIRY_BODY_LIMIT } from "./src/server/landingInquiry";
 import { registerStudentDoorRoutes, scheduleStudentProfilePurge } from "./src/server/studentDoorRoutes";
+import { scheduleStudentPush } from "./src/server/studentExtras";
 import { registerStudentShowcase } from "./src/server/studentShowcase";
 import { registerPlanReviewRoutes } from "./src/server/planReviewRoutes";
 import { registerPlanSheetRoutes } from "./src/server/planSheetRoutes";
@@ -792,6 +793,7 @@ async function startServer() {
   });
   /* ملفّاتُ الطلبة تُحذف وحدها حين ينتهي عمرُها (التخرّج المتوقَّع + سنة، أو الانقطاع). */
   if (!databaseFailure) scheduleStudentProfilePurge(message => console.log(message));
+  if (!databaseFailure) scheduleStudentPush(message => console.log(message));
   if (!databaseFailure) scheduleRadarAutoRun(message => console.log(message));
 
   // ── طلبات الاستعراض من صفحة الهبوط: تُحفظ وتصل الإدارة (FR-ENG-027، src/server/landingInquiry.ts) ──

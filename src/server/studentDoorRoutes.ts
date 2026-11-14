@@ -58,6 +58,7 @@ import {
 import { RECOVERY_MAX_FAILURES, calendarFingerprint, calendarToken, calendarTokenValid, readRecovery } from "./studentRecovery";
 import { buildReminder, calendarSubscribeLinks, type CalendarLecture } from "../utils/icalendar";
 import { sendCalendar } from "./routes/publicCalendarRoutes";
+import { registerStudentExtras, voidedStudentSecrets } from "./studentExtras";
 
 export interface StudentDoorDeps {
   surveyFingerprint: (civil: string) => Promise<string>;
@@ -1378,7 +1379,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     /* تغييرُ الرمز إدخالٌ للرمز الصحيح: يُلغي طلبَ الحذف المعلَّق كما يُلغيه الدخول. */
     const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? {
       ...current, codeHash: hash, codeSalt: salt, codeFailures: undefined, resetRequestedAt: undefined, updatedAt: now.toISOString(),
-      ...profileLifetime(current, now),
+      ...voidedStudentSecrets(current), ...profileLifetime(current, now),
     } : undefined));
     if (!saved) { fail(res, 401, "انتهت جلستك.", "signed-out"); return; }
     await issueSession(res, saved, req.body?.remember === true);
@@ -1453,7 +1454,7 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
         used = true;
         const lastSeenAt = at.toISOString(), issuedAt = current.recovery.issuedAt;
         const log = (current.recoveryLog || []).map(entry => (entry.at === issuedAt && !entry.usedAt ? { ...entry, usedAt: lastSeenAt } : entry));
-        const next: StudentProfile = { ...current, codeHash: hash, codeSalt: salt, codeFailures: undefined, resetRequestedAt: undefined, recovery: undefined, recoveryLog: log, lastSeenAt, updatedAt: lastSeenAt };
+        const next: StudentProfile = { ...current, codeHash: hash, codeSalt: salt, codeFailures: undefined, resetRequestedAt: undefined, recovery: undefined, recoveryLog: log, lastSeenAt, updatedAt: lastSeenAt, ...voidedStudentSecrets(current) };
         return { ...next, ...profileLifetime(next, at) };
       });
       if (!used || !saved) { notGuess(); fail(res, 409, "استُعمل هذا الرمز أو تغيّر. اطلب رمزاً جديداً من قسمك.", "recovery-used"); return; }
@@ -1545,6 +1546,9 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     }
     await sendCalendar(req, res, CALENDAR_NAME, termId, lectures);
   });
+
+  /* محاضرتك القادمة · تذكيرٌ يصل وحده · شارك مرشدك (src/server/studentExtras.ts). */
+  registerStudentExtras(app, { requireDoor, doorOf, writeLimit, identityKey: deps.identityKey, summaryOf, sectionCatalog, fail });
 }
 
 /**

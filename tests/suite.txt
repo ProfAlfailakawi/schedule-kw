@@ -309,3 +309,7 @@ test:advising
 test:admin-station
 test:query-center-plus
 test:names-one-label
+test:student-next-lecture
+test:student-push
+test:student-share
+test:student-extras-live

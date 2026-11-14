@@ -67,7 +67,9 @@
     "src/components/schedulePresence.ts",
     "src/components/trail/*",
     "src/db/beaconEcho.ts",
-    "src/db/demoActivityTrail.ts"
+    "src/db/demoActivityTrail.ts",
+    "src/server/studentExtras.ts",
+    "src/utils/studentPush.ts"
   ],
   "screens": [
     {
@@ -2192,6 +2194,43 @@
         {
           "ar": "محاضرة أُلغيت في تاريخٍ واحد ← يختفي ذلك التاريخ وحده من التقويم المشترك.",
           "en": "A lecture cancelled on one date ← that date alone disappears from the subscribed calendar."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/schedule/:token",
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/ics/:token",
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/ics/:token/:key",
+          "src/server/routes/publicCalendarRoutes.ts#/api/public/cal/:token/:key"
+        ],
+        "tests": [
+          "tests/calendar-ics-audit.ts",
+          "tests/section-planning-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-033",
+      "kind": "functional",
+      "title": {
+        "ar": "تنبيهات الجوال للطالب في مساري",
+        "en": "Student phone notifications in Masari"
+      },
+      "text": {
+        "ar": "يجب أن يعيد النظام استعمال بنية Web Push (مفاتيح VAPID نفسها وتشفير RFC 8291) لتنبيه طالب «مساري» على جهازه: الاشتراك على ملف الطالب بمفتاح البصمة، والمُرسِل المجدول src/server/studentExtras.ts ثلاثُ رسائل لكلٍّ منها مرةٌ لكل فصل (src/utils/studentPush.ts)، بلا أسماء ولا أرقام، ويفتح التنبيه /me.",
+        "en": "The system shall reuse the Web Push infrastructure (same VAPID keys and RFC 8291 encryption) to notify a Masari student on their device: the subscription lives on the student profile keyed by the fingerprint, and the scheduled sender sends three messages, each once per term, with no names or numbers; tapping opens /me."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "visitor",
+        "instructor",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "لا مفاتيح ← لا إرسال ولا خطأ.",
+          "en": "No keys means no sending and no error."
         }
       ],
       "evidence": {

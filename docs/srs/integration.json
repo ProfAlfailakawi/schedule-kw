@@ -734,6 +734,24 @@
         }
       },
       {
+        "name": "STUDENT_PUSH",
+        "group": "limits",
+        "default": "",
+        "effect": {
+          "ar": "القيمة off توقف تنبيهات الجوال لطلبة «مساري» صراحةً (يُعطَّل الزر ولا يرسل المُرسِل المجدول).",
+          "en": "The value off switches Masari student phone notifications off explicitly (the button is disabled and the scheduled sender sends nothing)."
+        }
+      },
+      {
+        "name": "STUDENT_SHARE_PER_MINUTE",
+        "group": "limits",
+        "default": "60",
+        "effect": {
+          "ar": "سقف فتحات صفحة «شارك مرشدك» العامة في الدقيقة من العنوان الواحد.",
+          "en": "The ceiling of public «share with your advisor» page opens per minute from one address."
+        }
+      },
+      {
         "name": "STUDENT_DOOR_CODE_MAX_FAILURES",
         "group": "limits",
         "default": "600",
