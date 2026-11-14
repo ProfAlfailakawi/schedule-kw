@@ -35,13 +35,17 @@ const order = ['id="transfer-group-planning"', 'goTab("planning")', 'goTab("cour
   'id="transfer-group-files"', 'goTab("import")', 'goTab("export")', 'goTab("publish")'];
 check(order.every(needle => at(needle) >= 0) && order.every((needle, index) => index === 0 || at(order[index - 1]) < at(needle)),
   "G2 المجموعات وألسنتُها بالترتيب: التخطيط ← الأساتذة ← الملفات");
-check(/>التخطيط<\/span>/.test(nav) && />الأساتذة<\/span>/.test(nav) && />الملفات<\/span>/.test(nav) && /is-planning" role="group"/.test(nav),
+/* مطويّةً (المالك 2026-11-14): ثلاثةُ أزرار مجموعات (tab) وثلاثةُ صفوفٍ فرعية (tabpanel) تُفتح واحدةٌ منها؛ و«التخطيط» أبرزها. */
+check(/<span>\{label\}<\/span>/.test(nav) && ['label: "التخطيط"', 'label: "الأساتذة"', 'label: "الملفات"'].every(label => nav.includes(label)) && /transfer-group-chip is-\$\{id\}/.test(nav) && /is-planning" role="tabpanel"/.test(nav),
   "G2 عناوينُ المجموعات الثلاث، و«التخطيط» أبرزها");
-check((nav.match(/role="group"/g) || []).length === 3, "G2 ثلاث مجموعات لا غير");
+check((nav.match(/role="tabpanel"/g) || []).length === 3 && /role="tablist"/.test(nav) && /role="tab"/.test(nav), "G2 ثلاث مجموعات لا غير: شريطٌ بثلاثة أزرار وثلاثة صفوف");
+check(/hidden=\{openToolGroup !== "planning"\}/.test(nav) && /hidden=\{openToolGroup !== "people"\}/.test(nav) && /hidden=\{!termEnded && openToolGroup !== "files"\}/.test(nav)
+  && /useEffect\(\(\) => \{ setOpenToolGroup\(activeToolGroup\); \}, \[activeToolGroup\]\)/.test(transfer),
+  "G2 المطويُّ يبقى في الصفحة مخفيّاً (للمرشد)، وتفتح مجموعةُ الأداة الحالية تلقائياً");
 check(/useState<Tab>\(\(\) => initialTab \|\| \(termEnded \? "export" : "planning"\)\)/.test(transfer), "G2 النافذةُ تُفتح على «تخطيط الشعب» أو على اللسان المطلوب");
 
 const planningGroup = nav.slice(0, at('id="transfer-group-files"'));
-check((planningGroup.match(/\{termEnded \? null : \(/g) || []).length === 2, "G3 التخطيط والأساتذة يغيبان في الأرشيف");
+check((planningGroup.match(/\{termEnded \? null : \(/g) || []).length === 3, "G3 شريطُ المجموعات والتخطيط والأساتذة يغيبون في الأرشيف: «الملفات» وحدها");
 const files = nav.slice(at('id="transfer-group-files"'));
 check(/\{termEnded \? null : \(\s*<button[\s\S]{0,300}?goTab\("import"\)/.test(files) && !/termEnded \? null : \(\s*<button[^\n]*goTab\("export"\)/.test(files)
   && /useEffect\(\(\) => \{ if \(termEnded && tab !== "export" && tab !== "publish"\) setTab\("export"\); \}, \[termEnded, tab\]\);/.test(transfer),
