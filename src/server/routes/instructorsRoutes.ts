@@ -290,6 +290,16 @@ app.post("/api/instructors", requireAnyPermission([3, 7]), async (req: Authentic
   }
 
   const exists = await Repository.getInstructorByCivil(AdInstructorCivil);
+  /* الدرجةُ العلمية لازمةٌ لكل أستاذٍ يُضاف من سياق قسم، مدرباً كان أو غيره (قرار المالك 2026-11-14): منها تُحسب ساعاتُه.
+     تُختار من درجات النصاب وحدها (readRosterLoad يرفض ما سواها). ولا تُفرض إن لم تُعرَّف درجاتٌ بعد، إذ لا شيء يُختار.
+     ومن عنده درجةٌ مسجّلة فلا يُطلب منه غيرُها حين يُضمّ إلى قسمٍ آخر. */
+  if (scoped) {
+    const rankConfig = await Repository.getTeachingLoadConfig();
+    const alreadyRanked = exists ? Boolean((rankConfig.assignments[String(exists.AdInstructorId)] as any)?.rankId) : false;
+    if (rankConfig.ranks.length && !rosterLoad?.rankId && !alreadyRanked) {
+      res.status(400).json({ error: "اختر الدرجة العلمية من النصاب؛ منها تُحسب ساعات الأستاذ.", code: "rank-required" }); return;
+    }
+  }
   if (exists) {
     if (scoped) {
       await enrol(Number(exists.AdInstructorId));
@@ -479,6 +489,10 @@ app.put("/api/section-roster/:id", requirePermission(7), async (req: Authenticat
     const parsed = await readRosterLoad(body.load, id);
     if ("error" in parsed) { res.status(400).json({ error: parsed.error }); return; }
     const entry = parsed.entry;
+    /* الدرجةُ لا تُمحى من أدوات الجدول (قرار المالك 2026-11-14): تغييرُها إلى أخرى من النصاب، لا إلى «بلا درجة». */
+    if ((await Repository.getTeachingLoadConfig()).ranks.length && !entry.rankId) {
+      res.status(400).json({ error: "الدرجة العلمية لازمة؛ اختر درجةً من النصاب.", code: "rank-required" }); return;
+    }
     await Repository.setTeachingLoadAssignment(id, Object.keys(entry).length ? entry : null, String(req.user?.Name || ""));
     changes.push("النصاب");
   }
