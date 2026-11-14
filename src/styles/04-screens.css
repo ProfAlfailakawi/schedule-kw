@@ -1436,7 +1436,7 @@
 }
 .query-detail-panel>header{position:sticky;top:0;z-index:1}
 .query-detail-panel .occupancy-pick-rows{max-height:none}
-@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .query-detail-panel{
     top:auto;inset-inline:0;bottom:0;width:100%;
     border-radius:var(--r-2xl) var(--r-2xl) 0 0;
@@ -1484,7 +1484,7 @@
 .catalog-form-drawer .form-card,
 .catalog-form-drawer .smart-form{padding:var(--s5)}
 .catalog-form-drawer-wide{width:min(960px,calc(100vw - 24px))}
-@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .catalog-form-drawer{
     top:auto;inset-inline:0;bottom:0;width:100%;
     border-radius:var(--r-2xl) var(--r-2xl) 0 0;
@@ -1715,7 +1715,7 @@
 .vault-preview-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.vault-preview-summary>span{padding:11px 12px;border:1px solid color-mix(in srgb,var(--success) 16%,var(--line));border-radius:13px;background:var(--surface);min-width:0}.vault-preview-summary b{display:block;font-size:14px;line-height:1.2;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vault-preview-summary small{display:block;margin-top:4px!important;color:var(--muted);font:500 12px/1 var(--font-ui)!important;letter-spacing:0!important}
 .vault-preview-details{border-top:1px solid color-mix(in srgb,var(--success) 16%,var(--line));padding-top:10px}.vault-preview-details summary{cursor:pointer;color:var(--muted);font-size:var(--t-xs);font-weight:600;list-style:none}.vault-preview-details summary::-webkit-details-marker{display:none}.vault-preview-details summary::before{content:"+";display:inline-grid;place-items:center;width:18px;height:18px;margin-inline-end:7px;border-radius:50%;background:var(--surface-2);color:var(--accent);font-weight:700}.vault-preview-details[open] summary::before{content:"−"}.vault-preview-details .vault-preview-hash{margin-top:12px}.vault-preview-details .vault-counts{margin-top:10px;max-height:190px;overflow:auto;align-content:flex-start;padding-inline-end:2px}.vault-preview-details .vault-counts span{background:var(--surface);box-shadow:none}.vault-preview-details .vault-counts svg{width:13px;height:13px}
 .vault-import-progress{padding:14px 15px;gap:10px}.vault-import-progress .vault-export-current{font-family:var(--font-ui)!important;direction:rtl!important;text-align:start!important;font-size:11px!important}.vault-import-progress .vault-export-progress-meta{justify-content:space-between}.vault-import-progress.status-ready{border-color:color-mix(in srgb,var(--success) 34%,var(--line));background:color-mix(in srgb,var(--success-soft) 34%,var(--surface))}
-@media (max-width:720px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.vault-preview-summary{grid-template-columns:1fr 1fr}.vault-preview-summary>span:last-child{grid-column:1/-1}.vault-preview-details .vault-preview-hash{grid-template-columns:1fr}.vault-preview-details .vault-preview-hash code{font-size:12px}.vault-import-progress .vault-export-progress-meta{align-items:flex-start;flex-direction:column}}
+@media (max-width:720px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.vault-preview-summary{grid-template-columns:1fr 1fr}.vault-preview-summary>span:last-child{grid-column:1/-1}.vault-preview-details .vault-preview-hash{grid-template-columns:1fr}.vault-preview-details .vault-preview-hash code{font-size:12px}.vault-import-progress .vault-export-progress-meta{align-items:flex-start;flex-direction:column}}
 
 /* Login carries the same restrained identity as the dark navigation mark. */
 .apex-login-brand>div{display:grid;gap:6px}.apex-login-brand small{font-size:.92rem;letter-spacing:0;color:color-mix(in srgb,#fff 52%,transparent)}
@@ -1795,7 +1795,7 @@
 }
 @keyframes loginIdentityIn{from{opacity:0}to{opacity:1}}
 @keyframes loginIdentityCard{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
-@media (max-width:680px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:680px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .apex-access-title-row{gap:10px}
   .apex-login-identity-trigger{height:32px;padding:0 11px}
 }
@@ -1983,7 +1983,7 @@
 .schedule-views.visual-minimal .views-item{min-block-size:42px}
 .schedule-views.visual-minimal .views-manage-row>button{inline-size:38px;block-size:38px;border-radius:12px}
 
-@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .visual-minimal.catalog-inspector-page .record-card{padding:13px}
   .visual-minimal.catalog-inspector-page .record-card-icon{inline-size:42px;block-size:42px;border-radius:14px}
   .visual-minimal.admin-page .system-vault-action{grid-template-columns:48px minmax(0,1fr)}
@@ -2058,7 +2058,7 @@
 .install-steps-grid li small{display:block;margin-top:2px;color:var(--muted);font-size:12px;line-height:1.55}
 .install-steps-grid li svg{display:inline;width:12px;height:12px;vertical-align:-2px}
 .install-go{min-height:42px;border-radius:13px}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.schedule-confirm-card{width:min(94vw,390px);padding:18px;border-radius:22px}.schedule-confirm-copy strong{font-size:20px}.install-pop{width:min(92vw,320px)}}
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.schedule-confirm-card{width:min(94vw,390px);padding:18px;border-radius:22px}.schedule-confirm-copy strong{font-size:20px}.install-pop{width:min(92vw,320px)}}
 
 /* ── Contextual delete confirmation ----------------------------------------
  * Small deletes borrow the source button's position instead of opening a full
@@ -2103,7 +2103,7 @@
   from{opacity:0;transform:translateX(-50%) scale(.72);filter:blur(2px)}
   to{opacity:1;transform:translateX(-50%) scale(1);filter:none}
 }
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .schedule-confirm-inline{min-height:54px;padding:6px 7px;border-radius:19px}
   .schedule-confirm-inline-mark,.schedule-confirm-inline button{width:40px;height:40px;border-radius:13px}
   /* The confirm sits centred on the tapped button but never closer than 70px to an
@@ -2266,7 +2266,7 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 }
 .tool-lede-chips svg{width:13px;height:13px;color:var(--muted)}
 .tool-lede small{color:var(--muted);font-size:var(--t-xs);line-height:1.6}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .tool-lede{grid-template-columns:30px minmax(0,1fr);gap:var(--s2);padding:var(--s3)}
   .tool-lede-mark{width:30px;height:30px}
   .tool-lede-mark svg{width:15px;height:15px}
@@ -2455,8 +2455,8 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .course-plan-tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--r-full);font-size:12px;font-weight:700;border:1px solid var(--line)}
 .course-plan-tag.is-new{color:var(--accent-ink);background:var(--accent-soft)}.course-plan-tag.is-old{color:var(--brass);background:var(--brass-soft)}.course-plan-tag.is-shared{color:var(--ink-2);background:var(--surface-2)}
 .curriculum-archive-strip{display:flex;align-items:center;gap:11px;padding:13px 15px;background:var(--surface-muted,var(--surface))}.curriculum-archive-strip>svg{width:19px;height:19px;color:var(--muted)}.curriculum-archive-strip>div{display:grid;gap:2px}.curriculum-archive-strip strong{font-size:12px}.curriculum-archive-strip span{font-size:12px;color:var(--muted);line-height:1.6}
-@media (max-width:900px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.plan-start{grid-template-columns:1fr}.plan-steps ol{grid-template-columns:1fr}.plan-map-form{grid-template-columns:1fr}.plan-map-form>svg{justify-self:center;transform:rotate(90deg)}}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:900px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.plan-start{grid-template-columns:1fr}.plan-steps ol{grid-template-columns:1fr}.plan-map-form{grid-template-columns:1fr}.plan-map-form>svg{justify-self:center;transform:rotate(90deg)}}
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .curriculum-admin{inline-size:100%;overflow-wrap:anywhere}
   .curriculum-section-bar,.curriculum-section-bar:has(select+select){grid-template-columns:auto minmax(0,1fr);gap:10px;padding:12px}
   /* Two dropdowns must never leave desktop's four columns active on phones. */
@@ -2496,7 +2496,7 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .publish-hero .publish-open{min-block-size:48px;padding-inline:22px;border-radius:14px;font-weight:700;gap:10px;white-space:nowrap}
 .publish-hero .publish-open svg{inline-size:20px;block-size:20px}
 .publish-open-count{display:inline-flex;align-items:center;padding:1px 9px;border-radius:999px;background:rgba(255,255,255,.2);font-size:.78rem;font-weight:600}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .publish-hero{grid-template-columns:auto minmax(0,1fr);padding:var(--s4)}
   .publish-hero .publish-open{grid-column:1 / -1;inline-size:100%;justify-content:center}
 }
@@ -2540,7 +2540,7 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .location-admin-page .location-health-grid>.surface.is-zero{opacity:.66;min-height:0;padding-block:10px}
 .location-admin-page .location-health-grid>.surface.is-zero b{font-size:1.05rem;font-weight:500;color:var(--muted)}
 .location-admin-page .location-health-grid>.surface.is-zero svg{color:var(--muted-2)}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .location-admin-page .location-health-grid>.surface:nth-child(n+5){grid-column:1/-1}
 }
 /* Zero readings: one calm collapsed row. The summary shows each reading's real count; opening it lists the full captions. */
@@ -2554,7 +2554,7 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .location-admin-page .location-health-zero[open] .location-health-zero-caret{transform:rotate(180deg)}
 .location-admin-page .location-health-zero-grid{padding:0 10px 10px}
 .location-admin-page .location-health-zero>summary:focus-visible{outline:2px solid var(--accent,#16745f);outline-offset:2px;border-radius:var(--r-lg,16px)}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .location-admin-page .location-health-zero-grid>.surface{grid-column:1/-1}
   .location-admin-page .location-health-grid:not(.location-health-zero-grid)>.surface:last-child:nth-child(odd){grid-column:1/-1}
 }
@@ -2643,7 +2643,7 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .deck-today.is-empty .deck-today-lead b{font-size:28px}
 .deck-today.is-empty .deck-clear{margin:0}
 .deck-today.is-empty .deck-today-actions{gap:var(--s3)}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .deck-today.is-empty{grid-template-columns:auto minmax(0,1fr)}
   .deck-today.is-empty .deck-today-actions{grid-column:1/-1}
   .deck-decision small{-webkit-line-clamp:1}
@@ -2738,7 +2738,7 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .location-quick-empty svg{inline-size:28px;block-size:28px;color:var(--lqs-accent)}
 .location-quick-empty strong{color:var(--lqs-ink)}
 @media(max-width:1020px){.location-quick-filters{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.location-quick-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.location-quick-actions{grid-template-columns:1fr}.location-quick-form form{grid-template-columns:1fr}.location-quick-form form>div:first-child,.location-quick-form-actions,.location-quick-shared{grid-column:1}.location-quick-preview{justify-self:stretch}}
+@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.location-quick-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.location-quick-actions{grid-template-columns:1fr}.location-quick-form form{grid-template-columns:1fr}.location-quick-form form>div:first-child,.location-quick-form-actions,.location-quick-shared{grid-column:1}.location-quick-preview{justify-self:stretch}}
 
 .location-type-manager{--lqs-ink:var(--ink,#173f37);--lqs-accent:var(--accent,#16745f);display:grid;gap:14px;margin-block:14px;padding:18px 20px}
 .course-room-type-line{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -2775,7 +2775,7 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .location-type-add{display:flex;align-items:center;gap:8px;max-width:520px}
 .location-type-add input{flex:1;min-width:0}
 .location-type-hint{color:var(--muted);font-size:.82rem}
-@media (max-width:600px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.location-type-manager{padding:15px}.location-type-add{align-items:stretch;flex-direction:column;max-width:none}.location-type-add>*{width:100%}.location-type-row{max-width:100%;flex-wrap:wrap}}
+@media (max-width:600px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.location-type-manager{padding:15px}.location-type-add{align-items:stretch;flex-direction:column;max-width:none}.location-type-add>*{width:100%}.location-type-row{max-width:100%;flex-wrap:wrap}}
 
 /* Section schedule hours: clear controls, readable times, and separated section choices. */
 .section-schedule-hours{gap:20px}
@@ -2806,7 +2806,7 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .section-hours-row>small{padding:5px 8px;border-radius:9px;background:var(--surface-2);color:var(--muted);font-family:var(--font-mono);font-size:.78rem;font-variant-numeric:tabular-nums;white-space:nowrap}
 .section-schedule-hours .muted-note{margin:0;padding:12px 14px;border-radius:12px;background:var(--surface-2);line-height:1.6}
 .section-schedule-hours .form-actions{display:flex;justify-content:flex-start;margin-top:0;padding-top:18px;border-top:1px solid var(--line)}
-@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.section-hours-time-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.section-hours-time-grid>.field:first-child{grid-column:1/-1}.section-hours-intro{grid-template-columns:42px minmax(0,1fr)}.section-hours-clock{width:42px;height:42px}.section-hours-intro>.btn{grid-column:1/-1;justify-self:start}}
+@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.section-hours-time-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.section-hours-time-grid>.field:first-child{grid-column:1/-1}.section-hours-intro{grid-template-columns:42px minmax(0,1fr)}.section-hours-clock{width:42px;height:42px}.section-hours-intro>.btn{grid-column:1/-1;justify-self:start}}
 @media(max-width:480px){.section-schedule-hours>.form-card{gap:18px;padding:16px}.section-hours-time-grid{grid-template-columns:1fr}.section-hours-time-grid>.field:first-child{grid-column:auto}.section-hours-intro{grid-template-columns:38px minmax(0,1fr);gap:10px;padding:13px}.section-hours-clock{width:38px;height:38px}.section-hours-list{grid-template-columns:1fr}.section-hours-row{min-height:56px;padding:9px 11px}.section-schedule-hours .form-actions>.btn{width:100%;justify-content:center}}
 
 
