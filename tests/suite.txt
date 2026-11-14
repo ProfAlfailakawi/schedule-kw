@@ -91,7 +91,7 @@ test:study-proposal-page
 test:publish-requests
 test:staff-request-windows
 test:request-reissue
-test:teacher-registry
+test:request-link-safety
 test:term-freeze
 test:report-approval
 test:approval-integrity
@@ -338,3 +338,4 @@ test:latin-digits
 test:acceptance-rehearsal
 test:ladder-start-hint
 test:rank-gap-sign
+test:teacher-registry

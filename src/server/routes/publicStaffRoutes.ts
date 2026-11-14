@@ -137,6 +137,8 @@ async function buildStaffCard(link: ScheduleShareLink, identity: StaffIdentity, 
   for (const request of requestRows) {
     const familyKey = familyOfRequest(Number(request.AdCollegeId), Number(request.AdSectionId));
     if (!publishedFamilies.has(familyKey)) continue;
+    /* الجولةُ المستبدَلة لا بابَ لها: رابطُها لا يُوقف اليوم (يحمله الطلبُ الجاري نفسُه أو يبقى مقروءاً). */
+    if (request.status === "superseded") continue;
     const requestLink = requestLinksById.get(request.linkId);
     if (!requestLink || requestLink.revoked || !await shareLinkStillReadable(requestLink, terms as any)) continue;
     eligibleRequests.push({ request, windowOpen: requestWindowOpen(request) });

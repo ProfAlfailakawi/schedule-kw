@@ -20,6 +20,8 @@ interface WipeState {
   canWipe: boolean;
   reason: string;
   count: number;
+  /** جولاتُ رغبات الأساتذة المفتوحة التي يُغلقها المسح (تبقى روابطها مقروءة). */
+  openRounds?: number;
   sectionName: string;
   termName: string;
   canRestore: boolean;
@@ -154,6 +156,7 @@ export default function WipeScheduleButton({ collegeId, sectionId, termId, rowCo
     <span className="wipe-count">{countOf(state.count, AR.appointment)}</span>
     <p>كل مواعيد هذا القسم في هذا الفصل ستُمسح.</p>
     <p>المقررات والأساتذة والقاعات لا تُمس.</p>
+    {(state.openRounds || 0) > 0 && <p data-testid="wipe-open-rounds">{countOf(state.openRounds || 0, AR.round)} من رغبات الأساتذة ستُغلق؛ تبقى روابطها تعمل وتُخبر الأستاذ بذلك.</p>}
     <div className="wipe-actions">
       <button ref={cancelRef} type="button" onClick={close} data-guide-ignore="إلغاء المسح">إلغاء</button>
       <button type="button" className="wipe-go" onClick={() => setStep(2)} data-guide-ignore="الانتقال إلى التحذير الثاني">متابعة</button>
