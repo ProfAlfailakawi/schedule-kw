@@ -224,7 +224,7 @@
   .seats-groups{min-inline-size:0}
   .seats-groups button{min-inline-size:0}
 }
-@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:640px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .seats-intro{padding:18px 16px}
   /* flex-basis لا min-inline-size: قاعدة 52-touch-targets تفرض min-inline-size:44px!important على الأزرار،
      فكانت البطاقات الثلاث الأولى 44px والرابعة (div) وحدها بنصف العرض، ونصوصها تلتفّ كلمةً في كل سطر. */

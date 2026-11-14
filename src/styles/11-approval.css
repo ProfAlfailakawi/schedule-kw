@@ -317,7 +317,7 @@
   margin-inline:-6px;
 }
 
-@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:760px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .agenda-list .agenda-card{grid-template-columns:28px minmax(0,1fr);row-gap:8px}
   .agenda-list .agenda-time,.agenda-list .agenda-place{grid-column:2}
 }
@@ -450,7 +450,7 @@
 
 /* ── الشاشات الضيّقة ────────────────────────────────────────────────────
    لا تخطيطَ ثانٍ يُصان مرّتين: ما يضيق يلتفّ، والقرار يبقى في مكانه.    */
-@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:640px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .changes-inbox-open{flex-wrap:wrap;gap:8px 12px}
   .changes-inbox-title{flex:1 1 100%}
   /* the stepper, ring and status chip wrap inside their column instead of running under the extend button */
@@ -820,7 +820,7 @@
 }
 
 /* الهاتف: المرقاة أيقوناتٌ بلا تسميات، والتلميحُ ورقةٌ في أسفل الشاشة. */
-@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:640px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .approval-bar{gap:8px 10px;padding:10px 12px}
   .apb-headline{flex:1 1 0}
   .apb-visuals{order:3;flex:1 1 100%}
@@ -1019,7 +1019,7 @@
 .request-confirmed-copy>small,.request-confirmed-row>time{color:var(--muted);font-size:var(--t-xs)}
 .request-confirmed-row>time{flex:none;text-align:end}
 .request-confirmed-list>p{margin:2px 5px 0;color:var(--muted);font-size:var(--t-xs)}
-@media (max-width:600px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.request-confirmed-row{align-items:flex-start;flex-wrap:wrap}.request-confirmed-row>time{margin-inline-start:45px;text-align:start}}
+@media (max-width:600px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.request-confirmed-row{align-items:flex-start;flex-wrap:wrap}.request-confirmed-row>time{margin-inline-start:45px;text-align:start}}
 
 .request-deck{display:flex;flex-direction:column;gap:var(--s4)}
 .request-schedule-edited{display:flex;align-items:flex-start;gap:8px;margin:0;padding:10px var(--s4);border-block:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));background:color-mix(in srgb,var(--accent) 6%,var(--surface));color:var(--ink-2);font-size:var(--t-sm);line-height:1.5}
@@ -1097,7 +1097,7 @@
 .request-alternatives{display:flex;flex-direction:column;gap:var(--s2)}
 .request-alternatives>span{font-size:var(--t-xs);color:var(--muted);font-weight:700}
 
-@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:640px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .request-card-head{align-items:flex-start;flex-direction:column}
   .request-diff>div{display:grid;grid-template-columns:minmax(54px,auto) minmax(0,1fr)}
   .request-actions{flex-direction:column}
@@ -1158,7 +1158,7 @@
 .registration-course-actions .changes-chip svg{width:12px;height:12px}
 .registration-course-actions .changes-chip:disabled{opacity:.5;cursor:not-allowed}
 
-@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:640px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .registration-course{align-items:stretch;display:grid}
   .registration-course-actions{width:100%}
   .registration-course-actions .changes-chip{flex:1;justify-content:center}
@@ -1198,7 +1198,7 @@
 .changes-review-overview .spread-keys{grid-template-columns:repeat(4,minmax(0,1fr))}
 .changes-review-overview .spread-keys span>svg{display:none}
 
-@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:640px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .changes-review-overview .review-head{
     grid-template-columns:auto minmax(0,1fr);gap:12px;padding:16px;
   }
@@ -1260,7 +1260,7 @@
 .request-table .request-actions .btn{min-block-size:36px;padding-inline:14px}
 .request-table .request-decided{margin:0;font-size:var(--t-xs);font-weight:600}
 .request-reject-row td{background:var(--surface)}
-@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:760px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .request-table thead{display:none}
   .request-table,.request-table tbody,.request-table tr,.request-table td{display:block;inline-size:100%}
   .request-row{padding:6px 0;border-bottom:1px solid var(--line)}
@@ -1276,7 +1276,7 @@
 /* البطاقةُ داخل شبكة الشاشة: بلا حدٍّ أدنى صفري تتّسع لعرض محتواها الأدنى
    فتتجاوز الهاتف (397 من 362) وتُقصّ أزرارُها من اليسار. */
 .request-deck,.request-card,.request-table-wrap{min-inline-size:0;max-inline-size:100%}
-@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:760px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .request-table td{row-gap:4px;align-items:start}
   .request-table td>*{grid-column:1;min-inline-size:0;justify-self:start}
   .request-table td>.request-actions{justify-self:stretch}
@@ -1362,7 +1362,7 @@
   .request-filters-reset{display:inline-flex;align-items:center;gap:4px;margin-inline-start:auto;font-size:12.5px;font-weight:700;color:var(--accent)}
   .request-filters-reset svg{width:14px;height:14px}
 }
-@media screen and (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media screen and (max-width:760px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .request-filters{gap:10px}
   .request-filter{flex-wrap:wrap}
   .request-filters-mark{display:none}
@@ -1424,7 +1424,7 @@
 .request-talk{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:4px 0;border:0;background:none;color:var(--muted);font:inherit;font-size:var(--t-xs);cursor:pointer}
 .request-talk:hover{color:var(--ok,#2e7d5b)}
 .request-talk svg{width:13px;height:13px}
-@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.request-table .request-thread-row td{display:block}}
+@media (max-width:760px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.request-table .request-thread-row td{display:block}}
 
 /* ── ملف الاعتماد: ورقةٌ واحدة هادئة، معاينةً وطباعة ─────────────────────────
    الألوان من رموز الموقع (accent للمضاف، warning للمعدَّل، danger للمحذوف)؛
@@ -1536,7 +1536,7 @@
 .ad-course li[data-kind="modified"] .ad-item-icon{color:var(--warning)}
 .ad-course li[data-kind="removed"] .ad-item-icon{color:var(--danger)}
 .ad-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 14px;padding-top:10px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:640px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .ad-tiles{grid-template-columns:repeat(2,1fr)}
   .ad-columns{grid-template-columns:1fr}
   .ad-sheet{padding:14px}
@@ -1544,7 +1544,7 @@
 .changes-report-state .changes-note-add{margin-top:0}
 .ad-sheet .ad-ring{width:72px;height:72px}
 .ad-courses{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:stretch}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.ad-courses{grid-template-columns:1fr}}
+@media (max-width:640px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.ad-courses{grid-template-columns:1fr}}
 
 
 /* ── فتحُ التفاصيل لأول مرّة: العقد تمتلئ بالتتابع ثم تظهر الأختام ──────────────

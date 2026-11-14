@@ -6,7 +6,7 @@
 .group-gap{display:inline-flex;align-items:center;justify-content:flex-end;gap:4px;min-width:0;color:var(--muted);font:600 var(--t-xs,12px)/1 var(--font-mono);font-style:normal;white-space:nowrap}
 .group-gap svg{width:13px;height:13px;flex:none}
 .group-gap.is-warn,.group-week-action .is-warn{color:var(--warn,#7a5208)}
-@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media screen and (max-width:768px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .lens-groups.has-gap>article>button{
     grid-template-columns:36px minmax(0,1fr) auto 18px;
     grid-template-areas:
