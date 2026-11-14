@@ -261,6 +261,7 @@ test:actual-demand
 test:actual-demand-supply
 test:actual-demand-graduates
 test:appointment-review-1114
+test:appointment-ideas-1114
 test:section-plan
 test:colleagues-advising-registration
 test:quick-studio-family

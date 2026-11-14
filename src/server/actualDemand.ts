@@ -265,4 +265,37 @@ export async function appointmentDemandFor(req: AuthenticatedRequest, row: any):
   } catch { return none; }
 }
 
+/**
+ * ── «نبض الطلبة» لعدة أوقاتٍ مرشّحة دفعةً واحدة ─────────────────────────────────────
+ * يقرأ عائلةَ القسم مرةً واحدة ثم يحكم على كل (أيام، بداية، نهاية): الخريجون أولاً، وإلا الطلبة.
+ * يغذّي ترتيبَ «اقترح لي وقتاً وقاعة» (الوقتُ الذهبي) وتلوينَ خانات «أسبوع الأستاذ». لا يرمي؛
+ * بلا تقرير أو بمقررٍ غير مطابَق يُرجع null لكلٍّ منها فلا يتغيّر شيء.
+ */
+export interface FitScore { percent: number; kind: "grad" | "stud"; blocked: number; need: number }
+export interface FitCandidate { days: readonly string[]; start: string; end: string }
+export async function fitScoresFor(req: AuthenticatedRequest, row: any, candidates: readonly FitCandidate[]): Promise<Array<FitScore | null>> {
+  const none = candidates.map(() => null);
+  try {
+    const collegeId = Number(row?.AdCollegeId || 0), sectionId = Number(row?.AdSectionId || 0), termId = Number(row?.AdTermId || 0);
+    if (!collegeId || !sectionId || !termId || !Number(row?.AdCourseId) || !candidates.length) return none;
+    const context = await demandContext(req, collegeId, sectionId, termId);
+    const general = context.stored?.variants?.general?.report || null;
+    const graduates = context.stored?.variants?.graduates?.report || null;
+    if (!general && !graduates) return none;
+    const replaces = Number(row.excludeId || row.id || 0);
+    const memo = new Map<string, FitScore | null>();
+    return candidates.map(item => {
+      const key = `${[...item.days].sort().join("+")}|${item.start}|${item.end}`;
+      if (memo.has(key)) return memo.get(key)!;
+      const candidate = { ...row, id: replaces || -1, fstarttime: item.start, fendtime: item.end,
+        ...Object.fromEntries(["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].map(day => [day, item.days.includes(day)])) };
+      const fit = studentFitOf({ general, graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces });
+      const side = fit?.graduates || fit?.students || null;
+      const score: FitScore | null = side && side.percent != null ? { percent: side.percent, kind: fit!.graduates ? "grad" : "stud", blocked: side.blocked, need: side.need } : null;
+      memo.set(key, score);
+      return score;
+    });
+  } catch { return none; }
+}
+
 export { parseDemandReport };
