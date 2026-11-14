@@ -126,7 +126,7 @@ async function main() {
   const termId = Number(second?.AdTermId || 2);
   const q = `collegeId=1&sectionId=1&termId=${termId}`;
   const empty = await (await call(`/api/actual-demand?${q}`)).json();
-  check(!empty.variants?.general && !empty.alerts?.length && empty.family?.name === "تكنولوجيا التعليم", "H1 قبل الرفع: لا تقرير ولا تنبيه، والعائلة باسمها", empty);
+  check(!empty.variants?.general && empty.plan === null && empty.family?.name === "تكنولوجيا التعليم", "H1 قبل الرفع: لا تقرير ولا تخطيط، والعائلة باسمها", empty);
   const pdf = fs.readFileSync(GENERAL);
   const preview = await call(`/api/actual-demand/upload?${q}&variant=general`, { method: "POST", raw: pdf });
   const previewBody = await preview.json();
@@ -137,12 +137,14 @@ async function main() {
   const saved = await call(`/api/actual-demand/upload?${q}&variant=general&commit=1`, { method: "POST", raw: pdf });
   const savedBody = await saved.json();
   check(saved.status === 200 && savedBody.reading?.variants?.general?.courses === 50 && savedBody.reading.history?.length === 1 && savedBody.reading.history[0].hash?.length === 64, "H1 الحفظ: النسخة العامة وسجلّ الرفع ببصمة الملف", savedBody.reading?.history);
-  check(Array.isArray(savedBody.reading?.alerts) && savedBody.reading.alerts.every((alert: any) => /^\d{7}$/.test(alert.code)), "H1 التنبيهات بأرقام سبعة", savedBody.reading?.alerts?.slice(0, 3));
-  const service = savedBody.reading?.service;
-  check(typeof service?.general === "number" && service.general >= 0 && service.general <= 100 && service.graduates === null, "H2 «نسبة خدمة الطلب» من الجدول الحيّ (٠–١٠٠)، ولا نسبة خريجين قبل رفع نسختهم", service);
-  const items = savedBody.reading?.supply || [];
-  check(items.length > 0 && items.every((item: any) => /^\d{7}$/.test(item.code) && Array.isArray(item.branches)) && Object.keys(savedBody.reading?.facts || {}).length > 0,
-    "H2 القائمة بالأشد بأرقام سبعة وحقائق كل مقرر للشارة والحذف", items.slice(0, 2));
+  const plan = savedBody.reading?.plan;
+  check(Boolean(plan) && plan.hasGeneral === true && plan.hasGraduates === false && plan.graduatesServed === null, "H2 تخطيط الشعب من «الكل» وحده، ولا نسبة خريجين قبل رفع تقريرهم", plan && { ...plan, rows: plan.rows.length });
+  const planRows = plan?.rows || [];
+  check(planRows.length > 0 && planRows.every((row: any) => /^\d{7}$/.test(row.code) && ["boys", "girls", ""].includes(row.track) && Number.isFinite(row.required) && Number.isFinite(row.offered)) && Object.keys(savedBody.reading?.facts || {}).length > 0,
+    "H2 سطورٌ بأرقام سبعة لكل حرم، وحقائق كل مقرر للشارة والمحرّر", planRows.slice(0, 2));
+  const codes = planRows.map((row: any) => Number(String(row.code).slice(-3)));
+  check(codes.every((code: number, i: number) => i === 0 || codes[i - 1] <= code), "H2 الترتيب برقم المقرر");
+  check(Number.isFinite(plan?.visitors?.all?.visitors) && plan.visitors.perVisitor === 6, "H2 المنتدبون: ٦ ساعات لكل منتدب", plan?.visitors);
   const wrongTerm = Number((Array.isArray(terms) ? terms : []).find((term: any) => Number(term.AdTermId) !== termId)?.AdTermId || 0);
   if (wrongTerm) {
     const refusedSave = await call(`/api/actual-demand/upload?collegeId=1&sectionId=1&termId=${wrongTerm}&variant=general&commit=1`, { method: "POST", raw: pdf });

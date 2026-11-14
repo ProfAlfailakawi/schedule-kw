@@ -33,7 +33,7 @@ const SHEET = "محرّرُ الصحيفة نفسها: نوعُ المتطلب �
 const NOT_COURSE = "ليس اسمَ مقرر (صحيفة/قسم/حملة/فئة طلبة)";
 const STUDENT = "شاشةُ الطالب/الإعلان — خارج نطاق الإدارة والأستاذ";
 const COURSE_EXCEPTIONS: Exception[] = [
-  { file: "src/components/ActualDemandPanel.tsx", text: `row.name`, reason: "مقررٌ في تقرير التسجيل لم يُربط بالكتالوج بعد: لا رقم له تُقرأ وسومه منه، والسطرُ نفسه يربطه" },
+  { file: "src/components/SectionPlan.tsx", text: `row.name`, reason: "مقررٌ في تقرير التسجيل لم يُربط بالكتالوج بعد: لا رقم له تُقرأ وسومه — الربط يجعله سطراً بوسومه" },
   { file: "src/components/ImportCatalogueGaps.tsx", text: `course.name || "—"`, reason: "اسمٌ مطبوع لمقرر لم يُنشأ بعد: لا رقم له تُقرأ وسومه منه" },
   { file: "src/components/ImportCatalogueGaps.tsx", text: `candidate.name`, reason: "سطرُ اختيارٍ عابر داخل زرّ راديو — بطاقةُ المقرر تحمل وسومه" },
   { file: "src/components/InstructorInbox.tsx", text: `item.after?.courseName || "الموعد"`, reason: SENTENCE },
@@ -60,7 +60,6 @@ const COURSE_EXCEPTIONS: Exception[] = [
   { file: "src/components/IntelligenceWorkspace.tsx", text: `fix.swapWith.courseName`, reason: "شريحةُ «من» في التبديل — سطرٌ ضيّق داخل البطاقة" },
   { file: "src/components/RoomSuggestionCards.tsx", text: `item.courseName || "المقرر نفسه"`, reason: "بطاقةُ قاعة: المقررُ تعليقٌ صغير تحت رقم القاعة" },
   { file: "src/components/CourseImpact.tsx", text: `data.course.name`, reason: "عقدةُ مخطط الأثر داخل صفّ المقرر الذي يحمل الوسوم (بروفة التسجيل)" },
-  { file: "src/components/SectionPlanning.tsx", text: `row.course.name`, reason: PRINT },
   { file: "src/components/DuplicateCoursesPanel.tsx", text: `group.keeper.name`, reason: REPAIR },
   { file: "src/components/DuplicateCoursesPanel.tsx", text: `dup.name`, reason: REPAIR },
   { file: "src/components/SpellingTwinsMerge.tsx", text: `course.name`, reason: REPAIR },
@@ -171,7 +170,7 @@ for (const [kind, exceptions, title] of [["course", COURSE_EXCEPTIONS, "اسمُ
 {
   const read = (file: string) => fs.readFileSync(file, "utf8");
   check(/<span className="apb-gap-name"><b>\{item\.name\}<\/b><small>\{item\.code\}<CourseTags courseId=\{item\.id\} \/><\/small><\/span>/.test(read("src/components/SectionGapNote.tsx")), "T1 بطاقاتُ التخطيط (عاجل/مهم/فرصة): الرمزُ ثم الوسوم");
-  check(/<CourseTags courseId=\{item\.id\} \/>/.test(read("src/components/DecisionBoard.tsx")) && /<CourseTags courseId=\{entry\.item\.id\} \/>/.test(read("src/components/PlanTriageView.tsx")), "T2 لوحةُ القرار (للقراءة) والبنودُ المعالَجة بالوسوم نفسها");
+  check(/<CourseTags courseId=\{row\.target\.courseId\} \/>/.test(read("src/components/SectionPlan.tsx")) && /<SectionPlan [^>]*mode="read"/.test(read("src/components/DecisionBoard.tsx")), "T2 تخطيط الشعب (ولوحةُ القرار تقرؤه للقراءة): وسومُ المقرر على كل سطر");
   check(/<CourseTags courseId=\{courseId\} \/><\/strong>/.test(read("src/components/Schedules.tsx")) && /courseId=\{Number\(peek\.row\.AdCourseId\) \|\| undefined\}/.test(read("src/components/Schedules.tsx")), "T3 خليةُ الأسبوع الضيّقة: الوسومُ في البطاقة العائمة عند المرور");
 }
 
