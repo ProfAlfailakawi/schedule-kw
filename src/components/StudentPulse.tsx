@@ -24,7 +24,7 @@ function Ring({ percent, kind }: { percent: number | null; kind: "grad" | "stud"
       </svg>
       <span className="pulse-ring-mid">
         {kind === "grad" ? <GraduationCap /> : <Users />}
-        <b dir="ltr">{percent == null ? "—" : `${percent}٪`}</b>
+        <b dir="ltr">{percent == null ? "—" : `${percent}%`}</b>
       </span>
     </span>
   );
@@ -77,12 +77,12 @@ export function FitImpact({ impact }: { impact: SaveImpact }) {
   const rising = impact.after > impact.before;
   return (
     <p className={`fit-impact is-${impact.kind}${rising ? " is-up" : " is-down"}`} role="status"
-      aria-label={`يناسب ${impact.kind === "grad" ? "الخريجين" : "الطلبة"}: من ${impact.before}٪ إلى ${impact.after}٪`}>
+      aria-label={`يناسب ${impact.kind === "grad" ? "الخريجين" : "الطلبة"}: من ${impact.before}% إلى ${impact.after}%`}>
       <Icon aria-hidden="true" />
       <span>يناسب {impact.kind === "grad" ? "الخريجين" : "الطلبة"}</span>
-      <bdi dir="ltr" className="fit-impact-from">{impact.before}٪</bdi>
+      <bdi dir="ltr" className="fit-impact-from">{impact.before}%</bdi>
       <ChevronLeft aria-hidden="true" />
-      <bdi dir="ltr" className="fit-impact-to">{impact.after}٪</bdi>
+      <bdi dir="ltr" className="fit-impact-to">{impact.after}%</bdi>
     </p>
   );
 }
@@ -115,10 +115,10 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest }: 
         ) : null}
         {showBest && best ? (
           <button type="button" className={`pulse-best is-${best.kind}`} onClick={() => onPickBest!(best)}
-            title={`أفضل خانةٍ حرّةٍ للأستاذ: يناسب ${best.percent}٪ من ${best.kind === "grad" ? "الخريجين" : "الطلبة"}`}
-            aria-label={`ضع الموعد في أفضل وقت ${best.start}، يناسب ${best.percent}٪`}
+            title={`أفضل خانةٍ حرّةٍ للأستاذ: يناسب ${best.percent}% من ${best.kind === "grad" ? "الخريجين" : "الطلبة"}`}
+            aria-label={`ضع الموعد في أفضل وقت ${best.start}، يناسب ${best.percent}%`}
             data-guide-ignore="يضع الأيام والبداية والنهاية في أفضل خانةٍ حرّة للأستاذ بنبض الطلبة؛ لا يحفظ شيئاً">
-            <Sparkles aria-hidden="true" /><span>أفضل وقت</span><bdi dir="ltr">{best.start}</bdi><b dir="ltr">{best.percent}٪</b>
+            <Sparkles aria-hidden="true" /><span>أفضل وقت</span><bdi dir="ltr">{best.start}</bdi><b dir="ltr">{best.percent}%</b>
           </button>
         ) : null}
       </header>

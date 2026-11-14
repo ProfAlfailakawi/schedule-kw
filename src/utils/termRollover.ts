@@ -242,6 +242,6 @@ export function describeRollover(reading: RolloverReading): string {
   if (reading.concerns.length) parts.push(`${countOf(reading.concerns.length, AR.decision)} يستحق المراجعة`);
   /* Leads the tail rather than the head: the counts answer «ماذا ينتقل؟», and
      this answers «وهل سيبدو كجدولي؟» — the second question, in second place. */
-  if (reading.style) parts.push(`${ar(reading.style.share)}٪ بأسلوب قسمك`);
+  if (reading.style) parts.push(`${ar(reading.style.share)}% بأسلوب قسمك`);
   return parts.join(" · ");
 }

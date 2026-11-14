@@ -48,8 +48,8 @@ export function balanceSheet(departments: ReadonlyArray<any>, approvalLabel: (se
       "الأساتذة": Number(item.instructors || 0),
       "القاعات": Number(item.rooms || 0),
       "القاعات الموثقة": Number(item.verifiedRooms || 0),
-      "الصباحي ٪": Number(item.morningPct || 0),
-      "المسائي ٪": Number(item.eveningPct || 0),
+      "الصباحي %": Number(item.morningPct || 0),
+      "المسائي %": Number(item.eveningPct || 0),
       "العدالة": Number(item.fairness || 0),
       "الجودة": Number(item.quality || 0),
       "الموانع": Number(item.conflicts || 0),
@@ -83,7 +83,7 @@ export function roomLoadSheet(rooms: ReadonlyArray<{ name: string; rate: number;
     name: "إشغال القاعات",
     rows: rooms.map(room => ({
       "القاعة": room.name,
-      "نسبة الإشغال ٪": room.rate,
+      "نسبة الإشغال %": room.rate,
       "ساعات مشغولة": room.usedHours,
       "الفترات المتاحة": room.windows.map(window => `${dayLabel(window.day)} ${clock(window.from)}–${clock(window.to)}`).join("، "),
     })),
@@ -93,7 +93,7 @@ export function roomLoadSheet(rooms: ReadonlyArray<{ name: string; rate: number;
 export function occupancySheet(heat: { days: ReadonlyArray<{ label: string; rate: number; cells: ReadonlyArray<{ hour: number; count: number; rooms: number }> }> }, clock: (minutes: number) => string): ExportSheet {
   return {
     name: "نسبة الإشغال",
-    rows: heat.days.flatMap(day => day.cells.map(cell => ({ "اليوم": day.label, "الساعة": `${clock(cell.hour)}–${clock(cell.hour + 60)}`, "المحاضرات": cell.count, "القاعات المشغولة": cell.rooms, "إشغال اليوم ٪": day.rate }))),
+    rows: heat.days.flatMap(day => day.cells.map(cell => ({ "اليوم": day.label, "الساعة": `${clock(cell.hour)}–${clock(cell.hour + 60)}`, "المحاضرات": cell.count, "القاعات المشغولة": cell.rooms, "إشغال اليوم %": day.rate }))),
   };
 }
 

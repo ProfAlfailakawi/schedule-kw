@@ -21,9 +21,9 @@ import { currentTermId, termWindow } from "./termSequence";
 
 export const SEASONS = [
   { id: "registration", label: "التسجيل", hint: "الرغبات وتجميد الجدول وجولات التسجيل حتى إغلاق الطلبات" },
-  { id: "start", label: "بدء الفصل", hint: "أول ٣ أسابيع من الفصل" },
+  { id: "start", label: "بدء الفصل", hint: "أول 3 أسابيع من الفصل" },
   { id: "middle", label: "منتصف الفصل", hint: "بين بدء الفصل ونهايته" },
-  { id: "finals", label: "نهاية الفصل", hint: "آخر ٣ أسابيع: المراجعة والاختبارات والتسليم" },
+  { id: "finals", label: "نهاية الفصل", hint: "آخر 3 أسابيع: المراجعة والاختبارات والتسليم" },
   { id: "break", label: "بين الفصول", hint: "لا فصل جارٍ" },
 ] as const;
 export type SeasonId = typeof SEASONS[number]["id"];

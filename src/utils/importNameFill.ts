@@ -171,7 +171,7 @@ export function applyNameFill<T extends FillRow>(rows: readonly T[], decisions: 
             ...(evidence?.instructor ? { filledOver: evidence.instructor } : {}),
             canonical: String(decision.instructorId),
             confidence: "CONFIRMED", score: 100, source: "MANUAL", method: "NAME_FILL", derived: false,
-            reason: `عُبّئ الاسم ${sourceLabel ? `${sourceLabel} ` : ""}${decision.status === "match" ? "بتطابق السطر ١٠٠٪" : "بعد قبول الفرق"} واعتُمد في المعاينة.`,
+            reason: `عُبّئ الاسم ${sourceLabel ? `${sourceLabel} ` : ""}${decision.status === "match" ? "بتطابق السطر 100%" : "بعد قبول الفرق"} واعتُمد في المعاينة.`,
           },
         },
       };

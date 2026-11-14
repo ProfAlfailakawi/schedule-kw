@@ -23,7 +23,7 @@ import { effectiveCourseHours } from "../../utils/scheduleRegulations";
 import { actorMaySign } from "../../utils/seats";
 import { canExtendDeadline, canManageDeadline, canReviewSubmissions, canAnnotateCells, isAcademicRole, isAdvisorRole, isViewerOnlyRole, roleDefinition, roleLabel, signatureStage, watchesInbox } from "../../utils/academicRoles";
 import { seedDemoRadar, seedDemoMasariDemand } from "../demoRadarSeed";
-import { seedDemoOtherDepartmentStories } from "../demoPreviousTermSeed";
+import { seedDemoOtherDepartmentStories, seedDemoWishHistory } from "../demoPreviousTermSeed";
 import { seedDemoSectionRequests } from "../demoSectionRequestsSeed";
 import { demoActivityTrail } from "../../db/demoActivityTrail";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
@@ -187,6 +187,8 @@ function scheduleDemoExtras(sessionId: string): void {
     await run("stories", seedDemoStories);
     /* كشفُ التسجيل والرغباتُ والمقترحات للقسمين الآخرين، قبل الرادار فلا يُعلَّم قديماً بعده. */
     await run("other departments", () => seedDemoOtherDepartmentStories({ sealIdentity: sealStudentIdentity, fingerprintOf: surveyFingerprint, requestItemFromRow, dayLetters: DAY_LETTERS, judge: request => judgeRequestItems(request) }, DEMO_STORY_SCOPE.termId));
+    /* رغباتُ الفصول السابقة لقسم القصة: يقرؤها «توقّع الرغبات» في النشر. */
+    await run("wish history", () => seedDemoWishHistory({ sealIdentity: sealStudentIdentity, fingerprintOf: surveyFingerprint, requestItemFromRow, dayLetters: DAY_LETTERS }, DEMO_STORY_SCOPE.termId, { collegeId: DEMO_STORY_SCOPE.collegeId, sectionId: DEMO_STORY_SCOPE.sectionId }));
     await run("radar", () => seedDemoRadar({ sealIdentity: sealStudentIdentity, today: kuwaitDateISO() }));
     await run("Masari demand", seedDemoMasariDemand);
     /* طلباتُ الشعب بعد رغبات «مساري»: الطلبُ المرسَل للتوّ يحمل الطلبةَ الذين طلبوا المقرر. */

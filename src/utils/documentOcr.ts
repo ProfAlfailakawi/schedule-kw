@@ -835,7 +835,7 @@ async function pdfTextLayer(input:Buffer,onProgress?:OcrProgress):Promise<OcrRes
         rows,
         ...(nativeGridRows.length?{gridRows:nativeGridRows}:{}),
         diagnostic:{page:index,visualRows:Math.max(nativeGridRows.length,keyedBodyRows)||rows.length,extractedRows:pageStructuralRows,gridDetected:Boolean(nativeGridRows.length),orientation:0,suspicious:gridShortfall,
-          ...(gridShortfall?{reason:`طُبع في الصفحة ${countOf(keyedBodyRows, AR.row)}، ولم تثبت حدود الأعمدة إلا لـ ${nativeGridRows.length}. غالباً أُعيدت طباعة الملف بمقاس مختلف؛ ارفع الملف كما صدّرته الجهة (100٪)`}:{})},
+          ...(gridShortfall?{reason:`طُبع في الصفحة ${countOf(keyedBodyRows, AR.row)}، ولم تثبت حدود الأعمدة إلا لـ ${nativeGridRows.length}. غالباً أُعيدت طباعة الملف بمقاس مختلف؛ ارفع الملف كما صدّرته الجهة (100%)`}:{})},
       });
     }
     const text=pageTexts.join("\n\n--- PAGE ---\n\n");

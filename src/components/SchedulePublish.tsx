@@ -12,6 +12,7 @@ import PrepublishReachSheet from "./PrepublishReachSheet";
 import { gateGenerations, gatePublish, offeringScopeKey, readOffering, rememberReach, type OfferingSnapshot, type PrepublishRow } from "../utils/prepublishReach";
 import type { LinkMode } from "../utils/linkMode";
 import { DnaStepper } from "./dna";
+import { WishChip, WishSummary, useWishHints, wishHintsOf } from "./inbox/WishPatterns";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BellRing, CalendarPlus, Check, Copy, Flag, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, UserX, Users, X } from "lucide-react";
@@ -724,6 +725,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     void load();
   };
 
+  /* «توقّع الرغبات»: لا تُقرأ إلا والورقةُ مفتوحة. */
+  const wishHints = useWishHints(collegeId, sectionId, termId, open);
   return (
     <>
       {appearance === "primary" ? (
@@ -977,9 +980,11 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                   ) : null}
                 </div>
               ) : null}
+              {picking ? <WishSummary data={wishHints} /> : null}
               {picking ? <PublishRecipientPicker collegeId={collegeId} sectionId={sectionId} termId={termId} onChange={setPickedPeople}
                 visitingOf={id => isVisiting(id, collegeId, sectionId)} traineeOf={id => trainees.has(Number(id))}
-                perPersonCourses={sendMode === "edit"} stateOf={stateOf} onPreview={previewCard} /> : null}
+                perPersonCourses={sendMode === "edit"} stateOf={stateOf} onPreview={previewCard}
+                hintOf={person => <WishChip hints={wishHintsOf(wishHints, person.ids)} name={person.name} visiting={person.ids.some(id => isVisiting(id, collegeId, sectionId))} trainee={person.ids.some(id => trainees.has(Number(id)))} />} /> : null}
               {picking && pickedPeople.length ? <p className="publish-summary-line" aria-live="polite">{pickSummary}</p> : null}
               {kind === "staff" && sendMode === "ta" ? <TAPhasePanel collegeId={collegeId} sectionId={sectionId} termId={termId} checking={reachChecking} confirmSend={proceed => void guardSend(proceed)} /> : null}
               {kind === "staff" && (sendMode === "edit" || (sendMode === "ta" && offeringOpen)) ? (

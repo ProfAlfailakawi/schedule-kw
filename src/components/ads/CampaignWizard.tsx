@@ -169,9 +169,9 @@ export default function CampaignWizard({ data, initial, startStep = 1, onClose, 
           <section className="ad-blk">
             <h4 className="ad-blk-h"><i><CalendarDays aria-hidden="true" size={14} /></i>متى</h4>
             <div className="ad-seg" role="group" aria-label="مدة جاهزة">
-              <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" aria-pressed={form.trial} onClick={() => quick(7, true)}>تجربة ٧ أيام</button>
-              <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" aria-pressed={!form.trial && span === 30} onClick={() => quick(30)}>٣٠ يوماً</button>
-              <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" aria-pressed={!form.trial && span === 90} onClick={() => quick(90)}>٩٠ يوماً</button>
+              <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" aria-pressed={form.trial} onClick={() => quick(7, true)}>تجربة 7 أيام</button>
+              <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" aria-pressed={!form.trial && span === 30} onClick={() => quick(30)}>30 يوماً</button>
+              <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" aria-pressed={!form.trial && span === 90} onClick={() => quick(90)}>90 يوماً</button>
               {finals ? <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" type="button" aria-pressed={!form.trial && form.endDay === finals} onClick={() => setForm(f => ({ ...f, endDay: finals, trial: false }))}>حتى نهاية الفصل</button> : null}
             </div>
             <div className="ad-dates">
@@ -246,7 +246,7 @@ export default function CampaignWizard({ data, initial, startStep = 1, onClose, 
               {demand && !demand.length ? <p className="ad-note">لا مقرر بلغ حدّ الخصوصية بعد؛ يظهر هنا ما يطلبه طالبان على الأقل.</p> : null}
               {form.targetCodes.filter(c => !(demand || []).some(d => d.code === c)).map(c => <button data-guide-ignore="شاشةٌ لحساب الإدارة الرئيسي وحده؛ لا يحتاجها المرشد لأحد" key={c} type="button" className="ad-chip on" aria-pressed="true" onClick={() => set("targetCodes", form.targetCodes.filter(x => x !== c))}><bdi dir="ltr">{c}</bdi> ×</button>)}
               {sponsorSlot ? <label className="ad-field"><span className="ad-flab">رمز مقرر آخر <small>(اكتبه واضغط Enter)</small></span><input dir="ltr" maxLength={24} value={codeDraft} onChange={e => setCodeDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const c = codeDraft.trim().toLowerCase(); if (c && !form.targetCodes.includes(c)) set("targetCodes", [...form.targetCodes, c].slice(0, 8)); setCodeDraft(""); } }} /></label> : null}
-              {!sponsorSlot ? <label className="ad-check"><input type="checkbox" checked={form.nearGraduation} onChange={e => set("nearGraduation", e.target.checked)} /> الطلبة الأقرب إلى التخرج (بقي عليهم ٣٠ وحدةً أو أقل)</label> : null}
+              {!sponsorSlot ? <label className="ad-check"><input type="checkbox" checked={form.nearGraduation} onChange={e => set("nearGraduation", e.target.checked)} /> الطلبة الأقرب إلى التخرج (بقي عليهم 30 وحدةً أو أقل)</label> : null}
               {form.targetCodes.length || form.nearGraduation ? <p className="ad-note">ستظهر لمن يطابق أيّاً من الشرطين. الحملات الموجَّهة تُحسب كاملةً على سعة الموقع.{demand && form.targetCodes.length ? ` طلب المقررات المختارة نحو ${countOf(demand.filter(d => form.targetCodes.includes(d.code)).reduce((n, d) => n + d.students, 0), AR.student)} (حدٌّ أعلى؛ قد يتكرر الطالب).` : ""}</p> : null}
             </div>
           ) : null}

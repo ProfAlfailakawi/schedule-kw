@@ -149,7 +149,7 @@ function buildCounterfactual(ripple: any, why: any, whyNot: any, quality: Schedu
   if (conflictDelta < 0) bullets.push(`يخفض موانع الحفظ بمقدار ${Math.abs(conflictDelta)} مقارنة بالوضع الحالي.`);
   if (gapDelta < 0) bullets.push(`يقلص فراغ الأستاذ ${countOf(Math.abs(gapDelta), AR.minute)}.`);
   if (qualityDelta > 0) bullets.push(`يرفع جودة القرار ${qualityDelta > 0 ? "بنقطة" : ""}${Math.abs(qualityDelta)}.`);
-  if (pressureDelta > 0) bullets.push(`مقابل ذلك يرفع ضغط اليوم ${Math.abs(pressureDelta)}٪.`);
+  if (pressureDelta > 0) bullets.push(`مقابل ذلك يرفع ضغط اليوم ${Math.abs(pressureDelta)}%.`);
   if (!bullets.length && Array.isArray(whyNot?.tradeoffs) && whyNot.tradeoffs.length) bullets.push(String(whyNot.tradeoffs[0]));
   if (!bullets.length && Array.isArray(why?.positives) && why.positives.length) bullets.push(String(why.positives[0]));
   return {

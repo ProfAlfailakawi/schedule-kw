@@ -105,11 +105,11 @@ export function RoomInsightDrawer({ room, termId, canReadWorkspace, onClose }: {
             <small>{room.site || "القاعة"}</small>
             <strong dir="ltr">{room.name}</strong>
           </div>
-          <span className="occupancy-pick-count">{room.utilization}٪</span>
+          <span className="occupancy-pick-count">{room.utilization}%</span>
           <button type="button" data-guide-ignore="إغلاق تفاصيل القاعة؛ للعرض فقط" onClick={onClose} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
         </header>
         <div className="rpt-drawer-body">
-          <div className="rpt-meter" aria-label={`استخدام تقديري ${room.utilization}٪`}><i style={{ width: `${Math.min(100, room.utilization)}%` }} /></div>
+          <div className="rpt-meter" aria-label={`استخدام تقديري ${room.utilization}%`}><i style={{ width: `${Math.min(100, room.utilization)}%` }} /></div>
           <p className="rpt-drawer-note">{countOf(room.sessions, AR.appointment)} · استخدام تقديري</p>
           {canReadWorkspace ? <RoomInsight roomId={room.roomId} code={room.code} hall={room.hall} termId={termId} /> : null}
         </div>

@@ -78,7 +78,7 @@ check(/aria-pressed="true"[^>]*>الكل <b>4<\/b>/.test(html) && /data-campus="
 check(!/عائلة القسم/.test(html), "لا جملة «عائلة القسم — …» في العنوان");
 check(html.includes(LONG_COURSE) && html.includes(LONG_TEACHER), "اسم المقرر واسم الأستاذ كاملين في الصفحة");
 check(/dir="ltr">12:00–13:00</.test(html), "الوقت باتجاهٍ ثابت: لا ينقلب «13:00–12:00» داخل نصٍّ عربي");
-check(/<b>17<\/b> من 32 قاعة/.test(html) && html.includes("53٪") && html.includes("dna-ring"), "حلقة الإشغال ١٧/٣٢ · ٥٣٪");
+check(/<b>17<\/b> من 32 قاعة/.test(html) && html.includes("53%") && html.includes("dna-ring"), "حلقة الإشغال 17/32 · 53%");
 check(html.includes('class="occupancy-slot-code" dir="ltr">0109108<'), "رقم المقرر رقيقةٌ هادئة بسبع خانات");
 check(html.includes("بلا قاعة") && html.includes("visiting-badge"), "المحاضرة بلا قاعة تقولها، والمنتدب بشارته");
 check(!html.includes("occupancy-slot-search"), `البحث لا يظهر لأقل من ${SLOT_SEARCH_FROM} محاضرات`);

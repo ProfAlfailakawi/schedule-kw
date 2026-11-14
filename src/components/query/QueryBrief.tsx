@@ -24,7 +24,7 @@ export default function QueryBrief({ open, onToggle, loading, data, error, onPri
         <span className="morning-brief-tiles">
           {stats ? (
             <>
-              <i data-tone={stats.moves ? "info" : "good"} title="حركات آخر ٢٤ ساعة"><Activity aria-hidden="true" /><b>{n(stats.moves)}</b></i>
+              <i data-tone={stats.moves ? "info" : "good"} title="حركات آخر 24 ساعة"><Activity aria-hidden="true" /><b>{n(stats.moves)}</b></i>
               <i data-tone={stats.blockers ? "danger" : "good"} title="موانع الاعتماد"><ShieldAlert aria-hidden="true" /><b>{n(stats.blockers)}</b></i>
               <i data-tone={stats.notes ? "warn" : "good"} title="ملاحظات لائحية"><FileWarning aria-hidden="true" /><b>{n(stats.notes)}</b></i>
               <i data-tone={dayTone} title={days === null ? "لا موعد تسليم" : days < 0 ? `انقضى منذ ${countOf(-days, AR.day)}` : `بقي ${countOf(days, AR.day)}`}><CalendarClock aria-hidden="true" /><b>{days === null ? "—" : n(days)}</b></i>

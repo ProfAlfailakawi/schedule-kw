@@ -40,6 +40,8 @@ export interface GenerationWatcherOptions {
 export interface GenerationWatcher {
   /** يقرأ العدّاد إن انقضت المدة، وإلا يعود فوراً. الطلباتُ المتزامنة تنتظر القراءة نفسها. */
   refreshIfDue: () => Promise<void>;
+  /** وقتُ آخر فحصٍ أجرته هذه النسخة (null قبل أول فحص)؛ لبطاقة «سلامة النظام» فقط. */
+  lastCheckedAt: () => number | null;
 }
 
 /** هل حان وقتُ قراءةٍ جديدة؟ (دالةٌ صرفة) */
@@ -82,6 +84,7 @@ export function createGenerationWatcher(options: GenerationWatcherOptions): Gene
   };
 
   return {
+    lastCheckedAt: () => lastReadAt,
     refreshIfDue: () => {
       if (inFlight) return inFlight;
       if (!isGenerationReadDue(lastReadAt, now(), ttlMs)) return Promise.resolve();

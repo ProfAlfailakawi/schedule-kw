@@ -13,6 +13,7 @@
  * وهذه الدالّةُ خالصةٌ بلا واجهة ولا قاعدة بيانات، فتُختبر وحدها (tests/requests-ask-audit.ts).
  */
 import { arabicMatchKey } from "./arabicText";
+import { toEnglishDigits } from "./digits";
 import type { Campus } from "./campus";
 
 export type AskDay = "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday";
@@ -41,7 +42,7 @@ export const EMPTY_REQUESTS_ASK: RequestsAsk = { days: [], periods: [], actions:
 export const PERIOD_HOURS = { noonFrom: 12, eveningFrom: 15 } as const;
 
 export function periodOfStart(start: unknown): AskPeriod | null {
-  const match = /(\d{1,2}):(\d{2})/.exec(String(start ?? ""));
+  const match = /(\d{1,2}):(\d{2})/.exec(toEnglishDigits(start));
   if (!match) return null;
   const hour = Number(match[1]);
   return hour < PERIOD_HOURS.noonFrom ? "morning" : hour < PERIOD_HOURS.eveningFrom ? "noon" : "evening";

@@ -386,7 +386,7 @@ function Compose({ collegeId, sectionId, termId, collegeName, onSent, onCancel }
   return (
     <form className="srq-compose" onSubmit={event => { event.preventDefault(); if (courseId && total) void send(); }} aria-label="طلب شعبة جديد">
       <div className="srq-step">
-        <span className="srq-step-n">١</span>
+        <span className="srq-step-n">1</span>
         <div className="srq-step-body">
           <b>المقرر</b>
           <SearchableSelect value={courseId || ""} onChange={value => setCourseId(Number(value) || 0)} options={options}
@@ -400,7 +400,7 @@ function Compose({ collegeId, sectionId, termId, collegeName, onSent, onCancel }
       </div>
 
       <div className="srq-step">
-        <span className="srq-step-n">٢</span>
+        <span className="srq-step-n">2</span>
         <div className="srq-step-body">
           <b>الفترة المفضلة</b>
           <div className="srq-periods" role="radiogroup" aria-label="الفترة المفضلة">
@@ -415,7 +415,7 @@ function Compose({ collegeId, sectionId, termId, collegeName, onSent, onCancel }
       </div>
 
       <div className="srq-step">
-        <span className="srq-step-n">٣</span>
+        <span className="srq-step-n">3</span>
         <div className="srq-step-body">
           <b>الطلبة</b>
           {candidates.length ? (

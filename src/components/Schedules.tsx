@@ -10433,7 +10433,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       </strong>
                       <span>
                         {roomOwner.college ? `${roomOwner.college} · ` : ""}
-                        {roomOwner.share}٪ من حجوزاتها المسجلة لهذا القسم. يمكنك المتابعة إذا كان الحجز متفقاً عليه.
+                        {roomOwner.share}% من حجوزاتها المسجلة لهذا القسم. يمكنك المتابعة إذا كان الحجز متفقاً عليه.
                       </span>
                     </div>
                     <button type="button" data-guide-feature-id="schedule.action.move-room" onClick={() => setForm(p => ({ ...p, AdRoomCode: "", AdRoomHall: "", buildingId: undefined, roomId: undefined, locationStatus: undefined }))}>

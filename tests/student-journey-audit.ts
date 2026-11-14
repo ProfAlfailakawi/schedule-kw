@@ -459,6 +459,16 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
   check(a === 1 && b === 1 && loads === 1, "R2 نداءان متزامنان يقرآن الفصل مرّةً واحدة");
   t = 30_000; await memo.get("k", load);
   check(loads === 1, "R2 داخل الدقيقة: من الذاكرة");
+  {
+    /* مفاتيحُ كثيرة منتهية لا تبقى في الخريطة: تُنظَّف حين تبلغ حدَّ التنظيف. */
+    let clock = 0;
+    const many = createTtlMemo<number>({ ttlMs: 1_000, now: () => clock });
+    for (let i = 0; i < 300; i++) await many.get(`k${i}`, async () => i);
+    clock = 5_000;
+    await many.get("fresh", async () => 1);
+    check(many.size() <= 2, `R2b المفاتيح المنتهية تُحذف من الذاكرة (${many.size()})`);
+  }
+
   t = 61_000; await memo.get("k", load);
   check(loads === 2, "R2 بعد الدقيقة: قراءةٌ جديدة");
   memo.invalidate(); await memo.get("k", load);
