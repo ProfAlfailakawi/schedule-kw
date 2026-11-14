@@ -263,6 +263,8 @@
     "test:advisor-seat-quota": "tsx tests/advisor-seat-quota-audit.ts",
     "test:weekly-smoke": "tsx tests/weekly-smoke-audit.ts",
     "test:latin-digits": "tsx tests/latin-digits-audit.ts",
+    "test:acceptance-rehearsal": "tsx tests/acceptance-rehearsal-audit.ts",
+    "rehearsal:acceptance": "tsx scripts/acceptance-rehearsal.ts",
     "test:handover-pick": "tsx tests/handover-pick-audit.ts",
     "test:activity-trail": "tsx tests/activity-trail-audit.ts",
     "test:seat-access-card": "tsx tests/seat-access-card-audit.tsx",
