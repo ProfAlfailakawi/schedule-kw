@@ -172,7 +172,7 @@
 .tm-card.is-merge-target{border-color:var(--info);box-shadow:0 0 0 2px var(--info-soft)}
 .tm-card.is-removed{display:grid;padding:12px;opacity:.6;background:var(--danger-soft);text-decoration:line-through}
 .tm-card-main{display:grid;gap:6px;width:100%;padding:12px;border:0;background:none;color:var(--ink);font:inherit;text-align:start;cursor:pointer}
-.tm-card-code{display:flex;align-items:baseline;gap:8px}
+.tm-card-code{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;padding-inline-end:76px;min-block-size:28px}
 .tm-card-code b{font-size:var(--ix-metric-word);font-family:var(--font-mono)}
 .tm-card-code small{color:var(--accent);font-weight:600}
 .tm-card-name{font-size:var(--t-sm);color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
