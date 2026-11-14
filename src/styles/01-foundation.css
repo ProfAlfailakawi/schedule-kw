@@ -439,7 +439,7 @@ time,.num,.code-chip{
   --z-sheet:200;
   --z-guide-spot:2150;
 }
-@media (max-width:900px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:900px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   :root{ --dock-h:62px; }
 }
 

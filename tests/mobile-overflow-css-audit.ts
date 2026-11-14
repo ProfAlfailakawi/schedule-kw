@@ -126,7 +126,7 @@ check(/\.matrix-scroll,\.table-scroll,[^{]*\{position:relative\}/.test(intelCss)
   "إطاراتُ التمرير الأفقي (ومنها .matrix-scroll) كتلٌ حاوية: لا يبرز منها عنصرٌ مطلق فيوسّع الوثيقة");
 /* الكتاب المفتوح على الشاشة الداخلية: صفحتان حول كعبٍ في المنتصف، ولا يمسّ iPad. */
 const book = flat(read("src/styles/55-duo-adaptive.css"));
-check(/@mediascreenand\(min-width:640px\)and\(max-width:720px\)and\(min-height:520px\)and\(max-height:960px\),screenand\(min-width:721px\)and\(max-width:1000px\)and\(min-height:520px\)and\(max-height:960px\)and\(orientation:landscape\)\{/.test(book)
+check(/@mediascreenand\(min-width:721px\)and\(max-width:1000px\)and\(min-height:520px\)and\(max-height:960px\)and\(orientation:landscape\)\{/.test(book)
   && /\.app-shell::before\{[^}]*left:var\(--book-page\);width:var\(--book-spine\)/.test(book),
   "الشاشة الداخلية كتابٌ مفتوح: كعبٌ بعرض --book-spine في المنتصف، وiPad (768×1024) خارج الكتلة");
 
@@ -137,7 +137,7 @@ const backdropRule = (book.match(/\[class\*="backdrop"\]:has\([^{]*\{[^}]*\}/) |
 check(/padding-right:calc\(var\(--book-page\)\+var\(--book-spine\)/.test(backdropRule) && !/right:calc|box-shadow/.test(backdropRule.replace(/padding-right:calc/, "")),
   "خلفية النافذة على الكتاب بعرض الشاشة كلها تحجب الفهرس، والنافذة وحدها على صفحة العمل");
 /* Duo ≠ iPad: الكتاب المفتوح للدوو وحده. iPad (عرضه الطولي ≥744 والعرضي ≥1024) يبقى على تخطيط اللوحي، فلا يقبل أيُّ استعلام
-   «كتاب» (min-height:520px مع max-height:960px) عرضاً طولياً فوق 720px ولا عرضياً فوق 1000px، ولا استعلاماً بلا screen.
+   «كتاب» (min-height:520px مع max-height:960px) إلا أفقياً بعرض 721–1000 وبـ screen؛ الطولي (669×867) هاتفٌ عاديّ بلا كعب.
    (نافذة Split View على iPad بعرض 640–720 لا تُميَّز عن الدوو بالمقاس؛ المفصل الحقيقي وحده يفرّق.) */
 function cssFiles(dir: string): string[] {
   return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) =>
@@ -147,7 +147,7 @@ const bookQueries: { file: string; q: string }[] = [];
 for (const file of [...cssFiles("src"), ...cssFiles("public")]) {
   const css = flat(read(file));
   for (const m of css.matchAll(/@media([^{]*)\{/g)) {
-    for (const q of m[1].split(",")) if (/min-height:520px/.test(q) && /max-height:960px/.test(q)) bookQueries.push({ file, q });
+    for (const q of m[1].split(",")) if (/min-height:520px/.test(q) && /max-height:960px/.test(q) && !/display-mode:standalone/.test(q)) bookQueries.push({ file, q });
   }
 }
 const badBook = bookQueries.filter(({ q }) => {
@@ -155,11 +155,12 @@ const badBook = bookQueries.filter(({ q }) => {
   const minW = Number((q.match(/\(min-width:(\d+)px\)/) || [])[1]);
   const landscape = /\(orientation:landscape\)/.test(q);
   const scoped = /^screenand/.test(q);
-  const okWidth = landscape ? maxW <= 1000 && minW >= 721 : maxW <= 720 && minW >= 640;
+  /* الكتاب أفقيٌّ وحده: لا فرع طوليٌّ (640–720) ولا غياب لـ orientation:landscape. */
+  const okWidth = landscape && maxW <= 1000 && minW >= 721;
   return !scoped || !okWidth;
 });
 check(bookQueries.length > 200 && badBook.length === 0,
-  `Duo ≠ iPad: ${bookQueries.length} استعلام كتابٍ كلُّها screen، والطولي ≤720px والعرضي ≤1000px${badBook.length ? " — " + badBook.slice(0, 3).map((b) => b.file + " " + b.q).join(" · ") : ""}`);
+  `Duo ≠ iPad: ${bookQueries.length} استعلام كتابٍ كلُّها screen، وكلُّها أفقيةٌ 721–1000 (لا فرع طوليّ)${badBook.length ? " — " + badBook.slice(0, 3).map((b) => b.file + " " + b.q).join(" · ") : ""}`);
 check(!/@media[^{]*\(min-width:640px\)and\(max-width:1000px\)and\(min-height:520px\)(?!and\(orientation)/.test(flat(read("src/styles/55-duo-adaptive.css"))),
   "كتلة الكتاب في 55-duo-adaptive.css لا تقبل طولياً بعرض 721–1000 (768×920 على iPad)");
 
@@ -185,6 +186,23 @@ check(/\.srec-form,\.srec-result\{[^}]*grid-template-columns:minmax\(0,1fr\)/.te
   "رمز استعادة الطالب: النموذجُ عمودٌ minmax(0,1fr)");
 check(/\.lens-groupsstrong\.report-instructor-with-badge\{display:flex!important/.test(flat(read("src/styles/07-responsive.css"))),
   "أسماء الأساتذة في التقارير: الاسمُ يُقطع والشارةُ (منتدب) تبقى مرئية");
+
+/* الكتاب أفقيٌّ فقط (الجولة 2): لا استعلام يطبّق تخطيط الصفحتين على الطولي. الفرع الطوليّ 640–720 الوحيد المسموح هو مستطيل
+   الودجت (display-mode:standalone) في 55-duo-adaptive.css، وهو حجزُ زاويةٍ لا تخطيطُ كتاب. */
+const portraitBook: string[] = [];
+for (const file of [...cssFiles("src"), ...cssFiles("public")]) {
+  for (const m of flat(read(file)).matchAll(/@media([^{]*)\{/g)) {
+    for (const q of m[1].split(",")) {
+      if (/min-width:640px\)and\(max-width:720px\)and\(min-height:520px/.test(q) && !/display-mode:standalone/.test(q)) portraitBook.push(file + " " + q);
+    }
+  }
+}
+check(portraitBook.length === 0,
+  `لا فرع طوليٌّ 640–720 لتخطيط الكتاب في أيّ ملف CSS${portraitBook.length ? " — " + portraitBook.slice(0, 3).join(" · ") : ""}`);
+check(/@media[^{]*\(orientation:landscape\)and\(display-mode:standalone\),screenand\(min-width:640px\)and\(max-width:720px\)and\(min-height:520px\)and\(max-height:960px\)and\(orientation:portrait\)and\(display-mode:standalone\)\{:root\{--duo-cutout-w:116px;--duo-cutout-h:116px\}/.test(book),
+  "مستطيل الودجت 116×116 معرَّفٌ مرةً واحدة للدوو الداخلي (كتاب أو طولي) في التطبيق المثبَّت فقط");
+check(/\.mobile-topbar\{[^}]*padding-right:calc\(var\(--duo-cutout-w\)\+8px\)/.test(book) && /\.sidebar-brand\{[^}]*padding-right:calc\(var\(--duo-cutout-w\)/.test(book),
+  "الشريط العلوي ورأس الفهرس يبتعدان عن مستطيل الودجت بحشوةٍ يمنى فعلية");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

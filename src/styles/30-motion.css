@@ -62,7 +62,7 @@
    pushed the first real content below the fold. Each becomes one quiet row:
    label on the inline-start, control filling the rest, no second frame. Same
    labels, same controls, same order and ids; only the arrangement changes. */
-@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:760px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .visual-minimal.query-page .query-primary-filters>.field,
   .visual-minimal .ask-scope-bar .query-primary-filters>.field,
   .intel-context.visual-minimal .intel-context-fields>.field{

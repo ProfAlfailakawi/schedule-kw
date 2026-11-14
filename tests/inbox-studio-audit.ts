@@ -84,7 +84,7 @@ check(/\{bulkReady\.length && !frozen && stateFilter !== "absent"/.test(inbox) &
 
 /* ── S5 ─────────────────────────────────────────────────────────────────── */
 /* الهاتف، ومعه صفحةُ العمل في كتاب الدوو المفتوح (55-duo-adaptive.css) بالقواعد نفسها. */
-const phone = css.slice(css.search(/@media \(max-width:760px\)(?:,screen and \(min-width:640px\) and \(max-width:720px\) and \(min-height:520px\) and \(max-height:960px\),screen and \(min-width:721px\) and \(max-width:1000px\) and \(min-height:520px\) and \(max-height:960px\) and \(orientation:landscape\))?\{/));
+const phone = css.slice(css.search(/@media \(max-width:760px\)(?:,screen and \(min-width:721px\) and \(max-width:1000px\) and \(min-height:520px\) and \(max-height:960px\) and \(orientation:landscape\))?\{/));
 check(index.includes('@import "./styles/35-inbox-studio.css";'), "S5 الورقةُ مستوردة");
 check(phone.includes(".inbox-studio>.page-heading::after{display:none}") && phone.includes(".inbox-studio>.page-heading h1{font-size:24px"),
   "S5 الهاتف: المسطرةُ الزخرفية تغيب، والعنوانُ أصغر");

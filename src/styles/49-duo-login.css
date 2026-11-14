@@ -61,7 +61,7 @@
    اليمنى (أول ما يُقرأ)، وبطاقة الدخول على اليسرى، والكعب بينهما فارغ. الحشوةُ متساويةٌ
    في الجهتين حتى يقع منتصفُ الفجوة على منتصف الشاشة تماماً. !important هنا تقابل
    !important القواعدِ أعلاه للمقاسات نفسها، ولا تمسّ غيرها. */
-@media screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .apex-login{--book-pad:clamp(16px,2.6vw,28px);padding-inline:var(--book-pad)!important}
   .apex-login .apex-login-brand{align-self:flex-start;inline-size:calc(50% - var(--book-spine) / 2 - var(--book-pad))}
   .apex-login .apex-login-stage{
