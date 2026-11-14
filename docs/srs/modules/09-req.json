@@ -347,8 +347,8 @@
       "kind": "functional",
       "title": { "ar": "إعادة فتح الطلبات تتبع الموعد الجديد", "en": "Reopening follows the new deadline" },
       "text": {
-        "ar": "يجب على النظام عند إعادة الإصدار لأستاذ له طلب قائم أن يبقي الطلب المُرسَل أو قيد المراجعة كما هو، وأن يمنح الطلب غير المُرسَل الموعد الجديد (برابط جديد إن مات رابطه)، وأن ينشئ طلباً جديداً فقط حين يكون الطلب السابق مُسوّى أو مُستبدَلاً.",
-        "en": "When reissuing to a member who already has a request, the system shall leave a submitted or in-review request untouched, give an unsubmitted request the new deadline (with a new link if its link is dead), and create a new request only when the previous one is settled or superseded."
+        "ar": "يجب على النظام عند إعادة الإصدار لأستاذ له طلب قائم أن يبقي الطلب المُرسَل أو قيد المراجعة كما هو، وأن يمنح الطلب غير المُرسَل الموعد الجديد (بالرابط الحي نفسه، ولا رابطَ جديداً إلا إن مات رابطه)، وأن ينشئ طلباً جديداً فقط حين يكون الطلب السابق مُسوّى أو مُستبدَلاً.",
+        "en": "When reissuing to a member who already has a request, the system shall leave a submitted or in-review request untouched, give an unsubmitted request the new deadline (on the same live link, with a new link only if its link is dead), and create a new request only when the previous one is settled or superseded."
       },
       "rationale": { "ar": "كان وجود أي طلب سابق يكفي ليظنّ النظام أنه «طلبه»، فلا يجد الأستاذ تبويب الطلب في بطاقته.", "en": "The mere existence of any earlier request used to make the system treat it as the member's request, so the member never found the request tab on the card." },
       "priority": "must",
@@ -356,7 +356,7 @@
       "actors": ["committeeChair", "departmentHead"],
       "acceptance": [
         { "ar": "reissueMove يعيد keep للحالتين submitted وin-review، وextend لحالة sent، وfresh لحالتي settled وsuperseded.", "en": "reissueMove returns keep for submitted and in-review, extend for sent, and fresh for settled and superseded." },
-        { "ar": "رابط موقوف أو منتهٍ قبل الموعد الجديد يُستبدل برابط جديد ويُوقف القديم.", "en": "A revoked link, or one expiring before the new deadline, is replaced by a new link and the old one is revoked." }
+        { "ar": "رابط موقوف أو ميت فعلاً يُنشأ بدله رابط جديد؛ والرابط الحي لا يُستبدل (انظر FR-REQ-082).", "en": "A revoked or truly dead link gets a new link; a live link is never replaced (see FR-REQ-082)." }
       ],
       "evidence": {
         "code": ["src/utils/requestReissue.ts", "src/server/routes/instructorRequestsRoutes.ts"],
@@ -1944,6 +1944,55 @@
         ],
         "tests": [
           "tests/card-pulse-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-REQ-082",
+      "kind": "functional",
+      "title": {
+        "ar": "رابط الأستاذ لا يموت إلا بحذف القسم له أو بانتهاء صلاحيته",
+        "en": "A member's link dies only by department deletion or its own expiry"
+      },
+      "text": {
+        "ar": "يجب ألا يُوقف النظام رابط طلبٍ حيٍّ بإعادة الإرسال ولا بجولةٍ جديدة ولا باستبدال الجدول. تُعيد إعادةُ الإرسال إلى الأستاذ استعمالَ رابطه الحي نفسه (وتمدّ صلاحيتَه هو إن كانت تنتهي قبل الموعد الجديد، ولا تقصّرها أبداً)، وتحمل الجولةُ الجديدة بعد طلبٍ مُسوّى أو مستبدَل رابطَه الحيَّ نفسه، ولا يُنشأ رابطٌ جديد إلا إن مات القديم فعلاً. واستبدالُ الجدول يُغلق جولات الرغبات بحدّ الجيل فقط: يبقى الرابط مقروءاً ويقول للأستاذ إن الجولة أُغلقت بعد تغيّر الجدول، ويُخبَر القسم قبل المسح بعدد الجولات المفتوحة. والإيقاف الوحيد في الإصدار هو «التبديل» الصريح من القسم، ويكتب كلُّ إصدارٍ في سجلّ التدقيق ما حدث للروابط (أُعيد استعمالها، مُدّدت، أُنشئت، أُوقفت).",
+        "en": "The system shall not revoke a live request link on re-send, on a new round, or when the schedule is replaced. A re-send reuses the member's own live link (extending only its own expiry when it ends before the new deadline, never shortening it); a new round after a settled or superseded request carries the same live link; a new link is minted only when the old one is truly dead. Schedule replacement closes request rounds by schedule generation alone: the link stays readable and tells the member the round was closed after the schedule changed, and the department is told before the wipe how many open rounds will close. The only revoke in issuing is the department's explicit replace, and every issue writes to the audit log what happened to the links (reused, extended, minted, revoked)."
+      },
+      "rationale": {
+        "ar": "أُرسل لمجموعةٍ ثم لثانية فمات الرابطُ الأول وهو في واتساب الأساتذة، وما انتهى وقتُه ولا حذفه القسم.",
+        "en": "A second send killed the first group's link, which was already in the members' WhatsApp, although it had not expired and the department had not deleted it."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "إرسال لمجموعة ثم ثانية ثم إعادة إرسال لأحدهم ← رابطه الأول نفسه يُقرأ، وطلبٌ واحد جارٍ، وسجلّ طلبه يحمل «أُعيد الإرسال بالرابط نفسه».",
+          "en": "Sending to one group, then another, then re-sending to one member keeps that member's first link readable, with a single live request and a timeline entry saying it was re-sent on the same link."
+        },
+        {
+          "ar": "requestLinkMove يعيد mint للموقوف أو غير المقروء، وextend للحي الذي ينتهي قبل الموعد، وkeep لغيره.",
+          "en": "requestLinkMove returns mint for a revoked or unreadable link, extend for a live one expiring before the deadline, and keep otherwise."
+        },
+        {
+          "ar": "جدول sendActionFor (5 حالات × نافذة مفتوحة أو مغلقة × 4 أنواع إرسال) لا يترك بطاقةً «للعرض» بعد إرسال خاص بتعديل.",
+          "en": "The sendActionFor table (5 states x window open or closed x 4 send kinds) never leaves a card view-only after a private edit send."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/requestReissue.ts",
+          "src/server/routes/instructorRequestsRoutes.ts",
+          "src/db/repository.ts",
+          "src/server/routes/schedulesRoutes.ts",
+          "src/components/WipeScheduleButton.tsx"
+        ],
+        "tests": [
+          "tests/request-reissue-audit.ts",
+          "tests/request-link-never-dies-audit.ts"
         ]
       }
     }

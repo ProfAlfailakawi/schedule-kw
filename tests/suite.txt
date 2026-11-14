@@ -90,6 +90,7 @@ test:study-proposal-page
 test:publish-requests
 test:staff-request-windows
 test:request-reissue
+test:request-link-safety
 test:term-freeze
 test:report-approval
 test:approval-integrity
