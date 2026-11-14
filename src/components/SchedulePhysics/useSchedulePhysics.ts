@@ -127,6 +127,11 @@ function targetFromPoint(x: number, y: number): SchedulePhysicsTarget | null {
   };
 }
 
+/** يمنع تمرير الصفحة أثناء سحبٍ باللمس نشط؛ لا يُركَّب إلا وقتها. */
+function blockTouchScroll(event: TouchEvent) {
+  if (event.cancelable) event.preventDefault();
+}
+
 export default function useSchedulePhysics(options: Options) {
   const { disabled = false } = options;
   const optionsRef = useRef(options);
@@ -154,6 +159,7 @@ export default function useSchedulePhysics(options: Options) {
   }, []);
 
   const reset = useCallback(() => {
+    window.removeEventListener("touchmove", blockTouchScroll);
     clearEvaluation();
     if (frameRef.current) cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
@@ -366,6 +372,9 @@ export default function useSchedulePhysics(options: Options) {
     session.motionVY = 0;
     session.lastFrameAt = performance.now();
     document.documentElement.classList.add("schedule-physics-active");
+    /* اللمس: بعد أن يثبّت الضغط الطويل البطاقة يمنع المتصفح من تحويل الحركة إلى تمرير للصفحة، وإلا أرسل
+       pointercancel فعادت البطاقة إلى مكانها. التمرير خارج السحب يبقى كما هو (المستمع يُزال مع نهايته). */
+    if (session.pointerType === "touch") window.addEventListener("touchmove", blockTouchScroll, { passive: false });
     setState({
       phase: "dragging", row: session.row, sourceDay: session.sourceDay, sourceStart: session.sourceStart,
       target: null, decision: null, pointerType: session.pointerType, velocityX: 0, velocityY: 0,

@@ -5507,7 +5507,7 @@ export const Repository = {
       assertRequestReservationWrite(next, db.instructorRequestReservationLedgers?.[String(move.fields.AdTermId || current.AdTermId)] || []);
     }
     if (guard) {
-      const finalById = new Map(moves.map(move => { const current = db.schedules.find(row => row.id === move.id)!; return [move.id, { ...current, ...move.fields, rev: Number(current.rev || 0) + 1 } as FSchedule] as const; }));
+      const finalById = new Map(moves.map(move => { const current = db.schedules.find(row => row.id === move.id)!; return [move.id, hydrateSchedules([{ ...current, ...move.fields, rev: Number(current.rev || 0) + 1 } as FSchedule], db.courses, db.sections)[0]] as const; }));
       const termIds = [...new Set([...finalById.values()].map(row => Number(row.AdTermId)))];
       for (const termId of termIds) {
         const week = hydrateSchedules(db.schedules.filter(row => Number(row.AdTermId) === termId), db.courses, db.sections).map(row => finalById.get(Number(row.id)) || row);

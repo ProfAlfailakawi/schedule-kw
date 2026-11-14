@@ -5683,7 +5683,7 @@ html.schedule-physics-active .rooms-slot:hover::after{content:none}
   box-shadow:0 5px 16px color-mix(in srgb,var(--ink) 9%,transparent);
   z-index:60!important;
 }
-.week-strip-track .week-event .week-drag-handle{display:none}
+.week-strip-track .week-event .week-drag-handle{display:none;touch-action:none}
 .week-strip-track .week-event>.week-identity-line{
   width:100%;
   height:100%;

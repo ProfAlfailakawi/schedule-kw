@@ -27,6 +27,7 @@ import { courseHabit } from "../core/instructorRequests";
 import { capacityContextForSection } from "../core/capacityRules";
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { scheduleConflicts, scheduleConflictsForEdit } from "../core/scheduleConflicts";
+import { makeSlotGuard, SlotTakenError } from "../core/slotGuard";
 import { describeScheduleChange, hoursNotice, keepsSectionShape, mixedPatternNotice, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, sectionShapeIssue, unapprovedPatternIssue } from "../core/scheduleRules";
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { companionBookingFor } from "../core/scheduleWrites";
@@ -493,8 +494,10 @@ app.post("/api/schedules/move-batch", requirePermission(7), async (req: Authenti
       expectedRev: rawMoves[index]?.rev === undefined || rawMoves[index]?.rev === null
         ? undefined
         : Number(rawMoves[index].rev),
-    })));
+    })), await makeSlotGuard());
   } catch (error: any) {
+    /* خسر هذا النقلُ سباقاً: زميلٌ أخذ القاعة أو الأستاذ بين الفحص والكتابة (slotGuard). */
+    if (error instanceof SlotTakenError) { res.status(409).json({ error: `لم يُنقل: ${error.message}`, code: error.code, issues: error.issues }); return; }
     if (error instanceof ScheduleRevisionConflict) {
       res.status(409).json({
         error: "تغيّر أحد هذه المواعيد أثناء عملك؛ لم يُنقل شيء.",
