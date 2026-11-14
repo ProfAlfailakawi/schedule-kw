@@ -32,6 +32,8 @@ export const SESSION_WRITE_PATHS = new Set([
   "/auth/logout", "/auth/heartbeat", "/auth/presence",
   "/auth/login", "/auth/demo", "/demo/reset", "/demo/role", "/telemetry/client",
   "/notifications/seen",
+  // طلبُ حذف الحساب: حقُّ صاحبه أياً كانت صفتُه، ولا يمسّ بيانات الجدول (accountDeletion.ts).
+  "/account/deletion-request",
   // A tab saying it closed (livePulse.ts) — presence, not data: a dean or a
   // department head leaves a board exactly like anyone else.
   "/schedules/pulse",

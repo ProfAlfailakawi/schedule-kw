@@ -27,6 +27,7 @@
     "test:first-password-room-loans": "tsx tests/first-password-room-loans-audit.ts",
     "test:password-reset": "tsx tests/password-reset-audit.ts",
     "test:staff-recovery": "tsx tests/staff-recovery-audit.ts",
+    "test:account-deletion": "tsx tests/account-deletion-audit.ts",
     "test:owner-features-1028": "tsx tests/owner-features-2026-10-28-audit.ts",
     "test:course-reach": "tsx tests/course-reach-audit.ts",
     "test:prepublish-reach": "tsx tests/prepublish-reach-audit.tsx",
