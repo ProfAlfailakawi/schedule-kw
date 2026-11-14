@@ -53,6 +53,18 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
     return { narrowed: Boolean(collegeId || sectionId), fits: (c: number, s: number) => (!collegeId || Number(c) === collegeId) && (!sectionId || Number(s) === sectionId) };
   };
 
+  /**
+   * ── بابُ شاشة الرادار نفسُه ──
+   * الشاشةُ في القائمة لصاحب الورشة (٧) أو تقرير القسم (١٤) أو إدارة النظام؛ والمساراتُ التي لا تخدم غيرها
+   * (الملخّص، والأسباب، و«هل سجلت؟») تُحرس بالباب نفسه — فلا يقرأ حسابٌ بلا أحدهما ما لا تُريه له الشاشة.
+   */
+  const radarReader: RequestHandler = async (req: any, res, next) => {
+    if (deps.isPowerUser(req)) { next(); return; }
+    const granted: number[] = req.permissions ?? (req.user ? (await Repository.getSecurityByUser(req.user.SystemUserId)).map((item: any) => Number(item.FormNameId)) : []);
+    if (!granted.some(id => id === 7 || id === 14)) { fail(res, 403, "رادارُ التسجيل لأصحاب الجدول أو تقرير القسم.", "not-allowed"); return; }
+    next();
+  };
+
   const readTermFor = async (req: Request, res: Response): Promise<{ term: any; frozen: boolean } | null | "sent"> => {
     const terms = (await Repository.getTerms()) as any[];
     const door = pickDoorTerm(terms as any);
@@ -66,7 +78,7 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
     return { term, frozen: true };
   };
 
-  app.get("/api/simulation/summary", deps.requireAuth, async (req: Request, res: Response) => {
+  app.get("/api/simulation/summary", deps.requireAuth, radarReader, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     const picked = await readTermFor(req, res);
     if (picked === "sent") return;
@@ -180,7 +192,7 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
   });
 
   /* ── لماذا لم يبلغوا 12؟ وأيّ شعبةٍ بيانُها ناقص؟ ── يُحسب عند الطلب، بحدود النطاق. */
-  app.get("/api/simulation/insight", deps.requireAuth, async (req: Request, res: Response) => {
+  app.get("/api/simulation/insight", deps.requireAuth, radarReader, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     const picked = await readTermFor(req, res);
     if (picked === "sent") return;
@@ -257,7 +269,7 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
   });
 
   /* ما قاله الطلبةُ بعد التسجيل («هل سجلت؟»): أعدادٌ لكل مقرر، بحدود النطاق. */
-  app.get("/api/simulation/outcome", deps.requireAuth, async (req: Request, res: Response) => {
+  app.get("/api/simulation/outcome", deps.requireAuth, radarReader, async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     const picked = await readTermFor(req, res);
     if (picked === "sent") return;
@@ -303,6 +315,11 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
       if (askedTerm && termIsFrozen(askedTerm, terms as any)) { fail(res, 409, TERM_FROZEN_MESSAGE, "term-frozen"); return; }
       const term = pickDoorTerm(terms as any);
       if (!term) { fail(res, 409, "لا فصلَ جارياً أو قادماً يُبنى له الرادار.", "no-term"); return; }
+      /* فاصلٌ أدنى بين تشغيلين: زرُّ «حدّث الرادار» ولسانٌ مفتوحٌ يرى «قديم» كلَّ ثلاثين ثانية لا يُعيدان قراءة
+         ملفّات الطلبة كلِّها مرّةً بعد مرّة أثناء استيرادٍ كبير. */
+      const last = await Repository.getRegistrationRun(Number(term.AdTermId));
+      const wait = manualRunWaitSeconds(last?.ranAt, Date.now(), radarManualGapMs());
+      if (wait > 0) { res.status(409).json({ error: `حُدّث الرادار قبل قليل؛ أعد بعد ${countOf(wait, AR.second)}.`, code: "too-soon", retryAfterSeconds: wait }); return; }
       const holder = `${process.pid}-${Date.now()}`;
       if (!(await Repository.acquireRegistrationRunLease(Number(term.AdTermId), holder))) { fail(res, 409, "الرادار يُحدَّث الآن على خادمٍ آخر. انتظر انتهاءه.", "busy"); return; }
       lease = { termId: Number(term.AdTermId), holder };
@@ -373,6 +390,20 @@ export function radarDue(input: {
     if (Number.isFinite(staleMs) ? input.now - staleMs >= quiet && input.now - ranMs >= gap : input.now - ranMs >= gap) return true;
   }
   return input.now - ranMs >= input.everyMs;
+}
+
+/** الفاصلُ الأدنى بين تشغيلين يدويين (RADAR_MANUAL_GAP_SECONDS، الافتراضي دقيقتان). */
+export function radarManualGapMs(): number {
+  const seconds = Number(process.env.RADAR_MANUAL_GAP_SECONDS);
+  return (Number.isFinite(seconds) && seconds >= 0 ? Math.floor(seconds) : 120) * 1000;
+}
+
+/** كم ثانيةً بقيت قبل أن يُقبل تشغيلٌ يدويٌّ جديد (0 = الآن). */
+export function manualRunWaitSeconds(ranAt: string | undefined | null, now: number, gapMs: number): number {
+  const ranMs = Date.parse(String(ranAt || ""));
+  if (!Number.isFinite(ranMs) || gapMs <= 0) return 0;
+  const left = ranMs + gapMs - now;
+  return left > 0 ? Math.ceil(left / 1000) : 0;
 }
 
 export function radarAutoSettings(): { enabled: boolean; everyHours: number } {
