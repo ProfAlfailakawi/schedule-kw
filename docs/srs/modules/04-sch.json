@@ -10,6 +10,7 @@
   },
   "actors": ["committeeChair", "departmentHead", "rootAdmin", "admin", "collegeRegistrar", "registrarStaff", "dean", "system"],
   "sources": [
+    "src/components/LadderStartHint.tsx",
     "src/server/routes/schedulesRoutes.ts",
     "src/server/routes/scheduleToolsRoutes.ts",
     "src/server/core/departmentPickerFamily.ts",
