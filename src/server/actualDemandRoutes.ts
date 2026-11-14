@@ -11,10 +11,11 @@
 import express, { type Express, type Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { Repository } from "../db/repository";
-import { type AuthenticatedRequest, requirePermission } from "./core/auth";
+import { type AuthenticatedRequest, requireAnyPermission, requirePermission } from "./core/auth";
 import { isScopeAllowed } from "./core/scope";
 import { AR, countOf } from "../utils/arabicCount";
 import { DemandReportError, DEMAND_VARIANT_LABEL, type DemandVariant } from "../utils/actualDemand";
+import { teachingRoomFor } from "./sectionPlanRoom";
 import {
   DEMAND_PDF_MAX_BYTES, demandContext, demandPreview, demandReading, extractDemandItems, fileHash, isPdf, parseDemandReport, saveDemandLink, storeDemandVariant,
 } from "./actualDemand";
@@ -22,6 +23,14 @@ import {
 const id = (value: unknown) => { const text = String(value ?? "").trim(); return /^\d{1,10}$/.test(text) ? Number(text) : 0; };
 const variantOf = (value: unknown): DemandVariant | null => value === "general" || value === "graduates" ? value : null;
 const who = (req: AuthenticatedRequest) => String(req.user?.Name || req.user?.SystemUserLogin || "").slice(0, 80);
+
+/** القراءة كاملةً: التقرير والتخطيط ومعه ما بقي في أنصبة العائلة (للمنتدبين). تعذّرُ الأنصبة لا يُسقط التخطيط. */
+async function readingFor(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number) {
+  const context = await demandContext(req, collegeId, sectionId, termId);
+  const hasReport = Boolean(context.stored?.variants?.general || context.stored?.variants?.graduates);
+  const room = hasReport ? await teachingRoomFor(collegeId, sectionId, termId, context.rows).catch(() => null) : null;
+  return demandReading(context, room);
+}
 
 export function registerActualDemandRoutes(app: Express): void {
   const uploadLimit = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "ملفاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد الرفع." } });
@@ -33,11 +42,11 @@ export function registerActualDemandRoutes(app: Express): void {
     return { collegeId, sectionId, termId };
   };
 
-  app.get("/api/actual-demand", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/actual-demand", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     const scope = scopeOf(req, res, req.query);
     if (!scope) return;
-    res.json(demandReading(await demandContext(req, scope.collegeId, scope.sectionId, scope.termId)));
+    res.json(await readingFor(req, scope.collegeId, scope.sectionId, scope.termId));
   });
 
   app.post("/api/actual-demand/upload", uploadLimit, requirePermission(7), express.raw({ type: "application/octet-stream", limit: DEMAND_PDF_MAX_BYTES + 4096 }), async (req: AuthenticatedRequest, res: Response) => {
@@ -63,7 +72,7 @@ export function registerActualDemandRoutes(app: Express): void {
     res.locals.auditEntity = "actual-demand";
     res.locals.auditEntityId = `${scope.termId}:${context.family.key}`;
     res.locals.auditChanges = `الطلب الفعلي (${DEMAND_VARIANT_LABEL[variant]}) · ${report.department || context.family.name} · ${report.termLabel} · ${countOf(report.courses.length, AR.course)} · بصمة ${hash.slice(0, 12)}`;
-    res.json({ saved: true, reading: demandReading(await demandContext(req, scope.collegeId, scope.sectionId, scope.termId)) });
+    res.json({ saved: true, reading: await readingFor(req, scope.collegeId, scope.sectionId, scope.termId) });
   });
 
   app.post("/api/actual-demand/link", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -85,6 +94,6 @@ export function registerActualDemandRoutes(app: Express): void {
     }
     res.locals.auditEntity = "actual-demand";
     res.locals.auditEntityId = context.family.key;
-    res.json(demandReading(await demandContext(req, scope.collegeId, scope.sectionId, scope.termId)));
+    res.json(await readingFor(req, scope.collegeId, scope.sectionId, scope.termId));
   });
 }

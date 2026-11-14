@@ -56,7 +56,7 @@ export default function TermForecast({ scopes, isAdmin, fallbackTermId = 0, onIm
       </div> : null}
       <div className="forecast-list">
         {forecast.status === "no-remaining" ? <p className="forecast-note">
-          لم يُستورد كشف المتبقي لهذا الفصل — <button type="button" className="editorial-text-action" data-guide-ignore="رابطٌ نصيٌّ يفتح شاشة الجدول حيث يُستورد الكشف؛ لا إجراء جديد" onClick={() => onImport?.()}>استورده من شاشة الجدول</button>
+          أرقام الطلب لهذا الفصل في «تخطيط الشعب» من تقرير التسجيل — <button type="button" className="editorial-text-action" data-guide-ignore="رابطٌ نصيٌّ يفتح شاشة الجدول حيث تخطيط الشعب؛ لا إجراء جديد" onClick={() => onImport?.()}>افتحه من شاشة الجدول</button>
         </p> : null}
         {forecast.highlights.length ? <ul className="forecast-highlights">{forecast.highlights.map(risk => <Line key={risk.text} risk={risk} />)}</ul>
           : forecast.status === "ready" ? <p className="forecast-calm">لا مخاطر ظاهرة في بيانات هذا الفصل.</p> : null}

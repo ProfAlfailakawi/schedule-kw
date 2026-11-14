@@ -212,29 +212,7 @@ values = r.column == null ? {} : remainingValues(r, r.column);
 check(cells.source === "text" && r.columns[r.column ?? -1]?.label === "المتبقي", `كشف PDF: طبقة النص، وعمود «${r.columns[r.column ?? -1]?.label}» بعنوانه`);
 check(values["1"] === 120 && values["2"] === 102 && values["3"] === 50 && values["4"] === 8 && r.foreign.includes("0102101"), "كشف PDF: المتبقي لكل مقرر، والمكرّر يُجمع، ورمز القسم الآخر يُترك");
 
-/* ── الواجهة ── */
-const ui = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
-check(ui.includes("courseNumber(a.code) - courseNumber(b.code)"), "الجدول مرتّب برقم المقرر تصاعدياً");
-check(ui.includes("استيراد كشف الاحتياج") && ui.includes("/api/registration-stats/remaining-pdf") && ui.includes("planRemainingApply(preview, preview.column, manual, {}, confirmedSuspects") && ui.includes("تعبئة ${countOf(plan.total, AR.course)}"),
-  "«الذين لم يسجلوا» يُستورد ويُراجع قبل التعبئة");
-check(ui.includes('accept="application/pdf,.pdf,image/*,.heic,.heif" multiple') && ui.includes("/api/registration-stats/remaining-cells") && ui.includes('"x-report-template"'),
-  "PDF أو صور صفحاته (الهاتف): تُقرأ صورةً صورة وتُجمع صفحاتها");
-check(ui.includes("الخطة تُبنى على عمود «اعداد الطلبة لم يجتازوا في بداية التسجيل» من كشف العمادة — الاحتياج المرجعي") && ui.includes("<th>الاحتياج</th>")
-  && !ui.includes("<th>المقاعد المتبقية</th>") && ui.includes("تخالف حساب الكشف (لم يجتازوا − المسجلين)"),
-  "الواجهة تقول إن الخطة تُبنى على «اعداد الذين لم يسجلوا» المستورد، وحساب الكشف لم يجتازوا − المسجلين");
-check(ui.includes('setSource({ fileName: preview.fileName, importedAt: new Date().toISOString(), column: "notPassed", reportTerm: preview.reportTerm || "" })')
-  && ui.includes('if (!source) setSource({ fileName: "إدخال يدوي", importedAt: new Date().toISOString(), column: "notPassed" })') && !ui.includes('column: "seats" })'),
-  "التطبيق والإدخال اليدوي بلا كشف يوسمان المصدر «unregistered» — فيُعاد بعد التحميل");
-check(!ui.includes("عدد الطلبة المسجّلين") && !ui.includes("counts:"), "لا خانة «المسجّلين» تُكتب يدوياً");
-check(ui.includes("keepalive: true") && ui.includes('addEventListener("pagehide"') && ui.includes("window.setTimeout(() => { void persistRef.current(); }, 900)"),
-  "يُحفظ وحده، وما بقي معلّقاً يُرسل والشاشة تُغلق — لا أرقام تضيع");
-check(ui.includes('value={chosen[key] ?? ""}') && ui.includes("placeholder={suggestion.suggested == null") && ui.includes("const pick = explicit ? Number(chosen[key]) : suggestion.suggested"),
-  "خانة المختار الفارغة تُظهر المقترح وتُحسب به — لا خانة فارغة محسوبة خفيةً");
-check(ui.includes("خارج المدى") && ui.includes("is-outside"), "اختيارٌ خارج المدى بعد تغيّر المتبقي يُعلَّم، وفي التقرير");
-check(ui.includes('replace(/[أإآٱ]/g, "ا")') && ui.includes(".toLowerCase()"), "البحث لا يتعثّر بالهمزات وحالة الأحرف");
-check(ui.includes("التقرير والطباعة") && ui.includes('dataset.printKind = "section-plan"') && ui.includes("<PrintPortal") && fs.readFileSync("src/styles/08-print.css", "utf8").includes('html[data-print-kind="section-plan"]'),
-  "التقرير يُطبع بمنفذ الطباعة المعتاد، ومعه مصدر المتبقي");
-
+/* الواجهةُ القديمة (كشف المتبقي في «تخطيط الشعب») أُزيلت: التخطيط من تقرير التسجيل (tests/section-plan-audit.ts). يبقى هنا الحسابُ والخادم. */
 /* ── الربط: المستودع والخادم والواجهة ── */
 const server = readServerSource();
 const repo = fs.readFileSync("src/db/repository.ts", "utf8");
@@ -257,29 +235,12 @@ check(server.includes('app.post("/api/registration-stats/remaining-cells", rateL
 check((server.match(/remainingAssessment\(reading, departmentCode, departmentName, (cells\.)?headerText, branch\)/g) || []).length === 2
   && server.includes("const branch = { code: site.length >= 3 ? site.slice(0, 3) : \"\", collegeName: String(college?.AdCollegeName || \"\") };"),
   "بابا الكشف (الملف والصفحات معاً) يمرّران الفرع المختار، فكشف فرعٍ آخر يُرفض قبل المعاينة");
-{
-  const ui = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
-  check(ui.includes("const clearImport = async () =>") && ui.includes("setRemaining({}); setChosen({}); setVacant({}); setSource(null);") && ui.includes("await visualConfirm(") && !ui.includes("window.confirm(") && !ui.includes("setDeptConfirmed")
-    && ui.includes("Object.values(chosen).some(value => value !== \"\")") && ui.includes("disabled={!hasSaved || reading}") && ui.includes("لا كشف مستورد لإزالته"),
-    "كشفٌ استُورد خطأً يُزال كله بعد تأكيد (المتبقي وشاغره ومصدره)، والزر ظاهرٌ دائماً: يعمل لأي متبقٍّ محفوظ (كشفٌ موسوم أو «بيانات قديمة» أو أرقامٌ بلا مصدر)، ومعطّلٌ حين لا شيء يُزال؛ ولا خانة «أؤكد…»");
-}
-{
-  const ui = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
-  check(ui.includes("setImportError(e?.rejection ||") && ui.includes('className="section-plan-reject" role="alert" aria-label={importError.message}')
-    && ui.includes("<strong>رُفض الكشف</strong>") && ui.includes("لم يُستورد شيء") && ui.includes('className="section-plan-reject-compare"') && ui.includes("في الكشف") && ui.includes("المختار")
-    && ui.includes("const REJECT_SHORT"),
-    "رفض الكشف في صندوق الاستيراد: «رُفض الكشف · لم يُستورد شيء» ثم مقارنة «في الكشف ≠ المختار» بأيقونات (أو أيقونةٌ وكلمتان لغيرها)، والنص الكامل لقارئ الشاشة");
-  check((server.match(/rejectKind: assessment\.rejectKind \|\| null, mismatch: assessment\.mismatch \|\| null/g) || []).length === 2,
-    "بابا الكشف يردّان نوع الرفض ومقارنته بياناتٍ لا نصاً فقط");
-}
 const ocr = fs.readFileSync("src/utils/documentOcr.ts", "utf8");
 check(ocr.includes("async function ruledReportCells(") && ocr.includes("await deskew(image)") && ocr.includes("straightenTable(lib,surface,geometry)") && ocr.includes('const skipped=new Set<string>([])'),
   "الصورة المسطّرة: تُعدَّل وتُستقام وتُقرأ خانةً خانة، وكل الأعمدة تُقرأ («لم يسجلوا» للتخطيط، «لم يجتازوا» والمسجّلون لفحصه، «المقاعد المتبقية» شاغرٌ للإنذار)");
 check(server.includes("termSeasonOf(row.AdTermName) === season") && server.includes("if (!rows.length) continue;"), "الفصول المماثلة: الموسم نفسه، ويُتخطّى الفصل الذي لا جدول فيه للقسم");
 check(server.includes("Repository.getCourseTransitions(sectionId)") && server.includes("ancestorsOf(id)") && server.includes("remaining: known.reduce("), "المقرر المعاد ترقيمه يرث شعب سلفه ومتبقّيه");
-check(ui.includes("suggestSectionCount("), "الواجهة تستعمل الحساب نفسه");
-check(ui.includes('"x-page-sizes": files.map(file => file.size).join(",")') && ui.includes("files.length <= 4 && files.every(isImage)")
-  && server.includes('String(req.get("x-page-sizes") || "")') && server.includes("sizes.reduce((sum, size) => sum + size, 0) !== bodyBytes")
+check(server.includes('String(req.get("x-page-sizes") || "")') && server.includes("sizes.reduce((sum, size) => sum + size, 0) !== bodyBytes")
   && fs.readFileSync("src/utils/documentOcr.ts", "utf8").includes("return readReportScan(input.map(part=>({buffer:part,mime:reportImageMime(part,\"\")})),false,blanks,firstTemplate);"),
   "صور صفحات الكشف (حتى أربع) تُقرأ في طلبٍ واحد: أعمدتها معاً، وإنقاذ العمود الفائت في كل صورة");
 const transfer = fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8");

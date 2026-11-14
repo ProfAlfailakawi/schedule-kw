@@ -87,11 +87,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   const forecast = read("src/components/PredictiveInsightPanel.tsx");
   check(/openInTimeMachine\(demandAsk\(row\.code\)\)/.test(forecast), "L11 التنبؤ: نقصٌ متوقّع يفتح آلة الزمن على مقرره");
   check(/row\.delta > 0 && canSchedule/.test(forecast), "L12 التنبؤ: الزر للنقص وحده ولمن يملك الجدولة");
-  const triage = read("src/components/PlanTriageView.tsx");
-  check(/openInTimeMachine\(demandAsk\(entry\.item\.code\)\)/.test(triage) && /entry\.item\.extra > 0/.test(triage), "L13 التخطيط: مقررٌ يحتاج شعبة يفتح آلة الزمن عليه");
-  const readOnlyBranch = triage.slice(triage.indexOf("const actionsFor"), triage.indexOf(") : (", triage.indexOf("const actionsFor")));
-  check(!/openInTimeMachine/.test(readOnlyBranch), "L14 لوحة القرار (عرضٌ فقط) بلا زر آلة الزمن");
-  check([forecast, triage].every(source => /يفتح آلة الزمن على نسخة افتراضية؛ لا يكتب في الجدول/.test(source)), "L15 كلا الزرّين يقول إنه لا يكتب في الجدول");
+  check([forecast].every(source => /يفتح آلة الزمن على نسخة افتراضية؛ لا يكتب في الجدول/.test(source)), "L15 الزرّ يقول إنه لا يكتب في الجدول");
 }
 
 console.log(`\nTime machine links audit: ${passed} passed, ${failed} failed`);

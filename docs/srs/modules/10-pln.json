@@ -47,7 +47,6 @@
     "src/utils/planBadges.ts",
     "src/utils/planPdfParser.ts",
     "src/utils/planSheetImport.ts",
-    "src/utils/planTriage.ts",
     "src/utils/referenceApply.ts",
     "src/utils/remainingReport.ts",
     "src/utils/section*.ts",
@@ -58,8 +57,7 @@
     "src/utils/proposalTeacherView.ts",
     "src/utils/nextCourseSectionCode.ts",
     "src/utils/collegeTrack.ts",
-    "src/components/SectionPlanning.tsx",
-    "src/components/SectionBuild.tsx",
+    "src/components/SectionPlan.tsx",
     "src/components/SectionGapNote.tsx",
     "src/components/CourseOfferingPanel.tsx",
     "src/components/CourseReach.tsx",
@@ -70,9 +68,7 @@
     "src/components/PlanReview.tsx",
     "src/components/PlanSheetPublisher.tsx",
     "src/components/PlanSheetUpload.tsx",
-    "src/components/PlanTriageView.tsx",
     "src/components/PreviousPlansPanel.tsx",
-    "src/components/QuickPlanSheet.tsx",
     "src/components/proposal/*",
     "src/components/useCourseSheets.ts",
     "src/styles/14-proposal.css",
@@ -81,130 +77,19 @@
     "src/styles/24-section-plan-polish.css",
     "src/styles/32-section-surplus.css",
     "src/styles/40-course-reach.css",
-    "public/plans/**"
+    "public/plans/**",
+    "src/server/sectionPlanRoom.ts"
   ],
   "screens": [
-    {
-      "name": {
-        "ar": "تخطيط الشعب",
-        "en": "Section planning"
-      },
-      "file": "src/components/SectionPlanning.tsx",
-      "note": {
-        "ar": "رفع كشف المتبقي، المدى المقترح، المختار، التقرير المطبوع.",
-        "en": "Remaining-report upload, suggested range, chosen count, printed report."
-      }
-    },
-    {
-      "name": {
-        "ar": "نزّل الشعب",
-        "en": "Apply sections"
-      },
-      "file": "src/components/SectionBuild.tsx",
-      "note": {
-        "ar": "الفجوة والمعاينة الأسبوعية والتنزيل والتراجع.",
-        "en": "Gap, weekly preview, apply and undo."
-      }
-    },
-    {
-      "name": {
-        "ar": "شعب يُفضَّل زيادتها",
-        "en": "Sections to add"
-      },
-      "file": "src/components/SectionGapNote.tsx",
-      "note": {
-        "ar": "شارة هادئة في شريط الاعتماد تفتح قائمة «5 ← 7».",
-        "en": "A quiet badge in the approval bar opening a «5 to 7» list."
-      }
-    },
-    {
-      "name": {
-        "ar": "فرز بنود التخطيط",
-        "en": "Planning triage"
-      },
-      "file": "src/components/PlanTriageView.tsx",
-      "note": {
-        "ar": "عاجل ومهم وفرصة مع قرارات تم وتجاهل.",
-        "en": "Urgent, important and opportunity with done and ignored decisions."
-      }
-    },
-    {
-      "name": {
-        "ar": "حالة طرح المقررات",
-        "en": "Course offering status"
-      },
-      "file": "src/components/CourseOfferingPanel.tsx",
-      "note": {
-        "ar": "أربع حالات وتبويبا الصحيفة الجديدة والقديمة وحكم الوصول.",
-        "en": "Four states, new and old sheet tabs and the reach verdict."
-      }
-    },
-    {
-      "name": {
-        "ar": "الصحائف الدراسية",
-        "en": "Curriculum plans"
-      },
-      "file": "src/components/CurriculumPlans.tsx",
-      "note": {
-        "ar": "إنشاء الصحيفة وربط المقررات والانتقال والأرشفة.",
-        "en": "Plan creation, course linking, transitions and archiving."
-      }
-    },
-    {
-      "name": {
-        "ar": "مراجعة الصحيفة",
-        "en": "Plan review"
-      },
-      "file": "src/components/PlanReview.tsx",
-      "note": {
-        "ar": "خريطة المستويات وقواعد المقررات والاعتماد.",
-        "en": "Level map, course rules and approval."
-      }
-    },
-    {
-      "name": {
-        "ar": "الصحيفة المرجعية",
-        "en": "Reference sheet"
-      },
-      "file": "src/components/CurriculumReferenceReview.tsx",
-      "note": {
-        "ar": "مقارنة الصحيفتين المرجعيتين بالكتالوج وتطبيقهما.",
-        "en": "Comparison of the two reference sheets with the catalogue and their application."
-      }
-    },
-    {
-      "name": {
-        "ar": "رفع الخطة الدراسية",
-        "en": "Study plan upload"
-      },
-      "file": "src/components/PlanSheetUpload.tsx",
-      "note": {
-        "ar": "رفع PDF من عمادة القبول والتسجيل.",
-        "en": "Upload of the registration office's PDF."
-      }
-    },
-    {
-      "name": {
-        "ar": "نشر الصحيفة",
-        "en": "Sheet publishing"
-      },
-      "file": "src/components/PlanSheetPublisher.tsx",
-      "note": {
-        "ar": "رابط وQR وPDF لكل صحيفة معتمدة.",
-        "en": "Link, QR and PDF for every approved sheet."
-      }
-    },
-    {
-      "name": {
-        "ar": "المقترح الدراسي",
-        "en": "Study proposal"
-      },
-      "file": "src/components/proposal/StudyProposalWorkspace.tsx",
-      "note": {
-        "ar": "جدول بالفرق المرئي وتبويبات التغييرات والشواغر والفحص.",
-        "en": "A schedule with visible differences and tabs for changes, vacancies and checks."
-      }
-    }
+    {"name": {"ar": "تخطيط الشعب", "en": "Section planning"}, "file": "src/components/SectionPlan.tsx", "note": {"ar": "تقرير التسجيل (الكل والخريجون)، ثلاثة أرقام، درجتا الخريجين وبقية الطلبة، والمنتدبون.", "en": "Registrar report (all and graduates), three figures, the graduates and other-students stages, and visiting instructors."}},
+    {"name": {"ar": "شعبٌ يطلبها الطلبة في «مساري»", "en": "Sections students ask for in Masari"}, "file": "src/components/SectionGapNote.tsx", "note": {"ar": "شارة هادئة في شريط الاعتماد تفتح قائمة «5 ← 7».", "en": "A quiet badge in the approval bar opening a «5 to 7» list."}},
+    {"name": {"ar": "حالة طرح المقررات", "en": "Course offering status"}, "file": "src/components/CourseOfferingPanel.tsx", "note": {"ar": "أربع حالات وتبويبا الصحيفة الجديدة والقديمة وحكم الوصول.", "en": "Four states, new and old sheet tabs and the reach verdict."}},
+    {"name": {"ar": "الصحائف الدراسية", "en": "Curriculum plans"}, "file": "src/components/CurriculumPlans.tsx", "note": {"ar": "إنشاء الصحيفة وربط المقررات والانتقال والأرشفة.", "en": "Plan creation, course linking, transitions and archiving."}},
+    {"name": {"ar": "مراجعة الصحيفة", "en": "Plan review"}, "file": "src/components/PlanReview.tsx", "note": {"ar": "خريطة المستويات وقواعد المقررات والاعتماد.", "en": "Level map, course rules and approval."}},
+    {"name": {"ar": "الصحيفة المرجعية", "en": "Reference sheet"}, "file": "src/components/CurriculumReferenceReview.tsx", "note": {"ar": "مقارنة الصحيفتين المرجعيتين بالكتالوج وتطبيقهما.", "en": "Comparison of the two reference sheets with the catalogue and their application."}},
+    {"name": {"ar": "رفع الخطة الدراسية", "en": "Study plan upload"}, "file": "src/components/PlanSheetUpload.tsx", "note": {"ar": "رفع PDF من عمادة القبول والتسجيل.", "en": "Upload of the registration office's PDF."}},
+    {"name": {"ar": "نشر الصحيفة", "en": "Sheet publishing"}, "file": "src/components/PlanSheetPublisher.tsx", "note": {"ar": "رابط وQR وPDF لكل صحيفة معتمدة.", "en": "Link, QR and PDF for every approved sheet."}},
+    {"name": {"ar": "المقترح الدراسي", "en": "Study proposal"}, "file": "src/components/proposal/StudyProposalWorkspace.tsx", "note": {"ar": "جدول بالفرق المرئي وتبويبات التغييرات والشواغر والفحص.", "en": "A schedule with visible differences and tabs for changes, vacancies and checks."}}
   ],
   "journeys": [
     {
@@ -800,12 +685,12 @@
       "id": "FR-PLN-001",
       "kind": "functional",
       "title": {
-        "ar": "استيراد كشف المتبقي",
-        "en": "Remaining-report import"
+        "ar": "تخطيط الشعب من تقرير التسجيل",
+        "en": "Section planning from the registrar report"
       },
       "text": {
-        "ar": "يجب على النظام أن يقرأ كشف «المتبقي» الصادر عن عمادة التسجيل، ملف PDF أو حتى أربع صور صفحات، ويعرض القراءة معاينةً قبل الحفظ دون أن يحتفظ بالملف.",
-        "en": "The system shall read the registrar's remaining-students report, as a PDF or up to four page images, and show the reading as a preview before saving, without retaining the uploaded file."
+        "ar": "يجب على النظام أن يبني تخطيط الشعب من تقرير «المقررات التي يحتاجها الطالب» (SWRDASH) وحده: لكل مقرر ولكل حرم (بنين/بنات) المطلوب = ⌈الطلبة ÷ سعة الشعبة⌉، ومنه للخريجين ⌈الخريجون ÷ سعة الشعبة⌉، مقابل المطروح في جدول عائلة القسم؛ و«الكل» وحده يكفي، و«الخريجون» يقدّم أهله.",
+        "en": "The system shall build section planning from the registrar's student-needs report (SWRDASH) alone: for each course and campus (boys/girls), required = ⌈students ÷ section capacity⌉, of which graduates need ⌈graduates ÷ capacity⌉, against the sections offered in the department family's schedule; the 'all' report alone suffices and the graduates report puts graduates first."
       },
       "priority": "must",
       "status": "implemented",
@@ -815,33 +700,23 @@
       ],
       "acceptance": [
         {
-          "ar": "رفع ملف أكبر من 24 ميجابايت يُرفض، وصورٌ مجموعها لا يطابق أحجام الصفحات المعلنة أو أكثر من أربع صور تُرفض بحالة 400.",
-          "en": "A file above 24 MB is refused, and images whose total does not match the declared page sizes, or more than four images, are refused with status 400."
+          "ar": "مقدمة ١١٢ بسعة ٦٠: بنين ٢٥٣ ← ٥ مطلوبة و٥ مطروحة (متوازن)، بنات ١٣٥ ← ٣ مطلوبة و١٣ مطروحة (فائض ١٠)، ومتوسط التقرير (٩٠) لا يدخل الحساب.",
+          "en": "Course 112 at capacity 60: boys 253 → 5 required, 5 offered (balanced); girls 135 → 3 required, 13 offered (surplus 10); the report's average (90) is not used."
         },
         {
-          "ar": "صورة طولية تُرفض بحالة 422 ورمز orientation قبل أي قراءة.",
-          "en": "A portrait-oriented image is refused with status 422 and code orientation before any reading."
-        },
-        {
-          "ar": "يُسمح بعشرين طلب قراءة في الدقيقة للمستخدم الواحد.",
-          "en": "At most twenty document-reading requests per minute are accepted."
-        },
-        {
-          "ar": "مسار الخلايا المقروءة في المتصفح (remaining-cells) يقبل حتى 60 صفحة و4000 خلية للصفحة ونص الخلية حتى 120 حرفاً، وبلا صفحات يُردّ بـ400، ويقرأ عمود «لم يجتز» وحده.",
-          "en": "The browser-read cells route (remaining-cells) accepts up to 60 pages, 4000 cells per page and 120 characters per cell text, refuses no pages with 400, and reads the not-passed column only."
+          "ar": "الخريجون جزءٌ من الكل: ورشة ٢١٢ سطرٌ واحد لكل حرم، ومنه شعبُ الخريجين.",
+          "en": "Graduates are part of the total: workshop 212 is one line per campus, with its graduate sections inside it."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/routes/planningRoutes.ts",
-          "src/utils/remainingReport.ts",
-          "src/components/SectionPlanning.tsx",
-          "src/server/routes/planningRoutes.ts#/api/registration-stats/remaining-pdf",
-          "src/server/routes/planningRoutes.ts#/api/registration-stats/remaining-cells"
+          "src/utils/sectionPlan.ts#sectionPlan",
+          "src/server/actualDemand.ts#sectionPlanOf",
+          "src/components/SectionPlan.tsx"
         ],
         "tests": [
-          "tests/section-planning-import-audit.ts",
-          "tests/section-planning-audit.ts"
+          "tests/section-plan-audit.ts",
+          "tests/actual-demand-audit.ts"
         ]
       }
     },
@@ -1102,12 +977,12 @@
       "id": "FR-PLN-008",
       "kind": "functional",
       "title": {
-        "ar": "فرز بنود التخطيط وقراراتها",
-        "en": "Planning triage and decisions"
+        "ar": "درجتا التخطيط: الخريجون ثم بقية الطلبة",
+        "en": "Planning stages: graduates, then other students"
       },
       "text": {
-        "ar": "يجب على النظام أن يوزع بنود التخطيط على ثلاثة رفوف (عاجل، مهم، فرصة) وأن يحفظ قرار «تم» أو «تجاهل» لكل مقرر في النطاق باسم صاحبه، ويسقط القرار إذا تغيرت أرقام البند.",
-        "en": "The system shall sort planning items onto three shelves (urgent, important, opportunity) and store a «done» or «ignored» decision per course in the scope under the decider's name, lapsing the decision when the item's figures change."
+        "ar": "يجب أن تعرض شاشة تخطيط الشعب ثلاثة أرقام (الخريجون الذين لهم مقعد، والشعب الناقصة، والفائضة) ثم درجتين مرتبتين برقم المقرر: الأولى مقرراتٌ تنقص شعبُ خريجيها، والثانية ما ينقص أو يفيض لبقية الطلبة؛ والمتوازن لا يُعرض، ولكل سطر زرٌّ واحد مقترح لا يكتب ولا يمنع: «افتح شعبة» يفتح المحرّر، و«اختر ما يُغلق» يُظهر شعب المقرر في الجدول.",
+        "en": "The section-planning screen shall show three figures (graduates seated, sections short, sections in surplus) and then two stages ordered by course number: first, courses whose graduate sections are short; second, what is short or in surplus for other students; balanced courses are not shown, and each line carries one suggestion that neither writes nor blocks: 'Open a section' opens the editor, and 'Choose what to close' surfaces the course's sections on the schedule."
       },
       "priority": "must",
       "status": "implemented",
@@ -1117,28 +992,23 @@
       ],
       "acceptance": [
         {
-          "ar": "مقرر بلا شعبة مطروحة، أو ينقصه شعبتان فأكثر، يقع في «عاجل»؛ ونقص شعبة واحدة «مهم»؛ والفائض «فرصة».",
-          "en": "A course with no section, or two or more missing, is urgent; one missing is important; a surplus is an opportunity."
+          "ar": "مقررٌ لخريجيه ولا شعبة له في حرمهم يقع في الدرجة الأولى، وينتقل إلى الثانية حين تُطرح شعبُهم.",
+          "en": "A course with graduates and no section on their campus sits in the first stage and moves to the second once their sections are offered."
         },
         {
-          "ar": "قرار «تجاهل» بلا سبب يُرد بحالة 400، والسبب يقص عند 140 حرفاً.",
-          "en": "An «ignored» decision without a reason is refused with status 400, and the reason is truncated at 140 characters."
-        },
-        {
-          "ar": "القراءة للإذنين 7 و14 والكتابة للإذن 7 وحده.",
-          "en": "Reading requires permission 7 or 14 and writing requires permission 7 only."
+          "ar": "لا «تم» ولا «تجاهل»: المقرر يخرج من القائمة حين يتوازن.",
+          "en": "No 'done' or 'ignore': a course leaves the list once balanced."
         }
       ],
       "evidence": {
         "code": [
-          "src/utils/planTriage.ts",
-          "src/server/routes/planningRoutes.ts",
-          "src/components/PlanTriageView.tsx",
-          "src/server/routes/planningRoutes.ts#/api/schedules/section-gap/decisions"
+          "src/utils/sectionPlan.ts#planStage",
+          "src/components/SectionPlan.tsx",
+          "src/utils/actualDemandHandoff.ts#openCourseSections"
         ],
         "tests": [
-          "tests/decision-surfaces-audit.ts",
-          "tests/section-gap-audit.ts"
+          "tests/section-plan-audit.ts",
+          "tests/decision-surfaces-audit.ts"
         ]
       }
     },
@@ -1286,7 +1156,7 @@
         "en": "The system shall build a preview of the missing sections with the same opening engine: a conflict-free time, a documented hall of sufficient capacity, and an instructor who taught the course and has available load, hardest courses first, stating the reason for every section not built."
       },
       "priority": "must",
-      "status": "implemented",
+      "status": "planned",
       "actors": [
         "departmentHead",
         "committeeChair"
@@ -1314,7 +1184,6 @@
           "src/utils/sectionBuild.ts",
           "src/utils/sectionOpening.ts",
           "src/server/routes/planningRoutes.ts",
-          "src/components/SectionBuild.tsx",
           "src/server/routes/planningRoutes.ts#/api/section-build/preview"
         ],
         "tests": [
@@ -1322,6 +1191,10 @@
           "tests/section-opening-feasibility-audit.ts",
           "tests/section-build-live-audit.ts"
         ]
+      },
+      "rationale": {
+        "ar": "شاشة «نزّل الشعب» أُزيلت مع تخطيط الشعب القديم؛ يبقى المحرّك على الخادم دون واجهة.",
+        "en": "The 'build sections' screen was removed with the old section planning; the engine remains on the server without a screen."
       }
     },
     {
@@ -2817,12 +2690,12 @@
       "id": "FR-PLN-041",
       "kind": "functional",
       "title": {
-        "ar": "حفظ تخطيط الشعب وحده وجدوله",
-        "en": "Section-planning autosave and its table"
+        "ar": "سطر المقرر مطويّاً والحساب بطاقات",
+        "en": "Collapsed course line with the math as tiles"
       },
       "text": {
-        "ar": "يجب أن تحفظ شاشة تخطيط الشعب كل تعديلٍ في «الاحتياج» أو «المختار» وحده بعد 900 ملّيثانية من آخر تعديل، وأن ترسل ما بقي معلّقاً عند إغلاق الصفحة أو تبديل النطاق بطلبٍ يبقى حيّاً بعد الإغلاق، وألا تكتب أرقام نطاقٍ في سجلّ نطاقٍ آخر لم يكتمل تحميله، وأن تعرض المقررات مرتّبة برقمها عددياً مع بحثٍ لا يتعثّر بالهمزات والتاء المربوطة والألف المقصورة والتشكيل والأرقام الهندية.",
-        "en": "The section-planning screen shall save every edit to «need» or «chosen» on its own 900 ms after the last edit, send whatever is still pending when the page closes or the scope changes with a request that survives the close, never write one scope's figures into the record of another scope not yet loaded, and list courses ordered numerically by number with a search that ignores hamza forms, ta marbuta, alef maqsura, diacritics and Arabic-Indic digits."
+        "ar": "يجب أن يُعرض كل سطر مطويّاً: رمز المقرر وحرمه، وشريطٌ يُظهر المطروح من المطلوب وجزء الخريجين، و«المطروح من المطلوب»، ورقمٌ كبير (ينقص الخريجين / ينقصه / فائض)، وزرٌّ واحد؛ والضغط يفتح الحساب بطاقاتٍ بأيقونات: الطلبة ÷ السعة = المطلوب، ثم الخريجون والمطروح والفرق ومن بلا مقعد، واقتراح التسجيل للمقارنة فقط.",
+        "en": "Each line shall be shown collapsed: course code and campus, a bar showing offered out of required and the graduates' share, 'offered of required', one large number (graduates short / short / surplus) and one button; pressing it opens the math as icon tiles: students ÷ capacity = required, then graduates, offered, difference and unseated students, with the registrar's own suggestion for comparison only."
       },
       "priority": "must",
       "status": "implemented",
@@ -2832,35 +2705,16 @@
       ],
       "acceptance": [
         {
-          "ar": "سطر الحفظ: «يُحفظ…» ثم «حُفظ التاريخ الوقت — الاسم»، أو «تعذّر الحفظ» مع «أعد المحاولة».",
-          "en": "The save line: «saving…» then «saved date time — name», or «could not save» with «retry»."
-        },
-        {
-          "ar": "خانة «المختار» الفارغة تُظهر المقترح وتُحسب به، والاختيار خارج المدى المقترح يُعلَّم «خارج المدى» ونجمةً في التقرير.",
-          "en": "An empty «chosen» cell shows the suggestion and counts with it, and a choice outside the suggested range is marked «outside the range» and with an asterisk in the report."
-        },
-        {
-          "ar": "مقرر مغلق أو مستقبلي يُقترح له صفر، ومقرر محدود لا يتجاوز اقتراحه حدّه الأعلى.",
-          "en": "A closed or future course is suggested zero, and a limited course's suggestion does not exceed its maximum."
-        },
-        {
-          "ar": "كتابة احتياجٍ بلا كشف تسم المصدر «إدخال يدوي» بعمود «لم يجتازوا».",
-          "en": "Typing a need without a report labels the source «manual entry» with the «not passed» column."
-        },
-        {
-          "ar": "«لماذا؟» يعرض الاحتياج وسعة الشعبة (وكم شعبة تكفي = ⌈الاحتياج ÷ السعة⌉) وآخر 3 فصول مماثلة ومنشأ المقرر، وجملة الاقتراح وتراكم الطلبة.",
-          "en": "«why?» shows the need, section capacity (and how many sections suffice = ⌈need ÷ capacity⌉), the last 3 similar terms and the course lineage, the suggestion sentence and the student backlog."
+          "ar": "الحساب مطويّ افتراضاً ولا فقرات شرح.",
+          "en": "The math is collapsed by default, with no explanatory paragraphs."
         }
       ],
       "evidence": {
         "code": [
-          "src/components/SectionPlanning.tsx#persist",
-          "src/components/SectionPlanning.tsx#edit",
-          "src/components/SectionPlanning.tsx#fold",
-          "src/components/SectionPlanning.tsx#courseNumber"
+          "src/components/SectionPlan.tsx"
         ],
         "tests": [
-          "tests/section-planning-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
@@ -2868,12 +2722,12 @@
       "id": "FR-PLN-042",
       "kind": "functional",
       "title": {
-        "ar": "مراجعة كشف الاحتياج قبل التعبئة",
-        "en": "Reviewing the need report before filling"
+        "ar": "سعة الشعبة في الحساب",
+        "en": "Section capacity used in the math"
       },
       "text": {
-        "ar": "يجب أن تقبل الشاشة حتى 12 ملفاً (PDF أو صور صفحات)، فترسل من صورتين إلى أربع صور معاً في طلب واحد، وتقرأ ما سوى ذلك ملفاً ملفاً حاملةً عناوين الأول ثم تجمع الصفحات، وأن تعرض قبل التعبئة نافذة مراجعة بأعداد المقروء وما يحتاج مراجعة وما بلا شعب وما لم يرد، ولا تعبّئ إلا ما قُرئ بوضوح أو كتبه المستخدم أو أكّده.",
-        "en": "The screen shall accept up to 12 files (PDF or page images), sending two to four images together in one request and reading anything else file by file carrying the first file's headings, then merging the pages; before filling it shall show a review dialog with counts of read, needs-review, no-sections and not-present courses, filling only what was read clearly, typed by the user or confirmed."
+        "ar": "يجب أن تُؤخذ سعة الشعبة من سعة المقرر المسجّلة في شاشة المقررات كما هي (٥ أو ٢٥ أو ٦٠)، فإن لم تُسجَّل فمن «متوسط عدد الطلبة في الشعبة» في التقرير موسوماً «السعة من التقرير»، فإن غاب الاثنان لم يُحسب المقرر وظهر «أدخل السعة»؛ وما إن تُكتب السعة حتى يُعاد الحساب.",
+        "en": "Section capacity shall be the course capacity recorded on the courses screen, as entered (5, 25 or 60); if none is recorded, the report's average students per section, tagged 'capacity from the report'; if neither exists the course is not computed and shows 'Enter capacity'; once a capacity is entered the math is redone."
       },
       "priority": "must",
       "status": "implemented",
@@ -2883,36 +2737,16 @@
       ],
       "acceptance": [
         {
-          "ar": "في الكشف المصوَّر أو الممسوح يُؤكَّد كل رقم مقروء بزر «يطابق الورقة» أو يُصحَّح، ولا يُعبَّأ رقمٌ لم يؤكَّد.",
-          "en": "In a photographed or scanned report each read number is confirmed with «matches the paper» or corrected, and no unconfirmed number is filled."
-        },
-        {
-          "ar": "سطرٌ رمزه المقروء يشبه رمز مقرر آخر برقمٍ واحد يُعبَّأ فقط بعد «نعم، هو …»، والخانة غير المقروءة تبقى فارغة ما لم تُكتب بيد.",
-          "en": "A line whose read code differs from another course's by one digit is filled only after «yes, it is …», and an unread cell stays empty unless typed by hand."
-        },
-        {
-          "ar": "أسطرٌ ليست من مقررات القسم تظهر خافتة «لا يُعبَّأ»، والمقررات غير الواردة تُذكر «لا تُمسّ قيمتها ولا تُفرَّغ».",
-          "en": "Lines that are not the department's courses appear muted «not filled», and absent courses are listed «their value is neither touched nor cleared»."
-        },
-        {
-          "ar": "زر التعبئة يقول «تعبئة n مقرر (منها m يدوياً)» أو «لا شيء يُعبَّأ» معطّلاً؛ وفي شاشة الرفع المختصرة يُعبَّأ كشف PDF النصّي مباشرة بلا نافذة.",
-          "en": "The fill button reads «fill n courses (m by hand)» or, disabled, «nothing to fill»; in the short upload screen a text PDF report is filled directly without the dialog."
-        },
-        {
-          "ar": "الرفض يظهر في صندوق أحمر «رُفض الكشف · لم يُستورد شيء» بأيقونة وعنوان قصير وإرشاد، وبمقارنة «في الكشف ≠ المختار» للقسم أو الفرع أو الفصل.",
-          "en": "A refusal appears in a red box «report refused · nothing imported» with an icon, a short title and a hint, and an «in the report ≠ chosen» comparison for department, branch or term."
+          "ar": "سعة ٢٥ تُقرأ ٢٥: ٣٢٧ ÷ ٢٥ = ١٤.",
+          "en": "A capacity of 25 is read as 25: 327 ÷ 25 = 14."
         }
       ],
       "evidence": {
         "code": [
-          "src/components/SectionPlanning.tsx#readFiles",
-          "src/components/SectionPlanning.tsx#applyImport",
-          "src/components/SectionPlanning.tsx#REJECT_SHORT",
-          "src/utils/remainingReport.ts#planRemainingApply"
+          "src/utils/sectionPlan.ts#sectionPlan"
         ],
         "tests": [
-          "tests/section-planning-audit.ts",
-          "tests/section-planning-import-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
@@ -2920,12 +2754,12 @@
       "id": "FR-PLN-043",
       "kind": "functional",
       "title": {
-        "ar": "إزالة الكشف وظهور «نزّل الشعب» والتقرير",
-        "en": "Clearing the report, showing «apply sections», and the report"
+        "ar": "كم منتدباً نحتاج",
+        "en": "How many visiting instructors are needed"
       },
       "text": {
-        "ar": "يجب أن تتيح الشاشة إزالة الكشف المستورد بعد تأكيدٍ داخل التطبيق فتمسح أرقام «المتبقي» و«المختار» والشاغر والمصدر لهذا الفصل، وأن تُظهر «نزّل الشعب» فقط حين يوجد كشف مستورد بلا رفض وخطة محفوظة فيها شعب، وأن تعرض تقرير تخطيط الشعب وتطبعه.",
-        "en": "The screen shall allow clearing the imported report after an in-app confirmation, wiping «remaining», «chosen», vacant seats and the source for the term; it shall show «apply sections» only when an imported report without refusal and a saved plan with sections exist; and it shall show and print the section-planning report."
+        "ar": "يجب أن يعرض آخر الشاشة عدد المنتدبين للخريجين وللجميع: ساعاتٌ بلا أستاذ (شعبٌ ناقصة وشعبٌ قائمة بلا أستاذٍ حقيقي) ناقص ما بقي في أنصبة أساتذة عائلة القسم ومنتدبيها الحاليين، مقسوماً على ٦ ساعات لكل منتدب، مع سطرٍ رفيع «نفترض ٦ ساعات لكل منتدب».",
+        "en": "The end of the screen shall show visiting instructors needed for graduates and for everyone: hours without a teacher (missing sections and existing sections without a real teacher) minus what remains in the family's instructors' and current visitors' loads, divided by 6 hours per visitor, with a thin line 'We assume 6 hours per visiting instructor'."
       },
       "priority": "should",
       "status": "implemented",
@@ -2935,31 +2769,18 @@
       ],
       "acceptance": [
         {
-          "ar": "زر الإزالة ظاهرٌ دائماً ومعطّل بنصّ «لا كشف مستورد لإزالته» حين لا شيء محفوظ.",
-          "en": "The clear button is always visible and, when nothing is saved, disabled with the text «no imported report to clear»."
-        },
-        {
-          "ar": "بلا «نزّل الشعب» يُكتب السبب: «عالج رفض الكشف أولاً» أو «تعذّر حفظ الخطة» أو «تظهر بعد استيراد كشف المتبقي وحفظ خطةٍ فيها شعب».",
-          "en": "Without «apply sections» the reason is written: «resolve the report refusal first», «the plan could not be saved» or «appears after importing the remaining report and saving a plan with sections»."
-        },
-        {
-          "ar": "بياناتٌ محفوظة بعمود غير «لم يجتازوا» تظهر «بياناتٌ قديمة — أعد استيراد الكشف» ولا يُبنى عليها الاقتراح.",
-          "en": "Data saved under a column other than «not passed» shows «old data — re-import the report» and no suggestion is built on it."
-        },
-        {
-          "ar": "التقرير: مجموع الشعب المختارة والمعتاد للقسم والمقررات المخطّطة، وجدول رقم المقرر والاسم والاحتياج والمختار والمدى وآخر الفصول، ومقرراتٌ يتراكم عليها الطلبة؛ ويُحفظ المعلّق قبل فتحه.",
-          "en": "The report: total chosen sections, the department's usual total and planned courses, a table of course number, name, need, chosen, range and last terms, and courses with a student backlog; any pending edit is saved before it opens."
+          "ar": "ما بقي في الأنصبة ينقص المنتدبين، وشعبة «هيئة تدريسية» تُحسب بلا أستاذ.",
+          "en": "Remaining load reduces the count, and a placeholder-taught section counts as without a teacher."
         }
       ],
       "evidence": {
         "code": [
-          "src/components/SectionPlanning.tsx#clearImport",
-          "src/components/SectionPlanning.tsx#buildReady",
-          "src/components/SectionPlanning.tsx#openReport",
-          "src/components/SectionPlanning.tsx#print"
+          "src/utils/sectionPlan.ts#visitorsFor",
+          "src/server/sectionPlanRoom.ts#teachingRoomFor",
+          "src/components/SectionPlan.tsx"
         ],
         "tests": [
-          "tests/section-planning-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
