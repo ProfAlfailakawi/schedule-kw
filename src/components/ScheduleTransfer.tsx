@@ -79,6 +79,11 @@ interface Props {
 /* «محاكي الشعب» و«فرصة للتحسين» انتقلا إلى مركز الذكاء وحده («جرّب ← ماذا لو» وبطاقة «فرصة لتحسين الجدول»):
    أداةُ القرار لها بابٌ واحد، وأدواتُ البيانات للبيانات. */
 type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses" | "ta";
+type ToolGroup = "planning" | "people" | "files";
+/** مجموعةُ كل أداة: التخطيط (تخطيط الشعب، كل المقررات، واستيرادُ مراجعة التخطيط)، الأساتذة، الملفات. */
+const toolGroupOf = (tab: Tab, planningImport: boolean): ToolGroup =>
+  tab === "planning" || tab === "courses" || (tab === "import" && planningImport) ? "planning"
+    : tab === "roster" || tab === "visiting" || tab === "retire" || tab === "ta" ? "people" : "files";
 export type ScheduleToolTab = Tab;
 const DepartmentRoster = lazy(() => import("./DepartmentRoster"));
 /* 📚 «كل المقررات» بجانب التخطيط: كل مقررات الصحيفتين، و«− شعبة / + شعبة» بأثرٍ فوري (src/components/AllCourses.tsx). */
@@ -616,6 +621,11 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
      downward, the way the document itself is read. */
   /* مراجعة التخطيط لا تبقى تحت تبويبٍ آخر: من غادرها يعود إلى شاشةٍ نظيفة، فلا تظهر شعب التخطيط في «استيراد». */
   const goTab = (next: Tab) => { if (fromPlanning) { setXlsxPreview(null); setXlsxDraft(""); } setTab(next); };
+  /* ── مجموعاتُ «أدوات الجدول» مطويّةً (المالك 2026-11-14): ثلاثةُ أزرار، ويُفتح تحتها صفُّ المجموعة المختارة وحدها.
+     تُفتح تلقائياً مجموعةُ الأداة الحالية (فلا تختفي الأداة التي يعمل عليها)، ويفتح المستخدمُ غيرَها بنقرة دون أن يتبدّل المحتوى. */
+  const activeToolGroup: ToolGroup = toolGroupOf(tab, fromPlanning);
+  const [openToolGroup, setOpenToolGroup] = useState<ToolGroup>(activeToolGroup);
+  useEffect(() => { setOpenToolGroup(activeToolGroup); }, [activeToolGroup]);
   const importPreviewOpen = tab === "import" && importKind === "authority-pdf" && Array.isArray(xlsxPreview?.rows) && !xlsxDraft;
   /* M1: استيراد PDF يأخذ الصفحة كلها — من أول قراءة الملف حتى المعاينة والنشر — لا ورقةً
      بعرض 880px تُمرَّر أفقياً. تبقى ورقةً عادية لبقية التبويبات. */
@@ -1359,36 +1369,46 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
             تبويبات النقل إلا بعد إغلاقها. */}
         {publishReceipt ? null : (
         <nav className={`transfer-tabs transfer-tabs--grouped${termEnded ? " is-ended" : ""}`} aria-label="أدوات الجدول">
-          {/* ── ثلاث مجموعات صغيرة (المالك 2026-11-14): التخطيط أولاً، ثم الأساتذة، ثم الملفات. ── */}
+          {/* ثلاثةُ أزرار مجموعات، والمفتوحةُ وحدها تُظهر أدواتها. الأزرارُ المطويّة تبقى في الصفحة مخفيّةً (hidden)
+              حتى تجد جولةُ المرشد «نشر» وتضغطه برمجياً فتفتح مجموعتَه. الفصلُ الأرشيف: «الملفات» وحدها بلا صف مجموعات. */}
           {termEnded ? null : (
-            <div className="transfer-tab-group is-planning" role="group" aria-labelledby="transfer-group-planning">
-              <span className="transfer-tab-group-name" id="transfer-group-planning"><Compass aria-hidden="true" />التخطيط</span>
-              <div className="transfer-tab-row">
-                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
-                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "courses" ? "active" : ""} onClick={() => goTab("courses")} title="كل المقررات"><Library />كل المقررات</button>
-              </div>
+            <div className="transfer-group-switch" role="tablist" aria-label="مجموعات أدوات الجدول">
+              {([
+                { id: "planning", label: "التخطيط", Icon: Compass, count: 2 },
+                { id: "people", label: "الأساتذة", Icon: GraduationCap, count: 4 },
+                { id: "files", label: "الملفات", Icon: FolderOpen, count: 3 },
+              ] as const).map(({ id, label, Icon, count }) => (
+                <button key={id} type="button" role="tab" id={`transfer-group-tab-${id}`} aria-selected={openToolGroup === id} aria-controls={`transfer-group-${id}`}
+                  className={`transfer-group-chip is-${id}${openToolGroup === id ? " on" : ""}${activeToolGroup === id ? " has-active" : ""}`}
+                  onClick={() => setOpenToolGroup(id)}
+                  data-guide-ignore="يفتح صفّ أدوات المجموعة المختارة فقط؛ لا يبدّل الأداة الحالية ولا يغيّر بياناً">
+                  <Icon aria-hidden="true" />
+                  <span>{label}</span>
+                  <b aria-hidden="true">{count}</b>
+                </button>
+              ))}
             </div>
           )}
           {termEnded ? null : (
-            <div className="transfer-tab-group" role="group" aria-labelledby="transfer-group-people">
-              <span className="transfer-tab-group-name" id="transfer-group-people"><GraduationCap aria-hidden="true" />الأساتذة</span>
-              <div className="transfer-tab-row">
+            <div className="transfer-tab-row is-planning" role="tabpanel" id="transfer-group-planning" aria-labelledby="transfer-group-tab-planning" hidden={openToolGroup !== "planning"}>
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "planning" || (tab === "import" && fromPlanning) ? "active is-planning" : ""} onClick={() => goTab("planning")} title="تخطيط الشعب"><UsersRound />تخطيط الشعب</button>
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "courses" ? "active" : ""} onClick={() => goTab("courses")} title="كل المقررات"><Library />كل المقررات</button>
+            </div>
+          )}
+          {termEnded ? null : (
+            <div className="transfer-tab-row is-people" role="tabpanel" id="transfer-group-people" aria-labelledby="transfer-group-tab-people" hidden={openToolGroup !== "people"}>
                 <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "roster" ? "active" : ""} onClick={() => goTab("roster")} title="الأساتذة: النصاب والدرجة والحالة"><GraduationCap />الأساتذة</button>
                 <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "visiting" ? "active" : ""} onClick={() => goTab("visiting")} title="المنتدبون"><UserPlus />المنتدبون</button>
                 <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "retire" ? "active" : ""} onClick={() => goTab("retire")} title="استبدال"><UserMinus />استبدال</button>
                 <button type="button" data-guide-feature-id="schedule.tool.data" data-guide-tab="ta" className={tab === "ta" ? "active" : ""} onClick={() => goTab("ta")} title="تحويل مواعيد أعضاء هيئة التدريب إلى هيئة تدريسية أو أستاذ من القسم"><Replace />تحويل هيئة التدريب</button>
-              </div>
             </div>
           )}
-          <div className="transfer-tab-group" role="group" aria-labelledby="transfer-group-files">
-            <span className="transfer-tab-group-name" id="transfer-group-files"><FolderOpen aria-hidden="true" />الملفات</span>
-            <div className="transfer-tab-row">
+          <div className="transfer-tab-row is-files" role="tabpanel" id="transfer-group-files" aria-labelledby="transfer-group-tab-files" hidden={!termEnded && openToolGroup !== "files"}>
               {termEnded ? null : (
                 <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "import" && !fromPlanning ? "active" : ""} onClick={() => goTab("import")} title="استيراد"><Upload />استيراد</button>
               )}
               <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "export" ? "active" : ""} onClick={() => goTab("export")} title="تصدير"><Download />تصدير</button>
               <button type="button" data-guide-feature-id="schedule.tool.data" data-guide-tab="publish" className={tab === "publish" ? "active" : ""} onClick={() => goTab("publish")} title="نشر"><Link2 />نشر</button>
-            </div>
           </div>
         </nav>
         )}
