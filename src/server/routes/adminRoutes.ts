@@ -13,6 +13,7 @@ import { activeDataMode, Repository } from "../../db/repository";
 import { type AuthenticatedRequest, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin, ROOT_ADMIN_USER_ID } from "../core/auth";
 import { safeSystemUser } from "../core/scope";
 import { IMPORT_PHRASE, RESET_PHRASE, UNDO_PHRASE } from "../../utils/vaultPhrases";
+import { VaultJobConflict } from "../vaultJobPlanner";
 
 const SYSTEM_BACKUP_MAX_BYTES = 80 * 1024 * 1024;
 
@@ -64,6 +65,19 @@ async function readSystemBackupBody(req: Request): Promise<unknown> {
   if (raw.length > SYSTEM_BACKUP_MAX_BYTES) throw new Error("النسخة بعد فك الضغط أكبر من الحد الآمن");
   return JSON.parse(raw.toString("utf8"));
 }
+
+/**
+ * تعارضٌ مفهوم في مهام الخزنة (مهمةٌ أخرى مفتوحة، خطوةٌ جارية، إيجارٌ ضاع) يُردّ 409 برسالته العربية لا 500 عامّاً؛
+ * والخطوةُ المشغولة ليست خطأً: تعود 202 مع ‎busy: true‎ من المستودع فيُبقي العميلُ الاستطلاع.
+ */
+const vaultConflicts = (handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) =>
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try { await handler(req, res); }
+    catch (error) {
+      if (error instanceof VaultJobConflict) { res.status(409).json({ error: error.message, code: error.code }); return; }
+      throw error;
+    }
+  };
 
 export function registerAdminRoutes(app: Express): void {
 
@@ -165,7 +179,7 @@ app.post("/api/system-backup/preview", requireAuth, requireRootAdmin, async (req
  * working. The source is now staged once, then every following request advances
  * exactly one durable checkpoint. Closing the browser does not lose progress.
  */
-app.post("/api/system-backup/import-jobs", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/system-backup/import-jobs", requireAuth, requireRootAdmin, vaultConflicts(async (req, res) => {
   if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-IMPORT" || headerPhrase(req) !== IMPORT_PHRASE) {
     res.status(409).json({ error: `اكتب «${IMPORT_PHRASE}» للتأكيد` });
     return;
@@ -173,19 +187,19 @@ app.post("/api/system-backup/import-jobs", requireAuth, requireRootAdmin, async 
   const input = await readSystemBackupBody(req);
   const job = await Repository.startSystemImportJob(input, req.user!.SystemUserId, ROOT_ADMIN_USER_ID);
   res.status(job.status === "ready" ? 200 : 202).json(job);
-});
+}));
 
 app.get("/api/system-backup/import-jobs/:id", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
   res.json(await Repository.getSystemImportJob(String(req.params.id), ROOT_ADMIN_USER_ID));
 });
 
-app.post("/api/system-backup/import-jobs/:id/step", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/system-backup/import-jobs/:id/step", requireAuth, requireRootAdmin, vaultConflicts(async (req, res) => {
   const job = await Repository.advanceSystemImportJob(String(req.params.id), ROOT_ADMIN_USER_ID);
   res.status(job.status === "ready" ? 200 : 202).json(job);
-});
+}));
 
 /* إلغاءُ استيرادٍ لم يكتمل: إن كان قد بدأ الاستبدال أُعيد النظامُ من نقطة أمانه؛ ثم تنفتح الخزنة لملفٍّ جديد. */
-app.delete("/api/system-backup/import-jobs/:id", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.delete("/api/system-backup/import-jobs/:id", requireAuth, requireRootAdmin, vaultConflicts(async (req, res) => {
   if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-IMPORT-ABANDON") {
     res.status(409).json({ error: "إلغاء الاستيراد يحتاج تأكيداً صريحاً" });
     return;
@@ -193,7 +207,7 @@ app.delete("/api/system-backup/import-jobs/:id", requireAuth, requireRootAdmin, 
   const job = await Repository.abandonSystemImportJob(String(req.params.id), ROOT_ADMIN_USER_ID);
   res.locals.auditChanges = job.rolledBack ? "إلغاء استيراد متوقف والعودة إلى نقطة الأمان" : "إلغاء استيراد قبل أي تغيير";
   res.json(job);
-});
+}));
 
 app.post("/api/system-backup/import", requireAuth, requireRootAdmin, async (_req: AuthenticatedRequest, res: Response) => {
   res.status(409).json({ error: "تم استبدال الاستيراد المباشر باستيراد متدرج قابل للاستكمال. افتح «النسخة الاحتياطية» واضغط «استيراد» من جديد." });
@@ -206,7 +220,7 @@ app.post("/api/system-backup/import", requireAuth, requireRootAdmin, async (_req
  */
 const opJobStatus = (job: { status: string }) => (job.status === "ready" ? 200 : 202);
 
-app.post("/api/system-backup/reset", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/system-backup/reset", requireAuth, requireRootAdmin, vaultConflicts(async (req, res) => {
   if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-RESET" || String(req.body?.phrase || "") !== RESET_PHRASE) {
     res.status(409).json({ error: `اكتب «${RESET_PHRASE}» للتأكيد` });
     return;
@@ -214,9 +228,9 @@ app.post("/api/system-backup/reset", requireAuth, requireRootAdmin, async (req: 
   const job = await Repository.startSystemOpJob("reset", req.user!.SystemUserId, ROOT_ADMIN_USER_ID);
   res.locals.auditChanges = "بدء تصفير النظام (مهمة متدرجة بنقطة أمان)";
   res.status(opJobStatus(job)).json(job);
-});
+}));
 
-app.post("/api/system-backup/undo", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/system-backup/undo", requireAuth, requireRootAdmin, vaultConflicts(async (req, res) => {
   if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-UNDO" || String(req.body?.phrase || "") !== UNDO_PHRASE) {
     res.status(409).json({ error: `اكتب «${UNDO_PHRASE}» للتأكيد` });
     return;
@@ -224,27 +238,29 @@ app.post("/api/system-backup/undo", requireAuth, requireRootAdmin, async (req: A
   const job = await Repository.startSystemOpJob("undo", req.user!.SystemUserId, ROOT_ADMIN_USER_ID);
   res.locals.auditChanges = `بدء التراجع الكامل إلى «${job.targetAction || "نقطة الأمان"}» (مهمة متدرجة)`;
   res.status(opJobStatus(job)).json(job);
-});
+}));
 
 app.get("/api/system-backup/op-jobs/:id", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
   res.json(await Repository.getSystemOpJob(String(req.params.id), ROOT_ADMIN_USER_ID));
 });
 
-app.post("/api/system-backup/op-jobs/:id/step", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.post("/api/system-backup/op-jobs/:id/step", requireAuth, requireRootAdmin, vaultConflicts(async (req, res) => {
   const job = await Repository.advanceSystemOpJob(String(req.params.id), ROOT_ADMIN_USER_ID);
   if (job.status === "ready") res.locals.auditChanges = job.kind === "reset" ? "اكتمل تصفير النظام" : "اكتمل التراجع الكامل";
+  if (job.status === "abandoned") res.locals.auditChanges = "اكتملت العودة إلى نقطة الأمان بعد إلغاء عملية نظام";
   res.status(opJobStatus(job)).json(job);
-});
+}));
 
-app.delete("/api/system-backup/op-jobs/:id", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+app.delete("/api/system-backup/op-jobs/:id", requireAuth, requireRootAdmin, vaultConflicts(async (req, res) => {
   if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-OP-ABANDON") {
     res.status(409).json({ error: "إلغاء العملية يحتاج تأكيداً صريحاً" });
     return;
   }
   const job = await Repository.abandonSystemOpJob(String(req.params.id), ROOT_ADMIN_USER_ID);
-  res.locals.auditChanges = job.rolledBack ? "إلغاء عملية نظام متوقفة والعودة إلى نقطة الأمان" : "إلغاء عملية نظام قبل أي تغيير";
+  res.locals.auditChanges = job.rollingBack ? "بدء العودة المتدرجة إلى نقطة الأمان بعد إلغاء عملية نظام"
+    : job.rolledBack ? "إلغاء عملية نظام متوقفة والعودة إلى نقطة الأمان" : "إلغاء عملية نظام قبل أي تغيير";
   res.json(job);
-});
+}));
 
 app.get("/api/audit-logs", requireAuth, requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
   /* صفحةٌ بعد صفحة: `before` طابعُ آخر سطرٍ في الصفحة السابقة، و`from`/`to` نطاقُ تاريخ. */
