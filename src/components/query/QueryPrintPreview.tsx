@@ -50,7 +50,7 @@ export default function QueryPrintPreview({ refreshKey, onPrint, disabled, label
         <Eye aria-hidden="true" />
       </button>
       {open ? (
-        <div className="query-preview-pop" role="dialog" aria-label="معاينة الصفحات">
+        <div className="query-preview-pop" role="dialog" aria-modal="false" aria-label="معاينة الصفحات">
           <header><FileText aria-hidden="true" /><b>{pages.length.toLocaleString("ar-KW-u-nu-latn")}</b><small>A4</small>
             <button type="button" className="query-preview-x" data-guide-ignore="إغلاق المعاينة" aria-label="إغلاق" onClick={() => setOpen(false)}><X aria-hidden="true" /></button></header>
           <ol>
@@ -61,7 +61,7 @@ export default function QueryPrintPreview({ refreshKey, onPrint, disabled, label
               </li>
             ))}
           </ol>
-          <button type="button" className="query-preview-print" data-guide-ignore="طباعة بعد المعاينة؛ قراءة فقط" onClick={() => { setOpen(false); onPrint(); }}><Printer aria-hidden="true" /></button>
+          <button type="button" className="query-preview-print" data-guide-ignore="طباعة بعد المعاينة؛ قراءة فقط" aria-label="طباعة" title="طباعة" onClick={() => { setOpen(false); onPrint(); }}><Printer aria-hidden="true" /></button>
         </div>
       ) : null}
     </span>

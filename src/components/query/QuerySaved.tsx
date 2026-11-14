@@ -43,7 +43,7 @@ export default function QuerySaved({ reports, changed, canShare, problem, onOpen
         {copied ? <Check aria-hidden="true" /> : <Link2 aria-hidden="true" />}
       </button>
       {open ? (
-        <div className="query-saved-pop" role="dialog" aria-label="تقاريري">
+        <div className="query-saved-pop" role="dialog" aria-modal="false" aria-label="تقاريري">
           {reports.length ? (
             <ul>
               {reports.map(item => (

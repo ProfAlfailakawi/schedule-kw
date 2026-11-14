@@ -1,3 +1,4 @@
+import { AR, countOf } from "../../utils/arabicCount";
 import { Activity, CalendarClock, ChevronDown, FileWarning, Printer, ShieldAlert, Sunrise, UserRound } from "lucide-react";
 import { DnaRing } from "../dna";
 import type { MorningBrief } from "../../utils/morningBrief";
@@ -26,7 +27,7 @@ export default function QueryBrief({ open, onToggle, loading, data, error, onPri
               <i data-tone={stats.moves ? "info" : "good"} title="حركات آخر ٢٤ ساعة"><Activity aria-hidden="true" /><b>{n(stats.moves)}</b></i>
               <i data-tone={stats.blockers ? "danger" : "good"} title="موانع الاعتماد"><ShieldAlert aria-hidden="true" /><b>{n(stats.blockers)}</b></i>
               <i data-tone={stats.notes ? "warn" : "good"} title="ملاحظات لائحية"><FileWarning aria-hidden="true" /><b>{n(stats.notes)}</b></i>
-              <i data-tone={dayTone} title={days === null ? "لا موعد تسليم" : days < 0 ? `انقضى منذ ${n(-days)} يوم` : `بقي ${n(days)} يوم`}><CalendarClock aria-hidden="true" /><b>{days === null ? "—" : n(days)}</b></i>
+              <i data-tone={dayTone} title={days === null ? "لا موعد تسليم" : days < 0 ? `انقضى منذ ${countOf(-days, AR.day)}` : `بقي ${countOf(days, AR.day)}`}><CalendarClock aria-hidden="true" /><b>{days === null ? "—" : n(days)}</b></i>
             </>
           ) : <em className="morning-brief-wait">{loading ? "…" : "الصباح"}</em>}
         </span>
@@ -37,7 +38,7 @@ export default function QueryBrief({ open, onToggle, loading, data, error, onPri
           {loading || !data ? <p role="status" className="morning-brief-wait">…</p> : (
             <>
               <div className="morning-brief-facts">
-                <DnaRing value={days === null ? undefined : Math.max(0, Math.min(30, days))} max={30} size={56} stroke={5} tone={dayTone as any} label={days === null ? "—" : n(days)} sublabel="يوم" ariaLabel={days === null ? "لا موعد" : `بقي ${days} يوم`} />
+                <DnaRing value={days === null ? undefined : Math.max(0, Math.min(30, days))} max={30} size={56} stroke={5} tone={dayTone as any} label={days === null ? "—" : n(days)} sublabel="يوم" ariaLabel={days === null ? "لا موعد" : `بقي ${countOf(days, AR.day)}`} />
                 <ul className="morning-brief-delta" aria-label="التغيير منذ آخر مراجعة">
                   <li data-tone="good" title="أُضيف"><b>+{n(data.stats.added)}</b></li>
                   <li data-tone="danger" title="حُذف"><b>−{n(data.stats.removed)}</b></li>

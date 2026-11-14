@@ -1,3 +1,4 @@
+import { AR, countOf } from "../../utils/arabicCount";
 import { Clock3, DoorOpen, UserRound } from "lucide-react";
 import type { ReportInsights } from "../../utils/reportInsights";
 
@@ -12,14 +13,14 @@ export default function QueryInsights({ insights, onHeaviest, onBusiest, onFree 
     <div className="query-insights no-print" role="list" aria-label="الجواب السريع">
       {heaviest ? (
         <button type="button" role="listitem" data-guide-ignore="فتح مواعيد الأستاذ الأثقل؛ يغيّر العرض فقط" onClick={onHeaviest}
-          title={`أثقل نصاباً: ${heaviest.name} — ${n(heaviest.hours)} ساعة معتمدة`}>
+          title={`أثقل نصاباً: ${heaviest.name} — ${countOf(heaviest.hours, AR.hour)} معتمدة`}>
           <span className="qi-icon"><UserRound aria-hidden="true" /></span>
           <span className="qi-body"><b>{heaviest.name}</b><small>{n(heaviest.hours)} س.م · {n(heaviest.lectures)}</small></span>
         </button>
       ) : null}
       {busiest ? (
         <button type="button" role="listitem" data-guide-ignore="فتح مواعيد أزحم ساعة؛ يغيّر العرض فقط" onClick={onBusiest}
-          title={`أزحم ساعة: ${busiest.dayLabel} ${busiest.label} — ${n(busiest.lectures)} محاضرات`}>
+          title={`أزحم ساعة: ${busiest.dayLabel} ${busiest.label} — ${countOf(busiest.lectures, AR.lecture)}`}>
           <span className="qi-icon"><Clock3 aria-hidden="true" /></span>
           <span className="qi-body"><b>{busiest.dayLabel} <bdi dir="ltr">{busiest.label}</bdi></b><small>{n(busiest.lectures)} معاً</small></span>
         </button>

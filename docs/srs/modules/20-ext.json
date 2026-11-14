@@ -1437,8 +1437,8 @@
         "en": "Environment variables and secrets"
       },
       "text": {
-        "ar": "يجب أن تُمرَّر الإعدادات والأسرار عبر البيئة وحدها بأسماء محددة: DATA_MODE وFIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID وFIREBASE_CONFIG_SOURCE وGEMINI_API_KEY وGEMINI_SCHEDULE_MODEL وVAPID_PUBLIC_KEY وVAPID_PRIVATE_KEY وCALENDAR_SECRET وAD_MAIL_API_KEY وAD_MAIL_FROM وAD_MAIL_API_URL وAD_LEAD_NOTIFY_TO وPASSWORD_VAULT_KEY وSCHEDULE_PRIVATE_DIR وOCR_DATA_DIR وPUBLIC_RATE_LIMIT_MAX؛ وألا تُكتب أسرار في المستودع أو الوثائق أو أرشيفات التسليم.",
-        "en": "Settings and secrets shall pass through the environment alone under fixed names: DATA_MODE, FIREBASE_PROJECT_ID, FIREBASE_DATABASE_ID, FIREBASE_CONFIG_SOURCE, GEMINI_API_KEY, GEMINI_SCHEDULE_MODEL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, CALENDAR_SECRET, AD_MAIL_API_KEY, AD_MAIL_FROM, AD_MAIL_API_URL, AD_LEAD_NOTIFY_TO, PASSWORD_VAULT_KEY, SCHEDULE_PRIVATE_DIR, OCR_DATA_DIR and PUBLIC_RATE_LIMIT_MAX; no secret shall be written in the repository, documents or delivery archives."
+        "ar": "يجب أن تُمرَّر الإعدادات والأسرار عبر البيئة وحدها بأسماء محددة: DATA_MODE وFIREBASE_PROJECT_ID وFIREBASE_DATABASE_ID وFIREBASE_CONFIG_SOURCE وGEMINI_API_KEY وGEMINI_SCHEDULE_MODEL وVAPID_PUBLIC_KEY وVAPID_PRIVATE_KEY وCALENDAR_SECRET وAD_MAIL_API_KEY وAD_MAIL_FROM وAD_MAIL_API_URL وAD_LEAD_NOTIFY_TO وPASSWORD_VAULT_KEY وSCHEDULE_PRIVATE_DIR وOCR_DATA_DIR وPUBLIC_RATE_LIMIT_MAX وMORNING_BRIEF_TOKEN (سرّ جدولة موجز الصباح)؛ وألا تُكتب أسرار في المستودع أو الوثائق أو أرشيفات التسليم.",
+        "en": "Settings and secrets shall pass through the environment alone under fixed names: DATA_MODE, FIREBASE_PROJECT_ID, FIREBASE_DATABASE_ID, FIREBASE_CONFIG_SOURCE, GEMINI_API_KEY, GEMINI_SCHEDULE_MODEL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, CALENDAR_SECRET, AD_MAIL_API_KEY, AD_MAIL_FROM, AD_MAIL_API_URL, AD_LEAD_NOTIFY_TO, PASSWORD_VAULT_KEY, SCHEDULE_PRIVATE_DIR, OCR_DATA_DIR and PUBLIC_RATE_LIMIT_MAX and MORNING_BRIEF_TOKEN (the morning-brief scheduler secret); no secret shall be written in the repository, documents or delivery archives."
       },
       "priority": "must",
       "status": "implemented",

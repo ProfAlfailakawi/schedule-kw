@@ -9,7 +9,7 @@ import {
   BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
   ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, Grid3x3, Network,
-  Hash, IdCard, Mic,
+  Hash, Fingerprint, Mic,
 } from "lucide-react";
 import { resolveAsk, type AskAnswer, type AskOption } from "../utils/queryAsk";
 import { buildReportInsights } from "../utils/reportInsights";
@@ -1465,7 +1465,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const defs: Array<{ key: string; omit: string[]; label: string; icon: React.ReactNode; active: boolean; clear: () => void }> = [
       { key: "instructor", omit: ["instructor"], label: selectedInstructor?.AdInstructorName || "", icon: <UserRound aria-hidden="true" />, active: Boolean(filters.instructorId), clear: () => set("instructorId", 0) },
       { key: "name", omit: ["name"], label: filters.instructorQuery, icon: <Search aria-hidden="true" />, active: Boolean(filters.instructorQuery.trim()), clear: () => set("instructorQuery", "") },
-      { key: "civil", omit: ["civil"], label: filters.civil, icon: <IdCard aria-hidden="true" />, active: Boolean(filters.civil.trim()), clear: () => set("civil", "") },
+      { key: "civil", omit: ["civil"], label: filters.civil, icon: <Fingerprint aria-hidden="true" />, active: Boolean(filters.civil.trim()), clear: () => set("civil", "") },
       { key: "building", omit: ["building", "hall"], label: locationRegistry.buildings.find(item => item.id === filters.building)?.officialCode || "", icon: <Building2 aria-hidden="true" />, active: Boolean(filters.building), clear: () => setFilters(prev => ({ ...prev, building: "", hall: "" })) },
       { key: "hall", omit: ["hall"], label: locationRegistry.rooms.find(item => item.id === filters.hall)?.canonicalCode || "", icon: <DoorOpen aria-hidden="true" />, active: Boolean(filters.hall), clear: () => set("hall", "") },
       { key: "course", omit: ["course"], label: selectedCourse?.CourseName || "", icon: <BookOpen aria-hidden="true" />, active: Boolean(filters.courseId), clear: () => set("courseId", 0) },
