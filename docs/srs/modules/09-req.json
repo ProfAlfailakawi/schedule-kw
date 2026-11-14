@@ -1419,6 +1419,24 @@
         { "ar": "لا يُعبّأ النموذج إلا إن فُتح فعلاً (لا قفل ولا بوابة هاتف)، وأوقاتٌ تختلف بين الأيام تفتح الموعد كما هو.", "en": "The form is only filled when it actually opened (no lock, no phone gate), and times that differ between days open the appointment as it is." }
       ],
       "evidence": { "code": ["src/utils/requestOpenRow.ts#requestedChangeOf", "src/components/InstructorInbox.tsx#openRowInSchedule", "src/components/Schedules.tsx"], "tests": ["tests/proposal-open-row-audit.ts", "tests/instructor-requests-owner-notes-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-060",
+      "kind": "functional",
+      "title": {"ar": "«وضع الطيّار»: بندٌ واحد في كل مرّة بثلاثة أفعال ومفاتيحها", "en": "Pilot mode: one pending item at a time with three keyed actions"},
+      "text": {
+        "ar": "يجب أن يتيح «وضع الطيّار» في «رغبات الأساتذة» لمن يقرّر (في فصلٍ غير مجمَّد، وحين ينتظر بندٌ واحد على الأقل) شاشةً تملأ النافذة تعرض بنداً واحداً ينتظر القرار: الأستاذ وقسمه وتاريخ إرساله، والمقرّر وشعبته، و«كان ← المطلوب» يوماً ووقتاً وقاعة، وما يحسبه الوارد من حكمٍ محفوظ (تعارض أو مخالفة لائحية) وفحصٍ حيّ، والبدائلَ الجاهزة المحسوبة؛ مع «7 من 30» وشريط تقدّم. وترتيبُ القائمة الأقدمُ إرسالاً أولاً، ويُتخطّى ما قُرّر (هنا أو من زميل). والأفعال ثلاثة: «ثبّت» (F، أو Enter حين لا يكون التركيز على زرٍّ آخر) عبر دالّة التثبيت نفسها في الوارد (المعاينة ثم /apply بختم الإصدار)، و«بديل» (B) يفتح ورقةَ الرفض نفسها بأسبابها وبدائلها المحسوبة ثم /decide، و«التالي» (→ أو Space) يتخطّى البندَ ويعيده في جولةٍ ثانية؛ وEscape يخرج. والإضافةُ تُسلَّم إلى بطاقتها السريعة في الوارد. وما ردّه الخادم (تعارض، فصلٌ مجمَّد، إصدارٌ أحدث) يبقى على البطاقة نفسها برسالته، وورقةُ الرفض لا تُغلق قبل الحفظ فلا يضيع ما كُتب. ولا «تراجع» إلا عن التخطّي، لأن مسار الوارد لا يعيد فتحَ بندٍ ثُبّت منه أو رُفض.",
+        "en": "Pilot mode in the faculty-requests inbox shall give a deciding user (in a non-frozen term, with at least one pending item) a full-window screen showing one pending item at a time: the member, department and submission date, the course and section, the before-to-after day, time and room, the stored verdict (conflict or regulation breach) and live check the inbox already computes, and the pre-computed ready alternatives; with an \"n of N\" counter and a progress bar. The queue is oldest-submitted first and skips items already decided here or by a colleague. Three actions: Fix (F, or Enter when focus is not on another button) through the inbox's own fix function (preview then /apply with the revision stamp), Alternative (B) opening the same reject sheet with its reasons and computed alternatives then /decide, and Next (Right arrow or Space) which skips the item and brings it back in a second pass; Escape exits. An add item is handed to its quick card in the inbox. A server refusal (conflict, frozen term, newer revision) stays on the same card with its message, and the reject sheet stays open until saved so nothing typed is lost. Undo is offered for skipping only, because the inbox flow does not reopen an item it fixed or rejected."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        {"ar": "حوارٌ مشروط (role=dialog وaria-modal) بحصر التركيز وإعادته إلى زرّ الدخول عند الخروج، ومفاتيحُ مرئية على الأزرار، ولا تعمل المفاتيح في حقل كتابة أو مع Ctrl/Meta/Alt، وتعمل واللوحةُ عربية.", "en": "A modal dialog (role=dialog, aria-modal) with a focus trap that returns focus to the entry button on exit, visible key hints on the buttons, keys inactive inside text fields or with Ctrl/Meta/Alt, and working on an Arabic keyboard layout."},
+        {"ar": "على عرض الهاتف (390px) يملأ الشاشة والأزرارُ عمودٌ واحد بارتفاع 56px على الأقل، والحركةُ تتوقّف مع prefers-reduced-motion.", "en": "At phone width (390px) it fills the screen with the buttons in one column at least 56px tall, and motion stops under prefers-reduced-motion."},
+        {"ar": "لا نداءَ خادمٍ في الوضع نفسه: كلُّ فعلٍ عبر دوالّ الوارد، فيرث فحوصَ الإصدار وتجميدَ الفصل والقفلَ ومعالجةَ الأخطاء كما هي.", "en": "The mode makes no server call itself: every action goes through the inbox's functions, inheriting revision checks, term freeze, locks and error handling unchanged."}
+      ],
+      "evidence": {"code": ["src/components/inbox/InboxPilot.tsx", "src/utils/inboxPilot.ts#buildPilotQueue", "src/utils/inboxPilot.ts#pilotCommand", "src/components/InstructorInbox.tsx", "src/styles/57-inbox-pilot.css"], "tests": ["tests/inbox-pilot-audit.ts"]}
     }
   ],
   "edgeCases": [
