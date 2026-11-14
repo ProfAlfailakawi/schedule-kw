@@ -53,3 +53,58 @@
 .hg-go:focus-visible{outline:2px solid var(--accent,currentColor);outline-offset:2px}
 .hg-go svg{inline-size:16px;block-size:16px}
 @media (max-width:520px){.hg-go{padding-inline:8px}}
+
+/* ── «سلامة الميزات الجديدة» (FeatureHealth): ست بطاقاتٍ صغيرة؛ أرقامٌ كبيرة، حلقاتٌ وأشرطة، بلا نصٍّ طويل ── */
+.fh-card{display:grid;gap:12px;padding:16px;border:1px solid var(--line);border-radius:22px;background:var(--surface)}
+.fh-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fh-top h2{margin:0;font-size:1.05rem;font-weight:800;flex:1 1 0;min-inline-size:0}
+.fh-top-icon{display:grid;place-items:center;inline-size:40px;block-size:40px;border-radius:14px;background:var(--accent-soft,var(--surface-2));color:var(--accent,var(--muted))}
+.fh-top-icon svg{inline-size:22px;block-size:22px}
+.fh-status{font-size:.8rem;color:var(--muted);min-block-size:1em;order:3;flex:1 0 100%}
+.fh-refresh,.fh-retry{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-inline-size:44px;min-block-size:44px;padding-inline:14px;font:inherit;font-size:.85rem;font-weight:700;border:1px solid var(--line);border-radius:99px;background:var(--surface-2);color:inherit;cursor:pointer}
+.fh-refresh:hover,.fh-retry:hover{border-color:var(--accent,currentColor)}
+.fh-refresh:focus-visible,.fh-retry:focus-visible{outline:2px solid var(--accent,currentColor);outline-offset:2px}
+.fh-refresh:disabled,.fh-retry:disabled{opacity:.7;cursor:progress}
+.fh-refresh svg,.fh-retry svg{inline-size:18px;block-size:18px}
+.fh-refresh .spin{animation:sh-spin 1s linear infinite}
+.fh-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin:0;padding:0;list-style:none}
+.fh-tile{display:grid;gap:8px;align-content:start;padding:14px;border:1px solid var(--line);border-inline-start-width:5px;border-radius:18px;background:var(--surface-2);min-inline-size:0}
+.fh-tile.t-ok{border-inline-start-color:var(--success)}
+.fh-tile.t-warn{border-inline-start-color:var(--warning);background:var(--warning-soft)}
+.fh-tile.t-unknown,.fh-tile.t-idle,.fh-tile.t-empty{border-inline-start-color:var(--muted-2)}
+.fh-head{display:flex;align-items:center;gap:10px}
+.fh-head h3{margin:0;font-size:.95rem;font-weight:700;flex:1 1 auto}
+.fh-icon{display:grid;place-items:center;inline-size:34px;block-size:34px;border-radius:11px;background:var(--surface);color:var(--muted)}
+.fh-icon svg{inline-size:19px;block-size:19px}
+.fh-flag{display:grid;place-items:center;inline-size:28px;block-size:28px;border-radius:99px;background:var(--warning-soft);color:var(--warning)}
+.fh-flag svg{inline-size:17px;block-size:17px}
+.fh-body{display:grid;gap:8px}
+.fh-main{display:flex;align-items:center;gap:12px}
+.fh-big{display:flex;align-items:baseline;gap:6px;margin:0;flex-wrap:wrap}
+.fh-big b{font-size:1.9rem;line-height:1.2;font-weight:800}
+.fh-big span{font-size:.85rem;color:var(--muted)}
+.fh-big.is-zero b{color:var(--muted)}
+.fh-ring{inline-size:64px;block-size:64px;flex:none}
+.fh-ring-track{fill:none;stroke:var(--line);stroke-width:7}
+.fh-ring-fill{fill:none;stroke:var(--success);stroke-width:7;stroke-linecap:round}
+.t-warn .fh-ring-fill{stroke:var(--warning)}
+.fh-ring text{font-size:14px;font-weight:800;fill:currentColor}
+.fh-note{margin:0;font-size:.85rem;color:var(--muted)}
+.fh-note.is-inert{font-weight:700}
+.fh-hint{margin:0;font-size:.8rem;color:var(--muted)}
+.fh-attn{margin:0;font-size:.85rem;font-weight:800;color:var(--warning)}
+.fh-bars{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.fh-bars li{display:grid;grid-template-columns:minmax(0,7.5em) minmax(0,1fr) 2.5em;align-items:center;gap:8px;font-size:.8rem}
+.fh-bar-label{color:var(--muted);overflow-wrap:anywhere}
+.fh-bar-track{block-size:8px;border-radius:99px;background:var(--line);overflow:hidden;display:block}
+.fh-bar-track i{display:block;block-size:100%;border-radius:99px;background:var(--success)}
+.t-warn .fh-bar-track i{background:var(--warning)}
+.fh-bars b{font-weight:800;text-align:end}
+.fh-bars li.is-zero b,.fh-chips li.is-zero b{color:var(--muted);font-weight:600}
+.fh-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.fh-chips li{display:inline-flex;align-items:baseline;gap:5px;padding:3px 10px;border-radius:99px;background:var(--surface);border:1px solid var(--line);font-size:.8rem}
+.fh-chips li span{color:var(--muted)}
+.fh-chips li.is-zero{border-style:dashed}
+@media (min-width:640px){.fh-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fh-status{order:0;flex:0 1 auto}}
+@media (min-width:960px){.fh-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (prefers-reduced-motion:reduce){.fh-refresh .spin{animation:none}}

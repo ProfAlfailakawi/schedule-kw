@@ -325,6 +325,7 @@ test:whatif-in-changes
 test:roster-add-instructor
 test:print-ink
 test:system-health
+test:feature-health
 test:wish-patterns
 test:latin-digits
 test:ladder-start-hint
