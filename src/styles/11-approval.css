@@ -1743,3 +1743,14 @@ button.apb-staff-chip,button.apb-staff-need{border:0;font-family:inherit;cursor:
 .request-room-switch{font-family:inherit;color:var(--accent-ink,var(--accent));font-weight:600}
 .request-room-switch{gap:5px}.request-room-switch bdi{font-family:var(--font-mono,ui-monospace,monospace);margin-inline-start:4px}
 .deadline-strip .deadline-article{flex:1 1 100%;margin-block-start:2px;color:var(--muted,#5b6660);font-size:11.5px;line-height:1.6;font-weight:500}
+
+/* «مراجعة الاعتماد» نفسُها مدمجةً في «تغييرات الجدول» (المالك 2026-11-14): بلا نافذة ولا ارتفاعٍ مقفول. */
+.review-inline{display:block;min-width:0}
+.review-sheet.review-sheet--inline{width:100%;max-width:none;max-height:none;border:0;border-radius:0;box-shadow:none;animation:none;overflow:visible}
+.review-sheet.review-sheet--inline .review-body{flex:none;overflow:visible;min-height:0}
+/* لا درجةَ بلا قراءة: «أقرأ…» أو «تعذّرت القراءة» بزرّ إعادة. */
+.review-unavailable{position:relative;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;min-height:96px;padding:20px 48px;text-align:center;color:var(--muted)}
+.review-unavailable>svg{inline-size:20px;block-size:20px;flex:none}
+.review-unavailable[data-review-state="failed"]>svg{color:var(--warning)}
+.review-unavailable>strong{font-size:.95rem;color:var(--ink)}
+.review-unavailable>.drawer-close{position:absolute;inset-inline-end:12px;inset-block-start:12px}

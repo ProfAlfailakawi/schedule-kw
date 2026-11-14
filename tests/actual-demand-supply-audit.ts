@@ -148,7 +148,7 @@ const view = supplyView(many);
 check(view.list.length === SUPPLY_LIST_LIMIT && view.total === 45 && view.summary.uncovered === 45 && view.summary.seats === 450 && view.summary.graduates === 6,
   "A2 45 مقرراً بلا شعبة: القائمة 40، والملخّص 45 مقرراً و450 مقعداً و6 خريجين من البنود كلها", { list: view.list.length, total: view.total, summary: view.summary });
 const serverSource = fs.readFileSync("src/server/actualDemand.ts", "utf8");
-check(/supplyView\(supply\.items\)/.test(serverSource) && /alertSummary: view/.test(serverSource) && !/\.slice\(0, 40\)/.test(serverSource),
-  "A2 demandReading يرسل alertSummary من البنود كلها ولا يقص القائمة يدوياً");
+check(/sectionPlanOf\(context, room\)/.test(serverSource) && !/supplyView\(/.test(serverSource) && !/\.slice\(0, 40\)/.test(serverSource),
+  "A2 demandReading يرسل تخطيط الشعب كاملاً (src/utils/sectionPlan.ts) لا قائمة العرض والطلب المقصوصة");
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

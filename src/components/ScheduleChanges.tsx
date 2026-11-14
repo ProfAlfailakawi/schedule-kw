@@ -36,15 +36,15 @@ import { APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, CLOSED_BY_ACCEPTANCE_LABEL
 import { isViewerOnlyRole } from "../utils/academicRoles";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import VisitingBadge from "./VisitingBadge";
-import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
+import ScheduleReview from "./ScheduleReview";
+import { changesReviewHeadline } from "../utils/changesReviewHeadline";
 import { DIFF_FIELD_LABEL, type DiffFieldKey } from "../utils/scheduleDiff";
-import { appointmentCoverageScore, DECISION_1913_LABEL, type PeriodBalanceData } from "../utils/scheduleRegulations";
+import { type PeriodBalanceData } from "../utils/scheduleRegulations";
 import { currentTermId, termIsArchive } from "../utils/termSequence";
-import type { AdTerm, ScheduleApprovalStatus } from "../types";
+import type { AdCollege, AdCourse, AdInstructor, AdTerm, FSchedule, ScheduleApprovalStatus } from "../types";
 import { singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeContext";
 import { inboxAudience, multiSiteHeadline, type InboxAudience } from "../utils/inboxAudience";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
-import PagedFindingList from "./PagedFindingList";
 import ApprovalDossier from "./ApprovalDossier";
 import TermFrozenRibbon, { useTermFrozen } from "./TermFrozenRibbon";
 import { approvalScopeKey, authorityBaselineLabel, AUTHORITY_BASELINE_LABEL, createScopeGuard } from "../utils/approvalScope";
@@ -531,260 +531,66 @@ function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExt
 
 const KIND_LABEL: Record<DiffEntry["kind"], string> = { added: "مضاف", removed: "محذوف", changed: "معدّل" };
 
-/**
- * نفس بطاقات مراجعة الاعتماد، داخل موضع المراجعة الفعلي.
- *
- * نستعمل أصناف `review-*` نفسها التي ترسمها ScheduleReview، فلا يصبح للنظام
- * عرضٌ ثالث للملاحظة اللائحية. المحتوى يصل مفصلاً من فاحص النطاق نفسه، وليس
- * عداداً يطلب من القارئ أن يبحث عن التفاصيل في شاشة أخرى.
- */
-/**
- * ── تفاصيلُ الملاحظة في مكانها، كما في «الجدول الدراسي» ───────────────────
- *
- * كان الضغطُ على ملاحظةٍ هنا ينقل القارئ إلى الجدول فوراً — فيغادر المراجعة
- * ليعرف من المقصود. وفي «الجدول الدراسي» الضغطةُ تفتح الملاحظةَ في مكانها:
- * أسماءُ الأساتذة وشعبُهم وأوقاتُهم، ثم زرٌّ صريحٌ لمن أراد الانتقال. فصارت هنا
- * كذلك، بالأصناف نفسِها (`review-person`، `review-row-card`) فلا يفترق الشكلان.
- */
-function FindingRows({ rowIds, rowsById, onJump }: { rowIds: number[]; rowsById: Map<number, DisplayRow>; onJump: (rowIds: number[]) => void }) {
-  const groups = new Map<string, DisplayRow[]>();
-  for (const id of [...new Set(rowIds.map(Number))]) {
-    const row = rowsById.get(id);
-    if (!row) continue;
-    const who = row.instructor || "بدون أستاذ";
-    groups.set(who, [...(groups.get(who) || []), row]);
-  }
-  const people = [...groups.entries()];
-  const sections = new Set(people.flatMap(([, rows]) => rows.map(row => `${row.courseCode}:${row.sectionCode}`))).size;
-  /* كلُّهم، صفحةً صفحة — المكوّنُ نفسُه الذي في «مراجعة الاعتماد» (PagedFindingList). */
-  return (
-    <div className="review-rows">
-      {people.length ? (
-        <PagedFindingList
-          items={people}
-          pageSize={8}
-          label="أساتذة الملاحظة"
-          summary={<><b>{countOf(people.length, AR.instructor)}</b><span>{countOf(sections, AR.section)}</span></>}
-          getKey={([who]) => who}
-          searchText={([who, rows]) => `${who} ${rows.map(row => `${row.courseCode} ${row.course} ${row.sectionCode}`).join(" ")}`}
-          renderItem={([who, rows]) => <FindingPerson who={who} rows={rows} onJump={onJump} />}
-        />
-      ) : <p className="review-more">المواعيد المعنيّة خارج ما يعرضه هذا التقرير.</p>}
-    </div>
-  );
-}
+/* ── «مراجعة الاعتماد» واحدةٌ في المكانين (المالك 2026-11-14) ─────────────────
+   كانت هنا مراجعةٌ ثانية بدرجتها الخاصة (حسابُ تغطيةٍ آخر) وبطاقاتها، فقد
+   يرى القسمُ للجدول نفسه رقمين. صارت الشاشةَ نفسَها التي في «الجدول الدراسي»
+   (ScheduleReview) مدمجةً في الصفحة: الدرجةُ من approvalScoreBreakdown، والموانعُ
+   المادّية وحدها «تمنع»، وبنودُ اللائحة «للمعالجة» — بالقاعدة نفسها. تقرأ من مسار
+   التقرير (قراءةٌ فقط ببوابة «تغييرات الجدول»)، فيراها التسجيل ورئيسُ القسم دون
+   صلاحية تعديل الجدول؛ وتُسمّي المواعيدَ المحذوفة من فرق التقرير؛ و«عالج» ينقل إلى
+   الموعد في «الجدول كاملاً». */
+const NO_ROWS: FSchedule[] = [];
+const NO_COURSES = new Map<number, AdCourse>();
+const NO_INSTRUCTORS = new Map<number, AdInstructor>();
+const noop = () => undefined;
 
-function FindingPerson({ who, rows, onJump }: { who: string; rows: DisplayRow[]; onJump: (rowIds: number[]) => void }) {
+function ChangesReviewOverview({ report, scope, termId, scopeLine, onJump }: {
+  report: ChangeReport;
+  scope: { collegeId: number; sectionId: number; collegeName?: string };
+  termId: number;
+  scopeLine: string;
+  onJump: (rowIds: number[]) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const single = rows.length === 1;
-  const sectionCount = new Set(rows.map(row => `${row.courseCode}:${row.sectionCode}`)).size;
-  return (
-    <div className={`review-person ${open ? "open" : ""}`}>
-      <button type="button" className="review-person-head" data-guide-ignore="طيّ شعب أستاذ داخل ملاحظة مراجعة — عرض فقط، لا يغيّر الجدول" onClick={() => !single && setOpen(value => !value)} aria-expanded={single ? undefined : open}>
-        <strong className="schedule-instructor-with-badge">{who}{rows.some(row => row.visiting) ? <VisitingBadge compact /> : null}</strong>
-        {single ? (
-          <small>{rows[0].course}{rows[0].courseCode ? <> · <bdi dir="ltr">{rows[0].courseCode}</bdi></> : null} · شعبة {rows[0].sectionCode}</small>
-        ) : (
-          <>
-            <span className="review-person-count" title={countOf(rows.length, AR.appointment)}>{countOf(sectionCount, AR.section)}</span>
-            <ChevronDown className="review-person-chevron" aria-hidden="true" />
-          </>
-        )}
-      </button>
-      {(open || single) ? (
-        <div className="review-person-rows">
-          {rows.map(row => (
-            /* الضغطُ على المقرّر ينقل إلى موعده هو وحده في الجدول. */
-            <button type="button" key={row.scheduleId} className="review-row-card review-row-jump" title="انتقل إلى هذا الموعد في الجدول" data-guide-ignore="انتقالٌ إلى موعدٍ واحد في الجدول — تنقّلٌ لا يعدّل البيانات" onClick={() => onJump([row.scheduleId])}>
-              <span className="rrc-code" dir="ltr">{row.courseCode || "—"}</span>
-              <div className="rrc-main">
-                {single ? null : <strong>{row.course}</strong>}
-                <small>شعبة {row.sectionCode}{row.referenceNumber ? <> <bdi className="crn-chip" dir="ltr">{row.referenceNumber}</bdi></> : null} · {row.days || "بلا أيام"}{row.room ? <> · <bdi dir="ltr">{row.room}</bdi></> : null}</small>
-              </div>
-              <time className="rrc-time" dir="ltr">{row.time}</time>
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function RegulationReview({ notices, onJump, rowsById }: { notices: RegulationNotice[]; onJump: (rowIds: number[]) => void; rowsById: Map<number, DisplayRow> }) {
-  const [open, setOpen] = useState(false);
-  const [openNotice, setOpenNotice] = useState<string | null>(null);
-  if (!notices.length) return null;
-  const preview = notices.slice(0, 2).map(item => item.title).join(" · ");
-  return (
-    <section className={`review-quiet changes-regulation-review ${open ? "open" : ""}`}>
-      <button
-        type="button"
-        className="review-quiet-toggle"
-        data-guide-ignore="فتح الملاحظات اللائحية في شاشة تغييرات الجدول — عرض فقط"
-        onClick={() => setOpen(value => !value)}
-        aria-expanded={open}
-      >
-        <span className="review-mark" aria-hidden="true"><AlertTriangle /></span>
-        <span className="review-copy">
-          <strong>{countOf(notices.length, AR.approvalBlocker)} لائحية</strong>
-          <small>{preview}{notices.length > 2 ? ` · +${(notices.length - 2).toLocaleString("ar-KW-u-nu-latn")}` : ""}</small>
-        </span>
-        <i>{countOf(new Set(notices.flatMap(item => item.rowIds)).size, AR.appointment)}</i>
-        <ChevronDown aria-hidden="true" />
-      </button>
-      {open ? (
-        <div className="review-quiet-list">
-          {notices.map((notice, index) => {
-            const key = `${notice.rule}:${index}`;
-            return (
-              <article key={key} className={`review-finding severity-high ${openNotice === key ? "open" : ""}`}>
-                <button
-                  type="button"
-                  data-guide-ignore="فتح تفاصيل ملاحظة داخل مراجعة الاعتماد فقط"
-                  onClick={() => setOpenNotice(current => current === key ? null : key)}
-                  aria-expanded={openNotice === key}
-                >
-                  <span className="review-mark" aria-hidden="true"><AlertTriangle /></span>
-                  <span className="review-copy">
-                    <strong>{notice.title}</strong>
-                    <small>{notice.rowIds.length ? `${countOf(notice.rowIds.length, AR.appointment)} ${nounFor(notice.rowIds.length, AR.affectedAdj)}` : "تنبيه لائحي"}</small>
-                  </span>
-                  <em>{notice.article}</em>
-                  <i>مانع اعتماد</i>
-                </button>
-                {openNotice === key ? (
-                  <>
-                    {notice.data ? <div className="review-finding-detail"><PeriodBalanceInfographic {...notice.data} /></div>
-                      : notice.detail ? <div className="review-finding-detail"><p>{notice.detail}</p></div> : null}
-                    <FindingRows rowIds={notice.rowIds} rowsById={rowsById} onJump={onJump} />
-                  </>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
-      ) : null}
-    </section>
-  );
- }
-
-/**
- * ملخّص الاعتماد نفسه الذي اعتادت عليه نافذة المراجعة، لكن داخل «تغييرات
- * الجدول»؛ فهذه هي الأيقونة/الشاشة التي يرجع إليها المستخدم لمعرفة السبب.
- * لا تُعاد الرسالة الحمراء في كل مكان، ولا يُطلب منه أن يفتح نافذة أخرى.
- */
-function ChangesReviewOverview({ report, scopeLine, onJump }: { report: ChangeReport; scopeLine: string; onJump: (rowIds: number[]) => void }) {
-  const [open, setOpen] = useState(false);
-  const [openBlocker, setOpenBlocker] = useState<string | null>(null);
-  /* صفوفُ النطاق كما يعرضها التقرير نفسُه — الجدول كاملاً ومعه المحذوف — فتُسمّى
-     المواعيدُ المعنيّة بأساتذتها دون أن يغادر القارئ المراجعة. */
-  const rowsById = useMemo(() => {
-    const map = new Map<number, DisplayRow>();
-    for (const row of report.fullSchedule || []) map.set(Number(row.scheduleId), row);
-    for (const entry of report.diff.entries || []) if (entry.display && !map.has(Number(entry.scheduleId))) map.set(Number(entry.scheduleId), entry.display);
-    return map;
-  }, [report.fullSchedule, report.diff.entries]);
-  const blockers = report.reviewBlockers || [];
-  const notices = report.regulationNotices || [];
-  const rowCount = Math.max(0, report.diff.counts.added + report.diff.counts.changed + report.diff.counts.unchanged);
-
-  const spread = useMemo(() => {
-    const state = new Map<number, "high" | "medium" | "low">();
-    const rank = { high: 3, medium: 2, low: 1 } as const;
-    const mark = (ids: number[], level: "high" | "medium" | "low") => {
-      for (const rawId of ids || []) {
-        const id = Number(rawId);
-        if (!id) continue;
-        const current = state.get(id);
-        if (!current || rank[level] > rank[current]) state.set(id, level);
-      }
-    };
-    blockers.forEach(item => mark(item.rowIds, "high"));
-    notices.forEach(item => mark(item.rowIds, item.approvalEffect === "block" ? "high" : item.approvalEffect === "review" ? "medium" : "low"));
-    const counts = { high: 0, medium: 0, low: 0 };
-    state.forEach(level => { counts[level] += 1; });
-    const flagged = counts.high + counts.medium + counts.low;
-    return { ...counts, clean: Math.max(0, rowCount - flagged), total: Math.max(1, rowCount) };
-  }, [blockers, notices, rowCount]);
-  const score = appointmentCoverageScore(spread.clean, rowCount);
-  const share = (value: number) => `${(value / spread.total) * 100}%`;
-  const blockedCount = Math.max(blockers.length, report.blockingConflicts || 0) + notices.filter(item => item.approvalEffect === "block").length;
-  const tone = blockedCount ? "danger" : score >= 85 ? "good" : "warn";
-  const scoreTone = score >= 85 ? "good" : score >= 70 ? "warn" : "danger";
-  const ringLength = 2 * Math.PI * 26;
-  const hasFindings = blockers.length > 0 || notices.length > 0;
-
+  const headline = changesReviewHeadline(report);
+  /* ما يُنتقل إليه: صفوفُ «الجدول كاملاً» في هذه الصفحة. */
+  const jumpable = useMemo(() => new Set((report.fullSchedule || []).map(row => Number(row.scheduleId))), [report.fullSchedule]);
+  /* المحذوفُ من فرق التقرير: يُسمّى به البند إن ذكره (كان ChangesReviewOverview يفعل ذلك). */
+  const removedRows = useMemo(() => (report.diff.entries || [])
+    .filter(entry => entry.kind === "removed" && entry.row)
+    .map(entry => ({ ...entry.row, id: Number(entry.scheduleId) || Number(entry.row?.id) }) as FSchedule), [report.diff.entries]);
+  const visitingNames = useMemo(() => new Set([...(report.fullSchedule || []), ...(report.diff.entries || []).map(entry => entry.display)]
+    .filter(row => row?.visiting && row.instructor).map(row => String(row.instructor))), [report.fullSchedule, report.diff.entries]);
+  const colleges = useMemo(() => new Map<number, AdCollege>(scope.collegeName ? [[scope.collegeId, { AdCollegeId: scope.collegeId, AdCollegeName: scope.collegeName } as AdCollege]] : []), [scope.collegeId, scope.collegeName]);
   return (
     <section className={`changes-review-overview ${open ? "open" : ""}`} aria-label="مراجعة الاعتماد">
       <button type="button" className="changes-review-toggle" data-guide-ignore="طيّ ملخص مراجعة الاعتماد وفتحه — عرض فقط ولا يغيّر بيانات" onClick={() => setOpen(value => !value)} aria-expanded={open}>
-        <span className={`review-mini-dot tone-${tone}`} aria-hidden="true" />
-        <span><strong>مراجعة الاعتماد</strong><small>{blockedCount ? countOf(blockedCount, AR.approvalBlocker) : notices.length ? countOf(notices.length, AR.note) : "لا ملاحظات"}</small></span>
+        <span className={`review-mini-dot tone-${headline.tone}`} aria-hidden="true" />
+        <span><strong>مراجعة الاعتماد</strong><small>{headline.label}</small></span>
         <ChevronDown aria-hidden="true" />
       </button>
-      {open ? <div className="changes-review-panel">
-      <header className={`review-head tone-${tone}`}>
-        <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1913_LABEL} ${score} من 100`}>
-          <circle className="ring-track" cx="32" cy="32" r="26" />
-          <circle className="ring-value" cx="32" cy="32" r="26" strokeDasharray={`${(score / 100) * ringLength} ${ringLength}`} />
-          <text x="32" y="34" className="ring-number">{score.toLocaleString("ar-KW-u-nu-latn")}</text>
-          <text x="32" y="45" className="ring-unit">/ 100</text>
-        </svg>
-        <div className="review-title">
-          <span className="surface-kicker">مراجعة الاعتماد · {DECISION_1913_LABEL}</span>
-          <h2>{blockedCount ? "يوجد ما يمنع الاعتماد" : notices.length ? "جاهز مع تنبيهات" : "مطابق للتنبيهات المعتمدة"}</h2>
-          <p>{scopeLine}</p>
+      {open ? (
+        <div className="changes-review-panel">
+          <ScheduleReview
+            inline
+            readingUrl="/api/reports/schedule-changes/review"
+            rows={NO_ROWS}
+            courses={NO_COURSES}
+            colleges={colleges}
+            instructors={NO_INSTRUCTORS}
+            scopeLine={scopeLine}
+            collegeId={scope.collegeId}
+            sectionId={scope.sectionId}
+            termId={termId}
+            onClose={noop}
+            onFocusRows={onJump}
+            jumpableIds={jumpable}
+            extraRows={removedRows}
+            visitingNames={visitingNames}
+            refreshKey={report}
+          />
         </div>
-      </header>
-
-      <div className="review-spread" role="img" aria-label="توزيع المواعيد حسب الملاحظات">
-        <div className="spread-bar">
-          {spread.high ? <i className="seg-high" style={{ width: share(spread.high) }} title={`${spread.high} يمنع`} /> : null}
-          {spread.medium ? <i className="seg-medium" style={{ width: share(spread.medium) }} title={`${spread.medium} يراجَع`} /> : null}
-          {spread.low ? <i className="seg-low" style={{ width: share(spread.low) }} title={countOf(spread.low, AR.note)} /> : null}
-          {spread.clean ? <i className="seg-clean" style={{ width: share(spread.clean) }} title={`${spread.clean} سليم`} /> : null}
-        </div>
-        <div className="spread-keys">
-          {/* مفتاحٌ لكل شريحةٍ لها مواعيد — «0 يمنع» لا يُكتب (قاعدة إخفاء الفارغ). */}
-          {spread.high ? <span className="seg-high"><AlertTriangle aria-hidden="true" /><b>{spread.high.toLocaleString("ar-KW-u-nu-latn")}</b><small>يمنع</small></span> : null}
-          {spread.medium ? <span className="seg-medium"><Info aria-hidden="true" /><b>{spread.medium.toLocaleString("ar-KW-u-nu-latn")}</b><small>يراجَع</small></span> : null}
-          {spread.low ? <span className="seg-low"><ClipboardCheck aria-hidden="true" /><b>{spread.low.toLocaleString("ar-KW-u-nu-latn")}</b><small>{nounFor(spread.low, AR.note)}</small></span> : null}
-          {spread.clean ? <span className="seg-clean"><CheckCircle2 aria-hidden="true" /><b>{spread.clean.toLocaleString("ar-KW-u-nu-latn")}</b><small>سليم</small></span> : null}
-        </div>
-      </div>
-
-      <div className="review-body">
-        {blockers.map((blocker, index) => {
-          const key = blocker.id || `blocker-${index}`;
-          return (
-            <article key={key} className={`review-finding severity-high ${openBlocker === key ? "open" : ""}`}>
-              <button type="button" data-guide-ignore="فتح تفاصيل مانع داخل مراجعة الاعتماد فقط" onClick={() => setOpenBlocker(current => current === key ? null : key)} aria-expanded={openBlocker === key}>
-                <span className="review-mark" aria-hidden="true"><AlertTriangle /></span>
-                <span className="review-copy">
-                  <strong>{blocker.title || "يوجد مانع اعتماد"}</strong>
-                  <small>{blocker.subjectLabel || (blocker.rowIds.length ? `${countOf(blocker.rowIds.length, AR.appointment)} ${nounFor(blocker.rowIds.length, AR.affectedAdj)}` : "يحتاج معالجة قبل الاعتماد")}</small>
-                </span>
-                <em>موانع الحفظ</em>
-                <i>يمنع الاعتماد</i>
-              </button>
-              {openBlocker === key ? (
-                <>
-                  {blocker.detail ? <div className="review-finding-detail"><p>{blocker.detail}</p></div> : null}
-                  <FindingRows rowIds={blocker.rowIds} rowsById={rowsById} onJump={onJump} />
-                </>
-              ) : null}
-            </article>
-          );
-        })}
-        <RegulationReview notices={report.regulationNotices || []} onJump={onJump} rowsById={rowsById} />
-        {!hasFindings ? (
-          <div className="review-clear">
-            <CheckCircle2 />
-            <strong>لا ملاحظات</strong>
-            <span>لا توجد موانع حفظ، ولا تنبيهات لائحية ظاهرة ضمن النطاق الذي يفحصه النظام.</span>
-          </div>
-        ) : null}
-      </div>
-      </div> : null}
+      ) : null}
     </section>
   );
 }
@@ -1187,11 +993,14 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
         notesTotal={report.notes.filter(note => note.origin === "registrar").length}
         /* «عولجت» = حالةٌ منتهية فقط: «أُجيبت» ردٌّ من القسم ينتظر حكم التسجيل، وقد يُصرّ على التعديل. */
         notesDone={report.notes.filter(note => note.origin === "registrar" && (note.state === "changed" || note.state === "removed" || note.state === "resolved")).length}
-        blockers={Math.max((report.reviewBlockers || []).length, report.blockingConflicts || 0) + (report.regulationNotices || []).filter(item => item.approvalEffect === "block").length}
+        /* «موانع الاعتماد» هي الموانع المادّية وحدها، كعنوان «مراجعة الاعتماد»؛ وبنودُ اللائحة «للمعالجة» فيها (I2). */
+        blockers={changesReviewHeadline(report).material}
       />
 
       <ChangesReviewOverview
         report={report}
+        scope={scope}
+        termId={termId}
         scopeLine={[termName, scope.collegeName, scope.sectionName].filter(Boolean).join(" · ") || `قسم ${scope.sectionId}`}
         onJump={(rowIds) => {
           const id = Number(rowIds?.[0] || 0);

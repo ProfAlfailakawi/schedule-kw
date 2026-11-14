@@ -136,61 +136,20 @@ function hallTextChangedWithoutIdentity(original: any, fields: any): boolean {
   return !fields.roomId || String(fields.roomId) === String(original?.roomId || "");
 }
 
-export function registerScheduleReviewRoutes(app: Express): void {
-
-/* ── فحصٌ واحد، بخطوات متوازية ─────────────────────────────────────────────
-   كانت الخطوات الست تُنتظر واحدةً بعد واحدة (نمط، مدة، حمولة، ساعات، مكان،
-   تعارض) وكلٌّ منها يقرأ القاعدة بنفسه، فيطول «جاري الفحص». لا تعتمد أيٌّ منها
-   على الأخرى، فتُطلق معاً، والنتيجة نفسها التي تحكم بها بوابة الحفظ. */
-app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{};
-  const savedRow=Number(row.excludeId||0)?await Repository.getScheduleById(Number(row.excludeId)).catch(()=>null):null;
-  const keptTime=Boolean(savedRow)&&savedRow!.fstarttime===row.fstarttime&&savedRow!.fendtime===row.fendtime;
-  const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
-  const [patternNotice,lectureNotice,departmentHours,payloadIssues,lengthIssue,placeIssues,conflicts,patternIssue,graduateImpact]=await Promise.all([
-    mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null),
-    scheduleLengthNotice(row).catch(()=>null),
-    hoursNotice(row).catch(()=>""),
-    // Return the same payload and weekly-hours blockers the save gate uses.
-    schedulePayloadIssues(row,{keptTime}),
-    checkLengthIssue(row),
-    checkLocationIssues(row),
-    scheduleConflicts(req,row,Number(row.excludeId||0)),
-    checkPatternIssue(row).catch(()=>null),
-    /* الطلب الفعلي: أثرُ الموعد على الخريجين يُقال قبل الحفظ ولا يمنعه. */
-    graduateImpactFor(req,row),
-  ]);
-  /* ما يحتاج تأكيداً صريحاً عند الحفظ يُقال قبله (ملاحظتا المالك 10 و20): البطاقةُ لا تقول «جاهز للحفظ» وفيه مخالفة. */
-  const regulation=await regulationExceptionsFor({...row,id:Number(row.excludeId||row.id||0)},undefined,savedRow&&sameScheduleShape(savedRow as any,row)
-    ?{shapeChanged:false,sequenceChanged:Number(savedRow.AdInstructorId||0)!==Number(row.AdInstructorId||0)}:{}).catch(()=>[]);
-  const validationIssues=[...payloadIssues];
-  if(lengthIssue)validationIssues.push(lengthIssue);
-  if(patternIssue)validationIssues.push(patternIssue);
-  validationIssues.push(...placeIssues);
-  res.json({conflicts,validationIssues,...(regulation.length?{regulation}:{}),...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{}),...(departmentHours?{departmentHoursNotice:departmentHours}:{}),...(graduateImpact?{graduateImpact}:{})}); });
-
-
 /**
- * One approval-time reading of the whole department scope.
+ * ── قراءةُ «مراجعة الاعتماد» نفسُها لكل مدخل ───────────────────────────────
  *
- * The editor checks one candidate at a time. Approval cannot do that: it must
- * see collisions against the whole term, including appointments outside the
- * reader's department that share an instructor or room. This endpoint performs
- * that term-wide read on the server, then redacts the other appointment when it
- * sits outside the caller's permissions. It returns the hard blockers, and
- * beside them — never counted with them — the same section recorded twice in
- * two halls or with two teachers (`warnings`); the regulation remains an
- * advisory/review layer in the client.
+ * ما يقرؤه الخادم لشاشة المراجعة (الموانع والتنبيهات والعائلة): يُنادى من
+ * /api/schedules/review-readiness (ورشة الجدول، الصلاحية 7) ومن قراءة «تغييرات
+ * الجدول» (التسجيل ورئيس القسم) — فالشاشتان تقرآن الشيءَ نفسه بالحكم نفسه، ونطاقُ
+ * القارئ (isScopeAllowed) يُحكم هنا في كل عضوٍ من العائلة.
  */
-app.get("/api/schedules/review-readiness", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
-  const collegeId=Number(req.query.collegeId||0),sectionId=Number(req.query.sectionId||0),termId=Number(req.query.termId||0);
-  if(!collegeId||!sectionId||!termId){res.status(400).json({error:"حدد الكلية والقسم والفصل."});return;}
-  if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+export async function reviewReadinessReading(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number, familyMode: boolean) {
   /* ── القسم واحدٌ في كلياته ───────────────────────────────────────────────────
      بنين وبنات في «تكنولوجيا التعليم» قسمٌ واحد، وأساتذته يدرّسون فيهما معاً:
      حِملُ الأستاذ لا يُقرأ كاملاً إلا على مواعيد العائلة كلها. `family=1` (شاشة
      المراجعة) يجمع صفوف كل أعضاء العائلة المسموحة للقارئ، فيرى من يفتح بنين أو
      بناتٍ التقريرَ نفسَه. بدونه يبقى النطاق كلية+قسم كما كان (شريط الاعتماد). */
-  const familyMode=String(req.query.family||"")==="1";
   const allSections=await Repository.getSections();
   const members=familyMode
     ?departmentFamily(allSections as any[],collegeId,sectionId).filter(member=>isScopeAllowed(req,member.collegeId,member.sectionId))
@@ -300,9 +259,63 @@ app.get("/api/schedules/review-readiness", requirePermission(7), async (req: Aut
       members:members.map(member=>({collegeId:member.collegeId,sectionId:member.sectionId})),
       /* م.8 و م.9: نوعُ تخصص العائلة والمقرراتُ المستثناة، لتقرأ الشاشةُ القاعدةَ نفسَها التي يقرؤها الخادم. */
       capacity:await (async()=>{const context=await capacityContextForSection(sectionId);return {specialization:context.specialization,excused:[...context.excused]};})(),
+      /* أسماءُ كليات العائلة لوسم الحرم — لمن يفتح المراجعة دون قائمة الكليات (تغييرات الجدول). */
+      colleges:await (async()=>{const ids=new Set(members.map(member=>member.collegeId));return (await Repository.getColleges() as any[]).filter(row=>ids.has(Number(row.AdCollegeId))).map(row=>({AdCollegeId:Number(row.AdCollegeId),AdCollegeName:String(row.AdCollegeName||"")}));})(),
     };
   }
-  res.json({blockers,warnings,blockingConflicts:conflictList.length,blockingRows:touchedRowIds.length,blockingDuplicates:doubleEntryCount(conflictList),checkedRows:scopeRows.length,termRows:termRows.length,...(family?{family}:{})});
+  return {blockers,warnings,blockingConflicts:conflictList.length,blockingRows:touchedRowIds.length,blockingDuplicates:doubleEntryCount(conflictList),checkedRows:scopeRows.length,termRows:termRows.length,...(family?{family}:{})};
+}
+
+export function registerScheduleReviewRoutes(app: Express): void {
+
+/* ── فحصٌ واحد، بخطوات متوازية ─────────────────────────────────────────────
+   كانت الخطوات الست تُنتظر واحدةً بعد واحدة (نمط، مدة، حمولة، ساعات، مكان،
+   تعارض) وكلٌّ منها يقرأ القاعدة بنفسه، فيطول «جاري الفحص». لا تعتمد أيٌّ منها
+   على الأخرى، فتُطلق معاً، والنتيجة نفسها التي تحكم بها بوابة الحفظ. */
+app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{};
+  const savedRow=Number(row.excludeId||0)?await Repository.getScheduleById(Number(row.excludeId)).catch(()=>null):null;
+  const keptTime=Boolean(savedRow)&&savedRow!.fstarttime===row.fstarttime&&savedRow!.fendtime===row.fendtime;
+  const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
+  const [patternNotice,lectureNotice,departmentHours,payloadIssues,lengthIssue,placeIssues,conflicts,patternIssue,graduateImpact]=await Promise.all([
+    mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null),
+    scheduleLengthNotice(row).catch(()=>null),
+    hoursNotice(row).catch(()=>""),
+    // Return the same payload and weekly-hours blockers the save gate uses.
+    schedulePayloadIssues(row,{keptTime}),
+    checkLengthIssue(row),
+    checkLocationIssues(row),
+    scheduleConflicts(req,row,Number(row.excludeId||0)),
+    checkPatternIssue(row).catch(()=>null),
+    /* الطلب الفعلي: أثرُ الموعد على الخريجين يُقال قبل الحفظ ولا يمنعه. */
+    graduateImpactFor(req,row),
+  ]);
+  /* ما يحتاج تأكيداً صريحاً عند الحفظ يُقال قبله (ملاحظتا المالك 10 و20): البطاقةُ لا تقول «جاهز للحفظ» وفيه مخالفة. */
+  const regulation=await regulationExceptionsFor({...row,id:Number(row.excludeId||row.id||0)},undefined,savedRow&&sameScheduleShape(savedRow as any,row)
+    ?{shapeChanged:false,sequenceChanged:Number(savedRow.AdInstructorId||0)!==Number(row.AdInstructorId||0)}:{}).catch(()=>[]);
+  const validationIssues=[...payloadIssues];
+  if(lengthIssue)validationIssues.push(lengthIssue);
+  if(patternIssue)validationIssues.push(patternIssue);
+  validationIssues.push(...placeIssues);
+  res.json({conflicts,validationIssues,...(regulation.length?{regulation}:{}),...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{}),...(departmentHours?{departmentHoursNotice:departmentHours}:{}),...(graduateImpact?{graduateImpact}:{})}); });
+
+
+/**
+ * One approval-time reading of the whole department scope.
+ *
+ * The editor checks one candidate at a time. Approval cannot do that: it must
+ * see collisions against the whole term, including appointments outside the
+ * reader's department that share an instructor or room. This endpoint performs
+ * that term-wide read on the server, then redacts the other appointment when it
+ * sits outside the caller's permissions. It returns the hard blockers, and
+ * beside them — never counted with them — the same section recorded twice in
+ * two halls or with two teachers (`warnings`); the regulation remains an
+ * advisory/review layer in the client.
+ */
+app.get("/api/schedules/review-readiness", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId=Number(req.query.collegeId||0),sectionId=Number(req.query.sectionId||0),termId=Number(req.query.termId||0);
+  if(!collegeId||!sectionId||!termId){res.status(400).json({error:"حدد الكلية والقسم والفصل."});return;}
+  if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  res.json(await reviewReadinessReading(req,collegeId,sectionId,termId,String(req.query.family||"")==="1"));
 });
 
 /**

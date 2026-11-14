@@ -1,4 +1,5 @@
-/**
+/** (الشاشة التي كانت تنادي هذا المسار — «نزّل الشعب» في تخطيط الشعب القديم — أُزيلت؛ الخادم باقٍ ومحروس هنا.)
+ *
  * ── «نزّل الشعب» على خادمٍ حقيقيّ في وضع التجربة ───────────────────────────────
  * المعاينة تقرأ ولا تكتب، والإنزال يرفض البصمة القديمة والمختار المزوَّر، ويكتب بمصدر «تخطيط الشعب»
  * عبر مسار الجدول، ثم التراجع يمحو الدفعة وحدها.
@@ -17,10 +18,9 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`, extra !== undefined ? JSON.stringify(extra).slice(0, 400) : ""); }
 };
 
-const srv = readServerSource(), ui = fs.readFileSync("src/components/SectionBuild.tsx", "utf8"), plan = fs.readFileSync("src/components/SectionPlanning.tsx", "utf8");
+const srv = readServerSource();
 check(srv.includes('applyProposalCore(req, openingOf(row, placement), { gate })') && srv.includes('kind: "opening", collegeId, sectionId, termId') && !/section-build\/apply[\s\S]{0,3000}Repository\.(createSchedule|updateSchedule)\(/.test(srv), "الإنزال يمرّ من باب الاعتماد المشترك لا من الكتابة المباشرة");
 check(srv.includes("section-build:${collegeId}:${sectionId}:${termId}") && srv.includes("String(req.body?.fingerprint"), "قفلٌ متسلسل وبصمة أسبوع قبل الكتابة");
-check(plan.includes("<SectionBuild") && plan.includes("buildReady") && fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8").includes("xlsxPreview.editable") && ui.includes("/api/section-build/review-rows") && ui.includes("/api/section-build/apply") && ui.includes('role="alertdialog"'), "الواجهة موصولة في تخطيط الشعب وفيها تأكيدٌ قبل الكتابة");
 
 const transferSrc = fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8");
 check(transferSrc.includes('className="tp-banner"') && transferSrc.includes("const goTab = ") && transferSrc.includes("fromPlanning ? null : (<>") && transferSrc.includes('planning={fromPlanning}') && transferSrc.includes("نزّل ${countOf(planningMeta.added, AR.section)} في الجدول") && transferSrc.includes("نزّل الشعب (من تخطيط الشعب)"), "مراجعة التخطيط لها هويتها المستقلة عن استيراد الملف/PDF: شارة، بلا رفع ملف، زر «نزّل» ثابت، ومغادرتها تُفرغها");

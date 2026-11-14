@@ -1803,7 +1803,7 @@
    "path": "/api/schedules/check-conflicts",
    "name": "bound dispatch",
    "call": "b249733030280b0f",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:145",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:275",
    "regexp": "/^\\/api\\/schedules\\/check-conflicts\\/?$/i",
    "end": true
   },
@@ -1814,8 +1814,8 @@
    ],
    "path": "/api/schedules/review-readiness",
    "name": "bound dispatch",
-   "call": "15c4952b4f3d7abe",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:184",
+   "call": "a10fb02d73dbe095",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:314",
    "regexp": "/^\\/api\\/schedules\\/review-readiness\\/?$/i",
    "end": true
   },
@@ -1827,7 +1827,7 @@
    "path": "/api/schedules/outside-clashes",
    "name": "bound dispatch",
    "call": "660366a03abedb9a",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:332",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:345",
    "regexp": "/^\\/api\\/schedules\\/outside-clashes\\/?$/i",
    "end": true
   },
@@ -1839,7 +1839,7 @@
    "path": "/api/schedules/move-batch",
    "name": "bound dispatch",
    "call": "71da2ceac1d77b7d",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:383",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:396",
    "regexp": "/^\\/api\\/schedules\\/move-batch\\/?$/i",
    "end": true
   },
@@ -2055,7 +2055,7 @@
    "path": "/api/reports/visiting-roster",
    "name": "bound dispatch",
    "call": "707c4204c710f202",
-   "site": "src/server/routes/reportsRoutes.ts:230",
+   "site": "src/server/routes/reportsRoutes.ts:232",
    "regexp": "/^\\/api\\/reports\\/visiting-roster\\/?$/i",
    "end": true
   },
@@ -2067,7 +2067,7 @@
    "path": "/api/reports/visiting-teaching",
    "name": "bound dispatch",
    "call": "dfef8088b5c7910c",
-   "site": "src/server/routes/reportsRoutes.ts:249",
+   "site": "src/server/routes/reportsRoutes.ts:251",
    "regexp": "/^\\/api\\/reports\\/visiting-teaching\\/?$/i",
    "end": true
   },
@@ -2079,8 +2079,20 @@
    "path": "/api/reports/visiting-history",
    "name": "bound dispatch",
    "call": "0a25152dbe5aefd6",
-   "site": "src/server/routes/reportsRoutes.ts:259",
+   "site": "src/server/routes/reportsRoutes.ts:261",
    "regexp": "/^\\/api\\/reports\\/visiting-history\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/reports/schedule-changes/review",
+   "name": "bound dispatch",
+   "call": "c14a0b4749503a42",
+   "site": "src/server/routes/reportsRoutes.ts:341",
+   "regexp": "/^\\/api\\/reports\\/schedule-changes\\/review\\/?$/i",
    "end": true
   },
   {
@@ -2091,7 +2103,7 @@
    "path": "/api/reports/schedule-changes",
    "name": "bound dispatch",
    "call": "c3c38037f8c4fe61",
-   "site": "src/server/routes/reportsRoutes.ts:330",
+   "site": "src/server/routes/reportsRoutes.ts:356",
    "regexp": "/^\\/api\\/reports\\/schedule-changes\\/?$/i",
    "end": true
   },
@@ -2103,7 +2115,7 @@
    "path": "/api/reports/authority-pdf-diff",
    "name": "bound dispatch",
    "call": "80777d71f0bf538f",
-   "site": "src/server/routes/reportsRoutes.ts:618",
+   "site": "src/server/routes/reportsRoutes.ts:644",
    "regexp": "/^\\/api\\/reports\\/authority-pdf-diff\\/?$/i",
    "end": true
   },
@@ -2115,7 +2127,7 @@
    "path": "/api/report-stamps",
    "name": "bound dispatch",
    "call": "ddeec4886ac207b8",
-   "site": "src/server/routes/reportsRoutes.ts:664",
+   "site": "src/server/routes/reportsRoutes.ts:690",
    "regexp": "/^\\/api\\/report-stamps\\/?$/i",
    "end": true
   },
@@ -2125,7 +2137,7 @@
    "path": "/v/:code",
    "name": "wrapped",
    "call": "1fbe68efc13457a5",
-   "site": "src/server/routes/reportsRoutes.ts:729",
+   "site": "src/server/routes/reportsRoutes.ts:755",
    "regexp": "/^\\/v(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -2140,7 +2152,7 @@
    ],
    "name": "bound dispatch",
    "call": "fed220845a3a0a1d",
-   "site": "src/server/routes/reportsRoutes.ts:734",
+   "site": "src/server/routes/reportsRoutes.ts:760",
    "regexp": "/^\\/v\\/?$|^\\/v(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2152,7 +2164,7 @@
    "path": "/api/reports/excel/:type",
    "name": "bound dispatch",
    "call": "04a20a38b3cb32d5",
-   "site": "src/server/routes/reportsRoutes.ts:812",
+   "site": "src/server/routes/reportsRoutes.ts:838",
    "regexp": "/^\\/api\\/reports\\/excel(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2164,7 +2176,7 @@
    "path": "/api/reports/department-balance",
    "name": "bound dispatch",
    "call": "35e16c0bb3271c70",
-   "site": "src/server/routes/reportsRoutes.ts:930",
+   "site": "src/server/routes/reportsRoutes.ts:956",
    "regexp": "/^\\/api\\/reports\\/department-balance\\/?$/i",
    "end": true
   },
@@ -2176,7 +2188,7 @@
    "path": "/api/reports/room-load",
    "name": "bound dispatch",
    "call": "fc4e4ba1f6ecda24",
-   "site": "src/server/routes/reportsRoutes.ts:1012",
+   "site": "src/server/routes/reportsRoutes.ts:1038",
    "regexp": "/^\\/api\\/reports\\/room-load\\/?$/i",
    "end": true
   },
@@ -4252,8 +4264,8 @@
    ],
    "path": "/api/actual-demand",
    "name": "bound dispatch",
-   "call": "8630c6aae4892325",
-   "site": "src/server/actualDemandRoutes.ts:36",
+   "call": "a5a4f653ed947fe6",
+   "site": "src/server/actualDemandRoutes.ts:45",
    "regexp": "/^\\/api\\/actual-demand\\/?$/i",
    "end": true
   },
@@ -4264,8 +4276,8 @@
    ],
    "path": "/api/actual-demand/upload",
    "name": "bound dispatch",
-   "call": "289c657859c10690",
-   "site": "src/server/actualDemandRoutes.ts:43",
+   "call": "15cb05f19b5677aa",
+   "site": "src/server/actualDemandRoutes.ts:52",
    "regexp": "/^\\/api\\/actual-demand\\/upload\\/?$/i",
    "end": true
   },
@@ -4276,8 +4288,8 @@
    ],
    "path": "/api/actual-demand/link",
    "name": "bound dispatch",
-   "call": "b22863d0806673da",
-   "site": "src/server/actualDemandRoutes.ts:69",
+   "call": "a60820b299fd2065",
+   "site": "src/server/actualDemandRoutes.ts:78",
    "regexp": "/^\\/api\\/actual-demand\\/link\\/?$/i",
    "end": true
   },

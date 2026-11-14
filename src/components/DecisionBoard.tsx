@@ -1,12 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Building2, ChevronDown, CloudOff, Eye, Lightbulb, OctagonAlert, RefreshCw, Sparkles, TriangleAlert } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Building2, CalendarPlus, ChevronDown, CloudOff, Eye, GraduationCap, Sparkles, TrendingDown } from "lucide-react";
 import type { AdSection } from "../types";
-import { useSectionGap } from "./SectionGapNote";
-import PlanTriageView from "./PlanTriageView";
-import CourseTags from "./CourseTags";
+import SectionPlan, { useSectionPlan, type PlanReadingView } from "./SectionPlan";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
-import { reconcilePlanAdjustments } from "../utils/sectionGap";
-import { loadPlanDecisions, triagePlanItems, type PlanDecision, type PlanTier } from "../utils/planTriage";
 import { decisionBoardScope, type DecisionBoardReader } from "../utils/decisionBoardScope";
 
 const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
@@ -16,6 +12,8 @@ const num = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
  * المصنّفة — فلا تُحسب الورقة من غير ما يراه القارئ. كان زرّ الطباعة يطبع
  * ورقةً بلا محتوى، لأن العدسة لم يكن لها ورقة.
  */
+/** درجاتُ تخطيط الشعب في الورقة: الخريجون، وما ينقص، وما يفيض (الأسماءُ الداخلية باقيةٌ لثبات الطباعة). */
+export type PlanTier = "urgent" | "important" | "opportunity";
 export type DecisionBoardPrintItem = { name: string; code: string; existing: number; required: number; tier: PlanTier; reason: string; handled: boolean };
 export type DecisionBoardPrintDepartment = {
   collegeId: number; termId: number; sectionId: number; name: string; status: "loading" | "failed" | "ready";
@@ -39,76 +37,51 @@ function DepartmentRow({ collegeId, section, termId, expanded, onToggle, onPrint
   collegeId: number; section: AdSection; termId: number; expanded: boolean; onToggle: () => void;
   onPrintData?: (entry: DecisionBoardPrintDepartment) => void;
 }) {
-  const gap = useSectionGap(collegeId, Number(section.AdSectionId), termId);
-  /* The department's shared «تم/تجاهل» decisions, read so the counts match what the committee sees. */
-  const [decisions, setDecisions] = useState<Record<string, PlanDecision>>({});
-  useEffect(() => {
-    let alive = true;
-    void loadPlanDecisions(`${collegeId}:${section.AdSectionId}:${termId}`).then(result => { if (alive) setDecisions(result.decisions); });
-    return () => { alive = false; };
-  }, [collegeId, section.AdSectionId, termId]);
-  const triage = useMemo(() => triagePlanItems(reconcilePlanAdjustments(gap.planItems, gap.planSurplusItems), decisions), [gap.planItems, gap.planSurplusItems, decisions]);
-  const { counts } = triage;
+  const { reading, status } = useSectionPlan(collegeId, Number(section.AdSectionId), termId);
+  const plan = reading?.plan;
+  const counts = { urgent: plan?.totals.gradOpen || 0, important: plan?.totals.open || 0, opportunity: plan?.totals.close || 0 };
   useEffect(() => {
     if (!onPrintData) return;
+    const track = (value: string) => (value === "boys" ? "بنين" : value === "girls" ? "بنات" : "");
     onPrintData({
       collegeId, termId, sectionId: Number(section.AdSectionId), name: section.AdSectionName,
-      status: gap.failed ? "failed" : gap.loaded ? "ready" : "loading",
-      counts: { urgent: counts.urgent, important: counts.important, opportunity: counts.opportunity },
-      items: [
-        ...triage.live.map(entry => ({ name: entry.item.name, code: entry.item.code, existing: entry.item.existing, required: entry.item.required, tier: entry.tier, reason: entry.reason, handled: false })),
-        ...triage.handled.map(entry => ({ name: entry.item.name, code: entry.item.code, existing: entry.item.existing, required: entry.item.required, tier: entry.tier, reason: entry.reason, handled: true })),
-      ],
+      status: status === "error" || status === "denied" ? "failed" : status === "ready" ? "ready" : "loading",
+      counts,
+      items: (plan?.rows || []).filter(row => row.tier === "grad" || row.tier === "short" || row.tier === "surplus").map(row => ({
+        name: row.name, code: row.code, existing: row.offered, required: row.required,
+        tier: row.tier === "grad" ? "urgent" as const : row.tier === "short" ? "important" as const : "opportunity" as const,
+        reason: [track(row.track), row.tier === "grad" ? `ينقص الخريجين ${row.gradShort}` : row.tier === "short" ? `ينقصه ${row.gap}` : `فائض ${-row.gap}`].filter(Boolean).join(" · "),
+        handled: false,
+      })),
     });
-  }, [onPrintData, collegeId, termId, section.AdSectionId, section.AdSectionName, gap.failed, gap.loaded, triage]);
+  }, [onPrintData, collegeId, termId, section.AdSectionId, section.AdSectionName, status, plan]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <article className="decision-board-dept" data-open={expanded || undefined}>
       <button type="button" className="decision-board-dept-head" aria-expanded={expanded} onClick={onToggle}
         data-guide-ignore="يفتح لوحة القرار لقسمٍ واحد للقراءة فقط">
         <span className="decision-board-dept-ic" aria-hidden="true"><Building2 /></span>
         <strong>{section.AdSectionName}</strong>
-        {gap.failed ? <span className="decision-board-failed" aria-label="تعذّرت القراءة"><CloudOff aria-hidden="true" /></span>
-          : !gap.loaded ? <small className="decision-board-wait">…</small> : (
-          <span className="decision-board-counts" aria-label={`عاجل ${counts.urgent}، مهم ${counts.important}، فرصة ${counts.opportunity}`}>
-            <span className="tier-urgent"><OctagonAlert aria-hidden="true" />{num(counts.urgent)}</span>
-            <span className="tier-important"><TriangleAlert aria-hidden="true" />{num(counts.important)}</span>
-            <span className="tier-opportunity"><Lightbulb aria-hidden="true" />{num(counts.opportunity)}</span>
+        {status === "error" || status === "denied" ? <span className="decision-board-failed" aria-label="تعذّرت القراءة"><CloudOff aria-hidden="true" /></span>
+          : status === "loading" ? <small className="decision-board-wait">…</small> : plan ? (
+          <span className="decision-board-counts" aria-label={`ينقص الخريجين ${counts.urgent}، شعب ناقصة ${counts.important}، فائضة ${counts.opportunity}`}>
+            <span className="tier-urgent"><GraduationCap aria-hidden="true" />{num(counts.urgent)}</span>
+            <span className="tier-important"><CalendarPlus aria-hidden="true" />{num(counts.important)}</span>
+            <span className="tier-opportunity"><TrendingDown aria-hidden="true" />{num(counts.opportunity)}</span>
           </span>
-        )}
+        ) : <small className="decision-board-wait">بلا تقرير</small>}
         <ChevronDown aria-hidden="true" className="decision-board-chev" />
       </button>
-      {expanded ? <DepartmentBoard collegeId={collegeId} sectionId={Number(section.AdSectionId)} termId={termId} triage={triage} loaded={gap.loaded} failed={gap.failed} onRetry={gap.reload} /> : null}
+      {expanded ? <DepartmentBoard collegeId={collegeId} sectionId={Number(section.AdSectionId)} termId={termId} reading={reading} /> : null}
     </article>
   );
 }
 
-function DepartmentBoard({ collegeId, sectionId, triage, loaded, failed, onRetry }: {
-  collegeId: number; sectionId: number; termId: number; triage: ReturnType<typeof triagePlanItems>; loaded: boolean;
-  failed: { status: number } | null; onRetry: () => void;
-}) {
+function DepartmentBoard({ collegeId, sectionId, termId, reading }: { collegeId: number; sectionId: number; termId: number; reading: PlanReadingView | null }) {
   return (
     <div className="decision-board-body">
       <section className="decision-board-card">
-        <h4><Sparkles aria-hidden="true" /> التخطيط</h4>
-        {/* كلُّ انتظارٍ ينتهي: بياناتٌ، أو «لا فرق»، أو خطأٌ بإعادة — لا «جارٍ القراءة» إلى الأبد. */}
-        {failed ? <div className="decision-board-error" role="alert">
-            <CloudOff aria-hidden="true" />
-            <span>{failed.status === 403 ? "لا صلاحية لقراءة التخطيط لهذا القسم." : "تعذّرت قراءة التخطيط الآن."}</span>
-            <button type="button" onClick={onRetry} data-guide-ignore="يعيد قراءة التخطيط فقط؛ لا يكتب شيئاً"><RefreshCw aria-hidden="true" /> أعد المحاولة</button>
-          </div>
-          : !loaded ? <p className="decision-board-note">جارٍ القراءة…</p>
-          : triage.live.length || triage.handled.length
-            ? <PlanTriageView triage={triage} readOnly onClose={() => undefined}
-                renderItem={(item, actions) => (
-                  <li key={item.id} className="decision-board-item">
-                    <div className="apb-gap-row">
-                      <span className="apb-gap-name"><b>{item.name}</b><small>{item.code}<CourseTags courseId={item.id} /></small></span>
-                      <span className="apb-gap-pill"><i>{num(item.existing)}</i><em aria-hidden="true">←</em><b>{num(item.required)}</b></span>
-                    </div>
-                    {actions}
-                  </li>
-                )} />
-            : <p className="decision-board-note">لا فرق بين الشعب والتخطيط لهذا القسم.</p>}
+        <h4><Sparkles aria-hidden="true" /> تخطيط الشعب</h4>
+        <SectionPlan collegeId={collegeId} sectionId={sectionId} termId={termId} mode="read" reading={reading} />
       </section>
       <section className="decision-board-card">
         <PredictiveInsightPanel canSchedule={false} onChanged={() => undefined} scope={{ mode: "college", collegeId, sectionId }} />
