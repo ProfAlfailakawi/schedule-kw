@@ -11,6 +11,7 @@ import { AR, countOf } from "../utils/arabicCount";
  */
 const R = 26;
 const C = 2 * Math.PI * R;
+const DAY_SHORT: Record<string, string> = { fsunday: "أحد", fmonday: "اثنين", ftuesday: "ثلاثاء", fwednesday: "أربعاء", fthursday: "خميس" };
 const trackWord = (track: StudentFit["track"]) => track === "boys" ? "للبنين" : track === "girls" ? "للبنات" : "";
 
 function Ring({ percent, kind }: { percent: number | null; kind: "grad" | "stud" }) {
@@ -87,7 +88,7 @@ export function FitImpact({ impact }: { impact: SaveImpact }) {
   );
 }
 
-export default function StudentPulse({ fit, graduateImpact, best, onPickBest, bestBusy = false }: {
+export default function StudentPulse({ fit, graduateImpact, best, onPickBest, bestBusy = false, currentDays = [] }: {
   fit: StudentFit | null;
   graduateImpact?: { graduates: number; pairs?: string[] } | null;
   /** يُعرض فقط إن كان أفضل من الوقت الحالي بفارقٍ يُعتدّ به. */
@@ -95,6 +96,8 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest, be
   onPickBest?: (best: BestTime) => void;
   /** يبحث الآن عن قاعةٍ لذلك الوقت: الزرّ يدور ولا يُضغط ثانيةً. */
   bestBusy?: boolean;
+  /** أيام الموعد الحالية: حين تخالف أيامَ أفضل وقتٍ تُذكر الأيام في الزرّ، وإلا قيل «08:00» وهو الوقت الحالي نفسه ظاهراً. */
+  currentDays?: readonly string[];
 }) {
   if (!fit) return null;
   const grad = fit.graduates, stud = fit.students;
@@ -102,6 +105,7 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest, be
   const sectionsChanged = fit.sections.after !== fit.sections.before;
   const current = grad?.percent ?? stud?.percent ?? null;
   const showBest = Boolean(best && onPickBest && current != null && best.percent >= current + 5);
+  const bestDays = best && best.days.join() !== [...currentDays].join() ? best.days.map(day => DAY_SHORT[day]).filter(Boolean).join("·") : "";
   return (
     <section className="student-pulse" aria-label="نبض الطلبة: من يناسبهم هذا الوقت" role="status">
       <header className="pulse-head">
@@ -118,9 +122,9 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest, be
         {showBest && best ? (
           <button type="button" className={`pulse-best is-${best.kind}`} onClick={() => onPickBest!(best)} disabled={bestBusy} aria-busy={bestBusy}
             title={`أفضل خانةٍ حرّةٍ للأستاذ: يناسب ${best.percent}% من ${best.kind === "grad" ? "الخريجين" : "الطلبة"}`}
-            aria-label={`ضع الموعد في أفضل وقت ${best.start}، يناسب ${best.percent}%`}
+            aria-label={`ضع الموعد في أفضل وقت ${bestDays ? `${bestDays} ` : ""}${best.start}، يناسب ${best.percent}%`}
             data-guide-ignore="يضع الأيام والبداية والنهاية في أفضل خانةٍ حرّة للأستاذ بنبض الطلبة؛ لا يحفظ شيئاً">
-            {bestBusy ? <Loader2 aria-hidden="true" className="pulse-best-spin" /> : <Sparkles aria-hidden="true" />}<span>أفضل وقت</span><bdi dir="ltr">{best.start}</bdi><b dir="ltr">{best.percent}%</b>
+            {bestBusy ? <Loader2 aria-hidden="true" className="pulse-best-spin" /> : <Sparkles aria-hidden="true" />}<span>أفضل وقت</span>{bestDays ? <small className="pulse-best-days">{bestDays}</small> : null}<bdi dir="ltr">{best.start}</bdi><b dir="ltr">{best.percent}%</b>
           </button>
         ) : null}
       </header>
@@ -157,7 +161,7 @@ export function fitChipsOf(fit: StudentFit | null | undefined, impact?: { gradua
   for (const [kind, side, who, noun] of [["grad", fit?.graduates, "الخريجون", AR.graduate], ["stud", fit?.students, "الطلبة", AR.student]] as const) {
     if (!side || side.percent == null) continue;
     out.push({ key: kind, kind, tone: tone(side.percent), label: who, value: `${side.percent}%`,
-      title: side.blocked ? `يناسب ${side.percent}% من ${countOf(side.need, noun)} — يحجب ${countOf(side.blocked, noun)} عن مقررٍ آخر يحتاجونه` : `يناسب كل ${countOf(side.need, noun)} الذين يحتاجون المقرر` });
+      title: side.blocked ? `يناسب ${side.percent}% من ${countOf(side.need, noun)} — يحجب ${countOf(side.blocked, noun)} عن مقررٍ آخر يحتاجونه` : side.need > 1 ? `يناسب كل ${countOf(side.need, noun)} الذين يحتاجون المقرر` : "يناسب من يحتاج المقرر" });
   }
   return out;
 }

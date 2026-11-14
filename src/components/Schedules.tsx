@@ -10168,7 +10168,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
                   {studioTimeDone ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact}
                     best={bestTime && (bestTime.start !== String(form.fstarttime || "") || bestTime.days.join() !== formDays.join()) ? bestTime : null}
-                    bestBusy={bestBusy} onPickBest={best => void pickBestTime(best)} /> : null}
+                    bestBusy={bestBusy} currentDays={formDays} onPickBest={best => void pickBestTime(best)} /> : null}
                   <div className="appt-helpers" role="group" aria-label="مساعدات الوقت">
                     <span className="appt-helpers-label">مساعدات الوقت</span>
                     <button

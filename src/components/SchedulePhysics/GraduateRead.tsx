@@ -39,7 +39,7 @@ export function graduateReadOf(input: DecisionGraduates | null | undefined): Gra
   return {
     kind, percent, pairs: [],
     tone: percent! >= 85 ? "good" : percent! >= 60 ? "warn" : "bad",
-    text: blocked > 0 ? `يحجب ${countOf(blocked, noun)} عن مقررٍ آخر` : `لا يحجب أحداً من ${countOf(side!.need, noun)}`,
+    text: blocked > 0 ? `يحجب ${countOf(blocked, noun)} عن مقررٍ آخر` : side!.need > 1 ? `لا يحجب أحداً من ${countOf(side!.need, noun)}` : "لا يحجب أحداً",
   };
 }
 
