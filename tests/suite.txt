@@ -265,6 +265,8 @@ test:actual-demand-graduates
 test:appointment-review-1114
 test:appointment-ideas-1114
 test:appointment-ideas2-1114
+test:graduate-drag-1114
+test:quick-best-1114
 test:section-plan
 test:colleagues-advising-registration
 test:quick-studio-family

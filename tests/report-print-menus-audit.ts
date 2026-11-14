@@ -84,7 +84,7 @@ const base = { normalize: (value: string) => value, nameOf: (id: number) => name
   check(closeAt > 0 && closeAt < firstReturn, "قائمة «تقرير الأستاذ» تُغلق قبل أي رجوع");
   check(!/if \(!instructorId && !filters\.instructorQuery\.trim\(\)\) return;/.test(body), "لا رجوع صامت حين لا يُختار أستاذ");
   check(body.includes("instructorReportScope(") && body.includes("printReport(\"instructor\""), "القائمة تبني النطاق ثم تستدعي الطباعة");
-  check(/onClick=\{\(\) => void printInstructorScope\("college"/.test(reports) && /onClick=\{\(\) => void printInstructorScope\("all-colleges"\)\}/.test(reports), "عنصرا القائمة موصولان بالطباعة");
+  check(/setInstructorScope\("college"\)/.test(reports) && /setInstructorScope\("all-colleges"\)/.test(reports) && /<PrintTiles[\s\S]{0,240}printInstructorScope\(instructorScope === "college"/.test(reports), "عنصرا النطاق يختاران، والبلاطتان تطبعان بالنطاق المختار");
 
   check(reports.includes("onPrintData={reportDecisionDepartment}"), "لوحة القرار تبلّغ الشاشة بما تعرضه لتُطبع");
   check(reports.includes('courseRoom={printKind === "courseRoom" ? roomTypeMismatches'), "ورقة «المقررات × القاعات» تأخذ مخالفات العرض نفسه");
