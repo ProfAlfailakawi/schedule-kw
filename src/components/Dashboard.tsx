@@ -1,4 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState}from"react";
+import HealthGlance from "./HealthGlance";
 import{ArrowLeft,BookOpen,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,DoorOpen,GraduationCap,ShieldAlert,Sparkles,TrendingDown,TrendingUp,UsersRound}from"lucide-react";
 import{Notice,PrimaryButton}from"./ui";
 import InstallApp from"./InstallApp";
@@ -248,6 +249,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
        icon every time after. */}
    <InstallApp />
   </header>
+  {user?.IsRootAdmin&&onNavigate?<HealthGlance onOpen={()=>onNavigate("health")}/>:null}
 
   {error?<Notice>{error}</Notice>:null}
 
