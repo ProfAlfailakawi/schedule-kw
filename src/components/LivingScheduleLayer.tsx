@@ -283,7 +283,7 @@ export default function LivingScheduleLayer({
   const json = async (url: string, options?: RequestInit) => {
     const started = performance.now();
     const method = String(options?.method || "GET").toUpperCase();
-    telemetryBreadcrumb(`مركز القرار · ${method} ${url.split("?")[0]}`);
+    telemetryBreadcrumb(`مركز الذكاء · ${method} ${url.split("?")[0]}`);
     let status = 0;
     try {
       const r = await fetch(url, options); status = r.status;
