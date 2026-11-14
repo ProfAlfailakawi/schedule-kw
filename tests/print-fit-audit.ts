@@ -80,8 +80,10 @@ const authorityReport = fs.readFileSync(path.join(process.cwd(), "src/components
 const fitSource = fs.readFileSync(path.join(process.cwd(), "src/utils/printFit.ts"), "utf8");
 const printCss = fs.readFileSync(path.join(process.cwd(), "src/styles/08-print.css"), "utf8");
 const fitCalls = reports.split("fitPrintPages(document.getElementById(\"app-print-root\") || document);").length - 1;
-check(fitCalls === 3, "التقارير والشامل وتقرير التغييرات: ثلاثة مسارات طباعة، وكلها تقيس");
-for (const marker of ["const printReport = ", "const runPrint = ", "const printAuthorityReport = "]) {
+/* التقارير والشامل وتقرير التغييرات تمرّ اليوم بمسارٍ واحد (invokePrint): يقيس مرةً للجميع. */
+check(fitCalls === 1 && /const printReport = [\s\S]*?invokePrint\(/.test(reports) && /const runPrint = [\s\S]*?invokePrint\(/.test(reports) && /const printAuthorityReport = [\s\S]*?invokePrint\(/.test(reports),
+  "التقارير والشامل وتقرير التغييرات: مسار طباعة واحد يقيس، وكلها تمرّ به");
+for (const marker of ["const invokePrint = "]) {
   const start = reports.indexOf(marker);
   const body = reports.slice(start, reports.indexOf("if (!invoked) window.print();", start));
   check(start >= 0 && body.includes("fitPrintPages(") && body.indexOf("printRotate") < body.indexOf("fitPrintPages("),
