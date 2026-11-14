@@ -66,11 +66,13 @@ export interface TmCourseDemand {
   sections: number;
 }
 
-/** من كشف المتبقي (عمادة التسجيل) لكل مقرر: المتبقي (لم يجتازوا)، ولم يسجّلوا، والمقاعد المتبقية. */
+/** من تقرير التسجيل (SWRDASH) لكل مقرر في هذا الحرم: من يحتاجه (remaining)، ومنهم الخريجون، والمقترح من التاريخ. */
 export interface TmRegistration {
   remaining: Record<string, number> | null;
-  unregistered: Record<string, number> | null;
-  vacant: Record<string, number> | null;
+  /** الخريجون الذين يحتاجون المقرر. */
+  graduates?: Record<string, number> | null;
+  /** مقترح التخطيط (التاريخ أولاً) لعدد الشعب. */
+  planned?: Record<string, number> | null;
   fileName: string;
   importedAt: string;
   reportTerm: string;
@@ -87,7 +89,7 @@ export interface TmContext {
   halls: TmHall[];
   /** null = لا رادار لهذا الفصل؛ فلا أعداد طلبة، ولا تخمين. */
   demand: Record<string, TmCourseDemand> | null;
-  /** كشفُ المتبقي المستورد للقسم في الفصل (null = لم يُستورد). لا يُخلط بالرادار. */
+  /** تقرير التسجيل (SWRDASH) لهذا الحرم في الفصل (null = لم يُرفع). لا يُخلط بالرادار. */
   registration?: TmRegistration | null;
   /** النصاب المسجّل بالساعات لكل أستاذ (سجلّه أو إعداد النصاب). */
   loadLimits: Record<string, number>;

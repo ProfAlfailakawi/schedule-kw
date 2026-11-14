@@ -71,7 +71,6 @@ export interface DemoSandboxState {
   /* سجلُّ المباني والقاعات: بدونه لا يُحفظ موعدٌ في الصندوق (locationPreflight). */
   locationBuildings: MasterBuilding[]; locationRooms: MasterRoom[]; locationRoomTypeScopes: Record<string, number[]>;
   locationRoomTypes?: string[];
-  registrationStats?: any[];
   /* النصاب التدريسي (ميزةٌ اختيارية مفعَّلةٌ في الصندوق لتُشرح): انظر DEMO_TEACHING_LOAD. */
   teachingLoadConfig?: any[];
   /* صحيفةُ كلٍّ من القسمين الآخرين (otherDepartmentSheets). صحيفتا تكنولوجيا التعليم تُبذران بعد الدخول (seedDemoRadar). */
@@ -1083,76 +1082,6 @@ export function createDemoSandboxState(): DemoSandboxState {
   const now = new Date().toISOString();
   const extras = seedIntelligenceExtras(schedules, courses);
   const sheets = otherDepartmentSheets(courses, now);
-  /* شارة «التخطيط» في جدول الديمو تحتاج قرارات تخطيط محفوظة، لا مجرد
-     نافذة الرفع. قراراتٌ متعددة تُظهر العجز والزيادة معاً في القائمة نفسها
-     التي يراها القسم بعد رفع كشف المتبقي واختيار عدد الشعب. هذه الأرقام وهمية
-     وفي الصندوق فقط؛ كلُّ فصلٍ مستقل، والزيادة تُعرض كتوصية مراجعة لا أمر حذف. */
-  const sectionsByCourse = new Map<number, Set<string>>();
-  for (const row of schedules.filter(row => Number(row.AdTermId) === DEMO_TERM_CURRENT)) {
-    const id = Number(row.AdCourseId);
-    if (!sectionsByCourse.has(id)) sectionsByCourse.set(id, new Set());
-    sectionsByCourse.get(id)!.add(String(row.SCode));
-  }
-  /* تخطيطُ قسم القصة لمقرراته وحدها: كان يلتقط مقرّرين من القسمين الآخرين (شعبتان لكلٍّ منهما) فتظهر «مدخل إلى
-     التربية الفنية» في تخطيط تكنولوجيا التعليم. */
-  const ownCourseIds = new Set(courses.filter(course => Number(course.AdSectionId) === DEMO_SECTION_ID).map(course => Number(course.AdCourseId)));
-  const withSections = [...sectionsByCourse].filter(([id, sections]) => sections.size > 0 && ownCourseIds.has(id))
-    .sort((a, b) => b[1].size - a[1].size || a[0] - b[0]);
-  const surplusCourses = withSections.filter(([, sections]) => sections.size > 1).slice(0, 2);
-  const deficitCourses = withSections.filter(([id]) => !surplusCourses.some(([surplusId]) => surplusId === id)).slice(0, 8);
-  const plannedCourses = [...surplusCourses, ...deficitCourses];
-  const accepted = Object.fromEntries(plannedCourses.map(([id, sections], index) => [
-    String(id), index < surplusCourses.length ? sections.size - 1 : sections.size + 1,
-  ]));
-  /* بيانات كشف الفصل الحالي التجريبي: فائض شعبة واحدة لكل مقرر من
-     surplusCourses محسوب حصراً من السعة وعدد «لم يسجلوا»، بلا أثر للمختار
-     أو تاريخ الفصول. ولكل مقررٍ ناقص «لم يسجلوا» يملأ شعبه ويزيد ثلثَ شعبةٍ تقريباً: ينقصه شعبةٌ واحدة كما اختار القسم
-     (accepted)، وتغطيةُ الطلب في «الإنذار المبكر» نحو ثلاثة أرباع — لا «ناقص 254 شعبة» من أرقام كشفٍ حقيقيٍّ لقسمٍ آخر. */
-  const remaining = Object.fromEntries(plannedCourses.map(([id, sections], index) => {
-    const capacity = Number(courses.find(course => Number(course.AdCourseId) === id)?.MaxStudent) || 0;
-    if (index < surplusCourses.length) return [String(id), capacity > 0 ? (sections.size - 1) * capacity : 0];
-    return [String(id), Math.round(capacity * (sections.size + 0.3 + 0.05 * (index % 4)))];
-  }));
-  const planScope = `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${DEMO_TERM_CURRENT}`;
-  /* «لوحة القرار» عند العميدين سطرٌ لكل قسم: وكان القسمان الآخران بلا تخطيطٍ فيُقرآن «0 · 0 · 0» و«لا فرق».
-     لكلٍّ منهما عددُ شعبٍ اختاره القسم لبعض مقرراته، فتُرى الدرجاتُ الثلاث على اللوحة: التربية الفنية عاجلٌ (ينقص
-     شعبتان) ومهمٌّ (ينقص شعبة) وفرصة (فائضٌ للمراجعة)، والتصميم التعليمي مهمٌّ وفرصة. */
-  const otherPlans = DEMO_OTHER_DEPARTMENTS.map(({ sectionId }) => {
-    const own = courses.filter(course => Number(course.AdSectionId) === sectionId);
-    const existing = (course: AdCourse | undefined) => course ? sectionsByCourse.get(Number(course.AdCourseId))?.size || 0 : 0;
-    const doubled = own.find(course => existing(course) > 1);
-    const singles = own.filter(course => existing(course) === 1);
-    const picks: Array<[AdCourse | undefined, number]> = sectionId === 2
-      ? [[singles[0], 2], [singles[1], 1], [doubled, -1]]
-      : [[singles[0], 1], [doubled, -1]];
-    const accepted = Object.fromEntries(picks.filter(([course]) => course).map(([course, delta]) => [String(course!.AdCourseId), existing(course) + delta]));
-    const scope = `${DEMO_COLLEGE_ID}:${sectionId}:${DEMO_TERM_CURRENT}`;
-    return {
-      id: scope, scopeKey: scope, collegeId: DEMO_COLLEGE_ID, sectionId, termId: DEMO_TERM_CURRENT,
-      counts: {}, remaining: {}, vacant: {}, accepted, updatedAt: now, updatedBy: "بيانات الديمو",
-    };
-  });
-  /* «الباقي/الشاغر» لكل فصلٍ سابق: من تعذّر عليه التسجيل (يتصاعد حيث زاد الطلب)، والمقاعد التي بقيت
-     فارغة (حيث تراجع). بالعمود نفسه الذي يقرؤه التنبّؤ (`unregistered`). */
-  const historyStats = DEMO_HISTORY_TERMS.map((term, index) => {
-    const remainingByCourse: Record<string, number> = {}, vacantByCourse: Record<string, number> = {};
-    historyOffer(index, courses).forEach(([code], order) => {
-      const course = courses.find(row => row.CourseCode === code);
-      if (!course) return;
-      /* الخريفيُّ بتبدّل شعبه؛ والربيعيُّ يتصاعد طلبُ أول ستةٍ من مقرراته في آخر فصل. */
-      const delta = index % 2 === 0 ? HISTORY_SHAPE[order % HISTORY_SHAPE.length][index] : (order < 6 ? 1 : 0);
-      const capacity = Number(course.MaxStudent) || 40;
-      remainingByCourse[String(course.AdCourseId)] = delta > 0 && index >= DEMO_HISTORY_TERMS.length - 2 ? Math.round(capacity * 0.7) : 0;
-      vacantByCourse[String(course.AdCourseId)] = delta < 0 ? Math.round(capacity * 0.4) : 0;
-    });
-    const scope = `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${term.id}`;
-    return {
-      id: scope, scopeKey: scope, collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID, termId: term.id,
-      counts: {}, remaining: remainingByCourse, vacant: vacantByCourse, accepted: {},
-      remainingSource: { fileName: "كشف المتبقي التجريبي (تاريخ).pdf", importedAt: now, column: "unregistered" },
-      updatedAt: now, updatedBy: "بيانات الديمو",
-    };
-  });
   return {
     users, formNames, formSecurity, collegeUserAssign,
     terms: demoTerms(new Date()),
@@ -1219,20 +1148,5 @@ export function createDemoSandboxState(): DemoSandboxState {
           courses: { [String(open.AdCourseId)]: { courseId: open.AdCourseId, state: "offered", reachOpen: true, updatedAt: now, updatedBy: COMMITTEE_NAME } }, updatedAt: now } } : {};
       })(),
     },
-    registrationStats: [
-      {
-        id: planScope, scopeKey: planScope, collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID,
-        termId: DEMO_TERM_CURRENT, counts: {}, remaining, vacant: {}, accepted,
-        remainingSource: { fileName: "كشف المتبقي التجريبي.pdf", importedAt: now, column: "unregistered" },
-        updatedAt: now, updatedBy: "بيانات الديمو",
-      },
-      {
-        id: `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${DEMO_TERM_SECOND}`, scopeKey: `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${DEMO_TERM_SECOND}`,
-        collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID, termId: DEMO_TERM_SECOND,
-        counts: {}, remaining: {}, vacant: {}, accepted: {}, updatedAt: now, updatedBy: "بيانات الديمو",
-      },
-      ...otherPlans,
-      ...historyStats,
-    ],
   };
 }

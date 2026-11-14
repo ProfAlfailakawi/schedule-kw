@@ -63,7 +63,6 @@ export function demoActivityTrail(input: {
     [70, 22, "h", "أ. يوسف", "send", "approval", "إرجاعٌ إلى القسم", { detail: `إرجاع الجدول للقسم مع ${countOf(2, AR.note)}` }],
     /* المسجّل العام (13) وموظفته */
     [6, 13, "h", "أ. بدر", "edit", "approval", "مواعيد الفصل", { before: "—", after: "موعد التسليم بعد أسبوع" }],
-    [30, 13, M.lulwa, "لولوة", "register", "registration", "كشف المتبقي", { detail: "رفع كشف المتبقي للفصل" }],
     [96, 13, "h", "أ. بدر", "handover", "team", "تسليم الرئاسة", { detail: "رئيس تسجيل الكلية: أ. يوسف" }],
     /* موظف التسجيل (14) بحسابه */
     [7, 14, "h", "أ. موظف التسجيل", "register", "registration", "كشف التسجيل · " + (row(10).AdCourseName || "مقرر"), { after: "سُجّل" }],

@@ -3,7 +3,6 @@
 # (.github/workflows/deploy-schedule.yml). دقائقُ GitHub Actions تُدفع، وهذه السبعةُ
 # كانت 104 ثوانٍ من 237 في كل تشغيل (CI على main، 2026-10-29).
 # يُضاف هنا ما تجاوز خمسَ ثوانٍ في CI، ويبقى مع ذلك في tests/suite.txt.
-test:swrs136-real
 test:student-needs-scale
 test:plan-sheet-import
 test:teacher-card-flow

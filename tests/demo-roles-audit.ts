@@ -154,13 +154,6 @@ for (const user of state.users.filter(u => Number((u as any).AdInstructorId) > 0
   const mine = upcoming.filter(row => Number(row.AdInstructorId) === Number((user as any).AdInstructorId));
   check(mine.length >= 2, `«${user.Name}»: موعدان له على الأقل في الفصل القادم — لوحتُه الشخصية لا تُفتح على صفر (${mine.length})`);
 }
-/* لوحةُ القرار عند العميدين: لكل قسمٍ تخطيطُه بمقرراته هو وحدها. */
-for (const sectionId of [1, 2, 3]) {
-  const plan = (state.registrationStats || []).find((row: any) => row.termId === 1 && row.sectionId === sectionId);
-  const ids = Object.keys(plan?.accepted || {}).map(Number);
-  check(ids.length > 0 && ids.every(id => state.courses.find(c => c.AdCourseId === id)?.AdSectionId === sectionId),
-    `القسم ${sectionId}: تخطيطٌ لمقرراته هو وحدها — فتُقرأ لوحةُ القرار بدرجاتها (${ids.length})`);
-}
 /* رصيدُ مقاعد المرشد: سعةٌ ورصيدٌ وإضافاتٌ من المرشدَين وطلبُ استثناء — لا ثمانيَ وثلاثين شعبةً بسعة «0». */
 const docs: any = (state as any).featureDocs || {};
 const seatConfig = docs.advisorSeatLedgers?.["config:1:1:1"];
