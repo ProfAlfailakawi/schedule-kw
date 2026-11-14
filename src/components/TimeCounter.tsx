@@ -108,7 +108,7 @@ export function TimeWheels({
   lengths?: readonly number[] | null;
 }) {
   const from = minutesOf(start);
-  const span = Math.max(30, minutesOf(end) - from);
+  const currentSpan = Math.max(30, minutesOf(end) - from);
   const minimum = minutesOf(minTime), maximum = minutesOf(maxTime);
   const lastEnd = Math.max(maximum, endLimit ? minutesOf(endLimit) : 0);
   const hours = useMemo(
@@ -119,6 +119,10 @@ export function TimeWheels({
   /* The lengths the regulation actually gives: 50 minutes on Sun/Tue/Thu and 80
      on Mon/Wed, plus the longer blocks a lab or a seminar uses. */
   const spans = lengths && lengths.length ? [...lengths] : [50, 80, 100, 120, 150, 180];
+  /* طولٌ واحد صحيح للأيام المختارة: يُعرض قيمةً ثابتة لا عجلةً، وتُحسب النهاية منه دائماً (قرار المالك: لا تُعرض مدةٌ
+     يُبطلها إعادةُ حساب الطول من ساعات المقرر). */
+  const fixedLength = spans.length === 1 ? spans[0] : null;
+  const span = fixedLength ?? currentSpan;
 
   const setStart = (minutes: number) => {
     const clamped = Math.min(Math.max(minutes, minimum), maximum - 30);
@@ -145,13 +149,18 @@ export function TimeWheels({
         format={(m) => String(m).padStart(2, "0")}
         onPick={(m) => setStart(Math.floor(from / 60) * 60 + m)}
       />
-      <Wheel
+      {fixedLength !== null ? (
+        <div className="qc-wheel qc-wheel-fixed" aria-label="المدة المعتمدة">
+          <span className="qc-wheel-cap">المدة (د)</span>
+          <b className="qc-fixed-length" dir="ltr" style={{ display: "block", textAlign: "center", padding: "10px 0", fontVariantNumeric: "tabular-nums" }}>{fixedLength}</b>
+        </div>
+      ) : <Wheel
         label="المدة (د)"
         values={spans}
         value={spans.includes(span) ? span : spans.reduce((best, s) => (Math.abs(s - span) < Math.abs(best - span) ? s : best), spans[0])}
         format={(s) => String(s)}
         onPick={setSpan}
-      />
+      />}
       <div className="qc-until">
         <span>ينتهي</span>
         <b dir="ltr">{scheduleClockForDisplay(end)}</b>

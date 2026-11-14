@@ -183,6 +183,17 @@ export default function RoomSuggestionCards({
   replaceBusy?: boolean;
 }) {
   const assignable = onReplaceable ? replaceable : [];
+  /* «الأنسب» لا يذهب إلى قاعةٍ سعتها أقل من المطلوب ما دامت هناك قاعةٌ تكفي؛ وإن لم تكفِ قاعة فالصدق: «الأقرب سعة». */
+  const capacityOf = (slot: RoomSuggestion): "ok" | "less" | "unknown" => {
+    const reasons = slot.reasons || [];
+    if (reasons.some(reason => reason.includes("السعة المسجلة أقل"))) return "less";
+    if (reasons.some(reason => reason.includes("السعة المسجلة مناسبة"))) return "ok";
+    return "unknown";
+  };
+  const okIndex = suggestions.findIndex(slot => capacityOf(slot) === "ok");
+  const unknownIndex = suggestions.findIndex(slot => capacityOf(slot) === "unknown");
+  const allLess = suggestions.length > 0 && okIndex < 0 && unknownIndex < 0;
+  const bestIndex = okIndex >= 0 ? okIndex : allLess ? 0 : unknownIndex;
   return <section className={`room-suggestion-panel room-suggestion-panel--${variant}`} aria-label={label}>
     <header>
       <span className="room-suggestion-mark"><Armchair aria-hidden="true" /></span>
@@ -192,7 +203,7 @@ export default function RoomSuggestionCards({
     {suggestions.length ? <div className="room-suggest-list">
       {suggestions.map((slot, index) => {
         const facts = factsFor(slot.reasons);
-        const best = index === 0 && suggestions.length > 1;
+        const best = index === bestIndex && suggestions.length > 1;
         const timed = Boolean(slot.start && slot.end);
         return <button type="button" key={slot.roomId ? `${slot.roomId}-${slot.start || ""}` : `${slot.room}-${slot.hall}-${index}`}
           className={best ? "is-best" : ""}
@@ -203,7 +214,7 @@ export default function RoomSuggestionCards({
           <span className="room-suggest-card-copy">
             <span className="room-suggest-card-title">
               <bdi dir="ltr" className="room-suggest-code">{slot.room}/{slot.hall}</bdi>
-              {best ? <em className="room-suggest-best"><Star aria-hidden="true" />الأنسب</em> : null}
+              {best ? <em className="room-suggest-best"><Star aria-hidden="true" />{allLess ? "الأقرب سعة" : "الأنسب"}</em> : null}
               {slot.fit ? <FitPill fit={slot.fit} /> : null}
             </span>
             {timed ? <small className="room-suggestion-time"><Clock3 aria-hidden="true" /><time dir="ltr">{formatScheduleTimeRange(slot.start!, slot.end!)}</time></small> : null}

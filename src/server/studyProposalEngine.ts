@@ -10,6 +10,7 @@
  * ما يُكشف للمستخدم محدودٌ بصلاحيته: موعدُ أستاذٍ في قسمٍ خارج نطاقه يظهر
  * إشغالاً وحسب — لا مقرّر ولا شعبة ولا كلية.
  */
+import { sectionCodeKey } from "../utils/sameSlot";
 import { overHoursMessage } from "../utils/hoursIssue";
 import { roomTypeIn } from "../utils/roomTypeForSection";
 import { Repository } from "../db/repository";
@@ -202,7 +203,7 @@ export async function proposalSchedulePreflight(
   if (hours > 0) {
     const siblings = provisional.filter(item =>
       Number(item.id) !== Number(row.id)
-      && Number(item.AdCourseId) === courseId && String(item.SCode || "") === String(row.SCode || "")
+      && Number(item.AdCourseId) === courseId && sectionCodeKey(item.SCode) === sectionCodeKey(row.SCode)
       && Number(item.AdCollegeId) === Number(row.AdCollegeId)
       && Number(item.AdSectionId) === Number(row.AdSectionId)
       && Number(item.AdTermId) === Number(row.AdTermId));
@@ -301,7 +302,7 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
         detail: `${op.target.courseName || "المقرر"} مؤرشف أكاديمياً ولا يُضاف إلى جدولٍ جديد.`,
         fix: "اختر مقرراً قائماً في الكتالوج.",
       });
-      const taken = world.termRows.some(row => Number(row.AdCourseId) === op.target.AdCourseId && String(row.SCode) === String(op.target.SCode));
+      const taken = world.termRows.some(row => Number(row.AdCourseId) === op.target.AdCourseId && sectionCodeKey(row.SCode) === sectionCodeKey(op.target.SCode));
       if (taken) addFinding({
         kind: "blocker", code: "section-code-taken", title: "رقم الشعبة مستخدم", opId: op.id,
         detail: `الشعبة ${op.target.SCode} موجودةٌ فعلاً لـ ${op.target.courseName || "هذا المقرر"} في هذا الفصل.`,
@@ -622,7 +623,7 @@ export async function suggestAlternatives(
   const course = w.catalog.courseById.get(Number(op.target.AdCourseId)) as any;
   /* الأيامُ البديلة من مكتبة الأنماط وحدها (لا الأحد·الخميس)، والبداياتُ من سُلّم اللائحة (المولّدُ الواحد، م.7/8). */
   const courseHours = effectiveCourseHours(course);
-  const sectionSiblings = others.filter(row => Number(row.AdCourseId) === Number(op.target.AdCourseId) && String(row.SCode ?? "").trim() === String(op.target.SCode ?? "").trim()
+  const sectionSiblings = others.filter(row => Number(row.AdCourseId) === Number(op.target.AdCourseId) && sectionCodeKey(row.SCode) === sectionCodeKey(op.target.SCode)
     && Number(row.AdCollegeId) === Number(op.target.AdCollegeId) && Number(row.AdSectionId) === Number(op.target.AdSectionId) && Number(row.AdTermId) === Number(input.termId));
   const variants = sectionDayVariants(op.target, courseHours, sectionSiblings);
   const expectedType = String(course?.CourseRoomType || "").trim();

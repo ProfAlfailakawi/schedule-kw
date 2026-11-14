@@ -49,9 +49,10 @@ const RHYTHM_STALE_MS=10*60_000;
 const styleOf=(cached:DepartmentStyle):DepartmentStyle=>({reading:cached.reading,doorway:cached.doorway,memory:cached.memory,cohort:cached.cohort,cohortSize:cached.cohortSize});
 
 export async function departmentStyle(row:any):Promise<DepartmentStyle>{
-  const collegeId=Number(row?.AdCollegeId||0),sectionId=Number(row?.AdSectionId||0);
+  const collegeId=Number(row?.AdCollegeId||0),sectionId=Number(row?.AdSectionId||0),termId=Number(row?.AdTermId||0);
   if(!collegeId)return{reading:null,doorway:0,memory:null,...NO_COHORT};
-  const key=dataContextCacheKey(`${collegeId}:${sectionId}`);
+  /* الفصلُ في المفتاح: التعارضُ على الطلاب (استبيان الفصل) والقاعدةُ المعلنة للفصل يخصّان الفصلَ المفحوص، فلا يُعاد استعمالُ ما قُرئ لفصلٍ آخر. */
+  const key=dataContextCacheKey(`${collegeId}:${sectionId}:${termId}`);
   const cached=rhythmCache.get(key);
   if(cached&&cached.serial===driftSerial)return styleOf(cached);
   const refresh=()=>{
@@ -71,12 +72,16 @@ async function readDepartmentStyle(row:any,key:string):Promise<DepartmentStyle>{
   try{
     // Every term this department has ever run. History is the whole point:
     // a habit is what survives across years, and one term of it is chance.
-    const history=(await Repository.getSchedules()).filter(item=>
-      Number(item.AdCollegeId)===collegeId&&(!sectionId||Number(item.AdSectionId)===sectionId));
+    /* ...لكنّ تاريخَ هذا القسم وحده: القراءةُ الشاملة (كل الجامعة ثم الترشيح) كانت تُعاد بعد كل حفظٍ في أي قسم وتُطيل «جاري الفحص».
+       القراءةُ المحصورة بنطاق القسم تمرّ على ذاكرة الصفوف المؤقتة وعلى مقرراته فقط. */
+    const [history,memCourses,memPeople]=await Promise.all([
+      Repository.getSchedulesByScope(sectionId?{collegeId,sectionId}:{collegeId}),
+      sectionId?Repository.getCoursesBySection(sectionId):Repository.getCourses(),
+      Repository.getInstructors(),
+    ]);
     const reading=learnRhythm(history);
     /* The same pass answers the memory's questions too — one read of history
        serves both, and neither is computed again until something is written. */
-    const [memCourses,memPeople]=await Promise.all([Repository.getCourses(),Repository.getInstructors()]);
     const memory=readDepartmentMemory(history,memCourses,memPeople);
     const rules=termId?await Repository.getScheduleConstraints(collegeId,sectionId,termId).catch(()=>[]):[];
     const declared=Number(rules.find(item=>item.type==="room_doorway"&&item.enabled!==false)?.maxMinutes||0);

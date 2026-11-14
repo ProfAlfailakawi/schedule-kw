@@ -2,6 +2,9 @@ import PatternLibraryButton from "./PatternLibraryButton";
 import WeekHeat from "./WeekHeat";
 import WipeScheduleButton from "./WipeScheduleButton";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
+import { arabicMatchKey } from "../utils/arabicText";
+import { trapFocusRef } from "../hooks/useFocusTrap";
+import { buildBusyIndex, indexedBlockers } from "./SchedulePhysics/blockerIndex";
 import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { isPhoneDevice } from "../utils/workspaceSize";
@@ -95,7 +98,7 @@ import TeacherMiniWeek, { MiniWeekToggle, forgetMiniWeekRows, useMiniWeekEnabled
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
-import { appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
+import { appointmentSaveGaps, appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
 import { bestRegulationChoice, completeRegulation, completeSectionEnd, endIsDeliberate, patternLengthIssue, pickDay, sameScheduleShape, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, wheelLengths, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { spellingTwinsOf } from "../utils/courseSpellingTwins";
@@ -175,7 +178,7 @@ import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
 import { SeatQuickPick, VacantAssign, type SeatVerdict } from "./InstructorSeats";
 import SameSlotHint from "./SameSlotHint";
-import { conflictSkipIds } from "../utils/sameSlot";
+import { conflictSkipIds, sectionCodeKey } from "../utils/sameSlot";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
 import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
 import { TimeCounterPopover } from "./TimeCounter";
@@ -222,6 +225,7 @@ import { changeFormPatch, openRowNotice, takeOpenRow, type RequestedChange } fro
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
 import { ACTUAL_DEMAND_HANDOFF_EVENT, actualDemandNotice, FOCUS_COURSE_EVENT, graduateImpactNote, takeActualDemandHandoff, takeFocusedCourse } from "../utils/actualDemandHandoff";
 import { freshSectionOf, parseHoursIssue } from "../utils/hoursIssue";
+import ChainSolveSheet from "./ChainSolveSheet";
 import StudentPulse, { FitImpact, saveImpactOf, type BestTime, type SaveImpact } from "./StudentPulse";
 import type { StudentFit } from "../utils/studentFit";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
@@ -463,7 +467,7 @@ export const PRACTICE_WRITE_BLOCKED = "أنت في «وضع تجربة»: هذا
 /* طلبات POST تقرأ ولا تكتب (فحص التعارض وقراءات الشرح)؛ تبقى متاحة أثناء التجربة. */
 export const PRACTICE_READ_POSTS = /^\/api\/(schedules\/check-conflicts|intelligence\/(conflict-solutions|why-not|why|ripple))(\/|\?|$)/;
 export type UndoStep = { method: "POST" | "PUT" | "DELETE"; url: string; body?: any };
-export type UndoEntry = { id: string; label: string; at: number; steps: UndoStep[]; usedAt?: number };
+export type UndoEntry = { id: string; label: string; at: number; steps: UndoStep[]; usedAt?: number; scope?: { c: number; s: number; t: number } };
 /** How long the floating bar stays; the log itself lasts until midnight. */
 const UNDO_BAR_MS = 15_000;
 const UNDO_LOG_LIMIT = 60;
@@ -1158,6 +1162,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const normalSearchTrackedRef = useRef<{query:string;startedAt:number;completed?:boolean} | null>(null);
   const practiceSnapshotRef = useRef<FSchedule[] | null>(null);
   const [practiceMode, setPracticeMode] = useState(false);
+  /* نطاق بدء التجربة، وهل تغيّر الجدول الحقيقي أثناءها (شارة هادئة بدل محو التجربة). */
+  const practiceScopeRef = useRef("");
+  const [practiceRealChanged, setPracticeRealChanged] = useState(false);
   /* مرآةٌ متزامنة للوضع: الطلبات غير المتزامنة تقرأ الحال الآن، لا حال لحظة إنشائها. */
   const practiceModeRef = useRef(false);
   practiceModeRef.current = practiceMode;
@@ -1412,6 +1419,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return true;
   };
   const graduateNoteRef = useRef("");
+  /** «سبقك زميل» لنقلٍ أو سحب: ما أُخذ بكلمات الخادم؛ والبديل يأتي مع ورقة الإصلاح التي تُفتح بعده. */
+  const slotTakenWords = (failure: any) => `سبقك زميل ⏱️ ${String(failure?.issues?.[0]?.message || failure?.message || "أُخذ هذا الموضع قبل لحظات")}. لم يتغيّر شيء.`;
   const fetchJson = async (url: string, options?: RequestInit) => {
     const method = String(options?.method || "GET").toUpperCase();
     const mutating = method !== "GET" && method !== "HEAD";
@@ -1498,9 +1507,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
          Dropping them left the caller with one stitched sentence and no way to
          show a wall per line. */
       if (Array.isArray(data?.conflicts) && data.conflicts.length) failure.conflicts = data.conflicts;
+      failure.status = res.status;
       if (data?.code) failure.code = data.code;
+      if (Array.isArray(data?.issues)) failure.issues = data.issues;
       if (Array.isArray(data?.holds)) failure.holds = data.holds;
       if (Array.isArray(data?.changes)) failure.changes = data.changes;
+      /* تعديلٌ بلا إصدار على صفٍّ له إصدار: لا يُترك خطأً خاماً؛ يُحدَّث الجدول بصمت فيعرف المستخدم ما تغيّر ويعيد المحاولة. */
+      if (res.status === 409 && data?.code === "rev-required") {
+        failure.message = "تغيّر هذا الموعد منذ فتحته؛ حدّثتُ الجدول. راجعه وأعد المحاولة.";
+        void loadRowsRef.current?.({ silent: true })?.catch?.(() => undefined);
+      }
       if (res.status === 409 && data?.conflict === "revision") {
         failure.revisionConflict = true;
         failure.current = data.current;
@@ -1548,9 +1564,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       return send([...new Set<string>(failure.holds.map((hold: any) => String(hold.requestId)))]);
     }
   };
-  const deleteScheduleRow = async (id: number | string) => {
-    const result = await withRequestHoldPrompt(overrideRequestHolds => fetchJson(`/api/schedules/${id}`, overrideRequestHolds
-      ? { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ overrideRequestHolds }) }
+  const deleteScheduleRow = async (id: number | string, rev?: number) => {
+    /* الإصدار المرئي يُرسل مع الحذف (409 إن عُدّل بعده). */
+    const hasRev = Number.isFinite(Number(rev)) && rev !== undefined;
+    const result = await withRequestHoldPrompt(overrideRequestHolds => fetchJson(`/api/schedules/${id}`, overrideRequestHolds || hasRev
+      ? { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(overrideRequestHolds ? { overrideRequestHolds } : {}), ...(hasRev ? { rev } : {}) }) }
       : { method: "DELETE" }), "الحذف");
     /* ذاكرةُ أسبوع الأستاذ تُنسي الصفَّ المحذوف فوراً: لا يُحسب في النصاب حتى الفتحة التالية. */
     forgetMiniWeekRows([id]);
@@ -1843,6 +1861,27 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       confirmLabel: "تراجع",
       tone: "warning",
     }))) return;
+    /* السجل لكل مستخدم/يوم لا لكل نطاق: التراجع عن تغيير في قسم/فصل آخر يُرفض
+       بكلمات واضحة بدل أن يكتب في نطاق لا يراه المستخدم الآن. */
+    if (entry.scope && (Number(entry.scope.c) !== Number(filterCollege) || Number(entry.scope.s) !== Number(filterSection) || Number(entry.scope.t) !== Number(filterTerm))) {
+      setError("هذا التغيير جرى في قسم أو فصل آخر. افتح ذلك النطاق ثم تراجع عنه من هناك.");
+      return;
+    }
+    /* التراجع الأحدث يحمل الإصدار الذي أنتجه تغييرك (إصدار اللقطة + 1)؛ إن تقدّم
+       الصف عنه فقد عدّله زميل بعدك، والكتابة فوقه كانت ستمحو تعديله بصمت. */
+    if (newest && newest.id === entry.id) {
+      const idOf = /^\/api\/schedules\/(\d+)$/;
+      const overtaken = entry.steps.find(step => {
+        if (step.method !== "PUT" || !step.body || !Number.isFinite(Number(step.body.rev))) return false;
+        const match = idOf.exec(step.url);
+        const live = match ? rows.find(item => Number(item.id) === Number(match[1])) : undefined;
+        return Boolean(live) && Number(live!.rev || 0) > Number(step.body.rev) + 1;
+      });
+      if (overtaken) {
+        setError("عُدّل هذا الموعد بعد تغييرك (ربما من زميل). حدّث الجدول وراجعه قبل التراجع كي لا يضيع تعديله.");
+        return;
+      }
+    }
     setUndoBusy(entry.id);
     setError(null);
     try {
@@ -1928,6 +1967,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const entry: UndoEntry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       label, at: Date.now(), steps,
+      scope: { c: Number(filterCollege) || 0, s: Number(filterSection) || 0, t: Number(filterTerm) || 0 },
     };
     setUndoLog(current => [entry, ...current].slice(0, UNDO_LOG_LIMIT));
     setUndoBarId(entry.id);
@@ -2047,8 +2087,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    */
   const [emptyElsewhere, setEmptyElsewhere] = useState<Array<{ sectionId: number; name: string; count: number }>>([]);
   /** Only the newest read may write the rows; a slower earlier one is discarded. */
-  const loadToken = useRef(0);
-  const loadAbort = useRef<AbortController | null>(null);
+  const rowsToken = useRef(0);
+  const rowsAbort = useRef<AbortController | null>(null);
+  const workspaceToken = useRef(0);
+  const workspaceAbort = useRef<AbortController | null>(null);
+  const workspaceFlight = useRef<{ token: number; stamp: string } | null>(null);
   /**
    * The scope this screen is looking at, readable from anywhere at any age.
    *
@@ -2179,10 +2222,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (scope.sectionId) p.set("sectionId", String(scope.sectionId));
     if (scope.termId) p.set("termId", String(scope.termId));
     const stamp = `${scope.collegeId}|${scope.sectionId}|${scope.termId}`;
-    const token = ++loadToken.current;
-    loadAbort.current?.abort();
+    const token = ++rowsToken.current;
+    rowsAbort.current?.abort();
     const controller = new AbortController();
-    loadAbort.current = controller;
+    rowsAbort.current = controller;
+    // تحميلُ مساحةٍ لنطاقٍ آخر يُلغى (نتيجته لم تعد تخص ما على الشاشة)؛ أمّا لنفس
+    // النطاق فيُترك يكمل، فهو من يجلب المدرّسين والمقررات.
+    const inFlight = workspaceFlight.current;
+    if (inFlight && inFlight.stamp && inFlight.stamp !== stamp) {
+      workspaceToken.current += 1; workspaceAbort.current?.abort(); workspaceFlight.current = null;
+    }
     /**
      * The previous term's rows leave the screen NOW, not when the new ones
      * arrive. Gating the board alone was not enough: the counters above it —
@@ -2218,7 +2267,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // longer on screen, and must never be painted onto the one that is.
       const now = scopeRef.current;
       if (stamp !== `${now.collegeId}|${now.sectionId}|${now.termId}`) return;
-      if (token === loadToken.current) {
+      if (token === rowsToken.current) {
         setRows(data);
         setRowsScope(stamp);
         rowsScopeRef.current = stamp;
@@ -2240,14 +2289,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
            for one that never arrived. Drop the rows and stamp the scope, so
            the screen says «لا مواعيد» honestly instead of holding a skeleton
            for ever or showing somebody else's term. */
-        if (token === loadToken.current) { setRows([]); setRowsScope(stamp); rowsScopeRef.current = stamp; }
+        if (token === rowsToken.current) { setRows([]); setRowsScope(stamp); rowsScopeRef.current = stamp; }
         throw error;
       }
     } finally {
-      if (token === loadToken.current) setRowsLoading(false);
+      if (token === rowsToken.current && !workspaceFlight.current) setRowsLoading(false);
     }
   };
-  useEffect(() => () => loadAbort.current?.abort(), []);
+  useEffect(() => () => { rowsAbort.current?.abort(); workspaceAbort.current?.abort(); }, []);
   useEffect(() => {
     const down = () => { setNetworkOnline(false); telemetryOffline("schedule.network"); };
     const up = async () => {
@@ -2352,13 +2401,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     onContext?: (context: { collegeId: number; sectionId: number; termId: number }) => void,
   ) => {
     const uiStarted = performance.now();
-    const token = ++loadToken.current;
-    loadAbort.current?.abort();
+    /* للمساحة مفتاحها ومقاطعها: تحديث صفوف صامت (بثّ مباشر) كان يلغي هذا التحميل
+       فلا يصل المدرّسون والمقررات أبداً. صفوفٌ سابقة معلّقة تُبطَل هنا فقط كي لا
+       تسبق صفوفَ المساحة الأحدث. */
+    const token = ++workspaceToken.current;
+    workspaceAbort.current?.abort();
     const controller = new AbortController();
-    loadAbort.current = controller;
+    workspaceAbort.current = controller;
+    workspaceFlight.current = { token, stamp: resolve ? "" : `${collegeId}|${sectionId}|${termId}` };
+    rowsToken.current += 1;
+    rowsAbort.current?.abort();
     setRowsLoading(true);
     const apply = (data: any) => {
-      if (token !== loadToken.current) return null;
+      if (token !== workspaceToken.current) return null;
       const context = {
         collegeId: Number(data?.context?.collegeId ?? collegeId) || 0,
         sectionId: Number(data?.context?.sectionId ?? sectionId) || 0,
@@ -2440,7 +2495,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // board immediately and the network response quietly replaces it.
       let networkSettled = false;
       void warmWorkspaceSnapshot(url).then(snapshot => {
-        if (!snapshot || networkSettled || token !== loadToken.current) return;
+        if (!snapshot || networkSettled || token !== workspaceToken.current) return;
         apply(snapshot);
       });
       try {
@@ -2500,7 +2555,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (error?.name !== "AbortError") throw error;
       return null;
     } finally {
-      if (token === loadToken.current) setRowsLoading(false);
+      if (token === workspaceToken.current) { workspaceFlight.current = null; setRowsLoading(false); }
     }
   };
   useEffect(() => {
@@ -3112,6 +3167,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const pendingHandoff = useRef<RequestHandoff | null>(null);
   /** صورةُ النموذج لحظة فتحه: ما خالفها لم يُحفظ بعد (انظر requestClose). */
   const editorSnapshot = useRef<string | null>(null);
+  const editBaseline = useRef<FSchedule | null>(null);
+  /* أيامٌ بُذرت من خانة مرسومة (لم تُختر نمطاً) تُكمل حين يُعرف المقرر. */
+  const daysSeeded = useRef(false);
+  const timingCourseKey = useRef(0);
+  /* تجاوزٌ متعمَّد لنمط اللائحة (نهاية/مدة/أيام بيد المستخدم) — وحده يوقف الإكمال الآلي. */
+  const [timingOverride, setTimingOverride] = useState(false);
   /** رقمُ آخر بحثٍ عن القاعة المعتادة: كلُّ فتحٍ أو إغلاقٍ للمحرّر يُبطل ما قبله. */
   const usualRoomLookup = useRef(0);
   /* «مقترح دراسي» من الوارد: الوقتُ المطلوب ينتظر فتحَ نموذج الموعد الأصلي (src/utils/requestOpenRow.ts). */
@@ -3137,8 +3198,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setStudentFit(null); setGraduateImpact(null); setBestTime(null);
     usualRoomLookup.current += 1;
     setChecking(false);
-    setScheduleTouched(false);
     editorSnapshot.current = null;
+    setSlotTaken(null);
     setRoomIdeas(null); setRoomIdeasNote(""); setRoomIdeasReason(undefined); setRoomReplaceable([]);
     setSlotIdeas(null); setSlotIdeasNote(""); setSlotIdeasReason(undefined); setSlotReplaceable([]);
     setAlternatives(null);
@@ -3267,6 +3328,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         sectionAutofilled.current = false;
       }
       setForm(values);
+      /* الأصل لمقياس «تغيّر شيء» هو الموعد المحفوظ لا ما فُتح به النموذج: بديلٌ مقترح
+         يُفتح معبّأً فيكون النموذج مختلفاً عن المحفوظ فيُضيء الحفظ ويُسأل عند الإغلاق. */
+      /* الأصل يمرّ بمرجعٍ من openEditAlternative وحده (يُستهلك هنا): توقيع openEdit يبقى موعداً واحداً. */
+      const savedRow = editBaseline.current;
+      editBaseline.current = null;
+      if (savedRow) {
+        const { id: _sid, AdCourseName: _sname, ...savedValues } = savedRow as any;
+        if (!String(savedValues.SCode || "").trim()) savedValues.SCode = values.SCode;
+        editorSnapshot.current = editorFormKey(savedValues);
+      }
       /* التعديل لا يُكمَل آلياً عند الفتح: الموعد المحفوظ يبقى كما هو حتى يمسّ المستخدم أيامه أو وقته. */
       timingOpenedKey.current = timingKeyOf(values);
       setCourseName(name || courseById.get(row.AdCourseId)?.CourseName || "");
@@ -3391,7 +3462,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           compact: true,
         });
         if (!leave) return;
-        clearDraft();
+        // التخلي الصريح عن «موعد جديد» وحده يمحو مسودته؛ إغلاق تعديلٍ لا يلمسها.
+        if (editor === "create") clearDraft();
       } finally {
         closingEditor.current = false;
       }
@@ -3402,28 +3474,53 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      ما يُكتب في «موعد جديد» يُحفظ على هذا الجهاز لحظةً بلحظة، فإن أُغلق المتصفح أو انقطع الاتصال عُرضت عند الفتح
      التالي شريحةٌ واحدة: «استعد». الإغلاقُ المقصود (تأكيد «أغلق دون حفظ») والحفظُ الناجح يمحوانها — فلا يبقى إلا ما ضاع. */
   const draftKey = `schedule-appt-draft:${Number(user?.SystemUserId || 0)}`;
+  type DraftSnapshot = { form: Partial<FSchedule>; courseName: string; at: number; timingOverride?: boolean };
   const readDraft = () => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(draftKey) || "null");
-      return saved && Number(saved.at) > Date.now() - 24 * 3600_000 && saved.form?.AdCourseId ? saved as { form: Partial<FSchedule>; courseName: string; at: number } : null;
+      return saved && Number(saved.at) > Date.now() - 24 * 3600_000 && saved.form?.AdCourseId ? saved as DraftSnapshot : null;
     } catch { return null; }
   };
   const clearDraft = () => { try { window.localStorage.removeItem(draftKey); } catch { /* التخزين قد يغيب */ } };
-  const [draftOffer, setDraftOffer] = useState<{ form: Partial<FSchedule>; courseName: string; at: number } | null>(null);
+  const [draftOffer, setDraftOffer] = useState<DraftSnapshot | null>(null);
   useEffect(() => { setDraftOffer(editor === "create" ? readDraft() : null); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, editId]);
   useEffect(() => {
     if (editor !== "create" || !editorDirty || !form.AdCourseId) return;
-    try { window.localStorage.setItem(draftKey, JSON.stringify({ form, courseName, at: Date.now() })); } catch { /* ممتلئ أو محجوب */ }
+    /* مسودةٌ معروضة لم يُجب عنها بعد لا تُكتب فوقها: اختيار مقررٍ جديد كان يمحوها بصمت. */
+    if (draftOffer) return;
+    try { window.localStorage.setItem(draftKey, JSON.stringify({ form, courseName, at: Date.now(), timingOverride })); } catch { /* ممتلئ أو محجوب */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, editorDirty, form, courseName]);
-  const restoreDraft = () => {
+  }, [editor, editorDirty, form, courseName, timingOverride, draftOffer]);
+  /** نطاقٌ بكلمات: «الكلية · القسم · الفصل» لمسودةٍ أو لنموذج. */
+  const scopeLabelOf = (f: Partial<FSchedule>) => [
+    colleges.find(item => Number(item.AdCollegeId) === Number(f.AdCollegeId))?.AdCollegeName,
+    sections.find(item => Number(item.AdSectionId) === Number(f.AdSectionId))?.AdSectionName,
+    terms.find(item => Number(item.AdTermId) === Number(f.AdTermId))?.AdTermName,
+  ].filter(Boolean).join(" · ");
+  const draftScopeDiffers = (draft: Partial<FSchedule> | undefined) => Boolean(draft) && (
+    Number(draft!.AdCollegeId || 0) !== Number(form.AdCollegeId || 0)
+    || Number(draft!.AdSectionId || 0) !== Number(form.AdSectionId || 0)
+    || Number(draft!.AdTermId || 0) !== Number(form.AdTermId || 0));
+  const restoreDraft = async () => {
     if (!draftOffer) return;
+    const differs = draftScopeDiffers(draftOffer.form);
+    if (editorDirty && !(await visualConfirm({
+      title: "استبدال ما كتبته بالمسودة؟",
+      message: "ما أدخلته الآن في هذا النموذج سيُستبدل بالمسودة المحفوظة.",
+      confirmLabel: "استعد المسودة", cancelLabel: "أبقِ ما كتبت", tone: "warning", compact: true,
+    }))) return;
     setForm({ ...blank(), ...draftOffer.form });
     setCourseName(draftOffer.courseName || courseById.get(Number(draftOffer.form.AdCourseId))?.CourseName || "");
     sectionAutofilled.current = false;
-    setScheduleTouched(true);
+    /* التجاوز المتعمَّد يعود كما كان: بدونه يعيد الإكمال اللائحي الأيام والنهاية فتصير «أحد فقط 50د» أحد/ثلاثاء/خميس. */
+    const course = courseById.get(Number(draftOffer.form.AdCourseId || 0));
+    const draftDays = days.filter(item => Boolean((draftOffer.form as any)[item.key])).map(item => item.key as RegDayKey);
+    setTimingOverride(draftOffer.timingOverride ?? (regulationFit(course, draftDays, String(draftOffer.form.fstarttime || ""), String(draftOffer.form.fendtime || "")) === "off"));
+    timingCourseKey.current = Number(draftOffer.form.AdCourseId) || 0;
+    daysSeeded.current = false;
     setDraftOffer(null);
+    if (differs) setMessage(`استُعيدت المسودة بنطاقها: ${scopeLabelOf(draftOffer.form)}.`);
   };
   const dropDraft = () => { clearDraft(); setDraftOffer(null); };
   /* The Escape listener is registered once; these keep it from asking an old
@@ -3535,15 +3632,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return `${why}${what} ${formatScheduleTimeRange(busy.fstarttime, busy.fendtime)}`;
   };
   const selectedFormDays = days.filter(d=>Boolean(form[d.key]));
-  // A brand-new form should not open already scolding. The validation strip
-  // waits until the days or the time have been touched, or until a save is
-  // attempted; the submit button stays disabled meanwhile either way.
-  const [scheduleTouched, setScheduleTouched] = useState(false);
-  /* تجاوزٌ متعمَّد لنمط اللائحة (نهاية/مدة/أيام بيد المستخدم) — وحده يوقف الإكمال الآلي. */
-  const [timingOverride, setTimingOverride] = useState(false);
-  /* أيامٌ بُذرت من خانة مرسومة (لم تُختر نمطاً) تُكمل حين يُعرف المقرر. */
-  const daysSeeded = useRef(false);
-  const timingCourseKey = useRef(0);
   /* إضاءةٌ قصيرة على الأيام والنهاية حين يكملهما النمط آلياً — يرى المستخدم ما تغيّر. */
   const [autofillFlash, flashAutofill] = useAutofillFlash();
   /* أفرغ المستخدم الأيام بيده: لا يُعاد النمط المعتاد حتى يتغيّر المقرر أو البداية. */
@@ -3570,10 +3658,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [borrowBuilding, setBorrowBuilding] = useState("");
   const [borrowDept, setBorrowDept] = useState("");
   /** رمزا مبنى وقاعة ← سجلُّهما الرسمي (المعرّفان) في نطاق النموذج؛ null إن لم يكونا في السجل. */
-  const resolveRegistryRoom = async (building: string, hall: string): Promise<Partial<FSchedule> | null> => {
+  const resolveRegistryRoom = async (building: string, hall: string, scope: Partial<FSchedule> = form): Promise<Partial<FSchedule> | null> => {
     try {
-      const q = new URLSearchParams({ collegeId: String(form.AdCollegeId || 0), sectionId: String(form.AdSectionId || 0) });
-      if (form.AdTermId) q.set("termId", String(form.AdTermId));
+      const q = new URLSearchParams({ collegeId: String(scope.AdCollegeId || 0), sectionId: String(scope.AdSectionId || 0) });
+      if (scope.AdTermId) q.set("termId", String(scope.AdTermId));
       const response = await fetch(`/api/location-registry?${q}`, { credentials: "include" });
       if (!response.ok) return null;
       const data = await response.json();
@@ -3582,6 +3670,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       const r = b ? (Array.isArray(data?.rooms) ? data.rooms : []).find((item: any) => item.buildingId === b.id && code(item.canonicalCode) === code(hall)) : null;
       return b && r ? { buildingId: b.id, roomId: r.id, AdRoomCode: b.officialCode, AdRoomHall: r.canonicalCode, locationStatus: "VERIFIED" } : null;
     } catch { return null; }
+  };
+  /** يفتح تعديل موعدٍ ممتلئاً ببديلٍ مقترح: المعرّفان يُحلّان مع الرمزين معاً، والأصل هو المحفوظ. */
+  const openEditAlternative = async (row: FSchedule, patch: Partial<FSchedule>) => {
+    let merged: Partial<FSchedule> = { ...patch };
+    if ((patch.AdRoomCode || patch.AdRoomHall) && !(patch as any).roomId) {
+      const registry = await resolveRegistryRoom(String(patch.AdRoomCode || ""), String(patch.AdRoomHall || ""), row);
+      merged = registry
+        ? { ...merged, ...registry }
+        : { ...merged, buildingId: undefined, roomId: undefined, locationStatus: undefined };
+    }
+    editBaseline.current = row;
+    openEdit({ ...row, ...merged, id: row.id } as FSchedule);
   };
   const openBorrow = async () => {
     studioMark("borrow");
@@ -3738,7 +3838,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      «المقرر يتطلب مرفقاً» بعد اختيار اقتراحٍ وجد له المحرّك مرفقاً متاحاً. */
   const takeSlot = (slot: any) => {
     setRoomIdeas(null);
-    setScheduleTouched(true);
     setForm(prev => ({
       ...prev, fstarttime: slot.start || prev.fstarttime, fendtime: slot.end || prev.fendtime,
       ...(slot.roomId&&slot.buildingId?{buildingId:slot.buildingId,roomId:slot.roomId,AdRoomCode:slot.room,AdRoomHall:slot.hall,locationStatus:"VERIFIED" as const}:{}),
@@ -3753,9 +3852,30 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      وإن لم توجد قاعةٌ بقي الوقتُ وحده ويقول الفحص الحيّ ما يخصّ القاعة. لا رقمَ قاعةٍ في الزرّ ولا في سطرٍ إضافي:
      تظهر القاعة في خطوة «أين؟» كأي اختيار. */
   const [bestBusy, setBestBusy] = useState(false);
+  /* ── «سبقك زميل ⏱️» ──────────────────────────────────────────────────────────
+     الخادم يعيد 409 برمز slot-taken حين يأخذ كاتبٌ آخر القاعة أو الأستاذ بين الفحص والكتابة. النموذج يبقى كما هو،
+     ويُقال ما أُخذ ومتى، ويُعرض بديلان جاهزان من محرّك الاقتراح نفسه — لا خطأ عامٌّ ولا بدء من الصفر. */
+  /* «حلّ بسلسلة»: ورقة تقترح نقل مواعيد أخرى تُخلي المكان للمسوّدة (src/utils/chainSolve). */
+  const [chainOpen, setChainOpen] = useState(false);
+  const [slotTaken, setSlotTaken] = useState<{ what: string; when: string; options: any[]; loading: boolean } | null>(null);
+  const handleSlotTaken = async (failure: any, attempted: Partial<FSchedule>) => {
+    const issues: any[] = Array.isArray(failure?.issues) ? failure.issues : [];
+    const first = issues[0] || {};
+    const what = String(first.message || failure?.message || "أُخذ هذا الوقت");
+    const when = attempted.fstarttime && attempted.fendtime ? `${arabicDays(attempted as any)} · ${formatScheduleTimeRange(attempted.fstarttime, attempted.fendtime)}` : "";
+    setSlotTaken({ what, when, options: [], loading: true });
+    try {
+      const data = await fetchSuggestions(suggestionBody({ ...attempted, excludeId: editId || 0, instructorRequestId: pendingHandoff.current?.requestId }, "slot", suggestionDuration()));
+      setSlotTaken(current => current ? { ...current, options: (data.slots || []).slice(0, 2), loading: false } : current);
+    } catch {
+      setSlotTaken(current => current ? { ...current, loading: false } : current);
+    }
+  };
   const pickBestTime = async (best: BestTime) => {
     pickFromMiniWeek({ day: best.day as RegDayKey, days: best.days as RegDayKey[], start: best.start, end: best.end });
     const courseId = Number(form.AdCourseId || 0);
+    const clickInstructor = Number(form.AdInstructorId || 0), clickRoom = String(form.roomId || ""), clickCode = String(form.AdRoomCode || ""), clickHall = String(form.AdRoomHall || "");
+    const bestDaysKey = days.map(day => best.days.includes(day.key as RegDayKey) ? "1" : "0").join("");
     setBestBusy(true);
     try {
       const timed: any = { ...form, fstarttime: best.start, fendtime: best.end };
@@ -3764,7 +3884,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       const free = reply.slots.filter(slot => slot.roomId && slot.buildingId);
       if (!free.length || (form.roomId && free.some(slot => slot.roomId === form.roomId))) return;
       const first = free[0];
-      setForm(previous => Number(previous.AdCourseId || 0) !== courseId || previous.fstarttime !== best.start ? previous : {
+      /* بين الضغطة والرد قد يختار المستخدم قاعةً أو أستاذاً أو يغيّر الأيام: لا نكتب فوق اختياره. */
+      setForm(previous => Number(previous.AdInstructorId || 0) !== clickInstructor
+        || String(previous.roomId || "") !== clickRoom || String(previous.AdRoomCode || "") !== clickCode || String(previous.AdRoomHall || "") !== clickHall
+        || days.map(day => (previous as any)[day.key] ? "1" : "0").join("") !== bestDaysKey
+        || Number(previous.AdCourseId || 0) !== courseId || previous.fstarttime !== best.start ? previous : {
         ...previous, buildingId: first.buildingId, roomId: first.roomId, AdRoomCode: first.room, AdRoomHall: first.hall, locationStatus: "VERIFIED" as const,
         ...(first.companionRoomId ? { companionRoomId: first.companionRoomId, companionRoomLabel: first.companionRoomLabel || "" } : {}),
       });
@@ -3821,6 +3945,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       forgetSuggestions();
       await loadRows({ silent: true });
       markChanged(Number(result?.createdId || target.id));
+      /* الإسناد/التبديل/الاستبدال استهلك مسودة «موعد جديد»: لو بقيت لعُرضت للاستعادة وأنشأت نسخةً مكررة. */
+      if (!source && editor === "create") clearDraft();
       if (source) source.done(); else back();
       requestAnimationFrame(() => setMessage(action === "assign" ? `أُسندت الشعبة ${target.SCode || ""} إلى ${teacher} — لم يُنشأ موعد جديد.` : action === "swap" ? `نُقلت الشعبة ${target.SCode || ""} وحُفظ موعد ${teacher} في قاعتها.` : `استُبدلت الشعبة ${target.SCode || ""} بموعد ${teacher}.`));
     } catch (e: any) {
@@ -3953,7 +4079,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const roomSwapIdeas = useRoomSwaps(editor !== "index" && hallAvailabilityReady && !practiceMode ? roomSwapBody(form as any, editor === "edit" ? Number(editId || 0) : 0) : null, rows.length);
   const takeRoomSwap = async (swap: RoomSwap) => {
     if (!(await applyRoomSwapMove(swap))) return;
-    setScheduleTouched(true);
     setForm(current => {
       const to = swap.mine.to;
       const buildingChanged = String(to.buildingId || "") !== String(current.buildingId || "");
@@ -4267,10 +4392,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   },[isPowerAdmin,user?.AdInstructorId,user?.SystemUserId,filterTerm,pendingOwnRows.length]);
   const deferredSearch = useDeferredValue(quickSearch);
   const filteredRows=useMemo(()=>{
-    const q=deferredSearch.trim().toLowerCase();
+    const q=arabicMatchKey(deferredSearch);
     let source=pendingOnly?rows.filter(r=>r.locationStatus==="PENDING_ROOM"&&(!user?.AdInstructorId||Number(r.AdInstructorId)===Number(user.AdInstructorId))):rows;
     if(visitingOnly)source=source.filter(r=>scheduledVisitingIds.has(Number(r.AdInstructorId)));
-    const visible=q?source.filter(r=>{const c=courseById.get(r.AdCourseId),i=instructorById.get(r.AdInstructorId);return[r.AdCourseName,c?.CourseName,c?.CourseCode,r.SCode,i?.AdInstructorName,i?.AdInstructorCivil,r.AdRoomCode,r.AdRoomHall,arabicDays(r)].join(" ").toLowerCase().includes(q)}):[...source];
+    const visible=q?source.filter(r=>{const c=courseById.get(r.AdCourseId),i=instructorById.get(r.AdInstructorId);return[r.AdCourseName,c?.CourseName,c?.CourseCode,r.SCode,i?.AdInstructorName,i?.AdInstructorCivil,r.AdRoomCode,r.AdRoomHall,arabicDays(r)].map(arabicMatchKey).join(" ").includes(q)}):[...source];
     return visible.sort((a,b)=>compareCourseSection(
       {courseCode:courseById.get(a.AdCourseId)?.CourseCode,sectionCode:a.SCode,courseName:a.AdCourseName||courseById.get(a.AdCourseId)?.CourseName,id:a.id},
       {courseCode:courseById.get(b.AdCourseId)?.CourseCode,sectionCode:b.SCode,courseName:b.AdCourseName||courseById.get(b.AdCourseId)?.CourseName,id:b.id},
@@ -4341,7 +4466,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* الشريحةُ المضيئة تقول ما في النموذج فعلاً: يومٌ منفرد بطولٍ آخر ليس «اثنين · 170د» (كانت تضيء والنهاية 08:30). */
   const formRegulationSpan = form.fstarttime && form.fendtime ? mins(String(form.fendtime)) - mins(String(form.fstarttime)) : 0;
   const formRegulationChoice = useMemo(() => regulationChoiceFor(formCourse, formDays, formRegulationSpan), [formCourse, formDays.join("+"), formRegulationSpan]);
-  const formRegulationFit = regulationFit(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || ""));
+  /* شقيقاتُ الشعبة نفسها (المقرر + رقمها القانوني) غير الصفّ المُحرَّر: حكمُ النمط يراها كما يراها الخادم. */
+  const formSiblings = useMemo(() => {
+    const code = sectionCodeKey(form.SCode);
+    if (!formCourse || !code) return [] as FSchedule[];
+    return formScopeRows.rows.filter(row => Number(row.AdCourseId) === Number(form.AdCourseId) && sectionCodeKey(row.SCode) === code && Number(row.id) !== Number(editId || 0));
+  }, [formScopeRows.rows, form.AdCourseId, form.SCode, editId, formCourse]);
+  const formRegulationFit = regulationFit(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || ""), formSiblings as any);
   const formRegulationChips = useMemo(() => {
     const pool = [...(formRegulationChoice ? [formRegulationChoice] : []), ...regulationAlternatives,
       ...(formDays.length ? regulationChoicesForDay(formCourse, formDays[0]) : [])];
@@ -4369,7 +4500,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* البدايةُ من الحقل أو من «البداية حسب اللائحة»: الطريقُ نفسه، فتُحسب النهاية كما لو كُتبت باليد. */
   const applyFormStart = (start: string) => {
     setStartTimeLimitNotice("");
-    setScheduleTouched(true);
     /* قرار المالك 2026-11-08: البدايةُ على أي يوم تحسب النهاية من ساعات المقرّر والنمط والأيام دائماً،
        ولو سبقها تجاوزٌ أو طولٌ قديم (كانت «اثنين · 170د» + 08:00 ← 08:30). ما لا نمطَ له يحفظ طوله. */
     const patterned = Boolean(start && completeSectionEnd(formCourse, formDays, start, formSpan));
@@ -4379,7 +4509,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setForm((p) => ({ ...p, fstarttime: start, fendtime: !start ? (timingOverride ? p.fendtime : "") : patterned ? endForStart(p, start) : timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
   };
   const chooseFormDay = (day: RegDayKey, checked: boolean) => {
-    setScheduleTouched(true);
     const result = pickDay(formCourse, formDays, day, checked, formSpan);
     /* يومٌ يُضغط قبل اختيار مقررٍ له ساعات ليس قرار نمط: يُكمل نمطَه المعتاد حين يُعرف المقرر
        (الأحد ← أحد·ثلاثاء·خميس، لا «أحد · 170د» لأن يوماً واحداً صادف نمط الكتلة). */
@@ -4415,7 +4544,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (from?.closest?.(".lecture-stick")) studioMark("stick");
     else if (typeof document !== "undefined" && document.querySelector(".mini-week.is-drawing")) studioMark("week-draw");
     else { studioMark("week-pick"); if (from?.closest?.(".mini-week-target.is-golden")) studioMark("golden"); }
-    setScheduleTouched(true);
     daysSeeded.current = false;
     /* موضعٌ خارج نمط المقرر (قبلها/بعدها على أيام محاضرةٍ بنمطٍ آخر) يبقى كما اختير تجاوزاً صريحاً:
        ما فُحص هو ما يُحفظ، ولا يضيف الإكمال اللائحي يوماً لم يُفحص. */
@@ -4437,7 +4565,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
   const applyRegulationChoice = (choice: RegulationChoice) => {
     studioMark("pattern");
-    setScheduleTouched(true);
     daysSeeded.current = false;
     setTimingOverride(false);
     setForm(previous => {
@@ -4520,6 +4647,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
        القاعدةُ نفسُها التي يتخطّى بها الخادم (sameScheduleShape ← unchangedShape). */
     regulation: editor === "edit" && sameScheduleShape((editorOriginalRow || formScopeRows.rows.find(row => Number(row.id) === Number(editId))) as any, form as any) ? "unknown" : formRegulationFit,
     /* سطرٌ واحد يقول النهاية الصحيحة (المالك 2026-11-08)، ومعه «طبّق النمط» في شريط الموانع. */
+    regulationIssues,
     regulationNote: patternLengthIssue(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || "")) || "أيام الموعد أو مدته ليست نمطاً معتمداً لساعات المقرر.",
     notes: [
       ...editorSupplementalCards.map(card => ({ kind: "time" as const, text: String(card.title || ""), detail: String(card.detail || "") || undefined })),
@@ -4531,7 +4659,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      • النهاية تخالف النمط ← «طبّق النمط» (الأيام والنهاية من المكتبة).
      • الشعبة نفسها أخذت ساعاتها والموعدُ وحده يتّسع ← الخادم يقول الرقم الحرّ التالي، فيُعرض «شعبة جديدة N»
        وسطرٌ قصير يقول السبب. من قصد الإضافة إلى الشعبة القائمة يبقى المنعُ (القاعدة)، و«بديل» يقترح غيره. */
-  const editorRegulationBlocked = editorVerdict.blockers.some(item => item.id === "regulation") && regulationHours(formCourse) > 0;
+  const editorRegulationBlocked = editorVerdict.notes.some(item => item.id === "regulation") && regulationHours(formCourse) > 0;
   /* الأرقامُ من قارئٍ واحد (src/utils/hoursIssue.ts) يفهم «ساعة واحدة» و«ساعتان» و«12 ساعة»، لا من تعبيرٍ منسوخ. */
   const editorUnderIssue = editorVerdict.blockers.map(item => parseHoursIssue(item.text)).find(issue => issue?.kind === "under");
   const editorUnderHours = editorUnderIssue?.kind === "under" ? ["", String(editorUnderIssue.got), String(editorUnderIssue.need)] as const : null;
@@ -4543,7 +4671,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const editorFitStart = (() => {
     if (!editorVerdict.blockers.some(item => /ضمن الدوام الشامل/.test(item.text)) || !(formSpan > 0)) return "";
     const last = mins(SCHEDULE_DAY_END_TIME), first = mins(SCHEDULE_DAY_START_TIME);
-    const fits = ladderStartsForDays(formDays as RegDayKey[]).filter(time => mins(time) >= first && mins(time) + formSpan <= last).sort();
+    const fits = ladderStartsForDays(formDays as RegDayKey[], undefined, undefined, formSpan).filter(time => mins(time) >= first && mins(time) + formSpan <= last).sort();
     return fits.length ? fits[fits.length - 1] : "";
   })();
   const editorBlockerLine = (text: string) => {
@@ -4847,30 +4975,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return candidate;
   };
 
+  /* فهرس الانشغال يُبنى مرةً لكل تغيّر في الصفوف: السؤال «هل تتعارض هذه الخانة؟» يمسح صفوف الأستاذ والقاعة وحدهما
+     لا الجدول كلَّه (SchedulePhysics/blockerIndex). الحكم مطابقٌ للمسح الكامل القديم، يثبته اختبار. */
+  const busyIndex = useMemo(() => buildBusyIndex(rows, row => {
+    const identity = roomIdentity(row.AdRoomCode, row.AdRoomHall);
+    return identity.buildingKey || identity.hallKey ? identity.key : "";
+  }, mins), [rows]);
   const localPhysicsBlockers = useCallback((source: FSchedule, probe: FSchedule) => {
-    const samePlacement = (a: FSchedule, b: FSchedule) =>
-      a.fstarttime === b.fstarttime && a.fendtime === b.fendtime &&
-      days.every(day => Boolean((a as any)[day.key]) === Boolean((b as any)[day.key]));
-    const combinedDelivery = (a: FSchedule, b: FSchedule) =>
-      a.AdCourseId === b.AdCourseId && String(a.SCode) !== String(b.SCode) &&
-      Boolean(a.AdInstructorId) && a.AdInstructorId === b.AdInstructorId &&
-      sameRoom(a, b) && samePlacement(a, b);
-    const blockers: Array<{ type: "instructor" | "room"; severity: "high"; message: string; detail: string }> = [];
-    for (const other of rows) {
-      if (other.id === source.id || other.AdTermId !== probe.AdTermId || combinedDelivery(probe, other)) continue;
-      const sharesDay = days.some(day => Boolean((probe as any)[day.key]) && Boolean((other as any)[day.key]));
-      const overlaps = mins(probe.fstarttime) < mins(other.fendtime) && mins(other.fstarttime) < mins(probe.fendtime);
-      if (!sharesDay || !overlaps) continue;
-      const detail = `${other.AdCourseName || courseById.get(other.AdCourseId)?.CourseName || "موعد آخر"} · ${formatScheduleTimeRange(other.fstarttime, other.fendtime)}`;
-      if (probe.AdInstructorId && probe.AdInstructorId === other.AdInstructorId) {
-        blockers.push({ type: "instructor", severity: "high", message: "الأستاذ مرتبط بموعد آخر", detail });
-      }
-      if ((probe.AdRoomCode || probe.AdRoomHall) && sameRoom(probe, other)) {
-        blockers.push({ type: "room", severity: "high", message: "القاعة محجوزة في هذا الوقت", detail });
-      }
-    }
-    return blockers;
-  }, [rows, courseById]);
+    const identity = (probe.AdRoomCode || probe.AdRoomHall) ? roomIdentity(probe.AdRoomCode, probe.AdRoomHall) : null;
+    const probeRoomKey = identity && (identity.buildingKey || identity.hallKey) ? identity.key : "";
+    return indexedBlockers(busyIndex, source, probe, probeRoomKey, mins, other =>
+      `${other.AdCourseName || courseById.get(other.AdCourseId)?.CourseName || "موعد آخر"} · ${formatScheduleTimeRange(other.fstarttime, other.fendtime)}`);
+  }, [busyIndex, courseById]);
 
   const evaluatePhysicsTarget = async (
     row: FSchedule,
@@ -5081,7 +5197,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (!handoff) return;
     const queue = handoff.ids.map(id => rows.find(row => Number(row.id) === Number(id))).filter(Boolean) as FSchedule[];
     if (!queue.length) return;
-    if (handoff.candidate) openEdit({ ...queue[0], ...(handoff.candidate as Partial<FSchedule>), id: queue[0].id } as FSchedule);
+    if (handoff.candidate) void openEditAlternative(queue[0], handoff.candidate as Partial<FSchedule>);
     else if (queue.length > 1) openDecisionRows(queue);
     else openEdit(queue[0]);
   }, [mode, rows.length]);
@@ -5299,29 +5415,40 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     };
   };
 
+  /* حارس إعادة الدخول: ضغطتان متتاليتان (أو Enter ثم زر) أثناء تأكيد حذف الـPDF
+     أو اشتقاق القاعة كانتا تبدآن حفظين؛ `saving` لا يصير true إلا بعد هذه الانتظارات. */
+  const savingGuard = useRef(false);
+  const formLive = useRef(form);
+  formLive.current = form;
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (savingGuard.current) return;
+    savingGuard.current = true;
+    try { await saveCore(); }
+    finally { savingGuard.current = false; }
+  };
+  const saveCore = async () => {
     if (showMobileReadOnlyGate()) return;
     setError(null);
+    setSlotTaken(null);
     setMessage(null);
-    if (
-      !form.AdCollegeId ||
-      !form.AdSectionId ||
-      !form.AdTermId ||
-      !form.AdCourseId ||
-      !form.SCode ||
-      !form.AdInstructorId ||
-      !form.fstarttime ||
-      !form.fendtime ||
-      !form.buildingId ||
-      (!form.roomId && form.locationStatus !== "PENDING_ROOM")
-    ) {
+    /* القاعة تُقبل في الحكم برمزها وقاعتها، والخادم يريد معرّفيها: إن كان الرمزان في
+       السجل اشتُقّ المعرّفان هنا بدل أن يفشل الحفظ بلا حقلٍ أحمر. */
+    let form: Partial<FSchedule> & typeof formLive.current = formLive.current;
+    if (form.AdRoomCode && form.AdRoomHall && (!form.buildingId || (!form.roomId && form.locationStatus !== "PENDING_ROOM"))) {
+      const registry = await resolveRegistryRoom(String(form.AdRoomCode), String(form.AdRoomHall), form);
+      if (registry) { form = { ...form, ...registry } as typeof form; setForm(current => ({ ...current, ...registry })); }
+      else { setError("القاعة المكتوبة غير مسجّلة في سجل المباني؛ اخترها من قائمة القاعات."); return; }
+    }
+    /* الحكم الواحد appointmentSaveGaps: الشريط وزرّ الحفظ وsave() يتفقون على ما ينقص فعلاً. */
+    const gaps = appointmentSaveGaps(form as any);
+    if (!form.AdCollegeId || !form.AdSectionId || !form.AdTermId || (gaps.length && !(gaps.length === 1 && gaps[0] === "days"))) {
       setError("الرجاء إدخال الحقول المطلوبة بالأحمر");
       return;
     }
     if (!englishDigits(form.SCode)) { setError("الشعبة يجب أن تحتوي على أرقام فقط"); return; }
-    if (!selectedFormDays.length) { setScheduleTouched(true); setError("يجب اختيار يوم واحد على الأقل للمحاضرة."); return; }
-    if (editorVerdict.blockers.length) { setScheduleTouched(true); setError(editorVerdict.blockers[0].text || "لا يمكن الحفظ قبل معالجة التعارضات."); return; }
+    if (!selectedFormDays.length) { setError("يجب اختيار يوم واحد على الأقل للمحاضرة."); return; }
+    if (editorVerdict.blockers.length) { setError(editorVerdict.blockers[0].text || "لا يمكن الحفظ قبل معالجة التعارضات."); return; }
     const protectedPdfRow = editor === "edit" ? rows.find(row => row.id === editId) : null;
     if (protectedPdfRow && protectedPdfRow.sourceOrder !== undefined && Number(protectedPdfRow.sourceOrder) < 1_000_000 && Number(protectedPdfRow.AdCourseId) !== Number(form.AdCourseId)) {
       const remove = await visualConfirm({
@@ -5348,6 +5475,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       const nextRow = { ...(before || blank()), ...form, id: practiceId, AdCourseName: courseById.get(form.AdCourseId)?.CourseName || before?.AdCourseName || "" } as FSchedule;
       setRows(current => editor === "edit" ? current.map(item => item.id === practiceId ? nextRow : item) : [...current, nextRow].sort((a,b)=>a.id-b.id));
       setMessage("تم تطبيق التغيير داخل «وضع تجربة» فقط. لم يتغير جدولك الحقيقي.");
+      if (editor === "create") clearDraft();
       setPhysicsNotice("تجربة آمنة · لا حفظ على الخادم");
       if (guideOperationRef.current?.featureId === "schedule.practice") emitGuideResult({ featureId:"schedule.practice", ok:true, signal:"schedule.practice.changed" });
       else recordFeatureEvent(Number(user?.SystemUserId || 0), "schedule.practice", "completed", { stepCount: 1 });
@@ -5355,6 +5483,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       return;
     }
     const saveStartedAt = Date.now();
+    let carriedNotice = "";
     const guideOpAtSave = guideOperationRef.current;
     const trackedSaveFeatures:string[] = [];
     setSaving(true);
@@ -5470,8 +5599,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
          فيُردّ دائماً؛ فيُقال الآن صراحةً إن الموعد حُفظ وبندَ الأستاذ باقٍ في الوارد ليُقرَّر فيه. */
       if (handoff && matchesHandoff && editor !== "edit" && createdRowId) {
         pendingHandoff.current = null;
-        setError("حُفظ الموعد في موقعٍ غير الذي طلبه الأستاذ، فبقي طلبه معلّقاً في «رغبات الأساتذة». ثبّته أو ارفضه من هناك.");
+        /* لا يُكتب الآن: «الشعبة التالية» تمسح الخطأ في اللحظة نفسها (clearEditorTransients)، فيُرفع في finally بعدها. */
+        carriedNotice = "حُفظ الموعد في موقعٍ غير الذي طلبه الأستاذ، فبقي طلبه معلّقاً في «رغبات الأساتذة». ثبّته أو ارفضه من هناك.";
       }
+      /* الطلبُ عن موعدٍ واحد: من غيّر المقرر أو الأستاذ وحفظ لا يورّث الطلبَ لما بعده (يُبقي الإكمال الآلي مطفأً ويُرسل رقم الطلب للفحص). */
+      if (handoff && editor !== "edit" && createdRowId) pendingHandoff.current = null;
       /* الشعبةُ التي فُتحت لطلب الإرشاد تُربط به بعد الحفظ: المقررُ والفصلُ نفساهما، وإلا فهي إضافةٌ أخرى. */
       const sectionSeed = pendingSectionRequest.current;
       if (sectionSeed && editor !== "edit" && createdRowId && Number(form.AdCourseId || 0) === sectionSeed.courseId && Number(form.AdTermId || 0) === sectionSeed.termId) {
@@ -5482,7 +5614,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         }).then(response => { if (!response.ok) throw new Error("حُفظ الموعد لكن تعذّر ربطه بطلب الإرشاد. اربطه من بطاقة الطلب في كشف التسجيل."); }).catch(issue => setError(issue.message));
       }
       rememberSave(form);
-      clearDraft();
+      /* المسودة تخص «موعد جديد» وحده: حفظُ تعديلٍ لا يمسّها، فلا تضيع مسودةٌ نجت من انقطاعٍ لأن المستخدم عدّل صفاً آخر قبلها. */
+      if (editor === "create") clearDraft();
       markChanged(editor === "edit" ? editId : Number(saved?.id || 0) || null);
       // Follow the save: the list jumps to the scope the row was filed under so
       // the user always sees what they just did.
@@ -5580,9 +5713,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // The row moved on under this editor: hand back both versions instead of
       // flattening the refusal into a sentence.
       if (e?.revisionConflict) { setClash({ current: e.current, yours: e.yours }); return; }
+      if (e?.code === "slot-taken") { void handleSlotTaken(e, form); return; }
       setError(friendlyError(e));
     } finally {
       setSaving(false);
+      if (carriedNotice) setError(carriedNotice);
     }
   };
   /**
@@ -5700,6 +5835,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
   const remove = async (id: number) => {
     if (showMobileReadOnlyGate()) return;
+    if (!canEditSchedule || (termFrozen && !practiceMode) || approvalLock) { setError(approvalLock || (termFrozen ? "الفصل مجمَّد؛ لا يمكن حذف المواعيد." : "ليست لديك صلاحية حذف المواعيد.")); return; }
     if (!(await visualConfirm({
       title: practiceMode ? "حذف من التجربة الآمنة" : "حذف الموعد",
       message: practiceMode ? "سيُحذف هذا الموعد من التجربة الآمنة فقط دون المساس بالجدول الحقيقي." : "سيُحذف هذا الموعد من الجدول الحالي.",
@@ -5721,7 +5857,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     // follows behind it, and a refusal puts the card back exactly where it was.
     if (before) setRows(current => current.filter(item => item.id !== id));
     try {
-      await deleteScheduleRow(id);
+      await deleteScheduleRow(id, (before as any)?.rev);
       if (before) {
         const { id: _id, AdCourseName: _name, ...values } = before as any;
         offerUndo(
@@ -5731,6 +5867,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       }
       if (!before) await loadRows({ silent: true });
     } catch (e: any) {
+      /* الصفّ لم يعد موجوداً (حذفه زميل): هذا هو المطلوب أصلاً، فيبقى غائباً ويُحدَّث الجدول بصمت. */
+      if (e?.status === 404) {
+        forgetMiniWeekRows([id]);
+        setMessage("هذا الموعد محذوف مسبقاً.");
+        void loadRows({ silent: true }).catch(() => undefined);
+        return;
+      }
       if (before) setRows(current =>
         current.some(item => item.id === id) ? current : [...current, before].sort((a, b) => a.id - b.id));
       setError(friendlyError(e));
@@ -5898,97 +6041,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setSaving(false);
     }
   };
-  const moveSchedule = async (
-    row: FSchedule,
-    targetDay: DayKey,
-    targetStart: string,
-    options?: {
-      skipConfirm?: boolean;
-      decision?: SchedulePhysicsDecision | null;
-    },
-  ) => {
-    if (refuseInPractice()) return;
-    const selected = days.filter((d) => Boolean(row[d.key]));
-    const target = {
-      day: targetDay,
-      start: targetStart,
-      label: days.find((d) => d.key === targetDay)?.label || "",
-    };
-    const sourceDay=(selected[0]?.key||targetDay) as DayKey;
-    if(isSamePlacement(row,sourceDay,target as any)){setPhysicsNotice("هذا هو نفس الموضع الحالي؛ لم يتم تنفيذ أي تغيير.");return;}
-    const candidate = buildMoveCandidate(row, target),
-      payload: any = { ...candidate };
-    const timingNote = historicalTimingNote(candidate);
-    delete payload.id;
-    delete payload.AdCourseName;
-    const dayText =
-      selected.length === 1
-        ? ` إلى ${target.label}`
-        : " مع الإبقاء على أيامه الحالية";
-    try {
-      const check=await fetchJson("/api/schedules/check-conflicts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,excludeId:row.id})});
-      const blocking=Array.isArray(check.conflicts)?check.conflicts.filter((item:any)=>isBlockingConflict(item)&&!item?.holdRequestId):[];
-      if(blocking.length){const reasons=blocking.slice(0,3).map((c:any)=>[c?.message,c?.detail].filter(Boolean).join(" — ")).filter(Boolean);const reason=reasons.join(" | ")||"هذا النقل يسبب تعارضاً ولا يمكن حفظه.";setError(`تعذر نقل الموعد: ${reason}`);setPhysicsNotice(`رفض النقل: ${reason}`);return;}
-    } catch(e:any){setError(friendlyError(e));return;}
-    const decisionRipple =
-      options?.decision?.ripple ||
-      (ripple?.rowId === row.id &&
-      ripple?.targetDay === targetDay &&
-      ripple?.targetStart === targetStart
-        ? ripple
-        : null);
-    const forecastNote = decisionRipple?.headline
-      ? `\n\nRipple Forecast: ${decisionRipple.headline}${Array.isArray(decisionRipple.effects) ? `\n${decisionRipple.effects.map((x: any) => x.text).join("\n")}` : ""}`
-      : "";
-    if (
-      !options?.skipConfirm &&
-      !(await visualConfirm({
-        title: "تأكيد نقل الموعد",
-        message: `نقل موعد ${row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "المقرر"}${dayText} والوقت ${targetStart}؟${forecastNote}`,
-        confirmLabel: "نقل",
-        tone: "warning",
-      }))
-    )
-      return;
-    try {
-      setSaving(true);
-      await fetchJson(`/api/schedules/${row.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      markChanged(row.id);
-      if (isPowerAdmin) {
-        try {
-          const q = new URLSearchParams({
-              collegeId: String(row.AdCollegeId),
-              sectionId: String(row.AdSectionId),
-              termId: String(row.AdTermId),
-            }),
-            points = await fetchJson(`/api/intelligence/safety-net?${q}`),
-            point = Array.isArray(points) ? points[0] : null;
-          if (point)
-            setUndoPoint({
-              ...point,
-              decisionLabel: `استرجاع نقل ${row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "المقرر"} إلى ${target.label} ${targetStart}`,
-            });
-        } catch {
-          setUndoPoint(null);
-        }
-      }
-      setPhysicsNotice(timingNote || "");
-      setMessage(
-        selected.length > 1
-          ? "تم تغيير وقت المقرر مع الحفاظ على جميع أيامه."
-          : "تم نقل الموعد في الجدول الأسبوعي.",
-      );
-      await loadRows();
-    } catch (e: any) {
-      setError(friendlyError(e));
-    } finally {
-      setSaving(false);
-    }
-  };
   /**
    * A drop is a move.
    *
@@ -6050,6 +6102,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
   const commitMove = async (request: SchedulePhysicsDropRequest) => {
     if (showMobileReadOnlyGate()) return;
+    if (dragBlocked) { if (approvalLock) setPhysicsNotice(approvalLock); else setPhysicsNotice(termFrozen ? "الفصل مجمَّد؛ لا يمكن نقل المواعيد." : "ليست لديك صلاحية تعديل الجدول."); return; }
     const { row, target } = request;
     const day = target.day as DayKey;
     const pickedStart = target.start;
@@ -6295,7 +6348,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // A refusal to overwrite is a decision to hand back, not a message to show.
       if (e?.revisionConflict) setClash({ current: e.current, yours: null });
       else {
-        if (!presentMoveRefusal(e, Number(row?.id || 0), placementFieldKey(day, chosenStart, undefined))) setError(friendlyError(e));
+        if (e?.code === "slot-taken") setError(slotTakenWords(e));
+        else if (!presentMoveRefusal(e, Number(row?.id || 0), placementFieldKey(day, chosenStart, undefined))) setError(friendlyError(e));
         /*
          * A refusal that only says "no" leaves the reader exactly where they
          * were, holding the same card and the same problem. The engine that
@@ -6326,6 +6380,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    */
   const commitRoomMove = async (row: FSchedule, day: DayKey, start: string, building: string, hall: string) => {
     if (showMobileReadOnlyGate()) return;
+    if (dragBlocked) { setPhysicsNotice(approvalLock || (termFrozen ? "الفصل مجمَّد؛ لا يمكن نقل المواعيد." : "ليست لديك صلاحية تعديل الجدول.")); return; }
     start = await chooseHistoricalDropTime(row, day, start);
     if (!start) {
       setPhysicsNotice("");
@@ -6482,7 +6537,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // A refusal to overwrite is a decision to hand back, not a message to show.
       if (e?.revisionConflict) setClash({ current: e.current, yours: null });
       else {
-        if (!presentMoveRefusal(e, Number(row?.id || 0), placementFieldKey(day, start, physicsRoomKey({ code: building, hall })))) setError(friendlyError(e));
+        if (e?.code === "slot-taken") setError(slotTakenWords(e));
+        else if (!presentMoveRefusal(e, Number(row?.id || 0), placementFieldKey(day, start, physicsRoomKey({ code: building, hall })))) setError(friendlyError(e));
         /*
          * A refusal that only says "no" leaves the reader exactly where they
          * were, holding the same card and the same problem. The engine that
@@ -7080,7 +7136,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 
     for (const day of days) {
       const all = weekRows
-        .filter((item) => Boolean(item[day.key]) && item.fstarttime && item.fendtime)
+        .filter((item) => Boolean(item[day.key]) && item.fstarttime && item.fendtime && mins(item.fendtime) > mins(item.fstarttime))
         .slice()
         .sort((a, b) => mins(a.fstarttime) - mins(b.fstarttime) || mins(b.fendtime) - mins(a.fendtime));
 
@@ -7435,7 +7491,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return (
       <article
         {...grip}
-        draggable={!physics.supported && !rowPending}
+        draggable={!physics.supported && !rowPending && !dragBlocked}
         onDragStart={(e) => {
           if (approvalLock) { e.preventDefault(); setPhysicsNotice(approvalLock); return; }
           e.dataTransfer.setData("text/schedule-id", String(r.id));
@@ -7471,7 +7527,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           // meaning it always had, so nothing a reader already knows changes.
           if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); pickUpWithKeyboard(r); }
         }}
-        aria-label={`${title} · ${code} · شعبة ${r.SCode || "—"} · ${withVisitingSuffix(who, visitingIds.has(r.AdInstructorId))} · ${arabicDays(r) || "بلا أيام"} · ${formatScheduleTimeRange(r.fstarttime, r.fendtime)}${place ? ` · قاعة ${place}` : ""}`}
+        aria-label={`${title} · ${code} · شعبة ${r.SCode || "—"} · ${withVisitingSuffix(who, visitingIds.has(r.AdInstructorId))} · ${arabicDays(r) || "بلا أيام"} · ${formatScheduleTimeRange(r.fstarttime, r.fendtime)}${place ? ` · قاعة ${place}` : ""}${liveClash.ids.has(r.id) ? " · يوجد تعارض" : ""}`}
         data-row-id={r.id}
         /* «أشر لي» describes what it is pointed at. Without this the card fell
            back to the generic "an interactive element" sentence, which is the
@@ -7561,7 +7617,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const undoId = recentMoves[r.id];
     return [
       // board-wide: anything that changes how every card draws or behaves
-      denseWeekStrips, hueBy, picking, physicsActive, physics.supported,
+      denseWeekStrips, hueBy, picking, physicsActive, physics.supported, dragBlocked,
       mode, editor, viewMode, presentationMode, keyMove?.rowId ?? "",
       // the row itself
       r.id, (r as any).rev ?? 0, r.AdCourseId, r.AdInstructorId, r.SCode,
@@ -7883,6 +7939,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      keyboard holds a lecture, the pointer layer is off. */
   type KeyboardMove = { rowId: number; day: DayKey; start: string };
   const [keyMove, setKeyMove] = useState<KeyboardMove | null>(null);
+  /* من لا يملك الكتابة (دور قراءة) أو فصلٌ مجمَّد أو جدولٌ عند التسجيل: لا رفعَ
+     ولا رسمَ متفائلاً ثم تراجعاً؛ نفس الشرط يدخل توقيع البطاقة كي لا تبقى قابلة
+     للسحب بعد وصول القفل ولا تبقى جامدة بعد زواله. */
+  const dragBlocked = Boolean(approvalLock) || !canEditSchedule || (termFrozen && !practiceMode);
   const physics = useSchedulePhysics({
     disabled:
       mode !== "schedule" ||
@@ -7891,7 +7951,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       presentationMode ||
       // The registrar holds the timetable: nothing may be lifted until it is
       // returned or accepted (the same reason the server gives, via ApprovalBar).
-      Boolean(approvalLock) ||
+      dragBlocked ||
       // One card, one hand: while the keyboard is carrying a lecture the
       // pointer layer is switched off entirely, so a stray press cannot pick up
       // a second copy of the same thing.
@@ -8242,12 +8302,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * pointer actually arrives, and the server remains the only thing that can
    * block a save.
    */
+  const dragFieldIdle = physics.state.phase === "idle" || physics.state.phase === "armed";
   const dragField = useMemo(() => {
     const blocked = new Map<string, string>();
     const tier = new Map<string, "free" | "room" | "blocked">();
     const suggestions: Array<{ day: DayKey; start: string; score: number; roomKey?: string }> = [];
     const carried = physics.state.row;
-    if (!carried || physics.state.phase === "idle") return { blocked, tier, suggestions };
+    // «armed» ضغطةٌ لم تصر سحباً (نقرةٌ تفتح الموعد غالباً): لا نحسب الحقل لها، بل حين يبدأ السحب فعلاً.
+    if (!carried || dragFieldIdle) return { blocked, tier, suggestions };
 
     const instructorRows = rows.filter(item =>
       item.id !== carried.id && Boolean(carried.AdInstructorId) && item.AdInstructorId === carried.AdInstructorId);
@@ -8339,7 +8401,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }
     suggestions.sort((a, b) => b.score - a.score);
     return { blocked, tier, suggestions: suggestions.slice(0, 3) };
-  }, [physics.state.row, physics.state.phase, rows, viewMode, timeSlots, gridWindow, localPhysicsBlockers]);
+  }, [physics.state.row, dragFieldIdle, rows, viewMode, timeSlots, gridWindow, localPhysicsBlockers]);
   const dragSuggestions = dragField.suggestions;
   const suggestionRank = useMemo(() => {
     const map = new Map<string, number>();
@@ -8468,16 +8530,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [keyMoveSay, setKeyMoveSay] = useState("");
 
   const pickUpWithKeyboard = useCallback((row: FSchedule) => {
+    if (dragBlocked) { if (approvalLock) setPhysicsNotice(approvalLock); return; }
     if (!canEditSchedule || saving) return;
     if (physics.state.phase !== "idle") return;      // a pointer already holds something
-    if (viewMode !== "week") return;
+    if (viewMode !== "week") {
+      // Space على بطاقة القاعات كان صامتاً: القاعة هدفٌ مكانيٌّ لا تبلغه الأسهم، فنقول ذلك.
+      setPhysicsNotice("في عرض القاعات يُنقل الموعد بالسحب (فأرة أو إصبع). النقل بالمفاتيح متاح في العرض الأسبوعي.");
+      return;
+    }
     const day = (days.find(d => Boolean((row as any)[d.key]))?.key || "fsunday") as DayKey;
     setKeyMove({ rowId: row.id, day, start: row.fstarttime });
     presence.send({ holding: { rowId: row.id, rev: Number((row as any).rev || 0) },
       cell: { day, start: row.fstarttime } });
     const title = row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "الموعد";
     setKeyMoveSay(`تم التقاط ${title}. استخدم الأسهم للتحريك، Enter للتنفيذ، Esc للإلغاء.`);
-  }, [canEditSchedule, saving, physics.state.phase, viewMode, courseById, presence]);
+  }, [dragBlocked, approvalLock, canEditSchedule, saving, physics.state.phase, viewMode, courseById, presence]);
 
   const cancelKeyboardMove = useCallback(() => {
     setKeyMove(null);
@@ -8514,7 +8581,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const label = days.find(d => d.key === keyMove.day)?.label || "";
     setKeyMove(null);
     presence.send({ holding: null, cell: null });
-    setKeyMoveSay(`تم نقل الموعد إلى ${label} ${scheduleClockForDisplay(keyMove.start)}.`);
+    // لا نعلن «تم» قبل أن يؤكد الخادم: الإعلان الحقيقي يأتي من رسالة النجاح/الخطأ نفسها.
+    setKeyMoveSay(`جارٍ نقل الموعد إلى ${label} ${scheduleClockForDisplay(keyMove.start)}.`);
     // The same door as a drag: same checks, same undo, same broadcast.
     void commitMove({
       row: keyMoveRow,
@@ -8523,6 +8591,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       decision: null,
     } as any);
   }, [keyMove, keyMoveRow, keyMoveReading]);
+
+  /* بطاقةٌ محمولة لم يعد لها صف (حذفه زميل/بدّلت العرض أو النطاق): تُترك فوراً،
+     وإلا بقيت طبقة المؤشر مطفأة والتقاط المفاتيح يبتلع الأسهم وEnter في الصفحة. */
+  useEffect(() => {
+    if (!keyMove) return;
+    if (!keyMoveRow || viewMode !== "week" || editor !== "index") {
+      setKeyMove(null);
+      presence.send({ holding: null, cell: null });
+      setKeyMoveSay("أُلغي النقل؛ لم يعد الموعد متاحاً هنا.");
+    }
+  }, [keyMove, keyMoveRow, viewMode, editor, presence]);
+  useEffect(() => { setKeyMove(null); }, [filterCollege, filterSection, filterTerm]);
 
   /* The arrows belong to the held card and to nothing else while it is held. */
   useEffect(() => {
@@ -8799,6 +8879,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }
   }, [repair, strictNoConflict]);
 
+  /* أوامر اللوحة تقرأ أحدث الدوال من مرجع: القائمة مذكّرة (useMemo) فلا تُغلق على
+     نسخةٍ قديمة تتجاوز قفل الاعتماد أو تعمل على صفوفٍ بائدة. */
+  const liveCmd = useRef<any>({});
+  liveCmd.current = { openCreate, runUndoEntry, proposeRepair, pickUp: pickUpWithKeyboard, rows };
   const commands = useMemo<ScheduleCommand[]>(() => {
     const inWeek = viewMode === "week";
     const list: ScheduleCommand[] = [
@@ -8811,12 +8895,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         execute: () => { if (!inWeek) changeView("week"); setExpandedDay(current => (current === todayKey ? null : todayKey)); },
       },
       { id: "search.focus", group: "التنقل", label: "البحث في الجدول", keywords: ["search", "بحث"], shortcut: "/", icon: <Search />, execute: () => { searchRef.current?.scrollIntoView({ block: "center" }); searchRef.current?.focus(); } },
-      { id: "schedule.create", group: "الجدول", label: "إضافة موعد", keywords: ["add", "new", "اضافة", "جديد"], icon: <Plus />, execute: () => openCreate() },
+      { id: "schedule.create", group: "الجدول", label: "إضافة موعد", keywords: ["add", "new", "اضافة", "جديد"], icon: <Plus />, execute: () => liveCmd.current.openCreate() },
       {
         id: "schedule.undo", group: "الجدول", label: "التراجع عن آخر تغيير",
         keywords: ["undo", "تراجع"], shortcut: "Ctrl+Z", icon: <Undo2 />,
         enabled: pendingUndo.length > 0,
-        execute: () => { const entry = pendingUndo[0]; if (entry) void runUndoEntry(entry); },
+        execute: () => { const entry = pendingUndo[0]; if (entry) void liveCmd.current.runUndoEntry(entry); },
       },
       {
         id: "schedule.pick", group: "الجدول", label: picking ? "إنهاء النقل الجماعي" : "نقل جماعي: اختر عدة مواعيد ثم اسحبها معاً",
@@ -8836,15 +8920,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         icon: <GripVertical />, shortcut: "Space",
         enabled: viewMode === "week" && Boolean(context?.selected),
         execute: () => {
-          const row = rows.find(item => item.id === context?.selected?.id);
-          if (row) pickUpWithKeyboard(row);
+          const row = liveCmd.current.rows.find((item: FSchedule) => item.id === context?.selected?.id);
+          if (row) liveCmd.current.pickUp(row);
         },
       },
       {
         id: "schedule.repair", group: "الجدول", label: "أصلح التداخل بأقل أثر",
         keywords: ["repair", "fix", "اصلاح", "تعارض", "تداخل", "سلسلة"],
         icon: <WandSparkles />, enabled: liveClash.pairs > 0 && !repairing,
-        execute: proposeRepair,
+        execute: () => liveCmd.current.proposeRepair(),
       },
       { id: "schedule.review", group: "الجدول", label: "مراجعة الاعتماد", keywords: ["review", "اعتماد", "مراجعة"], icon: <ClipboardCheck />, execute: () => setReviewOpen(true) },
       { id: "schedule.focus", group: "العرض", label: focusMode ? "إنهاء التركيز" : "وضع التركيز", keywords: ["focus", "تركيز"], icon: <Focus />, execute: () => { physics.cancel(); setFocusMode(!focusMode); setPresentationMode(false); } },
@@ -8912,7 +8996,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (phoneReadOnly && (phoneWrites.has(command.id) || phoneHiddenViews.has(command.id))) return { ...command, visible: false };
       return canEditSchedule || !writes.has(command.id) ? command : { ...command, visible: false };
     });
-  }, [viewMode, todayKey, picking, pendingUndo, liveClash, focusMode, presentationMode, hueBy, hueHidden, hueFocus, savedViews, activeView, viewDirty, isPowerAdmin, canEditSchedule, phoneReadOnly, context?.selected?.id, changeView, applyView, captureView, viewsStore, permissions, onNavigate, user?.IsRootAdmin, user?.SystemUserId]);
+  }, [approvalLock, repairing, viewMode, todayKey, picking, pendingUndo, liveClash, focusMode, presentationMode, hueBy, hueHidden, hueFocus, savedViews, activeView, viewDirty, isPowerAdmin, canEditSchedule, phoneReadOnly, context?.selected?.id, changeView, applyView, captureView, viewsStore, permissions, onNavigate, user?.IsRootAdmin, user?.SystemUserId]);
 
   /* ── «اكتب الموعد بسطرٍ واحد» ───────────────────────────────────────────────
    *
@@ -9028,6 +9112,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (paletteOpen) return;
       if (meta && event.key.toLowerCase() === "z" && !event.shiftKey) {
         if (editor !== "index" || !pendingUndo.length) return;
+        // الرجوع العام لا يلتقط ضغطة داخل حقل (بحث/نموذج) ولا مع أي نافذة مفتوحة:
+        // هناك ⌘Z تعني تراجع الكتابة، لا إلغاء آخر حفظ على الخادم.
+        if (shortcutsBlocked() || document.querySelector('[role="dialog"], [aria-modal="true"]')) return;
         event.preventDefault();
         void runUndoEntry(pendingUndo[0]);
         return;
@@ -9132,6 +9219,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         return;
       }
       liveRefreshPending.current = false;
+      // التجربة محلية: قراءة الصفوف الحية كانت تمحوها بصمت. نكتفي بشارة «تغيّر الجدول الحقيقي».
+      if (practiceModeRef.current) { setPracticeRealChanged(true); return; }
       void loadRowsRef.current({ silent: true }).catch(() => undefined);
     };
     const stop = onLiveSignal(["schedules"], ({ changedAt }) => {
@@ -9187,6 +9276,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         return;
       }
       liveRefreshPending.current = false;
+      if (practiceModeRef.current) { setPracticeRealChanged(true); return; }
       void loadRows({ silent: true }).catch(() => undefined);
     };
     source.addEventListener("schedules", event => {
@@ -9252,6 +9342,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const driftSheet = drift && driftOpen ? (
     <div className="drift-sheet-backdrop no-print" role="presentation" onClick={() => setDriftOpen(false)}>
       <section
+        ref={trapFocusRef}
         className="drift-sheet"
         role="dialog"
         aria-modal="true"
@@ -9299,6 +9390,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const inboxTray = inbox.length && inboxOpen ? (
     <div className="drift-sheet-backdrop no-print" role="presentation" onClick={() => setInboxOpen(false)}>
       <section
+        ref={trapFocusRef}
         className="drift-sheet inbox-sheet"
         role="dialog" aria-modal="true" aria-label="رسائل الأساتذة"
         onClick={event => event.stopPropagation()}
@@ -9809,7 +9901,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioScopeMissing = !Number(form.AdCollegeId || 0) || !Number(form.AdSectionId || 0) || !Number(form.AdTermId || 0);
   const studioScopeExpanded = studioScopeMissing || studioScopeOpen;
   const studioTermName = String(terms.find(term => Number(term.AdTermId) === Number(form.AdTermId))?.AdTermName || "");
-  const studioBlockers = editorVerdict.blockers.length, studioNotes = Math.max(editorVerdict.notes.length, regulationIssues.length);
+  const studioBlockers = editorVerdict.blockers.length, studioNotes = editorVerdict.notes.length;
   const studioTone = approvalLock ? "locked" : studioBlockers ? "block" : checking ? "checking" : studioMissing.length ? "missing" : studioNotes ? "warn" : "ok";
   const studioDuration = form.fstarttime && form.fendtime ? Math.max(0, mins(String(form.fendtime)) - mins(String(form.fstarttime))) : 0;
   const studioEndByPattern = Boolean(form.fendtime) && !timingOverride && regulationHours(formCourse) > 0 && formRegulationFit !== "off";
@@ -9840,7 +9932,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     </section>
   );
   /* حين يُجاب سؤالٌ في «موعد جديد» ينطوي، ويُسلَّم المؤشر للسؤال التالي — بلا قفزٍ عند الفتح. */
-  const studioDoneNow = { scope: !studioScopeMissing, course: studioCourseDone, teacher: studioTeacherDone };
+  const studioDoneNow = { scope: !studioScopeMissing, course: studioCourseDone, teacher: studioTeacherDone, time: studioTimeDone };
   const studioDonePrev = useRef(studioDoneNow);
   const studioDoneKey = `${editor}|${editId || 0}`;
   const studioDoneOpenedKey = useRef(studioDoneKey);
@@ -9849,18 +9941,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     studioDonePrev.current = studioDoneNow;
     if (studioDoneOpenedKey.current !== studioDoneKey) { studioDoneOpenedKey.current = studioDoneKey; return; }
     if (editor !== "create") return;
-    const next = !prev.scope && studioDoneNow.scope ? "course" : !prev.course && studioDoneNow.course ? "teacher" : !prev.teacher && studioDoneNow.teacher ? "time" : "";
+    const next = !prev.scope && studioDoneNow.scope ? "course" : !prev.course && studioDoneNow.course ? "teacher" : !prev.teacher && studioDoneNow.teacher ? "time" : !prev.time && studioDoneNow.time ? "place" : "";
     if (!next) return;
     window.requestAnimationFrame(() => {
       const step = document.querySelector<HTMLElement>(`.schedule-editor.is-studio [data-appt-step="${next}"]`);
       if (!step) return;
       const reduce = Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-      step.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+      /* «أين؟» كانت تُرسم خلف شريط الحفظ اللاصق بلا تمرير: تُنزَل إلى منتصف الشاشة (و scroll-padding-bottom في CSS يحفظ لها مكاناً فوق الشريط). */
+      step.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: next === "place" ? "center" : "nearest" });
+      if (next === "place") return;
       const target = step.querySelector<HTMLElement>(next === "course" ? 'button[aria-label="المقرر الدراسي"]' : next === "teacher" ? ".instructor-trigger" : ".day-pills input");
       target?.focus({ preventScroll: true });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studioDoneKey, studioDoneNow.scope, studioDoneNow.course, studioDoneNow.teacher]);
+  }, [studioDoneKey, studioDoneNow.scope, studioDoneNow.course, studioDoneNow.teacher, studioDoneNow.time]);
   useEffect(() => { studioMeter.current?.blocked(editorVerdict.blockers.length > 0); }, [editorVerdict.blockers.length > 0]);
   const studioChip = (done: boolean, changed?: boolean) => `appt-chip${done ? "" : " is-missing"}${changed ? " is-changed" : ""}`;
   const studioInitial = String(selectedInstructor?.AdInstructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
@@ -9898,19 +9992,38 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         </PageTitle>
         <span className="appt-esc" aria-hidden="true"><kbd>Esc</kbd> للإغلاق</span>
         {error ? <div className="schedule-editor-error" role="alert"><AlertTriangle aria-hidden="true" />{error}</div> : null}
+        {slotTaken ? (
+          <div className="schedule-editor-error slot-taken-notice" role="alert">
+            <AlertTriangle aria-hidden="true" />
+            <div>
+              <strong>سبقك زميل ⏱️</strong>
+              <span> {slotTaken.what}{slotTaken.when ? ` — ${slotTaken.when}` : ""}. لم يضِع ما كتبته.</span>
+              {slotTaken.loading ? <small> أبحث عن بديلين…</small> : slotTaken.options.length ? (
+                <span className="slot-taken-options">
+                  {slotTaken.options.map((slot: any, index: number) => (
+                    <button key={`${slot.start}-${slot.room}-${slot.hall}-${index}`} type="button" className="btn btn-secondary" onClick={() => { takeSlot(slot); setSlotTaken(null); }} data-guide-ignore="يملأ النموذج بهذا البديل بعد أن سبقك زميل؛ لا يحفظ شيئاً">
+                      <bdi dir="ltr">{formatScheduleTimeRange(slot.start, slot.end)}</bdi>{slot.room || slot.hall ? <> · <bdi>{slot.room}/{slot.hall}</bdi></> : null}
+                    </button>
+                  ))}
+                </span>
+              ) : <small> اضغط «اقترح لي وقتاً وقاعة» لبدائل.</small>}
+              <button type="button" className="appt-link" onClick={() => setSlotTaken(null)} data-guide-ignore="يخفي تنبيه «سبقك زميل»؛ لا يغيّر النموذج">إخفاء</button>
+            </div>
+          </div>
+        ) : null}
         {/* The editor no longer closes after a creation, so the confirmation has
             to be readable where the person is still standing. */}
         {message ? <Notice type="success">{message}</Notice> : null}
         {saveImpact ? <FitImpact impact={saveImpact} /> : null}
-        {editor === "create" && draftOffer && !form.AdCourseId ? (() => {
+        {editor === "create" && draftOffer ? (() => {
           const minutesAgo = Math.max(0, Math.round((Date.now() - draftOffer.at) / 60000));
           const ago = minutesAgo < 1 ? "الآن" : minutesAgo < 60 ? `قبل ${minutesAgo} د` : `قبل ${Math.round(minutesAgo / 60)} س`;
-          const detail = [draftOffer.courseName || courseById.get(Number(draftOffer.form.AdCourseId))?.CourseName, draftOffer.form.SCode ? `شعبة ${draftOffer.form.SCode}` : ""].filter(Boolean).join(" · ");
+          const detail = [draftOffer.courseName || courseById.get(Number(draftOffer.form.AdCourseId))?.CourseName, draftOffer.form.SCode ? `شعبة ${draftOffer.form.SCode}` : "", draftScopeDiffers(draftOffer.form) ? `نطاق آخر: ${scopeLabelOf(draftOffer.form)}` : ""].filter(Boolean).join(" · ");
           return (
             <div className="appt-draft" role="status" aria-label="مسودة لم تُحفظ">
               <span className="appt-draft-mark" aria-hidden="true"><History /></span>
               <span className="appt-draft-copy"><b>مسودة · {ago}</b><small>{detail}</small></span>
-              <button type="button" className="appt-draft-restore" onClick={restoreDraft}
+              <button type="button" className="appt-draft-restore" onClick={() => { void restoreDraft(); }}
                 data-guide-ignore="يعيد ما كُتب في «موعد جديد» قبل أن يُغلق دون حفظ؛ لا يحفظ شيئاً">استعد</button>
               <button type="button" className="appt-draft-drop" aria-label="تجاهل المسودة" title="تجاهل المسودة" onClick={dropDraft}
                 data-guide-ignore="يمحو المسودة المحفوظة على هذا الجهاز؛ لا يمسّ الجدول"><X aria-hidden="true" /></button>
@@ -9969,6 +10082,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     value={courseName}
                     disabled={!form.AdSectionId}
                     onChange={(name) => {
+                      // إعادة اختيار الاسم نفسه ليست تغييراً: لا يُصفَّر المقرر ولا تُعاد الأيام والنهاية ولا المرفق.
+                      if (String(name) === courseName && Number(form.AdCourseId) > 0) return;
                       setCourseName(String(name));
                       setForm((p) => ({ ...p, AdCourseId: 0, companionRoomId:"", companionRoomLabel:"" }));
                     }}
@@ -9991,6 +10106,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     ariaLabel="رمز المقرر الدراسي"
                     onChange={(picked) => {
                       const courseId = Number(picked) || 0;
+                      // الرمز نفسه: لا شيء يتغير (الشعبة المكتوبة يدوياً تبقى، والأيام والنهاية كما حُفظت).
+                      if (courseId && courseId === Number(form.AdCourseId || 0)) return;
                       setForm((p) => {
                         const previousCourseId = Number(p.AdCourseId) || 0;
                         const next = { ...p, AdCourseId: courseId, ...(courseId!==Number(p.AdCourseId||0)?{companionRoomId:"",companionRoomLabel:""}:{}) };
@@ -10170,7 +10287,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           min={SCHEDULE_DAY_START_TIME}
           max={SCHEDULE_DAY_END_TIME}
                       value={form.fstarttime}
-                      suggestions={ladderStartsForDays(formDays as RegDayKey[])}
+                      suggestions={ladderStartsForDays(formDays as RegDayKey[], undefined, undefined, formSpan)}
                       onOutOfRange={(limit) => {
                         const boundary = limit === "max" ? SCHEDULE_DAY_END_TIME : SCHEDULE_DAY_START_TIME;
                         setStartTimeLimitNotice(`${limit === "max" ? "ينتهي الدوام" : "يبدأ الدوام"} عند ${scheduleClockForDisplay(boundary)}.`);
@@ -10209,7 +10326,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       endLimit={SCHEDULE_CLOCK_END_TIME}
                       lengths={wheelLengths(formCourse, formDays as RegDayKey[])}
                       onChange={(next) => {
-                        setScheduleTouched(true);
                         /* العجلة تحفظ المدة: تحريك الساعة يعيد النهاية إلى النمط، وتغيير «المدة» تجاوزٌ متعمَّد.
                            المدة السابقة كما ترسمها العجلة نفسها (30د على الأقل، ومن 08:00 حين تكون البداية فارغة):
                            كان أول دوران للساعة في نموذجٍ جديد يُقرأ «تغيير مدة» (0 ← 30د) فيوقف الإكمال
@@ -10241,7 +10357,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       }}
                       onChange={(e) => {
                         setEndTimeLimitNotice("");
-                        setScheduleTouched(true);
                         const end = e.target.value;
                         /* نهايةٌ بيد المستخدم لا تطابق النمط = تجاوزٌ متعمَّد (التنبيه + «طبّق النمط المعتمد»). */
                         setTimingOverride(regulationHours(formCourse) > 0 && (regulationFit(formCourse, formDays, String(form.fstarttime || ""), end) === "off" || endIsDeliberate(formCourse, formDays, String(form.fstarttime || ""), end)));
@@ -10280,7 +10395,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً"><bdi dir="ltr">+{editorVerdict.blockers.length - 1}</bdi></button> : null}
                     {editorFreshSection ? <button type="button" className="appt-inline-alt is-fix" onClick={useFreshSection}
                       data-guide-ignore="يغيّر رقم الشعبة إلى الرقم الحرّ التالي لهذا المقرر فيزول مانع الساعات؛ لا يحفظ شيئاً"><Plus aria-hidden="true" />شعبة جديدة <bdi dir="ltr">{editorFreshSection}</bdi></button> : null}
-                    {editorFitStart ? <button type="button" className="appt-inline-alt is-fix" onClick={() => { setScheduleTouched(true); setForm(previous => ({ ...previous, fstarttime: editorFitStart, fendtime: endForStart(previous, editorFitStart) })); flashAutofill(); }}
+                    {editorFitStart ? <button type="button" className="appt-inline-alt is-fix" onClick={() => { setForm(previous => ({ ...previous, fstarttime: editorFitStart, fendtime: endForStart(previous, editorFitStart) })); flashAutofill(); }}
                       data-guide-ignore="يقدّم بداية الموعد إلى آخر بدايةٍ من سُلّم اللائحة تنتهي ضمن الدوام الشامل؛ لا يحفظ شيئاً"><Clock3 aria-hidden="true" />ابدأ <bdi dir="ltr">{editorFitStart}</bdi></button> : null}
                     {editorRegulationBlocked ? <button type="button" className="appt-inline-alt is-fix" onClick={applyApprovedPattern}
                       data-guide-ignore="يعيد الأيام والنهاية إلى النمط المعتمد لساعات المقرر؛ لا يحفظ شيئاً"><Ruler aria-hidden="true" />طبّق النمط</button> : null}
@@ -10295,7 +10410,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
                   {studioTimeDone ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact}
                     best={bestTime && (bestTime.start !== String(form.fstarttime || "") || bestTime.days.join() !== formDays.join()) ? bestTime : null}
-                    bestBusy={bestBusy} currentDays={formDays} onPickBest={best => void pickBestTime(best)} /> : null}
+                    bestBusy={bestBusy} currentDays={formDays} onPickBest={best => void pickBestTime(best)} loading={checking} showEmpty /> : null}
                   <div className="appt-helpers" role="group" aria-label="مساعدات الوقت">
                     <span className="appt-helpers-label">مساعدات الوقت</span>
                     <button
@@ -10321,7 +10436,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         onClick={() => {
                           studioMark("usual");
                           const seed = courseNature.suggestion!;
-                          setScheduleTouched(true);
                           /* أيامُ العادة نمطٌ معتمد (وإلا لم يظهر الزر)، وطولُها من مكتبة الأنماط: عادةٌ بطولٍ آخر
                              تُعبَّأ بطول اللائحة، ولا تصير تجاوزاً متعمَّداً (المالك 2026-10-30). */
                           daysSeeded.current = false;
@@ -10424,7 +10538,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   courseRoomType={String(courseById.get(Number(form.AdCourseId||0))?.CourseRoomType||"")}
                   courseTeachingMode={String(courseById.get(Number(form.AdCourseId||0))?.CourseTeachingMode||"")}
                   seatsNeeded={Number(courseById.get(Number(form.AdCourseId||0))?.MaxStudent||0)}
-                  onChange={(patch)=>{setScheduleTouched(true);setForm(current=>{
+                  onChange={(patch)=>{setForm(current=>{
                     /* المرفق المرافق يتبع الموقع: يُمحى فقط إن تغيّر المبنى فعلاً — لا عند كل
                        تطبيعٍ للموقع، وإلا فتح تعديلُ موعدٍ سليم ومرفقُه ممحوّ (A3). */
                     const buildingChanged = "buildingId" in patch && String(patch.buildingId || "") !== String(current.buildingId || "");
@@ -10462,7 +10576,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   course={courseById.get(Number(form.AdCourseId||0))}
                   form={form}
                   excludeId={editor==="edit"?Number(editId||0):undefined}
-                  onChange={patch=>{setScheduleTouched(true);setForm(current=>({...current,...patch}));}}
+                  onChange={patch=>{setForm(current=>({...current,...patch}));}}
                 />
                 {/* ── جسرٌ إلى الاستعارة، حين تكون عالقاً وحده ────────────────
                     حدّدتَ اليوم والوقت ولم تجد قاعةً تختارها؟ سطرٌ هادئ واحد
@@ -10687,9 +10801,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             lockedReason={approvalLock}
             alternativeBusy={altBusy}
             onAlternative={() => goToAlternatives()}
+            onChainSolve={() => setChainOpen(true)}
             onApplyPattern={patternOverridden ? applyApprovedPattern : undefined}
             onOpenReach={formReachNote ? () => void formReach.setOpen(Number(form.AdCourseId || 0), true) : undefined}
             reachBusy={Boolean(formReach.busy)}
+            /* ملاحظات اللائحة التي يعدّها شريط الحفظ (studioNotes) تُعرض في اللوحة نفسها، فلا يقول الشريط «ملاحظتان» واللوحة «جاهز». */
+            {...({ regulationNotes: regulationIssues } as Record<string, unknown>)}
             renderConflict={detail => {
               const card = editorConflictCards.find(item => item.source === detail.conflict);
               return card ? renderEditorConflictCard(card) : null;
@@ -10710,7 +10827,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <ClipboardCheck />
                     <span><strong>موانع اللائحة</strong><small>{DECISION_1913_LABEL}</small></span>
                   </span>
-                  <em className="decision-regulation-count">{countOf(editorRegulation.length, AR.approvalBlocker)}</em>
                 </summary>
                 <div className="decision-accordion-body">
                   <section className="decision-section decision-section--regulation" role="status" aria-label={`ملاحظات اللائحة · ${DECISION_1913_LABEL}`}>
@@ -10788,6 +10904,36 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               </div>
             ) : null}
           </AppointmentChecksPanel>
+          {chainOpen ? (
+            <ChainSolveSheet
+              open={chainOpen}
+              onClose={() => setChainOpen(false)}
+              input={{
+                draft: {
+                  courseId: Number(form.AdCourseId || 0) || undefined,
+                  courseName,
+                  courseCode: String(formCourse?.CourseCode || ""),
+                  sectionCode: String(form.SCode || ""),
+                  instructorId: Number(form.AdInstructorId || 0) || undefined,
+                  room: { buildingId: form.buildingId, roomId: form.roomId, code: String(form.AdRoomCode || ""), hall: String(form.AdRoomHall || "") },
+                  days: formDays as any,
+                  start: String(form.fstarttime || ""),
+                  end: String(form.fendtime || ""),
+                  editId: editor === "edit" ? Number(editId || 0) || undefined : undefined,
+                },
+                rows: [...new Map([...rows, ...formScopeRows.rows].filter(row => Number(row.AdTermId) === Number(form.AdTermId)).map(row => [Number(row.id), row] as const)).values()],
+                conflicts,
+                scope: { collegeId: Number(form.AdCollegeId || 0), sectionId: Number(form.AdSectionId || 0), termId: Number(form.AdTermId || 0) },
+                frozen: termFrozen,
+                approvalLocked: Boolean(approvalLock),
+                holds: studioHolds.holds.map((hold: any) => ({ days: hold.days, start: hold.start, end: hold.end, roomCode: hold.roomCode, roomHall: hold.roomHall, instructorId: hold.instructorId, editId: hold.editId })),
+                placeholderInstructorIds: studioPlaceholderIds,
+                courseHours: repairCourseHours,
+              }}
+              onApplied={() => { forgetSuggestions(); checkCache.current.clear(); lastCheckFormKey.current = ""; void loadRows({ silent: true }).catch(() => undefined); }}
+              onUndone={() => { forgetSuggestions(); checkCache.current.clear(); lastCheckFormKey.current = ""; void loadRows({ silent: true }).catch(() => undefined); }}
+            />
+          ) : null}
           </div>
         </div>
       </div>
@@ -11120,6 +11266,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (detail.type === "practice.start") {
         if (!practiceMode) {
           practiceSnapshotRef.current = rows.map(item => ({ ...item }));
+          practiceScopeRef.current = `${scopeRef.current.collegeId}|${scopeRef.current.sectionId}|${scopeRef.current.termId}`;
+          setPracticeRealChanged(false);
           practiceModeRef.current = true;
           setPracticeMode(true);
           setMessage("وضع تجربة مفعّل. يمكنك السحب والتعديل والحذف دون تغيير الجدول الحقيقي.");
@@ -11129,10 +11277,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         return;
       }
       if (detail.type === "practice.stop") {
-        if (practiceSnapshotRef.current) setRows(practiceSnapshotRef.current.map(item => ({ ...item })));
+        // اللقطة تعود فقط إن بقي النطاق كما بدأت؛ ثم نقرأ الجدول الحقيقي دائماً
+        // لأن زملاء قد يكونون حفظوا أثناء التجربة.
+        const nowScope = `${scopeRef.current.collegeId}|${scopeRef.current.sectionId}|${scopeRef.current.termId}`;
+        if (practiceSnapshotRef.current && practiceScopeRef.current === nowScope) setRows(practiceSnapshotRef.current.map(item => ({ ...item })));
         practiceSnapshotRef.current = null;
         practiceModeRef.current = false;
         setPracticeMode(false);
+        setPracticeRealChanged(false);
+        void loadRows({ silent: true }).catch(() => undefined);
         setGuideGhostDiff(null);
         setMessage("انتهى وضع التجربة. لم يتغير جدولك الحقيقي.");
         return;
@@ -11331,7 +11484,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         </section>
       ) : null}
       {historicalChoice ? (
-        <div className="historical-time-backdrop no-print" role="dialog" aria-modal="true" aria-label="تنبيه التوقيت التاريخي">
+        <div ref={trapFocusRef} className="historical-time-backdrop no-print" role="dialog" aria-modal="true" aria-label="تنبيه التوقيت التاريخي">
           <section className="historical-time-dialog">
             <button type="button" className="historical-time-close" data-guide-ignore="إلغاء نافذة اقتراح التوقيت فقط وإرجاع الموعد لمكانه السابق؛ لا ينفذ نقلاً" onClick={() => settleHistoricalTimeChoice("cancel")} aria-label="إلغاء النقل والعودة للوضع السابق" title="إلغاء"><X /></button>
             <header><span><Clock3 aria-hidden="true" /></span><div><small>{historicalChoice.source}</small><strong>{historicalChoice.dayLabel} · وقت غير معتاد</strong></div></header>
@@ -11342,7 +11495,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         </div>
       ) : null}
       {mobileViewGate ? (
-        <div className="mobile-desktop-gate no-print" role="dialog" aria-modal="true" aria-label="بعض عروض الجدول للقراءة فقط على الهاتف">
+        <div ref={trapFocusRef} className="mobile-desktop-gate no-print" role="dialog" aria-modal="true" aria-label="بعض عروض الجدول للقراءة فقط على الهاتف">
           <div className="mobile-desktop-gate-card">
             <span className="mobile-desktop-gate-icon">
               {mobileViewGate === "week" ? <CalendarDays /> : <MapPin />}
@@ -11432,7 +11585,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 tone="mint"
                 title="وضع تجربة"
                 subtitle="السحب والتعديل والحذف مؤقتة على هذا الجهاز فقط؛ وما يكتب في الجدول الحقيقي (التراجع والإصلاح وأدوات الجدول) موقوفٌ حتى تُنهي التجربة."
-                actions={<button type="button" onClick={() => window.dispatchEvent(new CustomEvent("schedule-smart-guide-command", { detail:{ scope:"schedule", type:"practice.stop", featureId:"schedule.practice" } }))}>إنهاء</button>}
+                actions={<>{practiceRealChanged ? <small className="practice-real-changed" role="status">تغيّر الجدول الحقيقي</small> : null}<button type="button" onClick={() => window.dispatchEvent(new CustomEvent("schedule-smart-guide-command", { detail:{ scope:"schedule", type:"practice.stop", featureId:"schedule.practice" } }))}>إنهاء</button></>}
               />
             </div>
           ) : null}
@@ -12038,7 +12191,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       ))}
                     </div>
                   ) : null}
-                  <PrimaryButton onClick={openCreate} disabled={Boolean(approvalLock)} title={approvalLock || undefined} data-guide-ignore="فتح محرّر إضافة موعد — يُعطَّل بسببٍ مكتوب حين يكون الجدول عند التسجيل، والحفظ داخله مسجّل">إضافة موعد</PrimaryButton>
+                  <PrimaryButton onClick={() => openCreate()} disabled={Boolean(approvalLock)} title={approvalLock || undefined} data-guide-ignore="فتح محرّر إضافة موعد — يُعطَّل بسببٍ مكتوب حين يكون الجدول عند التسجيل، والحفظ داخله مسجّل">إضافة موعد</PrimaryButton>
                   {filterCollege && filterSection && filterTerm && !rowsForeign ? (
                     <SecondaryButton
                       type="button"
@@ -12173,7 +12326,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   data-guide-description="بطاقة موعد داخل الجدول: اضغطها لقراءة الموعد وتحليله، أو اسحبها إلى يوم أو ساعة أو قاعة أخرى لنقلها بعد فحص التعارض."
                   className={`rooms-card ${xrayClass(row)} ${physicsRelationClass(row)} ${draggingId === row.id ? "ripple-source" : ""} ${justChangedId === row.id ? "just-changed" : ""} ${liveClash.ids.has(row.id) ? "live-clash" : ""} ${outsideClash.notes[row.id] ? "live-clash-outside" : ""} ${physicsActive && physicsOrigin?.id === row.id ? "physics-source-lift" : ""} ${keyMove?.rowId === row.id ? "week-keymove-source" : ""} ${rowPending ? "schedule-row-pending" : ""} ${hueFocusClass(row)}`}
                   style={cardStyle}
-                  draggable={!physics.supported && !rowPending}
+                  draggable={!physics.supported && !rowPending && !dragBlocked}
                   onDragStart={(e) => {
                     if (approvalLock) { e.preventDefault(); setPhysicsNotice(approvalLock); return; }
                     e.dataTransfer.setData("text/schedule-id", String(row.id));
@@ -12182,7 +12335,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   }}
                   onDragEnd={clearRipple}
                   title={`${title} · ${withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`}
-                  aria-label={`${title} · ${withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`}
+                  aria-label={`${title} · ${withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}${liveClash.ids.has(row.id) ? " · يوجد تعارض" : ""}`}
                   onPointerDown={(e) => {
                     pressOrigin.current = { x: e.clientX, y: e.clientY }; explainApprovalLock();
                     if (rowPending) {
@@ -13703,7 +13856,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       {/* The chain, whole, before anything is written. */}
       {repair ? (
         <div className="views-dialog-backdrop no-print" onMouseDown={event => { if (event.target === event.currentTarget) setRepair(null); }}>
-          <div className="views-dialog repair-sheet" role="dialog" aria-modal="true" aria-label="سلسلة إصلاح مقترحة">
+          <div ref={trapFocusRef} className="views-dialog repair-sheet" role="dialog" aria-modal="true" aria-label="سلسلة إصلاح مقترحة">
             <header>
               <strong>{repairReason || "سلسلة إصلاح مقترحة"}</strong>
               <button type="button" onClick={() => setRepair(null)} aria-label="إغلاق"><X aria-hidden="true" /></button>
@@ -13744,7 +13897,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       {inboxTray}
       {clash ? (
         <div className="views-dialog-backdrop no-print" onMouseDown={event => { if (event.target === event.currentTarget) setClash(null); }}>
-          <div className="views-dialog clash-sheet" role="dialog" aria-modal="true" aria-label="تغيّر هذا الموعد أثناء عملك">
+          <div ref={trapFocusRef} className="views-dialog clash-sheet" role="dialog" aria-modal="true" aria-label="تغيّر هذا الموعد أثناء عملك">
             <header>
               <strong>تغيّر هذا الموعد أثناء عملك</strong>
               <button type="button" onClick={() => setClash(null)} aria-label="إغلاق"><X aria-hidden="true" /></button>
@@ -13831,7 +13984,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       {/* The keys, listed only when asked for — and only the ones that exist. */}
       {shortcutsOpen ? (
         <div className="views-dialog-backdrop no-print" onMouseDown={event => { if (event.target === event.currentTarget) setShortcutsOpen(false); }}>
-          <div className="views-dialog shortcuts-sheet" role="dialog" aria-modal="true" aria-label="اختصارات لوحة المفاتيح">
+          <div ref={trapFocusRef} className="views-dialog shortcuts-sheet" role="dialog" aria-modal="true" aria-label="اختصارات لوحة المفاتيح">
             <header>
               <strong>اختصارات لوحة المفاتيح</strong>
               <button type="button" onClick={() => setShortcutsOpen(false)} aria-label="إغلاق"><X aria-hidden="true" /></button>
@@ -13916,7 +14069,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         </button>
       ) : null}
       {undoLogOpen ? (
-        <div className="undo-log-sheet no-print" role="dialog" aria-modal="true" aria-label="سجل تغييرات اليوم">
+        <div ref={trapFocusRef} className="undo-log-sheet no-print" role="dialog" aria-modal="true" aria-label="سجل تغييرات اليوم">
           <div className="undo-log-backdrop" onClick={() => setUndoLogOpen(false)} />
           <div className="undo-log-panel">
             <header>
@@ -14074,6 +14227,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             terms.find((t) => t.AdTermId === filterTerm)?.AdTermName,
             colleges.find((c) => c.AdCollegeId === filterCollege)?.AdCollegeName,
             sections.find((s) => s.AdSectionId === filterSection)?.AdSectionName,
+            // المطبوع هو ما تُظهره التصفية: نقول ذلك في الترويسة كي لا يُقرأ جزءٌ كأنه الجدول كله.
+            quickSearch.trim() ? `تصفية: «${quickSearch.trim()}» (${schedulePrintRows.length} من ${rows.length})` : "",
+            pendingOnly ? "المواعيد بانتظار قاعة فقط" : "",
+            visitingOnly ? "المنتدبون فقط" : "",
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -14139,7 +14296,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           }}
         >
           {/* درجٌ فوق خلفيةٍ تحجب اللوحة: حوارٌ يُعلن ذلك، فيتنحّى الجرسُ عن ✕ في زاويته. */}
-          <aside className="schedule-context" data-context-tab={contextTab} role="dialog" aria-modal="true" aria-label="سياق الموعد">
+          <aside ref={trapFocusRef} className="schedule-context" data-context-tab={contextTab} role="dialog" aria-modal="true" aria-label="سياق الموعد">
             <div className="context-actions">
               <div className="context-nav" role="group" aria-label="التنقل بين مواعيد اليوم">
                 <button
@@ -14451,10 +14608,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <button
                       type="button"
                       key={`${x.start}-${x.roomCode}-${x.roomHall}`}
+                      data-guide-ignore="يفتح تعديل الموعد مملوءاً بهذا البديل قبل الحفظ؛ لا يحفظ شيئاً"
                       onClick={() => {
                         const row = context.selected as FSchedule;
-                        openEdit({
-                          ...row,
+                        void openEditAlternative(row, {
                           fstarttime: x.start,
                           fendtime: x.end,
                           AdRoomCode: x.roomCode,

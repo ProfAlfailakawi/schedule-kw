@@ -42,7 +42,7 @@ import { type AuthenticatedRequest, requirePermission } from "../core/auth";
 import { buildRequestContext, buildSharedRequestContext, currentInstructorRequestGeneration, instructorRequestItemIdentity, judgeRequestItems, REQUEST_LINK_DAYS, requestItemScope, requestWindowOpen, requireInstructorRequestRevision } from "../core/instructorRequests";
 import { broadcastNotify } from "../core/liveChannel";
 import { canonicalizeHistoricalLocationForRuntime, readLocationRegistry } from "../core/locations";
-import { scheduleLengthIssue, unapprovedPatternIssue } from "../core/scheduleRules";
+import { scheduleLengthIssue } from "../core/scheduleRules";
 import { createScheduleHandler, dayLabelOf, deleteScheduleHandler, PROPOSAL_DAYS, regulationGate, runScheduleHandler, updateScheduleHandler } from "../core/scheduleWrites";
 import { isScopeAllowed } from "../core/scope";
 import { shareLinkStillReadable } from "../core/shareLinks";
@@ -1294,9 +1294,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
       for (const row of rows) {
         const issue = await scheduleLengthIssue(row, week);
         if (issue) throw new RequestReservationConflict(issue);
-        /* ما يثبّته القسم من طلب الأستاذ بنمطٍ معتمد وحده، كأيّ موعدٍ يُنشأ (المالك 2026-10-30). */
-        const patternIssue = await unapprovedPatternIssue(row, week, { skipIfUnchanged: true });
-        if (patternIssue) throw new RequestReservationConflict(patternIssue);
+        /* النمطُ المعتمد تنبيهٌ بتأكيدٍ صريح لا منع: سُئل عنه القسمُ في الفحص الجافّ (regulation) قبل هذه المعاملة. */
       }
     });
   } catch (error: any) {

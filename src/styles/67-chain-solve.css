@@ -1,0 +1,141 @@
+/* ── «حلّ بسلسلة»: ورقةُ الدومينو (src/components/ChainSolveSheet.tsx) ─────────────────────
+   ورقةٌ سفليةٌ على الجوال وجانبيةٌ على المكتب. الألوانُ كلُّها من رموز النظام فتتبع الوضعين.
+   السرد: بطاقاتٌ تتدلّى كالدومينو، أسبوعان مصغّران قبل/بعد، وسطرُ أثرٍ واحد بنقطةٍ ملوّنة. */
+.chain-solve-btn svg{width:15px;height:15px}
+
+.chain-layer{position:fixed;inset:0;z-index:calc(var(--z-sheet,200) + 20);display:flex;align-items:flex-end;justify-content:center}
+.chain-backdrop{position:absolute;inset:0;background:color-mix(in srgb,var(--ink,#111) 46%,transparent);animation:chain-fade .2s ease both}
+.chain-sheet{position:relative;width:min(100%,560px);max-height:min(92dvh,760px);display:flex;flex-direction:column;
+  border:1px solid var(--line);border-bottom:0;border-radius:var(--r-2xl,24px) var(--r-2xl,24px) 0 0;background:var(--surface);color:var(--ink);box-shadow:var(--shadow-lg);
+  padding-bottom:env(safe-area-inset-bottom,0);animation:chain-up .28s var(--ease-out,ease-out) both;overscroll-behavior:contain}
+.chain-grip{align-self:center;width:38px;height:4px;border-radius:99px;background:var(--line-strong);margin:8px 0 0;flex:none}
+@keyframes chain-fade{from{opacity:0}to{opacity:1}}
+@keyframes chain-up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes chain-side{from{transform:translateX(-24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes chain-drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes chain-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@keyframes chain-turn{to{transform:rotate(360deg)}}
+
+.chain-panel{display:flex;flex-direction:column;min-height:0;flex:1}
+.chain-head{display:flex;align-items:center;gap:12px;padding:10px 16px 8px}
+.chain-head-copy{display:grid;min-width:0;flex:1}
+.chain-head h2{margin:0;font-size:17px;font-weight:800;line-height:1.3}
+.chain-head small{color:var(--muted);font-size:12.5px;font-weight:700;line-height:1.4}
+.chain-head small b{color:var(--accent-strong);font-variant-numeric:tabular-nums}
+.chain-x{width:44px;height:44px;border:0;border-radius:var(--r-full,99px);background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer;flex:none}
+.chain-x:hover{background:var(--surface-2);color:var(--ink)}
+.chain-x svg{width:20px;height:20px}
+
+/* حلقة عدد النقلات: ثلاث قطعٍ كحدّ أقصى، المضيئة منها بعدد النقلات */
+.chain-ring{position:relative;width:52px;height:52px;flex:none;display:grid;place-items:center}
+.chain-ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.chain-ring circle{fill:none;stroke:color-mix(in srgb,var(--line-strong) 60%,transparent);stroke-width:5;stroke-linecap:round}
+.chain-ring circle.is-on{stroke:var(--accent);transition:stroke .3s}
+.chain-ring b{position:relative;font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--accent-strong);display:grid;place-items:center}
+.chain-ring b svg{position:static;width:20px;height:20px;transform:none;stroke:var(--muted);fill:none}
+.is-done .chain-ring circle.is-on{stroke:var(--success)}
+.is-done .chain-ring b{color:var(--success)}
+
+.chain-body{display:grid;gap:14px;padding:6px 16px 12px;overflow:auto;min-height:0;position:relative}
+
+/* دومينو: عقدةٌ مرقّمة وبطاقة، وخطٌّ يتدلّى بينهما */
+.chain-steps{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.chain-step{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr);column-gap:10px;padding-bottom:12px;animation:chain-drop .3s var(--ease-out,ease-out) both;animation-delay:calc(var(--i,0) * 90ms)}
+.chain-step.is-end{padding-bottom:0;animation-delay:calc(var(--chain-n,3) * 90ms)}
+.chain-step::before{content:"";position:absolute;inset-inline-start:14px;top:30px;bottom:-2px;width:2px;background:repeating-linear-gradient(to bottom,var(--line-strong) 0 4px,transparent 4px 8px)}
+.chain-step.is-end::before{display:none}
+.chain-node{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-strong);font-size:13px;font-weight:800;border:2px solid var(--surface);box-shadow:0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,var(--line));font-variant-numeric:tabular-nums;position:relative;z-index:1}
+.chain-node.is-end{background:var(--success-soft);color:var(--success);box-shadow:0 0 0 1.5px color-mix(in srgb,var(--success) 50%,var(--line))}
+.chain-node svg{width:16px;height:16px}
+.chain-card{display:grid;gap:8px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md,14px);background:var(--surface-2)}
+.chain-card.is-end{grid-auto-flow:row;border-color:color-mix(in srgb,var(--success) 40%,var(--line));background:color-mix(in srgb,var(--success-soft) 70%,var(--surface));gap:6px}
+.chain-card.is-end>b{font-size:13.5px;font-weight:800;color:var(--success)}
+.chain-end-slot{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.chain-card-top{display:flex;align-items:center;gap:8px;min-width:0}
+.chain-code{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:99px;background:var(--surface);border:1px solid var(--line-strong);font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chain-sec{color:var(--muted);font-weight:700;font-size:12px}
+.chain-frees{display:inline-flex;gap:5px;margin-inline-start:auto}
+.chain-free{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--success-soft);color:var(--success)}
+.chain-free svg{width:14px;height:14px}
+.chain-move{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chain-arrow{width:18px;height:18px;color:var(--muted);flex:none}
+.chain-slot{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 10px;border-radius:10px;font-size:12.5px;font-weight:700;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chain-slot.is-from{background:var(--danger-soft);color:var(--danger);text-decoration:line-through;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--danger) 55%,transparent)}
+.chain-slot.is-to{background:var(--accent-soft);color:var(--accent-strong)}
+.chain-slot-time{font-weight:800}
+.chain-slot-room{display:inline-flex;align-items:center;gap:3px;padding-inline-start:6px;border-inline-start:1px solid color-mix(in srgb,currentColor 25%,transparent)}
+.chain-slot-room svg{width:13px;height:13px}
+
+/* أسبوعان مصغّران */
+.chain-weeks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.chain-week{margin:0;padding:8px 8px 6px;border:1px solid var(--line);border-radius:var(--r-md,14px);background:var(--surface-2);display:grid;gap:6px}
+.chain-week figcaption{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:var(--muted)}
+.chain-week figcaption i{width:8px;height:8px;border-radius:50%;background:var(--danger)}
+.chain-week.is-after figcaption i{background:var(--success)}
+.chain-week-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
+.chain-week-col{display:grid;gap:3px;justify-items:center}
+.chain-week-day{font-size:9.5px;color:var(--muted-text,var(--muted));font-weight:700;line-height:1}
+.chain-week-lane{position:relative;width:100%;height:72px;border-radius:6px;background:color-mix(in srgb,var(--line) 45%,transparent);overflow:hidden}
+.chain-blk{position:absolute;inset-inline:2px;border-radius:3px;min-height:3px}
+.chain-blk.is-base{background:color-mix(in srgb,var(--ink-2) 28%,transparent)}
+.chain-blk.is-moved{background:var(--info,var(--accent));opacity:.9}
+.chain-blk.is-draft{background:var(--success);box-shadow:0 0 0 1.5px var(--surface) inset}
+.chain-blk.is-clash{background:var(--danger)}
+.chain-blk.is-moved.is-clash{background:var(--warning)}
+
+.chain-foot-info{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.chain-impact{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:13.5px;font-weight:800;min-height:28px}
+.chain-dot{width:10px;height:10px;border-radius:50%;background:var(--muted-2,var(--muted));flex:none}
+.chain-impact.is-good .chain-dot{background:var(--success);box-shadow:0 0 0 4px var(--success-soft)}
+.chain-impact.is-warn .chain-dot{background:var(--warning);box-shadow:0 0 0 4px var(--warning-soft)}
+.chain-impact.is-good{color:var(--success)}
+.chain-impact.is-warn{color:var(--warning)}
+.chain-impact.is-idle{color:var(--muted)}
+.chain-chips{display:inline-flex;gap:6px}
+.chain-chip{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);font-size:12.5px;font-weight:800;color:var(--ink-2)}
+.chain-chip svg{width:14px;height:14px;color:var(--accent)}
+.chain-chip b{font-variant-numeric:tabular-nums}
+
+/* حالاتٌ: هيكلٌ عظمي، فراغ، خطأ */
+.chain-skel{background:linear-gradient(90deg,var(--surface-2) 25%,color-mix(in srgb,var(--line) 70%,var(--surface-2)) 50%,var(--surface-2) 75%);background-size:200% 100%;animation:chain-shimmer 1.3s linear infinite;border-radius:var(--r-md,14px)}
+.chain-skel-card{height:76px;animation-delay:calc(var(--i,0) * 120ms)}
+.chain-skel-line{display:inline-block;width:120px;height:14px;border-radius:99px}
+.chain-spin{animation:chain-turn .9s linear infinite;width:18px;height:18px}
+.chain-body>.chain-spin{position:absolute;inset-block-start:10px;inset-inline-end:18px;color:var(--accent)}
+.chain-empty{justify-items:center;text-align:center;padding:20px 16px 12px;gap:10px}
+.chain-empty-ico{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);color:var(--muted);border:1px dashed var(--line-strong)}
+.chain-empty-ico svg{width:28px;height:28px}
+.chain-empty strong{font-size:15px;font-weight:800}
+.chain-reason{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:99px;background:var(--warning-soft);color:var(--warning);font-size:12.5px;font-weight:800}
+.chain-reason svg{width:14px;height:14px}
+.chain-empty.is-error .chain-empty-ico{background:var(--danger-soft);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,var(--line))}
+
+.chain-actions{display:flex;gap:10px;padding:10px 16px 14px;border-top:1px solid var(--line);flex:none;background:var(--surface)}
+.chain-btn{flex:1;min-height:48px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:var(--r-md,14px);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font:inherit;font-size:14.5px;font-weight:800;cursor:pointer}
+.chain-btn svg{width:18px;height:18px;flex:none}
+.chain-btn.is-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast,#fff)}
+.chain-btn.is-primary:hover:not(:disabled){background:var(--accent-strong)}
+.chain-btn:disabled{opacity:.6;cursor:progress}
+.chain-btn:focus-visible,.chain-x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chain-btn.is-ghost{flex:0 1 auto}
+
+/* مكتب: ورقةٌ جانبية على الطرف النهائي (يسار الشاشة في الاتجاه العربي) */
+@media (min-width:900px){
+  .chain-layer{align-items:stretch;justify-content:flex-start}
+  .chain-sheet{width:440px;max-height:none;height:100%;border:0;border-inline-end:1px solid var(--line);border-radius:0;border-start-end-radius:var(--r-2xl,24px);border-end-end-radius:var(--r-2xl,24px);animation:chain-side .28s var(--ease-out,ease-out) both;padding-bottom:0}
+  .chain-grip{display:none}
+}
+@media (max-width:420px){
+  .chain-body{padding-inline:12px}
+  .chain-head,.chain-actions{padding-inline:12px}
+  .chain-weeks{gap:8px}
+  .chain-week-lane{height:60px}
+}
+@media (pointer:coarse){
+  .chain-solve-btn{min-height:44px}
+  .chain-x{width:48px;height:48px}
+}
+@media (prefers-reduced-motion:reduce){
+  .chain-backdrop,.chain-sheet,.chain-step,.chain-skel,.chain-spin{animation:none!important}
+}
+@media print{.chain-layer{display:none}}
