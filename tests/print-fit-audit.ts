@@ -124,5 +124,13 @@ check(printCss.includes("font-size:4.2pt !important;")
 check(printCss.includes('html[data-print-rotate="1"] .print-report.print-wide .print-explicit-page:last-child{\n    margin-bottom:0 !important;'),
   "آخر صفحة في التقرير المدوّر لا تحجز خانةً زائدة تُنشئ صفحة A4 فارغة");
 
+/* لا ورقة بيضاء بعد آخر صفحةٍ من الشامل (Safari): حشوةُ آخر صفحةٍ تُرفع، وما قبلها لا يُمسّ. */
+{
+  const css = fs.readFileSync(path.join(process.cwd(), "src/styles/08-print.css"), "utf8");
+  check(/\.print-comprehensive-pages>\.print-comprehensive-page:last-child\{\s*padding-block-end:0 !important;\s*margin-block-end:0 !important;\s*break-after:avoid !important;/.test(css),
+    "آخر صفحةٍ من الشامل بلا حشوةٍ سفلى ولا فاصلٍ بعدها: لا ورقة بيضاء ثالثة");
+  check(!/\.print-comprehensive-page\{[^}]*break-after:(page|always)/.test(css), "ولا صفحةٌ منطقية تفرض فاصلاً بعدها");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
