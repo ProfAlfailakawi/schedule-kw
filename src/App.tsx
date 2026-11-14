@@ -1979,6 +1979,7 @@ export default function App() {
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
             roleId={sessionRole.id}
+            canReadWorkspace={hasPerm(7)}
           />
         ) : (
           unauthorized()
@@ -1991,6 +1992,7 @@ export default function App() {
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
             roleId={sessionRole.id}
+            canReadWorkspace={hasPerm(7)}
           />
         ) : (
           unauthorized()
@@ -2003,6 +2005,7 @@ export default function App() {
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
             roleId={sessionRole.id}
+            canReadWorkspace={hasPerm(7)}
           />
         ) : (
           unauthorized()
@@ -2015,6 +2018,7 @@ export default function App() {
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
             roleId={sessionRole.id}
+            canReadWorkspace={hasPerm(7)}
           />
         ) : (
           unauthorized()
@@ -2027,6 +2031,7 @@ export default function App() {
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
             roleId={sessionRole.id}
+            canReadWorkspace={hasPerm(7)}
           />
         ) : (
           unauthorized()
@@ -2039,6 +2044,7 @@ export default function App() {
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
             roleId={sessionRole.id}
+            canReadWorkspace={hasPerm(7)}
           />
         ) : (
           unauthorized()
@@ -2051,6 +2057,7 @@ export default function App() {
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
             roleId={sessionRole.id}
+            canReadWorkspace={hasPerm(7)}
           />
         ) : (
           unauthorized()
@@ -2063,6 +2070,7 @@ export default function App() {
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
             roleId={sessionRole.id}
+            canReadWorkspace={hasPerm(7)}
           />
         ) : (
           unauthorized()
@@ -2075,6 +2083,7 @@ export default function App() {
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
             roleId={sessionRole.id}
+            canReadWorkspace={hasPerm(7)}
           />
         ) : (
           unauthorized()
@@ -2087,6 +2096,7 @@ export default function App() {
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
             roleId={sessionRole.id}
+            canReadWorkspace={hasPerm(7)}
           />
         ) : (
           unauthorized()

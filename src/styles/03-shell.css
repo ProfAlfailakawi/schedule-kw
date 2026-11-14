@@ -468,7 +468,6 @@ html[data-schedule-workspace="focus"] .quick-create{z-index:2600}
    opened ON TOP of one of these sheets still lands on top. */
 .spotlight-backdrop,
 .schedule-context-backdrop,
-.intel-drawer-backdrop,
 .onboarding-backdrop{
   position:fixed;inset:0;z-index:480;
   background:color-mix(in srgb,var(--nav) 62%,transparent);

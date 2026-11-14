@@ -356,3 +356,22 @@ export function completeRegulation(
     applied,
   };
 }
+
+/**
+ * ── مدد العجلة من المكتبة وحدها (المراجعة 2026-11-14، البند 1) ──────────────────────────
+ * كانت العجلة تعرض 100 و120 و150 و180 وهي ليست في المكتبة، واختيارُ أيٍّ منها يمنع الحفظ فوراً، و170 (كتلة الثلاث ساعات) غائبة.
+ *  • يومٌ واحد ← أطوال ذلك اليوم في المكتبة؛
+ *  • أيامٌ هي نمطٌ موحّد الطول ← طولُه وحده؛
+ *  • بلا أيام أو أيامٌ ليست نمطاً ← كلُّ أطوال المقرر في المكتبة.
+ * null: لا ساعات للمقرر أو لا أنماط لها — فتبقى العجلة على قائمتها الافتراضية ولا يُخترع شيء.
+ */
+export function wheelLengths(course: RegulationCourse | null | undefined, days: readonly DayKey[]): number[] | null {
+  const hours = regulationHours(course);
+  const patterns = hours ? patternsForHours(hours) : [];
+  if (!patterns.length) return null;
+  const ordered = DAY_KEYS.filter(day => days.includes(day));
+  const all = [...new Set(patterns.flatMap(pattern => pattern.minutesPerDay))].sort((a, b) => a - b);
+  if (ordered.length === 1) { const one = singleDayLengths(course, ordered[0]); return one.length ? one.sort((a, b) => a - b) : all; }
+  if (ordered.length > 1) { const exact = patternMinutes(course, ordered); return exact ? [exact] : all; }
+  return all;
+}

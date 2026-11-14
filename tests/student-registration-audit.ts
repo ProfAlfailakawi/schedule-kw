@@ -317,9 +317,11 @@ check(approvalCss.includes(".request-card-head{align-items:flex-start;flex-direc
 /* ── كشف التسجيل بشكل سجلّ مركز الذكاء — مكوّنٌ واحد ─────────────────── */
 const registerSrc = fs.readFileSync(path.join(process.cwd(), "src/components/StudentCasesTable.tsx"), "utf8");
 const workspaceSrc = fs.readFileSync(path.join(process.cwd(), "src/components/IntelligenceWorkspace.tsx"), "utf8");
-check(regSrc.includes("<StudentCasesTable") && workspaceSrc.includes("<StudentCasesTable"),
-  "الشاشتان ترسمان السجلّ نفسه (StudentCasesTable)");
-const tableCopies = [["IntelligenceWorkspace", workspaceSrc], ["StudentRegistration", regSrc]]
+/* «طلبات الطلاب» انتقلت إلى «كشف التسجيل ← تحليل الطلب»: السجلُّ يُرسم مرةً واحدة في الكشف. */
+const demandSrc = fs.readFileSync(path.join(process.cwd(), "src/components/DemandAnalysis.tsx"), "utf8");
+check(regSrc.includes("<StudentCasesTable") && !workspaceSrc.includes("<StudentCasesTable") && !demandSrc.includes("<StudentCasesTable"),
+  "السجلّ (StudentCasesTable) يُرسم مرةً واحدة في كشف التسجيل، ولا نسخةَ في «تحليل الطلب»");
+const tableCopies = [["IntelligenceWorkspace", workspaceSrc], ["StudentRegistration", regSrc], ["DemandAnalysis", demandSrc]]
   .filter(([, src]) => /className="student-cases-table"|student-case-filters|student-cases-print"|<th>الرقم المدني<\/th>/.test(src)).map(([name]) => name);
 check(tableCopies.length === 0, `ولا نسخةَ ثانية من الجدول أو الفلاتر أو الطباعة (${tableCopies.join("، ") || "لا نسخ"})`);
 check(!regSrc.includes('{row.name || "طالب"}') && registerSrc.includes('{item.name || "—"}') && registerSrc.includes('{item.civil || "—"}'),
