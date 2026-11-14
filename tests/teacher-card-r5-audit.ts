@@ -278,8 +278,8 @@ function fakeStorage(seed: Record<string, unknown> = {}) {
     "٩ وأيُّ رمز قاعةٍ أو مبنى في نصٍّ من الخادم يسقط في الصفحة، والجملةُ العامة ورقمُ المادة يبقيان");
   check(script.includes("it.note=tcNoPlace(result.headline||\"\")") && script.includes("esc(tcNoPlace(m.text))") && script.includes("esc(tcNoPlace(d.note))") && script.includes("esc(tcSafeDetail(e.detail))"),
     "٩ سطرُ الحكم وملاحظةُ القسم وحوارُه وتفاصيلُ الحركة تمرّ بها");
-  check(script.includes('title="قاعة مناسبة تُحجز لك تلقائياً"') && script.includes("gi(\"door\")+'<b aria-hidden=\"true\">✓</b>"),
-    "٩ والتوفّرُ أيقونةُ بابٍ و✓ «قاعة مناسبة تُحجز لك تلقائياً»");
+  check(!script.includes("قاعة مناسبة تُحجز لك") && !script.includes('data-room-ok'),
+    "٩ ولا إشارةَ توفّرٍ ولا رسالةَ قاعةٍ للأستاذ (المالك 2026-11-14): الوقتُ يُقبل بلا كلامٍ أو يُمنع بسببه المحايد");
 }
 
 /* ── ١٠ المخالفاتُ مجمّعة ─────────────────────────────────────────────── */

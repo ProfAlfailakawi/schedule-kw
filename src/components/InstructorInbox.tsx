@@ -36,7 +36,7 @@ import MiniRing from "./MiniRing";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Check, ChevronDown, Clock3, Inbox, Link2, Loader2, MailQuestion,
-  ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
+  CalendarClock, ClipboardPen, Equal, Grid3x3, MailOpen, MessageSquare, Replace, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, X,
   DoorOpen, Wrench, RefreshCw, Home, MapPin, History, Users, Scale, BellRing, UserX,
   CheckCheck, CircleDashed, Plus, Trash2, School, RotateCcw,
 } from "lucide-react";
@@ -944,8 +944,9 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
           {item.excuse ? <p className="request-excuse"><MessageSquare aria-hidden="true" /><span>{item.excuse}</span></p> : null}
           {onOpenInSchedule && opensInSchedule(item) && decided !== "fixed" ? (
             <button type="button" className="request-thread-proposal request-open-row" onClick={onOpenInSchedule} data-guide-target="proposal-from-thread"
-              title={item.action === "add" ? "يفتح نموذج الموعد المعتاد في الجدول، وما طلبه الأستاذ معبّأ فيه" : "يفتح الموعد الأصلي في الجدول بنموذجه المعتاد، والوقت المطلوب معبّأ فيه"}>
-              <ClipboardPen aria-hidden="true" /> مقترح دراسي
+              title={item.action === "add" ? "يفتح نموذج الموعد المعتاد في الجدول، وما طلبه الأستاذ معبّأ فيه" : "يفتح الموعد الأصلي في الجدول بنموذجه المعتاد، والوقت المطلوب معبّأ فيه"}
+              aria-label={item.action === "add" ? "فتح نموذج الموعد في الجدول" : "فتح الموعد في الجدول"}>
+              <CalendarClock aria-hidden="true" />
             </button>
           ) : null}
         </div>
