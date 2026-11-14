@@ -956,7 +956,7 @@
    ],
    "path": "/api/instructors",
    "name": "bound dispatch",
-   "call": "62bd696be3470f38",
+   "call": "40512574199f70d2",
    "site": "src/server/routes/instructorsRoutes.ts:245",
    "regexp": "/^\\/api\\/instructors\\/?$/i",
    "end": true
@@ -969,7 +969,7 @@
    "path": "/api/instructors/:id",
    "name": "bound dispatch",
    "call": "575ee3841901e1eb",
-   "site": "src/server/routes/instructorsRoutes.ts:305",
+   "site": "src/server/routes/instructorsRoutes.ts:316",
    "regexp": "/^\\/api\\/instructors(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -981,8 +981,20 @@
    "path": "/api/instructors/:id",
    "name": "bound dispatch",
    "call": "da32a0e229c2b270",
-   "site": "src/server/routes/instructorsRoutes.ts:351",
+   "site": "src/server/routes/instructorsRoutes.ts:362",
    "regexp": "/^\\/api\\/instructors(?:\\/([^/]+?))\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/section-roster/ranks",
+   "name": "bound dispatch",
+   "call": "cc0e04f842b70feb",
+   "site": "src/server/routes/instructorsRoutes.ts:411",
+   "regexp": "/^\\/api\\/section-roster\\/ranks\\/?$/i",
    "end": true
   },
   {
@@ -993,7 +1005,7 @@
    "path": "/api/section-roster",
    "name": "bound dispatch",
    "call": "83c4ea36b5083a98",
-   "site": "src/server/routes/instructorsRoutes.ts:386",
+   "site": "src/server/routes/instructorsRoutes.ts:417",
    "regexp": "/^\\/api\\/section-roster\\/?$/i",
    "end": true
   },
@@ -1004,8 +1016,8 @@
    ],
    "path": "/api/section-roster/:id",
    "name": "bound dispatch",
-   "call": "653cd129d72b57dd",
-   "site": "src/server/routes/instructorsRoutes.ts:409",
+   "call": "dd5f8b1a4c99c403",
+   "site": "src/server/routes/instructorsRoutes.ts:440",
    "regexp": "/^\\/api\\/section-roster(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -1017,7 +1029,7 @@
    "path": "/api/visiting-roster",
    "name": "bound dispatch",
    "call": "5a30f3a73e6e1392",
-   "site": "src/server/routes/instructorsRoutes.ts:452",
+   "site": "src/server/routes/instructorsRoutes.ts:479",
    "regexp": "/^\\/api\\/visiting-roster\\/?$/i",
    "end": true
   },
@@ -1029,7 +1041,7 @@
    "path": "/api/visiting-lookup",
    "name": "bound dispatch",
    "call": "fcc11d2de40aaa30",
-   "site": "src/server/routes/instructorsRoutes.ts:462",
+   "site": "src/server/routes/instructorsRoutes.ts:489",
    "regexp": "/^\\/api\\/visiting-lookup\\/?$/i",
    "end": true
   },
@@ -1041,7 +1053,7 @@
    "path": "/api/instructors/:id/affiliation",
    "name": "bound dispatch",
    "call": "bc275647dfcd34fc",
-   "site": "src/server/routes/instructorsRoutes.ts:480",
+   "site": "src/server/routes/instructorsRoutes.ts:507",
    "regexp": "/^\\/api\\/instructors(?:\\/([^/]+?))\\/affiliation\\/?$/i",
    "end": true
   },
@@ -1053,7 +1065,7 @@
    "path": "/api/instructor-affiliations",
    "name": "bound dispatch",
    "call": "5469266d38ed1104",
-   "site": "src/server/routes/instructorsRoutes.ts:512",
+   "site": "src/server/routes/instructorsRoutes.ts:539",
    "regexp": "/^\\/api\\/instructor-affiliations\\/?$/i",
    "end": true
   },
@@ -1065,7 +1077,7 @@
    "path": "/api/delegates",
    "name": "bound dispatch",
    "call": "c071c9bf5316f1d1",
-   "site": "src/server/routes/instructorsRoutes.ts:549",
+   "site": "src/server/routes/instructorsRoutes.ts:576",
    "regexp": "/^\\/api\\/delegates\\/?$/i",
    "end": true
   },
@@ -1077,7 +1089,7 @@
    "path": "/api/visiting-roster",
    "name": "bound dispatch",
    "call": "82ec3a462075afa9",
-   "site": "src/server/routes/instructorsRoutes.ts:565",
+   "site": "src/server/routes/instructorsRoutes.ts:592",
    "regexp": "/^\\/api\\/visiting-roster\\/?$/i",
    "end": true
   },
@@ -1089,7 +1101,7 @@
    "path": "/api/department-delegates",
    "name": "bound dispatch",
    "call": "b2aed93e7ae52251",
-   "site": "src/server/routes/instructorsRoutes.ts:589",
+   "site": "src/server/routes/instructorsRoutes.ts:616",
    "regexp": "/^\\/api\\/department-delegates\\/?$/i",
    "end": true
   },
@@ -1101,7 +1113,7 @@
    "path": "/api/department-delegates/instructor",
    "name": "bound dispatch",
    "call": "d439413db52aed27",
-   "site": "src/server/routes/instructorsRoutes.ts:600",
+   "site": "src/server/routes/instructorsRoutes.ts:627",
    "regexp": "/^\\/api\\/department-delegates\\/instructor\\/?$/i",
    "end": true
   },
@@ -1113,7 +1125,7 @@
    "path": "/api/department-delegates/:instructorId",
    "name": "bound dispatch",
    "call": "396f15d74a098266",
-   "site": "src/server/routes/instructorsRoutes.ts:624",
+   "site": "src/server/routes/instructorsRoutes.ts:651",
    "regexp": "/^\\/api\\/department-delegates(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -1125,7 +1137,7 @@
    "path": "/api/department-delegates/:instructorId",
    "name": "bound dispatch",
    "call": "56f304165b638cab",
-   "site": "src/server/routes/instructorsRoutes.ts:651",
+   "site": "src/server/routes/instructorsRoutes.ts:678",
    "regexp": "/^\\/api\\/department-delegates(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -1137,7 +1149,7 @@
    "path": "/api/instructors/:id/visiting-state",
    "name": "bound dispatch",
    "call": "fd7ef91ad4fe3f44",
-   "site": "src/server/routes/instructorsRoutes.ts:671",
+   "site": "src/server/routes/instructorsRoutes.ts:698",
    "regexp": "/^\\/api\\/instructors(?:\\/([^/]+?))\\/visiting-state\\/?$/i",
    "end": true
   },
@@ -1149,7 +1161,7 @@
    "path": "/api/instructors/:id/visiting-conversion",
    "name": "bound dispatch",
    "call": "64d3fe792215a2be",
-   "site": "src/server/routes/instructorsRoutes.ts:696",
+   "site": "src/server/routes/instructorsRoutes.ts:723",
    "regexp": "/^\\/api\\/instructors(?:\\/([^/]+?))\\/visiting-conversion\\/?$/i",
    "end": true
   },
@@ -1161,7 +1173,7 @@
    "path": "/api/visiting-roster/instructor",
    "name": "bound dispatch",
    "call": "de8eedf66e7f72dd",
-   "site": "src/server/routes/instructorsRoutes.ts:715",
+   "site": "src/server/routes/instructorsRoutes.ts:742",
    "regexp": "/^\\/api\\/visiting-roster\\/instructor\\/?$/i",
    "end": true
   },
@@ -1173,7 +1185,7 @@
    "path": "/api/visiting-roster/copy",
    "name": "bound dispatch",
    "call": "aa897287c8196c04",
-   "site": "src/server/routes/instructorsRoutes.ts:730",
+   "site": "src/server/routes/instructorsRoutes.ts:757",
    "regexp": "/^\\/api\\/visiting-roster\\/copy\\/?$/i",
    "end": true
   },
