@@ -421,6 +421,9 @@ export interface LocationAuditRecord {
   before?: Record<string, unknown>;
   after?: Record<string, unknown>;
   note?: string;
+  /** استيرادُ السعات: رمزُ الدفعة التي كتبت هذا السطر، والدفعةُ التي يتراجع عنها (سجلُّ التراجع نفسُه). */
+  batchId?: string;
+  undoOf?: string;
 }
 
 export interface MasterBuilding {
