@@ -5,6 +5,7 @@
  * نصُّ كل جملةٍ وترتيبُها كما كانا، إلا `export` على ما تستعمله وحداتٌ أخرى،
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  */
+import { AR, countOf } from "../../utils/arabicCount";
 import { roomTypeIn } from "../../utils/roomTypeForSection";
 import { sameScheduleShape } from "../../utils/appointmentRegulation";
 import { RequestReservationConflict, RequestHoldConflict } from "../../utils/instructorRequestReservations";
@@ -97,7 +98,7 @@ const sourceTextInvalid = (body: any) => ["sourceBuildingText", "sourceRoomText"
 const sectionCodeIssue = (code: unknown): string | null => {
   const text = String(code ?? "");
   if (!/^\d+$/.test(text)) return "الرجاء كتابة الأرقام بالانجليزي";
-  if (text.length > SCODE_MAX_LENGTH) return `رقم الشعبة حتى ${SCODE_MAX_LENGTH} خانات`;
+  if (text.length > SCODE_MAX_LENGTH) return `رقم الشعبة حتى ${countOf(SCODE_MAX_LENGTH, AR.slot)}`;
   return null;
 };
 /** ردُّ تغيّر الإصدار: الصفُّ كما هو الآن، وما أرسله صاحبُ الطلب. */

@@ -95,7 +95,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "
   check(/prefers-reduced-motion:reduce/.test(read("src/styles/67-chain-solve.css")) && /prefers-reduced-motion:reduce/.test(read("src/styles/67-student-pulse-live.css")), "S2 الحركة المخفّضة محترمة في الملفين");
   check(/@media \(pointer:coarse\)/.test(css) && /min-height:48px/.test(css) && /@media \(min-width:900px\)/.test(css) && /@media \(max-width:420px\)/.test(css), "S3 لمسٌ ≥44 وجانبٌ على المكتب وضيقٌ على الجوال");
   check(!/#[0-9a-fA-F]{3,8}\b/.test(css.replace(/var\(--accent-contrast,#fff\)|var\(--ink,#111\)/g, "")), "S4 ألوانٌ من الرموز فقط (لا ألوانَ ثابتة)");
-  const ban = new RegExp(["ذكاء اصطناعي", "\\bA" + "I\\b"].join("|"));
+  const ban = new RegExp(["ذكاء" + " اصطناعي", "\\bA" + "I\\b"].join("|"));
   check(![read("src/components/ChainSolveSheet.tsx"), read("src/utils/chainSolve.ts"), read("src/components/StudentPulse.tsx"), css].some(file => ban.test(file)), "S5 لا عبارةَ ممنوعة");
 
   console.log(`\nchain-pulse render audit: ${passed} passed, ${failed} failed`);

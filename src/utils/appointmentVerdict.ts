@@ -194,7 +194,9 @@ export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
      (نصُّه في validationIssues) يُعرض مانعاً كما قاله، فلا يُكرَّر تنبيهُ النموذج بجانبه. */
   const regulationWarns = input.regulation === "off" && chosen.time;
   const issues = relevantIssues(input.validationIssues, form, companionRequired);
-  const serverSaysPattern = issues.some(text => /لا توافق النمط المعتمد|ليست نمطاً معتمداً|ليس نمطاً معتمداً|النمط غير معتمد/.test(text));
+  /* النمطُ صار يصل من الخادم في `regulation` (pattern-days / lecture-length) لا في validationIssues: كلاهما يُسكت تنبيهَ النموذج المكرَّر. */
+  const serverSaysPattern = issues.some(text => /لا توافق النمط المعتمد|ليست نمطاً معتمداً|ليس نمطاً معتمداً|النمط غير معتمد/.test(text))
+    || (input.regulationIssues || []).some(issue => issue?.rule === "pattern-days" || issue?.rule === "lecture-length");
   const conflicts = relevantConflicts(input.conflicts, form, companionRequired);
   const byKind = new Map<CheckKind, VerdictDetail[]>(ORDER.map(kind => [kind, []]));
   issues.forEach((text, index) => byKind.get(issueKind(text))!.push({ id: `issue-${index}`, text, blocks: true }));
@@ -203,7 +205,8 @@ export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
     text: conflict?.holdRequestId ? `${conflictText(conflict)} · محجوز لطلب ${conflict?.holdInstructorName || "أستاذ"} — يُسأل عنه عند الحفظ` : conflictText(conflict),
     detail: String(conflict?.detail || "").replace(/\s+/g, " ").trim() || undefined,
     /* حجزُ طلب أستاذٍ ينتظر القسم ليس مانعاً هنا: الحفظ يسأل عنه سؤالاً واحداً (overrideRequestHolds). */
-    blocks: isBlockingConflict(conflict) && !conflict?.holdRequestId,
+    /* تعارضٌ قائمٌ في الصف المحفوظ قبل هذا التعديل (preexisting) يُقال بهدوء ولا يمنع إعادة حفظه (A6). */
+    blocks: isBlockingConflict(conflict) && !conflict?.holdRequestId && !conflict?.preexisting,
     conflict,
   }));
   /* حجزٌ واحد يتعارض فيه الأستاذ والقاعة معاً يُسمّى باسم الأستاذ (scheduleIntelligence) — فكانت «القاعة: سليم»

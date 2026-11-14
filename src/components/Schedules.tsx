@@ -1414,6 +1414,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return true;
   };
   const graduateNoteRef = useRef("");
+  /** «سبقك زميل» لنقلٍ أو سحب: ما أُخذ بكلمات الخادم؛ والبديل يأتي مع ورقة الإصلاح التي تُفتح بعده. */
+  const slotTakenWords = (failure: any) => `سبقك زميل ⏱️ ${String(failure?.issues?.[0]?.message || failure?.message || "أُخذ هذا الموضع قبل لحظات")}. لم يتغيّر شيء.`;
   const fetchJson = async (url: string, options?: RequestInit) => {
     const method = String(options?.method || "GET").toUpperCase();
     const mutating = method !== "GET" && method !== "HEAD";
@@ -1500,10 +1502,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
          Dropping them left the caller with one stitched sentence and no way to
          show a wall per line. */
       if (Array.isArray(data?.conflicts) && data.conflicts.length) failure.conflicts = data.conflicts;
+      failure.status = res.status;
       if (data?.code) failure.code = data.code;
       if (Array.isArray(data?.issues)) failure.issues = data.issues;
       if (Array.isArray(data?.holds)) failure.holds = data.holds;
       if (Array.isArray(data?.changes)) failure.changes = data.changes;
+      /* تعديلٌ بلا إصدار على صفٍّ له إصدار: لا يُترك خطأً خاماً؛ يُحدَّث الجدول بصمت فيعرف المستخدم ما تغيّر ويعيد المحاولة. */
+      if (res.status === 409 && data?.code === "rev-required") {
+        failure.message = "تغيّر هذا الموعد منذ فتحته؛ حدّثتُ الجدول. راجعه وأعد المحاولة.";
+        void loadRowsRef.current?.({ silent: true })?.catch?.(() => undefined);
+      }
       if (res.status === 409 && data?.conflict === "revision") {
         failure.revisionConflict = true;
         failure.current = data.current;
@@ -1552,8 +1560,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }
   };
   const deleteScheduleRow = async (id: number | string, rev?: number) => {
-    /* الإصدار الذي رآه المستخدم يُرسل مع الحذف: إن عدّله زميل بعدها يردّ الخادم 409
-       بدل أن يمحو تعديله دون علم. */
+    /* الإصدار المرئي يُرسل مع الحذف (409 إن عُدّل بعده). */
     const hasRev = Number.isFinite(Number(rev)) && rev !== undefined;
     const result = await withRequestHoldPrompt(overrideRequestHolds => fetchJson(`/api/schedules/${id}`, overrideRequestHolds || hasRev
       ? { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(overrideRequestHolds ? { overrideRequestHolds } : {}), ...(hasRev ? { rev } : {}) }) }
@@ -5796,6 +5803,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       }
       if (!before) await loadRows({ silent: true });
     } catch (e: any) {
+      /* الصفّ لم يعد موجوداً (حذفه زميل): هذا هو المطلوب أصلاً، فيبقى غائباً ويُحدَّث الجدول بصمت. */
+      if (e?.status === 404) {
+        forgetMiniWeekRows([id]);
+        setMessage("هذا الموعد محذوف مسبقاً.");
+        void loadRows({ silent: true }).catch(() => undefined);
+        return;
+      }
       if (before) setRows(current =>
         current.some(item => item.id === id) ? current : [...current, before].sort((a, b) => a.id - b.id));
       setError(friendlyError(e));
@@ -6270,7 +6284,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // A refusal to overwrite is a decision to hand back, not a message to show.
       if (e?.revisionConflict) setClash({ current: e.current, yours: null });
       else {
-        if (!presentMoveRefusal(e, Number(row?.id || 0), placementFieldKey(day, chosenStart, undefined))) setError(friendlyError(e));
+        if (e?.code === "slot-taken") setError(slotTakenWords(e));
+        else if (!presentMoveRefusal(e, Number(row?.id || 0), placementFieldKey(day, chosenStart, undefined))) setError(friendlyError(e));
         /*
          * A refusal that only says "no" leaves the reader exactly where they
          * were, holding the same card and the same problem. The engine that
@@ -6458,7 +6473,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // A refusal to overwrite is a decision to hand back, not a message to show.
       if (e?.revisionConflict) setClash({ current: e.current, yours: null });
       else {
-        if (!presentMoveRefusal(e, Number(row?.id || 0), placementFieldKey(day, start, physicsRoomKey({ code: building, hall })))) setError(friendlyError(e));
+        if (e?.code === "slot-taken") setError(slotTakenWords(e));
+        else if (!presentMoveRefusal(e, Number(row?.id || 0), placementFieldKey(day, start, physicsRoomKey({ code: building, hall })))) setError(friendlyError(e));
         /*
          * A refusal that only says "no" leaves the reader exactly where they
          * were, holding the same card and the same problem. The engine that

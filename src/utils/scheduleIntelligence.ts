@@ -1,3 +1,4 @@
+import { sectionCodeKey } from "./sameSlot";
 import { roomIdentityKey, roomIdentityKeys, sharePhysicalRoom } from "./locationRegistry";
 import { requiredGapForDays } from "./scheduleRegulations";
 import { AR, countOf, nounFor } from "./arabicCount";
@@ -226,7 +227,7 @@ const twinHall=(row:FSchedule)=>row.locationStatus==="PENDING_ROOM"?""
   :String(row.AdRoomHall||"").split("/").pop()!.toUpperCase().replace(/[^A-Z0-9]/g,"");
 const twinBuilding=(row:FSchedule)=>String(row.AdRoomCode||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 function twinKind(a:FSchedule,b:FSchedule,person:(row:FSchedule)=>number):TwinKind|null{
-  if(Number(a.AdCourseId)!==Number(b.AdCourseId)||String(a.SCode)!==String(b.SCode)||!samePlacement(a,b)) return null;
+  if(Number(a.AdCourseId)!==Number(b.AdCourseId)||sectionCodeKey(a.SCode)!==sectionCodeKey(b.SCode)||!samePlacement(a,b)) return null;
   const ha=twinHall(a),hb=twinHall(b),ba=twinBuilding(a),bb=twinBuilding(b);
   const hallTellsApart=Boolean(ha)&&Boolean(hb)&&(ha!==hb||(Boolean(ba)&&Boolean(bb)&&ba!==bb));
   const pa=person(a),pb=person(b);
@@ -327,7 +328,7 @@ export function findConflicts(targetRows:FSchedule[], allRows:FSchedule[], optio
       for(const place of places) push(byDayRoom,`${String(day)}|${place}`,at);
       if(wantCohort) push(byDayCourse,`${String(day)}|${Number(other.AdCourseId)}`,at);
     }
-    push(byCourseSection,`${other.AdCourseId}|${String(other.SCode)}`,at);
+    push(byCourseSection,`${other.AdCourseId}|${sectionCodeKey(other.SCode)}`,at);
   }
 
   for(const row of targetRows){
@@ -340,7 +341,7 @@ export function findConflicts(targetRows:FSchedule[], allRows:FSchedule[], optio
       for(const place of places) take(byDayRoom.get(`${String(day)}|${place}`));
       if(wantCohort) for(const partner of partners.get(Number(row.AdCourseId))||[]) take(byDayCourse.get(`${String(day)}|${partner}`));
     }
-    take(byCourseSection.get(`${row.AdCourseId}|${String(row.SCode)}`));
+    take(byCourseSection.get(`${row.AdCourseId}|${sectionCodeKey(row.SCode)}`));
 
     /* Ascending, so the sweep's visiting order — and therefore which member of
        a duplicated pair is kept — is reproduced exactly. */
