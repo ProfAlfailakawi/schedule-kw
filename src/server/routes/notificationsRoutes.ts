@@ -35,6 +35,7 @@ import { isScopeAllowed } from "../core/scope";
 import { approvalBlockerOptions } from "../core/smartImport";
 import { sectionRequestNotices } from "../sectionRequestsRoutes";
 import { staffRecoveryBell } from "../staffRecoveryWiring";
+import { accountDeletionBell } from "../accountDeletionWiring";
 
 /* ══════════════════════════════════════════════════════════════════════════
    تغييرات الجدول: صندوق الوارد وتقرير الجولة
@@ -334,6 +335,18 @@ app.get("/api/notifications", requireAuth, async (req: AuthenticatedRequest, res
     }
   } catch (error) {
     console.error("[notifications] staff recovery:", error instanceof Error ? error.message : error);
+  }
+  /* ── طلباتُ حذف الحساب من التطبيق: معلّقةٌ حتى يغلقها مدير النظام (accountDeletion.ts) ── */
+  try {
+    if (isPowerUser(req) && !Repository.isDemoRequest()) {
+      const deletions = await accountDeletionBell();
+      if (deletions.length) {
+        const rank: Record<string, number> = { alert: 0, action: 1, waiting: 2, done: 3 };
+        items = [...items, ...deletions.map(item => ({ ...item, termId, termName }))].sort((a, b) => rank[a.tone] - rank[b.tone] || String(b.at || "").localeCompare(String(a.at || "")));
+      }
+    }
+  } catch (error) {
+    console.error("[notifications] account deletion:", error instanceof Error ? error.message : error);
   }
   /* «المقروء» محفوظٌ للمستخدم على الخادم فيتطابق الجرس على أجهزته كلها؛ يُرسل
      منه ما يخصّ القائمة الحاضرة وحده. تعذّرُ قراءته لا يُسقط الجرس. */
