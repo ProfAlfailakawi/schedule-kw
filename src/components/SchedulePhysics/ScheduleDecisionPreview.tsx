@@ -2,6 +2,7 @@ import React from "react";
 import { Activity, AlertTriangle, ArrowLeft, CheckCircle2, Gauge, History, RotateCcw, ShieldCheck, Waypoints, X } from "lucide-react";
 import type { AdCourse, AdInstructor, FSchedule } from "../../types";
 import VisitingBadge from "../VisitingBadge";
+import GraduateRead from "./GraduateRead";
 import { buildMoveCandidate, PHYSICS_DAYS } from "./physics";
 import type { SchedulePhysicsDropRequest } from "./types";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
@@ -51,6 +52,8 @@ export default function ScheduleDecisionPreview({ request, course, instructor, i
         <span className={tone(-Number(ripple.delta.dayPressure || 0))}><Activity/><small>ضغط</small><b>{signed(ripple.delta.dayPressure, "%")}</b></span>
       </> : <p className="decision-no-data">لا توجد بيانات كافية لقياس الأثر اللحظي. المسار الحالي للحفظ ما زال متاحًا.</p>}
     </div>
+
+    {decision?.graduates ? <div className="decision-graduates physics-conflict-summary"><GraduateRead graduates={decision.graduates} /></div> : null}
 
     {decision?.fingerprint?.length ? <div className="decision-fingerprint-grid">{decision.fingerprint.slice(0, compact ? 3 : 5).map((item, index) => <article className={`tone-${item.tone || "neutral"}`} key={index}><small>{item.label}</small><strong>{item.value}</strong></article>)}</div> : null}
 

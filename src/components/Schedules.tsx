@@ -4860,6 +4860,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         tradeoffs: [timingNote, ...decision.tradeoffs.filter(reason => reason !== timingNote)].slice(0, 3),
       };
     }
+    /* حماية الخريجين: من ردّ فحص الموعد نفسه — لا طلبَ ثانياً (src/components/SchedulePhysics/GraduateRead.tsx). */
+    if (conflictData && (conflictData.graduateImpact || conflictData.studentFit))
+      decision = { ...decision, graduates: { impact: conflictData.graduateImpact || null, fit: conflictData.studentFit || null } };
     return decision;
   };
   const addComment = async () => {
@@ -7760,8 +7763,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
        predicate decides what may stop a move, the same one the refusal card
        and the classifier already use. */
     const blocking = conflicts.filter(isBlockingConflict);
-    if (!conflicts.length) return { ...local, key, loading: false };
-    return buildDecision(
+    const decision = !conflicts.length ? { ...local, key, loading: false } : buildDecision(
       key,
       local.ripple,
       null,
@@ -7770,6 +7772,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       blocking.length > 0,
       blocking[0] ? [blocking[0]?.message, blocking[0]?.detail].filter(Boolean).join(" — ") : "",
     );
+    /* حماية الخريجين: من ردّ الفحص نفسه — المسار الفوري والمسار الغني يحملانه معاً (GraduateRead). */
+    return response?.graduateImpact || response?.studentFit
+      ? { ...decision, graduates: { impact: response.graduateImpact || null, fit: response.studentFit || null } }
+      : decision;
   };
 
   /* Declared ahead of the drag layer because the drag layer reads it: while the
