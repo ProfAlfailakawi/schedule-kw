@@ -2911,3 +2911,24 @@
     background:transparent !important;
   }
 }
+
+/* ==========================================================================
+   FINAL — لا ورقة بيضاء بعد آخر صفحةٍ من التقرير الشامل (Safari)
+   آخرُ صفحةٍ منطقيةٍ تحمل أسفلها حشوةً (6mm) وهامشاً؛ وSafari يقيس الصفحة
+   أطولَ من الورقة المادية بجزءٍ من الملّيمتر فتنزل تلك الحشوةُ الفارغة وحدها
+   إلى ورقةٍ ثالثةٍ لا نصَّ فيها ولا حبر. الحشوة لا تحمل شيئاً: تُرفع عن آخر
+   صفحةٍ وحدها، فيبقى كل ما يُرى في موضعه، ولا يتغيّر ترتيب صفحةٍ قبلها.
+   ========================================================================== */
+@media print{
+  .print-comprehensive-pages>.print-comprehensive-page:last-child{
+    padding-block-end:0 !important;
+    margin-block-end:0 !important;
+    break-after:avoid !important;
+    page-break-after:avoid !important;
+  }
+  .print-comprehensive-book,
+  .print-comprehensive-pages{
+    padding-block-end:0 !important;
+    margin-block-end:0 !important;
+  }
+}
