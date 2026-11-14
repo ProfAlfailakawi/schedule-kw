@@ -111,19 +111,6 @@ export async function seedDemoRadar(opts: { sealIdentity: (value: string) => Pro
     await Repository.updateCourse(Number(course.AdCourseId), collegeId, sectionId, course.CourseCode, course.CourseName,
       Number(course.CourseCredit) || 3, Number(course.CourseHours) || 3, to);
   }
-  /* «لم يسجلوا» في كشف الفصل التجريبي يُقاس بالسعة نفسها: مقرّرٌ ضُيّقت مقاعدُه يُصغَّر متبقّيه بالنسبة ذاتها، فيبقى
-     نقصُه شعبةً كما اختار القسم — لا «ناقص 254 شعبة» في «الإنذار المبكر» على لوحة اللجنة. */
-  const stats = await Repository.getRegistrationStats(collegeId, sectionId, termId);
-  const unregistered = stats?.remaining || {};
-  if (stats && [...tightened.keys()].some(id => Number(unregistered[id]) > 0)) {
-    const remaining = Object.fromEntries(Object.entries(unregistered).map(([id, value]) => {
-      const seats = tightened.get(id);
-      return [id, seats && seats.from > 0 ? Math.max(1, Math.ceil(Number(value) * seats.to / seats.from)) : Number(value)];
-    }));
-    await Repository.saveRegistrationStats(collegeId, sectionId, termId,
-      { counts: stats.counts, remaining, unregistered: stats.unregistered, vacant: stats.vacant, accepted: stats.accepted, remainingSource: stats.remainingSource as any }, stats.updatedBy);
-  }
-
   /* مقرراتُ مشهد العرض (demoShowcase.ts) أعضاءٌ في الصحيفة الجديدة بقواعدها: فيها التوأمان (`coreq`) اللذان يقرؤهما «موعد». */
   const showcaseCodes = new Set<string>(DEMO_SHOWCASE_COURSES.map(([code]) => code));
   const plan = await Repository.createCurriculumPlan({ collegeId, sectionId, name: "الصحيفة الجديدة 2026/2027", by: "عرض تجريبي" });

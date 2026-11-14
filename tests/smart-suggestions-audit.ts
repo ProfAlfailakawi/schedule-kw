@@ -49,7 +49,7 @@ const context: TmContext = {
     { code: "B1", hall: "L1", roomId: "r-L1", buildingId: "b1", capacity: 30, roomType: "مختبر" },
   ],
   demand: { "6": { wanted: 30, seated: 25, capacity: 40, sections: 1 } },
-  registration: { remaining: { "6": 12 }, unregistered: null, vacant: null, fileName: "", importedAt: "", reportTerm: "" },
+  registration: { remaining: { "6": 12 }, fileName: "", importedAt: "", reportTerm: "" },
   loadLimits: { "10": 12, "11": 12, "12": 12 },
   canWrite: true,
   plan: { "6": { level: 100, kind: "compulsory", unlocks: [4] }, "2": { level: 300, kind: "elective", unlocks: [] } },

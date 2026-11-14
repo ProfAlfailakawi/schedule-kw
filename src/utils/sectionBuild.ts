@@ -57,9 +57,9 @@ export function demandFromTargets(rows: readonly GapRow[], capacityOf: (courseId
 }
 
 /** الأصعب أولاً: مقرراتُ أوسع زمرةً (أكثر أقرانٍ من مستواها) ثم الأكثر شعباً، فيجد الأصعبُ وقتاً قبل أن تضيق الأسابيع. */
-export function hardestFirst(rows: readonly GapRow[], levelOf: (courseId: number) => number): GapRow[] {
+export function hardestFirst(rows: readonly GapRow[], levelOf: (courseId: number) => number, priority: (courseId: number) => number = () => 0): GapRow[] {
   const peers = (row: GapRow) => { const level = levelOf(row.courseId); return level > 0 ? rows.filter(other => levelOf(other.courseId) === level).length : 0; };
-  return [...rows].sort((x, y) => peers(y) - peers(x) || y.remaining - x.remaining || x.courseId - y.courseId);
+  return [...rows].sort((x, y) => priority(x.courseId) - priority(y.courseId) || peers(y) - peers(x) || y.remaining - x.remaining || x.courseId - y.courseId);
 }
 
 /** بصمة الأسبوع: تتغيّر بأي صفٍّ أُضيف أو حُذف أو تغيّر موعده؛ يقارنها الخادم لحظة التنزيل. */

@@ -7,12 +7,12 @@
     "en": "Section planning and curricula"
   },
   "tagline": {
-    "ar": "من كشف المتبقي والصحيفة إلى شعب الفصل والمقترح الدراسي",
-    "en": "From the remaining report and plan sheet to the term's sections and the study proposal"
+    "ar": "من تقرير التسجيل والصحيفة إلى شعب الفصل والمقترح الدراسي",
+    "en": "From the registrar's demand report and plan sheet to the term's sections and the study proposal"
   },
   "summary": {
-    "ar": "تبني الوحدة شعب الفصل من الصحائف الدراسية: يرفع القسم كشف المتبقي، فيقترح النظام عدد الشعب من تاريخ الفصول المماثلة، ثم يُنزَّل الناقص في الجدول بمحرك واحد وتأكيد صريح وتراجع. وتدير الوحدة قواعد الصحيفة (المستويات والمسبقات والاختياري) من المسودة إلى الاعتماد والنشر العام، وحالات طرح المقررات، والمقترح الدراسي الذي يعده القسم لأستاذ ويثبّته بعد موافقته. تخدم رئيس القسم ورئيس لجنة الجدول وإدارة النظام، وتقرأ الطالب والزائر الصحائف المنشورة.",
-    "en": "The module builds the term's class sections from the study plans. The department uploads the remaining report, the system suggests section counts from comparable past terms, and the missing sections are applied to the schedule through one engine with explicit confirmation and undo. It also manages plan sheet rules (levels, prerequisites, electives) from draft to approval and public publishing, course offering states, and the study proposal the department prepares for an instructor and commits after approval. It serves department heads, the schedule committee chair and system administration, while students and visitors read the published sheets."
+    "ar": "تبني الوحدة شعب الفصل من الصحائف الدراسية: يرفع القسم تقرير التسجيل (SWRDASH: «الكل»، و«الخريجون» اختيارياً)، فيقترح النظام عدد الشعب لكل مقرر وحرم من تاريخ الفصول المماثلة ويُبقي الحاجة الكاملة ظاهرة تحته، ثم يُنزَّل الناقص في الجدول بمحرك واحد وتأكيد صريح وتراجع. وتدير الوحدة قواعد الصحيفة (المستويات والمسبقات والاختياري) من المسودة إلى الاعتماد والنشر العام، وحالات طرح المقررات، والمقترح الدراسي الذي يعده القسم لأستاذ ويثبّته بعد موافقته. تخدم رئيس القسم ورئيس لجنة الجدول وإدارة النظام، وتقرأ الطالب والزائر الصحائف المنشورة.",
+    "en": "The module builds the term's class sections from the study plans. The department uploads the registrar's demand report (SWRDASH: all students, optionally graduates), the system suggests a section count per course and campus from comparable past terms while keeping the full need visible beneath it, and the missing sections are applied to the schedule through one engine with explicit confirmation and undo. It also manages plan sheet rules (levels, prerequisites, electives) from draft to approval and public publishing, course offering states, and the study proposal the department prepares for an instructor and commits after approval. It serves department heads, the schedule committee chair and system administration, while students and visitors read the published sheets."
   },
   "actors": [
     "departmentHead",
@@ -48,7 +48,7 @@
     "src/utils/planPdfParser.ts",
     "src/utils/planSheetImport.ts",
     "src/utils/referenceApply.ts",
-    "src/utils/remainingReport.ts",
+    "src/utils/sectionPlan.ts",
     "src/utils/section*.ts",
     "src/utils/sheetMembership.ts",
     "src/utils/sheetTag.ts",
@@ -73,8 +73,8 @@
     "src/components/useCourseSheets.ts",
     "src/styles/14-proposal.css",
     "src/styles/21-plan-general.css",
+    "src/components/SectionBuild.tsx",
     "src/styles/23-section-build.css",
-    "src/styles/24-section-plan-polish.css",
     "src/styles/32-section-surplus.css",
     "src/styles/40-course-reach.css",
     "public/plans/**",
@@ -95,21 +95,21 @@
     {
       "actor": "departmentHead",
       "title": {
-        "ar": "من كشف المتبقي إلى الشعب في الجدول",
-        "en": "From the remaining report to sections in the schedule"
+        "ar": "من تقرير التسجيل إلى الشعب في الجدول",
+        "en": "From the demand report to sections in the schedule"
       },
       "steps": [
         {
-          "ar": "يرفع كشف «المتبقي» PDF أو صوراً من «تخطيط الشعب» ويراجع المعاينة.",
-          "en": "Uploads the remaining report as PDF or images from section planning and reviews the preview."
+          "ar": "يرفع تقرير التسجيل «الكل» (و«الخريجين» اختيارياً) من «تخطيط الشعب» ويراجع المعاينة.",
+          "en": "Uploads the registrar's «all students» report (and optionally «graduates») from section planning and reviews the preview."
         },
         {
-          "ar": "يقرأ لكل مقرر المدى المقترح وسببه، ويكتب «المختار» حيث يخالفه.",
-          "en": "Reads each course's suggested range and reason, and writes a «chosen» count where he disagrees."
+          "ar": "يقرأ لكل مقرر وحرم المقترح من التاريخ وتحته الحاجة الكاملة.",
+          "en": "Reads each course and campus's history-led suggestion with the full need beneath it."
         },
         {
-          "ar": "يفتح «نزّل الشعب» فيرى المطلوب والموجود والباقي لكل مقرر.",
-          "en": "Opens «apply sections» and sees required, existing and remaining per course."
+          "ar": "يفتح «نزّل الشعب» فيرى المقترح والموجود والباقي لكل مقرر، ويعدّل العدد حتى الحاجة الكاملة إن أراد.",
+          "en": "Opens «apply sections» and sees suggested, existing and remaining per course, adjusting the count up to the full need if he wishes."
         },
         {
           "ar": "يعاين أسبوعاً مبنياً بقاعات وأساتذة وأوقات بلا تعارض، وأسباب ما لم يُبنَ.",
@@ -197,8 +197,8 @@
         {
           "id": "a",
           "label": {
-            "ar": "كشف المتبقي",
-            "en": "Remaining report"
+            "ar": "تقرير التسجيل",
+            "en": "Demand report"
           },
           "icon": "file-up",
           "kind": "start"
@@ -206,8 +206,8 @@
         {
           "id": "b",
           "label": {
-            "ar": "المختار لكل مقرر",
-            "en": "Chosen count"
+            "ar": "المقترح لكل مقرر",
+            "en": "Suggested count"
           },
           "icon": "list-checks",
           "kind": "state"
@@ -728,8 +728,8 @@
         "en": "Mismatched report refusal"
       },
       "text": {
-        "ar": "يجب على النظام أن يرفض كشفاً يخص قسماً أو فرعاً أو فصلاً غير المختار، وألا يستورد منه شيئاً، مع ذكر نوع الرفض والفرق بين المقروء والمختار.",
-        "en": "The system shall refuse a report that belongs to a different department, branch or term than the one selected, import nothing from it, and state the refusal kind and the difference between what was read and what was chosen."
+        "ar": "يجب على النظام أن يرفض تقريراً يخص قسماً أو فصلاً غير المفتوح أو يناقض نوعُه التقريرَ الآخر المحفوظ (من أرقامه لا من اسم الملف)، وألا يحفظ منه شيئاً دون تأكيد صريح، مع ذكر السبب.",
+        "en": "The system shall refuse a report that belongs to a different department or term than the open one, or whose kind contradicts the other stored report (judged from its figures, not its file name), and store nothing from it without explicit confirmation, stating the reason."
       },
       "rationale": {
         "ar": "أرقام فصل آخر تفسد الخطة.",
@@ -743,25 +743,25 @@
       ],
       "acceptance": [
         {
-          "ar": "أنواع الرفض المعروفة: mismatch وwrongTerm وnoCode وbranchUnread وdepartmentUnread وnoCourses وnoColumn وunread، والرد بحالة 422.",
-          "en": "The known refusal kinds are mismatch, wrongTerm, noCode, branchUnread, departmentUnread, noCourses, noColumn and unread, answered with status 422."
+          "ar": "عدم المطابقة يُرد بحالة 409 ما لم يُرسل التأكيد، والمعاينة تعرض فصل التقرير وقسمه ونوعه وعدد ما طوبق وما لم يُطابَق.",
+          "en": "A mismatch is answered with status 409 unless confirmation is sent, and the preview shows the report's term, department, kind and the matched and unmatched counts."
         },
         {
-          "ar": "كشف فصل غير مرتبط بالفصل المختار يُرفض كله برمز wrongTerm، ولا يكتفى بالتنبيه.",
-          "en": "A report for a term unrelated to the chosen term is refused entirely with kind wrongTerm, not merely warned about."
+          "ar": "تقرير فصل غير الفصل المفتوح لا يُحفظ دون تأكيد، ولا يكتفى بالتنبيه.",
+          "en": "A report for a term other than the open one is not stored without confirmation, not merely warned about."
         },
         {
-          "ar": "الاستيراد يعتمد عمود «الذين لم يسجلوا» وحده (notPassed) مدخلاً للتخطيط.",
-          "en": "Planning uses only the «not passed» column (notPassed) as its input."
+          "ar": "ملفٌ بنوع «الخريجين» وأرقامه بحجم «الكل» المحفوظ (٦٠٪ فأكثر)، أو مقررٌ يزيد خريجوه عن كله في أكثر من ١٠٪ من المقررات، أو ملفٌ بنوع «الكل» أرقامه بحجم الخريجين، يُنبَّه ولا يُحفظ دون تأكيد؛ والملف نفسه المحفوظ نسخةً أخرى يُنبَّه كذلك.",
+          "en": "A file typed «graduates» whose figures are the size of the stored «all students» report (60% or more), or whose graduate count exceeds the all-students count in over 10% of courses, or an «all students» file sized like the graduates report, is flagged and not stored without confirmation; the same file already stored as the other kind is flagged too."
         }
       ],
       "evidence": {
         "code": [
           "src/server/routes/planningRoutes.ts",
-          "src/utils/remainingReport.ts"
+          "src/utils/sectionPlan.ts"
         ],
         "tests": [
-          "tests/section-planning-import-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
@@ -773,8 +773,8 @@
         "en": "Registration statistics save"
       },
       "text": {
-        "ar": "يجب على النظام أن يحفظ المختار والمتبقي وغير المسجلين والشاغر لكل قسم وفصل بعد تنقية القيم، باسم المستخدم ووقت الحفظ.",
-        "en": "The system shall store, per department and term, the chosen section counts, the remaining, unregistered and vacant figures after sanitising the values, with the user's name and the save time."
+        "ar": "يجب على النظام أن يحفظ تقرير التسجيل لكل (فصل، عائلة قسم) بنسختيه «الكل» و«الخريجين» مع من رفعه ومتى وبصمة الملف، ويقرأه بلا كتابة أخرى.",
+        "en": "The system shall store the demand report per (term, department family) in its two variants «all students» and «graduates», with who uploaded it, when, and the file fingerprint, and read it back without further writes."
       },
       "priority": "must",
       "status": "implemented",
@@ -784,12 +784,12 @@
       ],
       "acceptance": [
         {
-          "ar": "لا يُقبل أكثر من 2000 مقرر في الخريطة الواحدة، والمتبقي بين 0 و100000 (السالب يُحفظ صفراً).",
-          "en": "No more than 2000 courses are accepted per map, and the remaining is clamped between 0 and 100000 with negatives stored as zero."
+          "ar": "لا يُقبل ملف أكبر من 4 ميغابايت ولا أطول من 60 صفحة، ولا يُقرأ منه إلا النص.",
+          "en": "No file larger than 4 MB or longer than 60 pages is accepted, and only its text is read."
         },
         {
-          "ar": "الشاغر يقبل سالباً حتى -100000، والمختار حتى 500 شعبة.",
-          "en": "Vacant seats accept negatives down to -100000, and the chosen count accepts up to 500 sections."
+          "ar": "بنين وبنات في كل كليات العائلة تقريرٌ واحد، والربط اليدوي لمقرر لم يُطابَق يُحفظ للعائلة مرة واحدة.",
+          "en": "Boys and girls in all the family's colleges share one report, and a manual link for an unmatched course is stored once for the family."
         },
         {
           "ar": "طلب خارج نطاق الأقسام المسموحة يُرد بحالة 403.",
@@ -800,10 +800,10 @@
         "code": [
           "src/server/routes/planningRoutes.ts",
           "src/db/repository.ts#saveRegistrationStats",
-          "src/server/routes/planningRoutes.ts#/api/registration-stats"
+          "src/server/actualDemandRoutes.ts#/api/actual-demand/upload"
         ],
         "tests": [
-          "tests/section-planning-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       },
       "inferred": true
@@ -816,8 +816,8 @@
         "en": "Section count suggestion"
       },
       "text": {
-        "ar": "يجب على النظام أن يقترح لكل مقرر مدىً من عدد الشعب يرسيه متوسط الشعب المفتوحة في الفصول المماثلة (الموسم نفسه)، ويضيق الميل بالمتبقي والسعة.",
-        "en": "The system shall suggest for each course a range of section counts anchored on the average sections opened in comparable terms (same season), tilted by the remaining figure and bounded by capacity."
+        "ar": "يجب على النظام أن يقترح لكل مقرر وحرم عدد الشعب من تاريخ القسم: المعتاد في الفصول المماثلة (الموسم نفسه) تحرّكه الحاجة الكاملة (الطلبة ÷ سعة المقرر) في نطاق ضيق، ويُبقي الحاجة الكاملة ظاهرة تحت المقترح.",
+        "en": "The system shall suggest per course and campus a section count from the department's history: the usual count in comparable terms (same season), moved by the full need (students divided by course capacity) within a narrow band, keeping the full need visible beneath the suggestion."
       },
       "priority": "must",
       "status": "implemented",
@@ -827,25 +827,25 @@
       ],
       "acceptance": [
         {
-          "ar": "الميل بين الأساس زائد أو ناقص 1، ويتسع إلى 2 حين يكون الأساس 4 فأكثر.",
-          "en": "The tilt stays within the baseline plus or minus 1, widening to 2 when the baseline is 4 or more."
+          "ar": "الميل بين المعتاد زائد أو ناقص 1، ويتسع إلى 2 حين يكون المعتاد 4 فأكثر، ولا يقل المقترح عن 1.",
+          "en": "The tilt stays within the usual count plus or minus 1, widening to 2 when the usual count is 4 or more, and the suggestion is never below 1."
         },
         {
-          "ar": "مقرر لم يُفتح من قبل يبدأ بشعبة واحدة وسقفه 6 (NO_HISTORY_MAX) ولو زاد حاصل المتبقي على السعة.",
-          "en": "A course never opened before starts at one section and is capped at 6 (NO_HISTORY_MAX) even if remaining divided by capacity is larger."
+          "ar": "مقرر بلا تاريخ يُقترح له الحاجة الكاملة بسعته ويوسم «بلا تاريخ» ولا يُسقف بعدد مختلق؛ ومقرر أُعيد ترقيمه يرث شعب سلفه.",
+          "en": "A course with no history is suggested its full need by its capacity and labelled «no history» without an invented cap; a renumbered course inherits its predecessor's sections."
         },
         {
-          "ar": "متبقٍّ صفر أو سالب يُقترح معه المعتاد من التاريخ، لا «لا شعب» ولا زيادة.",
-          "en": "A zero or negative remaining suggests the usual historical count, neither «no sections» nor an increase."
+          "ar": "سعة الشعبة من سعة المقرر المسجلة كما هي (5 أو 25 أو 60)، وإلا متوسط التقرير موسوماً، وإلا «أدخل السعة»؛ ومعه تاريخ يُقترح من التاريخ بلا سعة.",
+          "en": "The section capacity is the course's recorded capacity as is (5, 25 or 60), else the report average tagged, else «enter capacity»; with history the suggestion needs no capacity."
         }
       ],
       "evidence": {
         "code": [
-          "src/utils/sectionCountSuggestion.ts",
+          "src/utils/sectionPlan.ts",
           "src/server/routes/planningRoutes.ts"
         ],
         "tests": [
-          "tests/section-planning-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
@@ -883,10 +883,10 @@
       "evidence": {
         "code": [
           "src/server/routes/planningRoutes.ts",
-          "src/utils/sectionCountSuggestion.ts"
+          "src/utils/sectionPlan.ts"
         ],
         "tests": [
-          "tests/section-planning-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       },
       "inferred": true
@@ -899,8 +899,8 @@
         "en": "Section gap report"
       },
       "text": {
-        "ar": "يجب على النظام أن يقارن المختار في التخطيط (وإلا المقترح الظاهر) بعدد الشعب المميزة (SCode) الموجودة في جدول الفصل لكل مقرر، وأن يصنف الصف: مكتمل أو ناقص أو زائد أو لم يُقرَّر.",
-        "en": "The system shall compare the chosen count in planning (otherwise the visible suggestion) with the number of distinct sections (SCode) in the term schedule for each course, and classify the row as done, missing, over or unset."
+        "ar": "يجب على النظام أن يقارن المقترح لكل مقرر وحرم بعدد الشعب المميزة (SCode) الموجودة في جدول الفصل، وأن يصنف الصف: الخريجون أولاً، ثم ناقص أو فائض أو متوازن أو بلا سعة، ويعرض الحاجة الكاملة بجانبه دائماً.",
+        "en": "The system shall compare the suggestion per course and campus with the number of distinct sections (SCode) in the term schedule and classify the row: graduates first, then missing, surplus, balanced or no capacity, always showing the full need beside it."
       },
       "priority": "must",
       "status": "implemented",
@@ -910,15 +910,15 @@
       ],
       "acceptance": [
         {
-          "ar": "المطلوب 6 والموجود 5 يعطي باقياً 1 وحالة ناقص.",
-          "en": "Required 6 with 5 existing gives remaining 1 and state missing."
+          "ar": "المقترح 6 والموجود 5 يعطي باقياً 1 وحالة ناقص.",
+          "en": "Suggested 6 with 5 existing gives remaining 1 and state missing."
         },
         {
-          "ar": "مقرر بلا مختار ولا متبقٍّ مستورد لا يظهر له هدف ويبقى «لم يُقرَّر».",
-          "en": "A course with no chosen figure and no imported remaining has no target and stays unset."
+          "ar": "مقرر بلا سعة ولا تاريخ لا يُحسب ويظهر «أدخل السعة».",
+          "en": "A course with no capacity and no history is not computed and shows «enter capacity»."
         },
         {
-          "ar": "الكشف قراءة فقط ولا يكتب في الجدول.",
+          "ar": "التقرير قراءة فقط ولا يكتب في الجدول.",
           "en": "The report is read-only and writes nothing to the schedule."
         }
       ],
@@ -933,7 +933,7 @@
         ],
         "tests": [
           "tests/section-gap-audit.ts",
-          "tests/section-gap-live-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
@@ -945,8 +945,8 @@
         "en": "Surplus and conflict review"
       },
       "text": {
-        "ar": "يجب على النظام أن يعرض زيادة الشعب عن المطلوب مراجعةً فقط لا إغلاقاً، وأن يدمج تقديرَي الزيادة والنقص المتعارضين لمقرر واحد في بند «تقديران متعارضان».",
-        "en": "The system shall present sections above the requirement as a review item, never a closure, and merge opposing opening and reduction estimates for one course into a single «conflicting estimates» item."
+        "ar": "يجب على النظام أن يعرض زيادة الشعب عن المقترح مراجعةً فقط لا إغلاقاً: «اختر ما يُغلق» يُظهر شعب المقرر في الجدول ولا يحذف شيئاً.",
+        "en": "The system shall present sections above the suggestion as a review item, never a closure: «choose what to close» shows the course's sections in the schedule and deletes nothing."
       },
       "priority": "must",
       "status": "implemented",
@@ -956,12 +956,12 @@
       ],
       "acceptance": [
         {
-          "ar": "فائض بلا مختار صريح ولا تاريخ مماثل ولا متبقٍّ موجب لا يظهر.",
-          "en": "A surplus with no explicit choice, no comparable history and no positive remaining is not shown."
+          "ar": "فائض بلا سعة ولا تاريخ لا يظهر.",
+          "en": "A surplus with neither capacity nor history is not shown."
         },
         {
-          "ar": "إن زاد المتبقي على المطلوب × السعة رُفع تنبيه سعة مع بند الفائض.",
-          "en": "When the remaining exceeds required times capacity a capacity warning accompanies the surplus item."
+          "ar": "الفائض يُحسب من المقترح لا من الحاجة الكاملة، فلا يُوحى بإغلاق ما تسنده الخبرة.",
+          "en": "Surplus is computed from the suggestion, not the full need, so nothing history supports is hinted for closure."
         }
       ],
       "evidence": {
@@ -1065,8 +1065,8 @@
         "en": "Offering effect on suggestions"
       },
       "text": {
-        "ar": "يجب على النظام ألا يقترح شعباً جديدة لمقرر غير مطروح أو من صحيفة لم تبلغ دفعتها مستواه، وأن يقص المحدود على المتبقي من سقفه.",
-        "en": "The system shall not suggest new sections for a closed course or one from a sheet whose cohort has not reached its level, and shall trim a limited course to what remains of its ceiling."
+        "ar": "يجب على النظام ألا يقترح شعباً جديدة لمقرر غير مطروح أو من صحيفة لم تبلغ دفعتها مستواه، وأن يقص المحدود على سقفه.",
+        "en": "The system shall not suggest new sections for a closed course or one from a sheet whose cohort has not reached its level, and shall trim a limited course to its ceiling."
       },
       "priority": "must",
       "status": "implemented",
@@ -1152,8 +1152,8 @@
         "en": "Section-build preview"
       },
       "text": {
-        "ar": "يجب على النظام أن يبني معاينة الشعب الناقصة بمحرك الافتتاح نفسه: وقت لا يتعارض، قاعة موثقة بسعة تكفي، وأستاذ درّس المقرر وله نصاب متاح، مع تقديم الأصعب أولاً، وأن يذكر سبب كل شعبة لم تُبنَ.",
-        "en": "The system shall build a preview of the missing sections with the same opening engine: a conflict-free time, a documented hall of sufficient capacity, and an instructor who taught the course and has available load, hardest courses first, stating the reason for every section not built."
+        "ar": "يجب على النظام أن يبني معاينة الشعب الناقصة من مقترح التخطيط (الخريجون أولاً) بمحرك الافتتاح نفسه: وقت لا يتعارض، قاعة موثقة بسعة تكفي، وأستاذ درّس المقرر وله نصاب متاح، مع تقديم الأصعب أولاً، وأن يذكر سبب كل شعبة لم تُبنَ، وأن يتيح للقسم رفع العدد لأي مقرر حتى الحاجة الكاملة.",
+        "en": "The system shall build a preview of the missing sections from the planning suggestion (graduates first) with the same opening engine: a conflict-free time, a documented hall of sufficient capacity, and an instructor who taught the course and has available load, hardest courses first, stating the reason for every section not built, and let the department raise a course's count up to its full need."
       },
       "priority": "must",
       "status": "planned",
@@ -1175,8 +1175,8 @@
           "en": "A department with no appointment in the term counts as «not started» and no schedule is invented."
         },
         {
-          "ar": "المختار يُقبل بين 0 و40 للمقرر الواحد في البناء.",
-          "en": "The chosen count is accepted between 0 and 40 per course in the build."
+          "ar": "العدد المطلوب يُقبل حتى الحاجة الكاملة للمقرر (بلا سقف ثابت)، وتُنبَّه الدفعة الأكبر من 40 شعبة إلى أن الأنصبة هي الحدّ.",
+          "en": "The requested count is accepted up to the course's full need (no fixed cap), and a batch above 40 sections is warned that instructor loads are the limit."
         }
       ],
       "evidence": {
@@ -1189,12 +1189,12 @@
         "tests": [
           "tests/section-build-audit.ts",
           "tests/section-opening-feasibility-audit.ts",
-          "tests/section-build-live-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       },
       "rationale": {
-        "ar": "شاشة «نزّل الشعب» أُزيلت مع تخطيط الشعب القديم؛ يبقى المحرّك على الخادم دون واجهة.",
-        "en": "The 'build sections' screen was removed with the old section planning; the engine remains on the server without a screen."
+        "ar": "الشاشة داخل «تخطيط الشعب»: يبدأ البناء من المقترح لا من الحاجة الكاملة، فلا تُقترح مئاتُ الشعب.",
+        "en": "The screen lives inside section planning: the build starts from the suggestion, not the full need, so hundreds of sections are not proposed."
       }
     },
     {
@@ -1253,8 +1253,8 @@
       ],
       "acceptance": [
         {
-          "ar": "يرسل المتصفح مفاتيح «مقرر:شعبة» فقط، حتى 200 مفتاح.",
-          "en": "The browser sends only «course:section» keys, up to 200 keys."
+          "ar": "يرسل المتصفح مفاتيح «مقرر:شعبة» فقط، حتى 200 مفتاح للدفعة؛ والأكبر يُنزَّل بدفعات ولكل دفعة تراجع.",
+          "en": "The browser sends only «course:section» keys, up to 200 per batch; larger needs apply in several batches, each with its own undo."
         },
         {
           "ar": "بصمة الأسبوع المختلفة تعطي 409 ورمز stale ولا يُكتب شيء.",
@@ -1276,7 +1276,7 @@
           "src/server/routes/planningRoutes.ts#/api/section-build/apply"
         ],
         "tests": [
-          "tests/section-build-live-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
@@ -1317,7 +1317,7 @@
           "src/server/routes/planningRoutes.ts#/api/section-build/undo"
         ],
         "tests": [
-          "tests/section-build-live-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
@@ -2100,7 +2100,7 @@
         ],
         "tests": [
           "tests/plan-review-audit.ts",
-          "tests/section-build-live-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
@@ -2150,8 +2150,8 @@
         "en": "Planning data stores"
       },
       "text": {
-        "ar": "يجب على النظام أن يحفظ بيانات التخطيط في مخازن مستقلة: إحصاءات التسجيل لكل (كلية، قسم، فصل)، وحالات الطرح، وقرارات الفرز، ومسودات القواعد والقواعد المعتمدة بإصدار، والصحائف المنشورة، والمقترحات الدراسية بمراجعة رقمية.",
-        "en": "The system shall persist planning data in separate stores: registration statistics per (college, department, term), offering states, triage decisions, rule drafts and versioned approved rules, published sheets, and study proposals with a numeric revision."
+        "ar": "يجب على النظام أن يحفظ بيانات التخطيط في مخازن مستقلة: تقرير التسجيل لكل (فصل، عائلة قسم) وربط مقرراته، وحالات الطرح، ومسودات القواعد والقواعد المعتمدة بإصدار، والصحائف المنشورة، والمقترحات الدراسية بمراجعة رقمية.",
+        "en": "The system shall persist planning data in separate stores: the demand report per (term, department family) with its course links, offering states, rule drafts and versioned approved rules, published sheets, and study proposals with a numeric revision."
       },
       "priority": "must",
       "status": "implemented",
@@ -2160,8 +2160,8 @@
       ],
       "acceptance": [
         {
-          "ar": "مفتاح إحصاءات التسجيل «كلية:قسم:فصل» ومفتاح وثيقة الطرح بالصيغة نفسها.",
-          "en": "The registration statistics key and the offering document key both take the form «college:department:term»."
+          "ar": "مفتاح تقرير التسجيل «فصل:عائلة القسم» ومفتاح وثيقة الطرح «كلية:قسم:فصل».",
+          "en": "The demand report key is «term:department family» and the offering document key is «college:department:term»."
         },
         {
           "ar": "الكتابة المتزامنة على مقترح بمراجعة قديمة تعطي 409.",
@@ -2368,8 +2368,8 @@
         "en": "Read-only planning readings"
       },
       "text": {
-        "ar": "يجب على النظام أن يقدّم بالإذن 7 وفي النطاق قراءات لا تكتب شيئاً: إنذار الفصل المبكر لقسم وفصل (الأحدث إن لم يُحدَّد) من جدوله ومقرراته وأساتذته والمتبقي والشاغر المحفوظين من الكشف وحده؛ ومعاينة فتح من 1 إلى 8 شعب لمقرر من القسم بمحرك الفتح نفسه (قاعة وأستاذ بنصابه ووقت بلا تعارض) بعد أثر حالة الطرح؛ والإرشاد الأكاديمي للقسم الذي لا تستعمله بوابات الحفظ والتوقيع والاعتماد؛ وقراءة الطلب من إجابات الاستبيان مع توقّع من الفصل السابق حين لا إجابات، وإصلاحات مرتبة بمحاكاة التسجيل، واقتراحات فتح الشعب، وروابط الاستبيان الحية، وحالات الطلبة، وعبارة «مبنيّ على من أجاب الاستبيان فقط — ليس بيانات التسجيل.»؛ وصندوق ملاحظات الأساتذة لأقسام القارئ وحدها بالمقرر والوقت واليوم والقاعة.",
-        "en": "With permission 7 and within scope the system shall provide readings that write nothing: the early term warning for a department and term (the newest when none is given) from its schedule, courses, members and the remaining and vacant figures saved from the report only; a preview of opening 1 to 8 sections of a department course with the same opening engine (a hall, a member with available load and a conflict-free time) after the offering states apply; the department's academic advice, never used by save, sign or approval gates; the demand reading from survey answers with a prediction from the previous term when there are no answers, repairs ranked by registration simulation, section opening proposals, live survey links, student cases and the statement that it is built only on those who answered the survey and is not registration data; and the members' notes tray for the reader's own departments with course, time, day and room."
+        "ar": "يجب على النظام أن يقدّم بالإذن 7 وفي النطاق قراءات لا تكتب شيئاً: إنذار الفصل المبكر لقسم وفصل (الأحدث إن لم يُحدَّد) من جدوله ومقرراته وأساتذته وطلب الطلبة المحفوظ من تقرير التسجيل (SWRDASH) وحده؛ ومعاينة فتح من 1 إلى 8 شعب لمقرر من القسم بمحرك الفتح نفسه (قاعة وأستاذ بنصابه ووقت بلا تعارض) بعد أثر حالة الطرح؛ والإرشاد الأكاديمي للقسم الذي لا تستعمله بوابات الحفظ والتوقيع والاعتماد؛ وقراءة الطلب من إجابات الاستبيان مع توقّع من الفصل السابق حين لا إجابات، وإصلاحات مرتبة بمحاكاة التسجيل، واقتراحات فتح الشعب، وروابط الاستبيان الحية، وحالات الطلبة، وعبارة «مبنيّ على من أجاب الاستبيان فقط — ليس بيانات التسجيل.»؛ وصندوق ملاحظات الأساتذة لأقسام القارئ وحدها بالمقرر والوقت واليوم والقاعة.",
+        "en": "With permission 7 and within scope the system shall provide readings that write nothing: the early term warning for a department and term (the newest when none is given) from its schedule, courses, members and the student demand saved from the demand report (SWRDASH) only; a preview of opening 1 to 8 sections of a department course with the same opening engine (a hall, a member with available load and a conflict-free time) after the offering states apply; the department's academic advice, never used by save, sign or approval gates; the demand reading from survey answers with a prediction from the previous term when there are no answers, repairs ranked by registration simulation, section opening proposals, live survey links, student cases and the statement that it is built only on those who answered the survey and is not registration data; and the members' notes tray for the reader's own departments with course, time, day and room."
       },
       "priority": "should",
       "status": "implemented",
@@ -2404,7 +2404,7 @@
           "src/server/routes/planningRoutes.ts#/api/schedules/staff-inbox"
         ],
         "tests": [
-          "tests/term-forecast-audit.ts",
+          "tests/section-plan-audit.ts",
           "tests/demo-fill-audit.ts",
           "tests/student-registration-audit.ts",
           "tests/role-scope-audit.ts"
@@ -2443,7 +2443,7 @@
           "src/server/routes/planningRoutes.ts#/api/section-build/review-rows"
         ],
         "tests": [
-          "tests/section-build-live-audit.ts",
+          "tests/section-plan-audit.ts",
           "tests/paged-findings-audit.ts"
         ]
       }
@@ -3132,7 +3132,7 @@
         "en": "The week fingerprint differs, so the request is refused with 409 and code stale, nothing is written, and the preview is rerun."
       },
       "evidence": [
-        "tests/section-build-live-audit.ts"
+        "tests/section-plan-audit.ts"
       ]
     },
     {
@@ -3150,24 +3150,24 @@
       },
       "evidence": [
         "tests/section-build-audit.ts",
-        "tests/section-build-live-audit.ts"
+        "tests/section-plan-audit.ts"
       ]
     },
     {
       "title": {
-        "ar": "متبقٍّ سالب في الكشف",
-        "en": "Negative remaining in the report"
+        "ar": "مقرر بلا تاريخ ولا سعة",
+        "en": "Course with no history and no capacity"
       },
       "scenario": {
-        "ar": "الكشف يطبع «الذين لم يسجلوا» سالباً لأن المسجلين أكثر ممن لم يجتازوا.",
-        "en": "The report prints «not passed» as negative because enrolled students exceed those who have not passed."
+        "ar": "مقررٌ جديد لم يُفتح في الفصول المماثلة وليست له سعة مسجلة ولا متوسط في التقرير.",
+        "en": "A new course never opened in comparable terms with no recorded capacity and no report average."
       },
       "behavior": {
-        "ar": "يُحفظ المتبقي صفراً، ولا يعني «لا شعب»: يُقترح المعتاد من التاريخ، فإن لم يوجد تاريخ يُقترح صفر مع تفسير.",
-        "en": "The remaining is stored as zero and does not mean «no sections»: the usual historical count is suggested, or zero with an explanation when no history exists."
+        "ar": "لا يُحسب له شيء ويظهر «أدخل السعة»؛ فإن أُدخلت السعة اقتُرحت له الحاجة الكاملة موسومةً «بلا تاريخ».",
+        "en": "Nothing is computed and «enter capacity» is shown; once capacity is entered its full need is suggested, labelled «no history»."
       },
       "evidence": [
-        "tests/section-planning-audit.ts"
+        "tests/section-plan-audit.ts"
       ]
     },
     {
@@ -3242,19 +3242,19 @@
       }
     },
     {
-      "ar": "المتبقي",
-      "en": "Remaining",
+      "ar": "الحاجة الكاملة",
+      "en": "Full need",
       "def": {
-        "ar": "عدد الطلبة الذين لم يسجلوا المقرر بعد، من عمود «الذين لم يسجلوا» في كشف عمادة التسجيل.",
-        "en": "The number of students who have not yet registered the course, from the «not passed» column of the registration report."
+        "ar": "عدد طلبة الحرم الذين يحتاجون المقرر، من تقرير التسجيل (SWRDASH).",
+        "en": "The number of the campus's students who need the course, from the registrar's demand report (SWRDASH)."
       }
     },
     {
-      "ar": "المختار",
-      "en": "Chosen count",
+      "ar": "المقترح",
+      "en": "Suggested count",
       "def": {
-        "ar": "عدد الشعب الذي يقرره القسم لمقرر في التخطيط، ويتقدم على المقترح.",
-        "en": "The section count a department decides for a course in planning, taking precedence over the suggestion."
+        "ar": "عدد الشعب الذي يقترحه النظام لمقرر وحرم من تاريخ القسم، ولا ينزل عن شعب الخريجين.",
+        "en": "The section count the system suggests for a course and campus from the department's history, never below the graduates' sections."
       }
     },
     {

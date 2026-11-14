@@ -42,3 +42,15 @@
 .tp-rooms>div{display:grid;gap:3px;flex:1;min-inline-size:0}.tp-rooms strong{font-size:.95rem}.tp-rooms small{color:var(--muted);font-size:.78rem;line-height:1.7}
 .tp-rooms-mark{display:grid;place-items:center;flex:none;inline-size:34px;block-size:34px;border-radius:11px;background:color-mix(in srgb,var(--warning) 18%,var(--surface));color:var(--warning)}.tp-rooms-mark svg{inline-size:18px;block-size:18px}
 .tp-rooms-chips{display:flex;flex-wrap:wrap;gap:6px;margin-block-start:3px}.tp-rooms-chips i{font-style:normal;padding:1px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:.72rem;color:var(--text)}
+
+/* ── نزّل الشعب من مقترح التخطيط: عدّادٌ لكل مقرر، وخريجون أولاً ── */
+.sb-wait{display:flex;align-items:center;gap:8px;margin:0;color:var(--muted);font-size:.85rem}
+.sb-big{display:flex;align-items:center;gap:8px;margin:0;padding:8px 12px;border-radius:10px;background:var(--warning-soft);font-size:.8rem;color:var(--ink)}.sb-big svg{flex:none;inline-size:16px;block-size:16px;color:var(--warning)}
+.sb-grad{inline-size:16px;block-size:16px;margin-inline-end:5px;vertical-align:-3px;color:var(--spl-grad,var(--accent-ink))}
+.sb-gap>span.sb-step{display:inline-flex;align-items:center;gap:6px;padding:3px 6px;min-inline-size:0;background:var(--accent-softer)}
+.sb-step b{min-inline-size:28px;text-align:center;font-size:1.15rem}
+.sb-step button{display:grid;place-items:center;inline-size:30px;block-size:30px;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--accent-ink);cursor:pointer}
+.sb-step button:disabled{opacity:.35;cursor:default}.sb-step button svg{inline-size:15px;block-size:15px}
+.sb-step small{font-size:.68rem;color:var(--muted)}
+.sb-actions .btn svg{inline-size:16px;block-size:16px;margin-inline-end:6px}
+@media (max-width:560px){.sb{padding:12px}.sb-gap .sb-dots{margin-inline-start:0}}

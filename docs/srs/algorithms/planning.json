@@ -5,31 +5,31 @@
       "module": "PLN",
       "icon": "chart-column-increasing",
       "kind": "statistical",
-      "name": { "ar": "اقتراح عدد الشعب من تاريخ الموسم نفسه", "en": "Section-count suggestion from same-season history" },
+      "name": { "ar": "اقتراح عدد الشعب من تاريخ القسم والحاجة الكاملة", "en": "Section-count suggestion from department history and full need" },
       "question": {
-        "ar": "كم شعبةً يفتح القسم لكل مقرر هذا الفصل، بمدىً يرسيه ما فتحه فعلاً في الفصول المماثلة؟",
-        "en": "How many sections should the department open for each course this term, as a range anchored on what it actually opened in comparable terms?"
+        "ar": "كم شعبةً يقترح النظام لكل مقرر وحرم هذا الفصل، بما فتحه القسم فعلاً في الفصول المماثلة، ومعه الحاجة الكاملة؟",
+        "en": "How many sections does the system suggest per course and campus this term, anchored on what the department actually opened in comparable terms, together with the full need?"
       },
       "method": [
         { "ar": "يُجمع التاريخ من الفصول السابقة من الموسم نفسه وحده (الأول مع الأول، والثاني مع الثاني، والصيفي مع الصيفي)، ولا يستعير موسمٌ تاريخ موسمٍ آخر.", "en": "History is gathered only from earlier terms of the same season (first with first, second with second, summer with summer); no season borrows another's history." },
-        { "ar": "المقرر المُعاد ترقيمه أو المستبدَل، إن لم يُفتح هو بعد، يرث شعب أسلافه ومتبقّيهم؛ ويُعثر على الأسلاف بمسحٍ عرضيّ على انتقالات المقررات المسجّلة.", "en": "A renumbered or replaced course that has not itself been opened inherits its predecessors' sections and remaining figures; predecessors are found by a breadth-first walk over the recorded course transitions." },
-        { "ar": "الأساس = المتوسط العادي لشعب المقرر في تلك الفصول (لكل فصلٍ وزنٌ واحد)، مقرّباً، ولا يقل عن شعبة.", "en": "Baseline = plain average of the course's sections in those terms (each term weight 1), rounded, never below one." },
-        { "ar": "الميل: يُقارن «الذين لم يسجلوا» الحالي بمتوسطه في الفصول نفسها، ويُضرب الأساس بالنسبة، ثم يُحصر التغيير في ±1 (±2 إن كان الأساس 4 فأكثر).", "en": "Tilt: the current «not registered» figure is compared with its own historical average, the baseline is scaled by that ratio, and the change is clamped to ±1 (±2 when the baseline is 4 or more)." },
-        { "ar": "الميل صعوداً لا يتجاوز ⌈المتبقي ÷ السعة⌉؛ وإن كفى المتبقي أقلُّ من الأساس نزل طرف المدى الأدنى إليه وذُكر ذلك صراحة.", "en": "An upward tilt never exceeds ⌈remaining ÷ capacity⌉; if that fill is below the baseline, the lower end of the range drops to it and the reason says so." },
-        { "ar": "مقررٌ بلا تاريخ: مدىً من شعبةٍ واحدة إلى min(⌈المتبقي ÷ السعة⌉، 6) ويُبدأ بشعبة؛ ومتبقٍّ صفرٌ أو سالب يُقترح معه المعتاد تاريخياً.", "en": "A course with no history gets a range from 1 to min(⌈remaining ÷ capacity⌉, 6), starting at one section; a zero or negative remaining returns the usual historical count." }
+        { "ar": "المقرر المُعاد ترقيمه أو المستبدَل، إن لم يُفتح هو بعد، يرث شعب أسلافه؛ ويُعثر على الأسلاف بمسحٍ عرضيّ على انتقالات المقررات المسجّلة.", "en": "A renumbered or replaced course that has not itself been opened inherits its predecessors' sections; predecessors are found by a breadth-first walk over the recorded course transitions." },
+        { "ar": "المعتاد = المتوسط العادي لشعب المقرر في الفصول التي فُتح فيها (لكل فصلٍ وزنٌ واحد)، مقرّباً، ولا يقل عن شعبة.", "en": "Usual = plain average of the course's sections in the terms where it was opened (each term weight 1), rounded, never below one." },
+        { "ar": "الحاجة الكاملة = ⌈طلبة الحرم ÷ سعة المقرر⌉ من تقرير التسجيل (SWRDASH)؛ وتحرّك المقترحَ عن المعتاد نحوها داخل ±1 (±2 إن كان المعتاد 4 فأكثر).", "en": "Full need = ⌈campus students ÷ course capacity⌉ from the demand report (SWRDASH); it moves the suggestion from the usual toward itself within ±1 (±2 when the usual is 4 or more)." },
+        { "ar": "المقترح لا ينزل عن شعب الخريجين ⌈الخريجون ÷ السعة⌉؛ والمقفل (closed/future) لا يُقترح له فتح، والمحدود (limited) لا يتجاوز سقفه.", "en": "The suggestion never falls below the graduates' sections ⌈graduates ÷ capacity⌉; a closed or future course gets no opening, and a limited course never exceeds its ceiling." },
+        { "ar": "مقررٌ بلا تاريخ: المقترح = الحاجة الكاملة بسعة المقرر، بلا سقف مختلق، موسومٌ «بلا تاريخ»؛ وبلا سعة ولا تاريخ لا يُحسب له شيء.", "en": "A course with no history: the suggestion equals the full need by the course capacity, with no invented cap, labelled «no history»; with neither capacity nor history nothing is computed." }
       ],
-      "inputs": { "ar": "كشف «الذين لم يسجلوا» المستورد لكل مقرر، وسعة المقرر (MaxStudent)، وجداول فصول الموسم نفسه، وانتقالات المقررات بين الصحائف.", "en": "Imported registrar «not registered» figures per course, course capacity (MaxStudent), timetables of same-season terms, and course transitions between plan sheets." },
-      "output": { "ar": "لكل مقرر: قيمة مقترحة ومدىً أدنى وأعلى وأساس الاقتراح (تاريخ، متبقٍّ، لا شيء، فارغ) وسطر سبب، وتنبيه تراكم اختياري؛ وتنبيهٌ للقسم إن تجاوز المجموع أعلى ما شغّله تاريخياً.", "en": "Per course: a suggested value, a min–max range, its basis (history, pool, none, empty), a one-line reason and an optional backlog warning; plus a department warning when the total exceeds the department's historical peak." },
-      "guarantee": { "ar": "حتميّ وقراءةٌ فقط: لا يُكتب شيء في الجدول، ومقررٌ بلا تاريخ ولا سعة مسجّلة لا يُعطى رقماً مخترعاً.", "en": "Deterministic and read-only: nothing is written to the timetable, and a course with neither history nor a recorded capacity gets no invented number." },
+      "inputs": { "ar": "تقرير التسجيل (SWRDASH: الكل والخريجون) لكل مقرر وحرم، وسعة المقرر (MaxStudent)، وجداول فصول الموسم نفسه، وانتقالات المقررات بين الصحائف، وحالات الطرح.", "en": "The registrar's demand report (SWRDASH: all students and graduates) per course and campus, course capacity (MaxStudent), timetables of same-season terms, course transitions between plan sheets, and offering states." },
+      "output": { "ar": "لكل مقرر وحرم: المقترح والحاجة الكاملة والمعتاد وعدد الفصول وأساس الاقتراح (تاريخ، حساب، مقفل) ومنه شعب الخريجين؛ ومجموعا المقترح والحاجة الكاملة.", "en": "Per course and campus: the suggestion, full need, usual count, number of terms and basis (history, calculation, locked), including the graduates' sections; plus the totals of suggestion and full need." },
+      "guarantee": { "ar": "حتميّ وقراءةٌ فقط: لا يُكتب شيء في الجدول، ولا تُخفى الحاجة الكاملة، ولا يُعطى مقررٌ بلا تاريخ ولا سعة رقماً مخترعاً.", "en": "Deterministic and read-only: nothing is written to the timetable, the full need is never hidden, and a course with neither history nor capacity gets no invented number." },
       "numbers": [
         { "ar": "نطاق الميل ±1، ويتسع إلى ±2 حين يكون الأساس 4 فأكثر", "en": "Tilt band ±1, widened to ±2 when the baseline is 4 or more" },
-        { "ar": "سقف المقرر بلا تاريخ NO_HISTORY_MAX = 6 شعب", "en": "Cap for a course without history: NO_HISTORY_MAX = 6 sections" },
-        { "ar": "فرقٌ أقل من 5٪ عن المعتاد يُوصف «في حدود المعتاد»", "en": "A difference under 5% from the usual is reported as «within the usual»" },
-        { "ar": "تنبيه التراكم حين يزيد المتبقي ثلاثة فصولٍ مماثلة متتالية", "en": "Backlog warning when the remaining figure rises over three consecutive comparable terms" }
+        { "ar": "مقررٌ بلا تاريخ: المقترح = الحاجة الكاملة (بلا سقف)", "en": "A course without history: suggestion = full need (no cap)" },
+        { "ar": "الخريجون: المقترح لا ينزل عن ⌈الخريجون ÷ السعة⌉", "en": "Graduates: the suggestion never falls below ⌈graduates ÷ capacity⌉" },
+        { "ar": "دفعة تنزيل أكبر من 40 شعبة تُنبَّه إلى أن الأنصبة هي الحدّ", "en": "An apply batch above 40 sections is warned that instructor loads are the limit" }
       ],
       "evidence": {
-        "code": ["src/utils/sectionCountSuggestion.ts#suggestSectionCount", "src/utils/sectionCountSuggestion.ts#historicalBaseline", "src/utils/sectionCountSuggestion.ts#departmentLoadWarning", "src/server/routes/planningRoutes.ts#registerPlanningRoutes"],
-        "tests": ["tests/section-planning-audit.ts"]
+        "code": ["src/utils/sectionPlan.ts#suggestFromHistory", "src/utils/sectionPlan.ts#sectionPlan", "src/server/actualDemand.ts#planHistoryFor", "src/server/routes/planningRoutes.ts#registerPlanningRoutes"],
+        "tests": ["tests/section-plan-audit.ts"]
       },
       "requirements": ["FR-PLN-004", "FR-PLN-005"]
     },
@@ -38,27 +38,27 @@
       "module": "PLN",
       "icon": "git-compare-arrows",
       "kind": "deterministic",
-      "name": { "ar": "فجوة الشعب ومراجعة الزيادة", "en": "Section gap and surplus review" },
+      "name": { "ar": "فجوة الشعب ومراجعة الفائض", "en": "Section gap and surplus review" },
       "question": {
-        "ar": "أيُّ المقررات تنقصها شعبٌ عن الخطة، وأيُّها يزيد عليها، وأين يتعارض تقدير الفتح مع تقدير التخفيض؟",
-        "en": "Which courses lack sections against the plan, which exceed it, and where do the opening and reduction estimates contradict each other?"
+        "ar": "أيُّ المقررات تنقصها شعبٌ عن المقترح، وأيُّها يزيد عليه، وأيُّ الخريجين بلا مقعد؟",
+        "en": "Which courses lack sections against the suggestion, which exceed it, and which graduates have no seat?"
       },
       "method": [
-        { "ar": "المطلوب لكل مقرر = «المختار» الذي كتبه القسم إن وُجد، وإلا القيمة المقترحة الظاهرة من ALG-PLN-01.", "en": "Target per course = the department's written chosen count when present, otherwise the visible suggestion from ALG-PLN-01." },
-        { "ar": "الموجود = عدد رموز الشعب (SCode) المميّزة للمقرر في جدول الفصل؛ وتُصنَّف الحالة: غير مقرّر، ناقص، زائد، مكتمل.", "en": "Existing = number of distinct section codes (SCode) for the course in the term timetable; the state is unset, missing, over or done." },
-        { "ar": "لا تُعرض الزيادة إلا بدليل: «مختار» مكتوب، أو تاريخٌ مماثل مع متبقٍّ موجب؛ وتُوسم إن زاد المتبقي على المطلوب × السعة.", "en": "A surplus is listed only with evidence: a written choice, or comparable history with a positive remaining figure; it is flagged when remaining exceeds target × capacity." },
-        { "ar": "مقررٌ اجتمع فيه نقصٌ وزيادة يُدمج في بندٍ واحد محايد «تقديران متعارضان» للمراجعة.", "en": "A course with both an opening need and a surplus is merged into one neutral «conflicting estimates» review item." },
+        { "ar": "المقترح لكل مقرر وحرم من ALG-PLN-01؛ والحاجة الكاملة تُعرض بجانبه ولا تُخفى.", "en": "The suggestion per course and campus from ALG-PLN-01; the full need is shown beside it and never hidden." },
+        { "ar": "الموجود = عدد رموز الشعب (SCode) المميّزة للمقرر في جدول الفصل لكلية الحرم؛ والفرق = المقترح − الموجود: ناقص أو فائض أو متوازن، والخريجون أولاً.", "en": "Existing = number of distinct section codes (SCode) for the course in the term timetable of the campus's college; gap = suggestion − existing: missing, surplus or balanced, graduates first." },
+        { "ar": "الفائض بند مراجعة من المقترح لا من الحاجة الكاملة، فلا يُوحى بإغلاق ما يسنده التاريخ.", "en": "A surplus is a review item against the suggestion, not the full need, so nothing the history supports is hinted for closure." },
+        { "ar": "المنتدبون = ⌈(ساعات الشعب الناقصة والشعب بلا أستاذ − المتاح في أنصبة العائلة) ÷ 6⌉، للخريجين وللجميع.", "en": "Visitors = ⌈(hours of missing sections and sections without an instructor − free hours in the family's loads) ÷ 6⌉, for graduates and for all." },
         { "ar": "رغبات الطلبة إشارةٌ مستقلة لا تُخلط بالتخطيط: ⌈الطلبة ÷ السعة⌉ − الموجود.", "en": "Student wishes form a separate signal never mixed with the plan: ⌈students ÷ capacity⌉ − existing." }
       ],
-      "inputs": { "ar": "المختار والمتبقي وتاريخ الفصول المماثلة، وشعب جدول الفصل، وسعة المقرر، ورغبات الطلبة.", "en": "Chosen counts, remaining figures and comparable-term history, the term's sections, course capacity, and student wishes." },
+      "inputs": { "ar": "تقرير التسجيل، وتاريخ الفصول المماثلة، وشعب جدول الفصل، وسعة المقرر، وأنصبة أساتذة العائلة، ورغبات الطلبة (إشارةٌ مستقلة).", "en": "The demand report, comparable-term history, the term's sections, course capacity, the family's instructor loads, and student wishes (a separate signal)." },
       "output": { "ar": "قائمة مرتّبة بالأشد حاجة أولاً لبنود النقص والزيادة والتعارض، مع أساس كل بند ورقم الطلب الذي بُني عليه.", "en": "A list ordered by greatest need of missing, surplus and conflict items, each with its basis and the demand figure behind it." },
       "guarantee": { "ar": "دالة نقية لا تقرأ ولا تكتب؛ والزيادة بند مراجعة لا يُغلق شعبةً ولا يحذفها أبداً.", "en": "Pure function that reads and writes nothing; a surplus is a review item and never closes or deletes a section." },
       "numbers": [
         { "ar": "الترتيب: الفرق الأكبر، ثم الطلب الأكبر، ثم رقم المقرر", "en": "Ordering: largest gap, then largest demand, then course number" }
       ],
       "evidence": {
-        "code": ["src/utils/sectionGap.ts#planTargets", "src/utils/sectionGap.ts#planSurpluses", "src/utils/sectionGap.ts#reconcilePlanAdjustments", "src/utils/sectionGap.ts#studentGaps", "src/utils/sectionBuild.ts#gapRows", "src/server/core/planning.ts#sectionGapData"],
-        "tests": ["tests/section-gap-audit.ts", "tests/section-gap-live-audit.ts"]
+        "code": ["src/utils/sectionPlan.ts#planStage", "src/utils/sectionPlan.ts#visitorsFor", "src/utils/sectionPlan.ts#planCourseFacts", "src/utils/sectionGap.ts#studentGaps", "src/utils/sectionBuild.ts#gapRows", "src/server/core/planning.ts#sectionGapData"],
+        "tests": ["tests/section-gap-audit.ts", "tests/section-plan-audit.ts"]
       },
       "requirements": ["FR-PLN-006", "FR-PLN-007"]
     },
@@ -676,13 +676,13 @@
         "en": "What are the three most important risks in the term timetable right now: missing sections, an instructor over load, or sections without a hall?"
       },
       "method": [
-        { "ar": "الطلب = «الذين لم يسجلوا» من الكشف المستورد وحده؛ بلا كشف لا توقّع.", "en": "Demand = «not registered» from the imported report only; with no report there is no forecast." },
-        { "ar": "إن حُفظت المقاعد الشاغرة: المغطّى = min(المتبقي، الشاغر) والنقص = ⌈(المتبقي − الشاغر) ÷ السعة⌉؛ وإلا المطلوب = ⌈المتبقي ÷ السعة⌉ والنقص = المطلوب − الشعب المجدولة.", "en": "When vacant seats are stored: covered = min(remaining, vacant) and shortage = ⌈(remaining − vacant) ÷ capacity⌉; otherwise required = ⌈remaining ÷ capacity⌉ and shortage = required − scheduled sections." },
-        { "ar": "تغطية الطلب ٪ = المقاعد المغطاة ÷ مجموع المتبقي، على المقررات المعروفة السعة؛ والسعة المجهولة تُذكر وحدها ولا تُفترض.", "en": "Demand coverage % = covered seats ÷ total remaining over courses with known capacity; an unknown capacity is reported on its own and never assumed." },
+        { "ar": "الطلب = عدد طلبة الحرم الذين يحتاجون كل مقرر من تقرير التسجيل (SWRDASH) وحده؛ بلا تقرير لا توقّع.", "en": "Demand = the campus students who need each course from the demand report (SWRDASH) only; with no report there is no forecast." },
+        { "ar": "المطلوب = ⌈الطلب ÷ السعة⌉ والنقص = المطلوب − الشعب المجدولة.", "en": "Required = ⌈demand ÷ capacity⌉ and shortage = required − scheduled sections." },
+        { "ar": "تغطية الطلب ٪ = المقاعد المغطاة ÷ مجموع الطلب، على المقررات المعروفة السعة؛ والسعة المجهولة تُذكر وحدها ولا تُفترض.", "en": "Demand coverage % = covered seats ÷ total demand over courses with known capacity; an unknown capacity is reported on its own and never assumed." },
         { "ar": "تجاوز الأستاذ = ساعاته المعتمدة الأسبوعية فوق نصابه المسجل؛ والشعبة بلا قاعة = صفٌّ واحد على الأقل بلا موقع.", "en": "Instructor overload = weekly credit hours above the recorded load allowance; a section without a hall = at least one row with no location." },
         { "ar": "الإبراز (حتى 3): الأشد نقصاً، ثم تجاوز الأساتذة، ثم الشعب بلا قاعة، ثم باقي النواقص، ثم السعة المجهولة.", "en": "Highlights (up to 3): the largest shortage, then instructor overload, then sections without a hall, then other shortages, then unknown capacity." }
       ],
-      "inputs": { "ar": "شعب جدول الفصل، وسعة المقررات، وأنصبة الأساتذة، والمتبقي والشاغر المستوردان.", "en": "The term's sections, course capacities, instructor load allowances, and the imported remaining and vacant figures." },
+      "inputs": { "ar": "شعب جدول الفصل، وسعة المقررات، وأنصبة الأساتذة، وتقرير التسجيل المحفوظ.", "en": "The term's sections, course capacities, instructor load allowances, and the stored demand report." },
       "output": { "ar": "الحالة، ونسبة التغطية والمقاعد، وعدد المقررات الناقصة، وحتى ثلاثة مخاطر بارزة ونبرتها، والباقي في «كل التفاصيل».", "en": "Status, coverage percentage and seats, number of short courses, up to three highlighted risks with tone, and the rest under «all details»." },
       "guarantee": { "ar": "حساب قواعد ثابتة على بيانات محفوظة؛ ما لا بيانات له يُقال إنه غير معروف ولا يُخمَّن، ولا نسبة بلا مقعد.", "en": "Fixed rules over stored data; anything without data is reported as unknown, never guessed, and no percentage is shown without seats." },
       "numbers": [
@@ -690,7 +690,7 @@
       ],
       "evidence": {
         "code": ["src/utils/termForecast.ts#computeTermForecast", "src/server/routes/planningRoutes.ts#registerPlanningRoutes"],
-        "tests": ["tests/term-forecast-audit.ts"]
+        "tests": ["tests/section-plan-audit.ts"]
       },
       "requirements": ["FR-DSH-008"]
     },

@@ -1708,8 +1708,8 @@
         "en": "The single planning badge on the schedule"
       },
       "text": {
-        "ar": "يجب أن يعرض شريط الاعتماد في «الجدول الدراسي» شارةً واحدة «التخطيط» بقبعة خريجين بعدد شعبهم الناقصة إن وُجدت، وعدد ما يُفتح وما يُغلق؛ تفتح شاشة تخطيط الشعب في مكانها، و«افتح شعبة» و«اختر ما يُغلق» يعملان في الجدول بلا انتقال؛ ولا تظهر حين يتوازن كل مقرر.",
-        "en": "The approval bar on the schedule shall show one 'Planning' badge with a graduate cap and the number of graduate sections short when any, and the numbers to open and to close; it opens the section-planning screen in place, where 'Open a section' and 'Choose what to close' act on the schedule without navigating; it is hidden when every course is balanced."
+        "ar": "يجب أن يعرض شريط الاعتماد في «الجدول الدراسي» شارةً واحدة «التخطيط» بقبعة خريجين بعدد شعبهم الناقصة إن وُجدت، وعدد ما يُقترح فتحه وإغلاقه؛ تفتح شاشة تخطيط الشعب في مكانها، و«افتح شعبة» و«اختر ما يُغلق» يعملان في الجدول بلا انتقال؛ ولا تظهر حين يتوازن كل مقرر.",
+        "en": "The approval bar on the schedule shall show one 'Planning' badge with a graduate cap and the number of graduate sections short when any, and the numbers suggested to open and to close; it opens the section-planning screen in place, where 'Open a section' and 'Choose what to close' act on the schedule without navigating; it is hidden when every course is balanced."
       },
       "priority": "must",
       "status": "implemented",
@@ -1720,8 +1720,8 @@
       ],
       "acceptance": [
         {
-          "ar": "لا شارة «الطلب الفعلي» ولا أيقونة كشف المتبقي بجانبها.",
-          "en": "No separate 'actual demand' badge nor a remaining-report icon beside it."
+          "ar": "لا شارة «الطلب الفعلي» ولا أيقونة رفع كشفٍ ثانٍ بجانبها: تقرير التسجيل يُرفع من «تخطيط الشعب» وحده.",
+          "en": "There is no «actual demand» badge and no second-report upload icon beside it: the demand report is uploaded from section planning only."
         }
       ],
       "evidence": {

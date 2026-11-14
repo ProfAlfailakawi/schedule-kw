@@ -1178,7 +1178,7 @@
           "src/server/routes/pdfImportRoutes.ts"
         ],
         "tests": [
-          "tests/section-planning-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },
@@ -2392,7 +2392,7 @@
         ],
         "tests": [
           "tests/student-journey-audit.ts",
-          "tests/swrs136-real-photos-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     },

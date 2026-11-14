@@ -1698,31 +1698,6 @@ export interface DepartmentDelegateDirectory {
 }
 
 /** Rooms the department has used or deliberately pinned for future use. */
-/** إحصاءُ التسجيل قبل الفصل: عددُ الطلبة لكل مقرر، وما قبله القسم من اقتراح الشعب. */
-export interface RegistrationStats {
-  id: string;
-  /** `${collegeId}:${sectionId}:${termId}` */
-  scopeKey: string;
-  collegeId: number;
-  sectionId: number;
-  termId: number;
-  /** AdCourseId → عدد الطلبة المسجّلين — الإدخال القديم، لم يعد يُكتب من الشاشة ويُحفظ كما هو. */
-  counts: Record<string, number>;
-  /** AdCourseId → «الذين لم يسجلوا» (المتبقي الإجمالي) من كشف عمادة التسجيل (حين remainingSource.column === "unregistered").
-      ما حُفظ بعمودٍ آخر («المقاعد المتبقية» = "seats"، أو بلا وسم): قديمٌ لا يُخلط به. */
-  remaining?: Record<string, number>;
-  /** AdCourseId → «المقاعد المتبقية» من الكشف نفسه: شاغر الشعب المفتوحة (للإنذار المبكر). */
-  vacant?: Record<string, number>;
-  /** «الذين لم يسجلوا» يُحفظ مستقلاً للتوقّع التشغيلي، ولا يُستخدم في التخطيط. */
-  unregistered?: Record<string, number>;
-  /** من أين جاء المتبقي: الملف ومتى استُورد، وأيّ عمودٍ هو ("unregistered" = الذين لم يسجلوا؛ "seats" قديم). */
-  remainingSource?: { fileName: string; importedAt: string; column?: "notPassed" | "unregistered" | "seats"; reportTerm?: string };
-  /** AdCourseId → عدد الشعب الذي قبله القسم (اختياري) */
-  accepted?: Record<string, number>;
-  updatedAt: string;
-  updatedBy?: string;
-}
-
 export interface DepartmentRoomDirectory {
   id: string;
   scopeKey: string;
