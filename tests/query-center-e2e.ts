@@ -204,7 +204,7 @@ async function main() {
     await desktop.page.keyboard.press("Escape");
 
     /* ── موجز الصباح، ومعاينة الصفحات ── */
-    check((await desktop.page.locator(".morning-brief-tiles i").count()) === 4, "موجز الصباح: أربع بطاقات بأيقونات وأرقام");
+    check((await desktop.page.locator(".morning-brief-tiles .morning-brief-pill").count()) === 4, "موجز الصباح: أربع بطاقات بأيقونات وأرقام");
     check((await desktop.page.locator(".query-canvas-actions .query-print-menu > button").count()) >= 1, "زرّ الطباعة باقٍ في مركز الاستعلام");
     check(desktop.issues.length === 0, "لا خطأ متصفحٍ ولا طلبٌ فاشل في كل الرحلة", desktop.issues);
     await desktop.context.close();
