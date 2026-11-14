@@ -2538,7 +2538,7 @@ export default function App() {
           </button>
         </div>
         {user.IsDemo ? (
-          <div className="demo-rail-chip" aria-label="بيئة تجريبية معزولة">
+          <div className="demo-rail-chip" role="group" aria-label="بيئة تجريبية معزولة">
             <FlaskConical aria-hidden="true" /><span>تجريبي</span><i aria-hidden="true" />
             {demoInfo?.seedStatus === "preparing" ? <small className="demo-seed-status" role="status">يُجهَّز العرض</small> : null}
             {demoInfo?.seedStatus === "failed" ? <small className="demo-seed-status demo-seed-status--error" role="status">بعض أمثلة العرض لم تكتمل</small> : null}

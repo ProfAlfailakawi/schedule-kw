@@ -25,16 +25,17 @@ check(read("src/index.css").includes("70-appointment-redesign.css"), "C3 الم�
 check(/stroke-dashoffset/.test(css) && /tabular-nums/.test(css), "C4 أيقونة الصحّ ترسم نفسها · أرقامٌ جدولية");
 
 check(!/className="appt-sum"/.test(editor), "E1 شريط الحفظ بلا شرائح الملخّص المكرّرة");
-check(/className="appt-progress"/.test(editor) && /studioProgress/.test(editor), "E2 خيط التقدّم");
+/* تغيّرت النيّة (خفض عدد العناصر): الخيط رسمٌ زائف على .appt-form بنسبة --appt-p، لا عنصران في DOM. */
+check(/\["--appt-p" as any\]: studioProgress/.test(editor) && /\.appt-form::before/.test(css) && /\.appt-form::after/.test(css) && /var\(--appt-p,0\)/.test(css) && !/className="appt-progress"/.test(editor), "E2 خيط التقدّم (رسمٌ زائف بلا عناصر)");
 check(/data-ctype=/.test(editor), "E3 لون نوع المقرر على البطاقة");
 check(/aria-haspopup="true" aria-expanded=\{studioHelpersOpen\}/.test(editor) && /event\.key === "Escape" && studioHelpersOpen/.test(editor) && />مساعدات<ChevronDown/.test(editor), "E4 قائمة «مساعدات» بمفتاحٍ وأسهمٍ وEsc");
 check(/appt-usual/.test(editor) && /املأ كالمعتاد/.test(editor) && /اقترح لي وقتاً وقاعة/.test(editor) && /<LectureStickChips/.test(editor), "E5 المساعدات الثلاث ما زالت موجودة");
-check(/<ConflictTimeline card=/.test(editor) && /overlapMinutes/.test(editor) && /تداخل <bdi/.test(read("src/components/ConflictTimeline.tsx")), "E6 بطاقة المانع: شريطان وتداخل بالدقائق");
+check(/<ConflictTimeline card=/.test(editor) && /overlapMinutes/.test(editor) && /تداخل \{minutes\} د/.test(read("src/components/ConflictTimeline.tsx")), "E6 بطاقة المانع: شريطان وتداخل بالدقائق");
 check(/<DurationBar segments=\{lectureSegments\(studioDuration\)\}/.test(editor), "E7 شريط المدة المجزَّأ");
 check(/travelSavedCard\(/.test(editor) && /prefers-reduced-motion/.test(read("src/utils/saveTravel.ts")), "E8 انتقال البطاقة عند الحفظ مع احترام تقليل الحركة");
 check(/أنماط أخرى/.test(chips) && /regulation-chips-apply/.test(chips) && /fit === "off" && onApplyBest/.test(chips), "E9 النمط المنصوح أولاً والبقية تحت «أنماط أخرى»، و«طبّق النمط» فوريّ عند المخالفة");
 check(/appt-status-more/.test(editor) && /احفظ الموعد/.test(editor) && /requestClose\(\)\} loading=\{saving\}/.test(editor), "E10 الشريط: حبّة الحالة (التفاصيل داخلها) + حفظ + إلغاء");
-check(/PersonChips visiting=/.test(editor.slice(editor.indexOf('aria-label="الأستاذ" data-appt-step="teacher"'))), "E11 وسوم الأستاذ (زائر/تدريب) باقيةٌ في صفّ الأستاذ بعد حذف الشرائح");
+check(/PersonChips visiting=/.test(editor.slice(editor.indexOf('aria-label={studioChanged?.teacher ? "الأستاذ — تغيّر" : "الأستاذ"}'))), "E11 وسوم الأستاذ (زائر/تدريب) باقيةٌ في صفّ الأستاذ بعد حذف الشرائح");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

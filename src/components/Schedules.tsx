@@ -87,10 +87,13 @@ import { roomSwapBody, useRoomSwaps } from "./useRoomSwaps";
 import type { RoomSwap } from "../utils/appointmentRoomSwap";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
 import ConflictTimeline, { DurationBar } from "./ConflictTimeline";
+import { ChainSolveButton } from "./ChainSolveSheet";
+import { chainOffered } from "../utils/chainSolve";
 import { lectureSegments } from "../utils/lectureSegments";
 import { travelSavedCard } from "../utils/saveTravel";
 import ColleagueHoldNotice, { ColleaguePresenceChip } from "./ColleagueHoldNotice";
 import { holdDraftFromForm, useScheduleHolds } from "../utils/scheduleHolds";
+import { usePrintMounted } from "../utils/usePrintMounted";
 import { createEntryMeter, sendEntryMeasure, type EntryMeter, type HelperName } from "../utils/appointmentMeasure";
 import { useCourseReach } from "./CourseReach";
 import { reachLocked, reachNote, shortCourseCode } from "../utils/courseReach";
@@ -2135,6 +2138,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * to erase them.
    */
   const presence = useMemo(() => createPresenceClient(Number(user?.SystemUserId || 0)), [user?.SystemUserId]);
+  /* ورقةُ طباعة الجدول (ألفُ صفّ) لا تُركَّب إلا عند الطباعة. */
+  const printSheetMounted = usePrintMounted();
   const presencePaint = useMemo(() => createPresencePainter(), []);
   const [peers, setPeers] = useState<PresencePeer[]>([]);
   /** Bumped whenever the live channel reports a write, so readings that depend
@@ -9939,18 +9944,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioRoomSeed = form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : "";
   /* انطواء حقيقي: الملخّص والجسم كلاهما مُركَّب دائماً داخل شبكتَي صفٍّ (0fr↔1fr)؛ المطويّ منهما inert فلا يُركَّز ولا يُقرأ. */
   const studioFold = (key: string, expanded: boolean, done: boolean, body: React.ReactNode, summary: React.ReactNode) => (
-    <div className="appt-fold" data-fold={key} data-appt-step={key}>
-      <div className={`appt-fold-sum${!expanded && done ? " is-open" : ""}`} inert={expanded || !done} aria-hidden={expanded || !done}><div className="appt-fold-in">{summary}</div></div>
-      <div className={`appt-fold-body${expanded ? " is-open" : ""}`} inert={!expanded} aria-hidden={!expanded}><div className="appt-fold-in">{body}</div></div>
-    </div>
+    <>
+      <div className={`appt-fold-sum${!expanded && done ? " is-open" : ""}`} data-fold-sum={key} inert={expanded || !done} aria-hidden={expanded || !done}>{summary}</div>
+      <div className={`appt-fold-body${expanded ? " is-open" : ""}`} data-fold={key} data-appt-step={key} inert={!expanded} aria-hidden={!expanded}>{body}</div>
+    </>
   );
   const studioLockedStep = (key: string, num: React.ReactNode, title: string, waits: string, seed = "", ref?: React.Ref<HTMLElement>) => (
     <section className="schedule-form-section appt-step is-locked" aria-label={`${title} — ${waits}`} aria-disabled="true" data-appt-step={key} ref={ref as any}>
-      <header className="appt-step-head">
-        <span className="appt-num">{num}</span>
-        <div className="appt-q"><strong>{title}</strong><small>{seed ? <><bdi>{seed}</bdi> · </> : null}{waits}</small></div>
-        <Lock aria-hidden="true" className="appt-lock" />
-      </header>
+      {/* بلا ترويسةٍ وسيطة (أقلّ عناصر): الرقم والسؤال والقفل أبناءٌ مباشرون ويصفّهم flex في 70-appointment-redesign.css */}
+      <span className="appt-num">{num}</span>
+      <div className="appt-q"><strong>{title}</strong><small>{seed ? <><bdi>{seed}</bdi> · </> : null}{waits}</small></div>
+      <Lock aria-hidden="true" className="appt-lock" />
     </section>
   );
   /* حين يُجاب سؤالٌ في «موعد جديد» ينطوي، ويُسلَّم المؤشر للسؤال التالي — بلا قفزٍ عند الفتح. */
@@ -9977,6 +9981,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studioDoneKey, studioDoneNow.scope, studioDoneNow.course, studioDoneNow.teacher, studioDoneNow.time]);
+  /* التركيز يتبع الانطواء: «تغيير» يفتح الجسم ويُسلَّم التركيز لحقله، و«تم» يطويه ويعود التركيز إلى «تغيير» في ملخّصه (المطويّ inert فلا يبقى فيه). */
+  const foldFocusPrev = useRef({ course: studioCourseOpen, teacher: studioTeacherOpen });
+  useEffect(() => {
+    const prev = foldFocusPrev.current;
+    foldFocusPrev.current = { course: studioCourseOpen, teacher: studioTeacherOpen };
+    const move = (key: "course" | "teacher", opened: boolean) => window.requestAnimationFrame(() => {
+      const fold = document.querySelector<HTMLElement>(`.schedule-editor.is-studio .appt-fold-body[data-fold="${key}"]`);
+      const target = opened
+        ? fold?.querySelector<HTMLElement>(key === "course" ? 'button[aria-label="المقرر الدراسي"]' : ".instructor-trigger")
+        : document.querySelector<HTMLElement>(`.schedule-editor.is-studio .appt-fold-sum[data-fold-sum="${key}"] .appt-link`);
+      target?.focus({ preventScroll: true });
+    });
+    if (prev.course !== studioCourseOpen) move("course", studioCourseOpen);
+    if (prev.teacher !== studioTeacherOpen) move("teacher", studioTeacherOpen);
+  }, [studioCourseOpen, studioTeacherOpen]);
   useEffect(() => { studioMeter.current?.blocked(editorVerdict.blockers.length > 0); }, [editorVerdict.blockers.length > 0]);
   const [studioHelpersOpen, setStudioHelpersOpen] = useState(false);
   /* خيط التقدّم: خمس خطوات (النطاق · المقرر · الأستاذ · الوقت · المكان) — يملأ بقدر ما اكتمل منها. */
@@ -9985,7 +10004,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioInitial = String(selectedInstructor?.AdInstructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
   const studioScopeText = [formScopeLabel, studioTermName].filter(Boolean).join(" · ") || "اختر الكلية والقسم والفصل";
   const editorView = (
-      <div className={`content-stack editor-page schedule-editor is-studio${studioChecksOpen ? " is-checks-open" : ""}`} data-tone={studioTone} data-ctype={String(formCourse?.CourseTeachingMode || "")}>
+      <div className={`content-stack editor-page schedule-editor is-studio${studioChecksOpen ? " is-checks-open" : ""}`} data-tone={studioTone} data-ctype={String(formCourse?.CourseTeachingMode || "")} style={{ ["--appt-p" as any]: studioProgress }}>
         {/* The way out, at the top where the eye already is. */}
         <button
           type="button"
@@ -10058,7 +10077,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         <div className={`schedule-editor-grid appt-layout${studioWeekShown ? " has-week" : ""}`} ref={studioGridRef}
           style={{ ["--appt-week-offset" as any]: `${studioWeekOffset}px` }}>
           <Surface className="form-card smart-form appt-form">
-            <div className="appt-progress" aria-hidden="true" style={{ ["--appt-p" as any]: studioProgress }}><i /></div>
             <form onSubmit={save}>
               <div className="schedule-form-sections appt-steps">
                 {studioScopeExpanded ? (
@@ -10249,7 +10267,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       data-guide-ignore="يفتح حقل الأستاذ لتغييره؛ لا يحفظ شيئاً">تغيير</button>
                   </span>
                 </div>
-                )}
+                ))}
                 {seatAssignRow ? (
                   <VacantAssign
                     picker={<InstructorPicker
@@ -10415,9 +10433,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       <Timer aria-hidden="true" className="appt-inline-mark" />
                       <span className="appt-inline-text">ساعات الشعبة زائدة</span>
                       <bdi className="appt-hours-figure" dir="ltr">{editorOverHours[2]}<span>/</span>{editorOverHours[1]} <small>س</small></bdi>
-                    </> : <><X aria-hidden="true" className="appt-inline-mark" />
-                      <ConflictTimeline card={editorConflictCards.find((item: any) => item.source === editorVerdict.blockers[0].conflict)} text={editorBlockerLine(editorVerdict.blockers[0].text)} /></>}
-                    <div className="appt-inline-actions">
+                    </> : <ConflictTimeline card={editorConflictCards.find((item: any) => item.source === editorVerdict.blockers[0].conflict)} text={editorBlockerLine(editorVerdict.blockers[0].text)} />}
+                    <div className={`appt-inline-actions${!editorUnderHours && !editorOverHours && chainOffered(editorVerdict) && editorVerdict.blockers.length === 1 ? " is-pair" : ""}`}>
                     {editorVerdict.blockers.length > 1 ? <button type="button" className="appt-inline-more" onClick={() => setStudioChecksOpen(true)}
                       data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً"><bdi dir="ltr">+{editorVerdict.blockers.length - 1}</bdi></button> : null}
                     {editorFreshSection ? <button type="button" className="appt-inline-alt is-fix" onClick={useFreshSection}
@@ -10431,7 +10448,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       if (end) { setTimingOverride(false); setForm(previous => ({ ...previous, fendtime: end })); flashAutofill(); }
                     }} data-guide-ignore="يكمل نهاية الموعد وفق ساعات المقرر والأيام المختارة؛ لا يحفظ شيئاً"><Ruler aria-hidden="true" />أكمل النمط</button> : null}
                     <button type="button" className="appt-inline-alt" onClick={() => goToAlternatives()} disabled={altBusy}
-                      data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً"><WandSparkles aria-hidden="true" />{altBusy ? "…" : "بديل"}</button>
+                      data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً">{altBusy ? "…" : "بديل"}</button>
+                    {chainOffered(editorVerdict) ? <ChainSolveButton onOpen={() => setChainOpen(true)} data-guide-ignore="يفتح ورقة «حلّ بسلسلة» لمعاينة نقلات مقترحة؛ لا يكتب شيئاً قبل التطبيق" /> : null}
                     </div>
                   </div>:null}
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
@@ -10803,6 +10821,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               window={miniWeekWindow}
               userId={Number(user?.SystemUserId || 0)}
               onPick={pickFromMiniWeek}
+              usual={courseNature && courseNature.confidence !== "low" && courseNature.suggestion && daysApprovedForHours(regulationHours(formCourse), courseNature.suggestion.days as RegDayKey[]) !== false ? { days: courseNature.suggestion.days, start: courseNature.suggestion.start } : null}
               dockable
               autoCollapse={studioChecksOpen || timeCounterOpen}
               room={studioRoom}
@@ -14279,7 +14298,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       </PrintPortal> : null}
       {/* The week is a wide document; it is printed on a wide page, in the same
           hand as every other sheet the program produces. */}
-      {!reviewOpen ? (
+      {!reviewOpen && printSheetMounted ? (
         <PrintPortal>
           <div className="schedule-print print-report print-wide print-query-report print-query-list-report">
         <PrintLetterhead

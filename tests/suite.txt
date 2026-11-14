@@ -243,6 +243,7 @@ test:appointment-forms-r2
 test:appointment-forms-r3
 test:appointment-redesign
 test:appointment-inventory
+test:appointment-phase3
 test:review-1105
 test:holds-patterns-r4
 test:one-line-appointment
@@ -281,6 +282,7 @@ test:graduate-drag-1114
 test:quick-best-1114
 test:chain-solve
 test:touch-drag-grip
+test:print-lazy-sheet
 test:chain-pulse
 test:section-plan
 test:colleagues-advising-registration

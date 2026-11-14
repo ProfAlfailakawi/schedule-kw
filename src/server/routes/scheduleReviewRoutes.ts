@@ -27,7 +27,7 @@ import { courseHabit } from "../core/instructorRequests";
 import { capacityContextForSection } from "../core/capacityRules";
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { scheduleConflicts, scheduleConflictsForEdit } from "../core/scheduleConflicts";
-import { makeSlotGuard, SlotTakenError } from "../core/slotGuard";
+import { makeSlotGuard, pauseAfterCheckForTests, SlotTakenError } from "../core/slotGuard";
 import { describeScheduleChange, hoursNotice, keepsSectionShape, mixedPatternNotice, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, sectionShapeIssue } from "../core/scheduleRules";
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { companionBookingFor } from "../core/scheduleWrites";
@@ -476,6 +476,7 @@ app.post("/api/schedules/move-batch", requirePermission(7), async (req: Authenti
   if (exceptions.length && !regulationExceptionAccepted(req.body)) { res.status(409).json(regulationExceptionRefusal(exceptions)); return; }
   let updated: FSchedule[];
   try {
+    await pauseAfterCheckForTests();
     updated = await Repository.moveSchedulesBatch(candidates.map((c, index) => ({
       id: c.row.id,
       fields: c.fields,

@@ -159,7 +159,8 @@ const practical3 = { CourseHours: 3, CourseTeachingMode: "practical" };
     check(/class="mini-week is-side[^"]*is-focus/.test(opened) && opened.includes("--mw-cols:minmax(0,2fr) minmax(0,1fr) minmax(0,2fr) minmax(0,1fr) minmax(0,2fr)"),
       "V2 أعمدة أيام الموعد أعرض في الترويسة والشبكة معاً (متغيّرٌ واحد)");
     check((opened.match(/<span class="is-draft">/g) || []).length === 3 && (opened.match(/mini-week-track is-draft/g) || []).length === 3, "V3 ترويسات أيام الموعد حبوبٌ ممتلئة (is-draft) ومساراتها مُبرزة");
-    check(/mini-week-target-time" dir="ltr">09:00</.test(opened), "V4 خانة «+» تحمل وقت بدايتها");
+    /* تغيّرت النيّة (إعادة التصميم، المرحلة 3): الخانات أيقونيةٌ بلا نصٍّ داخلها؛ الوقت في الاسم المنطوق وتلميح الخانة لا في جسمها. */
+    check(/<button[^>]*class="mini-week-target[^"]*"[^>]*title="09:00–/.test(opened) && /aria-label="ضع الموعد [^"]*09:00/.test(opened) && !/mini-week-target-time/.test(opened), "V4 خانة «+» أيقونيةٌ تحمل وقت بدايتها في اسمها وتلميحها لا في جسمها");
     check(opened.includes("لا يُحفظ شيء") && opened.includes("mini-week-hint") && !opened.includes("اسحب على فراغ"), "V5 تلميحٌ بأسفل النافذة؛ ولا جملة رسمٍ حيث لا مؤشر دقيق");
     const plain = render({ draft: { AdCourseId: 20 } });
     check(!/is-focus/.test(plain) && !plain.includes("--mw-cols") && !/class="is-draft"/.test(plain), "V6 بلا أيامٍ للموعد: لا تغيير في الأعمدة");
@@ -173,12 +174,14 @@ const practical3 = { CourseHours: 3, CourseTeachingMode: "practical" };
     const roomRows = [...rows, row(31, ["fsunday", "ftuesday", "fthursday"], "10:00", "10:50", { AdInstructorId: 55, AdCourseName: "مقرر آخر" })];
     const withRoom = render({ rows: roomRows, room: { code: "F", hall: "10" } });
     check(/class="mini-week-room/.test(withRoom) && withRoom.includes("القاعة محجوزة") && /title="مقرر آخر · 501/.test(withRoom), "V11 حجوز القاعة مخطّطة «القاعة محجوزة»، وتلميحها المقرر والشعبة والوقت");
-    check(/mini-week-target is-golden/.test(withRoom) && /mini-week-target is-room-busy/.test(withRoom) && withRoom.includes(" · والقاعة خالية") && /mini-week-target-star/.test(withRoom),
-      "V12 الخانة الحرّة للاثنين ذهبيةٌ بنجمة «والقاعة خالية»، والمحجوزة في القاعة باهتة");
+    /* النجمة الوحيدة الآن علامة «أفضل وقت»؛ الذهبيّ حدٌّ لا نجمة (لئلا تتشابه نجمتان). */
+    check(/mini-week-target [^"]*is-golden/.test(withRoom) && /mini-week-target [^"]*is-room-busy/.test(withRoom) && withRoom.includes(" · والقاعة خالية") && !/mini-week-target-star/.test(withRoom),
+      "V12 الخانة الحرّة للاثنين ذهبيةٌ «والقاعة خالية»، والمحجوزة في القاعة بأيقونة سببها");
     check(/mini-week-legend/.test(withRoom) && withRoom.includes("محاضرات الأستاذ") && withRoom.includes("تناسب الاثنين") && /<bdi dir="ltr">F\/10<\/bdi>/.test(withRoom),
       "V13 مفتاح الألوان ورمز القاعة (من اليسار إلى اليمين)");
     const noRoom = render({ rows: roomRows });
-    check(!/mini-week-room/.test(noRoom) && !/is-golden|is-room-busy|mini-week-legend/.test(noRoom), "V14 بلا قاعة: لا شيء من وضع القاعة");
+    /* المفتاح صار أيقونة معلومات تفتح لوحةً مطويّة دائمة الوجود؛ فالمنفيّ هنا ما يخصّ القاعة وحدها. */
+    check(!/mini-week-room/.test(noRoom) && !/is-golden|is-room-busy|mini-week-legend-room/.test(noRoom) && !noRoom.includes("تناسب الاثنين") && /class="mini-week-legend" id="[^"]*" hidden/.test(noRoom), "V14 بلا قاعة: لا شيء من وضع القاعة، والمفتاح مطويٌّ خلف أيقونة");
     check(writes.length === 0, "V15 العرض — والطيّ التلقائي خاصة — لا يكتب في التخزين شيئاً", writes);
   } finally {
     safeStorage.set = realSet;

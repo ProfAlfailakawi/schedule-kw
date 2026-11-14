@@ -8,26 +8,20 @@ export default function ConflictTimeline({ card, text }: { card: any; text: stri
   const lines: any[] = Array.isArray(card?.lines) ? card.lines.slice(0, 2) : [];
   if (lines.length < 2) return <span className="appt-inline-text">{text}</span>;
   const minutes = Number(card?.overlapMinutes) || 0;
+  /* موضع صورة الخلفية بالنسبة المئوية: p = البداية ÷ (100 − العرض)؛ تُحسب هنا فيبقى CSS بلا حساب. */
+  const at = (start: number, width: number) => `${Math.round(Math.min(100, Math.max(0, start / Math.max(1, 100 - width) * 100)) * 10) / 10}%`;
+  const vars = (line: any) => ({
+    "--bp": at(Number(line.start) || 0, Math.min(99, Number(line.width) || 0)), "--bw": `${Math.min(99, Number(line.width) || 0)}%`,
+    "--op": card.overlap ? at(Number(card.overlap.start) || 0, Math.min(99, Number(card.overlap.width) || 0)) : "0%", "--ow": card.overlap ? `${Math.min(99, Number(card.overlap.width) || 0)}%` : "0%",
+  }) as React.CSSProperties;
+  /* أقلّ عناصر ممكنة: يرثها شريط المانع (role=alert بنصّه كاملاً) فلا مجموعة وسيطة، والمسار والزمن رسمان زائفان على الصف نفسه. */
   return (
-    <div className="appt-tl" role="group" aria-label={text}>
-      <div className="appt-tl-head">
-        <span className="appt-tl-kind">{card.typeLabel}</span>
-        {minutes > 0 ? <b className="appt-tl-overlap">تداخل <bdi dir="ltr">{minutes}</bdi> دقيقة</b> : null}
-      </div>
-      <div className="appt-tl-tracks" aria-hidden="true">
-        {lines.map((line: any) => (
-          <div key={line.label} className={`appt-tl-row is-${line.tone || "plain"}`}>
-            <span className="appt-tl-label">{line.label}</span>
-            <span className="appt-tl-track">
-              <i className="appt-tl-bar" style={{ insetInlineStart: `${line.start}%`, inlineSize: `${line.width}%` }} />
-              {card.overlap ? <i className="appt-tl-hatch" style={{ insetInlineStart: `${card.overlap.start}%`, inlineSize: `${card.overlap.width}%` }} /> : null}
-            </span>
-            <bdi className="appt-tl-range" dir="ltr">{line.range}</bdi>
-          </div>
-        ))}
-      </div>
-      <span className="sr-only">{text}</span>
-    </div>
+    <>
+      <div className="appt-tl-head">{card.typeLabel}{minutes > 0 ? <b className="appt-tl-overlap">تداخل {minutes} د</b> : null}</div>
+      {lines.map((line: any) => (
+        <div key={line.label} className={`appt-tl-row is-${line.tone || "plain"}`} aria-hidden="true" style={vars(line)} data-range={line.range}>{line.label}</div>
+      ))}
+    </>
   );
 }
 

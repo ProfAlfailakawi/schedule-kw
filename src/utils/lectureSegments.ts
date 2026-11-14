@@ -3,21 +3,25 @@
  * 170 د = 50 + 10 + 50 + 10 + 50 · 110 د = 50 + 10 + 50 · ما لا يطابق ذلك مقطعٌ واحد.
  * مصدر الفاصل والمحاضرة هو لائحة الأنماط (appointmentRegulation): كتلةٌ واحدة لا تقطع إلا على هذا الإيقاع.
  */
-export const LECTURE_MINUTES = 50;
-export const LECTURE_GAP_MINUTES = 10;
+import { SHORT_DAY_GAP_MINUTES, SHORT_LECTURE_MINUTES } from "./scheduleRegulations";
+
+/** تُقرأ من اللائحة (scheduleRegulations) لا أرقاماً مكرّرة هنا؛ تُمرَّر بدائل للاختبار أو للائحة معدَّلة. */
+export const LECTURE_MINUTES = SHORT_LECTURE_MINUTES;
+export const LECTURE_GAP_MINUTES = SHORT_DAY_GAP_MINUTES;
 
 export interface LectureSegment { kind: "lecture" | "gap" | "block"; minutes: number }
 
-export function lectureSegments(totalMinutes: number): LectureSegment[] {
+export function lectureSegments(totalMinutes: number, rule: { lecture?: number; gap?: number } = {}): LectureSegment[] {
   const total = Math.round(Number(totalMinutes) || 0);
   if (total <= 0) return [];
-  const unit = LECTURE_MINUTES + LECTURE_GAP_MINUTES;
-  const count = (total + LECTURE_GAP_MINUTES) / unit;
-  if (total > LECTURE_MINUTES && Number.isInteger(count) && count >= 2 && count <= 5) {
+  const lecture = rule.lecture ?? LECTURE_MINUTES, gap = rule.gap ?? LECTURE_GAP_MINUTES;
+  const unit = lecture + gap;
+  const count = (total + gap) / unit;
+  if (total > lecture && Number.isInteger(count) && count >= 2 && count <= 5) {
     const out: LectureSegment[] = [];
     for (let i = 0; i < count; i++) {
-      if (i) out.push({ kind: "gap", minutes: LECTURE_GAP_MINUTES });
-      out.push({ kind: "lecture", minutes: LECTURE_MINUTES });
+      if (i) out.push({ kind: "gap", minutes: gap });
+      out.push({ kind: "lecture", minutes: lecture });
     }
     return out;
   }

@@ -7,6 +7,7 @@
  *   2. حيّ (يُتخطّى بوضوح إن تعذّر تشغيل خادم تجربة): يقود المتصفح إلى الحالات نفسها ويتأكد أن كل ضابطٍ
  *      في اللقطة ما زال موجوداً ويمكن بلوغه بتفاعلٍ واحدٍ أو اثنين (فتحُ قائمة = تفاعل).
  * إعادة توليد اللقطة (لا تُنفَّذ إلا على المحرّر القديم): npx tsx tests/appointment-inventory-audit.ts --capture
+ * إضافة حالة التعديل وحدها (على المحرّر القديم): INV_BASE=http://127.0.0.1:PORT npx tsx tests/appointment-inventory-audit.ts --capture-edit
  * المنفذ: INV_BASE أو 4540 (يُشغَّل خادمٌ مؤقت إن لم يكن حيّاً).
  */
 import fs from "node:fs";
@@ -23,6 +24,8 @@ try { chromium = createRequire(import.meta.url)(createRequire(import.meta.url).r
 const BASE = process.env.INV_BASE || "http://127.0.0.1:4540";
 const FIXTURE = path.join("tests", "fixtures", "appointment-controls-baseline.json");
 const CAPTURE = process.argv.includes("--capture");
+/* --capture-edit: يضيف حالة «edit-mode» وحدها إلى اللقطة القائمة (على المحرّر القديم) دون المساس بسائر الحالات. */
+const CAPTURE_EDIT = process.argv.includes("--capture-edit");
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 let passed = 0, failed = 0;
 const check = (ok: unknown, label: string, extra?: unknown) => {
@@ -89,7 +92,7 @@ async function newAppointment(p: Page) {
   await p.waitForSelector(".appt-layout"); await sleep(700);
 }
 /* اسمٌ مستقر: الأرقام والأزمنة `#`، وأيام «ضع الموعد» تُدمج، ويُقصّ الاسم — فلا تكسر الاختبارَ بياناتُ العرض ولا صياغةُ التسمية الفرعية. */
-const norm = (name: string) => name.replace(/[0-9٠-٩]+(:[0-9]+)?/g, "#").replace(/(ضع الموعد)\s*\S+\s.*/, "$1").replace(/\s+/g, " ").trim().slice(0, 14);
+const norm = (name: string) => name.replace(/[0-9٠-٩]+(:[0-9]+)?/g, "#").replace(/(ضع الموعد)\s*\S+\s.*/, "$1").replace(/^(نبض الطلبة).*/, "$1").replace(/\s+/g, " ").trim().slice(0, 14);
 const collect = async (p: Page): Promise<Control[]> => {
   const raw = await p.evaluate(COLLECT) as Control[];
   const seen = new Set<string>(); const out: Control[] = [];
@@ -135,14 +138,24 @@ async function drive(p: Page, visit: (state: string) => Promise<void>) {
   await p.keyboard.press("Escape"); await sleep(400);
 }
 
+/* وضع التعديل: موعدٌ قائم من قائمة الجدول بزرّ «تعديل» المرئي في صفّه (لا يغيّر شيئاً). */
+async function openExistingEdit(p: Page, base: string): Promise<boolean> {
+  await p.goto(base + "/FSchedule/Index", { waitUntil: "domcontentloaded" }); await sleep(2500);
+  await p.keyboard.press("Escape").catch(() => {});
+  const edit = p.locator("button.icon-action-edit:visible, button[aria-label=\"تعديل\"]:visible").first();
+  if (!(await edit.count())) return false;
+  await edit.click().catch(() => {}); await sleep(2000);
+  return (await p.locator(".appt-layout").count()) > 0;
+}
+
 function sourceText() {
   const files = fs.readdirSync("src/components").filter(f => f.endsWith(".tsx")).map(f => path.join("src/components", f));
   return files.map(f => fs.readFileSync(f, "utf8")).join("\n");
 }
 
 async function main() {
-  const watchdog = setTimeout(() => { console.log("\x1b[31m✗ watchdog: live inventory exceeded 240s\x1b[0m"); stop(); process.exit(1); }, 240_000); watchdog.unref();
-  if (!CAPTURE) {
+  const watchdog = setTimeout(() => { console.log("\x1b[31m✗ watchdog: live inventory exceeded 360s\x1b[0m"); stop(); process.exit(1); }, 360_000); watchdog.unref();
+  if (!CAPTURE && !CAPTURE_EDIT) {
     const base: Baseline = JSON.parse(fs.readFileSync(FIXTURE, "utf8"));
     const src = sourceText();
     /* 1. ساكن: الأسماء الثابتة (قصيرة، عربية، لا أرقام) موجودة في المصدر. */
@@ -156,12 +169,12 @@ async function main() {
     try {
       const p = await openEditor(browser, 1440);
       const lost: any[] = [], deep: any[] = [];
-      await drive(p, async state => {
+      const visit = async (state: string) => {
         console.log("state:", state);
         /* أسبوع الأستاذ (خلاياه وأزرار الالتصاق وإغلاقه) يتغيّر بالبيانات والتخطيط ويملكه عاملٌ آخر؛ والدرج المفتوح يحجب ما خلفه فيُتحقق من ضوابط الصفحة في حالة «ready». */
         const gridish = (c: Control) => /^(ضع الموعد|بعدها|قبلها|إغلاق جدول الأ)/.test(c.name);
         const readyNames = new Set((base["ready"] || []).map(c => c.kind + "|" + c.name));
-        const want = (base[state] || []).filter(c => !gridish(c) && !(state === "checks-open" && readyNames.has(c.kind + "|" + c.name)));
+        const want = (base[state] || []).map(c => ({ ...c, name: norm(c.name) })).filter(c => !gridish(c) && !(state === "checks-open" && readyNames.has(c.kind + "|" + c.name)));
         const have = await collect(p);
         const has = (list: Control[], c: Control) => list.some(h => h.name === c.name && h.kind === c.kind);
         const missing = want.filter(c => !has(have, c));
@@ -179,10 +192,25 @@ async function main() {
           if ((await t.getAttribute("aria-expanded", { timeout: 500 }).catch(() => null)) === "true") await t.click({ timeout: 800 }).catch(() => {});
         }
         for (const c of missing) (has(union, c) ? deep : lost).push({ state, ...c });
-      });
+      };
+      await drive(p, visit);
+      /* وضع التعديل (بعد أن فُقد سابقاً من الجرد): موعدٌ قائم يُفتح بزرّ «تعديل» في صفّه. */
+      if (base["edit-mode"]) { const opened = await openExistingEdit(p, BASE); check(opened, "live: edit mode opens from an existing row"); if (opened) await visit("edit-mode"); }
       console.log("reachable only via a menu/disclosure:", deep.length);
       check(!lost.length, "live: every baseline control is still reachable in its state (<= 2 interactions)", lost);
     } finally { await browser.close(); stop(); }
+  } else if (CAPTURE_EDIT) {
+    if (!(await ensureServer())) throw new Error("no server");
+    const browser = await chromium.launch();
+    const merged: Baseline = JSON.parse(fs.readFileSync(FIXTURE, "utf8"));
+    try {
+      const p = await openEditor(browser, 1440);
+      if (!(await openExistingEdit(p, BASE))) throw new Error("edit mode did not open");
+      merged["edit-mode"] = await collect(p);
+    } finally { await browser.close(); stop(); }
+    fs.writeFileSync(FIXTURE, JSON.stringify(merged, null, 1) + "\n");
+    console.log("edit-mode added:", merged["edit-mode"].length, "controls; states kept:", Object.keys(merged).join(","));
+    return;
   } else {
     if (!(await ensureServer())) throw new Error("no server");
     const browser = await chromium.launch();
@@ -190,11 +218,7 @@ async function main() {
     try {
       const p = await openEditor(browser, 1440);
       await drive(p, async state => { out[state] = await collect(p); });
-      /* وضع التعديل: موعدٌ قائم من القائمة (لا يغيّر شيئاً). */
-      await p.goto(BASE + "/FSchedule/Index", { waitUntil: "domcontentloaded" }); await sleep(2500);
-      await p.keyboard.press("Escape").catch(() => {});
-      const edit = p.locator('button[aria-label="تعديل"], [title="تعديل"]').first();
-      if (await edit.count()) { await edit.click().catch(() => {}); await sleep(1800); if (await p.locator(".appt-layout").count()) out["edit-mode"] = await collect(p); }
+      if (await openExistingEdit(p, BASE)) out["edit-mode"] = await collect(p);
     } finally { await browser.close(); stop(); }
     fs.mkdirSync(path.dirname(FIXTURE), { recursive: true });
     fs.writeFileSync(FIXTURE, JSON.stringify(out, null, 1) + "\n");
