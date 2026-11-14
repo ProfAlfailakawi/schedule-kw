@@ -1023,11 +1023,16 @@ export interface StudentProfile {
    * تنبيهاتُ الجوال (src/server/studentExtras.ts): أجهزتُه المشتركة وما أُرسل له في كل فصل. لا رقمَ مدنياً ولا اسماً:
    * الاشتراكُ رابطُ خدمة الدفع ومفتاحاه، والملفُّ مفتاحُه البصمة. يسقط الاشتراكُ بتغيير الرمز وبالاستعادة وبحذف الملف.
    */
-  push?: { subs: StudentPushSub[]; sent?: Record<string, string>; offered?: string };
+  push?: { subs: StudentPushSub[]; sent?: Record<string, string>; offered?: string; removedDays?: Record<string, number> };
   /** true ما دام له اشتراكٌ واحد على الأقل: حقلٌ مفردٌ يكفيه الفهرسُ التلقائي لاستعلام المُرسِل المجدول. */
   pushOn?: boolean;
   /** «شارك مرشدك»: بصمةُ الرمز (SHA-256) وانتهاؤه، لا الرمزُ نفسه. رمزٌ جديد يُبطل السابق. */
   share?: { hash: string; createdAt: string; expiresAt: string };
+  /**
+   * عدّاداتُ «شارك مرشدك» لسلامة الميزات (src/utils/featureHealth.ts): عددٌ لكل يوم (YYYY-MM-DD بتوقيت الكويت) لما أُنشئ من روابط
+   * وما فُتح منها. أرقامٌ فقط بلا هويةٍ ولا زائر ولا رابط، وتُمحى مع الملف؛ آخرُ ١٢٠ يوماً.
+   */
+  shareStats?: { made?: Record<string, number>; opens?: Record<string, number> };
 }
 
 export interface StudentPushSub {
