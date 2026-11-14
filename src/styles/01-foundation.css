@@ -452,8 +452,8 @@ time,.num,.code-chip{
  *   --duo-widget-h      clamp(64px,30vh,200px)
  *   --duo-widget-inset  w + gap: الإزاحة اليمنى الفيزيائية للمحتوى
  * صفرٌ خارج الدوو. الدوو = ما يفعّله أحد الاستعلامات الثلاثة:
- *   1) طوليٌّ 360–720 عرضاً، 520 ارتفاعاً فأكثر، ونسبة عرضٍ إلى ارتفاع ≥ 1:2 (تتسع لتطبيقٍ بارتفاعٍ كامل بلا أشرطة Safari)
- *      (382×580، 382×720، 470×780، 368×594، 585×951، 669×867؛ لا iPhone: 390×844 نسبته 0.46)
+ *   1) طوليٌّ 360–720 عرضاً، 520 ارتفاعاً فأكثر،
+ *      (382×580، 382×780، 382×844، 470×900، 368×594، 585×951، 669×867). لا نسبةَ عرضٍ إلى ارتفاع: التطبيق (WKWebView) بلا أشرطة Safari أطول، ولا يُفصَل الدوو عن iPhone الطولي بالمقاس. فiPhone الطولي (390×844…) يُحجز له الركن أيضاً (ثمنُ ذلك مكتوبٌ في الوثيقة).
  *   2) عرضيٌّ 560–1000 عرضاً، 360 ارتفاعاً فأكثر، ونسبة ≤ 17:10
  *      (580×382، 594×368، 780×470، 867×669، 951×585؛ لا iPhone: ≥ 16:9، ولا iPad: ≥ 1024)
  *   3) شاشتان فعلاً (المفصل): يكشفها المتصفح وحده، ولم تُجرَّب على جهاز.
@@ -462,7 +462,7 @@ time,.num,.code-chip{
   --duo-widget-w:0px;--duo-widget-gap:0px;--duo-widget-h:0px;
   --duo-widget-inset:calc(var(--duo-widget-w) + var(--duo-widget-gap));
 }
-@media screen and (orientation:portrait) and (min-width:360px) and (max-width:720px) and (min-height:520px) and (min-aspect-ratio:1/2),
+@media screen and (orientation:portrait) and (min-width:360px) and (max-width:720px) and (min-height:520px),
        screen and (orientation:landscape) and (min-width:560px) and (max-width:1000px) and (min-height:360px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
   :root{--duo-widget-w:70px;--duo-widget-gap:8px;--duo-widget-h:clamp(64px,30vh,200px)}

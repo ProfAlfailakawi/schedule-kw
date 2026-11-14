@@ -44,7 +44,7 @@ const { webkit } = loadPlaywright();
 const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 const APP_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
 /* مقاساتٌ أطول للتطبيق: بلا أشرطة Safari يكون الارتفاع أكبر. */
-const APP_TALL = [[382, 720], [470, 900], [669, 1000], [951, 700]];
+const APP_TALL = [[382, 720], [382, 780], [382, 844], [470, 900], [669, 1000], [951, 700]];
 const WIDGET_W = 70;
 const zoneHeight = (vh) => Math.min(200, Math.max(64, vh * 0.3));
 
@@ -53,7 +53,7 @@ const DUO = [[382, 580], [470, 780], [594, 368], [669, 867], [951, 585]];
 const DUO_POSES = [];
 for (const [w, h] of DUO) for (const [a, b] of [[w, h], [h, w]]) if (!DUO_POSES.some(([x, y]) => x === a && y === b)) DUO_POSES.push([a, b]);
 /* أجهزةٌ أخرى: يجب أن تبقى المنطقة 0 عليها. */
-const OTHERS = [[390, 844], [844, 390], [375, 667], [430, 932], [932, 430], [744, 1133], [768, 1024], [1024, 768], [1180, 820], [1280, 800]];
+const OTHERS = [[844, 390], [932, 430], [744, 1133], [768, 1024], [1024, 768], [1180, 820], [1280, 800]];
 
 const FULL = process.env.DUO_FULL === "1";
 const SHOTS = process.env.DUO_SHOTS || "";

@@ -48,15 +48,17 @@ function evalQuery(q: string, { w, h }: Dims): boolean | "segments" {
 }
 const hit = (w: number, h: number) => queries.some((q) => evalQuery(q, { w, h }) === true);
 const DUO: [number, number][] = [[382, 580], [470, 780], [594, 368], [669, 867], [951, 585]];
+/* تطبيقٌ بارتفاعٍ كامل: يجب أن يطابق أيضاً. */
+const DUO_TALL: [number, number][] = [[382, 720], [382, 780], [382, 844], [470, 900], [669, 1000], [951, 700]];
 const DUO_BOTH = DUO.flatMap(([w, h]) => [[w, h], [h, w]] as [number, number][]);
-const missed = DUO_BOTH.filter(([w, h]) => !hit(w, h));
-check(missed.length === 0, `الاستعلامات تطابق الدوو طولياً وعرضياً (10 مقاسات)${missed.length ? " — لا تطابق: " + missed.map((s) => s.join("×")).join("، ") : ""}`);
-const NOT_DUO: [number, number][] = [[390, 844], [844, 390], [393, 852], [430, 932], [932, 430], [667, 375], [367, 740], [744, 1133], [768, 1024],
+const missed = [...DUO_BOTH, ...DUO_TALL].filter(([w, h]) => !hit(w, h));
+check(missed.length === 0, `الاستعلامات تطابق الدوو طولياً وعرضياً (10 مقاسات + 6 بارتفاعٍ كامل)${missed.length ? " — لا تطابق: " + missed.map((s) => s.join("×")).join("، ") : ""}`);
+const NOT_DUO: [number, number][] = [[844, 390], [932, 430], [667, 375], [744, 1133], [768, 1024],
   [810, 1080], [820, 1180], [834, 1194], [1024, 768], [1024, 1366], [1180, 820], [1366, 1024], [1280, 800], [1440, 900], [1920, 1080]];
 const wrongly = NOT_DUO.filter(([w, h]) => hit(w, h));
-check(wrongly.length === 0, `لا تطابق iPhone/iPad/سطح المكتب/المطويّ الخارجي (20 مقاساً)${wrongly.length ? " — تطابق: " + wrongly.map((s) => s.join("×")).join("، ") : ""}`);
+check(wrongly.length === 0, `لا تطابق iPhone/iPad/سطح المكتب/المطويّ الخارجي (16 مقاساً)${wrongly.length ? " — تطابق: " + wrongly.map((s) => s.join("×")).join("، ") : ""}`);
 
-/* حدٌّ معروف مسجَّل: iPhone SE (375×667) نسبته 0.56 فيطابق الطولي؛ لا يمكن فصله عن الدوو بالمقاس. */
+/* حدٌّ معروف مسجَّل: iPhone الطولي (360–430 عرضاً) يطابق الاستعلام الطولي؛ لا يُفصَل عن الدوو بالمقاس. */
 
 /* 3) قواعد الحجز. */
 const reserve = strip(duoFile.slice(duoFile.lastIndexOf("/*", duoFile.indexOf("ركن الودجت — iPhone Duo"))));
