@@ -26,6 +26,9 @@ import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { useTrainees } from "../utils/trainees";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
+import RoomSwapCard from "./RoomSwapCard";
+import { roomSwapBody, useRoomSwaps } from "./useRoomSwaps";
+import type { RoomSwap } from "../utils/appointmentRoomSwap";
 import InstructorPicker from "./InstructorPicker";
 import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } from "./TeacherMiniWeek";
 import PersonChips from "./PersonChips";
@@ -140,6 +143,8 @@ export default function QuickCreatePopover({
   miniWeek,
   onReplaceable,
   replaceBusy = false,
+  onSwapRooms,
+  swapBusy = false,
   meter = null,
   sameSlot,
 }: {
@@ -150,6 +155,9 @@ export default function QuickCreatePopover({
   /** 🔄 خانة «هيئة تدريسية» مطابقة تماماً: «خذ موعدها» · «بدّل» · «احذفها وخذ مكانها» — طلبٌ واحد محروس عند الأب. */
   onReplaceable?: (section: ReplaceableSection, action: "assign" | "swap" | "replace", appointment: Record<string, unknown>) => void;
   replaceBusy?: boolean;
+  /** «بدّل القاعتين»: ينقل الشعبة الأخرى (بتأكيد وتراجع) ويعيد true إن نُقلت، فتأخذ المسوّدةُ قاعتَها. */
+  onSwapRooms?: (swap: RoomSwap) => Promise<boolean>;
+  swapBusy?: boolean;
   /** مقرّرٌ معروفٌ سلفاً — كإضافةٍ طلبها أستاذ — فتُفتح البطاقةُ وهو مختار. */
   initialCourseId?: number;
   seed: QuickSeed;
@@ -355,6 +363,18 @@ export default function QuickCreatePopover({
     fthursday: chosenDays.includes("fthursday"),
   };
   const checkKey = JSON.stringify(payload);
+  /* «بدّل القاعتين»: لا يُسأل الخادم إلا والمقرر والأستاذ مختاران، ولا تظهر البطاقة بلا تبديلٍ آمن. */
+  const roomSwapIdeas = useRoomSwaps(onSwapRooms && draft.courseId && draft.instructorId && !hasDifferentTimes ? roomSwapBody(payload, 0) : null);
+  const takeRoomSwap = async (swap: RoomSwap) => {
+    if (!onSwapRooms || !(await onSwapRooms(swap))) return;
+    setDraft(current => {
+      const to = swap.mine.to;
+      return {
+        ...current, room: to.room, hall: to.hall, buildingId: to.buildingId, roomId: to.roomId, locationStatus: "VERIFIED" as const,
+        ...(String(to.buildingId || "") !== String(current.buildingId || "") ? { companionRoomId: "", companionRoomLabel: "" } : {}),
+      };
+    });
+  };
   const latestIdeasKey = useRef(checkKey);
   latestIdeasKey.current = checkKey;
   /* يُفحص ما اختير فقط: المقرر والوقت كافيان لبدء الفحص، ولا يُنتظر اكتمال كل الحقول —
@@ -802,6 +822,7 @@ export default function QuickCreatePopover({
                   }}
                 />
               </div>
+              <RoomSwapCard swaps={roomSwapIdeas} busy={swapBusy} mineLabel={selectedCourse?.CourseName || "موعدك"} onApply={swap => void takeRoomSwap(swap)} />
               <CompanionFacilityPicker course={selectedCourse} form={payload}
                 onChange={values => patch({ companionRoomId: values.companionRoomId, companionRoomLabel: values.companionRoomLabel })} />
             </div>
