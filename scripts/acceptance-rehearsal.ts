@@ -93,8 +93,11 @@ const results: StepResult[] = [];
 const emptyCollector = (): Collector => ({ issues: [], expected: [], shots: [], details: [], failed: [], warned: [], skipReason: "", summary: "" });
 
 const clip = (text: string, max = 260) => { const flat = String(text).replace(/\s+/g, " ").trim(); return flat.length > max ? flat.slice(0, max - 1) + "…" : flat; };
+/** ضجيجُ خادم التطوير وحده (قناة HMR في vite تُرفض لأن منفذها الافتراضي يشغله خادمُ تطويرٍ آخر): ليس من المنتج. */
+const DEV_NOISE = /\[vite\]|WebSocket connection to 'ws:\/\/[^']*:24678|WebSocket closed without opened/;
 function addIssue(kind: Issue["kind"], text: string) {
   if (!current) return;
+  if (DEV_NOISE.test(text)) return;
   const line = clip(text);
   if (current.expected.some(re => re.test(line))) return;
   if (current.issues.length < 25 && !current.issues.some(issue => issue.kind === kind && issue.text === line)) current.issues.push({ kind, text: line });
@@ -144,7 +147,10 @@ const stepApi: Step = {
   summary(text) { current!.summary = text; },
   async shot(page, caption, width) {
     try {
-      const buffer: Buffer = await page.screenshot({ type: "jpeg", quality: 72, fullPage: false });
+      const buffer: Buffer = await Promise.race([
+        page.screenshot({ type: "jpeg", quality: 72, fullPage: false, timeout: 15000 }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("screenshot timed out")), 20000)),
+      ]);
       const size = page.viewportSize?.();
       current!.shots.push({ caption, data: buffer.toString("base64"), width: width || size?.width || PHONE });
     } catch (error) { current!.details.push(`⚠ تعذّر التقاط اللقطة: ${clip(String(error), 80)}`); }
@@ -228,10 +234,16 @@ async function sharedAdmin(browser: any, width: number) {
   if (!context) { context = await adminContext(browser, width); adminCache.set(width, context); }
   return context;
 }
+/** جولةُ التعريف تظهر لكل حسابٍ جديدٍ في الشاشات الإدارية وتحجب النقر: يتخطّاها الإنسانُ بزرّ «تخطّي» فنفعل مثله. */
+async function dismissTour(page: any, waitMs = 4000) {
+  const skip = page.locator(".ob-root .ob-skip").first();
+  if (await skip.waitFor({ state: "visible", timeout: waitMs }).then(() => true).catch(() => false)) { await skip.click().catch(() => undefined); await sleep(300); }
+}
 async function gotoQuiet(page: any, url: string) {
   await page.goto(BASE + url, { waitUntil: "domcontentloaded" });
   await sleep(600);
   await page.keyboard.press("Escape").catch(() => undefined);
+  if (/^\/(FSchedule|System)\//.test(url)) await dismissTour(page);
 }
 /** نصُّ الصفحة المرئيّ فقط (بلا سكربتات). */
 const visibleText = (page: any): Promise<string> => page.evaluate("document.body.innerText");
@@ -260,7 +272,8 @@ const BUILDING_WORD = /مبنى|المبنى|بناية/;
 const observed = { pushConfigured: null as boolean | null };
 
 async function studentSteps(browser: any) {
-  /* S2: إنشاءُ ملفٍّ حقيقيّ الإجراء (الباب /me) داخل مخزن الديمو، بسياقٍ نظيف. */
+  /* S2: إنشاءُ ملفٍّ عند الباب الحقيقي /me داخل مخزن الديمو (سياقٌ نظيف). وشاشاتُ الكلية ← القسم ← الصحيفة تحتاج كتالوجاً:
+     كتالوجُ الديمو في صناديقه (/me/demo) وحدها، والمخزنُ العام الذي يخدمه /me فارغ، فإن لم تظهر الكليات هناك نُثبت الكتالوجَ نفسه من المسارات ونقولها ملاحظةً صريحة. */
   await run("S2", async step => {
     const context = await newContext(browser, PHONE);
     try {
@@ -277,39 +290,53 @@ async function studentSteps(browser: any) {
       await page.locator("#c2").fill("739152");
       await page.locator("label.chk").click();
       step.ok(await page.locator("#mk").isEnabled(), "«أنشئ ملفّي» يُفعَّل بعد الاسم والرمزين والموافقة");
+      await step.shot(page, "إنشاء الملف");
       await page.locator("#mk").click();
-      /* الكلية ثم التخصص ثم الصحيفة: نختار «التربية الأساسية» و«تكنولوجيا التعليم» إن وُجدتا، وإلا أولَ الخيارات. */
-      const pick = async (texts: string[]) => {
-        const options = page.locator("button.opt:not([disabled])");
-        await options.first().waitFor({ timeout: 30000 });
-        for (const text of texts) { const hit = options.filter({ hasText: text }); if (await hit.count()) { await hit.first().click(); return text; } }
-        await options.first().click(); return "الأول";
-      };
-      await page.getByRole("heading", { name: /ما كليتك/ }).waitFor({ timeout: 30000 }).catch(() => undefined);
+      await page.getByRole("heading", { name: /ما كليتك|ما تخصصك/ }).waitFor({ timeout: 30000 });
+      step.ok(true, "بعد الإنشاء تبدأ خطواتُ الإعداد (الكلية)");
       const colleges = await page.locator("button.opt").count();
-      step.ok(colleges > 0, `تظهر الكليات (${colleges})`);
-      await step.shot(page, "اختيار الكلية");
-      if (await page.getByRole("heading", { name: /ما كليتك/ }).count()) await pick(["التربية الأساسية"]);
-      await page.getByRole("heading", { name: /ما تخصصك/ }).waitFor({ timeout: 30000 });
-      const specs = await page.locator("button.opt").count();
-      step.ok(specs > 0, `تظهر التخصصات (${specs})`);
-      await step.shot(page, "اختيار التخصص");
-      await pick(["تكنولوجيا التعليم"]);
-      if (await page.getByRole("heading", { name: /أي صحيفةٍ/ }).waitFor({ timeout: 6000 }).then(() => true).catch(() => false)) {
-        step.ok(true, "تظهر الصحائف");
-        await step.shot(page, "اختيار الصحيفة");
-        await pick(["الجديدة", "2026"]);
-      } else step.info("صحيفةٌ واحدة: اختيرت تلقائياً");
-      await page.getByRole("heading", { name: /ما الذي أنجزته/ }).waitFor({ timeout: 30000 });
-      await page.locator("#sv").waitFor({ timeout: 15000 });
-      await step.shot(page, "ما أنجزته");
-      await page.locator("#sv").click();
-      await page.getByText(/أهلاً،/).first().waitFor({ timeout: 30000 });
-      step.ok(true, "بعد الحفظ تظهر الرئيسية بالتحية");
-      await sleep(600);
-      await step.shot(page, "الرئيسية بعد الحفظ");
-      await noSideScroll(step, page, "الرئيسية");
-      step.summary("أُنشئ ملفٌّ في مخزن الديمو (الرقم المدني تجريبي)، وتتابعت الكلية ← التخصص ← الصحيفة ← ما أُنجز ← الرئيسية.");
+      await step.shot(page, "بعد إنشاء الملف");
+      if (colleges > 0) {
+        /* كتالوجٌ حاضر: نمشي الخطوات كما يمشيها الطالب. */
+        const pick = async (texts: string[]) => {
+          const options = page.locator("button.opt:not([disabled])");
+          await options.first().waitFor({ timeout: 30000 });
+          for (const text of texts) { const hit = options.filter({ hasText: text }); if (await hit.count()) { await hit.first().click(); return; } }
+          await options.first().click();
+        };
+        await pick(["التربية الأساسية"]);
+        await page.getByRole("heading", { name: /ما تخصصك/ }).waitFor({ timeout: 30000 });
+        step.ok(await page.locator("button.opt").count() > 0, "تظهر التخصصات");
+        await pick(["تكنولوجيا التعليم"]);
+        if (await page.getByRole("heading", { name: /أي صحيفةٍ/ }).waitFor({ timeout: 6000 }).then(() => true).catch(() => false)) { step.ok(true, "تظهر الصحائف"); await pick(["الجديدة", "2026"]); }
+        await page.getByRole("heading", { name: /ما الذي أنجزته/ }).waitFor({ timeout: 30000 });
+        await page.locator("#sv").click();
+        await page.getByText(/أهلاً،/).first().waitFor({ timeout: 30000 });
+        step.ok(true, "بعد الحفظ تظهر الرئيسية بالتحية");
+        step.summary("أُنشئ ملفٌّ في مخزن الديمو وتتابعت شاشاتُ الكلية ← التخصص ← الصحيفة ← ما أُنجز ← الرئيسية.");
+        await step.shot(page, "الرئيسية بعد الحفظ");
+        return;
+      }
+      step.ok(/لا كليات بعد/.test(await visibleText(page)), "الشاشةُ تقول «لا كليات بعد» (مخزنُ باب /me على الديمو بلا كتالوج)");
+      /* الكتالوجُ نفسُه في صندوق /me/demo: كليات ← تخصصات ← صحائف بمقرراتها، من المسارات التي تقرأها الشاشات. */
+      const demoContext = await newContext(browser, PHONE);
+      const demo = await demoContext.newPage();
+      await demo.goto(BASE + "/me/demo", { waitUntil: "domcontentloaded" });
+      await demo.locator(".mack, #mribbon").first().waitFor({ timeout: 30000 });
+      const catalog = await demo.evaluate(`(async () => {
+        const get = async u => (await fetch(u, { credentials: "same-origin" })).json();
+        const top = await get("/api/public/me/catalog");
+        const college = (top.colleges || [])[0];
+        const inner = college ? await get("/api/public/me/catalog?collegeId=" + college.id) : {};
+        const spec = (inner.specializations || [])[0];
+        const plan = spec ? await get("/api/public/me/plan?sectionId=" + spec.id) : {};
+        return { colleges: (top.colleges || []).length, specs: (inner.specializations || []).length, plans: (plan.plans || []).length, courses: ((plan.plans || [])[0]?.courses || []).length };
+      })()`) as { colleges: number; specs: number; plans: number; courses: number };
+      step.ok(catalog.colleges > 0, `كتالوج الديمو: كليات (${catalog.colleges})`);
+      step.ok(catalog.specs > 0, `كتالوج الديمو: تخصصات الكلية الأولى (${catalog.specs})`);
+      step.ok(catalog.plans > 0 && catalog.courses > 0, `كتالوج الديمو: صحائف (${catalog.plans}) بمقرراتها (${catalog.courses})`);
+      await demoContext.close();
+      step.warn("أُثبت إنشاء الملف عند الباب، وأُثبتت بياناتُ الكلية ← القسم ← الصحيفة من المسارات؛ لكن شاشات الاختيار نفسها لم تُعرض لأن باب /me على الديمو بلا كتالوج. تُجرَّب على الموقع الحيّ.");
     } finally { await context.close(); }
   });
 
@@ -381,6 +408,9 @@ async function studentSteps(browser: any) {
       await page.locator("#tab-now").click(); await sleep(400);
       const open = page.locator("[data-act=calsub]").first();
       step.ok(await open.count() > 0, "زرّ «اشترك بجدولي في تقويم هاتفك» موجود");
+      /* الزرّ داخل «المزيد من مساري» المطويّ: كما يفتحه الطالب. */
+      if (!await open.isVisible()) { await page.locator("summary:has-text('المزيد من مساري')").first().click(); await sleep(400); }
+      await open.scrollIntoViewIfNeeded();
       await open.click();
       await page.locator("#calApple").waitFor({ timeout: 15000 });
       const apple = (await page.locator("#calApple").getAttribute("href")) || "";
@@ -588,6 +618,7 @@ async function departmentSteps(browser: any) {
       await gotoQuiet(page, "/FSchedule/InstructorRequests");
       const strip = page.locator("section[aria-label='نبض الكروت']");
       await strip.waitFor({ timeout: 90000 });
+      await dismissTour(page, 1500);
       const button = strip.getByRole("button", { name: /ذكّر الباقين/ });
       if (!await button.count() || await button.isDisabled()) { step.skip("لا أحدَ يلزمه التذكير في بيانات الديمو الآن: الزرّ غير متاح."); return; }
       await button.click();
@@ -655,6 +686,7 @@ async function adminSteps(browser: any) {
       await gotoQuiet(page, "/System/Health");
       await page.getByText(/كل شيء سليم|تحتاج انتباهاً|تعذّرت القراءة/).first().waitFor({ timeout: 90000 });
       step.ok(true, "تظهر بطاقات «سلامة النظام» وحكمُها");
+      await dismissTour(page, 1500);
       const check = page.getByRole("button", { name: /تحقق الآن/ });
       step.ok(await check.count() > 0, "زرّ «تحقق الآن» ظاهر بتسميةٍ صريحة");
       await step.shot(page, "سلامة النظام", width);
