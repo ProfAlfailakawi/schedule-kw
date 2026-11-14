@@ -69,7 +69,8 @@ check(/const bulkFit = !decided && !frozenScreen && item\.action === "change" &&
 check(inbox.includes('const ok = await now.decide(row, entry.index, "fixed", { after: [] });'),
   "S4 كلُّ بندٍ يُثبَّت بـ decide نفسها — زرّ «ثبّت» بمعاينته وخادمه");
 const routes = [...new Set([...inbox.matchAll(/`\/api\/instructor-requests\/\$\{row\.id\}\/([a-z-]+)`/g)].map(match => match[1]))].sort();
-check(routes.join(",") === "apply,cancel-scheduled,decide,reply", `S4 لا مسارَ جديداً في الخادم (${routes.join("، ")})`);
+/* «notified» يسجّل لحظةَ «أبلغ الأستاذ» وحدها (FR-REQ-061)، ولا يكتب في الجدول؛ والتثبيتُ الجماعيّ لا يزال بـ decide/apply. */
+check(routes.join(",") === "apply,cancel-scheduled,decide,notified,reply", `S4 لا مسارَ جديداً في الخادم (${routes.join("، ")})`);
 check(/for \(const entry of list\) \{[\s\S]*?if \(!ok\) \{ stopAt\(entry\.key,[\s\S]*?return; \}/.test(inbox),
   "S4 واحداً بعد واحد، ويتوقّف عند أول تعذّر ويقول سببه");
 check(/className="inbox-bulk-sheet" role="dialog" aria-modal="true"/.test(inbox) && inbox.includes('phase: "confirm"')
@@ -92,8 +93,8 @@ check(mentionsPlace("القاعة 901A01/L01 محجوزة لمختبر") && ment
   "S6 رمزُ القاعة أو المبنى يُلتقط");
 check(!mentionsPlace("الوقت 14:00/15:00 يتقاطع مع مقرّر آخر") && !mentionsPlace("لا تتوفّر قاعة مناسبة") && !mentionsPlace("مقرر 1234567"),
   "S6 والوقتُ ورمزُ المقرّر وذكرُ «قاعة» بلا رمز لا تُنبّه");
-check(!/placeholder="[^"]*(?:القاعة|المبنى|\d[A-Za-z]\d)/.test(inbox) && (inbox.match(/<PlaceWarning text=\{/g) || []).length === 2,
-  "S6 النصُّ الإرشاديّ بلا قاعة، والتنبيهُ تحت سطر الرفض وردّ الحوار");
+check(!/placeholder="[^"]*(?:القاعة|المبنى|\d[A-Za-z]\d)/.test(inbox) && (inbox.match(/<PlaceWarning text=\{/g) || []).length === 3,
+  "S6 النصُّ الإرشاديّ بلا قاعة، والتنبيهُ تحت سطر الرفض وردّ الحوار وسطر «إلغاء الموعد»");
 
 console.log(`\nInbox studio audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

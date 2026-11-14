@@ -158,6 +158,12 @@ button.say:disabled{opacity:.55;cursor:default;border-style:dashed}
 .movement-meta[data-decision=fixed]{color:var(--jade)}
 .movement-meta[data-decision=rejected]{color:var(--bad)}
 ${PROPOSAL_ALERT_CSS}
+.decided-box{margin:12px 0;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+.decided-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.decided-head h3{margin:0;font-size:14px}.decided-head button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:4px 12px;font:inherit;color:var(--dim)}
+.decided-box ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:8px;font-size:13.5px;line-height:1.7}
+.decided-box small{color:var(--dim)}
+.decided-box a.req-link,.decided-box a.decided-cal{display:inline-flex;align-items:center;min-height:32px;padding:2px 10px;border-radius:999px;border:1px solid var(--line);color:var(--jade);font-weight:600;font-size:12.5px;text-decoration:none}
 .requests-panel{margin-top:12px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
 .requests-panel h3{margin:0 0 4px;font-size:14px}.requests-panel .sub{margin:0;color:var(--dim);font-size:12.5px;line-height:1.8}
 .req-proposed{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:999px;background:color-mix(in srgb,var(--brass) 18%,transparent);color:var(--brass);font-size:11.5px;font-weight:600}
@@ -283,6 +289,7 @@ ${STAFF_CARD_VISUAL_CSS}
     <div class="stats" id="stats"></div>
     <div class="soon" id="soon" hidden></div>
     <div id="proposalAlerts" aria-live="polite"></div>
+    <div id="decisionAlerts" aria-live="polite"></div>
     <div class="card-tabs" role="tablist">
       <button type="button" class="card-tab" id="tab-week" role="tab" aria-selected="true">الجدول الأسبوعي</button>
       <button type="button" class="card-tab" id="tab-requests" role="tab" aria-selected="false" hidden>طلب تعديل الجدول</button>
@@ -380,7 +387,35 @@ ${CALENDAR_LINKS_CLIENT_JS}
     pbSig=key;
     pbLoad(links.map(function(l){return l.linkId}),function(items){var box=document.getElementById("proposalAlerts");if(box)box.innerHTML=pbHtml(items)});
   }
+  /* ── «ما تقرّر منذ آخر زيارة»: قراراتُ القسم على طلباتك بعد زيارتك السابقة لهذه البطاقة ──
+     ما ثُبّت بوقته المكتوب فعلاً و«أضف إلى تقويمي» لموعده وحده، وما تعذّر ببدائله ورابطِ طلبك لتختار.
+     لحظةُ الزيارة تُحفظ في هذا الجهاز لكل طلب، وتُقرأ مرّةً في أول رسم فلا تُمحى بإعادة القراءة. */
+  var DECISION_DAYS={fsunday:"الأحد",fmonday:"الاثنين",ftuesday:"الثلاثاء",fwednesday:"الأربعاء",fthursday:"الخميس"};
+  var decisionSince={},decisionDismissed=false;
+  function renderDecisions(d){
+    var box=document.getElementById("decisionAlerts");if(!box)return;
+    if(decisionDismissed){box.innerHTML="";return}
+    var dayText=function(days){return (days||[]).map(function(x){return DECISION_DAYS[x]||x}).join(" · ")};
+    var rows=[];
+    (d.requestLinks||[]).forEach(function(l){
+      if(!(l.linkId in decisionSince)){var stored="";try{stored=localStorage.getItem("card-seen:"+l.linkId)||""}catch(e){}decisionSince[l.linkId]=stored;try{localStorage.setItem("card-seen:"+l.linkId,new Date().toISOString())}catch(e){}}
+      var base=Date.parse(decisionSince[l.linkId]||"");
+      (l.decisions||[]).forEach(function(e){if(!isFinite(base)||Date.parse(e.at)>base)rows.push({l:l,e:e})});
+    });
+    if(!rows.length){box.innerHTML="";return}
+    box.innerHTML='<section class="decided-box" aria-labelledby="decidedTitle"><div class="decided-head"><h3 id="decidedTitle">ما تقرّر منذ آخر زيارة</h3><button type="button" id="decidedDone">تمّ</button></div><ul>'+
+      rows.map(function(r){var e=r.e,c="«"+esc(e.course||"المقرر")+"»",t=e.start?" — "+esc(dayText(e.days))+' <bdi dir="ltr">'+esc(e.start+(e.end?"–"+e.end:""))+"</bdi>":"";
+        var alts=(e.alternatives||[]).map(function(a){return esc(dayText(a.days))+' <bdi dir="ltr">'+esc(a.start)+"</bdi>"}).join(" · ");
+        var open='<a class="req-link" href="/r/'+encodeURIComponent(r.l.linkId)+'" target="_blank">افتح طلبك ←</a>';
+        if(e.kind==="fixed")return '<li data-k="fix">✅ '+(e.action==="delete"?"حُذف "+c:"ثُبّت "+c+t)+
+          (e.calendarReady?' <a class="decided-cal" download href="/api/public/request/'+encodeURIComponent(r.l.linkId)+'/fixed/'+encodeURIComponent(e.itemId)+'.ics">أضف إلى تقويمي</a>':"")+"</li>";
+        if(e.kind==="reply")return '<li data-k="reply">💬 ردّ القسم على '+c+(alts?" · يقترح: "+alts:"")+" "+open+"</li>";
+        return '<li data-k="bad">❌ '+(e.kind==="cancelled"?"ألغى القسم "+c:"تعذّر "+c+t)+(alts?"<br><small>بدائلُ القسم: "+alts+"</small>":"")+" "+open+"</li>";
+      }).join("")+"</ul></section>";
+    var done=document.getElementById("decidedDone");if(done)done.onclick=function(){decisionDismissed=true;box.innerHTML=""};
+  }
   function renderRequests(d){
+    renderDecisions(d);
     var host=document.getElementById("requests");
     /* نافذةٌ مغلقة لا بابَ لها: لا تبويبَ ولا بطاقةَ «انتهت فترة الطلبات».
        ويُكتفى بنافذةٍ واحدة لكل رابط، مع اسم الكلية حين يتشابه اسما القسمين. */

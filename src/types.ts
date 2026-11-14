@@ -1504,6 +1504,10 @@ export interface InstructorRequestItem {
     cancelled?: boolean;
     /** حالُ الطلب والبند قبل «ثبّت الطلب» من الجدول، ليعيدهما «تراجع». للقسم وحده. */
     reopenTo?: { status: InstructorRequest["status"]; decision?: NonNullable<InstructorRequestItem["decision"]> };
+    /** ما كُتب في الجدول فعلاً عند التثبيت (الأيامُ والوقت)، فيقرأ الأستاذ ما وقع لا ما طلبه. */
+    fixedAs?: { days: string[]; start: string; end: string };
+    /** ثُبّت عبر مقترحٍ دراسيّ وافق عليه الأستاذ (معرّفُ المقترح). */
+    viaProposal?: string;
   };
   /** البديلُ الذي اختاره الأستاذ بعد الرفض. */
   chosenAlternative?: InstructorRequestSlot;
@@ -1580,6 +1584,8 @@ export interface InstructorRequest {
   offeredCourseIds?: number[] | null;
   /** تذكيراتُ «ذكّر من لم يرد»: لحظةُ كل تذكير، الأحدثُ آخراً. */
   remindedAt?: string[];
+  /** آخرُ «أبلغ الأستاذ» بالقرار (واتساب من الوارد): ما قُرّر بعده لم يُبلَّغ بعد. */
+  decisionNotifiedAt?: string;
   /** أولُ فتحٍ للرابط. غيابُه يعني أنه لم يُفتح، لا أنه لم يصل. */
   linkOpenedAt?: string;
   /** مرّات فتح الرابط لكل يومٍ (توقيت الكويت). تُسجَّل مرةً كل نصف ساعة على الأكثر فلا تُضخّمها إعادة التحميل. */
