@@ -28,7 +28,7 @@ check(/\{risk\.instructorName\}\{visitingAt\(risk\.instructorId, risk\) \? <> <V
 check(/\{proposal\.instructorName\}\{visitingAt\(proposal\.instructorId, proposal\) \? <> <VisitingBadge compact \/><\/> : null\}/.test(workspace), "اقتراح تبديل القاعات");
 /* حملُ الأساتذة صار في التقارير (عدسة «الأساتذة»)، و«طلبات الطلاب» في «كشف التسجيل ← تحليل الطلب». */
 const reports = read("src/components/Reports.tsx"), demandAnalysis = read("src/components/DemandAnalysis.tsx");
-check(/person\.name\}<VisitingBadge compact \/>/.test(reports), "قائمة حمل الأساتذة (عدسة الأساتذة في التقارير)");
+check(/person\.name\}<\/span><VisitingBadge compact \/>/.test(reports), "قائمة حمل الأساتذة (عدسة الأساتذة في التقارير)");
 check(/slot\.instructorId && visitingAt\(slot\.instructorId, item\) \? <> <VisitingBadge compact \/><\/> : null/.test(demandAnalysis), "خانة فتح الشعبة («تحليل الطلب»)");
 check(/withVisitingSuffix\(String\(slot\.instructorName \|\| ""\), visitingAt\(slot\.instructorId, item\)\)/.test(demandAnalysis), "سطر ApplyProposal لفتح الشعبة («تحليل الطلب»)");
 check(/withVisitingSuffix\(i\.AdInstructorName, isVisiting\(i\.AdInstructorId, collegeId, sectionId\)\)/.test(workspace), "خيارات نموذج القيد");

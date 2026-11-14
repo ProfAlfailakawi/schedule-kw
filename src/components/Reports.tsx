@@ -3606,7 +3606,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   >
                     <span className="group-avatar"><UserPlus /></span>
                     <span className="visiting-card-identity">
-                      <strong className="report-instructor-with-badge">{group.name}{personChips(group.id, directoryVisitingIds.has(Number(group.id)))}</strong>
+                      <strong className="report-instructor-with-badge"><span className="rib-name">{group.name}</span>{personChips(group.id, directoryVisitingIds.has(Number(group.id)))}</strong>
                       <small className="visiting-card-places">
                         {countOf(group.courses, AR.course)}
                         {group.places.length > 1 || familyTeaching ? <> · {group.places.map(place => visitingPlaceLabel(place.collegeId, place.sectionId)).join("، ")}</> : null}
@@ -3713,7 +3713,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                               >
                                 <span className="visiting-history-rank" aria-label={`الترتيب ${index + 1}`}>{num(index + 1)}</span>
                                 <span className="visiting-history-person-name">
-                                  <strong className="report-instructor-with-badge">{person.name}<VisitingBadge compact /></strong>
+                                  <strong className="report-instructor-with-badge"><span className="rib-name">{person.name}</span><VisitingBadge compact /></strong>
                                   {person.civil ? <small dir="ltr">{person.civil}</small> : null}
                                   {person.listedNow === false ? <small className="visiting-history-left">لم يعد في دليل القسم</small> : null}
                                 </span>
@@ -3903,7 +3903,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   onClick={() => setOpenGroup(openGroup === group.id ? null : group.id)}
                 >
                   <span className="group-avatar"><UserRound /></span>
-                  <strong className="report-instructor-with-badge">{group.name}{personChips(Number(group.id))}</strong>
+                  <strong className="report-instructor-with-badge"><span className="rib-name">{group.name}</span>{personChips(Number(group.id))}</strong>
                   <span className="group-bar"><i style={{ width: share(group.load, maxLoad) }} /></span>
                   <b>{num(group.count)}</b>
                   <em title="نصاب تدريسي: ساعات المقررات المعتمدة، والشعبة مرة واحدة">{num(group.teaching)}س</em>
