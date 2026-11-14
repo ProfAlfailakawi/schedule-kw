@@ -3405,7 +3405,7 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 /** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
 export type FeatureCollection =
   /* سقفُ وحدات الطالب في «مساري»: الجامعيُّ وحده يُقرأ؛ وثائقُ الأقسام القديمة باقيةٌ لا تُقرأ ولا تُكتب. */
-  | "universityStudentSettings" | "regulationExceptions" | "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
+  | "universityStudentSettings" | "regulationExceptions" | "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns" | "savedReports"
   /* الكراسي (docs/SEATS.md): سجلُّ كل حساب — شاغله وفريقه وتاريخه — وروابطُ أعضاء الفرق. */
   | "seatLedgers" | "seatMemberLinks"
   /* إعادةُ تعيين كلمة السر: أثرُ الكلمة المؤقتة ودخولُها الواحد، لا الكلمة (src/server/accountPassword.ts). */

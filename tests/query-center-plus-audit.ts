@@ -9,7 +9,11 @@
  */
 import fs from "fs";
 import path from "path";
-import { askNormalize, askSubject, resolveAsk } from "../src/utils/queryAsk";
+import { askNormalize, askSubject, editDistance, fuzzyNames, resolveAsk } from "../src/utils/queryAsk";
+import { briefLineText, briefMessage, kuwaitDayKey, kuwaitWeekday } from "../src/server/morningBriefPush";
+import { speechToQuestion } from "../src/hooks/useSpeechAsk";
+import { sanitizeReportState } from "../src/utils/reportShareCore";
+import { resultsFingerprint } from "../src/utils/reportShare";
 import { buildReportInsights, kuwaitNow } from "../src/utils/reportInsights";
 import { compactFilters, decodeReportState, encodeReportState } from "../src/utils/reportShare";
 import { balanceSheet, exportFileName, sheetName, visitingHistorySheet } from "../src/utils/lensExport";
@@ -58,6 +62,26 @@ const nonsense = resolveAsk("أي كلام عشوائي", context);
 check(nonsense.kind === "unknown" && /لم أجد/.test(nonsense.hint), "جملةٌ لا تُفهم ← رسالةٌ صريحة ولا مرشّحات", nonsense);
 check(resolveAsk("", context).kind === "unknown", "سؤالٌ فارغ ← لا شيء يتغيّر");
 check(askNormalize("أحمد ٩") === "احمد 9" && askSubject("جدول د. سالم الأحد 10") === "سالم", "التطبيع ونزع كلمات السؤال");
+
+/* ── التقريب الإملائي ───────────────────────────────────────────────────── */
+check(editDistance("سالم", "سالن") === 1 && editDistance("احمد", "احمد") === 0 && editDistance("", "اب") === 2, "المسافة بين الكلمتين");
+const typo = resolveAsk("جدول احمد سالن", context);
+check(typo.kind === "choose" && typo.fuzzy === true && typo.options.length === 1 && typo.options[0].label === "د. أحمد سالم", "خطأٌ حرفٌ واحد ← «هل تقصد؟» باسمٍ واحد", typo);
+check(fuzzyNames("كلام", context.instructors).length === 0 && fuzzyNames("اب", context.instructors).length === 0, "كلامٌ بعيدٌ أو قصيرٌ جداً لا يُخمَّن");
+check(speechToQuestion("جدول ٩ : ٣٠ الثلاثاء ") === "جدول 9:30 الثلاثاء", "الإملاء الصوتي: أرقامٌ عادية وساعةٌ مضبوطة");
+
+/* ── موجز الصباح بالتنبيه ──────────────────────────────────────────────── */
+check(briefLineText({ place: "قسم", blockers: 2, daysLeft: 5 }) === "قسم · مانعان · 5 أيام" && briefLineText({ place: "قسم", blockers: 0, daysLeft: -1 }) === "قسم · انقضى الموعد", "سطر القسم: الموانع والأيام بالعدّ العربي");
+check(briefMessage([{ place: "قسم", blockers: 0, daysLeft: 20 }]) === null, "لا شيء يُذكر ← لا تنبيه");
+const pushed = briefMessage([{ place: "أ", blockers: 1, daysLeft: null }, { place: "ب", blockers: 0, daysLeft: 3 }, { place: "ج", blockers: 0, daysLeft: 30 }]);
+check(pushed?.title === "☀ موجز الصباح" && pushed.body?.split("\n").length === 2 && pushed.tag === "morning-brief", "التنبيه سطرٌ لكل قسمٍ يستحق، بوسمٍ واحد يستبدل سابقه", pushed);
+check(kuwaitWeekday(new Date("2026-11-15T05:00:00Z")) === 0 && kuwaitWeekday(new Date("2026-11-13T05:00:00Z")) === 5 && kuwaitDayKey(new Date("2026-11-14T21:30:00Z")) === "2026-11-15", "يوم الأسبوع والتاريخ بتوقيت الكويت");
+
+/* ── تقاريري: تحقّق الحال وبصمة النتائج ──────────────────────────────── */
+check(sanitizeReportState({ v: 1, lens: "room", c: "1", s: 2, t: 3, f: { building: "b", evil: "x", sun: true } })?.f?.evil === undefined, "الحال من الخادم تُنقّى: مفاتيح المرشحات المعروفة وحدها");
+check(sanitizeReportState({ v: 2, lens: "room" }) === null && sanitizeReportState(null) === null, "حالٌ بنسخةٍ أخرى أو فارغة تُرفض");
+const fpA = resultsFingerprint([{ id: 1, fstarttime: "08:00", fendtime: "09:00" }]);
+check(fpA === resultsFingerprint([{ id: 1, fstarttime: "08:00", fendtime: "09:00" }]) && fpA !== resultsFingerprint([{ id: 1, fstarttime: "09:00", fendtime: "10:00" }]), "بصمة النتائج تتغيّر بتحريك موعد وتثبت بلا تغيير");
 
 /* ── الجواب السريع ─────────────────────────────────────────────────────── */
 const rows = [
@@ -118,6 +142,17 @@ const withDelete = buildMorningBrief({
 });
 check(withDelete.moveCount === 1 && withDelete.moves[0].target === "موعدٌ حُذف", "الحذف يُعدّ بقسمه ولو زال الموعد، وحركة قسمٍ آخر لا تُعدّ", withDelete.moves);
 check(brief.lines.some(line => line.tone === "danger" && /مانعا اعتماد/.test(line.text)) && brief.lines.some(line => line.tone === "warn" && /بقي على موعد التسليم 5 أيام/.test(line.text)), "الموانع والموعد في سطورٍ بلونها", brief.lines);
+
+/* ── حرّاس المصدر (الجولة الثانية) ─────────────────────────────────────── */
+const routesSource = read("src/server/routes/reportsRoutes.ts");
+check(/app\.put\("\/api\/reports\/saved"/.test(routesSource) && /isScopeAllowed\(req, state\.c, state\.s\)/.test(routesSource) && /deleteFeatureDoc\("savedReports"/.test(routesSource), "تقاريري على الخادم: المشاركة بصلاحية القسم، والحذف الحقيقي");
+const pushSource = read("src/server/morningBriefPush.ts");
+check(/x-brief-token/.test(pushSource) && /timingSafeEqual/.test(pushSource) && /status\(404\)/.test(pushSource) && /isDemoMode\(\)/.test(pushSource), "نقطة موجز الصباح: سرٌّ مقارَن بزمنٍ ثابت، و404 بدونه، وليست في الديمو");
+check(/"pushCooldowns", `brief:\$\{userId\}:\$\{day\}`/.test(pushSource) && /deps\.isPowerUser/.test(pushSource), "تنبيهٌ واحد لكل حسابٍ في اليوم، ولا يصل مدير النظام");
+const reportsUi = read("src/components/Reports.tsx");
+check(/<QueryBrief /.test(reportsUi) && /<QueryInsights/.test(reportsUi) && /<QuerySaved/.test(reportsUi) && /<QueryCompare/.test(reportsUi) && /<QueryEmptyWhy/.test(reportsUi) && /<QueryPrintPreview/.test(reportsUi), "المكوّنات الجديدة في ملفاتها (components/query) لا داخل Reports.tsx");
+check(!/setBriefOpen\(true\)/.test(reportsUi), "موجز الصباح لا يُفتح من تلقاء نفسه (الزحام عدوّ الوضوح)");
+check(/useSpeechAsk\(/.test(reportsUi) && /speech\.supported/.test(reportsUi), "الميكروفون يظهر حيث يُدعم الصوت فقط");
 
 /* ── حرّاس المصدر ──────────────────────────────────────────────────────── */
 const reports = read("src/components/Reports.tsx");

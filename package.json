@@ -276,6 +276,7 @@
     "test:report-print-menus": "tsx tests/report-print-menus-audit.ts",
     "test:report-choices": "tsx tests/report-choices-audit.ts",
     "test:query-center-plus": "tsx tests/query-center-plus-audit.ts",
+    "test:e2e": "tsx tests/query-center-e2e.ts",
     "test:report-insight": "tsx tests/report-insight-audit.ts",
     "test:whatif-in-changes": "tsx tests/whatif-in-changes-audit.ts",
     "test:report-approval": "tsx tests/report-approval-audit.ts",
