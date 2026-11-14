@@ -28,11 +28,11 @@ const reference = read("src/server/routes/referenceRoutes.ts");
 const block = (source: string, start: string, end: string) => source.split(start)[1]?.split(end)[0] || "";
 check(/duplicateCollegeProblem\(code, name\)/.test(block(reference, 'app.post("/api/colleges"', 'app.put("/api/colleges/:id"')), "إنشاء الكلية يرفض التكرار");
 check(/duplicateCollegeProblem\(AdCollegeCode, AdCollegeName, id\)/.test(block(reference, 'app.put("/api/colleges/:id"', 'app.delete("/api/colleges/:id"')), "تعديل الكلية يرفض التكرار");
-check(/scopedAccountsProblem\(\{ collegeId: id \}/.test(block(reference, 'app.delete("/api/colleges/:id"', 'app.get("/api/colleges/:id/mobility"')), "حذف الكلية يُمنع ما بقيت حساباتها");
+check(/deleteBlockers\("college", id\)/.test(block(reference, 'app.delete("/api/colleges/:id"', 'app.get("/api/colleges/:id/mobility"')), "حذف الكلية يُمنع ما بقيت حساباتها");
 const sectionPut = block(reference, 'app.put("/api/sections/:id"', 'app.delete("/api/sections/:id"');
 check(/sameReferenceCode\(row\.AdSectionCode, AdSectionCode\)/.test(sectionPut) && /Number\(row\.AdSectionId\) !== id/.test(sectionPut), "تعديل القسم يرفض رمز قسمٍ آخر في كليته");
 const sectionDelete = block(reference, 'app.delete("/api/sections/:id"', "// --- TERMS API ---");
-check(/scopedAccountsProblem\(\{ sectionId: id \}/.test(sectionDelete) && /placeholderCivilFor/.test(sectionDelete) && /hasSchedulesForInstructor/.test(sectionDelete), "حذف القسم: الحسابات تمنع، و«هيئة تدريسية» غير المستعملة تُحذف");
+check(/deleteBlockers\("section", id\)/.test(sectionDelete) && /placeholderCivilFor/.test(sectionDelete) && /hasSchedulesForInstructor/.test(sectionDelete), "حذف القسم: الحسابات تمنع، و«هيئة تدريسية» غير المستعملة تُحذف");
 check(/duplicateTermProblem\(AdTermName\)/.test(reference) && /duplicateTermProblem\(AdTermName, id\)/.test(reference), "الفصل لا يتكرر عند الإنشاء والتعديل");
 check(/sameBuildingMinutes:sameBuildingMinutesOf\(/.test(reference), "الخادم يقبل صفر دقائق داخل المبنى");
 const repository = read("src/db/repository.ts");
@@ -45,7 +45,7 @@ const updateRoute = block(instructorsRoutes, 'app.put("/api/instructors/:id"', '
 check(/"error" in loadInput/.test(updateRoute) && !/loadRaw <= 40 \? Math\.round/.test(updateRoute), "النصاب فوق الحد يُرفض ولا يُمحى");
 check(/isFacultyPlaceholder\(\{ AdInstructorId: 1, AdInstructorName \}\)/.test(updateRoute), "لا يُسمّى أستاذٌ حقيقي «هيئة تدريسية»");
 const courses = read("src/server/routes/coursesRoutes.ts");
-check((courses.match(/code:"curriculum-linked"/g) || []).length === 3, "رفوض الصحيفة الثلاثة تحمل رمزها");
+check((courses.match(/code:"curriculum-linked"/g) || []).length === 2 && /code: "curriculum-linked"[\s\S]{0,400}sectionId: f\.curriculumSectionId/.test(read("src/utils/deleteImpact.ts")), "رفوض الصحيفة تحمل رمزها (حذف المقرر من الحارس المشترك)");
 
 /* ── الواجهة ──────────────────────────────────────────────────────────── */
 const ui = read("src/components/ui.tsx");

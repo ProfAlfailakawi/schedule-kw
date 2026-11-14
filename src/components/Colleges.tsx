@@ -19,6 +19,7 @@ import {
   CatalogFormDrawer,
   visualConfirm,
 } from "./ui";
+import { confirmDeleteWithImpact } from "./DeleteImpact";
 import { DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES } from "../utils/campusTravel";
 import { sortByName } from "../utils/sorting";
 import { TravelHeatMatrix } from "./VisualBits";
@@ -161,7 +162,7 @@ export default function Colleges({ embedded = false, actionSlot = null, onCount 
   const remove = async (college: any) => {
     if (submitting) return;
     const id = Number(college.AdCollegeId);
-    if (!(await visualConfirm({ title: `حذف «${college.AdCollegeName}»`, message: `ستُحذف كلية «${college.AdCollegeName}» (${college.AdCollegeCode}) من النظام. لا تُحذف ما دامت لها أقسام علمية، أو حساباتٌ نطاقها فيها (العميد والعميد المساعد وفريق التسجيل) — تُسمّى لك لتعالجها من «المستخدمون».`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    if (!(await confirmDeleteWithImpact({ entity: "college", id: id, title: `حذف «${college.AdCollegeName}»`, message: `ستُحذف كلية «${college.AdCollegeName}» (${college.AdCollegeCode}) من النظام. لا تُحذف ما دامت لها أقسام علمية، أو حساباتٌ نطاقها فيها (العميد والعميد المساعد وفريق التسجيل) — تُسمّى لك لتعالجها من «المستخدمون».` })).confirmed) return;
     setSubmitting(true);
     setError(null);
     try {

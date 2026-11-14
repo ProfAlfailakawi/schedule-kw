@@ -104,7 +104,7 @@ const base = (waiting: WaitingStudent[], over: Partial<Parameters<typeof radarCa
   const routes = read("src/server/simulationRoutes.ts");
   check(/app\.get\("\/api\/simulation\/suggestions", deps\.requireAuth,/.test(server), "S المسارُ GET بحارس requireAuth كجيرانه");
   check(/deps\.isPowerUser\(req\) /.test(server.replace(/power = deps\.isPowerUser\(req\);/, "deps.isPowerUser(req) ")) && /deps\.isScopeAllowed\(req, collegeId, sectionId\)/.test(server), "S نطاقُ القارئ على قسم المقرر، والمنتقي يضيّق ولا يوسّع");
-  check(/registerRadarSuggestionRoutes\(app, \{/.test(routes) && /inputMemo\.get\(/.test(routes.slice(routes.indexOf("registerRadarSuggestionRoutes(app"))), "S يُسجَّل من مسارات الرادار ويقرأ ذاكرة «ماذا لو؟» نفسها");
+  check(/registerRadarSuggestionRoutes\(app, \{/.test(routes) && /loadInput: radarInput/.test(routes) && /const radarInput = \(term: any, run: any\) => inputMemo\.get\(/.test(routes), "S يُسجَّل من مسارات الرادار ويقرأ ذاكرة «ماذا لو؟» نفسها (radarInput يشاركها اللوحةُ الحيّة)");
   check(!/\.(set|save|update|delete|apply)\w*\(/.test(server.replace(/Repository\.get\w+|res\.setHeader|params\.set|\.set\(/g, "")), "S المسارُ لا يكتب شيئاً");
   check(/pickDoorTerm/.test(server) && /asked !== Number\(term\.AdTermId\)/.test(server), "S فصلُ الباب وحده: لا اقتراح لفصلٍ سابق");
   const ui = read("src/components/RadarSuggestions.tsx");

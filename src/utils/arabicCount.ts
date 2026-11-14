@@ -217,6 +217,11 @@ export const AR = {
   shift:       { one: "تغيّر", two: "تغيّران", few: "تغيّرات", many: "تغيّراً" },
   offering:    { one: "طرح", two: "طرحان", few: "طروح", many: "طرحاً" },
   exception:   { one: "استثناء", two: "استثناءان", few: "استثناءات", many: "استثناءً" },
+  /* خريطة «لو حذفت؟» (src/utils/deleteImpact.ts) */
+  proposal:    { one: "مقترح دراسة", two: "مقترحا دراسة", few: "مقترحات دراسة", many: "مقترح دراسة" },
+  shareLink:   { one: "رابط مشاركة", two: "رابطا مشاركة", few: "روابط مشاركة", many: "رابط مشاركة" },
+  approval:    { one: "اعتماد", two: "اعتمادان", few: "اعتمادات", many: "اعتماداً" },
+  publication: { one: "نشر", two: "نشران", few: "عمليات نشر", many: "نشراً" },
 
   /* ── Agreement forms, read with nounFor(n, …) after a counted noun ──────
    * A verb or adjective that follows a counted non-human noun is singular for

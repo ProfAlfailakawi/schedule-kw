@@ -107,7 +107,7 @@ export function pilotAdvance(state: PilotState, outcome: PilotOutcome, open: (en
   return { ...state, outcomes, at, lastSkip: outcome === "skipped" ? state.at : null };
 }
 
-/** «رجوع»: يعيد آخرَ بندٍ تُخطّي — ولا شيءَ غيره (التثبيتُ والرفضُ لا يتراجع عنهما مسارُ الوارد). */
+/** «رجوع إلى ما تخطّيته»: يعيد آخرَ بندٍ تُخطّي. والتراجعُ عن قرارٍ يمرّ بـ`pilotReopen` عبر الخادم. */
 export function pilotUndoSkip(state: PilotState, open: (entry: PilotEntry) => boolean): PilotState {
   if (state.lastSkip == null) return state;
   const entry = state.order[state.lastSkip];
@@ -115,6 +115,18 @@ export function pilotUndoSkip(state: PilotState, open: (entry: PilotEntry) => bo
   const outcomes = { ...state.outcomes };
   delete outcomes[entry.key];
   return { ...state, outcomes, at: state.lastSkip, lastSkip: null };
+}
+
+/**
+ * «رجوع» عن آخر قرارٍ (ثبّت/رفض) بعد أن تراجع عنه الخادم (`/undo-decision`): يعود البندُ هو المعروض
+ * ويُمحى أثرُه من النتائج. لا يمسّ شيئاً إن لم يكن في القائمة أو لم يعد ينتظر.
+ */
+export function pilotReopen(state: PilotState, key: string, open: (entry: PilotEntry) => boolean): PilotState {
+  const at = state.order.findIndex(entry => entry.key === key);
+  if (at < 0 || !open(state.order[at])) return state;
+  const outcomes = { ...state.outcomes };
+  delete outcomes[key];
+  return { ...state, outcomes, at, lastSkip: null };
 }
 
 /** ما انتهى أمرُه من القائمة (قُرّر هنا أو في مكانٍ آخر) — مقياسُ شريط التقدّم. */

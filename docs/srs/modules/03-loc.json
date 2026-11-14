@@ -748,6 +748,49 @@
         { "ar": "إضافة مبنى رمزه موجودٌ موقوفاً ← «إعادة تفعيل» ثم PUT بـactive=true.", "en": "Adding a building whose code exists inactive ← «reactivate» then PUT with active=true." }
       ],
       "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationQuickSetup.tsx", "src/components/RoomDoorTools.tsx"], "tests": ["tests/admin-station-audit.ts", "tests/location-registry-audit.py"] }
+    },
+    {
+      "id": "FR-LOC-036",
+      "kind": "functional",
+      "title": {
+        "ar": "«لو حذفت؟» قبل إيقاف مبنى أو قاعة",
+        "en": "What-if-I-delete map before stopping a building or room"
+      },
+      "text": {
+        "ar": "يجب أن تعرض نافذةُ حذف المبنى أو القاعة (إيقافٌ يحفظ السجل التاريخي) أعدادَ المواعيد الواقفة فيها في الفصل الحالي وما بعده وما قبله، والأقسام المرتبطة، والقاعات الفعّالة التي توقف مع المبنى، بالدالة نفسها التي يعدّ بها مسارُ الإيقاف (locationUsage)؛ فإن وقفت مواعيد في الحاضر أو المستقبل تغيّر نصّ الزرّ إلى الإيقاف الصريح وأُرسلت ترويسة التأكيد.",
+        "en": "The building or room delete dialog (a stop that keeps the history) shall show the appointments standing in it in the current, later and past terms, the linked departments and the active rooms that stop with a building, using the very function the stop route counts with (locationUsage); when current or future appointments stand, the button reads as an explicit stop and the confirm header is sent."
+      },
+      "rationale": {
+        "ar": "كان العدّ موجوداً للحاضر والمستقبل فقط في جملة، بلا السابق ولا الأقسام، وبمسار قراءةٍ منفصل.",
+        "en": "Only current and future counts existed, in a sentence, without past appointments or departments, behind a separate read."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "إيقاف قاعةٍ فيها مواعيد حالية ← يظهر عددها ويصير الزرّ «أوقفها رغم المواعيد».",
+          "en": "Stopping a room with current appointments shows the count and the button becomes the explicit stop."
+        },
+        {
+          "ar": "تعذّرت الخريطة ← يُقرأ مسار الاستخدام القائم ويبقى القرار صحيحاً.",
+          "en": "If the map fails, the existing usage route is read and the decision stays correct."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/deleteImpact.ts#locationUsage",
+          "src/server/deleteImpact.ts#locationUsageBuckets",
+          "src/components/LocationQuickSetup.tsx#deleteRoom",
+          "src/components/LocationQuickSetup.tsx#deleteBuilding",
+          "src/server/routes/locationsRoutes.ts#registerLocationsRoutes"
+        ],
+        "tests": [
+          "tests/delete-impact-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

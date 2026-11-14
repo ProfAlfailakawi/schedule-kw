@@ -113,7 +113,7 @@ check(!/\bfetch\(|\/api\//.test(pilot), "P5 لا نداءَ خادمٍ في ال
 check(/onDecide\(row, entry\.index, "fixed"/.test(pilot) && /onDecide\(row, entry\.index, "rejected"/.test(pilot), "P5 «ثبّت» و«بديل» عبر decide نفسها");
 check(/<RejectSheet item=\{item\}/.test(pilot), "P5 «بديل» ورقةُ الرفض نفسُها ببدائلها المحسوبة");
 check(/rowErrors\[entry\.key\]/.test(pilot) && /if \(ok\) \{ setSheet\(false\)/.test(pilot), "P5 الخطأ يبقى على البطاقة، والورقةُ لا تُغلق قبل الحفظ");
-check(!/reopen-fixed|cancel-scheduled/.test(pilot.replace(/\/\*[\s\S]*?\*\//g, "")), "P5 لا «تراجع» عن قرار (المسارُ لا يدعمه)");
+check(!/reopen-fixed|cancel-scheduled/.test(pilot.replace(/\/\*[\s\S]*?\*\//g, "")) && /onUndoDecision/.test(pilot), "P5 «رجوع» عن القرار الأخير عبر دالّة الوارد (لا مسارَ الجدول ولا fetch)");
 check(/role="dialog"/.test(pilot) && /aria-modal="true"/.test(pilot) && /event\.key === "Tab"/.test(pilot), "P5 حوارٌ مشروط بحصر التركيز");
 check(/<kbd[^>]*>F<\/kbd>/.test(pilot) && /<kbd[^>]*>B<\/kbd>/.test(pilot) && /inbox-pilot-keys/.test(pilot), "P5 المفاتيحُ مرئية على الأزرار وفي سطرها");
 check(/role="progressbar"/.test(pilot) && /من \$\{num\(total\)\}/.test(pilot), "P5 «٧ من ٣٠» وشريطُ التقدّم");

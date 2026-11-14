@@ -14,7 +14,8 @@ import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import { visibleTermIds } from "../../utils/scopedTerms";
 import { currentTermId, sameTermName } from "../../utils/termSequence";
 import { ensureSectionFaculty, placeholderCivilFor } from "../sectionFaculty";
-import { accountsScopedTo, sameBuildingMinutesOf, sameReferenceCode, sameReferenceName } from "../../utils/academicGuards";
+import { deleteBlockers, refuseWithBlocker } from "../deleteImpact";
+import { sameBuildingMinutesOf, sameReferenceCode, sameReferenceName } from "../../utils/academicGuards";
 import { isFacultyPlaceholder } from "../../utils/placeholderInstructor";
 import { evaluateTeachingLoad, hasLoadOverride, loadTermContext, teachingHoursByInstructor, teachingLoadProblem } from "../../utils/teachingLoad";
 import type { AdCourse, AdInstructor, AdSection } from "../../types";
@@ -56,12 +57,7 @@ async function duplicateTermProblem(name:string,exceptId=0):Promise<string|null>
 }
 /* حساباتٌ نطاقُها الكلية أو القسم: تبقى معلّقةً بنطاقٍ محذوف، فتُسمّى ويُمنع الحذف حتى تُعالَج.
    لا تُحذف تلقائياً: حسابُ العميد أو كرسيّ التسجيل قد استُعمل، وحذفُه قرارٌ في «المستخدمون». */
-async function scopedAccountsProblem(target:{collegeId?:number;sectionId?:number},what:string):Promise<string|null>{
-  const [users,assigns]=await Promise.all([Repository.getUsers(),Repository.getCollegeUserAssigns()]);
-  const logins=accountsScopedTo(users as any[],assigns as any[],target);
-  if(!logins.length)return null;
-  return `لا يمكن حذف ${what}: حساباتٌ نطاقها فيه ما زالت قائمة (${logins.join("، ")}). عدّل نطاقها أو احذفها من «المستخدمون» أولاً.`;
-}
+/* الحكمُ نفسُه تقرؤه خريطةُ «لو حذفت؟» (GET /api/delete-impact/…): server/deleteImpact.ts → utils/deleteImpact.ts. */
 
 /* ══ النصاب التدريسي (ميزةٌ اختيارية، يديرها المسؤول المخوّل) ══════════════════
    الإعدادُ للمدير الرئيسي وحده. والتنبيهُ للمخطّط قراءةٌ فقط: لا يمنع حفظَ موعدٍ ولا يمرّ بمساره، وما في هذه
@@ -145,13 +141,9 @@ app.delete("/api/colleges/:id", requirePermission(2), async (req: AuthenticatedR
     return;
   }
   // Legacy SQL has AdSection -> AdCollege FK. The old SaveChanges fails while sections exist.
-  if ((await Repository.getSectionsByCollege(id)).length > 0) {
-    res.status(409).json({ error: "لا يمكن حذف الكلية لوجود أقسام علمية مرتبطة بها" });
-    return;
-  }
-  /* العميد والعميد المساعد وكرسيّ تسجيلها وُلدت مع الكلية (POST أعلاه). */
-  const accounts = await scopedAccountsProblem({ collegeId: id }, "الكلية");
-  if (accounts) { res.status(409).json({ error: accounts }); return; }
+  /* العميد والعميد المساعد وكرسيّ تسجيلها وُلدت مع الكلية (POST أعلاه): الحارسُ واحدٌ مع خريطة «لو حذفت؟». */
+  const [blocked] = await deleteBlockers("college", id);
+  if (blocked) { refuseWithBlocker(res, blocked); return; }
   await Repository.deleteCollege(id);
   res.json({ success: true });
 });
@@ -413,13 +405,9 @@ app.delete("/api/sections/:id", requirePermission(4), async (req: AuthenticatedR
     return;
   }
   // Legacy SQL has AdCourse -> AdSection FK. Preserve the same delete constraint.
-  if ((await Repository.getCoursesBySection(id)).length > 0) {
-    res.status(409).json({ error: "لا يمكن حذف القسم العلمي لوجود مقررات دراسية مرتبطة به" });
-    return;
-  }
   /* رئيس القسم ورئيس الجدول والمرشد (حين وُلد القسم من صحيفة) نطاقهم هذا القسم. */
-  const accounts = await scopedAccountsProblem({ sectionId: id }, "القسم العلمي");
-  if (accounts) { res.status(409).json({ error: accounts }); return; }
+  const [blocked] = await deleteBlockers("section", id);
+  if (blocked) { refuseWithBlocker(res, blocked); return; }
   await Repository.deleteSection(id);
   /* سجلُّ «هيئة تدريسية» الذي وُلد مع القسم (رقمه المدني الاصطناعي لهذا القسم وحده) يُحذف معه
      ما لم يُستعمل في أي موعد — فلا يبقى اسمٌ بلا قسم. وسجلٌّ مستعملٌ يبقى شاهداً على تاريخه. */
@@ -506,10 +494,8 @@ app.delete("/api/terms/:id", requirePermission(5), async (req: Request, res: Res
   // Legacy SQL has FSchedule -> AdTerm FK. Deleting a term that still owns schedule
   // rows would orphan them (dangling AdTermId, invisible in every term-scoped read,
   // and it shifts currentTerm/isTermClosed against a now-missing term). Block it.
-  if (await Repository.hasSchedulesForTerm(id)) {
-    res.status(409).json({ error: "لا يمكن حذف الفصل الدراسي لوجود بيانات مرتبطة به في الجدول الدراسي" });
-    return;
-  }
+  const [blocked] = await deleteBlockers("term", id);
+  if (blocked) { refuseWithBlocker(res, blocked); return; }
   await Repository.deleteTerm(id);
   scopedTermsCache.clear();
   res.json({ success: true });
