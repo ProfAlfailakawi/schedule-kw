@@ -68,6 +68,7 @@
     "tests/slow.txt",
     "tests/known-failures.txt",
     "docs/DELIVERY_OPERATIONS.md",
+    "docs/ACCEPTANCE_ROUND.md",
     "docs/SAFE_DEPLOYMENT.md",
     "docs/SERVER_MAP.md",
     "docs/DEMO_GUIDE.md",
@@ -75,6 +76,8 @@
     "scripts/consistent-badges-screens.ts",
     "scripts/course-reach-screens.ts",
     "scripts/course-tags-coverage-screens.ts",
+    "scripts/acceptance-rehearsal.ts",
+    "scripts/lib/acceptanceRehearsal.ts",
     "scripts/owner-1028-screens.ts",
     "scripts/prepublish-reach-screens.ts",
     "scripts/publish-pick-teachers-screens.ts",
@@ -2806,6 +2809,48 @@
         ],
         "tests": [
           "tests/system-health-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-059",
+      "kind": "functional",
+      "title": {
+        "ar": "جولة القبول: وثيقة بشرية من عشر دقائق وبروفةٌ آلية على الديمو",
+        "en": "Acceptance round: a ten-minute human checklist and an automated demo rehearsal"
+      },
+      "text": {
+        "ar": "يجب أن تحمل docs/ACCEPTANCE_ROUND.md جولةً بشرية قصيرة تُجرى على الموقع الحيّ بأجهزة حقيقية، مرتّبةً بالأدوار (الطالب، استعادة الرمز، الأستاذ، القسم، المسؤول)، لكل خطوةٍ معرّفٌ وما يُفعل وما يجب أن يُرى وما يُفعل إن لم يحدث ومن يُبلَّغ، مع قسمٍ لما بعد فشل خطوة وجدولِ نتيجةٍ يُملأ. ويجب أن يشغّل الأمر npm run rehearsal:acceptance (scripts/acceptance-rehearsal.ts) الخطواتِ نفسها آلياً: يُقلع خادمَ ديمو محلياً خاصاً به (DATA_MODE=demo) على منفذٍ حرٍّ يختاره النظام، ويرفض العمل داخل بيئة إنتاج سحابية، ويتحقق أن الخادم ديمو معزول قبل أن يبدأ، ولا يتصل بأي عنوانٍ غيره ولا يرسل رسالةً حقيقية، ويُطفئه عند الانتهاء. يمرّ بمتصفح Chromium بعرض 390x844 (وبعرض 1280x900 للشاشات الإدارية) ويسجّل كل خطوةٍ نجاحاً أو ملاحظةً أو فشلاً أو «يحتاج بيانات أو جهازاً حقيقياً»؛ فما لا يثبته الديمو (تسليم تنبيهٍ حقيقي، الآيفون وSafari، إصدار رمز الاستعادة لطالبٍ حقيقي عبر المخزنين، الرقم المدني الحقيقي) يُسجَّل تخطّياً ولا يُسجَّل نجاحاً أبداً. ويكتب تقريراً RTL مكتفياً بنفسه (report.html بصوره وحلقة ملخّص وبطاقةٍ لكل خطوة وأخطاء الكونسول والصفحة والطلبات المرفوضة) وملخّصاً JSON في مجلدٍ مُتجاهَلٍ في git، ويخرج برمزٍ غير صفري إن فشلت خطوةٌ يستطيع الديمو إثباتَها. والنموذج والتلخيص والتقرير واتساقُ معرّفات الخطوات بين الوثيقة والسكربت في scripts/lib/acceptanceRehearsal.ts ويفحصها tests/acceptance-rehearsal-audit.ts بلا خادمٍ ولا متصفح.",
+        "en": "docs/ACCEPTANCE_ROUND.md shall hold a short human round run on the live site with real devices, grouped by role (student, code recovery, teacher, department, admin); each step has an id, what to do, what should be seen, what to do if it does not happen and whom to tell, with a section for what to do after a failed step and a result table to fill in. The command npm run rehearsal:acceptance (scripts/acceptance-rehearsal.ts) shall run the same steps automatically: it starts its own private local demo server (DATA_MODE=demo) on a free port chosen by the system, refuses to run inside a cloud production environment, verifies the server is an isolated demo before it begins, connects to no other address, sends no real message, and shuts the server down at the end. It drives Chromium at 390x844 (and 1280x900 for the admin screens) and records every step as pass, note, fail or «needs real data or a real device»; whatever the demo cannot prove (real push delivery, iPhone and Safari, issuing a recovery code to a real student across the two stores, a real civil number) is recorded as skipped and never as a pass. It writes a self-contained RTL report (report.html with embedded screenshots, a summary ring, a card per step, and the console, page and rejected-request errors seen) and a JSON summary into a git-ignored folder, and exits non-zero if a step the demo can prove fails. The model, summary, report and the consistency of step ids between the document and the script live in scripts/lib/acceptanceRehearsal.ts and are checked by tests/acceptance-rehearsal-audit.ts with no server and no browser."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "كل معرّفٍ في الوثيقة موجودٌ في السكربت والعكس، وما كان يدوياً يُسجَّل تخطّياً لا run.",
+          "en": "Every id in the document exists in the script and vice versa, and a manual step is recorded as skipped, never run."
+        },
+        {
+          "ar": "فشلُ خطوةٍ يثبتها الديمو ← رمز خروجٍ غير صفري؛ والملاحظةُ والتخطّي لا يُسقطان الأمر.",
+          "en": "A failed demo-provable step gives a non-zero exit code; a note or a skip does not."
+        },
+        {
+          "ar": "التقرير بلا موارد خارجية، ونصوص الأخطاء فيه مهرَّبة، وأرقامه لاتينية.",
+          "en": "The report has no external resources, its error texts are escaped and its digits are Latin."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/acceptance-rehearsal.ts",
+          "scripts/lib/acceptanceRehearsal.ts",
+          "docs/ACCEPTANCE_ROUND.md"
+        ],
+        "tests": [
+          "tests/acceptance-rehearsal-audit.ts"
         ]
       }
     },

@@ -100,8 +100,11 @@ function addIssue(kind: Issue["kind"], text: string) {
   if (current.issues.length < 25 && !current.issues.some(issue => issue.kind === kind && issue.text === line)) current.issues.push({ kind, text: line });
 }
 /** يراقب كلَّ صفحةٍ في السياق: استثناءاتُها وأخطاءُ كونسولها وطلباتُها المرفوضة تُنسب إلى الخطوة الجارية. */
+const livePages: any[] = [];
 function watch(page: any) {
   const origin = () => BASE;
+  livePages.push(page);
+  page.on("close", () => { const at = livePages.indexOf(page); if (at >= 0) livePages.splice(at, 1); });
   page.on("pageerror", (error: unknown) => addIssue("pageerror", String(error)));
   page.on("console", (message: any) => { if (message.type() === "error" && !/^Failed to load resource/.test(message.text())) addIssue("console", message.text()); });
   page.on("response", (response: any) => {
@@ -148,6 +151,12 @@ const stepApi: Step = {
   },
 };
 
+/** عند الفشل: لقطةٌ لآخر صفحةٍ مفتوحة، فيرى القارئ ما رآه السكربت. */
+async function failureShot(error: unknown): Promise<void> {
+  if (!error || !current) return;
+  const page = livePages[livePages.length - 1];
+  if (page) await stepApi.shot(page, "الشاشة لحظة التوقّف");
+}
 function conclude(id: string, started: number, error?: unknown): StepResult {
   const c = current!;
   let status: StepStatus = "pass";
@@ -169,6 +178,7 @@ async function run(id: string, body: (step: Step) => Promise<void>): Promise<voi
   try {
     await Promise.race([body(stepApi), new Promise((_, reject) => setTimeout(() => reject(new Error(`تجاوزت الخطوة ${STEP_TIMEOUT_MS / 1000} ثانية`)), STEP_TIMEOUT_MS))]);
   } catch (error) { failure = error; }
+  await failureShot(failure);
   const result = conclude(id, started, failure);
   results.push(result);
   console.log(`${id} ${result.status === "pass" ? "✅" : result.status === "warn" ? "⚠️" : result.status === "fail" ? "❌" : "⏭️"} ${stepById(id)?.title || ""} — ${result.note}`);
@@ -193,6 +203,7 @@ async function runWidths(id: string, widths: number[], body: (step: Step, width:
     try { await Promise.race([body(stepApi, width), new Promise((_, reject) => setTimeout(() => reject(new Error(`تجاوزت الخطوة ${STEP_TIMEOUT_MS / 1000} ثانية`)), STEP_TIMEOUT_MS))]); }
     catch (error) { failure = error; current.details.push(`✗ توقّف عند ${width}px: ${clip(error instanceof Error ? error.message.split("\n")[0] : String(error), 160)}`); break; }
   }
+  await failureShot(failure);
   const result = conclude(id, started, failure);
   results.push(result);
   console.log(`${id} ${result.status === "pass" ? "✅" : result.status === "warn" ? "⚠️" : result.status === "fail" ? "❌" : "⏭️"} ${stepById(id)?.title || ""} — ${result.note}`);
@@ -208,6 +219,13 @@ async function adminContext(browser: any, width: number) {
   for (let i = 0; i < 360; i++) { const status = await J(await context.request.get(BASE + "/api/demo/seed-status")); if (status.status === "ready") break; await sleep(500); }
   const role = await context.request.post(BASE + "/api/demo/role", { data: { role: "admin" } });
   if (!role.ok()) throw new Error("demo role " + role.status());
+  return context;
+}
+/** حسابُ الديمو يُحدّ بخمس دخولاتٍ في الدقيقة للعنوان الواحد: لذلك سياقٌ إداريٌّ واحدٌ لكل عرض، يُعاد استعماله بصفحاتٍ جديدة. */
+const adminCache = new Map<number, any>();
+async function sharedAdmin(browser: any, width: number) {
+  let context = adminCache.get(width);
+  if (!context) { context = await adminContext(browser, width); adminCache.set(width, context); }
   return context;
 }
 async function gotoQuiet(page: any, url: string) {
@@ -357,7 +375,7 @@ async function studentSteps(browser: any) {
       await step.shot(page, "محاضرتك القادمة");
     });
 
-    skip("S5", `رُصد على الديمو: مفاتيح التنبيه ${observed.pushConfigured === null ? "لم تُقرأ" : observed.pushConfigured ? "مضبوطة" : "غير مضبوطة"}.`);
+    skip("S5", `رُصد على خادم الديمو (ولا يدل على الإنتاج): مفاتيح التنبيه ${observed.pushConfigured === null ? "لم تُقرأ" : observed.pushConfigured ? "مضبوطة" : "غير مضبوطة"}.`);
 
     await run("S6", async step => {
       await page.locator("#tab-now").click(); await sleep(400);
@@ -420,22 +438,23 @@ async function studentSteps(browser: any) {
 /* ───────────────────────── الاستعادة عبر القسم ───────────────────────── */
 async function recoverySteps(browser: any) {
   await runWidths("R1", [PHONE, DESKTOP], async (step, width) => {
-    const context = await adminContext(browser, width);
+    const context = await sharedAdmin(browser, width);
+    const page = await context.newPage();
     try {
-      const page = await context.newPage();
       await gotoQuiet(page, "/FSchedule/StudentRegistration");
       const card = page.locator("details.srec");
       await card.waitFor({ timeout: 90000 });
       await page.keyboard.press("Escape").catch(() => undefined);
       step.ok(/رمز استعادة لطالب/.test(await card.innerText()), "بطاقة «رمز استعادة لطالب» موجودة");
-      await card.evaluate("d => { d.open = true; d.scrollIntoView({ block: 'start' }); }");
-      await sleep(400);
+      await card.locator("summary").click();
+      await page.locator("#srec-civil").waitFor({ timeout: 15000 });
       await page.locator("#srec-civil").fill("123456789012");
       step.ok(/الرقم غير صحيح/.test(await card.innerText()), "رقمٌ خاطئ المجموع يُرفض بعبارة «الرقم غير صحيح»");
       step.ok(await card.locator("button[type=submit]").isDisabled(), "زرّ «أصدر الرمز» معطّل لرقمٍ خاطئ");
+      await card.scrollIntoViewIfNeeded();
       await step.shot(page, "بطاقة الاستعادة", width);
       step.summary("البطاقة موجودة وتتحقق من الرقم؛ الإصدارُ الفعليُّ لطالبٍ حقيقي لا يثبته الديمو (R2 وR3).");
-    } finally { await context.close(); }
+    } finally { await page.close().catch(() => undefined); }
   });
   skip("R2");
   skip("R3");
@@ -443,11 +462,11 @@ async function recoverySteps(browser: any) {
 
 /* ───────────────────────── الأستاذ ───────────────────────── */
 async function teacherSteps(browser: any) {
-  const context = await adminContext(browser, PHONE);
+  const context = await sharedAdmin(browser, PHONE);
+  const page = await context.newPage();
   try {
     const inbox = await J(await context.request.get(BASE + "/api/instructor-requests?collegeId=1&sectionId=1&termId=1"));
     const row = (inbox.rows || []).find((r: any) => r.linkMode !== "ta" && r.status === "sent" && r.linkId);
-    const page = await context.newPage();
     const link = row ? `/r/${row.linkId}` : "";
     let demoCivil = "";
     let signCode = "";
@@ -477,7 +496,6 @@ async function teacherSteps(browser: any) {
       const editorText = await pageText(page);
       step.ok(/مقترحة لك/.test(editorText), "عنوان «مقترحة لك» ظاهر");
       step.ok(!ROOM_CODE.test(editorText) && !BUILDING_WORD.test(editorText), "لا قاعةَ ولا مبنى في محرّر الموعد");
-      step.ok(/قاعة مناسبة تُحجز لك تلقائياً/.test(editorText), "سطر «قاعة مناسبة تُحجز لك تلقائياً» بدل أي قاعة");
       await step.shot(page, "محرّر الموعد والمقترحات");
       const held = page.waitForResponse((response: any) => /\/hold$/.test(response.url()) && response.request().method() === "POST", { timeout: 20000 }).catch(() => null);
       await page.locator(".best-c").first().click();
@@ -485,6 +503,9 @@ async function teacherSteps(browser: any) {
       step.ok(Boolean(hold) && hold.status() === 200, "اختيار وقتٍ مقترح يحجزه (hold) ويرجع 200");
       await page.locator("#send").waitFor({ timeout: 20000 });
       step.ok(true, "يظهر «أرسل الطلب»");
+      const afterPick = await pageText(page);
+      step.ok(/قاعة مناسبة تُحجز لك تلقائياً/.test(afterPick), "سطر «قاعة مناسبة تُحجز لك تلقائياً» بدل أي قاعة");
+      step.ok(!ROOM_CODE.test(afterPick) && !BUILDING_WORD.test(afterPick), "لا قاعةَ ولا مبنى بعد اختيار الوقت");
       await step.shot(page, "بعد اختيار وقتٍ مقترح");
       step.summary("نُقل موعدٌ واحد بمقترحٍ من الخادم بلا قاعةٍ ولا مبنى.");
     });
@@ -536,15 +557,15 @@ async function teacherSteps(browser: any) {
       await step.shot(verify, "نتيجة التحقق");
       await verify.close();
     });
-  } finally { await context.close(); }
+  } finally { await page.close().catch(() => undefined); }
 }
 
 /* ───────────────────────── القسم والمسؤول ───────────────────────── */
 async function departmentSteps(browser: any) {
   await runWidths("D1", [PHONE, DESKTOP], async (step, width) => {
-    const context = await adminContext(browser, width);
+    const context = await sharedAdmin(browser, width);
+    const page = await context.newPage();
     try {
-      const page = await context.newPage();
       await gotoQuiet(page, "/FSchedule/InstructorRequests");
       const strip = page.locator("section[aria-label='نبض الكروت']");
       await strip.waitFor({ timeout: 90000 });
@@ -555,15 +576,15 @@ async function departmentSteps(browser: any) {
       await noSideScroll(step, page, "الوارد");
       await strip.scrollIntoViewIfNeeded();
       await step.shot(page, "نبض الكروت", width);
-    } finally { await context.close(); }
+    } finally { await page.close().catch(() => undefined); }
   });
 
   await run("D2", async step => {
     const config = await J(await fetch(BASE + "/api/demo/config"));
     step.ok(config.enabled === true && config.isolated === true, "الخادم تجريبيٌّ معزول: لا رسالةَ حقيقية تخرج");
-    const context = await adminContext(browser, PHONE);
+    const context = await sharedAdmin(browser, PHONE);
+    const page = await context.newPage();
     try {
-      const page = await context.newPage();
       await gotoQuiet(page, "/FSchedule/InstructorRequests");
       const strip = page.locator("section[aria-label='نبض الكروت']");
       await strip.waitFor({ timeout: 90000 });
@@ -583,13 +604,13 @@ async function departmentSteps(browser: any) {
       step.ok(true, "الإرسال على الديمو يقول «تسليمٌ وهميّ، لا رسالةَ حقيقية»");
       await step.shot(page, "بعد الإرسال (وهميّ)");
       step.summary("الورقةُ والتأكيدُ والعدّ صحيحة، والإرسالُ على الديمو وهميّ؛ التذكيرُ الحقيقيُّ يُجرَّب على كرتٍ تجريبي في الجولة الحقيقية.");
-    } finally { await context.close(); }
+    } finally { await page.close().catch(() => undefined); }
   });
 
   await runWidths("D3", [PHONE, DESKTOP], async (step, width) => {
-    const context = await adminContext(browser, width);
+    const context = await sharedAdmin(browser, width);
+    const page = await context.newPage();
     try {
-      const page = await context.newPage();
       await gotoQuiet(page, "/System/LocationSetup");
       const panel = page.locator(".cap-gaps");
       await panel.waitFor({ timeout: 90000 });
@@ -600,13 +621,13 @@ async function departmentSteps(browser: any) {
       await noSideScroll(step, page, "إضافة المباني والقاعات");
       await panel.scrollIntoViewIfNeeded();
       await step.shot(page, "قاعات بلا سعة", width);
-    } finally { await context.close(); }
+    } finally { await page.close().catch(() => undefined); }
   });
 
   await run("D4", async step => {
-    const context = await adminContext(browser, PHONE);
+    const context = await sharedAdmin(browser, PHONE);
+    const page = await context.newPage();
     try {
-      const page = await context.newPage();
       await gotoQuiet(page, "/System/LocationSetup");
       await page.locator(".cap-gaps:not(.is-loading)").waitFor({ timeout: 90000 });
       const input = page.locator(".cap-gaps-entry input").first();
@@ -622,15 +643,15 @@ async function departmentSteps(browser: any) {
       await sleep(1500);
       step.ok(await page.locator(".cap-gaps-card").count() < before, "القاعةُ تختفي من القائمة بعد الحفظ");
       await step.shot(page, "بعد حفظ السعة");
-    } finally { await context.close(); }
+    } finally { await page.close().catch(() => undefined); }
   });
 }
 
 async function adminSteps(browser: any) {
   await runWidths("A1", [PHONE, DESKTOP], async (step, width) => {
-    const context = await adminContext(browser, width);
+    const context = await sharedAdmin(browser, width);
+    const page = await context.newPage();
     try {
-      const page = await context.newPage();
       await gotoQuiet(page, "/System/Health");
       await page.getByText(/كل شيء سليم|تحتاج انتباهاً|تعذّرت القراءة/).first().waitFor({ timeout: 90000 });
       step.ok(true, "تظهر بطاقات «سلامة النظام» وحكمُها");
@@ -645,7 +666,7 @@ async function adminSteps(browser: any) {
       step.ok(!/@[\w-]+\.\w+/.test(payload), "حمولة الفحص بلا بريدٍ ولا معرّفات أشخاص");
       await noSideScroll(step, page, "سلامة النظام");
       step.summary("البطاقات والحكم و«تحقق الآن» تعمل على الديمو (القيم الموسومة «تجريبي»، لا نسخةَ احتياطية حقيقية).");
-    } finally { await context.close(); }
+    } finally { await page.close().catch(() => undefined); }
   });
 }
 
@@ -662,11 +683,12 @@ async function main() {
     console.log(`الخادم جاهز (${BASE.replace(/^http:\/\//, "")})`);
     browser = await chromium.launch();
     const version = browser.version?.() || "";
+    /* الترتيب: ما لا يغيّر الديمو أولاً، ثم التذكير الوهميّ، ثم الأستاذ (يوقّع فيغيّر صندوقه). */
     await studentSteps(browser);
-    await recoverySteps(browser);
-    await teacherSteps(browser);
-    await departmentSteps(browser);
     await adminSteps(browser);
+    await recoverySteps(browser);
+    await departmentSteps(browser);
+    await teacherSteps(browser);
     const complete = ONLY.length ? results.slice() : completeResults(results);
     const meta = { generatedAt: new Date(), durationMs: Date.now() - started, browser: `Chromium ${version}`.trim(), widths: [PHONE, DESKTOP], serverNote: "خادم ديمو محلي خاص، حُذف عند الانتهاء" };
     const ordered = [...complete].sort((a, b) => STEPS.findIndex(s => s.id === a.id) - STEPS.findIndex(s => s.id === b.id));
