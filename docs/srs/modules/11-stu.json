@@ -66,6 +66,7 @@
     "src/utils/studentMap.ts",
     "src/utils/studentNeed*.ts",
     "src/utils/studentNotices.ts",
+    "src/utils/studentCatalog.ts",
     "src/utils/studentProfile.ts",
     "src/utils/studentUnitCap.ts",
     "src/utils/termStudentPhases.ts",
@@ -2750,12 +2751,12 @@
       "id": "IR-STU-035",
       "kind": "interface",
       "title": {
-        "ar": "حالة الباب وقائمة التخصصات وصحائف القسم",
-        "en": "Door state, specialisation list and department plans"
+        "ar": "حالة الباب وقائمة الكليات والأقسام وصحائف القسم",
+        "en": "Door state, college and department list, and department plans"
       },
       "text": {
-        "ar": "يجب على النظام أن يعيد GET /api/public/me/state بلا جلسة: علامة التجربة، وفصل الباب، والمرحلة (المفتاح والنمط والسطر وإمكان تعديل الرغبات والإبلاغ والموعد التالي واسم الجولة)، ومسار الفصل، وهل الزائر داخل وملخص ملفه، والحدود (طول الرمز 6، والوحدات من 12 إلى سقف القسم، و13.5 وحدة للفصل المعتاد، و365 يوماً بعد التخرج)؛ وأن يعيد GET /api/public/me/catalog?track=boys|girls تخصصات كليات المسار المشمولة بلا تكرار بالاسم مفضّلاً المقر الرئيسي ثم الموقع الفرعي الأول ثم الثاني، ولا شيء بلا مسار، بتخزينٍ عام 300 ثانية؛ وأن يعيد GET /api/public/me/plan?sectionId صحائف القسم غير المؤرشفة وغير الفارغة بمقرراتها ومسبقات كلٍّ منها، أو مقررات القسم التشغيلية إن لم تكن له صحائف.",
-        "en": "The system shall return GET /api/public/me/state without a session: the demonstration flag, the door term, the phase (key, mode, line, whether wishes can be edited and reports made, next date, round name), the term timeline, whether the visitor is signed in with the profile summary, and the limits (code length 6, units from 12 to the department cap, 13.5 units for a typical term, 365 days after graduation); shall return GET /api/public/me/catalog?track=boys|girls the specialisations of the track's participating colleges without duplicate names, preferring the main campus, then the first branch site, then the second, nothing without a track, with public caching for 300 seconds; and shall return GET /api/public/me/plan?sectionId the department's non-archived, non-empty plans with their courses and each course's prerequisites, or the department's operational courses when it has no plans."
+        "ar": "يجب على النظام أن يعيد GET /api/public/me/state بلا جلسة: علامة التجربة، وفصل الباب، والمرحلة (المفتاح والنمط والسطر وإمكان تعديل الرغبات والإبلاغ والموعد التالي واسم الجولة)، ومسار الفصل، وهل الزائر داخل وملخص ملفه، والحدود (طول الرمز 6، والوحدات من 12 إلى سقف القسم، و13.5 وحدة للفصل المعتاد، و365 يوماً بعد التخرج)؛ وأن يعيد GET /api/public/me/catalog كلياتِ الجامعة التي لها أقسام (مبنيةً من جدولَي الكليات والأقسام لا من أسماءٍ مكتوبة، ومسارُ البنين أو البنات يُشتقّ من بيانات الكلية، والكليةُ التي لا تنقسم تبقى بلا مسار)، ومعها collegeId أقسامَ تلك الكلية وحدها بمعرّفاتها (القسمُ نفسُه في كليتين أو موقعين قسمان لا يُدمجان، واسمٌ مكرَّر داخل الكلية يُميَّز برمز القسم)، وbad-college لكليةٍ غير موجودة، وtrack اختياريٌّ يُضيّق القائمة ويُبقي الكلياتِ بلا مسار، بتخزينٍ عام 300 ثانية؛ وأن يعيد GET /api/public/me/plan?sectionId صحائف القسم غير المؤرشفة وغير الفارغة بمقرراتها ومسبقات كلٍّ منها، أو مقررات القسم التشغيلية إن لم تكن له صحائف.",
+        "en": "The system shall return GET /api/public/me/state without a session: the demonstration flag, the door term, the phase (key, mode, line, whether wishes can be edited and reports made, next date, round name), the term timeline, whether the visitor is signed in with the profile summary, and the limits (code length 6, units from 12 to the department cap, 13.5 units for a typical term, 365 days after graduation); shall return GET /api/public/me/catalog the university's colleges that have departments (built from the colleges and departments tables rather than written names; the boys' or girls' track is derived from the college data, and a college that does not split stays without a track), and with collegeId only that college's departments with their own identifiers (the same department in two colleges or sites is two departments and is never merged; a repeated name inside one college is told apart by the department code), bad-college for a missing college, and an optional track that narrows the list while keeping colleges without a track, with public caching for 300 seconds; and shall return GET /api/public/me/plan?sectionId the department's non-archived, non-empty plans with their courses and each course's prerequisites, or the department's operational courses when it has no plans."
       },
       "priority": "should",
       "status": "implemented",
@@ -2765,8 +2766,8 @@
       ],
       "acceptance": [
         {
-          "ar": "catalog بلا track ← specializations فارغة وtracks = [boys, girls].",
-          "en": "catalog without track ← empty specializations and tracks = [boys, girls]."
+          "ar": "catalog بلا معاملات ← قائمة كل الكليات التي لها أقسام وspecializations فارغة؛ ومع collegeId ← أقسام تلك الكلية وحدها؛ وكليةٌ بلا أقسام ← bad-college.",
+          "en": "catalog with no parameters ← the list of every college that has departments and empty specializations; with collegeId ← that college's departments only; a college with no departments ← bad-college."
         },
         {
           "ar": "plan بقسمٍ غير موجود ← 400 bad-section؛ وقسم بلا صحائف ← source=catalog.",
@@ -2775,15 +2776,21 @@
         {
           "ar": "صحيفة جديدة بلا مقرر بعد ← لا تظهر في القائمة.",
           "en": "A new plan with no course yet ← does not appear in the list."
+        },
+        {
+          "ar": "قسمٌ بالاسم نفسه في كليتين أو موقعين ← معرّفان مختلفان في قائمتيهما ولا دمج.",
+          "en": "The same department name in two colleges or sites ← two different identifiers in their lists, never merged."
         }
       ],
       "evidence": {
         "code": [
           "src/server/studentDoorRoutes.ts#/api/public/me/state",
           "src/server/studentDoorRoutes.ts#/api/public/me/catalog",
-          "src/server/studentDoorRoutes.ts#/api/public/me/plan"
+          "src/server/studentDoorRoutes.ts#/api/public/me/plan",
+          "src/utils/studentCatalog.ts"
         ],
         "tests": [
+          "tests/student-colleges-audit.ts",
           "tests/student-door-audit.ts",
           "tests/student-showcase-audit.ts"
         ]
@@ -3563,12 +3570,12 @@
       "id": "FR-STU-054",
       "kind": "functional",
       "title": {
-        "ar": "معالج إعداد الملف في المتصفح: المسار، التخصص، الصحيفة، المنجَز",
-        "en": "Profile setup wizard in the browser: track, specialisation, plan, passed courses"
+        "ar": "معالج إعداد الملف في المتصفح: الكلية، التخصص، الصحيفة، المنجَز",
+        "en": "Profile setup wizard in the browser: college, specialisation, plan, passed courses"
       },
       "text": {
-        "ar": "يجب على صفحة «مساري» أن تعدّ الملف بخطواتٍ يعلوها شريطٌ رفيع «الخطوة x من n» (يُعدّ فيه ما سيُرى فعلاً: إنشاء الملف، والمسار إن لم يحمله الرابط، والتخصص، والصحيفة إن تعددت، وما أنجزت): اختيار مسار البنين أو البنات حين لا يحمل الرابط مساراً (ويُدفع العنوان /me?track= في سجل المتصفح فيعيد زرُّ الرجوع وزرُّ «غيّره» في الصفحة اختيارَ المسار)، ثم التخصص بالبحث في كتالوج المسار بمطابقةٍ عربية متسامحة على الجانبين (أ/إ/آ→ا، ة→ه، ى→ي، بلا تطويلٍ ولا تشكيل)، وما تعذّر تحميلُه من التخصصات لا يُحفظ فارغاً بل يُعرض خطأً بزرّ إعادة؛ ثم الصحيفة (وتُتخطى إن كانت واحدة، ولا تُختار صحيفةٌ بلا مقررات)، ثم المقررات المنجزة مرتّبةً بالمستوى (أول رقم من الرقم الثلاثي للمقرر × 100) ثم بالرمز؛ ويتصدّرها حين يتعدد المستوى «أين وصلت؟» بلمسةٍ واحدة: «مستجد» يمسح كل تعليم و«أنهيتُ حتى مستوى L» يمسح ثم يعلّم ما حتى L بمسبقاته، ثم يعدّل الطالب ما شاء؛ ولمن لم يعلّم شيئاً يصير زرُّ الحفظ «ابدأ كمستجد»؛ وأن تعرض حين تزيد المقررات على 10 بحثاً بالاسم أو الرمز (بالمطابقة نفسها) وتصفية «الكل / المنجَز / الباقي»، و«علّم الكل / ألغِ الكل» لكل مستوى؛ وألا تسمح بتعليم مقرر قبل مسبقاته («يتطلب أولاً: …»)، وأن تُزيل مع إلغاء مقررٍ ما بُني عليه وتعدّه في رسالة، وأن يتكرر التعليم الجماعي حتى يستقر فيُعلَّم 102 بعد 101 في اللمسة نفسها؛ وأن تتيح بعد تأكيدٍ صريح «وضع المعادلة» للطالب المحوّل؛ وأن تمحو المنجَز والصحيفة عند تغيير القسم؛ وفي أول إعدادٍ يظهر فوق الحفظ سطرُ «هذه مقترحات فقط، وليست تسجيلاً نهائياً» بمراحله الثلاث فيكون الحفظُ إقرارَه (POST /api/public/me/ack) بلا شاشة «فهمت» بعده؛ وأن تحفظ عبر PUT /api/public/me/profile.",
-        "en": "The Masari page shall set up the profile in steps topped by a slim «step x of n» bar (counting only what will actually be shown: creating the profile, the track when the link carries none, the specialisation, the plan when there is more than one, and passed courses): choosing the boys' or girls' track when the link carries none (pushing /me?track= into the browser history so both the browser back button and the in-page «change» button return to the track choice), then the specialisation by searching the track's catalogue with tolerant Arabic matching on both sides (alef forms to bare alef, taa marbuta to haa, alef maqsura to yaa, no tatweel or diacritics); a catalogue that failed to load is not stored as empty but shown as an error with a retry button; then the plan (skipped when there is only one, and a plan with no courses cannot be chosen), then the passed courses ordered by level (first digit of the three-digit number × 100) then by code; when there is more than one level they are topped by a one-tap «where are you?»: «newcomer» clears all ticks and «finished up to level L» clears then ticks everything up to L with its prerequisites, after which the student adjusts freely; with nothing ticked the save button reads «start as a newcomer»; with more than 10 courses it offers search by name or code (same matching) and an all / passed / remaining filter, and «mark all / unmark all» per level; it shall not let a course be ticked before its prerequisites, shall remove with an unticked course what depends on it and count them in a message, and shall repeat bulk marking until stable; after an explicit confirmation it offers a transfer mode; changing the department clears the passed courses and the plan; on first setup the line «these are suggestions only, not final registration» with its three stages sits above the save button so saving acknowledges it (POST /api/public/me/ack) with no separate «got it» screen; it saves through PUT /api/public/me/profile."
+        "ar": "يجب على صفحة «مساري» أن تعدّ الملف بخطواتٍ يعلوها شريطٌ رفيع «الخطوة x من n» (يُعدّ فيه ما سيُرى فعلاً: إنشاء الملف، والكلية (إن كانت للجامعة أكثر من واحدة)، والتخصص، والصحيفة إن تعددت، وما أنجزت): اختيار الكلية من قائمة كليات الجامعة كلها (وتُختار وحدها إن كانت واحدة، ويبدأ الملفُّ المحفوظ من كليته، ويُدفع اختيارُ الكلية في سجل المتصفح فيعيد زرُّ الرجوع وزرُّ «غيّرها» في الصفحة قائمةَ الكليات؛ وروابطُ /me?track= القديمة تُضيّق القائمة فقط)، ثم التخصص بالبحث في أقسام الكلية المختارة بمطابقةٍ عربية متسامحة على الجانبين (أ/إ/آ→ا، ة→ه، ى→ي، بلا تطويلٍ ولا تشكيل)، وما تعذّر تحميلُه من التخصصات لا يُحفظ فارغاً بل يُعرض خطأً بزرّ إعادة؛ ثم الصحيفة (وتُتخطى إن كانت واحدة، ولا تُختار صحيفةٌ بلا مقررات)، ثم المقررات المنجزة مرتّبةً بالمستوى (أول رقم من الرقم الثلاثي للمقرر × 100) ثم بالرمز؛ ويتصدّرها حين يتعدد المستوى «أين وصلت؟» بلمسةٍ واحدة: «مستجد» يمسح كل تعليم و«أنهيتُ حتى مستوى L» يمسح ثم يعلّم ما حتى L بمسبقاته، ثم يعدّل الطالب ما شاء؛ ولمن لم يعلّم شيئاً يصير زرُّ الحفظ «ابدأ كمستجد»؛ وأن تعرض حين تزيد المقررات على 10 بحثاً بالاسم أو الرمز (بالمطابقة نفسها) وتصفية «الكل / المنجَز / الباقي»، و«علّم الكل / ألغِ الكل» لكل مستوى؛ وألا تسمح بتعليم مقرر قبل مسبقاته («يتطلب أولاً: …»)، وأن تُزيل مع إلغاء مقررٍ ما بُني عليه وتعدّه في رسالة، وأن يتكرر التعليم الجماعي حتى يستقر فيُعلَّم 102 بعد 101 في اللمسة نفسها؛ وأن تتيح بعد تأكيدٍ صريح «وضع المعادلة» للطالب المحوّل؛ وأن تمحو المنجَز والصحيفة عند تغيير القسم، وتُبقي المنجَز إن أُعيد اختيارُ الصحيفة نفسها؛ وفي أول إعدادٍ يظهر فوق الحفظ سطرُ «هذه مقترحات فقط، وليست تسجيلاً نهائياً» بمراحله الثلاث فيكون الحفظُ إقرارَه (POST /api/public/me/ack) بلا شاشة «فهمت» بعده؛ وأن تحفظ عبر PUT /api/public/me/profile مع collegeId الذي يجب أن يطابق كلية القسم.",
+        "en": "The Masari page shall set up the profile in steps topped by a slim «step x of n» bar (counting only what will actually be shown: creating the profile, the college when the university has more than one, the specialisation, the plan when there is more than one, and passed courses): choosing the college from the list of all the university's colleges (chosen automatically when there is only one, a saved profile starting from its own college, and the college choice is pushed into the browser history so both the browser back button and the in-page «change» button return to the college list; old /me?track= links only narrow the list), then the specialisation by searching the chosen college's departments with tolerant Arabic matching on both sides (alef forms to bare alef, taa marbuta to haa, alef maqsura to yaa, no tatweel or diacritics); a catalogue that failed to load is not stored as empty but shown as an error with a retry button; then the plan (skipped when there is only one, and a plan with no courses cannot be chosen), then the passed courses ordered by level (first digit of the three-digit number × 100) then by code; when there is more than one level they are topped by a one-tap «where are you?»: «newcomer» clears all ticks and «finished up to level L» clears then ticks everything up to L with its prerequisites, after which the student adjusts freely; with nothing ticked the save button reads «start as a newcomer»; with more than 10 courses it offers search by name or code (same matching) and an all / passed / remaining filter, and «mark all / unmark all» per level; it shall not let a course be ticked before its prerequisites, shall remove with an unticked course what depends on it and count them in a message, and shall repeat bulk marking until stable; after an explicit confirmation it offers a transfer mode; changing the department clears the passed courses and the plan, while choosing the same plan again keeps the passed courses; on first setup the line «these are suggestions only, not final registration» with its three stages sits above the save button so saving acknowledges it (POST /api/public/me/ack) with no separate «got it» screen; it saves through PUT /api/public/me/profile with a collegeId that must match the department's college."
       },
       "priority": "should",
       "status": "implemented",
@@ -3597,12 +3604,16 @@
           "en": "Searching the name with a different alef or taa marbuta spelling ← finds the department."
         },
         {
-          "ar": "بعد اختيار «بنين» زرُّ الرجوع في المتصفح ← شاشة اختيار المسار.",
-          "en": "After choosing «boys», the browser back button ← the track choice screen."
+          "ar": "بعد اختيار كلية زرُّ الرجوع في المتصفح ← قائمة الكليات.",
+          "en": "After choosing a college, the browser back button ← the college list."
         },
         {
           "ar": "«أنهيتُ حتى 200» بعد تعليم مقررٍ من 300 ← يبقى المعلَّم ما حتى 200 وحده.",
           "en": "«Finished up to 200» after ticking a 300 course ← only courses up to 200 stay ticked."
+        },
+        {
+          "ar": "إعادة اختيار الصحيفة نفسها ← يبقى ما علّمه الطالب منجَزاً؛ وتغيير الصحيفة ← يُصفَّر.",
+          "en": "Choosing the same plan again ← the ticked passed courses stay; changing the plan ← they are cleared."
         }
       ],
       "evidence": {
@@ -3614,11 +3625,12 @@
           "src/server/studentHomePage.ts#setupPassed",
           "src/server/studentHomePage.ts#setupPlan",
           "src/server/studentHomePage.ts#setupSection",
-          "src/server/studentHomePage.ts#trackBack"
+          "src/server/studentHomePage.ts#collegeBack"
         ],
         "tests": [
           "tests/masari-door-ux-audit.ts",
-          "tests/masari-ease-audit.ts"
+          "tests/masari-ease-audit.ts",
+          "tests/student-colleges-audit.ts"
         ]
       }
     },
@@ -4531,6 +4543,92 @@
         ],
         "tests": [
           "tests/critical-courses-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-076",
+      "kind": "functional",
+      "title": {
+        "ar": "كلُّ كليات الجامعة تعمل في «مساري»",
+        "en": "Every university college works in Masari"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يجعل «مساري» يتبع كلية الطالب نفسها لا كليةً بعينها: يختار الطالب كليته ثم قسمه ثم صحيفته، وتُبنى القوائم من بيانات الكليات والأقسام والصحائف دون أسماءٍ أو معرّفاتٍ مكتوبة؛ ويحفظ PUT /api/public/me/profile كليةَ القسم المختار ويرفض (400 bad-college) قسماً لا يطابق collegeId المرسل؛ وأن يُبنى المطروح وأعدادُ الزملاء والخريطة وتذكرةُ الطالب من قسمه وكليته وحدهما، فلا يرى طالبٌ من كليةٍ أقسامَ كليةٍ أخرى ولا مقرراتها ولا أعدادَ طلبتها.",
+        "en": "The system shall make Masari follow the student's own college rather than one fixed college: the student chooses a college, then a department, then a plan, with the lists built from the colleges, departments and plans data and no written names or identifiers; PUT /api/public/me/profile stores the college of the chosen department and rejects (400 bad-college) a department that does not match the sent collegeId; and the offered list, peer counts, map and ticket are built from the student's own department and college only, so a student of one college never sees another college's departments, courses or student counts."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "طالبٌ من كليةٍ كالتمريض أو الحقوق ← ينشئ ملفاً ويختار قسمه وصحيفته ويحفظ رغباته ويرى مطروحَ كليته وحدها.",
+          "en": "A student of a college such as nursing or law ← creates a profile, picks a department and plan, saves wishes and sees only their own college's offered list."
+        },
+        {
+          "ar": "طالبان من كليتين ← لا يرى أحدُهما قسمَ الآخر ولا مقرراته ولا أعداد زملائه.",
+          "en": "Two students of two colleges ← neither sees the other's department, courses or peer counts."
+        },
+        {
+          "ar": "collegeId لا يطابق القسم ← 400 bad-college.",
+          "en": "collegeId that does not match the department ← 400 bad-college."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/studentCatalog.ts",
+          "src/server/studentDoorRoutes.ts#/api/public/me/catalog",
+          "src/server/studentDoorRoutes.ts#/api/public/me/profile",
+          "src/server/studentHomePage.ts#setupSection"
+        ],
+        "tests": [
+          "tests/student-colleges-audit.ts",
+          "tests/student-door-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-077",
+      "kind": "functional",
+      "title": {
+        "ar": "تصحيحاتٌ صغيرة في الخروج والخصوصية والتذكير والرغبات",
+        "en": "Small fixes to sign-out, privacy, reminders and wishes"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» ألّا تعرض الباب بعد «اخرج» إلا بعد أن يؤكّد الخادم الخروج، فإن فشل الطلب أو انقطع بقي الطالب داخلاً وظهرت «لم يكتمل الخروج، تأكد من الاتصال وأعد المحاولة»؛ وأن تقول عن اسم الطالب ورقمه المدني اللذين يكتبهما لطلب مساعدة القسم إنهما يُحفظان مختومَين ولا يظهران إلا في طلبه ويُحذفان مع ملفه؛ وأن تُظهر «ذكّرني بموعد تسجيلي» متى عُرف دورُ الطالب وتاريخُه ولو خُفيت مواعيد المحاضرات؛ وأن يكتب PUT /api/public/me/wishes آخرَ تعديلٍ وعمرَ الملف كغيره من الكتابات (فتصدق شارةُ «عدّلت ملفّك بعد آخر حساب»)؛ وألّا يرسل GET /api/public/me/wishes-count العددين n وof إلا حيث يُسمح بإظهارهما (قسمٌ فيه 10 ملفاتٍ فأكثر).",
+        "en": "The Masari page shall show the door after «sign out» only once the server has confirmed the exit; if the request fails or drops the student stays signed in and sees «sign-out did not complete, check the connection and try again»; it shall say that the name and civil ID typed for a department help request are stored sealed, shown only in that request and deleted with the profile; it shall show «remind me of my registration date» whenever the student's turn and date are known even when lecture times are hidden; PUT /api/public/me/wishes shall write the last-modified time and the profile lifetime like other writes (so the «you edited your profile after the last calculation» badge is truthful); and GET /api/public/me/wishes-count shall send n and of only where showing them is allowed (a department with 10 or more profiles)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "خروجٌ بلا اتصال ← يبقى الطالب داخلاً ورسالةٌ واضحة.",
+          "en": "Sign-out while offline ← the student stays signed in with a clear message."
+        },
+        {
+          "ar": "حفظ الرغبات ← updatedAt أحدث وdeleteAt محسوب.",
+          "en": "Saving wishes ← a newer updatedAt and a computed deleteAt."
+        },
+        {
+          "ar": "wishes-count في قسمٍ صغير ← بلا n ولا of.",
+          "en": "wishes-count in a small department ← no n and no of."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#doExit",
+          "src/server/studentHomePage.ts#paintTicket",
+          "src/server/studentDoorRoutes.ts#/api/public/me/wishes",
+          "src/server/studentDoorRoutes.ts#/api/public/me/wishes-count"
+        ],
+        "tests": [
+          "tests/student-colleges-audit.ts",
+          "tests/masari-return-audit.ts"
         ]
       }
     }

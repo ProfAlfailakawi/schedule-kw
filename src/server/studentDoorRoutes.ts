@@ -25,7 +25,7 @@ import { offeringBadge, offeringBlocked } from "../utils/courseOffering";
 import type { AdCourse, StudentNeed, StudentProfile, StudentWishes } from "../types";
 import { validateCivilId } from "../utils/civilId";
 import { toEnglishDigits } from "../utils/digits";
-import { byArabic } from "../utils/sorting";
+import { doorColleges, doorSpecializations, type DoorCollegeIn, type DoorSectionIn } from "../utils/studentCatalog";
 import { AR, countOf } from "../utils/arabicCount";
 import {
   AFTER_GRADUATION_DAYS, CODE_LENGTH, CODE_MAX_FAILURES, REMEMBER_DAYS, afterCodeFailure, codeProblem, expectedGraduation,
@@ -520,31 +520,22 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     noStore(res); res.json({ ok: true });
   });
 
-  /* ── الأقسام (عامّة): قائمةُ اختيار القسم ───────────────────────────────── */
+  /* ── الكليات والأقسام (عامّة): يختار الطالبُ كليتَه ثم قسمَه ───────────────────
+     كلُّ كليةٍ في الجامعة (لها أقسام) تعمل، لا كليةٌ بعينها. بلا `collegeId` تعود قائمةُ الكليات؛ ومعه تعود أقسامُ تلك الكلية
+     بمعرّفاتها، فلا يُدمج قسمٌ بقسمٍ في كليةٍ أو موقعٍ آخر. `track` (بنين/بنات) يُضيّق القائمة ويُبقي الكلياتِ التي لا مسارَ لها. */
   app.get("/api/public/me/catalog", async (req: Request, res: Response) => {
-    const track = req.query.track === "boys" || req.query.track === "girls" ? String(req.query.track) : "";
+    const track = req.query.track === "boys" || req.query.track === "girls" ? req.query.track : "";
     const data = await sectionsMemo.get("all", async () => {
       const [colleges, sections] = await Promise.all([Repository.getColleges(), Repository.getSections()]);
-      return (colleges as any[]).map(college => ({
-        id: Number(college.AdCollegeId), name: String(college.AdCollegeName || ""),
-        campus: String(college.AdCollegeName || "").includes("الجهراء") ? "الجهراء" : String(college.AdCollegeName || "").includes("الفحيحيل") ? "الفحيحيل" : "المقر الرئيسي",
-        sections: (sections as any[]).filter(section => Number(section.AdCollegeId) === Number(college.AdCollegeId))
-          .map(section => ({ id: Number(section.AdSectionId), name: String(section.AdSectionName || "") }))
-          .sort((a, b) => byArabic(a.name, b.name)),
-      })).filter(college => college.sections.length).sort((a, b) => byArabic(a.name, b.name));
+      return { colleges: colleges as DoorCollegeIn[], sections: sections as DoorSectionIn[] };
     });
-    const basicEducation = data.filter(college => college.name.includes("التربية الأساسية") && (!track || (track === "boys" ? college.name.includes("بنين") : college.name.includes("بنات"))));
-    const campusOrder = (campus: string) => campus === "المقر الرئيسي" ? 0 : campus === "الجهراء" ? 1 : 2;
-    const bySpecialty = new Map<string, { id: number; name: string }>();
-    basicEducation.slice().sort((a, b) => campusOrder(a.campus) - campusOrder(b.campus) || byArabic(a.name, b.name)).forEach(college => {
-      college.sections.forEach(section => {
-        const name = section.name.normalize("NFKC").replace(/\s+/g, " ").trim();
-        const key = name.toLocaleLowerCase("ar");
-        if (name && !bySpecialty.has(key)) bySpecialty.set(key, { id: section.id, name });
-      });
-    });
-    const specializations = [...bySpecialty.values()].sort((a, b) => byArabic(a.name, b.name));
-    res.setHeader("Cache-Control", "public, max-age=300"); res.json({ track: track || null, specializations: track ? specializations : [], tracks: ["boys", "girls"] });
+    const colleges = doorColleges(data.colleges, data.sections, track);
+    const asked = req.query.collegeId === undefined ? 0 : Number(req.query.collegeId);
+    res.setHeader("Cache-Control", "public, max-age=300");
+    if (!asked) { res.json({ track: track || null, colleges, college: null, specializations: [] }); return; }
+    const college = doorColleges(data.colleges, data.sections).find(row => row.id === asked);
+    if (!college) { fail(res, 400, "اختر كليتك من القائمة.", "bad-college"); return; }
+    res.json({ track: track || null, colleges: [], college, specializations: doorSpecializations(asked, data.sections) });
   });
 
   /* ── صحيفةُ قسمٍ: الصحائف ومقرراتها ─────────────────────────────────────── */
@@ -685,6 +676,8 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
     const sectionId = Number(req.body?.sectionId || 0);
     const section = (await Repository.getSections() as any[]).find(row => Number(row.AdSectionId) === sectionId);
     if (!section) { fail(res, 400, "اختر قسمك العلمي.", "bad-section"); return; }
+    /* الكليةُ تُشتقّ من القسم؛ وإن أرسلتها الصفحةُ فلتطابقه، فلا يُحفظ ملفٌّ بقسمِ كليةٍ غير التي اختارها. */
+    if (req.body?.collegeId !== undefined && Number(req.body.collegeId) !== Number(section.AdCollegeId)) { fail(res, 400, "هذا القسم ليس من الكلية المختارة.", "bad-college"); return; }
     const catalog = await sectionCatalog(sectionId);
     let planId = String(req.body?.curriculumPlanId || "");
     if (catalog.plans.length === 1) planId = catalog.plans[0].id;
@@ -746,7 +739,13 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       constraints: { noMorning: c.noMorning === true, noAfternoon: c.noAfternoon === true, freeDay: c.freeDay === true },
       updatedAt: new Date().toISOString(),
     };
-    const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? { ...current, wishes } : undefined));
+    const now = new Date();
+    /* الرغباتُ كتابةٌ في الملف كغيرها: تُحدَّث «آخرُ تعديل» (شارةُ «عدّلت ملفّك بعد آخر حساب» تعتمد عليه) وعمرُ الملف. */
+    const saved = await Repository.updateStudentProfile(fingerprint, current => {
+      if (!current) return undefined;
+      const base = { ...current, wishes, updatedAt: now.toISOString() };
+      return { ...base, ...keptLifetime(base, now) };
+    });
     if (!saved) { fail(res, 401, "انتهت جلستك. أدخل من جديد.", "signed-out"); return; }
     noStore(res); res.json({ ok: true, wishes });
   });
@@ -790,9 +789,9 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       return { of: list.length, n: wishers.length, byCourse: peerCourseCounts(wishers.map(row => row.wishes!)) };
     });
     const n = Math.max(1, stat.n), show = stat.of >= 10;
-    /* عددُ كل مقررٍ يظهر في القسم الكبير وحده، وبعد حدٍّ أدنى؛ وما تحته لا يُرسل أصلاً. */
-    const byCourse = show ? stat.byCourse : {};
-    res.json({ ready: true, mine, n, of: Math.max(stat.of, n), show, byCourse });
+    /* العددان وعددُ كل مقررٍ يظهران في القسم الكبير وحده، وبعد حدٍّ أدنى؛ وفي القسم الصغير لا يُرسل شيءٌ منها أصلاً
+       (حجمُ القسم نفسُه يدلّ على من أرسل رغباته). */
+    res.json(show ? { ready: true, mine, n, of: Math.max(stat.of, n), show, byCourse: stat.byCourse } : { ready: true, mine, show, byCourse: {} });
   });
 
   /* ── حالاتي: متابعة آمنة لطلبات الاستبيان القديم من ملف مساري ─────────── */

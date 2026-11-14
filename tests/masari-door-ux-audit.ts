@@ -4,7 +4,7 @@
  *   U2 منتقي الوحدات: ثلاثةُ أهدافٍ ثابتة عند أيّ سقف (٣…٣٠)، كلٌّ ٤٤px فأكثر.
  *   U3 «رغباتي» قائمةٌ واحدة: الضمّ يضمّ، والاستبدالُ يسأل أولاً.
  *   U4 انتهاءُ الجلسة: أيُّ ‎401 signed-out‎ من ‎/api/public/me/*‎ حالةٌ واحدة، وما كُتب يُحفظ لصاحبه وحده.
- *   U5 التخصصات: الفشلُ لا يُخزَّن فارغاً، والرجوعُ من المسار يعمل.
+ *   U5 الكليات والتخصصات: الفشلُ لا يُخزَّن فارغاً، والرجوعُ من الكلية يعمل.
  *   U6 تغييرُ الرمز: مرتان، وعين، وعمرُ الجلسة نفسه.
  *   U7 اللمسُ ٤٤px والخطُّ ١٢px.
  *   U8 مفرداتُ الطالب: لا رادار ولا تذكرة ولا محاكاة ولا لغةُ الأقسام، وأرقامٌ لاتينية.
@@ -118,16 +118,20 @@ const base = () => ({ countOf, nounFor, AR, esc, ic: (n: string) => `<i data-i="
   check(/function quietFail\(/.test(STUDENT_HOME_SCRIPT) && ["ما الجديد؟", "حالاتي", "جدولي المقترح", "خطتي", "طلب للقسم"].every(t => STUDENT_HOME_SCRIPT.includes(`quietFail(host,"${t}"`)), "U4 بطاقاتُ الرئيسية الفاشلة سطرٌ هادئ بزرّ إعادة لا اختفاء");
 }
 
-/* U5 */
+/* U5: السلوكُ تغيّر عن قصد (قرار المالك): تُحمَّل الكلياتُ أولاً ثم تخصصاتُ الكلية المختارة، بدل مسارٍ ثابتٍ لكليةٍ واحدة. */
 {
-  const ctx: any = { S: { track: "boys", catalog: null, catalogErr: "" }, encodeURIComponent };
+  const ctx: any = { S: { track: "boys", colleges: null, college: null, catalog: null, catalogErr: "", state: null }, encodeURIComponent };
   ctx.api = () => ({ then: (f: any) => f({ ok: false, status: 0, d: { error: "تعذّر الاتصال" } }) });
   runInNewContext(fn("ensureCatalog") + ";this.e=ensureCatalog;", ctx);
   let called = 0; ctx.e(() => called++);
-  check(called === 1 && ctx.S.catalog === null && ctx.S.catalogErr === "تعذّر الاتصال", "U5 فشلُ التخصصات لا يُخزَّن فارغاً");
+  check(called === 1 && ctx.S.colleges === null && ctx.S.catalogErr === "تعذّر الاتصال", "U5 فشلُ الكليات لا يُخزَّن فارغاً");
+  ctx.api = () => ({ then: (f: any) => f({ ok: true, status: 200, d: { colleges: [{ id: 1, name: "أ" }, { id: 2, name: "ب" }] } }) }); ctx.e(() => called++);
+  check(ctx.S.colleges.length === 2 && !ctx.S.catalogErr && ctx.S.college === null, "U5 الإعادةُ تحمّلها ويختار الطالبُ كليتَه");
+  ctx.S.college = { id: 2 }; ctx.api = () => ({ then: (f: any) => f({ ok: false, status: 0, d: { error: "تعذّر الاتصال" } }) }); ctx.e(() => called++);
+  check(ctx.S.catalog === null && ctx.S.catalogErr === "تعذّر الاتصال", "U5 فشلُ التخصصات لا يُخزَّن فارغاً");
   ctx.api = () => ({ then: (f: any) => f({ ok: true, status: 200, d: { specializations: [{ id: 1, name: "أ" }] } }) }); ctx.e(() => called++);
   check(ctx.S.catalog.length === 1 && !ctx.S.catalogErr, "U5 الإعادةُ تحمّلها");
-  check(/history\.pushState\(\{masari:"track"\}/.test(STUDENT_HOME_SCRIPT) && /window\.addEventListener\("popstate"/.test(STUDENT_HOME_SCRIPT) && /id="bktr"/.test(STUDENT_HOME_SCRIPT) && /id="catr"/.test(STUDENT_HOME_SCRIPT), "U5 الرجوعُ من المسار بزرٍّ وبزرّ المتصفح، وزرُّ إعادةٍ للتخصصات");
+  check(/history\.pushState\(\{masari:"college"\}/.test(STUDENT_HOME_SCRIPT) && /window\.addEventListener\("popstate"/.test(STUDENT_HOME_SCRIPT) && /id="bkcol"/.test(STUDENT_HOME_SCRIPT) && /id="catr"/.test(STUDENT_HOME_SCRIPT), "U5 الرجوعُ من الكلية بزرٍّ وبزرّ المتصفح، وزرُّ إعادةٍ للتحميل");
 }
 
 /* U6 */
