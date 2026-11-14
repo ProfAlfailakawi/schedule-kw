@@ -37,6 +37,7 @@
     "src/server/demoRadarSeed.ts",
     "src/server/demoPreviousTermSeed.ts",
     "src/server/demoSectionRequestsSeed.ts",
+    "src/server/demoActualDemandSeed.ts",
     "src/db/demoSandbox.ts",
     "src/db/demoShowcase.ts",
     "src/db/demoActivityTrail.ts",
@@ -1485,8 +1486,8 @@
         "en": "Demo seeding and role stories"
       },
       "text": {
-        "ar": "يجب على النظام أن يُجهّز الصندوق الأساسي عند الدخول وأن يبذر القصص الأكبر في الخلفية بالتتابع لكل جلسة (قصص الصفات، بقية الأقسام، 64 ملف طالب للرادار، طلب «مساري»، طلبات الشعب، أثر النشاط)، وأن يعرض حالة التحضير (preparing أو ready أو failed)، وألا يفتح أي صفة على شاشة صفرية، وأن تكون كل الأسماء والأرقام المدنية والأرقام وهمية.",
-        "en": "The system shall prepare the core sandbox at sign-in and seed the larger stories in the background, serialised per session (role stories, other departments, 64 radar student profiles, student-journey demand, section requests, activity trail), expose the preparation state (preparing, ready or failed), never open a role on an empty screen, and keep every name, civil number and figure synthetic."
+        "ar": "يجب على النظام أن يُجهّز الصندوق الأساسي عند الدخول وأن يبذر القصص الأكبر في الخلفية بالتتابع لكل جلسة (قصص الصفات، بقية الأقسام، 64 ملف طالب للرادار، طلب «مساري»، طلبات الشعب، تقريرا الطلب الفعلي، أثر النشاط)، وأن يعرض حالة التحضير (preparing أو ready أو failed)، وألا يفتح أي صفة على شاشة صفرية، وأن تكون كل الأسماء والأرقام المدنية والأرقام وهمية.",
+        "en": "The system shall prepare the core sandbox at sign-in and seed the larger stories in the background, serialised per session (role stories, other departments, 64 radar student profiles, student-journey demand, section requests, the two actual-demand reports, activity trail), expose the preparation state (preparing, ready or failed), never open a role on an empty screen, and keep every name, civil number and figure synthetic."
       },
       "priority": "should",
       "status": "implemented",
@@ -1512,6 +1513,10 @@
           "en": "The showcase scene: the first course in the demo schedule list has exactly at its time two other courses (one of its level and one of another); two co-requisite pairs in the active sheet, one with no alternative section and one with an alternative so the note stays silent; an «unlocks» example and a general workshop outside the sheets; a demo college on another campus whose meeting follows a main-campus meeting by half an hour, with a 60-minute travel policy for the three pairs; all added without touching what was placed, so every hall and instructor in it is free at its hour."
         },
         {
+          "ar": "الطلب الفعلي في الديمو: يُحفظ تقريران (عام وخريجون) لعائلة قسم القصة في فصلها، مشتقّان من مقررات الصندوق وسعاتها وشعبها ومواعيدها لا من أرقام مكتوبة، فيفتح «تخطيط الشعب» على خريجين بلا مقعد وعجزٍ يحتاج شعبةً إضافية وفائضٍ ومتوازن، ويُظهر «نبض الطلبة» موعداً أخضر وآخر أحمر باسم المقرر المتعارض وعدد الخريجين وثالثاً متوسطاً؛ حتميٌّ بلا عشوائية، ولا يُكتب إلا في صندوق الزائر فلا يقرؤه الحقيقي ولا صندوقٌ آخر.",
+          "en": "Actual demand in the demo: two reports (general and graduates) are stored for the story department's family in its term, derived from the sandbox's courses, capacities, sections and times rather than typed figures, so section planning opens on graduates without a seat, a shortage needing an extra section, a surplus and a balanced course, and the student pulse shows a green slot, a red one naming the clashing course and the graduate count, and a middle one; deterministic with no randomness, and written only to the visitor's sandbox so neither the real store nor another sandbox reads it."
+        },
+        {
           "ar": "أنواع القاعات في الديمو: «قاعة تدريسية» و«مختبر حاسوب» عامّان لكل الأقسام، و«ورشة» و«استوديو إنتاج» لقسم الديمو وحده.",
           "en": "Demo hall types: «lecture hall» and «computer lab» are general for every department, and «workshop» and «production studio» belong to the demo department alone."
         }
@@ -1522,6 +1527,7 @@
           "src/server/demoRadarSeed.ts",
           "src/server/demoPreviousTermSeed.ts",
           "src/server/demoSectionRequestsSeed.ts",
+          "src/server/demoActualDemandSeed.ts",
           "src/server/core/demo.ts",
           "src/db/demoSandbox.ts",
           "src/db/demoShowcase.ts"
@@ -1529,7 +1535,8 @@
         "tests": [
           "tests/demo-every-role-audit.ts",
           "tests/demo-cases-audit.ts",
-          "tests/demo-showcase-audit.ts"
+          "tests/demo-showcase-audit.ts",
+          "tests/demo-actual-demand-audit.ts"
         ]
       }
     },
