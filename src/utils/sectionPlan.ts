@@ -4,10 +4,12 @@
  * مصدرٌ واحد: تقرير «المقررات التي يحتاجها الطالب» — «الكل» يكفي، و«الخريجون» يقدّم أهلَه.
  * لكل مقرر ولكل حرم (بنين / بنات) سطرٌ واحد:
  *
- *   المطلوب          = ⌈الطلبة ÷ سعة الشعبة⌉
+ *   الحاجة الكاملة   = ⌈الطلبة ÷ سعة الشعبة⌉   (يعدّ التقرير كل من يحتاج المقرر، لا من سيسجّله الآن)
  *   منه للخريجين     = ⌈الخريجون ÷ سعة الشعبة⌉   (الخريجون جزءٌ من الكل، لا يُضافون إليه)
+ *   المقترح          = ما فتحه القسم فعلاً في الفصول المماثلة (متوسطها)، والطلبة يحرّكونه ±١ (±٢ لمن فوق ٤)؛
+ *                      ومقرر بلا تاريخ = الحاجة الكاملة بسعته. والخريجون لا ينزل المقترح عن شعبهم.
  *   المطروح          = شعبُ المقرر في جدولنا للحرم نفسه
- *   ينقصه / فائض     = المطلوب − المطروح
+ *   ينقصه / فائض     = المقترح − المطروح     (والحاجة الكاملة تُعرض دائماً تحته: لا يُخفى الرقم الحقيقي)
  *
  * سعة الشعبة: سعة المقرر المسجّلة عندنا كما هي (٥ أو ٢٥ أو ٦٠)، وإلا «متوسط الطلبة في الشعبة»
  * من التقرير موسوماً، وإلا لا حساب («أدخل السعة»). متوسط التقرير لا يتقدّم على سعتنا أبداً.
@@ -29,6 +31,22 @@ export interface PlanMember { collegeId: number; sectionId: number; track: PlanT
 export interface PlanCatalogueCourse { AdCourseId: number; AdSectionId: number; MaxStudent?: number; CourseHours?: number; CourseCode?: string }
 export interface PlanScheduleRow { AdCourseId: number; AdCollegeId: number; SCode: string; AdInstructorId?: number }
 
+/** شعبُ فصلٍ سابق مماثل (الموسم نفسه) لعائلة القسم. */
+export interface PlanPastTerm { termName: string; rows: readonly PlanScheduleRow[] }
+/** حالة الطرح: المقفل والمؤجَّل لا يُقترح لهما شيء، والمسقوف لا يتجاوز سقفه. */
+export interface PlanOffering { state: string; maxSections?: number }
+export type PlanBasis = "history" | "calc" | "locked";
+
+/** سقف التعديل عن المعتاد: ±١، و±٢ إن كان المعتاد ٤ شعب فأكثر. */
+export const historyBand = (usual: number) => (usual >= 4 ? 2 : 1);
+
+/** المقترح من التاريخ: المعتاد، والحاجة تحرّكه داخل النطاق. */
+export function suggestFromHistory(usual: number, required: number): number {
+  const band = historyBand(usual);
+  const lean = required > 0 ? Math.max(-band, Math.min(band, required - usual)) : 0;
+  return Math.max(1, usual + lean);
+}
+
 export interface PlanRow {
   code: string;
   name: string;
@@ -39,13 +57,22 @@ export interface PlanRow {
   graduates: number;
   cap: number;
   capSource: PlanCapSource;
+  /** الحاجة الكاملة: ⌈الطلبة ÷ السعة⌉. */
   required: number;
   gradRequired: number;
+  /** المقترح: من التاريخ إن وُجد، وإلا الحاجة الكاملة؛ لا ينزل عن شعب الخريجين. */
+  plan: number;
+  basis: PlanBasis;
+  /** المعتاد في الفصول المماثلة (متوسط ما فُتح)، وعدد تلك الفصول. null بلا تاريخ. */
+  usual: number | null;
+  historyTerms: number;
   offered: number;
   /** شعبُ خريجين ناقصة: ⌈الخريجون ÷ السعة⌉ − المطروح. */
   gradShort: number;
-  /** موجبٌ ينقصه، وسالبٌ فائض. */
+  /** المقترح − المطروح: موجبٌ ينقصه، وسالبٌ فائض. */
   gap: number;
+  /** الحاجة الكاملة − المطروح (للعرض تحت المقترح). */
+  fullGap: number;
   tier: PlanTier;
   /** طلبةٌ بلا مقعد بعد المطروح. */
   unseated: number;
@@ -72,8 +99,10 @@ export interface SectionPlanReading {
   totals: {
     /** شعبُ خريجين ناقصة. */
     gradOpen: number;
-    /** كل الشعب الناقصة (ومنها شعبُ الخريجين). */
+    /** كل الشعب الناقصة بالمقترح (ومنها شعبُ الخريجين). */
     open: number;
+    /** الشعب الناقصة بالحاجة الكاملة، بلا تاريخ: الرقم الحقيقي للمشكلة. */
+    needAll: number;
     close: number;
     /** مقرراتٌ لا سعة لها عندنا ولا في التقرير. */
     nocap: number;
@@ -108,11 +137,17 @@ export function sectionPlan(input: {
   isTeacher?: (instructorId: number) => boolean;
   /** ساعاتٌ بقيت في أنصبة أساتذة العائلة ومنتدبيها هذا الفصل. */
   freeHours?: number;
+  /** الفصول المماثلة السابقة لعائلة القسم (الأحدث أولاً). */
+  past?: readonly PlanPastTerm[];
+  /** مقررٌ أُعيد ترقيمه: سلفُه يُورِّثه شعبَه إن لم يُفتح هو بعدُ. */
+  ancestors?: ReadonlyMap<number, readonly number[]>;
+  /** حالة الطرح لكل AdCourseId. */
+  offering?: ReadonlyMap<number, PlanOffering>;
 }): SectionPlanReading {
   const general = input.general, graduates = input.graduates;
   const empty: SectionPlanReading = {
     hasGeneral: Boolean(general), hasGraduates: Boolean(graduates), rows: [],
-    totals: { gradOpen: 0, open: 0, close: 0, nocap: 0 }, graduatesServed: null,
+    totals: { gradOpen: 0, open: 0, needAll: 0, close: 0, nocap: 0 }, graduatesServed: null,
     visitors: { graduates: visitorsFor(0, input.freeHours || 0), all: visitorsFor(0, input.freeHours || 0), perVisitor: VISITOR_HOURS },
   };
   if (!general && !graduates) return empty;
@@ -135,6 +170,15 @@ export function sectionPlan(input: {
     const id = Number(row.AdInstructorId || 0);
     if (id) teachers.get(code)!.add(id);
   }
+
+  /* شعب كل فصلٍ سابق: (فصل، مقرر، كلية) ← عدد رموز الشعب. */
+  const pastCount = (past: PlanPastTerm, courseId: number, collegeId: number) => {
+    const seen = new Set<string>();
+    for (const row of past.rows) if (Number(row.AdCourseId) === courseId && Number(row.AdCollegeId) === collegeId) seen.add(String(row.SCode || "").trim());
+    return seen.size;
+  };
+  const pastTerms = input.past || [];
+  const ancestorsOf = (id: number) => input.ancestors?.get(id) || [];
 
   const out: PlanRow[] = [];
   let gradNeed = 0, gradSeated = 0;
@@ -164,14 +208,35 @@ export function sectionPlan(input: {
       const required = sectionsFor(students, cap);
       const gradRequired = Math.min(required || Infinity, sectionsFor(graduatesHere, cap));
       const gradShort = cap ? Math.max(0, gradRequired - offered) : 0;
-      const gap = cap ? required - offered : 0;
-      const tier: PlanTier = !cap && students ? "nocap" : gradShort > 0 ? "grad" : gap > 0 ? "short" : gap < 0 ? "surplus" : "ok";
+
+      /* المعتاد من التاريخ: ما فتحه القسم فعلاً في كل فصلٍ مماثل (لا يُحسب فصلٌ لم يُفتح فيه المقرر). */
+      const perTerm = pastTerms.map(term => {
+        const own = members.flatMap(member => copies.filter(copy => Number(copy.AdSectionId) === member.sectionId).map(copy => ({ member, copy })));
+        const ownCount = own.reduce((sum, { member, copy }) => sum + pastCount(term, Number(copy.AdCourseId), member.collegeId), 0);
+        return { term, ownCount, own };
+      });
+      const ownOpened = perTerm.some(item => item.ownCount > 0);
+      const counts = perTerm.map(item => ownOpened ? item.ownCount
+        : item.own.reduce((sum, { member, copy }) => sum + ancestorsOf(Number(copy.AdCourseId)).reduce((inner, from) => inner + pastCount(item.term, from, member.collegeId), 0), 0)).filter(n => n > 0);
+      const usual = counts.length ? Math.max(1, Math.round(counts.reduce((a, b) => a + b, 0) / counts.length)) : null;
+
+      const offering = own.map(({ copy }) => input.offering?.get(Number(copy.AdCourseId))).find(Boolean);
+      const locked = offering?.state === "closed" || offering?.state === "future";
+      let plan = !cap && usual === null ? 0 : usual !== null ? suggestFromHistory(usual, required) : required;
+      if (!locked && offering?.state === "limited" && Number(offering.maxSections) > 0) plan = Math.min(plan, Number(offering.maxSections));
+      if (cap) plan = Math.max(plan, gradRequired);
+      if (locked) plan = Math.min(plan, offered);
+      const basis: PlanBasis = locked ? "locked" : usual !== null ? "history" : "calc";
+      const planned = Boolean(cap) || usual !== null;
+      const gap = planned ? plan - offered : 0;
+      const fullGap = cap ? required - offered : 0;
+      const tier: PlanTier = !planned && students ? "nocap" : gradShort > 0 ? "grad" : gap > 0 ? "short" : gap < 0 ? "surplus" : "ok";
       const hours = Math.max(0, ...own.map(({ copy }) => Number(copy.CourseHours) || 0)) || course.units || grad?.units || 0;
       if (graduatesHere && cap) { gradNeed += graduatesHere; gradSeated += Math.min(graduatesHere, offered * cap); }
       const first = own[0];
       out.push({
         code: course.code, name: course.name || grad?.name || "", track, hours,
-        students, graduates: graduatesHere, cap, capSource, required, gradRequired, offered, gradShort, gap, tier,
+        students, graduates: graduatesHere, cap, capSource, required, gradRequired, plan, basis, usual, historyTerms: counts.length, offered, gradShort, gap, fullGap, tier,
         unseated: cap ? Math.max(0, students - offered * cap) : students,
         registrar: sideOf(course.suggested, track) || sideOf(grad?.suggested, track),
         unassigned,
@@ -189,6 +254,7 @@ export function sectionPlan(input: {
     totals: {
       gradOpen: out.reduce((sum, row) => sum + row.gradShort, 0),
       open: out.reduce((sum, row) => sum + Math.max(0, row.gap), 0),
+      needAll: out.reduce((sum, row) => sum + Math.max(0, row.fullGap), 0),
       close: out.reduce((sum, row) => sum + Math.max(0, -row.gap), 0),
       nocap: out.filter(row => row.tier === "nocap").length,
     },
@@ -209,7 +275,7 @@ export const planStage = (row: Pick<PlanRow, "tier">): "graduates" | "students" 
  * ما تقرؤه الشاشات الأخرى لكل AdCourseId (شارة المراجعة، محرّر الموعد، لوحة القرار):
  * المطلوب والمطروح في نسخة كل كلية، من سطر حرمها.
  */
-export interface PlanCourseFact { code: string; name: string; courseCode: string; sectionId: number; track: PlanTrack; required: number; offered: number; gap: number; gradShort: number; graduates: number; students: number; tier: PlanTier }
+export interface PlanCourseFact { code: string; name: string; courseCode: string; sectionId: number; track: PlanTrack; required: number; plan: number; offered: number; gap: number; gradShort: number; graduates: number; students: number; tier: PlanTier }
 export function planCourseFacts(reading: SectionPlanReading, matches: ReadonlyMap<string, DemandMatch>, catalogue: readonly PlanCatalogueCourse[], members: readonly PlanMember[]): Record<string, PlanCourseFact> {
   const out: Record<string, PlanCourseFact> = {};
   const trackOfSection = new Map(members.map(member => [member.sectionId, member.track] as const));
@@ -220,7 +286,7 @@ export function planCourseFacts(reading: SectionPlanReading, matches: ReadonlyMa
       if (!copy) continue;
       const track = trackOfSection.get(Number(copy.AdSectionId)) ?? "";
       if (row.track && track !== row.track) continue;
-      out[String(id)] = { code: row.code, name: row.name, courseCode: String(copy.CourseCode || "").trim(), sectionId: Number(copy.AdSectionId), track: row.track, required: row.required, offered: row.offered, gap: row.gap, gradShort: row.gradShort, graduates: row.graduates, students: row.students, tier: row.tier };
+      out[String(id)] = { code: row.code, name: row.name, courseCode: String(copy.CourseCode || "").trim(), sectionId: Number(copy.AdSectionId), track: row.track, required: row.required, plan: row.plan, offered: row.offered, gap: row.gap, gradShort: row.gradShort, graduates: row.graduates, students: row.students, tier: row.tier };
     }
   }
   return out;

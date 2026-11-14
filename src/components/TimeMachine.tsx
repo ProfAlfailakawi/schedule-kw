@@ -1,16 +1,17 @@
 /**
- * ── ⏳ آلة الزمن («ماذا لو» في مركز الذكاء) ──
+ * ── ⏳ «ماذا لو» (آلة الزمن) ──
  * سيناريوهاتٌ فوق الجدول الحيّ كفروع git: لا شيء يُكتب حتى «اعتمد الكل».
  *   ✨ اقتراحات: أستاذٌ بدل «هيئة تدريسية»/TA، وقاعةٌ تعود إلى نوعها — بلا كتابة.
  *   🚨 طارئ: جملةٌ أو هدفٌ جاهز ← حلولٌ مرتّبة في ثوانٍ.
  *   🧪 الشعب: تعديلٌ حرّ على الشعب بأثرٍ حيّ (محاكي الشعب).
  *   🗑 حذف مقرر: حكمٌ بأسبابه قبل التجربة.
  *   🔀 النمط: كتلةٌ طويلة ← يومان، قراءةٌ فقط.
- * صار داخل مركز الذكاء («جرّب ← ماذا لو») لمن يبني الجدول؛ والصفحةُ المستقلة
- * باقيةٌ لمن يقرأ الجدول ولا يدخل المركز (رئيس القسم والعميد).
+ * بابان فقط، والمكتب واحد (WhatIfDesk): «مركز الذكاء ← جرّب ← ماذا لو» لمن يبني الجدول،
+ * و«جرّب بديلاً» على كل موعدٍ تغيّر في «تغييرات الجدول» لمن يراجعه (رئيس القسم والتسجيل):
+ * يفتح المكتبَ على الموعد نفسه فيعرض له أماكنه وأوقاته البديلة.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Building2, FlaskConical, Hourglass, Layers, Puzzle, Scale, Shuffle, Siren, Sparkles, Trash2 } from "lucide-react";
+import { FlaskConical, Puzzle, Scale, Shuffle, Siren, Sparkles, Trash2 } from "lucide-react";
 import { PatternWhatIf, RemovalCheck, SuggestionList, type TryChanges } from "./SmartSuggestions";
 import {
   boardOf, compareScenarios, describeProblem, driftOf, parseProblem, solveProblem, tmCourseNumber,
@@ -21,7 +22,6 @@ import { AR, countOf } from "../utils/arabicCount";
 import { SectionSimulatorBody } from "./SectionSimulator";
 import { COMPARE_ICON, Ico, LevelDot, Loading, PHILOSOPHY_ICON, scopeQuery, type IcoName, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
 import { takeTimeMachineAsk } from "../utils/timeMachineLink";
-import { readSharedScope, writeSharedScope } from "../utils/sharedScope";
 
 type Mode = "suggest" | "emergency" | "lab" | "remove" | "pattern";
 const MODES: Array<[Mode, React.ReactNode, string]> = [
@@ -51,89 +51,19 @@ const GOALS: Array<{ icon: IcoName; label: string; problem: TmProblem }> = [
   { icon: "rooms", label: "وفّر قاعتين", problem: { kind: "freeRooms", count: 2 } },
 ];
 
-interface ScopeOptions { colleges: Array<{ id: number; name: string }>; sections: Array<{ id: number; collegeId: number; name: string }> }
-const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, "ar");
-
-/**
- * ── الكلية والقسم صراحةً ──
- * كانت آلة الزمن تفتح على النطاق المحفوظ من شاشةٍ أخرى بلا منتقٍ، فلا يعرف القارئ
- * كيف يبدّل القسم. المنتقيان هنا في رأس الصفحة، دائماً، حتى في الانتظار والخطأ،
- * ويكتبان النطاق المشترك لأن القارئ اختاره بيده.
- */
-export default function TimeMachine() {
-  const [picked, setPicked] = useState(() => readSharedScope());
-  const { context, error, reload } = useTimeMachineContext(picked.sectionId ? picked : undefined);
-  const [options, setOptions] = useState<ScopeOptions | null>(null);
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/time-machine/scopes", { credentials: "include" })
-      .then(response => (response.ok ? response.json() : null))
-      .then(body => { if (alive) setOptions(body && Array.isArray(body.sections) ? body : { colleges: [], sections: [] }); })
-      .catch(() => { if (alive) setOptions({ colleges: [], sections: [] }); });
-    return () => { alive = false; };
-  }, []);
-  const collegeId = picked.collegeId || context?.scope.collegeId || 0;
-  const sectionId = picked.sectionId || context?.scope.sectionId || 0;
-  const choose = (patch: { collegeId: number; sectionId: number }) => {
-    writeSharedScope(patch, { source: "time-machine" });
-    setPicked(current => ({ ...current, ...patch }));
-  };
-  const pickCollege = (id: number) => {
-    const first = (options?.sections || []).filter(section => section.collegeId === id).sort(byName)[0];
-    choose({ collegeId: id, sectionId: first?.id || 0 });
-  };
-  const colleges = [...(options?.colleges || [])].sort(byName);
-  const sections = (options?.sections || []).filter(section => section.collegeId === collegeId).sort(byName);
-  const scopeKey = context ? `${context.scope.collegeId}:${context.scope.sectionId}:${context.scope.termId}` : "";
-  return (
-    <div className="tm-page">
-      <header className="tm-hero">
-        <span className="tm-hero-mark" aria-hidden="true"><Hourglass /></span>
-        <div className="tm-hero-copy">
-          <h1>آلة الزمن</h1>
-          {context ? <p><bdi>{context.scope.termName}</bdi> · {countOf(context.rows.length, AR.appointment)}</p> : null}
-        </div>
-        <span className="tm-branch" title="لا شيء يُكتب في الجدول حتى الاعتماد"><Ico n="branch" />فرعٌ افتراضي</span>
-        <div className="tm-scope" role="group" aria-label="الكلية والقسم">
-          <label className="tm-scope-pick">
-            <Building2 aria-hidden="true" />
-            <span className="sr-only">الكلية</span>
-            <select data-guide-ignore="يختار كلية آلة الزمن؛ لا يكتب في الجدول" value={collegeId || ""} disabled={colleges.length < 2}
-              onChange={event => pickCollege(Number(event.target.value))} aria-label="الكلية">
-              {!colleges.some(college => college.id === collegeId) ? <option value={collegeId || ""}>{options ? "اختر الكلية" : "…"}</option> : null}
-              {colleges.map(college => <option key={college.id} value={college.id}>{college.name}</option>)}
-            </select>
-          </label>
-          <label className="tm-scope-pick">
-            <Layers aria-hidden="true" />
-            <span className="sr-only">القسم</span>
-            <select data-guide-ignore="يختار قسم آلة الزمن؛ لا يكتب في الجدول" value={sectionId || ""} disabled={sections.length < 2 && sections.some(section => section.id === sectionId)}
-              onChange={event => choose({ collegeId, sectionId: Number(event.target.value) })} aria-label="القسم">
-              {!sections.some(section => section.id === sectionId) ? <option value={sectionId || ""}>{context?.scope.sectionName || (options ? "اختر القسم" : "…")}</option> : null}
-              {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-            </select>
-          </label>
-        </div>
-      </header>
-      {error ? <p className="tm-note" role="alert">{error}</p>
-        : !context ? <Loading />
-        : <TimeMachineBody key={scopeKey} context={context} reload={reload} />}
-    </div>
-  );
-}
-
 /**
  * «ماذا لو» داخل مركز الذكاء: النطاقُ نطاقُ المركز نفسه، فلا منتقٍ ثانٍ ولا رأسُ صفحة.
  */
-export function WhatIfDesk({ collegeId, sectionId, termId }: { collegeId: number; sectionId: number; termId: number }) {
+export function WhatIfDesk({ collegeId, sectionId, termId, focusRowId }: { collegeId: number; sectionId: number; termId: number; focusRowId?: number }) {
   const { context, error, reload } = useTimeMachineContext({ collegeId, sectionId, termId });
   if (error) return <p className="tm-note" role="alert">{error}</p>;
   if (!context) return <Loading />;
-  return <div className="tm-page is-embedded"><TimeMachineBody key={`${context.scope.collegeId}:${context.scope.sectionId}:${context.scope.termId}`} context={context} reload={reload} /></div>;
+  return <div className="tm-page is-embedded"><TimeMachineBody key={`${context.scope.collegeId}:${context.scope.sectionId}:${context.scope.termId}:${focusRowId || 0}`} context={context} reload={reload} focusRowId={focusRowId} /></div>;
 }
 
-function TimeMachineBody({ context, reload }: { key?: string; context: LoadedContext; reload: () => void }) {
-  const [mode, setMode] = useState<Mode>("suggest");
+function TimeMachineBody({ context, reload, focusRowId }: { key?: string; context: LoadedContext; reload: () => void; focusRowId?: number }) {
+  /* «جرّب بديلاً» من «تغييرات الجدول»: يفتح على «طارئ» ببدائل ذلك الموعد وحده. */
+  const [mode, setMode] = useState<Mode>(focusRowId ? "emergency" : "suggest");
   const [text, setText] = useState("");
   const [problem, setProblem] = useState<TmProblem | null>(null);
   const [unknown, setUnknown] = useState(false);
@@ -162,6 +92,10 @@ function TimeMachineBody({ context, reload }: { key?: string; context: LoadedCon
     .then(r => r.json()).then(body => setSaved(Array.isArray(body?.scenarios) ? body.scenarios : [])).catch(() => setSaved([]));
   useEffect(() => { void loadSaved(); }, [context]);
   /* جملةٌ جاءت من شاشةٍ أخرى (التنبؤ، التخطيط): تُكتب في خانة الطوارئ وتُحلّ فوراً، مرّةً واحدة. */
+  useEffect(() => {
+    if (focusRowId) run({ kind: "moveRow", rowId: focusRowId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRowId]);
   useEffect(() => {
     const consume = () => {
       const ask = takeTimeMachineAsk();

@@ -1,0 +1,53 @@
+/* ==========================================================================
+   «جرّب بديلاً» على موعدٍ في «تغييرات الجدول»
+   زرٌّ صغير بجانب «علّق على خانة»، وورقةٌ عريضة تحمل مكتب «ماذا لو» على الموعد نفسه.
+   ========================================================================== */
+
+.changes-try-add{
+  display:inline-flex;align-items:center;gap:6px;margin-top:8px;margin-inline-end:8px;
+  min-height:36px;padding:6px 12px;border-radius:var(--r-full,999px);
+  border:1px solid color-mix(in srgb,var(--accent) 36%,var(--line));
+  background:var(--accent-softer,transparent);color:var(--accent-ink,var(--accent));
+  font-size:.82rem;font-weight:700;cursor:pointer;
+}
+.changes-try-add:hover{background:var(--accent-soft)}
+.changes-try-add:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.changes-try-add>svg{inline-size:15px;block-size:15px}
+
+.try-alt-sheet{
+  position:fixed;inset:0;z-index:70;
+  display:grid;place-items:center;padding:clamp(0px,2vw,24px);
+  background:color-mix(in srgb,#0b1210 52%,transparent);
+  backdrop-filter:blur(2px);
+}
+.try-alt-card{
+  inline-size:min(1100px,100%);max-block-size:100%;min-block-size:0;
+  display:grid;grid-template-rows:auto minmax(0,1fr);
+  border-radius:var(--r-xl,24px);overflow:hidden;
+  background:var(--canvas,var(--surface));border:1px solid var(--line);box-shadow:var(--shadow-lg);
+}
+.try-alt-card>header{
+  display:flex;align-items:center;gap:var(--s3);
+  padding:var(--s4) var(--s5);border-block-end:1px solid var(--line);background:var(--surface);
+}
+.try-alt-card>header>div{flex:1;min-inline-size:0;display:grid;gap:2px}
+.try-alt-card>header small{color:var(--muted);font-size:var(--t-xs)}
+.try-alt-card>header strong{font-size:var(--t-h4);font-weight:700;overflow-wrap:anywhere}
+.try-alt-mark{
+  flex:none;inline-size:40px;block-size:40px;display:grid;place-items:center;
+  border-radius:var(--r-lg,16px);background:var(--accent-soft);color:var(--accent);
+}
+.try-alt-mark svg{inline-size:20px;block-size:20px}
+.try-alt-card>header>button{
+  flex:none;inline-size:40px;block-size:40px;display:grid;place-items:center;
+  border:1px solid var(--line);border-radius:var(--r-full,999px);background:var(--surface);color:var(--ink);cursor:pointer;
+}
+.try-alt-card>header>button svg{inline-size:18px;block-size:18px}
+.try-alt-body{overflow:auto;padding:var(--s4) var(--s5) var(--s6);overscroll-behavior:contain}
+
+@media (max-width:760px){
+  .try-alt-sheet{padding:0}
+  .try-alt-card{border-radius:0;block-size:100dvh}
+  .try-alt-body{padding:var(--s3) var(--s3) var(--s6)}
+}
+@media print{.try-alt-sheet{display:none !important}}

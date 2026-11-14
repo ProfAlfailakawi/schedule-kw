@@ -32,7 +32,7 @@ console.log("١) السياق لنطاقه وحده");
   const hook = read("src/components/timeMachineShared.tsx");
   check(hook.includes("setLoaded({ key, context: body })") && hook.includes("context: contextForScope<LoadedContext>(loaded, key)"), "الخطّاف يحفظ مفتاح النطاق مع السياق ويُعيده عبر contextForScope");
   const page = read("src/components/TimeMachine.tsx");
-  check(page.includes(": !context ? <Loading />"), "الصفحة تعرض الانتظار حين لا سياق للنطاق المختار");
+  check(page.includes("if (!context) return <Loading />;"), "المكتب يعرض الانتظار حين لا سياق للنطاق المختار");
 }
 
 console.log("٢) Escape لأعلى حوارٍ مفتوح");

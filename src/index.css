@@ -16,7 +16,6 @@
 @import "./styles/21-plan-general.css";
 @import "./styles/23-section-build.css";
 @import "./styles/22-outcome-story.css";
-@import "./styles/24-section-plan-polish.css";
 @import "./styles/25-term-freeze.css";
 @import "./styles/26-predictive.css";
 @import "./styles/14-proposal.css";
@@ -78,6 +77,7 @@
 @import "./styles/61-advisor-seat-quota.css";
 @import "./styles/62-live-board.css";
 @import "./styles/63-delete-impact.css";
+@import "./styles/61-try-alternative.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after
    everything else preserves the cascade order exactly as it stands here. */

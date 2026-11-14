@@ -9,7 +9,6 @@
 import type { Express } from "express";
 import { academicAdviceForScope } from "../academicAdvisoryData";
 import express, { Response } from "express";
-import { rateLimit } from "express-rate-limit";
 import { Repository, withSerialLock, caseRefFor } from "../../db/repository";
 import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import type { AdCourse, FSchedule } from "../../types";
@@ -30,14 +29,9 @@ import { courseLevelFromCode } from "../../utils/curriculumRules";
 import { offeringStatesForTerm } from "../offeringStates";
 import { applyOfferingToOpenings, offeringBadge } from "../../utils/courseOffering";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
-import { ScanReadingBusyError, readReportCells } from "../../utils/documentOcr";
-import { assessRemainingImport, blankSpots, columnKind, imageOrientationRefusal, readRemainingReport, readReportHeader, remainingReportTermRelation } from "../../utils/remainingReport";
 import { computeTermForecast } from "../../utils/termForecast";
-import { academicDigits, authorityDepartmentCode } from "../../utils/authorityAcademicCodes";
 import { roomIdentityKey } from "../../utils/locationRegistry";
-import { officialCollegeSitePrefix } from "../../utils/locationCollegePrefixes";
 import { type AuthenticatedRequest, requireAnyPermission, requirePermission } from "../core/auth";
-import { documentReadingGate } from "../core/http";
 import { confirmedDepartmentRoomIds, readLocationRegistry } from "../core/locations";
 import { sortTermsNewestServer, termChronologyServer } from "../core/ordering";
 import { curriculumLabelsFor, sectionGapData } from "../core/planning";
@@ -49,41 +43,37 @@ import { filterByScope, isScopeAllowed } from "../core/scope";
 import { smartContextFrom } from "../core/smartImport";
 import { studentIdentityFor, surveyActiveCourseIds, surveyCohort } from "../core/studentIdentity";
 import { visitingChecker } from "../core/visiting";
-
-/* كشفُ «المتبقي» يُقرأ ملفاً كاملاً، وقد يمرّ بالقراءة الضوئية: حدٌّ سخيٌّ
-   لقسمٍ يرفع كشفه ويعيده، يمنع حلقةً من شغل طابور القراءة عن الجميع. */
-const rateLimitDocumentRead = rateLimit({
-  windowMs: 60_000,
-  limit: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "ملفاتٌ كثيرة في وقتٍ قصير. انتظر قليلاً ثم أعد رفع الكشف." },
-});
+import { planTargetsFor } from "../actualDemand";
 
 /* ══ تنزيل الشعب: من العدد المختار في التخطيط إلى الجدول ═══════════════════════════
  *
- * القرار (عدد الشعب لكل مقرر) محفوظ في إحصاءات التسجيل (accepted). هنا يُقارَن بما في جدول الفصل فعلاً:
+ * القرار (عدد الشعب لكل مقرر) يأتي من «تخطيط الشعب» (التاريخ أولاً، والقسم يعدّله). هنا يُقارَن بما في جدول الفصل فعلاً:
  * المطلوب ٦ والموجود ٥ ⇒ باقٍ ١. والبناء يمرّ من محرّك التوصيات نفسه (نسجٌ على أسبوعٍ يتراكم، قاعات
  * موثّقة، أستاذٌ درّس المقرر وله نصاب، دفعةٌ لا تتقاطع، وكلّ أقسام الفصل في الحسبان)، ثم يُكتب بالمسار
  * المشترك (applyProposalCore) باسم المستخدم الحالي ومصدره «تخطيط الشعب». لا يُكتب شيء قبل ضغطة التأكيد،
  * وبصمة الأسبوع تمنع الإنزال على جدولٍ تغيّر، والإنزال كلُّه أو لا شيء. */
-async function readSectionBuild(collegeId: number, sectionId: number, termId: number, given?: unknown) {
-  const [courses, stats, termWeek, history, people, registry] = await Promise.all([
-    Repository.getCoursesBySection(sectionId), Repository.getRegistrationStats(collegeId, sectionId, termId),
+async function readSectionBuild(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number, given?: unknown) {
+  const [courses, planned, termWeek, history, people, registry] = await Promise.all([
+    Repository.getCoursesBySection(sectionId), planTargetsFor(req, collegeId, sectionId, termId),
     Repository.getSchedulesByScope({ termId }), Repository.getSchedulesByScope({ collegeId, sectionId }),
     Repository.getInstructors(termId).catch(() => []), readLocationRegistry(),
   ]);
   const week = termWeek.filter(row => Number(row.AdSectionId) === sectionId && Number(row.AdCollegeId) === collegeId);
-  /* ما يراه المستخدم على الشاشة (المختار، وإلا المقترح) يصل هنا أعداداً فقط؛ وبلا إرسالٍ يُقرأ المحفوظ. */
-  const accepted: Record<string, unknown> = given && typeof given === "object" ? given as Record<string, unknown> : (stats?.accepted || {});
+  /* العدد المستهدف لكل مقرر: ما عدّله القسم على الشاشة (أعداداً فقط)، وإلا مقترح التخطيط (التاريخ أولاً). لا سقف ثابتاً: يحدّه الحاجة الكاملة. */
+  const accepted: Record<string, unknown> = given && typeof given === "object" ? given as Record<string, unknown> : Object.fromEntries(planned.targets);
   const targets = new Map<number, number>();
-  for (const course of courses) { const value = accepted[String(course.AdCourseId)]; if (value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 40) targets.set(Number(course.AdCourseId), Math.floor(Number(value))); }
+  for (const course of courses) {
+    const id = Number(course.AdCourseId), value = accepted[String(id)];
+    /* بلا تخطيطٍ لهذا المقرر لا سقف مخصوص: يحدّه 500 كحدّ حماية؛ ومعه سقفه الحاجة الكاملة. */
+    const ceiling = planned.ceiling.has(id) ? Math.max(planned.ceiling.get(id) || 0, planned.targets.get(id) || 0) : 500;
+    if (value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= Math.max(ceiling, 1)) targets.set(id, Math.floor(Number(value)));
+  }
   const courseById = new Map(courses.map(course => [Number(course.AdCourseId), course]));
   const levelOf = (id: number) => courseLevelFromCode(courseById.get(id)?.CourseCode) || 0;
   const gaps = gapRows(courses, targets, week);
   /* قسمٌ بلا أي موعدٍ في الفصل «لم يبدأ»: لا نخترع جدولاً من العدم، يبدؤه القسم ثم يُكمله التنزيل. */
   const started = week.length > 0;
-  const ordered = hardestFirst(gaps.filter(row => row.remaining > 0), levelOf);
+  const ordered = hardestFirst(gaps.filter(row => row.remaining > 0), levelOf, id => (planned.gradShort.has(id) ? 0 : 1));
   const demand = demandFromTargets([...ordered, ...gaps.filter(row => row.remaining === 0 && row.target !== null)], id => Number(courseById.get(id)?.MaxStudent) || 0, levelOf);
   const style = ordered.length ? await departmentStyle({ AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId }) : null;
   /* C5: لا تُقترح شعبةٌ لمقررٍ 🔒/🌱، و🎯 على المتبقي فقط. */
@@ -159,60 +149,11 @@ async function readSectionBuild(collegeId: number, sectionId: number, termId: nu
         : !history.some(item => Number(item.AdCourseId) === row.courseId) && !week.length ? "لا تاريخ للقسم لهذا المقرر يحدد وقته"
         : proposal?.unplacedReason || "لا وقت خالياً من التعارض في تاريخ القسم";
     }
-    return { ...row, placements, unplaced: Math.max(0, row.remaining - placements.length), reason };
+    return { ...row, placements, unplaced: Math.max(0, row.remaining - placements.length), reason,
+      /* سقف ما يجوز طلبه لهذا المقرر = الحاجة الكاملة، ومنهم الخريجون: تعرضه الشاشة ولا تمنع به. */
+      ceiling: Math.max(planned.ceiling.get(row.courseId) || 0, row.target ?? 0), grad: planned.gradShort.has(row.courseId) };
   });
   return { rows, started, fingerprint: weekFingerprint(termWeek), courseCount: courses.length };
-}
-
-/* رمزُ القسم كما تطبعه وثائق الهيئة (الكلية + القسم: 0101)، من البادئة الرسمية
-   للموقع أولاً — بالقاعدة نفسها التي يقرأ بها استيرادُ الجدول. */
-function authorityDepartmentKeyOf(college: any, section: any): string {
-  const site = academicDigits(officialCollegeSitePrefix(String(college?.AdCollegeName || "")));
-  const catalogue = academicDigits(college?.AdCollegeCode);
-  const collegeCode = site.length >= 2 ? site.slice(0, 2) : catalogue.length >= 2 ? catalogue.slice(0, 2) : catalogue;
-  return authorityDepartmentCode(collegeCode, section?.AdSectionCode);
-}
-const REMAINING_SEASON_NAMES = { first: "الأول", second: "الثاني", summer: "الصيفي" } as const;
-async function remainingContext(collegeId: number, sectionId: number, termId: number) {
-  const [courses, colleges, sections, terms] = await Promise.all([Repository.getCoursesBySection(sectionId), Repository.getColleges(), Repository.getSections(), Repository.getTerms()]);
-  const departmentCode = authorityDepartmentKeyOf(
-    colleges.find((row: any) => Number(row.AdCollegeId) === collegeId),
-    sections.find((row: any) => Number(row.AdSectionId) === sectionId),
-  );
-  const catalogue = courses.map(course => ({ id: Number(course.AdCourseId), code: String(course.CourseCode || "") }));
-  const departmentName = String(sections.find((row: any) => Number(row.AdSectionId) === sectionId)?.AdSectionName || "");
-  /* الفرع المختار: رمزه من بادئة موقع الكلية (011B ← 011 بنين، 012B ← 012 بنات)، واسم الكلية يحمل «بنين/بنات». */
-  const college = colleges.find((row: any) => Number(row.AdCollegeId) === collegeId);
-  const site = academicDigits(officialCollegeSitePrefix(String(college?.AdCollegeName || "")));
-  const branch = { code: site.length >= 3 ? site.slice(0, 3) : "", collegeName: String(college?.AdCollegeName || "") };
-  return { departmentCode, departmentName, branch, catalogue, termName: String(terms.find((row: any) => Number(row.AdTermId) === termId)?.AdTermName || "") };
-}
-/* الترويسة تقول لأيّ فصلٍ طُبع الكشف: كشفُ فصلٍ غير الذي تخطّطه يُرفض كله (كرفض القسم والفرع) ولا يُكتفى بالتنبيه،
-   فأرقامه تخصّ فصلاً آخر وتفسد الخطة. ما لم تُقرأ ترويستُه يبقى على مساره (الممسوح يُراجَع). */
-function remainingTermRefusal(headerText: string, termName: string): { error: string; termMismatch: { sheet: string; chosen: string } } | null {
-  const header = readReportHeader(headerText);
-  const relation = remainingReportTermRelation(headerText, termName);
-  /* الكشف المختار أو الأقرب قبله يُقبل: الثاني يستفيد من الأول في السنة نفسها،
-     والأول من الثاني في السنة السابقة، والصيفي من الثاني في السنة نفسها.
-     الفصول الأقدم أو الأبعد تبقى مرفوضة حتى لا تُنسب إحصائية بعيدة للفصل الحالي. */
-  if (relation === "mismatch" && header.season && header.years) {
-    const sheet = `الفصل ${REMAINING_SEASON_NAMES[header.season]} ${header.years[0]}/${header.years[1]}`;
-    return { error: `الكشف لفصلٍ غير مرتبط بالفصل المختار: هو كشف ${sheet}، وأنت تخطط «${termName}». اختر كشف الفصل السابق مباشرةً — لم يُستورد شيء.`, termMismatch: { sheet, chosen: termName } };
-  }
-  return null;
-}
-/* لا يبقى تنبيهٌ يُعبَّأ بعده: المخالفة رفضٌ (أعلاه)، فالقائمة فارغةٌ دائماً وتبقى للتوافق مع واجهة المعاينة. */
-function reportTermLabelOf(headerText: string): string {
-  const { season, years } = readReportHeader(headerText);
-  return season && years ? `الفصل ${REMAINING_SEASON_NAMES[season]} ${years[0]}/${years[1]}` : "";
-}
-function remainingWarnings(headerText: string, departmentCode: string, termName: string): string[] {
-  const refusal = remainingTermRefusal(headerText, termName);
-  return refusal ? [refusal.error] : [];
-}
-/* يُرفض قبل المعاينة: قسمٌ آخر، أو لا عمود «المقاعد المتبقية»، أو لا خانةً مقروءة. وما قُرئ جزئياً يُعرض والناقص أصفر. */
-function remainingAssessment(reading: ReturnType<typeof readRemainingReport>, departmentCode: string, departmentName: string, headerText: string, branch?: { code?: string; collegeName?: string }) {
-  return assessRemainingImport(reading, { departmentCode, departmentName, headerText, branch });
 }
 
 /* ── من يدرّس كل مقرر؟ أعدادٌ لا أسماء ─────────────────────────────────────────────────
@@ -259,119 +200,12 @@ async function sectionGapStaffing(collegeId: number, sectionId: number, termId: 
 
 export function registerPlanningRoutes(app: Express): void {
 
-/* ── «المتبقي» واقتراحُ عدد الشعب ───────────────────────────────────────────
- *
- * القسم يستورد قبل بناء الجدول كشفَ «المتبقي» من عمادة التسجيل (طلبةٌ لم
- * يسجّلوا المقرر بعد)؛ ويُعاد معه تاريخُ الفصول المماثلة كلها (الموسم نفسه،
- * سنواتٌ سابقة): الشعبُ المفتوحة فعلاً في الجدول، والمتبقي إن استُورد يومها.
- * الحسابُ نفسه في المتصفح والاختبار: src/utils/sectionCountSuggestion.ts. */
-app.get("/api/registration-stats", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {
-  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
-  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
-  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
-  const [terms, courses, stats, transitions] = await Promise.all([
-    Repository.getTerms(), Repository.getCoursesBySection(sectionId), Repository.getRegistrationStats(collegeId, sectionId, termId),
-    Repository.getCourseTransitions(sectionId).catch(() => []),
-  ]);
-  const term = terms.find(row => Number(row.AdTermId) === termId);
-  const currentRemaining = stats?.remainingSource?.column === "notPassed" ? stats.remaining || {} : null;
-  /* لكل موسم خطُّ تاريخ مستقلّ: الفصل الأول لا يستعير شعباً أو كشف متبقٍّ من
-     الثاني، والثاني لا يستعير من الأول. نقرأ كامل تاريخ الموسم نفسه فقط. */
-  const targetRank = termChronologyServer(term);
-  const season = termSeasonOf(term?.AdTermName);
-  const similar: Array<{ AdTermId: number; AdTermName: string; similar: boolean; rows: FSchedule[] }> = [];
-  for (const row of sortTermsNewestServer(terms).filter(row => termChronologyServer(row) < targetRank && Boolean(season) && termSeasonOf(row.AdTermName) === season)) {
-    const rows = await Repository.getSchedulesByScope({ collegeId, sectionId, termId: Number(row.AdTermId) });
-    if (!rows.length) continue;
-    similar.push({ AdTermId: Number(row.AdTermId), AdTermName: String(row.AdTermName), similar: true, rows });
-  }
-  /* مقررٌ أُعيد ترقيمه أو استُبدل في صحيفةٍ جديدة هو نفسُه في التاريخ: يرث
-     شعبَ سلفه ومتبقّيه — إن لم يُفتح هو بعدُ في تلك الفصول — بدل «لا تاريخ». */
-  const predecessorsOf = new Map<number, number[]>();
-  for (const transition of transitions as any[]) {
-    const to = Number(transition.toCourseId || 0), from = Number(transition.fromCourseId || 0);
-    if (!to || !from || to === from || transition.kind === "removed") continue;
-    predecessorsOf.set(to, [...(predecessorsOf.get(to) || []), from]);
-  }
-  const ancestorsOf = (courseId: number) => {
-    const seen = new Set<number>([courseId]), queue = [courseId];
-    while (queue.length) for (const from of predecessorsOf.get(queue.shift()!) || []) if (!seen.has(from)) { seen.add(from); queue.push(from); }
-    seen.delete(courseId);
-    return [...seen];
-  };
-  const history: Record<string, Array<{ termName: string; sections: number; remaining?: number; similar: boolean }>> = {};
-  const lineage: Record<string, string> = {};
-  const department: Array<{ termName: string; similar: boolean; sections: number; instructors: number; halls: number }> = [];
-  const perTerm: Array<{ sectionsOf: Map<number, Set<string>>; remaining: Record<string, number> }> = [];
-  for (const past of similar) {
-    const rows = past.rows;
-    const pastStats = await Repository.getRegistrationStats(collegeId, sectionId, past.AdTermId);
-    const sectionsOf = new Map<number, Set<string>>();
-    for (const row of rows) {
-      const id = Number(row.AdCourseId);
-      if (!sectionsOf.has(id)) sectionsOf.set(id, new Set());
-      sectionsOf.get(id)!.add(String(row.SCode || row.id));
-    }
-    /* متبقّي فصلٍ سابق يدخل المقارنة إن كان «الذين لم يسجلوا» نفسه؛ ما حُفظ بعمودٍ آخر لا يُخلط به. */
-    /* لا متبقٍّ سالب في التاريخ أيضاً: ما حُفظ سالباً قبل اعتماد الصفر لا يُنقص متبقّي سلفٍ آخر في عائلة المقرر. */
-    perTerm.push({ sectionsOf, remaining: pastStats?.remainingSource?.column === "notPassed"
-      ? Object.fromEntries(Object.entries(pastStats.remaining || {}).map(([key, value]) => [key, Math.max(0, Number(value) || 0)])) : {} });
-    department.push({
-      termName: past.AdTermName, similar: past.similar,
-      sections: [...sectionsOf.values()].reduce((sum, set) => sum + set.size, 0),
-      instructors: new Set(rows.map(row => Number(row.AdInstructorId)).filter(id => id > 0)).size,
-      halls: new Set(rows.map(row => roomIdentityKey(row as any)).filter(Boolean)).size,
-    });
-  }
-  const codeOf = new Map(courses.map(course => [Number(course.AdCourseId), String(course.CourseCode || "")]));
-  if (predecessorsOf.size && [...predecessorsOf.values()].flat().some(id => !codeOf.has(id))) {
-    for (const course of await Repository.getCourses()) if (!codeOf.has(Number(course.AdCourseId))) codeOf.set(Number(course.AdCourseId), String(course.CourseCode || ""));
-  }
-  for (const course of courses) {
-    const key = String(course.AdCourseId), id = Number(course.AdCourseId);
-    const ownOpened = perTerm.some(term => (term.sectionsOf.get(id)?.size || 0) > 0);
-    const family = ownOpened ? [id] : [id, ...ancestorsOf(id)];
-    if (family.length > 1 && perTerm.some(term => family.slice(1).some(from => (term.sectionsOf.get(from)?.size || 0) > 0))) {
-      lineage[key] = family.slice(1).map(from => codeOf.get(from) || "").filter(Boolean).join("، ");
-    }
-    history[key] = similar.map((past, index) => {
-      const term = perTerm[index];
-      const sections = family.reduce((sum, member) => sum + (term.sectionsOf.get(member)?.size || 0), 0);
-      const known = family.filter(member => term.remaining[String(member)] != null);
-      return { termName: past.AdTermName, similar: past.similar, sections,
-        ...(known.length ? { remaining: known.reduce((sum, member) => sum + Number(term.remaining[String(member)] || 0), 0) } : {}) };
-    });
-  }
-  res.json({
-    termName: term?.AdTermName || "",
-    similarTerms: similar.filter(item => item.similar).map(item => item.AdTermName),
-    department,
-    courses: courses.map(course => ({ id: course.AdCourseId, code: course.CourseCode || "", name: course.CourseName || "", capacity: Number(course.MaxStudent || 0) })),
-    /* «الذين لم يسجلوا» (المتبقي الإجمالي) وحده مدخلُ التخطيط؛ ما حُفظ بعمودٍ آخر («المقاعد المتبقية» أو بلا وسم) يُعاد منفصلاً موسوماً «قديماً» ولا يُحسب به. */
-    /* لا متبقٍّ سالب (ما حُفظ سالباً قبل اعتماد الصفر يُعرض صفراً). */
-    remaining: currentRemaining ?? {},
-    vacant: stats?.remainingSource?.column === "notPassed" ? stats.vacant || {} : {},
-    unregistered: stats?.remainingSource?.column === "notPassed" ? stats.unregistered || {} : {},
-    remainingSource: stats?.remainingSource?.column === "notPassed" ? stats.remainingSource : null,
-    remainingSourceTerm: stats?.remainingSource?.column === "notPassed" ? stats.remainingSource?.reportTerm || "" : "",
-    legacyRemaining: stats?.remainingSource?.column !== "notPassed" && Object.keys(stats?.remaining || {}).length
-      ? { values: stats!.remaining, fileName: stats!.remainingSource?.fileName || "", importedAt: stats!.remainingSource?.importedAt || "" } : null,
-    accepted: stats?.accepted || {},
-    updatedAt: stats?.updatedAt || "",
-    updatedBy: stats?.updatedBy || "",
-    history,
-    lineage,
-    /* C5: حالة الطرح لكل مقرر — التخطيط لا يقترح شعباً لـ🔒/🌱، و🎯 حتى سقفه. */
-    offering: Object.fromEntries([...(await offeringStatesForTerm(termId))].map(([id, entry]) => [String(id), { state: entry.state, maxSections: entry.maxSections || 0, badge: offeringBadge(new Map([[id, entry]]), id) }])),
-  });
-});
-
 app.post("/api/section-build/preview", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   res.setHeader("Cache-Control", "no-store");
-  const builtRaw = await readSectionBuild(collegeId, sectionId, termId, req.body?.targets);
+  const builtRaw = await readSectionBuild(req, collegeId, sectionId, termId, req.body?.targets);
   /* الشارة «منتدب» بجانب أستاذ الشعبة المقترحة: علمٌ للعرض فقط في ردّ المعاينة، لا يدخل ما يُنزَّل. */
   const placementVisiting = await visitingChecker(termId, [{ collegeId, sectionId }]);
   const built = { ...builtRaw, rows: builtRaw.rows.map(row => ({ ...row, placements: row.placements.map(p => ({ ...p, visiting: placementVisiting(p.instructorId, collegeId, sectionId) })) })) };
@@ -392,7 +226,7 @@ app.post("/api/section-build/apply", requirePermission(7), async (req: Authentic
   const picked = new Set<string>((Array.isArray(req.body?.pick) ? req.body.pick : []).map(String).slice(0, 200));
   if (!picked.size) { res.status(400).json({ error: "لم تختر شعباً للتنزيل." }); return; }
   const outcome = await withSerialLock(`section-build:${collegeId}:${sectionId}:${termId}`, async (): Promise<{ status: number; json: any; audit?: string }> => {
-    const built = await readSectionBuild(collegeId, sectionId, termId, req.body?.targets);
+    const built = await readSectionBuild(req, collegeId, sectionId, termId, req.body?.targets);
     if (String(req.body?.fingerprint || "") !== built.fingerprint) {
       return { status: 409, json: { error: "تغيّر جدول الفصل منذ المعاينة. أعد المعاينة قبل التنزيل.", code: "stale" } };
     }
@@ -455,7 +289,7 @@ app.post("/api/section-build/review-rows", requirePermission(7), async (req: Aut
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   res.setHeader("Cache-Control", "no-store");
   const [built, occupied, people, allCourses] = await Promise.all([
-    readSectionBuild(collegeId, sectionId, termId, req.body?.targets),
+    readSectionBuild(req, collegeId, sectionId, termId, req.body?.targets),
     Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
     Repository.getInstructors(termId).catch(() => []), Repository.getCoursesBySection(sectionId),
   ]);
@@ -521,134 +355,20 @@ app.get("/api/forecast/term", requirePermission(7), async (req: AuthenticatedReq
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   const termId = Number(req.query.termId || 0) || Number(sortTermsNewestServer(await Repository.getTerms())[0]?.AdTermId || 0);
   if (!termId) { res.status(400).json({ error: "لا فصل" }); return; }
-  const [rows, courses, instructors, stats] = await Promise.all([
+  const [rows, courses, instructors, planned] = await Promise.all([
     readSchedulesForRequest(req, collegeId, sectionId, termId), Repository.getCoursesBySection(sectionId),
-    Repository.getInstructors(termId), Repository.getRegistrationStats(collegeId, sectionId, termId),
+    Repository.getInstructors(termId), planTargetsFor(req, collegeId, sectionId, termId),
   ]);
   const scoped = rows.filter(row => Number(row.AdSectionId) === sectionId);
   const mine = new Set(scoped.map(row => Number(row.AdInstructorId)));
+  /* الطلب = ما يحتاجه طلبة هذا الحرم من تقرير التسجيل (SWRDASH)، لا كشفٌ ثانٍ. */
   const forecast = computeTermForecast({
     rows: scoped, courses,
     instructors: instructors.filter(item => mine.has(Number(item.AdInstructorId))),
-    remaining: stats?.remainingSource?.column === "notPassed" ? stats.unregistered || null : stats?.remainingSource?.column === "unregistered" ? stats.remaining || {} : null,
-    /* شاغرُ الشعب من الكشف نفسه: يُحفظ مع الاستيراد؛ إدخالٌ يدوي بلا كشف لا شاغر له. */
-    vacant: stats?.remainingSource?.column === "notPassed" && stats.vacant && Object.keys(stats.vacant).length ? stats.vacant : null,
+    remaining: planned.students.size ? Object.fromEntries(planned.students) : null,
+    vacant: null,
   });
   res.json({ scopeKey: approvalScopeKey({ collegeId, sectionId, termId }), collegeId, sectionId, termId, ...forecast });
-});
-
-app.put("/api/registration-stats", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
-  const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
-  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
-  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
-  const saved = await Repository.saveRegistrationStats(collegeId, sectionId, termId,
-    { remaining: req.body?.remaining || {}, unregistered: req.body?.unregistered || {}, vacant: req.body?.vacant || {}, accepted: req.body?.accepted || {}, remainingSource: req.body?.remainingSource || null }, String(req.user?.Name || ""));
-  res.json(saved);
-});
-
-app.post("/api/registration-stats/remaining-pdf", rateLimitDocumentRead, requirePermission(7), express.raw({ type: ["application/octet-stream", "application/pdf", "image/*"], limit: "24mb" }), documentReadingGate, async (req: AuthenticatedRequest, res: Response) => {
-  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
-  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
-  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
-  const bytes = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
-  if (!bytes.length) { res.status(400).json({ error: "لم يصل ملف الكشف" }); return; }
-  const mime = String(req.get("content-type") || "application/pdf").split(";")[0].trim().toLowerCase();
-  let fileName = String(req.get("x-file-name") || "كشف المتبقي").slice(0, 600);
-  try { fileName = decodeURIComponent(fileName); } catch { /* literal filename */ }
-  /* عناوين أعمدة الصورة الأولى، لصور الصفحات التالية — تُعاد قراءةُ معانيها هنا لا تُصدَّق. */
-  let template: { labels: string[]; kinds: Array<ReturnType<typeof columnKind>> } | undefined;
-  try {
-    const raw = JSON.parse(decodeURIComponent(String(req.get("x-report-template") || "")));
-    if (Array.isArray(raw?.labels) && raw.labels.length <= 30) {
-      const labels = raw.labels.map((label: unknown) => String(label ?? "").slice(0, 80));
-      template = { labels, kinds: labels.map((label: string) => columnKind(label)) };
-    }
-  } catch { /* no template: a first page */ }
-  /* صورُ صفحاتٍ (حتى أربع) في طلبٍ واحد: «x-page-sizes» يقسم البايتات صورةً صورة. */
-  let input: Buffer | Buffer[] = bytes;
-  /* الطول بالبايت من Buffer.byteLength لا من «‎.length‎» على قيمةٍ أصلها الطلب. */
-  const bodyBytes = Buffer.byteLength(bytes);
-  const sizes = String(req.get("x-page-sizes") || "").split(",").filter(Boolean).map(Number);
-  if (sizes.length) {
-    if (sizes.length > 4 || sizes.some(size => !Number.isInteger(size) || size <= 0) || sizes.reduce((sum, size) => sum + size, 0) !== bodyBytes) {
-      res.status(400).json({ error: "صفحات الكشف لم تصل كاملة — أعد اختيار الصور (حتى أربع)." }); return;
-    }
-    let offset = 0;
-    input = sizes.map(size => { const part = bytes.subarray(offset, offset + size); offset += size; return part; });
-  }
-  /* صورةٌ طوليّة تُرفض قبل القراءة: كشف العمادة عريض. */
-  const names = fileName.split("، ");
-  const orientation = (Array.isArray(input) ? input : [input]).map((part, index) => imageOrientationRefusal(part, Array.isArray(input) ? names[index] || "" : "")).find(Boolean);
-  if (orientation) { res.status(422).json({ error: orientation, code: "orientation" }); return; }
-  const { departmentCode, departmentName, branch, catalogue, termName } = await remainingContext(collegeId, sectionId, termId);
-  try {
-    const cells = await readReportCells(input, mime, pages => blankSpots(pages, catalogue, departmentCode), template);
-    const reading = readRemainingReport(cells.pages, catalogue, departmentCode, "notPassed");
-    const assessment = remainingAssessment(reading, departmentCode, departmentName, cells.headerText, branch);
-    if (assessment.reject) { res.status(422).json({ error: assessment.reject, rejectKind: assessment.rejectKind || null, mismatch: assessment.mismatch || null, detectedDepartment: assessment.detectedDepartment || null }); return; }
-    const termRefusal = remainingTermRefusal(cells.headerText, termName);
-    if (termRefusal) { res.status(422).json({ error: termRefusal.error, rejectKind: "wrongTerm", termMismatch: termRefusal.termMismatch }); return; }
-    res.json({ ...reading, assessment, departmentName, source: cells.source, pageCount: cells.pageCount, fileName: fileName.slice(0, 200), reportTerm: reportTermLabelOf(cells.headerText),
-      warnings: remainingWarnings(cells.headerText, departmentCode, termName),
-      cells: cells.pages, headerText: cells.headerText.slice(0, 4000), template: cells.template || null });
-  } catch (error: any) {
-    const busy = error instanceof ScanReadingBusyError;
-    res.status(busy ? 503 : 422).json({ error: String(error?.message || "") && /[ء-ي]/.test(String(error?.message)) ? error.message : "تعذّرت قراءة الملف — تأكد أنه PDF أو صورة واضحة لكشف العمادة." });
-  }
-});
-
-/* صفحاتُ كشفٍ رُفعت صوراً متفرّقة تُقرأ معاً: الخلايا نصوصٌ ومواضع فقط، تُحدّ وتُقرأ بالقاعدة نفسها. */
-app.post("/api/registration-stats/remaining-cells", rateLimitDocumentRead, requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
-  const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
-  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
-  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
-  const unit = (value: unknown) => Math.max(0, Math.min(1, Number(value) || 0));
-  const pages = (Array.isArray(req.body?.pages) ? req.body.pages : []).slice(0, 60).map((page: unknown) =>
-    (Array.isArray(page) ? page : []).slice(0, 4000).map((cell: any) => ({
-      text: String(cell?.text ?? "").slice(0, 120), x0: unit(cell?.x0), x1: unit(cell?.x1), y: unit(cell?.y),
-      ...(Number.isFinite(Number(cell?.confidence)) ? { confidence: Math.max(0, Math.min(100, Number(cell.confidence))) } : {}),
-    })));
-  if (!pages.length) { res.status(400).json({ error: "لا صفحات تُقرأ" }); return; }
-  const { departmentCode, departmentName, branch, catalogue, termName } = await remainingContext(collegeId, sectionId, termId);
-  const reading = readRemainingReport(pages, catalogue, departmentCode, "notPassed");
-  const headerText = String(req.body?.headerText || "").slice(0, 4000);
-  const assessment = remainingAssessment(reading, departmentCode, departmentName, headerText, branch);
-  if (assessment.reject) { res.status(422).json({ error: assessment.reject, rejectKind: assessment.rejectKind || null, mismatch: assessment.mismatch || null, detectedDepartment: assessment.detectedDepartment || null }); return; }
-  const termRefusal = remainingTermRefusal(headerText, termName);
-  if (termRefusal) { res.status(422).json({ error: termRefusal.error, rejectKind: "wrongTerm", termMismatch: termRefusal.termMismatch }); return; }
-  res.json({ ...reading, assessment, departmentName, reportTerm: reportTermLabelOf(headerText), warnings: remainingWarnings(headerText, departmentCode, termName) });
-});
-
-/* ── K2: قرارات «تم/تجاهل» على بنود التخطيط، مشتركةٌ في النطاق ─────────────
-   الصلاحيات نفسها التي يُحفظ بها التخطيط (registration-stats): الإذن 7 ونطاق
-   الكلية والقسم. القرار يُكتب باسم صاحبه ووقته؛ لا يُقبل «تجاهل» بلا سبب. */
-app.get("/api/schedules/section-gap/decisions", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {
-  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
-  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
-  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
-  res.json({ decisions: await Repository.getPlanTriageDecisions(collegeId, sectionId, termId) });
-});
-app.put("/api/schedules/section-gap/decisions", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
-  const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
-  const courseId = Number(req.body?.courseId || 0);
-  if (!collegeId || !sectionId || !termId || !courseId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل والمقرر" }); return; }
-  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
-  const raw = req.body?.decision;
-  if (raw === null || raw === undefined) {
-    await Repository.setPlanTriageDecision({ collegeId, sectionId, termId }, courseId, null);
-    res.json({ decision: null });
-    return;
-  }
-  const state = raw?.state === "done" || raw?.state === "ignored" ? raw.state : "";
-  const reason = String(raw?.reason || "").trim().slice(0, 140);
-  const signature = String(raw?.signature || "").trim().slice(0, 200);
-  if (!state || !signature) { res.status(400).json({ error: "قرار غير صالح" }); return; }
-  if (state === "ignored" && !reason) { res.status(400).json({ error: "التجاهل يحتاج سبباً مكتوباً" }); return; }
-  const decision = await Repository.setPlanTriageDecision({ collegeId, sectionId, termId }, courseId, {
-    state, reason, signature, at: new Date().toISOString(),
-    byUserId: Number(req.user?.SystemUserId || 0), byName: String(req.user?.Name || "").slice(0, 80),
-  });
-  res.json({ decision });
 });
 
 app.get("/api/schedules/section-gap", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {

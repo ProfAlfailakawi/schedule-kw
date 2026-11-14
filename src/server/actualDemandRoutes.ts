@@ -17,7 +17,7 @@ import { AR, countOf } from "../utils/arabicCount";
 import { DemandReportError, DEMAND_VARIANT_LABEL, type DemandVariant } from "../utils/actualDemand";
 import { teachingRoomFor } from "./sectionPlanRoom";
 import {
-  DEMAND_PDF_MAX_BYTES, demandContext, demandPreview, demandReading, extractDemandItems, fileHash, isPdf, parseDemandReport, saveDemandLink, storeDemandVariant,
+  DEMAND_PDF_MAX_BYTES, demandContext, demandPreview, demandReading, planHistoryFor, extractDemandItems, fileHash, isPdf, parseDemandReport, saveDemandLink, storeDemandVariant,
 } from "./actualDemand";
 
 const id = (value: unknown) => { const text = String(value ?? "").trim(); return /^\d{1,10}$/.test(text) ? Number(text) : 0; };
@@ -28,8 +28,11 @@ const who = (req: AuthenticatedRequest) => String(req.user?.Name || req.user?.Sy
 async function readingFor(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number) {
   const context = await demandContext(req, collegeId, sectionId, termId);
   const hasReport = Boolean(context.stored?.variants?.general || context.stored?.variants?.graduates);
-  const room = hasReport ? await teachingRoomFor(collegeId, sectionId, termId, context.rows).catch(() => null) : null;
-  return demandReading(context, room);
+  const [room, history] = hasReport ? await Promise.all([
+    teachingRoomFor(collegeId, sectionId, termId, context.rows).catch(() => null),
+    planHistoryFor(context, termId).catch(() => null),
+  ]) : [null, null];
+  return demandReading(context, room, history);
 }
 
 export function registerActualDemandRoutes(app: Express): void {
@@ -64,8 +67,8 @@ export function registerActualDemandRoutes(app: Express): void {
     const termName = String((terms as any[]).find(term => Number(term.AdTermId) === scope.termId)?.AdTermName || "");
     const preview = demandPreview(report, context, termName, hash, variant);
     if (String(req.query.commit || "") !== "1") { res.json({ preview }); return; }
-    if ((preview.termMatches === false || !preview.departmentMatches) && String(req.query.confirm || "") !== "1") {
-      res.status(409).json({ error: "القسم أو الفصل في الملف غير المفتوح. أكّد الحفظ إن كان هذا مقصوداً.", preview });
+    if ((preview.termMatches === false || !preview.departmentMatches || preview.kindClue) && String(req.query.confirm || "") !== "1") {
+      res.status(409).json({ error: preview.kindClue || "القسم أو الفصل في الملف غير المفتوح. أكّد الحفظ إن كان هذا مقصوداً.", preview });
       return;
     }
     await storeDemandVariant(scope.termId, context.family.key, variant, { report, uploadedAt: new Date().toISOString(), uploadedBy: who(req), hash });

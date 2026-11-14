@@ -114,10 +114,7 @@ test:curriculum-reference
 test:shared-scope
 test:role-scope
 test:term-calendar
-test:section-planning
 test:section-schedule-hours
-test:section-planning-import
-test:swrs136-real
 test:department-heads
 test:arabic-presentation
 test:visiting-family
@@ -132,11 +129,9 @@ test:sections-proposal-import
 test:teacher-card-flow
 test:day-autofill
 test:approval-scope
-test:term-forecast
 test:dashboard-home-term
 test:section-gap
 test:searchable-select
-test:section-gap-live
 test:approval-dossier
 test:public-kit
 test:intelligence-scope
@@ -316,3 +311,4 @@ test:inbox-undo
 test:report-insight
 test:names-one-label
 test:weekly-smoke
+test:whatif-in-changes

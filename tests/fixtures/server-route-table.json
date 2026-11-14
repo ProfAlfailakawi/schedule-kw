@@ -2077,7 +2077,7 @@
    "path": "/api/reports/visiting-roster",
    "name": "bound dispatch",
    "call": "707c4204c710f202",
-   "site": "src/server/routes/reportsRoutes.ts:232",
+   "site": "src/server/routes/reportsRoutes.ts:234",
    "regexp": "/^\\/api\\/reports\\/visiting-roster\\/?$/i",
    "end": true
   },
@@ -2089,7 +2089,7 @@
    "path": "/api/reports/visiting-teaching",
    "name": "bound dispatch",
    "call": "dfef8088b5c7910c",
-   "site": "src/server/routes/reportsRoutes.ts:251",
+   "site": "src/server/routes/reportsRoutes.ts:253",
    "regexp": "/^\\/api\\/reports\\/visiting-teaching\\/?$/i",
    "end": true
   },
@@ -2101,7 +2101,7 @@
    "path": "/api/reports/visiting-history",
    "name": "bound dispatch",
    "call": "0a25152dbe5aefd6",
-   "site": "src/server/routes/reportsRoutes.ts:261",
+   "site": "src/server/routes/reportsRoutes.ts:263",
    "regexp": "/^\\/api\\/reports\\/visiting-history\\/?$/i",
    "end": true
   },
@@ -2113,7 +2113,7 @@
    "path": "/api/reports/schedule-changes/review",
    "name": "bound dispatch",
    "call": "c14a0b4749503a42",
-   "site": "src/server/routes/reportsRoutes.ts:341",
+   "site": "src/server/routes/reportsRoutes.ts:343",
    "regexp": "/^\\/api\\/reports\\/schedule-changes\\/review\\/?$/i",
    "end": true
   },
@@ -2125,7 +2125,7 @@
    "path": "/api/reports/schedule-changes",
    "name": "bound dispatch",
    "call": "c3c38037f8c4fe61",
-   "site": "src/server/routes/reportsRoutes.ts:356",
+   "site": "src/server/routes/reportsRoutes.ts:358",
    "regexp": "/^\\/api\\/reports\\/schedule-changes\\/?$/i",
    "end": true
   },
@@ -2137,7 +2137,7 @@
    "path": "/api/reports/authority-pdf-diff",
    "name": "bound dispatch",
    "call": "80777d71f0bf538f",
-   "site": "src/server/routes/reportsRoutes.ts:644",
+   "site": "src/server/routes/reportsRoutes.ts:646",
    "regexp": "/^\\/api\\/reports\\/authority-pdf-diff\\/?$/i",
    "end": true
   },
@@ -2149,7 +2149,7 @@
    "path": "/api/report-stamps",
    "name": "bound dispatch",
    "call": "ddeec4886ac207b8",
-   "site": "src/server/routes/reportsRoutes.ts:690",
+   "site": "src/server/routes/reportsRoutes.ts:692",
    "regexp": "/^\\/api\\/report-stamps\\/?$/i",
    "end": true
   },
@@ -2159,7 +2159,7 @@
    "path": "/v/:code",
    "name": "wrapped",
    "call": "1fbe68efc13457a5",
-   "site": "src/server/routes/reportsRoutes.ts:755",
+   "site": "src/server/routes/reportsRoutes.ts:757",
    "regexp": "/^\\/v(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -2174,7 +2174,7 @@
    ],
    "name": "bound dispatch",
    "call": "9c52702081b8045b",
-   "site": "src/server/routes/reportsRoutes.ts:760",
+   "site": "src/server/routes/reportsRoutes.ts:762",
    "regexp": "/^\\/v\\/?$|^\\/v(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2186,8 +2186,44 @@
    "path": "/api/reports/excel/:type",
    "name": "bound dispatch",
    "call": "cb7a1c5516a4403d",
-   "site": "src/server/routes/reportsRoutes.ts:840",
+   "site": "src/server/routes/reportsRoutes.ts:842",
    "regexp": "/^\\/api\\/reports\\/excel(?:\\/([^/]+?))\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/reports/saved",
+   "name": "bound dispatch",
+   "call": "b4159ee9512a9548",
+   "site": "src/server/routes/reportsRoutes.ts:993",
+   "regexp": "/^\\/api\\/reports\\/saved\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "put"
+   ],
+   "path": "/api/reports/saved",
+   "name": "bound dispatch",
+   "call": "498529ba5c4bb50c",
+   "site": "src/server/routes/reportsRoutes.ts:1003",
+   "regexp": "/^\\/api\\/reports\\/saved\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "delete"
+   ],
+   "path": "/api/reports/saved/:id",
+   "name": "bound dispatch",
+   "call": "d5168a8af963dc9c",
+   "site": "src/server/routes/reportsRoutes.ts:1022",
+   "regexp": "/^\\/api\\/reports\\/saved(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
   {
@@ -2198,7 +2234,7 @@
    "path": "/api/reports/history-points",
    "name": "bound dispatch",
    "call": "ee01f1fc83a1b1c2",
-   "site": "src/server/routes/reportsRoutes.ts:986",
+   "site": "src/server/routes/reportsRoutes.ts:1039",
    "regexp": "/^\\/api\\/reports\\/history-points\\/?$/i",
    "end": true
   },
@@ -2210,7 +2246,7 @@
    "path": "/api/reports/history-points/:id",
    "name": "bound dispatch",
    "call": "eda128e1da7967ff",
-   "site": "src/server/routes/reportsRoutes.ts:996",
+   "site": "src/server/routes/reportsRoutes.ts:1049",
    "regexp": "/^\\/api\\/reports\\/history-points(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2222,7 +2258,7 @@
    "path": "/api/reports/department-balance",
    "name": "bound dispatch",
    "call": "35e16c0bb3271c70",
-   "site": "src/server/routes/reportsRoutes.ts:1004",
+   "site": "src/server/routes/reportsRoutes.ts:1057",
    "regexp": "/^\\/api\\/reports\\/department-balance\\/?$/i",
    "end": true
   },
@@ -2234,7 +2270,7 @@
    "path": "/api/reports/room-load",
    "name": "bound dispatch",
    "call": "fc4e4ba1f6ecda24",
-   "site": "src/server/routes/reportsRoutes.ts:1086",
+   "site": "src/server/routes/reportsRoutes.ts:1139",
    "regexp": "/^\\/api\\/reports\\/room-load\\/?$/i",
    "end": true
   },
@@ -4395,7 +4431,7 @@
    "path": "/api/actual-demand",
    "name": "bound dispatch",
    "call": "a5a4f653ed947fe6",
-   "site": "src/server/actualDemandRoutes.ts:45",
+   "site": "src/server/actualDemandRoutes.ts:48",
    "regexp": "/^\\/api\\/actual-demand\\/?$/i",
    "end": true
   },
@@ -4406,8 +4442,8 @@
    ],
    "path": "/api/actual-demand/upload",
    "name": "bound dispatch",
-   "call": "15cb05f19b5677aa",
-   "site": "src/server/actualDemandRoutes.ts:52",
+   "call": "b96cabb8ef2e1749",
+   "site": "src/server/actualDemandRoutes.ts:55",
    "regexp": "/^\\/api\\/actual-demand\\/upload\\/?$/i",
    "end": true
   },
@@ -4419,7 +4455,7 @@
    "path": "/api/actual-demand/link",
    "name": "bound dispatch",
    "call": "a60820b299fd2065",
-   "site": "src/server/actualDemandRoutes.ts:78",
+   "site": "src/server/actualDemandRoutes.ts:81",
    "regexp": "/^\\/api\\/actual-demand\\/link\\/?$/i",
    "end": true
   },
@@ -4510,24 +4546,12 @@
   {
    "kind": "route",
    "methods": [
-    "get"
-   ],
-   "path": "/api/registration-stats",
-   "name": "bound dispatch",
-   "call": "af1b5d9d0bcc781c",
-   "site": "src/server/routes/planningRoutes.ts:268",
-   "regexp": "/^\\/api\\/registration-stats\\/?$/i",
-   "end": true
-  },
-  {
-   "kind": "route",
-   "methods": [
     "post"
    ],
    "path": "/api/section-build/preview",
    "name": "bound dispatch",
-   "call": "f66b39f357ee38b3",
-   "site": "src/server/routes/planningRoutes.ts:369",
+   "call": "e53fa9a863f02074",
+   "site": "src/server/routes/planningRoutes.ts:203",
    "regexp": "/^\\/api\\/section-build\\/preview\\/?$/i",
    "end": true
   },
@@ -4538,8 +4562,8 @@
    ],
    "path": "/api/section-build/apply",
    "name": "bound dispatch",
-   "call": "74d7f0f131ff23d4",
-   "site": "src/server/routes/planningRoutes.ts:387",
+   "call": "4f5263862f1658d0",
+   "site": "src/server/routes/planningRoutes.ts:221",
    "regexp": "/^\\/api\\/section-build\\/apply\\/?$/i",
    "end": true
   },
@@ -4550,8 +4574,8 @@
    ],
    "path": "/api/section-build/review-rows",
    "name": "bound dispatch",
-   "call": "8d82b14514895490",
-   "site": "src/server/routes/planningRoutes.ts:452",
+   "call": "54d8f749123980a4",
+   "site": "src/server/routes/planningRoutes.ts:286",
    "regexp": "/^\\/api\\/section-build\\/review-rows\\/?$/i",
    "end": true
   },
@@ -4563,7 +4587,7 @@
    "path": "/api/section-build/undo",
    "name": "bound dispatch",
    "call": "dff1cec84498b24a",
-   "site": "src/server/routes/planningRoutes.ts:492",
+   "site": "src/server/routes/planningRoutes.ts:326",
    "regexp": "/^\\/api\\/section-build\\/undo\\/?$/i",
    "end": true
   },
@@ -4574,69 +4598,9 @@
    ],
    "path": "/api/forecast/term",
    "name": "bound dispatch",
-   "call": "0153e4574731376e",
-   "site": "src/server/routes/planningRoutes.ts:518",
+   "call": "5cad4ee5163944e3",
+   "site": "src/server/routes/planningRoutes.ts:352",
    "regexp": "/^\\/api\\/forecast\\/term\\/?$/i",
-   "end": true
-  },
-  {
-   "kind": "route",
-   "methods": [
-    "put"
-   ],
-   "path": "/api/registration-stats",
-   "name": "bound dispatch",
-   "call": "685b0178d3c4f47c",
-   "site": "src/server/routes/planningRoutes.ts:540",
-   "regexp": "/^\\/api\\/registration-stats\\/?$/i",
-   "end": true
-  },
-  {
-   "kind": "route",
-   "methods": [
-    "post"
-   ],
-   "path": "/api/registration-stats/remaining-pdf",
-   "name": "bound dispatch",
-   "call": "bd4f4785bf481290",
-   "site": "src/server/routes/planningRoutes.ts:549",
-   "regexp": "/^\\/api\\/registration-stats\\/remaining-pdf\\/?$/i",
-   "end": true
-  },
-  {
-   "kind": "route",
-   "methods": [
-    "post"
-   ],
-   "path": "/api/registration-stats/remaining-cells",
-   "name": "bound dispatch",
-   "call": "b2176f8d809c24d8",
-   "site": "src/server/routes/planningRoutes.ts:601",
-   "regexp": "/^\\/api\\/registration-stats\\/remaining-cells\\/?$/i",
-   "end": true
-  },
-  {
-   "kind": "route",
-   "methods": [
-    "get"
-   ],
-   "path": "/api/schedules/section-gap/decisions",
-   "name": "bound dispatch",
-   "call": "7c60ffad928d6a21",
-   "site": "src/server/routes/planningRoutes.ts:625",
-   "regexp": "/^\\/api\\/schedules\\/section-gap\\/decisions\\/?$/i",
-   "end": true
-  },
-  {
-   "kind": "route",
-   "methods": [
-    "put"
-   ],
-   "path": "/api/schedules/section-gap/decisions",
-   "name": "bound dispatch",
-   "call": "7400d11d7cad207a",
-   "site": "src/server/routes/planningRoutes.ts:631",
-   "regexp": "/^\\/api\\/schedules\\/section-gap\\/decisions\\/?$/i",
    "end": true
   },
   {
@@ -4647,7 +4611,7 @@
    "path": "/api/schedules/section-gap",
    "name": "bound dispatch",
    "call": "ad8cff7b3a5222d1",
-   "site": "src/server/routes/planningRoutes.ts:654",
+   "site": "src/server/routes/planningRoutes.ts:374",
    "regexp": "/^\\/api\\/schedules\\/section-gap\\/?$/i",
    "end": true
   },
@@ -4659,7 +4623,7 @@
    "path": "/api/schedules/section-gap/staffing",
    "name": "bound dispatch",
    "call": "acf52385949e8610",
-   "site": "src/server/routes/planningRoutes.ts:668",
+   "site": "src/server/routes/planningRoutes.ts:388",
    "regexp": "/^\\/api\\/schedules\\/section-gap\\/staffing\\/?$/i",
    "end": true
   },
@@ -4671,7 +4635,7 @@
    "path": "/api/schedules/openings-preview",
    "name": "bound dispatch",
    "call": "3c14d525115a59f7",
-   "site": "src/server/routes/planningRoutes.ts:685",
+   "site": "src/server/routes/planningRoutes.ts:405",
    "regexp": "/^\\/api\\/schedules\\/openings-preview\\/?$/i",
    "end": true
   },
@@ -4683,7 +4647,7 @@
    "path": "/api/schedules/academic-advice",
    "name": "bound dispatch",
    "call": "235423b273083908",
-   "site": "src/server/routes/planningRoutes.ts:711",
+   "site": "src/server/routes/planningRoutes.ts:431",
    "regexp": "/^\\/api\\/schedules\\/academic-advice\\/?$/i",
    "end": true
   },
@@ -4695,7 +4659,7 @@
    "path": "/api/schedules/demand",
    "name": "bound dispatch",
    "call": "7fb2a2118ef42dac",
-   "site": "src/server/routes/planningRoutes.ts:724",
+   "site": "src/server/routes/planningRoutes.ts:444",
    "regexp": "/^\\/api\\/schedules\\/demand\\/?$/i",
    "end": true
   },
@@ -4707,7 +4671,7 @@
    "path": "/api/schedules/staff-inbox",
    "name": "bound dispatch",
    "call": "ca162358782c707c",
-   "site": "src/server/routes/planningRoutes.ts:912",
+   "site": "src/server/routes/planningRoutes.ts:632",
    "regexp": "/^\\/api\\/schedules\\/staff-inbox\\/?$/i",
    "end": true
   },
@@ -5370,7 +5334,7 @@
    "path": "/api/public/request/:token",
    "name": "bound dispatch",
    "call": "37ddbd6b3ef7a2fe",
-   "site": "src/server/routes/publicRequestRoutes.ts:738",
+   "site": "src/server/routes/publicRequestRoutes.ts:739",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5382,7 +5346,7 @@
    "path": "/api/public/request/:token",
    "name": "bound dispatch",
    "call": "59ac59ef825abfac",
-   "site": "src/server/routes/publicRequestRoutes.ts:924",
+   "site": "src/server/routes/publicRequestRoutes.ts:925",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5394,7 +5358,7 @@
    "path": "/api/public/request/:token/reply",
    "name": "bound dispatch",
    "call": "f040b8a6380f1795",
-   "site": "src/server/routes/publicRequestRoutes.ts:1119",
+   "site": "src/server/routes/publicRequestRoutes.ts:1120",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/reply\\/?$/i",
    "end": true
   },
@@ -5406,7 +5370,7 @@
    "path": "/api/public/request/:token/reply-batch",
    "name": "bound dispatch",
    "call": "da644a1c14692dbd",
-   "site": "src/server/routes/publicRequestRoutes.ts:1240",
+   "site": "src/server/routes/publicRequestRoutes.ts:1241",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/reply-batch\\/?$/i",
    "end": true
   },
@@ -5418,7 +5382,7 @@
    "path": "/api/public/request/:token/check",
    "name": "bound dispatch",
    "call": "84d92a8a3cf8e6cb",
-   "site": "src/server/routes/publicRequestRoutes.ts:1304",
+   "site": "src/server/routes/publicRequestRoutes.ts:1305",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/check\\/?$/i",
    "end": true
   },
@@ -5430,7 +5394,7 @@
    "path": "/api/public/request/:token/academic-advice",
    "name": "bound dispatch",
    "call": "93035cda4dea4007",
-   "site": "src/server/routes/publicRequestRoutes.ts:1392",
+   "site": "src/server/routes/publicRequestRoutes.ts:1393",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/academic-advice\\/?$/i",
    "end": true
   },
@@ -5442,7 +5406,7 @@
    "path": "/api/public/request/:token/check-batch",
    "name": "bound dispatch",
    "call": "30679a5573b188bb",
-   "site": "src/server/routes/publicRequestRoutes.ts:1426",
+   "site": "src/server/routes/publicRequestRoutes.ts:1427",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/check-batch\\/?$/i",
    "end": true
   },
@@ -5454,7 +5418,7 @@
    "path": "/api/public/request/:token/previous",
    "name": "bound dispatch",
    "call": "852125bcca57e7b8",
-   "site": "src/server/routes/publicRequestRoutes.ts:1468",
+   "site": "src/server/routes/publicRequestRoutes.ts:1469",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/previous\\/?$/i",
    "end": true
   },
@@ -5466,7 +5430,7 @@
    "path": "/api/public/request/:token/events",
    "name": "bound dispatch",
    "call": "9cef8e239666cbc0",
-   "site": "src/server/routes/publicRequestRoutes.ts:1510",
+   "site": "src/server/routes/publicRequestRoutes.ts:1511",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/events\\/?$/i",
    "end": true
   },
@@ -5478,7 +5442,7 @@
    "path": "/api/public/request/:token/check-times",
    "name": "bound dispatch",
    "call": "dbdb03ba6414372f",
-   "site": "src/server/routes/publicRequestRoutes.ts:1539",
+   "site": "src/server/routes/publicRequestRoutes.ts:1540",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/check-times\\/?$/i",
    "end": true
   },
@@ -5490,7 +5454,7 @@
    "path": "/api/public/request/:token/hold",
    "name": "bound dispatch",
    "call": "f634aec929167f1d",
-   "site": "src/server/routes/publicRequestRoutes.ts:1598",
+   "site": "src/server/routes/publicRequestRoutes.ts:1599",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/hold\\/?$/i",
    "end": true
   },
@@ -5502,7 +5466,7 @@
    "path": "/api/public/request/:token/movement",
    "name": "bound dispatch",
    "call": "7e091a1537d0cf62",
-   "site": "src/server/routes/publicRequestRoutes.ts:1650",
+   "site": "src/server/routes/publicRequestRoutes.ts:1651",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/movement\\/?$/i",
    "end": true
   },
@@ -5514,7 +5478,7 @@
    "path": "/api/public/request/:token/fixed/:itemId.ics",
    "name": "bound dispatch",
    "call": "0e8809c6a54ac41f",
-   "site": "src/server/routes/publicRequestRoutes.ts:1684",
+   "site": "src/server/routes/publicRequestRoutes.ts:1685",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/fixed(?:\\/([^/]+?))\\.ics\\/?$/i",
    "end": true
   },
@@ -5526,7 +5490,7 @@
    "path": "/r/:token",
    "name": "bound dispatch",
    "call": "3a4024e76c799e35",
-   "site": "src/server/routes/publicRequestRoutes.ts:1702",
+   "site": "src/server/routes/publicRequestRoutes.ts:1703",
    "regexp": "/^\\/r(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5538,7 +5502,7 @@
    "path": "/api/public/request/:token/interest",
    "name": "bound dispatch",
    "call": "b43183c896667a1f",
-   "site": "src/server/routes/publicRequestRoutes.ts:1713",
+   "site": "src/server/routes/publicRequestRoutes.ts:1714",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/interest\\/?$/i",
    "end": true
   },
@@ -5550,7 +5514,7 @@
    "path": "/api/public/request/:token/stick",
    "name": "bound dispatch",
    "call": "23693bb68679d0e1",
-   "site": "src/server/routes/publicRequestRoutes.ts:1734",
+   "site": "src/server/routes/publicRequestRoutes.ts:1735",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/stick\\/?$/i",
    "end": true
   },
@@ -5562,7 +5526,7 @@
    "path": "/r/:token/proposal/:pid",
    "name": "bound dispatch",
    "call": "77980743a8326a70",
-   "site": "src/server/routes/publicRequestRoutes.ts:1799",
+   "site": "src/server/routes/publicRequestRoutes.ts:1800",
    "regexp": "/^\\/r(?:\\/([^/]+?))\\/proposal(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -6981,7 +6945,7 @@
    "path": "/api/time-machine/scopes",
    "name": "bound dispatch",
    "call": "9f83d6747868558c",
-   "site": "src/server/timeMachineRoutes.ts:237",
+   "site": "src/server/timeMachineRoutes.ts:233",
    "regexp": "/^\\/api\\/time-machine\\/scopes\\/?$/i",
    "end": true
   },
@@ -6993,7 +6957,7 @@
    "path": "/api/time-machine/context",
    "name": "bound dispatch",
    "call": "5f4bbf5baf9c7e56",
-   "site": "src/server/timeMachineRoutes.ts:251",
+   "site": "src/server/timeMachineRoutes.ts:247",
    "regexp": "/^\\/api\\/time-machine\\/context\\/?$/i",
    "end": true
   },
@@ -7005,7 +6969,7 @@
    "path": "/api/time-machine/students",
    "name": "bound dispatch",
    "call": "da873933421ee6bb",
-   "site": "src/server/timeMachineRoutes.ts:264",
+   "site": "src/server/timeMachineRoutes.ts:260",
    "regexp": "/^\\/api\\/time-machine\\/students\\/?$/i",
    "end": true
   },
@@ -7017,7 +6981,7 @@
    "path": "/api/time-machine/scenarios",
    "name": "bound dispatch",
    "call": "de425ae21c12a711",
-   "site": "src/server/timeMachineRoutes.ts:293",
+   "site": "src/server/timeMachineRoutes.ts:289",
    "regexp": "/^\\/api\\/time-machine\\/scenarios\\/?$/i",
    "end": true
   },
@@ -7029,7 +6993,7 @@
    "path": "/api/time-machine/scenarios",
    "name": "bound dispatch",
    "call": "dae6f73da0a376e3",
-   "site": "src/server/timeMachineRoutes.ts:311",
+   "site": "src/server/timeMachineRoutes.ts:307",
    "regexp": "/^\\/api\\/time-machine\\/scenarios\\/?$/i",
    "end": true
   },
@@ -7041,7 +7005,7 @@
    "path": "/api/time-machine/scenarios/:id/copy",
    "name": "bound dispatch",
    "call": "36e7f4ac6fe2914b",
-   "site": "src/server/timeMachineRoutes.ts:348",
+   "site": "src/server/timeMachineRoutes.ts:344",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/copy\\/?$/i",
    "end": true
   },
@@ -7053,7 +7017,7 @@
    "path": "/api/time-machine/scenarios/:id/share",
    "name": "bound dispatch",
    "call": "339911a37c9494c5",
-   "site": "src/server/timeMachineRoutes.ts:363",
+   "site": "src/server/timeMachineRoutes.ts:359",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/share\\/?$/i",
    "end": true
   },
@@ -7065,7 +7029,7 @@
    "path": "/api/time-machine/scenarios/:id",
    "name": "bound dispatch",
    "call": "49066282a4f9d0c4",
-   "site": "src/server/timeMachineRoutes.ts:371",
+   "site": "src/server/timeMachineRoutes.ts:367",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -7077,7 +7041,7 @@
    "path": "/api/time-machine/scenarios/:id/apply",
    "name": "bound dispatch",
    "call": "5d60e288cec5a626",
-   "site": "src/server/timeMachineRoutes.ts:494",
+   "site": "src/server/timeMachineRoutes.ts:490",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
   },
@@ -7089,8 +7053,20 @@
    "path": "/api/time-machine/scenarios/:id/restore",
    "name": "bound dispatch",
    "call": "36d27a5fbcd3afd5",
-   "site": "src/server/timeMachineRoutes.ts:502",
+   "site": "src/server/timeMachineRoutes.ts:498",
    "regexp": "/^\\/api\\/time-machine\\/scenarios(?:\\/([^/]+?))\\/restore\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/internal/morning-brief",
+   "name": "bound dispatch",
+   "call": "8bde3c890d89444d",
+   "site": "src/server/morningBriefPush.ts:51",
+   "regexp": "/^\\/api\\/internal\\/morning-brief\\/?$/i",
    "end": true
   },
   {
@@ -7101,7 +7077,7 @@
    "path": "/api/public/push/key",
    "name": "bound dispatch",
    "call": "f45e567638d10548",
-   "site": "src/server/pushRoutes.ts:376",
+   "site": "src/server/pushRoutes.ts:379",
    "regexp": "/^\\/api\\/public\\/push\\/key\\/?$/i",
    "end": true
   },
@@ -7113,7 +7089,7 @@
    "path": "/api/push/status",
    "name": "bound dispatch",
    "call": "d3ba59c2dd7225c0",
-   "site": "src/server/pushRoutes.ts:382",
+   "site": "src/server/pushRoutes.ts:385",
    "regexp": "/^\\/api\\/push\\/status\\/?$/i",
    "end": true
   },
@@ -7125,7 +7101,7 @@
    "path": "/api/push/subscribe",
    "name": "bound dispatch",
    "call": "7b69da436ef27d06",
-   "site": "src/server/pushRoutes.ts:395",
+   "site": "src/server/pushRoutes.ts:398",
    "regexp": "/^\\/api\\/push\\/subscribe\\/?$/i",
    "end": true
   },
@@ -7137,7 +7113,7 @@
    "path": "/api/push/unsubscribe",
    "name": "bound dispatch",
    "call": "962f303af7442bf5",
-   "site": "src/server/pushRoutes.ts:406",
+   "site": "src/server/pushRoutes.ts:409",
    "regexp": "/^\\/api\\/push\\/unsubscribe\\/?$/i",
    "end": true
   },
@@ -7149,7 +7125,7 @@
    "path": "/api/push/test",
    "name": "bound dispatch",
    "call": "02470f3e9ef5a137",
-   "site": "src/server/pushRoutes.ts:415",
+   "site": "src/server/pushRoutes.ts:418",
    "regexp": "/^\\/api\\/push\\/test\\/?$/i",
    "end": true
   },
@@ -7161,7 +7137,7 @@
    "path": "/api/public/push/rotate",
    "name": "bound dispatch",
    "call": "4768c671895eeb90",
-   "site": "src/server/pushRoutes.ts:432",
+   "site": "src/server/pushRoutes.ts:435",
    "regexp": "/^\\/api\\/public\\/push\\/rotate\\/?$/i",
    "end": true
   },
@@ -7173,7 +7149,7 @@
    "path": "/api/public/request/:token/push",
    "name": "bound dispatch",
    "call": "4079035cd504bea9",
-   "site": "src/server/pushRoutes.ts:456",
+   "site": "src/server/pushRoutes.ts:459",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/push\\/?$/i",
    "end": true
   },
@@ -7185,7 +7161,7 @@
    "path": "/api/public/request/:token/push",
    "name": "bound dispatch",
    "call": "0ed304ae15900768",
-   "site": "src/server/pushRoutes.ts:464",
+   "site": "src/server/pushRoutes.ts:467",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/push\\/?$/i",
    "end": true
   },
@@ -7197,7 +7173,7 @@
    "path": "/api/public/request/:token/push/off",
    "name": "bound dispatch",
    "call": "fc3ec2972fc829f6",
-   "site": "src/server/pushRoutes.ts:473",
+   "site": "src/server/pushRoutes.ts:476",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/push\\/off\\/?$/i",
    "end": true
   },
@@ -7209,7 +7185,7 @@
    "path": "/api/public/request/:token/push/test",
    "name": "bound dispatch",
    "call": "4198ea921cef8d41",
-   "site": "src/server/pushRoutes.ts:482",
+   "site": "src/server/pushRoutes.ts:485",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/push\\/test\\/?$/i",
    "end": true
   },
@@ -7221,7 +7197,7 @@
    "path": "/r/:token/manifest.webmanifest",
    "name": "bound dispatch",
    "call": "1b3fe184d33e6b59",
-   "site": "src/server/pushRoutes.ts:495",
+   "site": "src/server/pushRoutes.ts:498",
    "regexp": "/^\\/r(?:\\/([^/]+?))\\/manifest\\.webmanifest\\/?$/i",
    "end": true
   },

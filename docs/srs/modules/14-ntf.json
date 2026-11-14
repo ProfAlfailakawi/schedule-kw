@@ -2203,7 +2203,7 @@
         ],
         "tests": [
           "tests/calendar-ics-audit.ts",
-          "tests/section-planning-audit.ts"
+          "tests/section-plan-audit.ts"
         ]
       }
     }

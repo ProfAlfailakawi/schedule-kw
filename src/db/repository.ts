@@ -82,7 +82,6 @@ import {
   DepartmentDelegateDirectory,
   TeachingLoadConfig,
   DepartmentRoomDirectory,
-  RegistrationStats,
   StudentNeed,
   StudentCourseState,
   StudentCaseDecision,
@@ -292,7 +291,6 @@ interface DBState {
   registrationOutcomes?: RegistrationOutcomeShard[];
   schedulePublications?: SchedulePublication[];
   scheduleConstraints?: ScheduleConstraint[];
-  planTriageDecisions?: PlanTriageDecisionRow[];
   degreeRules?: AdDegreeRule[];
   visitingRosters?: VisitingRoster[];
   departmentDelegates?: DepartmentDelegateDirectory[];
@@ -300,7 +298,6 @@ interface DBState {
   /** وثائقُ الميزات الصغيرة (FEATURE_COLLECTIONS): مجموعةٌ ← معرّف ← وثيقة. */
   featureDocs?: Record<string, Record<string, any>>;
   departmentRooms?: DepartmentRoomDirectory[];
-  registrationStats?: RegistrationStats[];
   scheduleDecisionMemories?: ScheduleDecisionMemory[];
   campusMobilityProfiles?: CampusMobilityProfile[];
   scheduleShareLinks?: ScheduleShareLink[];
@@ -353,13 +350,6 @@ const demoSandboxContext = new AsyncLocalStorage<{ sessionId: string; state: DBS
 const demoSandboxes = new Map<string, DemoSandboxRecord>();
 function currentDb(): DBState { return demoSandboxContext.getStore()?.state || baseDb; }
 function replaceCurrentDb(next: DBState): void { const context = demoSandboxContext.getStore(); if (context) context.state = next; else baseDb = next; }
-/** K2: one shared «تم/تجاهل» decision on a planning item, per term/college/department/course. */
-export interface PlanTriageDecisionRow {
-  id: string; scopeKey: string; AdCollegeId: number; AdSectionId: number; AdTermId: number; courseId: number;
-  state: "done" | "ignored"; reason: string; signature: string; at: string;
-  byUserId: number; byName: string;
-}
-
 const db = new Proxy({} as DBState, {
   get: (_target, prop) => (currentDb() as any)[prop],
   set: (_target, prop, value) => { (currentDb() as any)[prop] = value; return true; },
@@ -3415,7 +3405,7 @@ function announceInstructorRequestSaved(row: InstructorRequest) {
 /** مجموعاتُ الميزات المسمّاة — لا تُكتب مجموعةٌ لم تُسمَّ هنا. */
 export type FeatureCollection =
   /* سقفُ وحدات الطالب في «مساري»: الجامعيُّ وحده يُقرأ؛ وثائقُ الأقسام القديمة باقيةٌ لا تُقرأ ولا تُكتب. */
-  | "universityStudentSettings" | "regulationExceptions" | "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns"
+  | "universityStudentSettings" | "regulationExceptions" | "sectionStudentSettings" | "campusTravelPolicy" | "courseOfferingStates" | "courseInterest" | "advisorSeatLedgers" | "advisorSeatRequests" | "taPhases" | "linkModeLog" | "importNameFills" | "pushCooldowns" | "savedReports"
   /* الكراسي (docs/SEATS.md): سجلُّ كل حساب — شاغله وفريقه وتاريخه — وروابطُ أعضاء الفرق. */
   | "seatLedgers" | "seatMemberLinks"
   /* إعادةُ تعيين كلمة السر: أثرُ الكلمة المؤقتة ودخولُها الواحد، لا الكلمة (src/server/accountPassword.ts). */
@@ -8984,47 +8974,6 @@ export const Repository = {
     return [...byKey.values()];
   },
 
-  /** إحصاءُ التسجيل لقسمٍ في فصل (أو null). */
-  getRegistrationStats: async (collegeId: number, sectionId: number, termId: number): Promise<RegistrationStats | null> => {
-    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
-    if (firestoreDb && !demoSandboxContext.getStore()) {
-      const doc = await firestoreDb.collection("registrationStats").doc(scopeKey.replace(/:/g, "_")).get();
-      return doc.exists ? (doc.data() as RegistrationStats) : null;
-    }
-    return (db.registrationStats || []).find(row => row.scopeKey === scopeKey) || null;
-  },
-
-  saveRegistrationStats: async (collegeId: number, sectionId: number, termId: number,
-    input: { counts?: Record<string, number>; remaining?: Record<string, number>; unregistered?: Record<string, number>; vacant?: Record<string, number>; accepted?: Record<string, number>; remainingSource?: { fileName?: unknown; importedAt?: unknown; column?: unknown; reportTerm?: unknown } | null },
-    updatedBy = ""): Promise<RegistrationStats> => {
-    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
-    const clean = (map: Record<string, unknown> | undefined, max: number, min = 0) => Object.fromEntries(
-      Object.entries(map || {}).slice(0, 2000)
-        .map(([key, value]) => [String(Number(key)), Math.floor(Number(value))] as const)
-        .filter(([key, value]) => Number(key) > 0 && Number.isFinite(value) && value >= min && value <= max));
-    /* الشاشة لم تعد تكتب «المسجّلين»: ما حُفظ منه قبلُ يبقى كما هو. */
-    const previous = input.counts === undefined ? await Repository.getRegistrationStats(collegeId, sectionId, termId) : null;
-    const source = input.remainingSource && String(input.remainingSource.fileName || "").trim()
-      ? { fileName: String(input.remainingSource.fileName).slice(0, 200), importedAt: String(input.remainingSource.importedAt || new Date().toISOString()).slice(0, 40),
-          ...(input.remainingSource.column === "notPassed" || input.remainingSource.column === "unregistered" || input.remainingSource.column === "seats" ? { column: input.remainingSource.column as "notPassed" | "unregistered" | "seats" } : {}),
-          ...(input.remainingSource.reportTerm ? { reportTerm: String(input.remainingSource.reportTerm).slice(0, 90) } : {}) }
-      : undefined;
-    const row: RegistrationStats = {
-      id: scopeKey, scopeKey, collegeId, sectionId, termId,
-      counts: clean(input.counts ?? previous?.counts, 100000), remaining: Object.fromEntries(Object.entries(clean(input.remaining, 100000, -100000)).map(([key, value]) => [key, Math.max(0, value)])) /* لا متبقٍّ سالب: «الذين لم يسجلوا» السالب (طلبةٌ جدد) = لا متأخرين = صفر */,
-      unregistered: clean(input.unregistered, 100000), vacant: clean(input.vacant, 100000, -100000) /* «المقاعد المتبقية» سالبةٌ إن زاد المسجّلون على السعة */, accepted: clean(input.accepted, 500),
-      ...(source ? { remainingSource: source } : {}),
-      updatedAt: new Date().toISOString(), updatedBy: String(updatedBy || "").slice(0, 120),
-    };
-    if (firestoreDb && !demoSandboxContext.getStore()) {
-      await firestoreDb.collection("registrationStats").doc(scopeKey.replace(/:/g, "_")).set(row);
-    } else {
-      db.registrationStats = [...(db.registrationStats || []).filter(item => item.scopeKey !== scopeKey), row];
-      saveDatabase();
-    }
-    return row;
-  },
-
   pinDepartmentRoom: async (collegeId: number, sectionId: number, building: string, hall: string): Promise<Array<{ building: string; hall: string }>> => {
     const scopeKey = `${collegeId}:${sectionId}`;
     const clean = { building: String(building || "").trim().slice(0, 50), hall: String(hall || "").trim().slice(0, 50) };
@@ -9141,37 +9090,6 @@ export const Repository = {
     if (at >= 0) db.degreeRules[at] = rule; else db.degreeRules.push(rule);
     saveDatabase();
     return rule;
-  },
-
-  /* ── K2: «تم/تجاهل» على بنود التخطيط، مشتركةٌ لكل من في النطاق ─────────────
-     وثيقةٌ لكل مقرر في النطاق (كلية:قسم:فصل:مقرر). القرار يحمل «بصمة» الأرقام التي
-     قُرّر عليها؛ الواجهة تُسقطه حين تتغيّر، فلا يُسكِت وضعاً جديداً. */
-  getPlanTriageDecisions: async (collegeId: number, sectionId: number, termId: number): Promise<PlanTriageDecisionRow[]> => {
-    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
-    if (firestoreDb && !demoSandboxContext.getStore()) {
-      const snap = await firestoreDb.collection("planTriageDecisions").where("scopeKey", "==", scopeKey).limit(500).get();
-      return snap.docs.map(doc => doc.data() as PlanTriageDecisionRow);
-    }
-    return ((db as any).planTriageDecisions || []).filter((row: PlanTriageDecisionRow) => row.scopeKey === scopeKey);
-  },
-
-  setPlanTriageDecision: async (scope: { collegeId: number; sectionId: number; termId: number }, courseId: number, decision: Omit<PlanTriageDecisionRow, "id" | "scopeKey" | "AdCollegeId" | "AdSectionId" | "AdTermId" | "courseId"> | null): Promise<PlanTriageDecisionRow | null> => {
-    const scopeKey = `${scope.collegeId}:${scope.sectionId}:${scope.termId}`;
-    const id = `${scopeKey}:${courseId}`.replace(/[/]/g, "_");
-    const row: PlanTriageDecisionRow | null = decision ? {
-      ...decision, id, scopeKey, AdCollegeId: scope.collegeId, AdSectionId: scope.sectionId, AdTermId: scope.termId, courseId,
-    } : null;
-    if (firestoreDb && !demoSandboxContext.getStore()) {
-      const ref = firestoreDb.collection("planTriageDecisions").doc(id);
-      if (row) await ref.set(row); else await ref.delete();
-      return row;
-    }
-    const list: PlanTriageDecisionRow[] = Array.isArray((db as any).planTriageDecisions) ? (db as any).planTriageDecisions : [];
-    const next = list.filter(item => item.id !== id);
-    if (row) next.push(row);
-    (db as any).planTriageDecisions = next.slice(-5000);
-    saveDatabase();
-    return row;
   },
 
   getScheduleConstraints: async (collegeId: number, sectionId: number, termId: number): Promise<ScheduleConstraint[]> => {

@@ -330,7 +330,7 @@ function fakeStorage(seed: Record<string, unknown> = {}) {
     "١٢ أرقامٌ مجمَّعة وحدها: لا اسمَ ولا هويّة");
   const route = read("src/server/routes/publicRequestRoutes.ts");
   const fn = route.slice(route.indexOf("async function teacherPlanningFor"), route.indexOf("export function teacherDeadline"));
-  check(fn.includes("Date.now() - cached.at < 5 * 60_000") && fn.includes("Repository.getRegistrationStats(") && fn.includes('stats?.remainingSource?.column === "notPassed"')
+  check(fn.includes("Date.now() - cached.at < 5 * 60_000") && fn.includes("planTargetsFor(null,") && fn.includes("planned.students")
     && fn.includes("(request.items || []).map(") && !/getStudentNeeds|getStudentProfiles|masari|surveyActive|readStudentDemand/i.test(fn),
     "١٢ القراءةُ خفيفة من «تخطيط الشعب» وحده (لا رغبات مساري ولا استبيان)، لمقرّرات الأستاذ، وتُحفظ خمس دقائق");
   check(script.includes("var plan=planHtml(it),h=decisionBox(it,i,open)+threadBox(it,i);") && script.includes("return plan+h}") && script.includes("خطة القسم") && script.includes('<span class="pf-dots" aria-hidden="true">'),
