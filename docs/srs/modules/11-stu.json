@@ -36,6 +36,7 @@
     "src/server/studentMapUi.ts",
     "src/server/studentCaseSecret.ts",
     "src/server/masariDisclaimer.ts",
+    "src/utils/criticalCourses.ts",
     "src/server/core/studentIdentity.ts",
     "src/server/pages/studentSchedulePage.ts",
     "src/server/pages/studentCaseStatusPage.ts",
@@ -3493,8 +3494,8 @@
         "en": "Profile setup wizard in the browser: track, specialisation, plan, passed courses"
       },
       "text": {
-        "ar": "يجب على صفحة «مساري» أن تعدّ الملف في ثلاث خطوات: اختيار مسار البنين أو البنات حين لا يحمل الرابط مساراً (ويُستبدل العنوان بـ/me?track=)، ثم التخصص بالبحث في كتالوج المسار، ثم الصحيفة (وتُتخطى إن كانت واحدة)، ثم المقررات المنجزة مرتّبةً بالمستوى (أول رقم من الرقم الثلاثي للمقرر × 100) ثم بالرمز؛ وأن تعرض حين تزيد المقررات على 10 بحثاً بالاسم أو الرمز وتصفية «الكل / المنجَز / الباقي»، وحين يتعدد المستوى اختصار «أنهيت حتى مستوى» و«علّم الكل / ألغِ الكل» لكل مستوى؛ وألا تسمح بتعليم مقرر قبل مسبقاته («يتطلب أولاً: …»)، وأن تُزيل مع إلغاء مقررٍ ما بُني عليه وتعدّه في رسالة، وأن يتكرر التعليم الجماعي حتى يستقر فيُعلَّم 102 بعد 101 في اللمسة نفسها؛ وأن تتيح بعد تأكيدٍ صريح «وضع المعادلة» للطالب المحوّل فيُعلَّم المعادَل بلا مسبقاته ويُحفظ معادَلاً؛ وأن تمحو المنجَز والصحيفة عند تغيير القسم؛ وأن تحفظ عبر PUT /api/public/me/profile وتعيد الطالب إلى شاشة الدخول عند 401.",
-        "en": "The Masari page shall set up the profile in steps: choosing the boys' or girls' track when the link carries none (replacing the address with /me?track=), the specialisation by searching the track's catalogue, the plan (skipped when there is only one), then the passed courses ordered by level (the first digit of the three-digit course number × 100) then by code; when there are more than 10 courses it shall offer search by name or code and an all / passed / remaining filter, and when there is more than one level a «finished up to level» shortcut and «mark all / unmark all» per level; it shall not let a course be ticked before its prerequisites («needs first: …»), shall remove with an unticked course what depends on it and count them in a message, and shall repeat bulk marking until stable so 102 is marked after 101 in the same touch; after an explicit confirmation it shall offer a transfer mode in which an equivalent course is ticked without its prerequisites and saved as equivalent; changing the department clears the passed courses and the plan; it saves through PUT /api/public/me/profile and returns the student to the entry screen on 401."
+        "ar": "يجب على صفحة «مساري» أن تعدّ الملف بخطواتٍ يعلوها شريطٌ رفيع «الخطوة x من n» (يُعدّ فيه ما سيُرى فعلاً: إنشاء الملف، والمسار إن لم يحمله الرابط، والتخصص، والصحيفة إن تعددت، وما أنجزت): اختيار مسار البنين أو البنات حين لا يحمل الرابط مساراً (ويُدفع العنوان /me?track= في سجل المتصفح فيعيد زرُّ الرجوع وزرُّ «غيّره» في الصفحة اختيارَ المسار)، ثم التخصص بالبحث في كتالوج المسار بمطابقةٍ عربية متسامحة على الجانبين (أ/إ/آ→ا، ة→ه، ى→ي، بلا تطويلٍ ولا تشكيل)، وما تعذّر تحميلُه من التخصصات لا يُحفظ فارغاً بل يُعرض خطأً بزرّ إعادة؛ ثم الصحيفة (وتُتخطى إن كانت واحدة، ولا تُختار صحيفةٌ بلا مقررات)، ثم المقررات المنجزة مرتّبةً بالمستوى (أول رقم من الرقم الثلاثي للمقرر × 100) ثم بالرمز؛ ويتصدّرها حين يتعدد المستوى «أين وصلت؟» بلمسةٍ واحدة: «مستجد» يمسح كل تعليم و«أنهيتُ حتى مستوى L» يمسح ثم يعلّم ما حتى L بمسبقاته، ثم يعدّل الطالب ما شاء؛ ولمن لم يعلّم شيئاً يصير زرُّ الحفظ «ابدأ كمستجد»؛ وأن تعرض حين تزيد المقررات على 10 بحثاً بالاسم أو الرمز (بالمطابقة نفسها) وتصفية «الكل / المنجَز / الباقي»، و«علّم الكل / ألغِ الكل» لكل مستوى؛ وألا تسمح بتعليم مقرر قبل مسبقاته («يتطلب أولاً: …»)، وأن تُزيل مع إلغاء مقررٍ ما بُني عليه وتعدّه في رسالة، وأن يتكرر التعليم الجماعي حتى يستقر فيُعلَّم 102 بعد 101 في اللمسة نفسها؛ وأن تتيح بعد تأكيدٍ صريح «وضع المعادلة» للطالب المحوّل؛ وأن تمحو المنجَز والصحيفة عند تغيير القسم؛ وفي أول إعدادٍ يظهر فوق الحفظ سطرُ «هذه مقترحات فقط، وليست تسجيلاً نهائياً» بمراحله الثلاث فيكون الحفظُ إقرارَه (POST /api/public/me/ack) بلا شاشة «فهمت» بعده؛ وأن تحفظ عبر PUT /api/public/me/profile.",
+        "en": "The Masari page shall set up the profile in steps topped by a slim «step x of n» bar (counting only what will actually be shown: creating the profile, the track when the link carries none, the specialisation, the plan when there is more than one, and passed courses): choosing the boys' or girls' track when the link carries none (pushing /me?track= into the browser history so both the browser back button and the in-page «change» button return to the track choice), then the specialisation by searching the track's catalogue with tolerant Arabic matching on both sides (alef forms to bare alef, taa marbuta to haa, alef maqsura to yaa, no tatweel or diacritics); a catalogue that failed to load is not stored as empty but shown as an error with a retry button; then the plan (skipped when there is only one, and a plan with no courses cannot be chosen), then the passed courses ordered by level (first digit of the three-digit number × 100) then by code; when there is more than one level they are topped by a one-tap «where are you?»: «newcomer» clears all ticks and «finished up to level L» clears then ticks everything up to L with its prerequisites, after which the student adjusts freely; with nothing ticked the save button reads «start as a newcomer»; with more than 10 courses it offers search by name or code (same matching) and an all / passed / remaining filter, and «mark all / unmark all» per level; it shall not let a course be ticked before its prerequisites, shall remove with an unticked course what depends on it and count them in a message, and shall repeat bulk marking until stable; after an explicit confirmation it offers a transfer mode; changing the department clears the passed courses and the plan; on first setup the line «these are suggestions only, not final registration» with its three stages sits above the save button so saving acknowledges it (POST /api/public/me/ack) with no separate «got it» screen; it saves through PUT /api/public/me/profile."
       },
       "priority": "should",
       "status": "implemented",
@@ -3513,16 +3514,37 @@
         {
           "ar": "صحيفة فيها 8 مقررات ← لا بحث ولا تصفية ولا اختصار المستوى.",
           "en": "A plan with 8 courses ← no search, filter or level shortcut."
+        },
+        {
+          "ar": "فشل GET /api/public/me/catalog ← رسالة الخطأ وزرّ «أعد المحاولة»، لا «لا تخصص بهذا الاسم»، ويُعاد الطلب عند الضغط.",
+          "en": "GET /api/public/me/catalog failing ← the error with a «retry» button, not «no specialisation by that name», and the request repeats on press."
+        },
+        {
+          "ar": "البحث «رياض الاطفال» بلا همزة ← يجد «رياض الأطفال».",
+          "en": "Searching the name with a different alef or taa marbuta spelling ← finds the department."
+        },
+        {
+          "ar": "بعد اختيار «بنين» زرُّ الرجوع في المتصفح ← شاشة اختيار المسار.",
+          "en": "After choosing «boys», the browser back button ← the track choice screen."
+        },
+        {
+          "ar": "«أنهيتُ حتى 200» بعد تعليم مقررٍ من 300 ← يبقى المعلَّم ما حتى 200 وحده.",
+          "en": "«Finished up to 200» after ticking a 300 course ← only courses up to 200 stay ticked."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/studentHomePage.ts#setupSection",
-          "src/server/studentHomePage.ts#setupPlan",
+          "src/server/studentHomePage.ts#arNorm",
+          "src/server/studentHomePage.ts#ensureCatalog",
+          "src/server/studentHomePage.ts#lvOf",
+          "src/server/studentHomePage.ts#prog",
           "src/server/studentHomePage.ts#setupPassed",
-          "src/server/studentHomePage.ts#lvOf"
+          "src/server/studentHomePage.ts#setupPlan",
+          "src/server/studentHomePage.ts#setupSection",
+          "src/server/studentHomePage.ts#trackBack"
         ],
         "tests": [
+          "tests/masari-door-ux-audit.ts",
           "tests/masari-ease-audit.ts"
         ]
       }
@@ -3535,8 +3557,8 @@
         "en": "Home: three tabs and one primary card by phase"
       },
       "text": {
-        "ar": "يجب على صفحة «مساري» أن تعرض للطالب الداخل بطاقةً رأسية (حلقة نسبة ما اجتازه من وحدات صحيفته، والتحية باسمه الأول، والقسم والصحيفة والوحدات المجتازة، والوحدات المتبقية، وفصول التخرج المقدّرة، والمرحلة بموعدها التالي) وثلاثة ألسنة: «الآن» و«خطتي» و«ملفي»؛ وأن تضع في «الآن» بطاقة «خطوتك الآن» واحدة (راجع رغباتك أو سجّلها في مرحلة الرغبات، افتح جدولك المقترح في مرحلتي الجولة والتجميد حين يجهز، سجّل ما أنجزت لمن لم يعلّم شيئاً، وإلا راجع خطتك)، وبطاقةً رئيسية بحسب المرحلة (الرغبات ثم الجدول المقترح في مرحلة الرغبات، و«هل سجّلت؟» ثم الجدول في الجولة، والجدول ثم الرغبات في التجميد، ورحلة الفصل في غيرها)، وتطوي الباقي تحت «المزيد من مساري (n)» وترفع فوقه الإشعارات التي فيها مطلوبٌ أو تنبيه وتُصعد «طلب للقسم» تحت البطاقة الرئيسية حين ينطبق؛ وأن تحجز مساحة البطاقة المنتظرة بهيكلٍ حتى يصل جواب الرئيسية (4 ثوانٍ كحدٍّ أقصى)؛ وأن تنقل الألسنة إلى الترويسة اللاصقة وتفتح «المزيد» على عرض 960px فأكثر خارج وضع الهاتف؛ وأن يفتح العنوان المنتهي بـ#plan لسان «خطتي». ويحمل اللون معنى ثابتاً: الأخضر لما تمّ، والذهبي لما هو الآن، والرمادي لما لم يأتِ.",
-        "en": "The Masari page shall show the signed-in student a header card (a ring of the share of plan units passed, a greeting by first name, the department, plan and passed units, the remaining units, the estimated terms to graduation, and the phase with its next date) and three tabs «Now», «My plan» and «My profile»; on «Now» it shall place one «your step now» card (review or write your wishes during wishes, open your suggested schedule during a round or the freeze once it is ready, record what you passed when nothing is ticked, otherwise review your plan) and one primary card by phase (wishes then the ticket during wishes, «did you register?» then the ticket during a round, the ticket then wishes during the freeze, and the term journey otherwise), folding the rest under «More from Masari (n)», raising above it notices that carry an action or alert, and raising «request to the department» under the primary card when it applies; it shall reserve the awaited card's space with a skeleton until the home answer arrives (4 seconds at most); at 960px and wider outside phone mode it shall move the tabs into the sticky header and open «More»; an address ending in #plan opens «My plan». Colour carries a fixed meaning: green for done, gold for now, grey for not yet."
+        "ar": "يجب على صفحة «مساري» أن تعرض للطالب الداخل بطاقةً رأسية (حلقة نسبة ما اجتازه من وحدات صحيفته، والتحية باسمه الأول، والقسم والصحيفة والوحدات المجتازة، والوحدات المتبقية، وفصول التخرج المقدّرة، والمرحلة بموعدها التالي) وثلاثة ألسنة: «الآن» و«خطتي» و«ملفي»؛ وأن تضع في «الآن» بطاقة «خطوتك الآن» واحدة (راجع رغباتك أو سجّلها في مرحلة الرغبات، افتح جدولك المقترح في مرحلتي الجولة والتجميد حين يجهز، «أنجزتَ مقرراتٍ من قبل؟» لمن لم يعلّم شيئاً — والعنوانُ حينها «خطتك أمامك: N وحدة» فلا يُلحّ مرتين، و«اختر صحيفتك من جديد» بزرٍّ واحد لمن صحيفتُه بلا مقررات (أُرشفت أو قسمٌ بلا مقررات) ولا يُعدّ ذلك إكمالاً في العنوان ولا الحلقة ولا فصول التخرّج، وإلا راجع خطتك)، وبطاقةً رئيسية بحسب المرحلة (الرغبات ثم الجدول المقترح في مرحلة الرغبات، و«هل سجّلت؟» ثم الجدول في الجولة، والجدول ثم الرغبات في التجميد، ورحلة الفصل في غيرها)، وتطوي الباقي تحت «المزيد من مساري (n)» وترفع فوقه الإشعارات التي فيها مطلوبٌ أو تنبيه وتُصعد «طلب للقسم» تحت البطاقة الرئيسية حين ينطبق؛ وأن تحجز مساحة البطاقة المنتظرة بهيكلٍ حتى يصل جواب الرئيسية (4 ثوانٍ كحدٍّ أقصى)؛ وأن تنقل الألسنة إلى الترويسة اللاصقة وتفتح «المزيد» على عرض 960px فأكثر خارج وضع الهاتف؛ وأن يفتح العنوان المنتهي بـ#plan لسان «خطتي». ويحمل اللون معنى ثابتاً: الأخضر لما تمّ، والذهبي لما هو الآن، والرمادي لما لم يأتِ. وتحمل الألسنة دلالة tab/tabpanel كاملة (aria-controls وaria-labelledby) وتنقل الأسهم وHome/End بينها؛ والبطاقة التي تعذّر تحميلها (شبكةٌ أو خادم) تبقى سطراً هادئاً «تعذّر تحميل … الآن» بزرّ إعادة ولا تصير البطاقة الرئيسية. وموعد المرحلة يُقرأ من until (آخر يومٍ شاملاً) فيقول في آخر يومٍ «حتى اليوم» لا تاريخ الجولة.",
+        "en": "The Masari page shall show the signed-in student a header card (a ring of the share of plan units passed, a greeting by first name, the department, plan and passed units, the remaining units, the estimated terms to graduation, and the phase with its next date) and three tabs «Now», «My plan» and «My profile»; on «Now» it shall place one «your step now» card (review or write your wishes during wishes, open your suggested schedule during a round or the freeze once it is ready, «passed courses before?» when nothing is ticked — with the headline then reading «your plan ahead: N units» so it never nags twice — and «choose your plan again» with one button when the plan has no courses (archived, or a department without courses), which is never shown as complete in the headline, ring or terms to graduation; otherwise review your plan) and one primary card by phase (wishes then the ticket during wishes, «did you register?» then the ticket during a round, the ticket then wishes during the freeze, and the term journey otherwise), folding the rest under «More from Masari (n)», raising above it notices that carry an action or alert, and raising «request to the department» under the primary card when it applies; it shall reserve the awaited card's space with a skeleton until the home answer arrives (4 seconds at most); at 960px and wider outside phone mode it shall move the tabs into the sticky header and open «More»; an address ending in #plan opens «My plan». Colour carries a fixed meaning: green for done, gold for now, grey for not yet. The tabs carry full tab/tabpanel semantics (aria-controls and aria-labelledby) and arrow keys and Home/End move between them; a card that failed to load (network or server) stays a quiet «could not load … now» line with a retry button and never becomes the primary card. The phase date comes from until (the inclusive last day), so on the last day it says «until today» rather than the round's start."
       },
       "priority": "should",
       "status": "implemented",
@@ -3555,19 +3577,34 @@
         {
           "ar": "فتح /me#plan ← يُفتح لسان «خطتي».",
           "en": "Opening /me#plan ← the «My plan» tab opens."
+        },
+        {
+          "ar": "profile.progress.totalUnits = 0 ← العنوان «صحيفتك تحتاج اختياراً من جديد» و«خطوتك الآن» «اختر صحيفتي»، لا «أكملتَ خطتك كاملة».",
+          "en": "profile.progress.totalUnits = 0 ← the headline asks to choose the plan again and «your step now» offers «choose my plan», never «you completed your plan»."
+        },
+        {
+          "ar": "آخر يومٍ في الرغبات ← «تعدّلها حتى نهاية اليوم».",
+          "en": "The last wishes day ← «edit until the end of today»."
+        },
+        {
+          "ar": "GET cases يعود 503 ← سطر «تعذّر تحميل «حالاتي» الآن» بزرّ إعادة.",
+          "en": "GET cases returning 503 ← a «could not load «my cases» now» line with a retry button."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/studentHomePage.ts#viewHome",
-          "src/server/studentHomePage.ts#nextStepInfo",
-          "src/server/studentHomePage.ts#primaryOrder",
           "src/server/studentHomePage.ts#laterUpdate",
-          "src/server/studentHomePage.ts#placeTabs"
+          "src/server/studentHomePage.ts#nextStepInfo",
+          "src/server/studentHomePage.ts#noPlan",
+          "src/server/studentHomePage.ts#placeTabs",
+          "src/server/studentHomePage.ts#primaryOrder",
+          "src/server/studentHomePage.ts#quietFail",
+          "src/server/studentHomePage.ts#rePickPlan",
+          "src/server/studentHomePage.ts#viewHome"
         ],
         "tests": [
-          "tests/masari-ease-audit.ts",
           "tests/masari-desktop-audit.ts",
+          "tests/masari-ease-audit.ts",
           "tests/masari-responsive-audit.ts"
         ]
       }
@@ -3616,8 +3653,8 @@
         "en": "Wishes wizard and peer counter on the page"
       },
       "text": {
-        "ar": "يجب على صفحة «مساري» أن تجمع الرغبات في ثلاث شرائح تُمرَّر بالأزرار أو بسحبٍ أفقي لا يقل عن 60px: عدد الوحدات بين wishUnitsMin (12) وwishUnitsMax (15 افتراضياً) ويبدأ بما كتبه الطالب مقصوصاً إلى الحدّين وإلا بالسقف، ثم ما لا يناسبه اختيارياً (لا أستطيع الصباح الباكر، لا أستطيع بعد الظهر، أحتاج يوماً فارغاً)، ثم مقررات بعينها اختيارياً حتى 12 من المتبقي المستوفي مسبقاته مع قائمة مطويّة بالمقفل وسببه؛ وأن تعرض بعد الحفظ شارة «وصلت» بنبضةٍ واحدة وسطر «أنت واحدٌ من N أرسلوا رغباتهم في قسمك» حين يسمح الخادم بالعدد، وإلا «رغباتك تغذّي رادار التسجيل لقسمك»؛ وأن تعرض الرغبات للقراءة فقط في مرحلة التجميد وتخفيها في غير المرحلتين؛ وأن يحفظ زر «استخدمها في رغباتي» مقررات الاقتراح بوحداتٍ مقصوصة بين 12 والسقف (15 افتراضياً).",
-        "en": "The Masari page shall collect wishes in three slides moved by buttons or a horizontal swipe of at least 60px: the number of units between wishUnitsMin (12) and wishUnitsMax (15 by default), starting from what the student wrote clipped to the limits, otherwise the cap; then optional constraints (no early morning, no afternoon, a free day); then optional specific courses, up to 12, from the remainder whose prerequisites are met, with a folded list of locked courses and their reason; after saving it shall show a «received» chip that pulses once and the line «you are one of N who sent their wishes in your department» when the server allows the count, otherwise «your wishes feed your department's registration radar»; it shall show the wishes read-only during the freeze and hide them outside these two phases; and «use them in my wishes» shall save the suggested courses with units clamped between 12 and the cap (15 by default)."
+        "ar": "يجب على صفحة «مساري» أن تجمع الرغبات في ثلاث شرائح تُمرَّر بالأزرار أو بسحبٍ أفقي لا يقل عن 60px (إلا على منتقي الوحدات): عدد الوحدات بمنتقٍ واحد — زرّا «−» و«+» (56px) ورقمٌ كبير ومسطرةٌ تُسحب (44px) بين wishUnitsMin والسقف الجامعي wishUnitsMax أيّاً كان (3…30) — يبدأ بما كتبه الطالب مقصوصاً إلى الحدّين وإلا بالسقف، ثم ما لا يناسبه اختيارياً (لا أستطيع الصباح الباكر، لا أستطيع بعد الظهر، أحتاج يوماً فارغاً)، ثم مقررات بعينها اختيارياً حتى 12 من المتبقي المستوفي مسبقاته مع قائمة مطويّة بالمقفل وسببه؛ وأن تعرض بعد الحفظ شارة «وصلت» بنبضةٍ واحدة وسطر «أرسل N رغباتهم في قسمك، وأنت منهم» (و«أنت أول من أرسل رغباته في قسمك» حين N = 1) حين يسمح الخادم بالعدد، وإلا «رغباتك تساعد قسمك على فتح الشعب التي يحتاجها الطلبة»؛ وأن تعرض الرغبات للقراءة فقط في مرحلة التجميد وتخفيها في غير المرحلتين. «رغباتي» قائمةٌ واحدة: «أضف إلى رغباتي» (في «مقترحي») يضمّ إليها، و«احفظ في رغباتي» (سلّة «خطتي» والجدول المقترح المعدَّل) يجعل ما عدّله الطالب هو القائمة، وما سيُزال منها يُسمّى ويُسأل عنه قبل الحفظ؛ وبعد كل حفظٍ تتبع سلّةُ «خطتي» القائمةَ نفسها.",
+        "en": "The Masari page shall collect wishes in three slides moved by buttons or a horizontal swipe of at least 60px (except on the unit picker): the number of units with a single picker — «−» and «+» buttons (56px), a large number and a draggable slider (44px) between wishUnitsMin and whatever university cap wishUnitsMax is (3…30) — starting from what the student wrote clipped to the limits, otherwise the cap; then optional constraints; then optional specific courses, up to 12, from the remainder whose prerequisites are met, with a folded list of locked courses and their reason; after saving it shall show a «received» chip that pulses once and the line «N students sent their wishes in your department, you among them» («you are the first in your department» when N = 1) when the server allows the count, otherwise «your wishes help your department open the sections students need»; it shall show the wishes read-only during the freeze and hide them outside these two phases. «My wishes» is one list: «add to my wishes» (in the suggestion) merges into it, and «save to my wishes» (the «My plan» basket and an edited suggested schedule) makes the student's edit the list, naming and asking about anything that would be removed before saving; after every save the «My plan» basket follows the same list."
       },
       "priority": "should",
       "status": "implemented",
@@ -3636,16 +3673,32 @@
         {
           "ar": "سحب أفقي 40px ← لا تنتقل الشريحة.",
           "en": "A 40px horizontal swipe ← the slide does not change."
+        },
+        {
+          "ar": "سقفٌ جامعي 21 على هاتفٍ بعرض 360 ← كل أهداف المنتقي 44px فأكثر.",
+          "en": "A university cap of 21 on a 360px phone ← every picker target is 44px or more."
+        },
+        {
+          "ar": "رغباتٌ فيها مقرر X، ثم «احفظ في رغباتي» من سلّةٍ ليس فيها X ← ورقة «سيُزال من رغباتك «X»» قبل أي كتابة.",
+          "en": "Wishes containing course X, then «save to my wishes» from a basket without X ← a «X will be removed from your wishes» sheet before any write."
+        },
+        {
+          "ar": "«أضف إلى رغباتي» من المقترح ← تبقى رغباته السابقة وتُضاف المقترحة.",
+          "en": "«Add to my wishes» from the suggestion ← earlier wishes stay and the suggested ones are added."
         }
       ],
       "evidence": {
         "code": [
-          "src/server/studentHomePage.ts#renderWishes",
-          "src/server/studentHomePage.ts#wishesDone",
           "src/server/studentHomePage.ts#chosenCourses",
-          "src/server/studentHomePage.ts#loadPlan"
+          "src/server/studentHomePage.ts#loadPlan",
+          "src/server/studentHomePage.ts#renderWishes",
+          "src/server/studentHomePage.ts#saveWishCourses",
+          "src/server/studentHomePage.ts#unitPicker",
+          "src/server/studentHomePage.ts#wishesDone",
+          "src/server/studentMapUi.ts#kmSendWishes"
         ],
         "tests": [
+          "tests/masari-door-ux-audit.ts",
           "tests/masari-ease-audit.ts"
         ]
       }
@@ -3819,8 +3872,8 @@
         "en": "The «My profile» tab: correction, code, sign-out and deletion"
       },
       "text": {
-        "ar": "يجب على صفحة «مساري» أن تعرض في «ملفي» الاسم والرقم المدني مقنّعاً مع زر «تصحيح» يفتح ورقة الاسم (PUT /api/public/me/name)، وورقة «تغيير الرمز» بالرمز الحالي والجديد (6 أرقام لكلٍّ منهما)، وزر «اخرج» (POST /api/public/me/exit) يعود إلى شاشة الدخول ويمحو ما في الذاكرة، وورقة «احذف ملفّي» التي تقول إن الحذف نهائي وتطلب الرمز للتأكيد (POST /api/public/me/forget)، وسطر «يُحفظ حتى <التاريخ>» مضافاً إليه «ما لم تعد إليه» حين يكون سبب الحفظ الانقطاع.",
-        "en": "The Masari page shall show under «My profile» the name and masked civil ID with a «correct» button opening the name sheet (PUT /api/public/me/name), a «change code» sheet with the current and the new code (6 digits each), a «sign out» button (POST /api/public/me/exit) that returns to the entry screen and clears what is in memory, a «delete my profile» sheet that states the deletion is final and asks for the code to confirm (POST /api/public/me/forget), and the line «kept until <date>», adding «unless you come back to it» when the reason for keeping is inactivity."
+        "ar": "يجب على صفحة «مساري» أن تعرض في «ملفي» الاسم والرقم المدني مقنّعاً مع زر «تصحيح» يفتح ورقة الاسم (PUT /api/public/me/name)، وورقة «تغيير الرمز» بالرمز الحالي والجديد وإعادة كتابة الجديد (6 أرقام لكلٍّ منها) مع زرّ عينٍ يُظهر الخانات ويخفيها، ويُقال عدمُ التطابق أو تطابقُ الجديد مع الحالي في مكانه ويبقى الحفظ معطّلاً، وتُرسل remember من عمر الجلسة الجارية (state.session.remember) فلا تقصر جلسة 180 يوماً بعد التغيير، وزر «اخرج» (POST /api/public/me/exit) يعود إلى شاشة الدخول ويمحو ما في الذاكرة، وورقة «احذف ملفّي» التي تقول إن الحذف نهائي وتطلب الرمز للتأكيد (POST /api/public/me/forget)، وسطر «يُحفظ حتى <التاريخ>» مضافاً إليه «ما لم تعد إليه» حين يكون سبب الحفظ الانقطاع.",
+        "en": "The Masari page shall show under «My profile» the name and masked civil ID with a «correct» button opening the name sheet (PUT /api/public/me/name), a «change code» sheet with the current code, the new code and the new code again (6 digits each) with an eye button that shows and hides the cells, a mismatch or a new code equal to the current one stated in place with saving disabled, and remember sent from the current session's own lifetime (state.session.remember) so a 180-day session is not shortened by the change, a «sign out» button (POST /api/public/me/exit) that returns to the entry screen and clears what is in memory, a «delete my profile» sheet that states the deletion is final and asks for the code to confirm (POST /api/public/me/forget), and the line «kept until <date>», adding «unless you come back to it» when the reason for keeping is inactivity."
       },
       "priority": "could",
       "status": "implemented",
@@ -3835,6 +3888,10 @@
         {
           "ar": "زر الحذف معطّل حتى يكتمل رمز التأكيد 6 أرقام.",
           "en": "The delete button stays disabled until the 6-digit confirmation code is complete."
+        },
+        {
+          "ar": "رمزان جديدان مختلفان ← «الرمزان الجديدان غير متطابقين» وزرّ الحفظ معطّل.",
+          "en": "Two different new codes ← «the new codes do not match» and saving stays disabled."
         }
       ],
       "evidence": {
@@ -3969,6 +4026,85 @@
         "tests": []
       },
       "inferred": true
+    },
+    {
+      "id": "FR-STU-066",
+      "kind": "functional",
+      "title": {
+        "ar": "انتهاء الجلسة: حالةٌ واحدة تعيد إلى الباب ولا يضيع ما كُتب",
+        "en": "Session expiry: one state that returns to the door without losing what was typed"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعامل كل جوابٍ 401 برمز signed-out من /api/public/me/* (الرغبات، «هل سجّلت؟»، الطلبات، المنجَز، بطاقات الرئيسية) بحالةٍ واحدة «انتهت جلستك» فيها زرّ «ادخل من جديد» يعيد إلى الباب؛ وأن تمسك قبلها في ذاكرة الصفحة (بلا تخزينٍ في المتصفح) ما لم يُحفظ: مسودة الرغبات وشريحتها، واختيار سلّة «خطتي»، وتعليم المنجَز غير المحفوظ، وخطوة الإعداد؛ وأن تعيده بعد الدخول لصاحب الملف نفسه وحده (بتاريخ إنشاء ملفّه) فيُحفظ المنجَز أولاً ثم تُفتح مسودة الرغبات كما تُركت.",
+        "en": "The Masari page shall treat every 401 answer with code signed-out from /api/public/me/* (wishes, «did you register?», requests, passed courses, home cards) with one «your session ended» state whose «sign in again» button returns to the door; before it, it holds in page memory (with no browser storage) whatever was unsaved: the wishes draft and its slide, the «My plan» basket choice, unsaved passed ticks and the setup step; and it restores them after sign-in for the same profile only (by its creation date), saving the passed ticks first and then reopening the wishes draft as it was left."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "مسح كوكي الجلسة ثم «أرسل رغباتي» ← «انتهت جلستك» وسطر «ما كتبته لم يضع»، ولا شيء في تخزين المتصفح.",
+          "en": "Clearing the session cookie then «send my wishes» ← «your session ended» with «what you typed is kept», and nothing in browser storage."
+        },
+        {
+          "ar": "دخول ملفٍّ آخر على الجهاز نفسه ← لا يُعاد له شيء ويُمحى الممسوك.",
+          "en": "Signing in to another profile on the same device ← nothing is restored to it and the held draft is cleared."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentHomePage.ts#sessionExpired",
+          "src/server/studentHomePage.ts#rescueSave",
+          "src/server/studentHomePage.ts#rescueRestore",
+          "src/server/studentHomePage.ts#api"
+        ],
+        "tests": [
+          "tests/masari-door-ux-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-067",
+      "kind": "functional",
+      "title": {
+        "ar": "المقرر الحرج في «خطتي»",
+        "en": "The critical course in «My plan»"
+      },
+      "text": {
+        "ar": "يجب على صفحة «مساري» أن تعلّم بشارة «حرج» (لهبٌ وكلمة) كلَّ مقررٍ إجباريٍّ متبقٍّ في صحيفة الطالب يمرّ به طولُ سلسلة مسبقاتٍ متبقيةٍ (عمقُه + ما بعده − 1) لا يقل عن 2 ولا عن فصول تخرّجه T، حيث T أكبرُ الاثنين: تقدير الوحدات بوحداته في الفصل وأطولُ سلسلةٍ متبقية؛ فتأخيرُه فصلاً يؤخّر التخرّج فصلاً. تظهر الشارة على بطاقته في «خطة هذا الفصل» وفي «المطروح لي» وفي قائمة الرغبات، مع سطر «تأخيره يؤخر تخرّجك فصلاً»، وفي ورقة المقرر. البدائل («أحدُ هذه») تُحسب بأقصرها ولا تُلزم أحدها إلا إن بقي بديلاً وحيداً، والاختياري لا يُحسب، ولا يظهر شيء إن لم تُعتمد للصحيفة مسبقات أو كان فيها دوران.",
+        "en": "The Masari page shall mark with a «critical» badge (a flame and one word) every remaining compulsory course of the student's plan through which the remaining prerequisite chain (its depth + what follows − 1) is at least 2 and at least the student's terms to graduation T, where T is the larger of the unit estimate at the student's per-term units and the longest remaining chain; delaying it by a term delays graduation by a term. The badge shows on its card in «this term's plan», in «offered to me» and in the wishes list, with the line «delaying it delays your graduation by a term», and in the course sheet. Alternatives («one of») count by the shortest and bind none unless a single one remains, electives are not counted, and nothing shows when the plan has no approved prerequisites or contains a cycle."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "سلسلة 1←2←3 وفصلان بالوحدات ← الثلاثة حرجة وT = 3؛ وبخمسة فصول ← لا شيء.",
+          "en": "Chain 1→2→3 with two terms by units ← all three critical and T = 3; with five terms ← none."
+        },
+        {
+          "ar": "صحيفة بلا مسبقات ← لا شارة.",
+          "en": "A plan without prerequisites ← no badge."
+        },
+        {
+          "ar": "الدالة المحقونة في الصفحة تطابق دالة الخادم على 400 صحيفةٍ عشوائية.",
+          "en": "The function injected into the page matches the server function on 400 random plans."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/criticalCourses.ts",
+          "src/server/studentMapUi.ts#kmCrit",
+          "src/server/studentHomePage.ts#critTag"
+        ],
+        "tests": [
+          "tests/critical-courses-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [
