@@ -83,7 +83,7 @@ export default function NewInstructorForm({ collegeId, sectionId, initialName = 
             <option value="">الدرجة العلمية (اختياري)</option>
             {ranks.ranks.map(rank => <option key={rank.id} value={rank.id}>{rank.name} · {rank.minHours}–{rank.maxHours} س</option>)}
           </select>
-          {picked ? <small>نصابُه {picked.minHours}–{picked.maxHours} ساعة{picked.overtimeHours ? ` +${picked.overtimeHours} إضافي` : ""}</small> : null}
+          {picked ? <small>نصابُه {picked.minHours}–{picked.maxHours} س{picked.overtimeHours ? ` · +${picked.overtimeHours} إضافي` : ""}</small> : null}
         </label>
       ) : null}
       <label className="instructor-new-trainee">
@@ -92,8 +92,8 @@ export default function NewInstructorForm({ collegeId, sectionId, initialName = 
       </label>
       {error ? <em>{error}</em> : null}
       <div>
-        <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy}>{busy ? "يحفظ…" : submitLabel}</button>
-        <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy}>إلغاء</button>
+        <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy} data-guide-ignore="يحفظ أستاذاً جديداً في القسم بعد التأكيد في النموذج؛ الإضافة نفسها موثقة في schedule.action.change-instructor">{busy ? "يحفظ…" : submitLabel}</button>
+        <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy} data-guide-ignore="يغلق نموذج الأستاذ الجديد دون حفظ">إلغاء</button>
       </div>
     </div>
   );
