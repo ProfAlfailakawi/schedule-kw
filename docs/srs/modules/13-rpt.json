@@ -1472,6 +1472,10 @@
         {
           "ar": "في الورقة المطبوعة، شعبة أنشأها المنسّق بيده وتغيّر رقمها عن الأصل (501 ← 515 مثلاً) ← صف «معدَّل» تُلوَّن فيه خلية رقم الشعبة وحدها بالأصفر، ولا تُلوَّن خلية رقم صفٍّ مستورد؛ والتصميم المطبوع نفسه لا يتغيّر.",
           "en": "On the printed sheet, a section the coordinator created by hand whose number changed from the original (501 to 515, for example) ← a «changed» row with only the section-number cell coloured yellow, and the number cell of an imported row is not coloured; the printed design itself does not change."
+        },
+        {
+          "ar": "مفتاح الألوان في ذيل كل صفحة من تقرير تغييرات الجدول يحمل عدد كل حالة (مضاف، محذوف، معدّل) للوثيقة، ويُخفى العدد الصفري؛ والترويسة والأعمدة كما هي.",
+          "en": "The colour key in the footer of every page of the schedule-changes report carries the count of each status (added, deleted, changed) for the document, a zero count is hidden; the header and columns are unchanged."
         }
       ],
       "evidence": {
