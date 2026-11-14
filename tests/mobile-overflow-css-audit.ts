@@ -187,9 +187,6 @@ check(/\.srec-form,\.srec-result\{[^}]*grid-template-columns:minmax\(0,1fr\)/.te
 check(/\.lens-groupsstrong\.report-instructor-with-badge\{display:flex!important/.test(flat(read("src/styles/07-responsive.css"))),
   "أسماء الأساتذة في التقارير: الاسمُ يُقطع والشارةُ (منتدب) تبقى مرئية");
 
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
-
 /* الكتاب أفقيٌّ فقط (الجولة 2): لا استعلام يطبّق تخطيط الصفحتين على الطولي. الفرع الطوليّ 640–720 الوحيد المسموح هو مستطيل
    الودجت (display-mode:standalone) في 55-duo-adaptive.css، وهو حجزُ زاويةٍ لا تخطيطُ كتاب. */
 const portraitBook: string[] = [];
@@ -206,3 +203,6 @@ check(/@media[^{]*\(orientation:landscape\)and\(display-mode:standalone\),screen
   "مستطيل الودجت 116×116 معرَّفٌ مرةً واحدة للدوو الداخلي (كتاب أو طولي) في التطبيق المثبَّت فقط");
 check(/\.mobile-topbar\{[^}]*padding-right:calc\(var\(--duo-cutout-w\)\+8px\)/.test(book) && /\.sidebar-brand\{[^}]*padding-right:calc\(var\(--duo-cutout-w\)/.test(book),
   "الشريط العلوي ورأس الفهرس يبتعدان عن مستطيل الودجت بحشوةٍ يمنى فعلية");
+
+console.log(`\n${passed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);
