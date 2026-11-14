@@ -83,12 +83,13 @@ const route = (signature: string) => {
 {
   const schedules = read("src/components/Schedules.tsx");
   const layer = read("src/components/LivingScheduleLayer.tsx");
-  check(schedules.includes("(rows.length > 0 || genesisFromEmpty)") && schedules.includes('initialScene={genesisFromEmpty ? "genesis" : null}'),
-    "B7 الطبقة الحية تُركَّب لفصلٍ فارغ حين تُطلب بداية الفصل");
+  const iw = read("src/components/IntelligenceWorkspace.tsx");
+  check(iw.includes('embeddedScenes={["genesis"]}') && iw.includes('{ value: "genesis", label: "بداية الفصل"'),
+    "B7 «بداية الفصل» بطاقةٌ في «مركز الذكاء ← جرّب» تُفتح ولو كان الفصل فارغاً");
   const empty = schedules.slice(schedules.indexOf('title="لا توجد مواعيد ضمن الاختيار الحالي"'), schedules.indexOf('title="لا توجد مواعيد ضمن الاختيار الحالي"') + 3000);
-  check(empty.includes("بداية الفصل من الفصل السابق") && empty.includes("setGenesisFromEmpty(true)") && empty.includes("setTransferOpen(true)"),
+  check(empty.includes("بداية الفصل من الفصل السابق") && empty.includes('openIntelligenceCard("twin", "genesis")') && empty.includes("setTransferOpen(true)"),
     "B7 الحالة الفارغة تعرض بداية الفصل وأدوات البيانات");
-  check(layer.includes("useState<Scene | null>(initialScene)"), "B7 الطبقة تُفتح على المشهد المطلوب من أول لحظة");
+  check(layer.includes("useState<Scene | null>(embeddedScenes?.[0] ?? initialScene)"), "B7 الطبقة تُفتح على المشهد المطلوب من أول لحظة");
   check(/const onLivingPanelOpenChange = useCallback\(/.test(schedules), "B7 ردّ الإغلاق ثابت الهوية فلا يُغلق المشهد عند كل رسم");
 }
 
@@ -166,7 +167,7 @@ await (async () => {
   }
   check(/function emptyScopeGuidance[\s\S]{0,700}kind: "genesis"/.test(server), "B12 والطريق هو بداية الفصل");
   const iw = read("src/components/IntelligenceWorkspace.tsx"), xp = read("src/components/ScheduleExperienceLayer.tsx");
-  check(iw.includes("if (d?.empty) { setMessage(d.message); return; }") && iw.includes("if (room?.empty)") && iw.includes("if (plan?.empty)") && xp.includes("if (room?.empty)"),
+  check(iw.includes("if (d?.empty) { setMessage(d.message); return; }") && iw.includes("if (room?.empty)") && iw.includes("if (plan?.empty)") && !xp.includes("/api/intelligence/war-room"),
     "B12 الشاشات تعرض الإرشاد ولا تحاول رسم جدولٍ غير موجود");
 }
 

@@ -45,7 +45,7 @@ check(/visitingOf=\{visitingOfRow\}/.test(layer) && /withVisitingSuffix\(who, Bo
 check(/spotVisiting\(spot\) \? <> <VisitingBadge compact \/>/.test(scenes) && /label: withVisitingSuffix\(String\(spot\.label/.test(scenes), "خريطة الضغط: التصنيف والتسميات");
 check(/isVisitor\(profile\.id\)/.test(scenes) && /isVisitor\(item\.key\)/.test(scenes), "قراءة الصحة: الحمل ونقاط الانهيار");
 check(/visitingFor=\{visitingForLiving\}/.test(layer), "الطبقة تمرّر دالة المنتدب للمشاهد");
-check(/topInstructor\?\.visiting \? <> <VisitingBadge compact \/>/.test(read("src/components/ScheduleExperienceLayer.tsx")), "الأستاذ الأكثر تقييداً");
+check(/visitingInReading\(id\) \? <> <VisitingBadge compact \/>/.test(workspace), "الأستاذ الأكثر تقييداً (بطاقة بصمة القسم)");
 check(/withVisitingSuffix\(String\(slot\.instructorName/.test(read("src/components/RadarSchedule.tsx")), "رادار الجدول");
 check(/withVisitingSuffix\(String\(slot\.instructorName/.test(read("src/components/StudentRegistration.tsx")), "تسجيل الطلبة");
 
