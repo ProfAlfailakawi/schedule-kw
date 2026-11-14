@@ -760,7 +760,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                         {campuses.length ? <span className="review-finding-campuses">{campuses.map(tag => <React.Fragment key={tag.label}><CampusChip tag={tag} /></React.Fragment>)}</span> : null}
                       </span>
                       <span className="finding-share" aria-hidden="true">
-                        <i style={{ width: `${Math.min(100, (scoped.length / spread.total) * 100)}%` }} />
+                        <i style={{ width: `${Math.min(100, (scoped.length / Math.max(1, breakdown.total)) * 100)}%` }} />
                       </span>
                     </span>
                   ) : null}

@@ -143,6 +143,8 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   /* من عنده بطاقةٌ سارية (قرار المالك 2026-11-14): «تكرار» = الرابطُ نفسه بالموعد الجديد (الافتراضي)،
      «تبديل» = رابطٌ جديد يحلّ محلّ القديم والطلبُ نفسُه يبقى، و«تخطّي» = لا يُمسّ أصلاً. */
   const cardAction: "repeat" | "replace" = req.body?.cardAction === "replace" ? "replace" : "repeat";
+  /* «تبديل» لأشخاصٍ بعينهم (قرارٌ عند النقر على اسم كلٍّ في «أساتذة محددون»): لا يُبدَّل رابطُ غيرهم. */
+  const replaceSet = new Set<number>((Array.isArray(req.body?.replaceInstructorIds) ? req.body.replaceInstructorIds : []).map(Number).filter((id: number) => Number.isSafeInteger(id) && id > 0).slice(0, 500));
   const skipSet = new Set<number>((Array.isArray(req.body?.skipInstructorIds) ? req.body.skipInstructorIds : []).map(Number).filter((id: number) => Number.isSafeInteger(id) && id > 0).slice(0, 500));
   const selectedInstructorId = individualOnly ? Number(req.body.instructorId) : 0;
   const emergencyReason = String(req.body?.reason || "").trim().slice(0, 400);
@@ -302,12 +304,13 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
 
   /* `reissued`: ينتظر قرارَ القسم فلم يُمسّ. `renewed`: طلبُه القائم أخذ الموعدَ الجديد. */
   const issued: Array<{ instructorId: number; linkId: string; reissued: boolean; renewed?: boolean }> = [];
+  let skippedCount = 0;
   for (const [instructorId, own] of byInstructor) {
     if (individualOnly && instructorId !== selectedInstructorId) continue;
     /* غيرُ المختارين لا يُمسّ طلبُهم ولا رابطُهم ولا صفتُه. */
     if (picking && !pickedSet.has(instructorId)) continue;
     if (excluded.has(instructorId)) continue;
-    if (skipSet.has(instructorId)) continue;
+    if (skipSet.has(instructorId)) { skippedCount++; continue; }
     /* أستاذٌ له طلبٌ في هذا الفصل لا يُعطى ثانياً: طلبان يعنيان أن أحدهما
        سيُقرأ ويُهمل الآخر بلا أن يعرف صاحبُه. لكن طلباً مات موعدُه أو رابطُه
        لا يبقى «طلبَه» — يتبع الموعدَ الجديد (src/utils/requestReissue.ts). */
@@ -337,11 +340,13 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
       const heldLink = await Repository.getShareLink(held.linkId);
       const readable = heldLink ? await shareLinkStillReadable(heldLink) : false;
       let linkId = held.linkId;
+      /* الرابطُ القديم يُبطَل بعد حفظ الطلب بالجديد لا قبله: فشلُ الحفظ لا يترك الطلب مشيراً إلى رابطٍ ميت. */
+      let supersededLinkId = "";
       /* «تبديل»: لمن لم يُرسل طلبه بعد فقط — طلبٌ ينتظر قرار القسم لا يُستبدل رابطه (يبقى كما هو أعلاه). */
-      const forceNewLink = cardAction === "replace" && move === "extend" && !individualOnly && !onlyNoted;
+      const forceNewLink = (cardAction === "replace" || replaceSet.has(instructorId)) && move === "extend" && !individualOnly && !onlyNoted;
       if (forceNewLink || requestLinkNeedsReplacing(heldLink, readable, Date.parse(windowClosesAt) + 86400000)) {
         linkId = (await mintRequestLink(instructorId)).id;
-        if (heldLink && !heldLink.revoked) await Repository.revokeShareLink(heldLink.id);
+        if (heldLink && !heldLink.revoked) supersededLinkId = heldLink.id;
       }
       const startsLater = Date.parse(held.window?.opensAt || "") > Date.now();
       await Repository.saveInstructorRequest({
@@ -357,6 +362,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
           timeline: [...(held.timeline || []), { kind: "link-created", at: opensAt, by: "القسم", detail: "أُعيد فتح التعديل بإرسالٍ خاص" }],
         } : {}),
       });
+      if (supersededLinkId) await Repository.revokeShareLink(supersededLinkId);
       issued.push({ instructorId, linkId, reissued: false, renewed: true });
       continue;
     }
@@ -406,11 +412,12 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     ? `فتح تعديل استثنائي للأستاذ ${String(person?.AdInstructorName || selectedInstructorId)} حتى ${windowClosesAt} — ${emergencyReason}`
     : picking ? `إرسال بطاقة الأستاذ لأساتذة محددين حتى ${windowClosesAt}: ${pickedNames()}`
     : `إعادة فتح استقبال طلبات الأساتذة لعائلة القسم حتى ${windowClosesAt}`) + ` · ${linkModeLabel(issueMode)}`;
-  await Repository.saveFeatureDoc("linkModeLog", `${collegeId}:${sectionId}:${termId}:${Date.now()}`, {
+  /* إرسالٌ تُخُطّي كلُّ أصحابه لم يُرسل شيئاً: لا سطرَ فارغاً في السجل. */
+  if (issued.length) await Repository.saveFeatureDoc("linkModeLog", `${collegeId}:${sectionId}:${termId}:${Date.now()}`, {
     at: new Date().toISOString(), by: String(req.user?.Name || req.user?.UserName || ""), mode: issueMode,
     scope: `${collegeId}:${sectionId}:${termId}`, instructorIds: issued.map(row => row.instructorId), single: individualOnly, picked: picking, closesAt: windowClosesAt,
     fresh: issued.filter(row => !row.reissued && !row.renewed).length, renewed: issued.filter(row => row.renewed).length, kept: issued.filter(row => row.reissued).length,
-    replaced: cardAction === "replace", skipped: [...skipSet].length,
+    replaced: cardAction === "replace" || replaceSet.size > 0, skipped: skippedCount,
   }).catch(() => undefined);
   res.json({ issued, total: issued.length, fresh: issued.filter(row => !row.reissued && !row.renewed).length, ...(picking ? { picked: true } : {}) });
 });
@@ -456,7 +463,10 @@ app.get("/api/instructor-requests/live-cards", requirePermission(7), async (req:
   const nameOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
   const current = await currentInstructorRequestGeneration(groups.flat());
   const cards: Array<{ instructorId: number; name: string; closesAt: string; awaiting: boolean; mode: string }> = [];
-  for (const [instructorId, request] of latestRequestByInstructor(current)) {
+  /* القاعدةُ نفسها في الإصدار: الطلبُ الذي قدّمه الأستاذ (مُرسَل/قيد المراجعة) يسبق طلباً أحدث فارغاً في موقعٍ شقيق. */
+  const latest = latestRequestByInstructor(current);
+  for (const [instructorId, request] of latestRequestByInstructor(current.filter(row => row.status === "submitted" || row.status === "in-review"))) latest.set(instructorId, request);
+  for (const [instructorId, request] of latest) {
     const move = reissueMove(request);
     if (move === "fresh") continue;
     const awaiting = move === "keep";
