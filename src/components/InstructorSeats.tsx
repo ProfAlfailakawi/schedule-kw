@@ -69,7 +69,7 @@ export function VacantAssign({ picker, pickedName, pickedVisiting = false, picke
       <button type="button" className="seat-assign-go" disabled={busy || (verdict ? !verdict.free : false)}
         data-guide-ignore="يسند الشعبة الشاغرة إلى الأستاذ المختار بتأكيدٍ ثم طلبٍ ذرّيٍّ بتراجع؛ لا يُنشأ موعدٌ جديد"
         onClick={onAssign}>{busy ? <Loader2 aria-hidden="true" className="checks-spin" /> : <UserRoundCheck aria-hidden="true" />}<span>أسند</span></button>
-      <button type="button" className="seat-assign-x" aria-label="إلغاء الاختيار" onClick={onClear}><X aria-hidden="true" /></button>
+      <button type="button" className="seat-assign-x" aria-label="إلغاء الاختيار" data-guide-ignore="يلغي اختيار الأستاذ لإسناد الشعبة الشاغرة؛ لا يحفظ شيئاً" onClick={onClear}><X aria-hidden="true" /></button>
     </div> : null}
   </div>;
 }

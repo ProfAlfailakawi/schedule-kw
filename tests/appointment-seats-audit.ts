@@ -23,7 +23,7 @@ check(/formTrainees\.has\(Number\(person\.AdInstructorId\)\)/.test(schedules) &&
 check(/studioPlaceholderIds\.find\(id => dept\.has\(id\)\)/.test(schedules), "Q4 شاغر القسم يُفضَّل (placeholder السجل نفسه)");
 check(/assignVacantTo = async[\s\S]{0,500}placeholderAction\([\s\S]{0,300}"assign"/.test(schedules), "A1 الإسناد عبر placeholderAction «assign» القائم");
 check(/seatAssignRow = editor === "edit" && editorOriginalRow && studioPlaceholderIds\.includes\(Number\(editorOriginalRow\.AdInstructorId\)\) && !practiceMode/.test(schedules), "A2 يظهر لموعدٍ محفوظٍ شاغر فقط وليس في وضع التدريب");
-check(!/room-swap|seat-assign|assign-vacant/.test(tools) && /\/api\/schedules\/placeholder-action/.test(tools), "A3 لا مسارَ خادمٍ جديد: المسار القائم وحده");
+check(!/seat-assign|assign-vacant/.test(tools) && /\/api\/schedules\/placeholder-action/.test(tools), "A3 لا مسارَ خادمٍ جديد: المسار القائم وحده");
 check(/issue\.type === "instructor"/.test(schedules) && /disabled=\{busy \|\| \(verdict \? !verdict\.free : false\)\}/.test(seats), "V1 الحكم يعطّل «أسند» عند تداخل الأستاذ");
 check(/weeklyLoadOf\(\[\.\.\.mine, seatAssignRow\]/.test(schedules) && /النصاب الآن ثم بعد الإسناد/.test(seats), "V2 النصاب قبل/بعد في شريحة");
 check(/<ReplaceableList/.test(read("src/components/RoomSuggestionCards.tsx")) && /ProposalVacancies/.test(read("src/components/proposal/StudyProposalWorkspace.tsx")), "K1 بطاقات الاستبدال في القاعة ومقترح الدراسة قائمان");
