@@ -33,6 +33,7 @@ import { requestItemFromRow } from "../utils/instructorRequestItems";
 import { normalizeInstructorDeadline } from "../utils/instructorRequestWindows";
 import { isTrainingAssistant } from "../utils/taConversion";
 import { byCourseNumber } from "../utils/sheetMembership";
+import { registerWishHintsRoutes } from "./wishHints";
 
 const scopeOf = (source: any) => ({ collegeId: Number(source?.collegeId || 0), sectionId: Number(source?.sectionId || 0), termId: Number(source?.termId || 0) });
 
@@ -46,6 +47,9 @@ const latestCards = (rows: InstructorRequest[]) =>
   latestRequestByInstructor(rows.filter(row => row.status !== "superseded" && linkMode(row) !== "ta"));
 
 export function registerPublishCardsRoutes(app: Express): void {
+
+/* «توقّع الرغبات»: ما طلبه الأساتذةُ في الفصول السابقة — للمنسّق وحده (server/wishHints.ts). */
+registerWishHintsRoutes(app);
 
 app.get("/api/instructor-requests/course-defaults", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const { collegeId, sectionId, termId } = scopeOf(req.query);
