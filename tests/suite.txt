@@ -160,6 +160,7 @@ test:review-family
 test:masari-responsive
 test:masari-ease
 test:masari-door-ux
+test:student-colleges
 test:critical-courses
 test:masari-visual
 test:masari-return
