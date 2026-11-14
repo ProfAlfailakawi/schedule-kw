@@ -10,6 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Building2, Check, CircleCheck, DoorOpen, Loader2, Search, Sparkles } from "lucide-react";
 import MiniRing from "./MiniRing";
+import CapacityImportPanel from "./CapacityImportPanel";
 import { Badge, Surface } from "./ui";
 import { AR, countOf } from "../utils/arabicCount";
 import { capacityPercent, CAPACITY_GAP_MAX, CAPACITY_GAP_MIN, parseGapCapacity, type CapacityGapReport, type CapacityGapRoom } from "../utils/roomCapacityGaps";
@@ -129,6 +130,7 @@ export default function LocationCapacityGaps({ buildings, sections, demoReadOnly
       </div>
     </div>
     <p className="cap-gaps-sr" role="status" aria-live="polite">{announce}</p>
+    <CapacityImportPanel demoReadOnly={demoReadOnly} onChanged={() => { void load(); onSaved?.(); }} />
 
     {complete ? <div className="cap-gaps-done"><CircleCheck aria-hidden="true" /><strong>كل القاعات المعتمدة لها سعة</strong><span>يُرشَّح لكل شعبة ما يتّسع لها.</span></div> : null}
 

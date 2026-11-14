@@ -242,18 +242,18 @@
 }
 
 /* ==========================================================================
-   مستطيل الودجت (الجولة 2، 14 نوفمبر 2026) — الشاشة الداخلية للدوو في التطبيق المثبَّت فقط
-   على التطبيق المثبَّت تطفو ودجتُ النظام (سهم الموقع، الساعة، حلقة الواي فاي) فوق
+   مستطيل الودجت (الجولة 3، 14 نوفمبر 2026) — الشاشة الداخلية للدوو في تبويب المتصفح والتطبيق المثبَّت معاً
+   على الدوو تطفو ودجتُ النظام (سهم الموقع، الساعة، حلقة الواي فاي) فوق
    الزاوية العلوية اليمنى فتغطّي الشعار والعناوين والقائمة. موضعها ملكُ النظام ولا يُعرف
    صندوقها بدقّة، فتُحجز زاويةٌ سخيّة 116×116 (يمين الشاشة الفعلي، لا بداية السطر)،
    وتبقى الخلفية ممتدّةً خلفها والمحتوى وحده يبتعد.
-   الشرط: كتلة الكتاب (أفقي) أو الشاشة الداخلية الطولية (640–720)، وكلاهما display-mode:standalone.
+   الشرط: كتلة الكتاب (أفقي) أو الشاشة الداخلية الطولية (640–720)، ولا يُشترط display-mode (المالك على الأرجح في تبويب Safari، وهناك تطفو الودجت أيضاً).
    الطولي هنا هاتفٌ عاديّ بلا صفحتين: الشريط العلوي يرتفع إلى ارتفاع المستطيل ويُبعَد
    زرُّ القائمة عنه؛ وفي الكتاب المستطيلُ للصفحة اليمنى (الفهرس) وحدها.
    لا يُخمَّن شيءٌ للشاشة الخارجية المطويّة (367×740): لا تُميَّز عن iPhone عادي.
    ========================================================================== */
-@media screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape) and (display-mode:standalone),
-       screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px) and (orientation:portrait) and (display-mode:standalone){
+@media screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape),
+       screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px) and (orientation:portrait){
   :root{--duo-cutout-w:116px;--duo-cutout-h:116px}
   /* رأس الفهرس (الدرج في الطولي، والصفحة اليمنى في الكتاب): الشعار يبتعد عن المستطيل،
      والصفّ يبلغ ارتفاعه فلا يركب ما بعده. */
@@ -262,7 +262,7 @@
     padding-right:calc(var(--duo-cutout-w) + 4px);padding-bottom:10px;align-items:center;
   }
 }
-@media screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px) and (orientation:portrait) and (display-mode:standalone){
+@media screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px) and (orientation:portrait){
   :root{--topbar-h:var(--duo-cutout-h)}
   .mobile-topbar{
     box-sizing:border-box;

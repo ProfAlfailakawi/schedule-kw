@@ -26,6 +26,7 @@ import { SCHEDULE_DAY_KEYS } from "../core/scheduleRules";
 import { isScopeAllowed } from "../core/scope";
 import { roomCapacityGaps } from "../../utils/roomCapacityGaps";
 import { locationUsage } from "../deleteImpact";
+import { registerCapacityImportRoutes } from "./capacityImportRoutes";
 
 type DepartmentRoomReference={building:string;hall:string};
 
@@ -41,6 +42,7 @@ const officialBuildingCollegeIds=(building:MasterBuilding,colleges:readonly any[
 export const LOCATION_IN_USE_CONFIRM="location-in-use";
 
 export function registerLocationsRoutes(app: Express): void {
+registerCapacityImportRoutes(app);
 
 /** Complete department room history for suggestion/import consumers. Writes remain Master-Registry only. */
 app.get("/api/department-rooms", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {

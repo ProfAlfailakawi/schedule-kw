@@ -97,6 +97,7 @@ Each `test:*` script in [package.json](package.json) runs one audit under [tests
 - **What it does:** refuses any commit whose full CI run on `main` has not passed, builds one immutable Docker image ([Dockerfile](Dockerfile)), deploys it to the official Cloud Run service in `europe-west1`, then checks that <https://schedule-kw.com/sw.js> serves the same `BUILD` stamp as the service.
 - **No path filter:** neither workflow has `paths` / `paths-ignore`, so a documentation-only merge to `main` (including this README) runs the full CI and, if it passes, redeploys the same code.
 - Production deploys only through `.github/workflows/deploy-schedule.yml` (there is no Cloud Build path). Read [docs/DELIVERY_OPERATIONS.md](docs/DELIVERY_OPERATIONS.md) and [docs/SAFE_DEPLOYMENT.md](docs/SAFE_DEPLOYMENT.md) before changing anything deployment-related.
+- After a big release run the ten-minute human acceptance round, [docs/ACCEPTANCE_ROUND.md](docs/ACCEPTANCE_ROUND.md); `npm run rehearsal:acceptance` rehearses the same steps on a private demo server and writes an HTML report.
 
 ## Recovery
 
