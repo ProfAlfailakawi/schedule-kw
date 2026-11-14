@@ -132,10 +132,10 @@ export function parseDocStepIds(markdown: string): string[] {
   return [...markdown.matchAll(/^\|\s*`?\*{0,2}([A-Z]\d{1,2})\*{0,2}`?\s*\|/gm)].map(match => match[1]);
 }
 
-/** معرّفات الخطوات في السكربت: run("S1", …) للمشغَّلة، و skip("S5", …) لما يحتاج جولةً حقيقية. */
+/** معرّفات الخطوات في السكربت: run("S1", …) أو runWidths("A1", …) للمشغَّلة، و skip("S5", …) لما يحتاج جولةً حقيقية. */
 export function parseScriptStepIds(source: string): { run: string[]; skip: string[] } {
   const grab = (verb: string) => [...source.matchAll(new RegExp(`\\b${verb}\\(\\s*"([A-Z]\\d{1,2})"`, "g"))].map(match => match[1]);
-  return { run: grab("run"), skip: grab("skip") };
+  return { run: grab("run(?:Widths)?"), skip: grab("skip") };
 }
 
 /* ── التقرير ── */
