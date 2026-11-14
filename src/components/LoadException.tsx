@@ -68,9 +68,9 @@ export function ExceptionBadge({ reason, untilName }: { reason?: LoadExceptionRe
  * محرّرُ استثناء عضوٍ واحد: درجتُه، وحدودٌ خاصّة به (فارغٌ = من الدرجة)، وسببٌ برقاقة، وفصلُ انتهاءٍ اختياري.
  * لا يحفظ بنفسه: `onApply` يتسلّم الإسناد الجديد (أو null لإزالة كل ما للعضو).
  */
-export function LoadExceptionEditor({ name, ranks, value, terms, hours = 0, readOnly = false, busy = false, raised = false, note = "", error = "", onApply, onClose }: {
+export function LoadExceptionEditor({ name, ranks, value, terms, hours = 0, readOnly = false, busy = false, raised = false, note = "", error = "", requireRank = false, onApply, onClose }: {
   name: string; ranks: AcademicRank[]; value: TeachingLoadAssignment; terms: TermOption[]; hours?: number;
-  readOnly?: boolean; busy?: boolean; raised?: boolean; note?: string; error?: string; onApply: (next: TeachingLoadAssignment | null) => void; onClose: () => void;
+  readOnly?: boolean; busy?: boolean; raised?: boolean; note?: string; error?: string; /** أدوات الجدول: الدرجةُ لازمة فلا «بلا درجة» (قرار المالك 2026-11-14). */ requireRank?: boolean; onApply: (next: TeachingLoadAssignment | null) => void; onClose: () => void;
 }) {
   const [draft, setDraft] = useState<TeachingLoadAssignment>(() => ({ ...value }));
   const [hint, setHint] = useState("");
@@ -115,7 +115,7 @@ export function LoadExceptionEditor({ name, ranks, value, terms, hours = 0, read
         <label className="tl-editor-rank">
           <span>الدرجة العلمية</span>
           <select value={draft.rankId || ""} disabled={readOnly} onChange={event => patch({ rankId: event.target.value || undefined })} aria-label={`درجة ${name}`}>
-            <option value="">بلا درجة</option>
+            <option value="" disabled={requireRank}>{requireRank ? "اختر الدرجة *" : "بلا درجة"}</option>
             {ranks.map(item => <option key={item.id} value={item.id}>{item.name || "(بلا اسم)"}</option>)}
           </select>
         </label>
@@ -163,7 +163,7 @@ export function LoadExceptionEditor({ name, ranks, value, terms, hours = 0, read
 
         {problem || error ? <p className="tl-problem" role="alert">{problem || error}</p> : null}
         <div className="tl-editor-actions">
-          <PrimaryButton type="button" disabled={readOnly || busy || Boolean(problem)} data-guide-ignore="تطبيق استثناء نصاب العضو؛ لا يغيّر جدولاً"
+          <PrimaryButton type="button" disabled={readOnly || busy || Boolean(problem) || (requireRank && !draft.rankId)} data-guide-ignore="تطبيق استثناء نصاب العضو؛ لا يغيّر جدولاً"
             onClick={() => onApply(clean(draft))}>{busy ? "جارٍ الحفظ…" : "تطبيق"}</PrimaryButton>
           {hasLoadOverride(value) ? (
             <SecondaryButton type="button" disabled={readOnly || busy} data-guide-ignore="إزالة استثناء نصاب العضو فيعود إلى نصاب درجته؛ لا يغيّر جدولاً"

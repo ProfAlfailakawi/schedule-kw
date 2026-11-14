@@ -31,7 +31,7 @@ import {
   APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, additionsAwaitingHead, awaitsHeadSignature, blockingSummaryPhrase, deadlinePassed,
 } from "../utils/approvalWorkflow";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
-import { CAPACITY_GAP_FIELD } from "../utils/scheduleDataReadiness";
+import { CAPACITY_GAP_FIELD, RANK_GAP_FIELD } from "../utils/scheduleDataReadiness";
 import { approvalBarPresence } from "../utils/approvalBarPresence";
 import { approvalScopeKey, createScopeGuard } from "../utils/approvalScope";
 import { journeyAlreadyPlayed, markPlayed, reducedMotion } from "./dna/useJourneyReveal";
@@ -55,6 +55,8 @@ interface Payload {
   blockingConflicts: number;
   /** مقرراتُ الجدول التي سعتُها غير مسجّلة: تمنع التوقيع كالتعارض. */
   missingCapacity?: number;
+  /** أساتذةُ الجدول بلا درجةٍ علمية: يمنعون التوقيع كالسعة (قرار المالك 2026-11-14). */
+  missingRanks?: number;
   /** المواعيدُ التي تقف في تلك التعارضات (approvalBlockerSummary على الخادم). */
   blockingRows?: number;
   /** كم منها موعدٌ مكرّر لا تعارضٌ مادّي — فتقول العبارةُ ما تعدّه. */
@@ -101,6 +103,8 @@ interface Props {
   /** يفتح شاشة التغييرات حيث تُقرأ الملاحظات على مواعيدها. غيابه يعني أنها معروضةٌ هنا. */
   onOpenNotes?: () => void;
   onOpenCourses?: () => void;
+  /** يفتح «أدوات الجدول ← الأساتذة» حيث لوحةُ استكمال الدرجات. */
+  onOpenInstructors?: () => void;
   /** مقرراتُ القسم التي يطلبها الطلبة وشعبها أقل: يقرؤها مفتاحُ الألوان في الجدول فيضع علامةً صغيرة. */
   onStudentGaps?: (items: GapItem[]) => void;
   /** عدد الشعب المستهدف كما حدّده التخطيط الدراسي، مستقلّاً عن استبيان الطلبة. */
@@ -131,7 +135,7 @@ const arabicDate = (iso?: string) => {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString("ar-KW-u-nu-latn", { year: "numeric", month: "long", day: "numeric" });
 };
 
-export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, canSign = true, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onSigned, onLockChange, onOpenNotes, onOpenCourses, onStudentGaps, onPlanningGaps }: Props) {
+export default function ApprovalBar({ collegeId, sectionId, termId, signatureStage, canSign = true, powerAdmin = false, demoMode = false, refreshSignal = 0, canEditCourses = false, onOpenRow, onChanged, onSigned, onLockChange, onOpenNotes, onOpenCourses, onOpenInstructors, onStudentGaps, onPlanningGaps }: Props) {
   const [state, setState] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -349,6 +353,9 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
      سعةٍ مسجّلة يُوقَف عنده الزرّ، وتُفتح قائمةُ إدخال السعة من الشارة. */
   const missingCapacity = Number(state.missingCapacity || 0);
   const capacityBlocksSign = canSignNow && missingCapacity > 0;
+  /* والدرجةُ العلمية كالسعة: أستاذٌ له مواعيد في الجدول بلا درجةٍ يُوقَف عنده الزرّ (المالك 2026-11-14)، والمنتدبون خارج العدّ. */
+  const missingRanks = Number(state.missingRanks || 0);
+  const ranksBlockSign = canSignNow && missingRanks > 0;
   const requiredCourseFieldsBlocksSign=canSignNow&&Boolean(state.dataReadiness?.items.some(item=>item.kind==="course"&&item.fields.some(field=>field==="نوع القاعة المناسب"||field==="طبيعة التدريس")));
   /* شرطُ الإرسال كما يقرؤه الخادم حرفاً بحرف: توقيعان، ولا إضافةً تنتظر
      إقراراً، ولا ملاحظةً من التسجيل بلا معالجةٍ ولا ردّ. فلا يُعرض زرٌّ
@@ -554,15 +561,17 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
   /* ── قائمة البيانات الناقصة: كلُّ بندٍ وفعلُه ─────────────────────────────
      المقرر ← محرر المقررات، الموعد والقاعة ← بطاقة الموعد في الشاشة. */
   const jumpToItem = (item: { kind: string; id: string }) => {
-    if (item.kind === "course") {
+    if (item.kind === "instructor") {
+      onOpenInstructors?.();
+    } else if (item.kind === "course") {
       onOpenCourses?.();
     } else {
       const card = document.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(item.id)}"], #schedule-row-${CSS.escape(item.id)}`);
       card?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
-  const ITEM_ICON: Record<string, LucideIcon> = { course: Landmark, schedule: CalendarClock, location: DoorOpen, room: DoorOpen };
-  const ITEM_ACTION: Record<string, string> = { course: "افتح المقررات", schedule: "اذهب للموعد", location: "اذهب للموعد", room: "اذهب للموعد" };
+  const ITEM_ICON: Record<string, LucideIcon> = { instructor: GraduationCap, course: Landmark, schedule: CalendarClock, location: DoorOpen, room: DoorOpen };
+  const ITEM_ACTION: Record<string, string> = { instructor: "اختر الدرجة", course: "افتح المقررات", schedule: "اذهب للموعد", location: "اذهب للموعد", room: "اذهب للموعد" };
   const gapPanel = gapOpen && gap.studentItems.length ? <SectionGapPanel items={gap.studentItems} kind="students" onClose={() => setGapOpen(false)} /> : null;
   const planPanel = planOpen ? <SectionPlan collegeId={collegeId} sectionId={sectionId} termId={termId} mode="bar" inPlace reading={plan.reading} onReading={plan.set} onClose={() => setPlanOpen(false)} onOpenCourses={onOpenCourses} /> : null;
   const readinessPanel = state.dataReadiness ? (
@@ -583,7 +592,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
                 const ItemIcon = ITEM_ICON[item.kind] || ListChecks;
                 const mode = readinessFixMode(item);
                 const itemKey = `${item.kind}:${item.id}`;
-                const canJump = item.kind !== "course" || Boolean(onOpenCourses);
+                const canJump = item.kind === "instructor" ? Boolean(onOpenInstructors) : item.kind !== "course" || Boolean(onOpenCourses);
                 const courseFields = mode === "course-fields" ? courseFixFieldsOf(item) : [];
                 const courseDirty = courseFields.some(field => (courseDrafts[`${item.id}:${field.key}`] ?? "") !== "");
                 const courseLocked = !canEditCourses || Boolean(coursesLocked);
@@ -591,7 +600,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
                 const lockedTip = coursesLocked || "لا تملك صلاحية تعديل المقررات";
                 const FIELD_ICON: Record<string, LucideIcon> = { CourseCredit: Layers, CourseHours: Clock, MaxStudent: Users, CourseRoomType: DoorOpen, CourseTeachingMode: GraduationCap };
                 return (
-                  <li key={itemKey} data-kind={item.kind} data-fix={mode} data-blocks-sign={item.kind === "course" && item.fields.includes(CAPACITY_GAP_FIELD) ? "true" : undefined}>
+                  <li key={itemKey} data-kind={item.kind} data-fix={mode} data-blocks-sign={(item.kind === "course" && item.fields.includes(CAPACITY_GAP_FIELD)) || (item.kind === "instructor" && item.fields.includes(RANK_GAP_FIELD)) ? "true" : undefined}>
                     <span className="apb-dr-ic" aria-hidden="true"><ItemIcon /></span>
                     <span className="apb-dr-txt"><b>{item.label}</b>{item.fields.length ? <small>{item.fields.join("، ")}</small> : null}{fixErrors[itemKey] ? <small className="apb-dr-err" role="alert">{fixErrors[itemKey]}</small> : null}</span>
                     {mode === "course-fields" ? (
@@ -711,7 +720,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
         ) : null}
         <SectionPlanningBadge reading={plan.reading} open={planOpen} onToggle={() => setPlanOpen(open => !open)} />
         <SectionGapBadge items={gap.studentItems} kind="students" open={gapOpen} onToggle={() => setGapOpen(open => !open)} />
-        {canSignNow && blockingConflicts === 0 && missingCapacity === 0 && !requiredCourseFieldsBlocksSign ? (
+        {canSignNow && blockingConflicts === 0 && missingCapacity === 0 && missingRanks === 0 && !requiredCourseFieldsBlocksSign ? (
           <span className="apb-badge apb-ready" data-tone="success" data-guide-ignore="شارة جاهزية التوقيع — عرضٌ لا فعل">
             <ShieldCheck aria-hidden="true" /><span>جاهز للتوقيع</span>
           </span>
@@ -740,6 +749,14 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             onClick={() => setReadinessOpen(true)}
             data-guide-ignore="شارة مانع التوقيع بسبب سعةٍ ناقصة — تفتح قائمة إدخال السعة">
             <Users aria-hidden="true" /><span>السعة ناقصة</span><b>{missingCapacity.toLocaleString("ar-KW-u-nu-latn")}</b>
+          </button>
+        ) : null}
+        {ranksBlockSign ? (
+          <button type="button" className="apb-badge apb-blocked apb-capacity-btn" data-tone="danger"
+            title={`${countOf(missingRanks, AR.instructor)} بلا درجةٍ علمية · تمنع التوقيع. اضغط لاختيارها.`}
+            onClick={() => (onOpenInstructors ? onOpenInstructors() : setReadinessOpen(true))}
+            data-guide-ignore="شارة مانع التوقيع بسبب أساتذةٍ بلا درجةٍ علمية — تفتح «الأساتذة» لاستكمالها">
+            <GraduationCap aria-hidden="true" /><span>الدرجة ناقصة</span><b>{missingRanks.toLocaleString("ar-KW-u-nu-latn")}</b>
           </button>
         ) : null}
         {requiredCourseFieldsBlocksSign ? <Notice type="warning">استكمل «نوع القاعة المناسب» و«طبيعة التدريس» لكل مقرر قبل التوقيع.</Notice> : null}
