@@ -20,7 +20,7 @@ const TRACK_LABEL: Record<string, string> = { boys: "بنين", girls: "بنات
 export function useActualDemand(collegeId: number, sectionId: number, termId: number, refreshSignal = 0): DemandReadingView | null {
   const [reading, setReading] = useState<DemandReadingView | null>(null);
   const scope = `${collegeId}|${sectionId}|${termId}`;
-  /* رفعٌ أو ربطٌ من أدوات البيانات أو مركز التحليلات يُعلن نفسه، فتُعاد القراءة بلا إعادة تحميل. */
+  /* رفعٌ أو ربطٌ من أدوات الجدول أو مركز التحليلات يُعلن نفسه، فتُعاد القراءة بلا إعادة تحميل. */
   const [changed, setChanged] = useState(0);
   useEffect(() => {
     const bump = () => setChanged(value => value + 1);

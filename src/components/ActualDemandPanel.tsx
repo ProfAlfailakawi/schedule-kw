@@ -67,7 +67,7 @@ async function readJson(response: Response) {
 
 export default function ActualDemandPanel({ collegeId, sectionId, termId, initial = null, onReading, mode = "full", inPlace = false }: {
   collegeId: number; sectionId: number; termId: number;
-  /** «data» في أدوات البيانات: الرفعُ والربط والرقم وحده — قائمة العلاج مكانُها الجدول ومركز التحليلات. */
+  /** «data» في أدوات الجدول: الرفعُ والربط والرقم وحده — قائمة العلاج مكانُها الجدول ومركز التحليلات. */
   mode?: "full" | "data";
   /** داخل الجدول الدراسي: «عالج» يفتح المحرّر في مكانه بلا انتقال. */
   inPlace?: boolean;

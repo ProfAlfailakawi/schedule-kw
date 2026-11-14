@@ -1,12 +1,11 @@
 import PatternLibraryButton from "./PatternLibraryButton";
 import WeekHeat from "./WeekHeat";
 import WipeScheduleButton from "./WipeScheduleButton";
-import TAConversionPanel from "./TAConversionPanel";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
 import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { isPhoneDevice } from "../utils/workspaceSize";
-import { isReadOnlyRole } from "../utils/academicRoles";
+import { isReadOnlyRole, roleDefinition } from "../utils/academicRoles";
 import RowHistory from "./RowHistory";
 import TrailStamp from "./trail/TrailStamp";
 import { TimeField } from "./TimeField";
@@ -186,7 +185,7 @@ import {
   type ScheduleSavedView,
   type ScheduleViewDraft,
 } from "../utils/scheduleViews";
-import ScheduleTransfer from "./ScheduleTransfer";
+import ScheduleTransfer, { type ScheduleToolTab } from "./ScheduleTransfer";
 import { FOCUS_COURSE_EVENT } from "../utils/planTriage";
 import SearchableSelect from "./SearchableSelect";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
@@ -1973,6 +1972,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 
   const [reviewOpen, setReviewOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  /* اللسانُ الذي تُفتح عليه «أدوات الجدول» (شارتا التخطيط والطلب الفعلي، و«استيراد» من الحالة الفارغة). */
+  const [transferTab, setTransferTab] = useState<ScheduleToolTab | undefined>(undefined);
   /**
    * بديل اليوم — dated one-day facts over a lecture (cancel / cover).
    *
@@ -2084,7 +2085,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      يصل من شريط الاعتماد (`onLockChange`)، فتعرف الورشةُ أن الجدول عند
      التسجيل قبل أن تفتح محرّراً يقول «صالح للحفظ» ثم يرفضه الخادم. */
   const [approvalLock, setApprovalLock] = useState<string | null>(null);
-  const [taConversionOpen, setTaConversionOpen] = useState(false);
   /* ضغطُ بطاقةٍ والجدولُ مقفل: السحبُ لا يبدأ، ويُقال لماذا بدل أن يبدو معطَّلاً. */
   const explainApprovalLock = () => { if (approvalLock) setPhysicsNotice(approvalLock); };
   useEffect(() => () => presence.dispose(), [presence]);
@@ -10539,7 +10539,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }
     if (transferOpen) {
       return {
-        title: "أدوات البيانات",
+        title: "أدوات الجدول",
         target: "schedule.tool.data",
         command: { scope: "schedule", type: "openTransfer" },
       };
@@ -11100,7 +11100,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 icon={<ShieldCheck />}
                 tone="mint"
                 title="وضع تجربة"
-                subtitle="السحب والتعديل والحذف مؤقتة على هذا الجهاز فقط؛ وما يكتب في الجدول الحقيقي (التراجع والإصلاح وأدوات البيانات) موقوفٌ حتى تُنهي التجربة."
+                subtitle="السحب والتعديل والحذف مؤقتة على هذا الجهاز فقط؛ وما يكتب في الجدول الحقيقي (التراجع والإصلاح وأدوات الجدول) موقوفٌ حتى تُنهي التجربة."
                 actions={<button type="button" onClick={() => window.dispatchEvent(new CustomEvent("schedule-smart-guide-command", { detail:{ scope:"schedule", type:"practice.stop", featureId:"schedule.practice" } }))}>إنهاء</button>}
               />
             </div>
@@ -11249,6 +11249,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               if (activeViewId === view.id) setActiveViewId(null);
             }}
             onToggleFavorite={view => { viewsStore.toggleFavorite(view.id); setSavedViews(viewsStore.list()); }}
+            focusMode={focusMode}
+            onToggleFocus={phoneReadOnly ? undefined : () => { physics.cancel(); setFocusMode(!focusMode); setPresentationMode(false); }}
           />
           {/* The live radar: what the board knows about itself, always visible.
               Counted locally on every change, so the number never waits for a
@@ -11353,25 +11355,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             >
               {workspaceToolsOpen ? <X aria-hidden="true" /> : <><Layers aria-hidden="true" /> المزيد</>}
             </GhostButton>
-            {!phoneReadOnly && (workspaceToolsOpen || focusMode) ? <GhostButton
-              type="button"
-              data-guide-ignore="تبديل وضع التركيز فقط؛ لا يغير بيانات الجدول"
-              onClick={() => {
-                physics.cancel();
-                setFocusMode(!focusMode);
-                setPresentationMode(false);
-              }}
-              aria-pressed={focusMode}
-            >
-              <Focus /> {focusMode ? "إنهاء التركيز" : "تركيز"}
-            </GhostButton> : null}
-            {workspaceToolsOpen ? <GhostButton
-              type="button"
-              onClick={() => setViewDialog({ mode: "create" })}
-              title="احفظ الكلية والقسم والفصل وطريقة العرض والتلوين والطبقات باسم تعود إليه"
-            >
-              <Bookmark aria-hidden="true" /> حفظ العرض الحالي
-            </GhostButton> : null}
+            {/* «تركيز» و«حفظ العرض الحالي» في قائمة العروض وحدها (المالك 2026-11-14). */}
             {/* باب «تجربة آمنة» الظاهر: المرشد يشير إليه هنا قبل التجربة، وإلى شريطها بعد بدئها. */}
             {workspaceToolsOpen && !practiceMode && !phoneReadOnly && mode === "schedule" ? <GhostButton
               type="button"
@@ -11392,22 +11376,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             >
               <CalendarSearch aria-hidden="true" /> متى نلتقي؟
             </GhostButton> : null}
-            {workspaceToolsOpen ? <GhostButton
-              type="button"
-              data-guide-ignore="معاينة تحويل أسماء TA داخل القسم والفصل دون تعديل إلا بعد التأكيد"
-              onClick={() => { if (!refuseInPractice()) setTaConversionOpen(true); }}
-              disabled={!filterCollege || !filterSection || !filterTerm}
-              title="تحويل مواعيد أعضاء هيئة التدريب إلى هيئة تدريسية أو أستاذ من القسم"
-            >
-              <Replace aria-hidden="true" /> تحويل هيئة التدريب
-            </GhostButton> : null}
+            {/* «تحويل هيئة التدريب» انتقل إلى «أدوات الجدول ← الأساتذة» بنسخته الآمنة وتراجعه. */}
             {workspaceToolsOpen ? <GhostButton
               type="button"
               data-guide-target="schedule.tool.data"
-              onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) setTransferOpen(true); }}
-              title="استيراد وتصدير واستبدال أستاذ والمنتدبون"
+              onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab(undefined); setTransferOpen(true); } }}
+              title="التخطيط والأساتذة والملفات"
             >
-              <ArrowLeftRight /> أدوات البيانات
+              <ArrowLeftRight /> أدوات الجدول
             </GhostButton> : null}
             {/* Borrowing a room from another department only means something while
                 the term is still being taught. On a term marked as finished the
@@ -11427,12 +11403,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           </div>
         </div>
       </Surface>
-      {taConversionOpen ? <TAConversionPanel
-        collegeId={Number(filterCollege)} sectionId={Number(filterSection)} termId={Number(filterTerm)}
-        instructors={instructors as any[]} visitingIds={visitingIds} visitingRosterIds={pickerVisitingRosterIds}
-        onClose={() => setTaConversionOpen(false)}
-        onChanged={() => { void loadRows(); setLiveFeedSerial(value => value + 1); }}
-      /> : null}
       {/* ── شريط الاعتماد ───────────────────────────────────────────────────
           يقف تحت أدوات الجدول وفوقه: أوّل ما تقع عليه العين بعد اختيار
           القسم، وآخرُ ما يُقرأ قبل النظر في المواعيد. ولا يرسم شيئاً حين
@@ -11459,6 +11429,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           refreshSignal={liveFeedSerial}
           canEditCourses={permissions.includes(6)}
           onOpenRow={id => { const target = rows.find(item => Number(item.id) === id); if (target) openEdit(target); }}
+          onOpenTool={tab => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab(tab); setTransferOpen(true); } }}
           onChanged={() => setLiveFeedSerial(value => value + 1)}
           onSigned={onOpenQueryCentre}
           onLockChange={setApprovalLock}
@@ -11757,10 +11728,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   {filterCollege && filterSection && filterTerm ? (
                     <GhostButton
                       type="button"
-                      data-guide-ignore="يفتح أدوات البيانات (استيراد جدول) من الحالة الفارغة نفسها"
-                      onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) setTransferOpen(true); }}
+                      data-guide-ignore="يفتح أدوات الجدول على «استيراد» من الحالة الفارغة نفسها"
+                      onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab("import"); setTransferOpen(true); } }}
                     >
-                      <ArrowLeftRight /> استيراد من أدوات البيانات
+                      <ArrowLeftRight /> استيراد من أدوات الجدول
                     </GhostButton>
                   ) : null}
                 </>
@@ -13698,7 +13669,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             setFilterSection(nextSectionId);
             setLiveFeedSerial(serial => serial + 1);
           }}
-          onClose={() => setTransferOpen(false)}
+          onClose={() => { setTransferOpen(false); setTransferTab(undefined); }}
+          initialTab={transferTab}
+          canPublishSheets={isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair"}
+          isAdmin={isPowerAdmin}
+          visitingIds={visitingIds}
+          visitingRosterIds={pickerVisitingRosterIds}
         />
       ) : null}
       {dayToolRow ? (

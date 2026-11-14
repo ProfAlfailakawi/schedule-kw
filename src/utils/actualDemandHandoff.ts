@@ -39,7 +39,7 @@ export function takeActualDemandHandoff(): ActualDemandHandoff | null {
 /** يسمعه الجدول الدراسي حين يُضغط «عالج» من داخله: يفتح المحرّر بلا إعادة تحميل الصفحة. */
 export const ACTUAL_DEMAND_HANDOFF_EVENT = "schedule:actual-demand-handoff";
 
-/** يُطلق بعد كل رفعٍ أو ربطٍ ناجح للطلب الفعلي (أدوات البيانات، مركز التحليلات)، فيعيد تنبيهُ الجدول الدراسي قراءته. */
+/** يُطلق بعد كل رفعٍ أو ربطٍ ناجح للطلب الفعلي (أدوات الجدول، مركز التحليلات)، فيعيد تنبيهُ الجدول الدراسي قراءته. */
 export const ACTUAL_DEMAND_CHANGED_EVENT = "schedule:actual-demand-changed";
 export function announceActualDemandChange(): void {
   try { window.dispatchEvent(new Event(ACTUAL_DEMAND_CHANGED_EVENT)); } catch { /* بلا نافذة: لا شيء يسمع. */ }
