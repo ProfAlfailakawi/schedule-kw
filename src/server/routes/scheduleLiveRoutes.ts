@@ -15,6 +15,10 @@ import { isScopeAllowed } from "../core/scope";
 import { holdHolderOf } from "../scheduleHolds";
 import { sweepTeamEntries, teamCompany, teamEntries, teamOf, teamRoster, teamScopeKey, touchTeamEntry, workClock } from "../teamPresence";
 import { isTeamScreen, parseWorkMark } from "../../utils/teamWork";
+import { Repository } from "../../db/repository";
+import { audienceFor } from "../activityTrail";
+import { trailEntryVisible, trailPeriod, trailReadKeys } from "../../utils/activityTrail";
+import { currentTermId, sortTermsNewest } from "../../utils/termSequence";
 
 /**
  * ── النبضة: الخيطُ يُفتح حين يكون معك أحد ─────────────────────────────────
@@ -32,6 +36,44 @@ import { isTeamScreen, parseWorkMark } from "../../utils/teamWork";
 const pulseClients = new Map<string, PulseEntry>();
 
 export function registerScheduleLiveRoutes(app: Express): void {
+
+/**
+ * ── «إعادة عرض الأسبوع»: ما يلزم لإعادة بناء تكوّن الجدول (قراءةٌ فقط) ─────────────────
+ *
+ * لقطاتُ نسخ النطاق (آخر 24، مخفّفةُ الحقول) وسطورُ «الأثر» التي يحقّ للقارئ رؤيتُها وحدها (كما في /api/activity-trail).
+ * لا يصل القارئَ اسمُ فاعلٍ إلا من سطر أثرٍ يراه؛ واسمُ مُنشئ النسخة لا يُرسَل. البابُ والنطاقُ كقراءة الجدول نفسها.
+ */
+app.get("/api/schedules/replay", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق صلاحياتك." }); return; }
+  let versions: any[] = [];
+  try { versions = await Repository.getScheduleVersionsWithRows(collegeId, sectionId, termId, 24); }
+  catch { res.setHeader("X-Reading-Partial", "versions"); }
+  const slim = (row: any) => ({
+    id: row.id, AdCourseId: row.AdCourseId, AdCourseName: row.AdCourseName, CourseCodeSnapshot: row.CourseCodeSnapshot, SCode: row.SCode, AdInstructorId: row.AdInstructorId,
+    fsunday: !!row.fsunday, fmonday: !!row.fmonday, ftuesday: !!row.ftuesday, fwednesday: !!row.fwednesday, fthursday: !!row.fthursday,
+    fstarttime: row.fstarttime, fendtime: row.fendtime, AdRoomCode: row.AdRoomCode, AdRoomHall: row.AdRoomHall,
+  });
+  const snapshots = versions
+    .filter(version => Array.isArray(version?.rows) && Number(version.AdCollegeId) === collegeId && Number(version.AdSectionId) === sectionId && Number(version.AdTermId) === termId)
+    .map(version => ({ id: String(version.id), at: String(version.createdAt || ""), label: String(version.label || ""), source: String(version.source || ""), rows: version.rows.map(slim) }));
+  let trail: any[] = [];
+  try {
+    const audience = await audienceFor(req);
+    const terms = await Repository.getTerms();
+    const period = trailPeriod(sortTermsNewest(terms as any[]), currentTermId(terms as any[]));
+    const periodTerms = [period.current?.id, period.previous?.id].filter((id): id is number => Boolean(id));
+    if (audience.mode !== "none" && periodTerms.length) {
+      const keys = trailReadKeys(audience, periodTerms);
+      const entries = keys.length ? await Repository.listActivityTrail(keys, 160) : [];
+      trail = entries
+        .filter(entry => entry.area === "schedule" && trailEntryVisible(audience, entry) && Number(entry.c) === collegeId && Number(entry.s) === sectionId)
+        .map(entry => ({ at: entry.at, row: entry.row, who: entry.who, seat: entry.seat, kind: entry.kind, target: entry.target }));
+    }
+  } catch { res.setHeader("X-Reading-Partial", "trail"); }
+  res.json({ snapshots, trail });
+});
 
 app.get("/api/schedules/events", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), (req: AuthenticatedRequest, res: Response) => {
   res.writeHead(200, {

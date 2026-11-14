@@ -179,6 +179,7 @@
     "test:graduation-watch": "tsx tests/graduation-watch-audit.ts",
     "test:import-status-bar": "tsx tests/import-status-bar-audit.ts",
     "test:section-build": "tsx tests/section-build-audit.ts && tsx tests/section-build-live-audit.ts",
+    "test:section-goals": "tsx tests/section-goals-audit.ts && tsx tests/section-goals-render-audit.tsx && tsx tests/section-goals-live-audit.ts",
     "test:section-opening": "tsx tests/section-opening-feasibility-audit.ts",
     "test:demand-repair-simulation": "tsx tests/demand-repair-simulation-audit.ts",
     "test:registration-flow": "tsx tests/registration-flow-audit.ts && npm run test:demand-repair-simulation",

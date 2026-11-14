@@ -91,7 +91,7 @@ export default function WhyNotLayer(props: WhyNotLayerProps) {
       return fit ? { percent: fit.percent, blocked: fit.blocked } : null;
     };
     const next = whyNotField({ ...base, graduates: fits.size ? graduates : undefined });
-    for (const [key, kind] of Object.entries(extra)) {
+    for (const [key, kind] of Object.entries(extra) as Array<[string, WhyKind]>) {
       const cell = next.get(key);
       if (!cell || cell.reasons.some(item => item.kind === kind)) continue;
       const reasons = [...cell.reasons, { kind }].sort((a, b) => WHY_ORDER.indexOf(a.kind) - WHY_ORDER.indexOf(b.kind));
