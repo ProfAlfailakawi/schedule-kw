@@ -338,3 +338,4 @@ test:latin-digits
 test:acceptance-rehearsal
 test:ladder-start-hint
 test:rank-gap-sign
+test:teacher-registry

@@ -170,6 +170,7 @@ app.get("/api/instructor-requests/follow-up", requirePermission(7), async (req: 
   res.json({
     people: [...latest.values()].filter(row => !excluded.has(Number(row.AdInstructorId))).map(row => ({
       instructorId: Number(row.AdInstructorId), name: nameOf.get(Number(row.AdInstructorId)) || "", state: followUpState(row), mode: linkMode(row),
+      status: row.status, windowOpen: requestWindowOpen(row),
       remindedAt: (row.remindedAt || []).at(-1) || "",
     })),
     awaiting: reminderTargets(requests, requestWindowOpen, excluded).map(row => Number(row.AdInstructorId)),
