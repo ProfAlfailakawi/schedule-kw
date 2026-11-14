@@ -60,7 +60,8 @@ check(!server.includes('app.get("/api/public/request/:token", requireAuth'), "و
 check(server.includes("function stripForInstructor"), "تجريدُ ما لا يخصّ الأستاذ في دالّةٍ واحدة");
 /* المالك 2026-10-29 (القرار ٣: «مخفية اكيد متعمدة»): ولا «الأنسب» ولا المحجوزةُ ولا المبدَّلة —
    ومنها ما حُفظ في الطلبات قبل القرار (roomPick)، فيُنزع ولو لم يعد يُبنى. */
-check(server.includes("const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, ...rest } = item;"),
+check(server.includes("const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, roomSeats, ...rest } = item;")
+  && server.includes("return withoutPlaceFields({"),
   "والمرشّحاتُ وتفاصيلُ قاعاتِها، و«الأنسب» والمحجوزةُ والمبدَّلة، تُنزع نزعاً لا تُستثنى بالنسيان");
 check(/after: rest\.after \? \{ \.\.\.rest\.after, room: undefined \}/.test(server),
   "و«طلب» لا تحمل قاعةً أبداً");

@@ -1437,9 +1437,15 @@ export interface InstructorRequestReason {
   article?: string;
   text: string;
   blocking: boolean;
+  /** «capacity»: لا قاعةَ تتّسع لمقاعد الشعبة في هذا الوقت (requestRoomRanking). */
+  code?: "hours" | "pattern" | "ladder" | "day-end" | "section-clash" | "travel" | "capacity";
+  /** تفصيلٌ للقسم وحده (مثل مقاعد الشعبة مقابل سعات القاعات الخالية) — لا يصل الأستاذ. */
+  detail?: string;
 }
 
 export type RequestRoomReason = "dept" | "near" | "previous" | "capacity" | "fair" | "facility";
+/** ملاءمةُ سعة القاعة لمقاعد الشعبة: تكفي، غيرُ مسجّلة (تُوسم للقسم)، أصغر (لا تُختار آلياً أبداً). */
+export type RoomSeatFitCode = "fits" | "unknown" | "short";
 
 export interface InstructorRequestItem {
   /** Stable within a request, including additions without an official row yet. */
@@ -1467,12 +1473,16 @@ export interface InstructorRequestItem {
   roomAvailable?: boolean | null;
   /** تفاصيلُ أولى القاعات الخالية (مبنى وقاعة) — للقسم وحده — يُملأ بها نموذجُ الإضافة السريع. */
   roomOptions?: Array<{ key: string; room: string; hall: string; buildingId?: string; roomId?: string; companionRoomId?: string; companionRoomLabel?: string;
+    /** سعةُ القاعة المسجّلة، وملاءمتُها لمقاعد الشعبة (requestRoomRanking): «short» لا يُختار أبداً، و«unknown» يُوسم للقسم. */
+    capacity?: number; seatFit?: RoomSeatFitCode;
     /** أسبابُ ترتيب القاعة (C2): رموزٌ تُرسم أيقونات — قسم المقرر، قرب قاعاتك، القاعة السابقة، السعة، التوزيع العادل، المرفق. */
     why?: RequestRoomReason[] }>;
   /** نقلُ موعدٍ قائمٍ وقاعتُه مشغولةٌ في الوقت الجديد: تُبدَّل إلى الأنسب الخالي (لا «ممنوع»)، والتثبيتُ يكتبها. للقسم وحده. */
-  roomSwitch?: { from: string; to: { roomId?: string; buildingId?: string; room: string; hall: string; companionRoomId?: string; companionRoomLabel?: string } };
+  roomSwitch?: { from: string; to: { roomId?: string; buildingId?: string; room: string; hall: string; companionRoomId?: string; companionRoomLabel?: string; capacity?: number; seatFit?: RoomSeatFitCode } };
+  /** مقاعدُ الشعبة التي حُكم بها على سعة القاعة (MaxStudent أو سقفُ اللائحة، و`assumed` حين يكون مفترَضاً). للقسم وحده. */
+  roomSeats?: { seats: number; assumed: boolean };
   /** القاعةُ التي حُجزت للبند فعلاً عند الإرسال (الأنسب المتاح لحظتها). تُعرض في عمود «التغيير» — **للقسم وحده**. */
-  reservedRoom?: { roomId?: string; label: string; companionLabel?: string };
+  reservedRoom?: { roomId?: string; label: string; companionLabel?: string; capacity?: number; seatFit?: RoomSeatFitCode };
   /**
    * حقلٌ قديم: «الأنسب» وبديلاه كما عُرضا للأستاذ قبل قرار المالك (2026-10-29: «مخفية اكيد متعمدة»).
    * لا يُبنى بعده، ويبقى في الطلبات التي حُفظت قبله — فيُنزع مع حقول القاعة الأخرى ولا يصل الأستاذ.

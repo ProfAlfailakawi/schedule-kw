@@ -1,8 +1,11 @@
 import type { FSchedule, InstructorRequest } from "../types";
 import { clockRangesOverlap } from "./scheduleTime";
 import { roomKeyOf, rowOccupiesRoom } from "./locationRegistry";
+import { pickRequestRoom, type RoomSeatFit } from "./requestRoomRanking";
 
-export interface RequestReservationRoom { roomId?: string; buildingId?: string; room: string; hall: string; companionRoomId?: string; companionRoomLabel?: string }
+export interface RequestReservationRoom { roomId?: string; buildingId?: string; room: string; hall: string; companionRoomId?: string; companionRoomLabel?: string;
+  /** سعةُ القاعة المسجّلة وملاءمتُها لمقاعد الشعبة (requestRoomRanking): «short» لا يُحجز أبداً، و«unknown» يُحجز موسوماً للقسم. */
+  capacity?: number; seatFit?: RoomSeatFit }
 export interface RequestReservation {
   requestId: string;
   itemId: string;
@@ -113,9 +116,11 @@ function claimProposal(next: RequestReservation[], request: InstructorRequest, p
   if (live.some(row => Number(row.AdInstructorId) === proposal.instructorId && touches(proposal.slots, slotsOf(row)))
     || next.some(entry => entry.instructorId === proposal.instructorId && touches(proposal.slots, entry.slots)))
     throw new RequestReservationConflict("لديك موعد آخر في الوقت المختار. راجع الأيام والأوقات قبل الإرسال.");
-  const room = roomsWithIdentity.find(candidate => !live.some(row =>
+  /* القاعدةُ الواحدة للسعة: من الخالي المرتّب أوّلُ ما يكفي، وإلا ما سعتُه غيرُ مسجّلة موسوماً — والأصغرُ لا يُحجز أبداً. */
+  const free = roomsWithIdentity.filter(candidate => candidate.seatFit !== "short" && !live.some(row =>
     occupies(row, candidate, proposal.collegeId) && touches(proposal.slots, slotsOf(row)))
     && !next.some(entry => sameRoom(candidate, entry.room) && touches(proposal.slots, entry.slots)));
+  const room = pickRequestRoom(free)?.room;
   if (proposal.rooms.length && !room) throw new RequestReservationConflict(REQUEST_RACE_LOST);
   const { rooms: _rooms, offeringRows: _expected, ...reservation } = proposal;
   return { ...reservation, requestId: request.id, ...(room ? { room } : {}) };
@@ -163,7 +168,8 @@ export function withReservedRooms(request: InstructorRequest, entries: RequestRe
     const room = item.itemId ? mine.get(item.itemId) : undefined;
     if (!room) return item;
     return { ...item, reservedRoom: { ...(room.roomId ? { roomId: room.roomId } : {}), label: [room.room, room.hall].filter(Boolean).join("/"),
-      ...(room.companionRoomLabel ? { companionLabel: room.companionRoomLabel } : {}) } };
+      ...(room.companionRoomLabel ? { companionLabel: room.companionRoomLabel } : {}),
+      ...(Number(room.capacity) > 0 ? { capacity: Number(room.capacity) } : {}), ...(room.seatFit ? { seatFit: room.seatFit } : {}) } };
   }) };
 }
 
