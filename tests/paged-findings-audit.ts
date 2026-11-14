@@ -49,7 +49,7 @@ check(tail.flat().every(piece => piece.rowIds.length === 0 || piece.rowIds.lengt
 /* ── لا اقتطاع في الشاشة ── */
 const review = fs.readFileSync("src/components/ScheduleReview.tsx", "utf8");
 const changes = fs.readFileSync("src/components/ScheduleChanges.tsx", "utf8");
-check(/import PagedFindingList from "\.\/PagedFindingList"/.test(review) && /import PagedFindingList from "\.\/PagedFindingList"/.test(changes), "المراجعة والتغييرات تستعملان المكوّن نفسه");
+check(/import PagedFindingList from "\.\/PagedFindingList"/.test(review) && /import ScheduleReview from "\.\/ScheduleReview"/.test(changes), "المراجعة والتغييرات تستعملان المكوّن نفسه (التغييرات تدمج المراجعة نفسها)");
 check(!/slice\(0,\s*12\)/.test(review) && !/slice\(0,\s*12\)/.test(changes), "لا اقتطاع باثني عشر");
 check(!/غيرها…|غيرهم…/.test(review) && !/غيرهم…/.test(changes), "لا «و… غيرها» في قوائم الملاحظات");
 check(!/printRowPreviewLimit/.test(review), "الورقة لا تقتطع المواعيد");

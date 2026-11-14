@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { GraduationCap, AlertTriangle, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, Clock3, History, Info, Printer, TrendingUp, UserRound, Wrench, X } from "lucide-react";
+import { GraduationCap, AlertTriangle, BookOpen, Building2, Calculator, CalendarDays, CheckCircle2, ChevronDown, ChevronsDownUp, ChevronsUpDown, ClipboardCheck, Clock3, History, Info, Printer, RefreshCw, TrendingUp, UserRound, Wrench, X } from "lucide-react";
 import type { AdCollege, AdCourse, AdInstructor, FSchedule } from "../types";
 import { PrintLetterhead, PrintPortal, PrimaryButton, SecondaryButton, useDialogDismiss } from "./ui";
 import VisitingBadge, { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
@@ -55,6 +55,20 @@ interface Props {
   meeting?: { day: DayKey; from: string; to: string } | null;
   onClose: () => void;
   onFocusRows?: (ids: number[]) => void;
+  /* ── المراجعةُ نفسُها مدمجةً في «تغييرات الجدول» (المالك 2026-11-14) ─────────
+     شاشةٌ واحدة في المكانين: هنا تُرسم في الصفحة لا نافذةً، وتقرأ من مسار التقرير
+     (قراءةٌ فقط ببوابته)، و«عالج» ينقل إلى الموعد في «الجدول كاملاً». */
+  inline?: boolean;
+  /** مسارُ القراءة البديل (يُعطى الكلية والقسم والفصل)؛ يحمل الطلبَ الفعلي معه. */
+  readingUrl?: string;
+  /** ما يمكن الانتقال إليه على الشاشة المضيفة؛ وإلا فمواعيدُ الجدول المحمّل. */
+  jumpableIds?: ReadonlySet<number>;
+  /** مواعيدُ حُذفت (من فرق التقرير): تُسمّى بها البنود ولا تدخل الدرجة. */
+  extraRows?: FSchedule[];
+  /** أسماءُ المنتدبين حين لا تُعرف أرقامهم. */
+  visitingNames?: ReadonlySet<string>;
+  /** يتغيّر حين يُعاد تحميل ما حول المراجعة (تقرير التغييرات)، فتُعاد القراءة معه. */
+  refreshKey?: unknown;
 }
 
 type ReviewFindingGroup = RegulationFinding & {
@@ -227,11 +241,12 @@ interface FamilyReading {
   courses: AdCourse[];
   instructors: AdInstructor[];
   members?: Array<{ collegeId: number; sectionId: number }>;
+  colleges?: Array<{ AdCollegeId: number; AdCollegeName: string }>;
   /** م.8 و م.9 كما يقرؤهما الخادم لهذه العائلة. */
   capacity?: { specialization: "theoretical" | "scientific"; excused: string[] };
 }
 
-export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, colleges, instructors: instructorsProp, visitingIds, previousRows: previousRowsProp, nature: natureProp, scopeLine, collegeId, sectionId, termId, meeting, onClose, onFocusRows }: Props) {
+export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, colleges: collegesProp, instructors: instructorsProp, visitingIds, previousRows: previousRowsProp, nature: natureProp, scopeLine, collegeId, sectionId, termId, meeting, onClose, onFocusRows, inline = false, readingUrl, jumpableIds, extraRows, visitingNames, refreshKey }: Props) {
   /* ── القسمُ واحدٌ في كلياته ────────────────────────────────────────────────
      «تكنولوجيا التعليم» بنين وبنات قسمٌ واحد، وأساتذته يدرّسون فيهما معاً. فمن
      فتح أيَّ العضوين رأى التقريرَ نفسه: مواعيدُ العائلة كلها وحِملُ الأستاذ
@@ -246,6 +261,12 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     family.courses.forEach(course => { if (!merged.has(Number(course.AdCourseId))) merged.set(Number(course.AdCourseId), course); });
     return merged;
   }, [family, coursesProp]);
+  const colleges = useMemo(() => {
+    if (!family?.colleges?.length) return collegesProp;
+    const merged = new Map(collegesProp);
+    family.colleges.forEach(college => { if (!merged.has(Number(college.AdCollegeId))) merged.set(Number(college.AdCollegeId), college as AdCollege); });
+    return merged;
+  }, [family, collegesProp]);
   const instructors = useMemo(() => {
     if (!family) return instructorsProp;
     const merged = new Map(instructorsProp);
@@ -296,13 +317,17 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     /* بترتيب الرأس نفسه: بنين، بنات، ثم الفروع. */
     return [...campusTags.values()].filter(tag => seen.has(tag.label));
   };
-  const loadedIds = useMemo(() => new Set(localRows.map(row => row.id)), [localRows]);
+  const loadedIds = useMemo(() => (jumpableIds ? new Set(Array.from(jumpableIds, Number)) : new Set(localRows.map(row => row.id))), [jumpableIds, localRows]);
   const previousRows = family?.previousRows ?? previousRowsProp;
   const nature = useMemo(
     () => (family ? new Map(Object.entries(family.nature || {}).map(([id, value]) => [Number(id), value as CourseNature])) : natureProp),
     [family, natureProp]
   );
-  const visitingIdSet = useMemo(() => new Set(Array.from(visitingIds || [], Number).filter(Boolean)), [visitingIds]);
+  const visitingIdSet = useMemo(() => {
+    const ids = new Set(Array.from(visitingIds || [], Number).filter(Boolean));
+    if (visitingNames?.size) instructors.forEach(person => { if (visitingNames.has(String(person.AdInstructorName || ""))) ids.add(Number(person.AdInstructorId)); });
+    return ids;
+  }, [visitingIds, visitingNames, instructors]);
   const baseFindings = useMemo(
     () => reviewSchedule({ rows, courses, instructors, previousRows, meeting, nature,
       capacity: family?.capacity ? { specialization: family.capacity.specialization, excused: new Set(family.capacity.excused) } : null }),
@@ -321,6 +346,11 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   const sawChecking = useRef(false);
   if (!readinessChecked) sawChecking.current = true;
   const [readinessError, setReadinessError] = useState(false);
+  /* «أعد المحاولة» بعد تعذّر القراءة. */
+  const [retry, setRetry] = useState(0);
+  /* الطلب الفعلي (تقرير التسجيل): شارةٌ صغيرة على كل مقرر — قراءةٌ لا تمنع شيئاً. */
+  const [demandFacts, setDemandFacts] = useState<Record<string, CourseDemandFact> | null>(null);
+  const [graduateClashes, setGraduateClashes] = useState<Array<{ a: { code: string; name: string; courseIds?: number[] }; b: { code: string; name: string; courseIds?: number[] }; track: string; graduates: number }>>([]);
   const [quietOpen, setQuietOpen] = useState(false);
   const [periodOpen, setPeriodOpen] = useState(false);
   /* ── كلُّ بندٍ شريطٌ مطويّ (المالك 2026-11-14) ─────────────────────────
@@ -334,7 +364,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     if (open) next.add(key); else next.delete(key);
     return next;
   }), []);
-  useDialogDismiss(true, onClose);
+  useDialogDismiss(!inline, onClose);
 
   useEffect(() => {
     if (!collegeId || !sectionId || !termId) { setFamily(null); setServerBlockers([]); setServerWarnings([]); setReadinessChecked(true); setReadinessError(true); return; }
@@ -343,9 +373,15 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     setFamily(null); setServerBlockers([]); setServerWarnings([]); setServerSummary(null);
     setReadinessChecked(false);
     setReadinessError(false);
-    void fetch(`/api/schedules/review-readiness?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}&family=1`, { credentials: "include", signal: controller.signal })
+    const query = `collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`;
+    void fetch(readingUrl ? `${readingUrl}?${query}` : `/api/schedules/review-readiness?${query}&family=1`, { credentials: "include", signal: controller.signal })
       .then(async response => response.ok ? response.json() : Promise.reject(new Error("readiness")))
       .then(data => {
+        /* مسارُ التقرير يحمل الطلبَ الفعلي معه (لا يُقرأ /api/actual-demand لمن لا يملك الصلاحية 7). */
+        if (readingUrl) {
+          setDemandFacts(data?.demand?.facts && Object.keys(data.demand.facts).length ? data.demand.facts : null);
+          setGraduateClashes(Array.isArray(data?.demand?.graduateClashes) ? data.demand.graduateClashes : []);
+        }
         setFamily(data?.family && Array.isArray(data.family.rows) ? data.family as FamilyReading : null);
         setServerBlockers(Array.isArray(data?.blockers) ? data.blockers : []);
         setServerWarnings(Array.isArray(data?.warnings) ? data.warnings : []);
@@ -354,12 +390,10 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       .catch(error => { if (error?.name !== "AbortError") { setServerBlockers([]); setServerWarnings([]); setReadinessError(true); } })
       .finally(() => { if (!controller.signal.aborted) setReadinessChecked(true); });
     return () => controller.abort();
-  }, [collegeId, sectionId, termId, localRows]);
+  }, [collegeId, sectionId, termId, localRows, readingUrl, refreshKey, retry]);
 
-  /* الطلب الفعلي (تقرير التسجيل): شارةٌ صغيرة على كل مقرر — قراءةٌ لا تمنع شيئاً. */
-  const [demandFacts, setDemandFacts] = useState<Record<string, CourseDemandFact> | null>(null);
-  const [graduateClashes, setGraduateClashes] = useState<Array<{ a: { code: string; name: string; courseIds?: number[] }; b: { code: string; name: string; courseIds?: number[] }; track: string; graduates: number }>>([]);
   useEffect(() => {
+    if (readingUrl) return;
     setDemandFacts(null); setGraduateClashes([]);
     if (!collegeId || !sectionId || !termId) return;
     const controller = new AbortController();
@@ -372,7 +406,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       })
       .catch(() => undefined);
     return () => controller.abort();
-  }, [collegeId, sectionId, termId, localRows]);
+  }, [collegeId, sectionId, termId, localRows, readingUrl]);
 
   /* The offline fallback reads the same rule the server does — «هيئة تدريسية»
      included — so losing the network never changes what counts as a blocker.
@@ -517,7 +551,12 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     return slices;
   }, [breakdown, ringLength]);
 
-  const byId = useMemo(() => new Map(rows.map(row => [row.id, row])), [rows]);
+  /* والمحذوفُ من فرق التقرير يُسمّى به البند إن ذكره، ولا يدخل الدرجة ولا النطاق. */
+  const byId = useMemo(() => {
+    const map = new Map(rows.map(row => [row.id, row]));
+    (extraRows || []).forEach(row => { if (row && !map.has(row.id)) map.set(row.id, row); });
+    return map;
+  }, [rows, extraRows]);
 
   /* نصوص الملاحظات (عناوين وتفاصيل وعناوين الحالات) تحمل أسماء الأساتذة مدموجةً في جُمل جاهزة من الخادم
      أو من المحرّك المحلي، فلا تُرسم شارةً بل تُلحق اللاحقةَ النصيةَ بكل اسمٍ لمنتدبٍ بين صفوف الملاحظة. */
@@ -564,10 +603,12 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     return finding.detail;
   };
 
+  /* مدمجةً في صفحةٍ أخرى لا تحجز الطباعة إلا حين تُطلب: ورقتُها تُركّب لحظةَ الطباعة وتُرفع بعدها. */
+  const [printMounted, setPrintMounted] = useState(!inline);
   const printReview = React.useCallback(() => {
     if (typeof window === "undefined") return;
     if (showPwaPrintHelp()) return;
-    flushSync(() => {});
+    flushSync(() => { if (inline) setPrintMounted(true); });
     const ua = navigator.userAgent || "";
     const isWebKitSafari = /AppleWebKit/i.test(ua) && !/(Chrome|Chromium|CriOS|FxiOS|Edg|EdgiOS|OPR|Android)/i.test(ua);
     /* Landscape like every other sheet this program prints; Safari cannot be
@@ -581,6 +622,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
       window.removeEventListener("afterprint", resume);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       delete document.documentElement.dataset.printRotate;
+      if (inline) setPrintMounted(false);
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") leftForPrint = true;
@@ -594,7 +636,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     }
     if (!invoked) window.print();
     window.setTimeout(() => { if (!leftForPrint) resume(); }, 2500);
-  }, []);
+  }, [inline]);
   const describe = (row?: FSchedule) => {
     if (!row) return "";
     const days = DAY_KEYS.filter(key => (row as any)[key]).map(key => DAY_NAMES[DAY_KEYS.indexOf(key)]).join("، ");
@@ -737,8 +779,8 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
                     <button type="button" className="review-score-fix-act"
                       data-guide-ignore="يُبرز مواعيد البند على الجدول للمعالجة، لا يغيّر شيئاً"
                       disabled={!focusable.length}
-                      aria-label={focusable.length ? "أظهر مواعيد هذا البند على الجدول لمعالجتها" : "مواعيد هذا البند في حرمٍ آخر: افتح جدوله لمعالجتها"}
-                      onClick={event => { event.preventDefault(); event.stopPropagation(); if (!focusable.length) return; onFocusRows(focusable); onClose(); }}>
+                      aria-label={focusable.length ? (inline ? "انتقل إلى مواعيد هذا البند في «الجدول كاملاً»" : "أظهر مواعيد هذا البند على الجدول لمعالجتها") : "مواعيد هذا البند في حرمٍ آخر: افتح جدوله لمعالجتها"}
+                      onClick={event => { event.preventDefault(); event.stopPropagation(); if (!focusable.length) return; onFocusRows(focusable); if (!inline) onClose(); }}>
                       <Wrench aria-hidden="true" /> عالج
                     </button>
                   ) : null}
@@ -765,13 +807,38 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     );
   };
 
+  /* ── لا درجةَ ولا حكمَ بلا قراءة ───────────────────────────────────────────
+     ما لا مواعيدَ محليةً له (المراجعة المدمجة، أو جدولٌ لم يُحمَّل) لا يملك إلا قراءةَ
+     الخادم: ما دامت لم تصل يُقال «أقرأ…»، وإن تعذّرت يُقال ذلك بزرّ إعادة — لا «100»
+     ولا «لا ملاحظات» محسوبةٌ من لا شيء، ولا ادّعاءَ بفحصٍ لم يقع. */
+  const needsServer = Boolean(readingUrl) || !localRows.length;
+  if (needsServer && (!readinessChecked || readinessError)) {
+    const failed = readinessChecked && readinessError;
+    return (
+      <div className={inline ? "review-inline" : "review-backdrop"} onMouseDown={inline ? undefined : event => { if (event.target === event.currentTarget) onClose(); }}>
+        <section className={`review-sheet no-print visual-minimal${inline ? " review-sheet--inline" : ""}`} role={inline ? "region" : "dialog"} aria-modal={inline ? undefined : "true"} aria-label="مراجعة الاعتماد">
+          <div className="review-unavailable" role="status" aria-live="polite" data-review-state={failed ? "failed" : "loading"}>
+            {failed ? <AlertTriangle aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
+            <strong>{failed ? "تعذّرت قراءة المراجعة الآن" : "أقرأ المراجعة…"}</strong>
+            {failed ? (
+              <SecondaryButton type="button" data-guide-ignore="إعادة قراءة مراجعة الاعتماد — قراءةٌ لا تغيّر شيئاً" onClick={() => setRetry(value => value + 1)}>
+                <RefreshCw aria-hidden="true" /> أعد المحاولة
+              </SecondaryButton>
+            ) : null}
+            {inline ? null : <button type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق"><X /></button>}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     // The printable sheet lives inside this dialog, so the wrapper itself can
     // never be `no-print` — doing so hid the very report the print button was
     // meant to produce. Only the on-screen dialog is suppressed on paper.
     <DemandFactsContext.Provider value={demandFacts}>
-    <div className="review-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="review-sheet no-print visual-minimal" role="dialog" aria-modal="true" aria-label="مراجعة الاعتماد">
+    <div className={inline ? "review-inline" : "review-backdrop"} onMouseDown={inline ? undefined : event => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className={`review-sheet no-print visual-minimal${inline ? " review-sheet--inline" : ""}`} role={inline ? "region" : "dialog"} aria-modal={inline ? undefined : "true"} aria-label="مراجعة الاعتماد">
         <header className={`review-head tone-${tone}`}>
           <svg className={`review-ring score-tone-${scoreTone}`} viewBox="0 0 64 64" role="img" aria-label={`مطابقة ${DECISION_1913_LABEL} ${score} من 100`}>
             <circle className="ring-track" cx="32" cy="32" r="26" />
@@ -800,7 +867,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             {readinessChecked && blockerSummary.conflicts > 0 ? <strong className="review-blocker-headline" data-review-headline="blocking">يمنع الاعتماد: {blockingSummaryPhrase(blockerSummary.conflicts, blockerSummary.rows, blockerSummary.duplicates)}</strong> : null}
             {readinessError ? <small>تمت مراجعة قرار 1913/2016 محلياً، لكن تعذر التأكد الآن من الحجوزات المتعارضة خارج نطاق القسم.</small> : null}
           </div>
-          <button type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق"><X /></button>
+          {inline ? null : <button type="button" className="drawer-close" onClick={onClose} aria-label="إغلاق"><X /></button>}
         </header>
 
 
@@ -927,12 +994,12 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
           >
             <Printer aria-hidden="true" />
           </PrimaryButton>
-          <SecondaryButton type="button" className="review-close-icon-button" data-guide-ignore="إغلاق نافذة مراجعة الاعتماد فقط" onClick={onClose} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></SecondaryButton>
+          {inline ? null : <SecondaryButton type="button" className="review-close-icon-button" data-guide-ignore="إغلاق نافذة مراجعة الاعتماد فقط" onClick={onClose} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></SecondaryButton>}
         </footer>
       </section>
 
       {/* The signed sheet. */}
-      <PrintPortal>
+      {printMounted ? <PrintPortal>
         <div className="print-sheet-modal">
           <div className="print-report print-wide print-query-report print-review-report">
             <section className="print-explicit-page print-review-page">
@@ -986,7 +1053,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
             ))}
           </div>
         </div>
-      </PrintPortal>
+      </PrintPortal> : null}
     </div>
     </DemandFactsContext.Provider>
   );

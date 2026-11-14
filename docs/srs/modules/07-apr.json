@@ -42,6 +42,7 @@
     "src/utils/approvalDossier.ts",
     "src/utils/approvalScope.ts",
     "src/utils/approvalScore.ts",
+    "src/utils/changesReviewHeadline.ts",
     "src/utils/approvalBarPresence.ts",
     "src/utils/scheduleBlockers.ts",
     "src/utils/submissionDeadlines.ts",
@@ -2877,6 +2878,10 @@
         {
           "ar": "التقرير المطبوع برأس «مراجعة الاعتماد · قرار 1913/2016»: الحلقة والشريط والبنود موزعةً على صفحات بعناوين «يتبع/تتمة (n من m)» وصفحات «متابعة الملاحظات»، وفي آخرها خانات «منسق الجدول» و«رئيس القسم العلمي» و«التاريخ».",
           "en": "The printed report is headed «approval review · decision 1913/2016»: the ring, the bar and the findings spread over pages titled «continues/continued (n of m)» and «notes follow-up» pages, ending with «schedule coordinator», «head of the academic department» and «date» lines."
+        },
+        {
+          "ar": "المراجعةُ واحدةٌ في «الجدول الدراسي» و«تغييرات الجدول»: الشاشةُ نفسها مدمجةً في الصفحة (لا نافذة)، بدرجةٍ واحدة من معادلة الاعتماد نفسها، وتقرؤها صفاتُ التسجيل ورئيسُ القسم ببوابة تقرير التغييرات (قراءةٌ فقط في نطاقهم، ومسارات التعديل باقيةٌ على الصلاحية 7)؛ وفيها تُسمّى المواعيدُ المحذوفة من فرق التقرير، و«عالج» ينقل إلى الموعد في «الجدول كاملاً»؛ و«موانع الاعتماد» في قصة الفصل والشريط المطويّ هي الموانعُ المادّية وحدها وبنودُ اللائحة «للمعالجة».",
+          "en": "The review is one screen in «study schedule» and «schedule changes»: the same screen embedded in the page (not a dialog), with one score from the same approval formula, readable by registrar roles and the department head through the changes report's gate (read-only within their scope; edit routes stay on permission 7); there, appointments deleted in the report's diff are named, and «fix» jumps to the appointment in «full schedule»; «approval blockers» in the term story and the folded bar are material blockers only, with regulation items «to fix»."
         }
       ],
       "evidence": {
@@ -2885,12 +2890,17 @@
           "src/utils/printFindingPages.ts#packPrintFindings",
           "src/utils/scheduleRegulations.ts#periodBalanceSnapshot",
           "src/utils/approvalScore.ts#approvalScoreBreakdown",
-          "src/server/routes/scheduleReviewRoutes.ts#/api/schedules/review-readiness"
+          "src/server/routes/scheduleReviewRoutes.ts#/api/schedules/review-readiness",
+          "src/server/routes/reportsRoutes.ts#/api/reports/schedule-changes/review",
+          "src/server/routes/scheduleReviewRoutes.ts#reviewReadinessReading",
+          "src/utils/changesReviewHeadline.ts#changesReviewHeadline",
+          "src/components/ScheduleChanges.tsx#ChangesReviewOverview"
         ],
         "tests": [
           "tests/approval-review-audit.ts",
           "tests/review-1105-audit.ts",
-          "tests/schedule-board-fixes-audit.ts"
+          "tests/schedule-board-fixes-audit.ts",
+          "tests/changes-unified-review-audit.ts"
         ]
       }
     },
