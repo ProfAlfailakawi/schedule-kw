@@ -1478,6 +1478,10 @@
         {
           "ar": "مفتاح الألوان في ذيل كل صفحة من تقرير تغييرات الجدول يحمل عدد كل حالة (مضاف، محذوف، معدّل) للوثيقة، ويُخفى العدد الصفري؛ والترويسة والأعمدة كما هي.",
           "en": "The colour key in the footer of every page of the schedule-changes report carries the count of each status (added, deleted, changed) for the document, a zero count is hidden; the header and columns are unchanged."
+        },
+        {
+          "ar": "آخر صفحةٍ من التقرير الشامل وتقرير التغييرات بلا حشوةٍ سفلى ولا فاصلٍ بعدها، فلا تخرج ورقةٌ بيضاء ثالثة في Safari؛ وإحداثيات كل صفحةٍ قبلها لا تتغيّر.",
+          "en": "The last page of the comprehensive and schedule-changes reports carries no bottom padding and no break after it, so no blank trailing sheet comes out in Safari; the coordinates of every earlier page do not change."
         }
       ],
       "evidence": {
