@@ -127,7 +127,7 @@ export default function ScheduleViewsMenu({
                 </button>
               </>
             ) : null}
-            <button type="button" role="menuitem" className="views-item" title="احفظ الكلية والقسم والفصل وطريقة العرض والتلوين والطبقات باسم تعود إليه" onClick={() => { setOpen(false); onSaveAs(); }}>
+            <button type="button" role="menuitem" className="views-item" data-guide-ignore="حفظ العرض الحالي باسمٍ تعود إليه — تفضيلٌ شخصي لا يغيّر الجدول" title="احفظ الكلية والقسم والفصل وطريقة العرض والتلوين والطبقات باسم تعود إليه" onClick={() => { setOpen(false); onSaveAs(); }}>
               <BookmarkPlus aria-hidden="true" />
               <span>حفظ العرض الحالي</span>
             </button>

@@ -1964,8 +1964,8 @@
       ],
       "acceptance": [
         {
-          "ar": "حوارٌ داخل حوار (ورقة «قبل أن تطبّق» داخل أدوات البيانات): Escape يغلق الداخلي ويبقى الخارجي.",
-          "en": "A dialog inside a dialog (the «before you apply» sheet within data tools): Escape closes the inner one and the outer stays."
+          "ar": "حوارٌ داخل حوار (ورقة «قبل أن تطبّق» داخل أدوات الجدول): Escape يغلق الداخلي ويبقى الخارجي.",
+          "en": "A dialog inside a dialog (the «before you apply» sheet within schedule tools): Escape closes the inner one and the outer stays."
         },
         {
           "ar": "تأكيد الحذف المصغّر يظهر بجوار زرّه ويُلغى وحده بعد 4.2 ثانية بلا إجابة.",
