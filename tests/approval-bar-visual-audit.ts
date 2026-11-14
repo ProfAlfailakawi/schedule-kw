@@ -86,7 +86,7 @@ check(!/\$\{(openNotes|escalated|pendingAdditions)\} (ملاحظ|شعب)/.test(b
 const css = read("src/styles/11-approval.css");
 check(/@media \(prefers-reduced-motion:reduce\)\{[^}]*apb-steps li\[data-turn\] \.apb-node[^}]*animation:none/.test(css), "النبضةُ تسكن عند من طلب تقليل الحركة");
 check(css.includes(".apb-tip-target:focus-visible") && css.includes(".apb-icon-btn:focus-visible"), "حلقةُ تركيزٍ ظاهرة للوحة المفاتيح");
-check(/@media \(max-width:640px\)(?:,screen and \(min-width:640px\) and \(max-width:720px\) and \(min-height:520px\) and \(max-height:960px\),screen and \(min-width:721px\) and \(max-width:1000px\) and \(min-height:520px\) and \(max-height:960px\) and \(orientation:landscape\))?\{[\s\S]*\.apb-step-label\{display:none\}/.test(css), "على الهاتف: المرقاة أيقوناتٌ بلا تسميات");
+check(/@media \(max-width:640px\)(?:,screen and \(min-width:721px\) and \(max-width:1000px\) and \(min-height:520px\) and \(max-height:960px\) and \(orientation:landscape\))?\{[\s\S]*\.apb-step-label\{display:none\}/.test(css), "على الهاتف: المرقاة أيقوناتٌ بلا تسميات");
 check(css.includes(".apb-visuals:empty{display:none}"), "حاويةُ الأيقونات الفارغة لا تترك فراغاً");
 
 console.log(`\nApproval bar visual audit: ${passed} passed, ${failed} failed`);

@@ -224,12 +224,12 @@
 @media (max-width:639px){.appt-week-ghost{display:none}}
 
 /* أثناء النموذج على الهاتف يغيب شريط التنقل السفلي: شريط الحفظ مكانه، و«✕» و«تراجع» للخروج. */
-@media (max-width:900px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:900px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   html:has(.schedule-editor.is-studio) .mobile-bottom-dock{display:none}
   html:has(.schedule-editor.is-studio){--dock-h:0px}
 }
 /* الهاتف: كل سؤالٍ بعرض الشاشة، والشريط حالةٌ وزرّان */
-@media (max-width:700px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:700px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .schedule-editor.is-studio{--appt-bar-h:66px}
   .schedule-editor.is-studio .page-heading h1{font-size:24px}
   .appt-scope{border-radius:16px;padding:8px 12px}

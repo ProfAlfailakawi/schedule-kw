@@ -583,7 +583,7 @@ body:has(.sp-root) .smart-guide-fab{visibility:hidden}
 .request-card-head>.request-trail-line{order:5}
 /* Phones: the history button shares the row with the signature/flags chips (at the inline end)
    instead of sitting alone on its own row. Nothing removed; the name row keeps full width. */
-@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+@media (max-width:640px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .request-card-head{flex-direction:row;align-items:center;column-gap:var(--s2)}
   .request-card-head>div:first-child{flex:1 1 100%;min-inline-size:0}
   .request-card-head>.request-card-flags{order:2;flex:1 1 0;min-inline-size:0;justify-content:flex-start}
