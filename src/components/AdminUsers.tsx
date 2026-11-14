@@ -842,7 +842,7 @@ export default function AdminUsers({
       ? { value: "scopes", label: "النطاقات", icon: <Building2 /> }
       : null,
     { value: "audit", label: "السجل", icon: <ScrollText /> },
-    rootAdmin ? { value: "roomSetup", label: "إضافة مبانٍ وقاعات", icon: <DoorOpen /> } : null,
+    rootAdmin ? { value: "roomSetup", label: "إضافة المباني والقاعات", icon: <DoorOpen /> } : null,
     { value: "sectionHours", label: "أوقات دوام الأقسام", icon: <Clock3 /> },
     rootAdmin ? { value: "teachingLoad", label: "النصاب التدريسي", icon: <GraduationCap /> } : null,
     rootAdmin ? { value: "copyTerm", label: "نسخ فصل", icon: <CopyPlus /> } : null,
@@ -1178,7 +1178,7 @@ export default function AdminUsers({
     return (
       <div className="content-stack admin-page system-vault-page visual-minimal">
         {consoleHead()}
-        <PageTitle eyebrow="إدارة النظام" subtitle="حساب الإدارة الرئيسي فقط">خزنة النظام</PageTitle>
+        <PageTitle eyebrow="إدارة النظام" subtitle="حساب الإدارة الرئيسي فقط">النسخة الاحتياطية</PageTitle>
         {backupMessage ? <Notice type="success">{backupMessage}</Notice> : null}
         {error ? <Notice>{error}</Notice> : null}
         <Surface className="system-vault-hero">
@@ -1361,7 +1361,7 @@ export default function AdminUsers({
         ) : null}
 
         {backupConfirm ? (
-          <div className="vault-confirm-backdrop" role="dialog" aria-modal="true" aria-label="تأكيد عملية خزنة النظام" onMouseDown={(event) => { if (event.target === event.currentTarget && !backupBusy) setBackupConfirm(null); }}>
+          <div className="vault-confirm-backdrop" role="dialog" aria-modal="true" aria-label="تأكيد عملية النسخة الاحتياطية" onMouseDown={(event) => { if (event.target === event.currentTarget && !backupBusy) setBackupConfirm(null); }}>
             <Surface className={`vault-confirm-sheet ${backupConfirm === "reset" ? "danger" : ""}`}>
               <span className="vault-confirm-seal">{backupConfirm === "reset" ? <Eraser /> : backupConfirm === "undo" ? <ArchiveRestore /> : <ShieldCheck />}</span>
               <div className="vault-confirm-copy">

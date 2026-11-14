@@ -205,7 +205,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
   return (
     <TermFrozenContext.Provider value={frozen}>
     <div className="sm-page" dir="rtl">
-      <PageTitle eyebrow="رادار التسجيل" subtitle="لو سجّل الطلبةُ بحسب ما كتبوه: أين الزحام، وما المطلوب ولا يُطرح؟"
+      <PageTitle eyebrow="يوم التسجيل" subtitle="لو سجّل الطلبةُ بحسب ما كتبوه: أين الزحام، وما المطلوب ولا يُطرح؟"
         action={(
           <div className="sm-actions">
             <TeamPresenceChip peers={team.peers} team={team.team} />
@@ -219,7 +219,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
             {data?.run ? <SecondaryButton onClick={exportXlsx} data-guide-ignore="تصديرُ تقرير الرادار داخل شاشةٍ مسجّلة في المرشد باسم page.simulation"><Download size={16} /> تقرير Excel</SecondaryButton> : null}
             <MasariQrButton data-guide-ignore="زرُّ رمز «مساري» داخل شاشةٍ مسجّلة في المرشد باسم page.simulation" />
           </div>
-        )}>رادار يوم التسجيل</PageTitle>
+        )}>رادار التسجيل</PageTitle>
       {termOptions.length > 0 ? (
         <div className="sm-termbar no-print">
           <Field label={<><History aria-hidden="true" /> الفصل</>}>

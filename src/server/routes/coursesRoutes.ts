@@ -621,10 +621,10 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   /* تصحيح الوحدات والساعات والسعة مسموحٌ لمالك المقرر حتى في الصحيفة الانتقالية؛
      الذي يبقى مجمّداً هو الرمز والاسم، لحماية الروابط والسجل التدريسي التاريخي. */
   if (belongsToFrozenCurriculum&&identityChanged) {
-    res.status(409).json({error:"هذا المقرر جزء من صحيفة انتقالية أو مؤرشفة، لذلك جُمّدت هويته الأكاديمية. أنشئ المقرر بصيغته الجديدة ثم اربطه من شاشة الصحائف الأكاديمية."});return;
+    res.status(409).json({error:"هذا المقرر جزء من صحيفة انتقالية أو مؤرشفة، لذلك جُمّدت هويته الأكاديمية. أنشئ المقرر بصيغته الجديدة."});return;
   }
   if (identityChanged && await Repository.hasSchedulesForCourse(id)) {
-    res.status(409).json({error:"هذا المقرر له سجل تدريسي تاريخي؛ لا تغيّر رقمه أو اسمه فوق التاريخ. أنشئ المقرر الجديد ثم اربطه من شاشة الصحائف الأكاديمية."});return;
+    res.status(409).json({error:"هذا المقرر له سجل تدريسي تاريخي؛ لا تغيّر رقمه أو اسمه فوق التاريخ. أنشئ المقرر الجديد."});return;
   }
   const collegeId = collegeIdInput, sectionId = sectionIdInput;
   if ((Number(currentCourse.AdSectionId)!==sectionId||Number(currentCourse.AdCollegeId)!==collegeId)&&memberPlanIds.size) {

@@ -496,7 +496,7 @@ app.put("/api/degree-rules/:sectionId", requirePermission(4), async (req: Authen
   /* A department in its transition years is measured per plan; a department
      figure saved now would be read by nobody, while the screen said it applied. */
   if((await Repository.getCurriculumPlans(sectionId)).some(plan=>plan.status!=="archived"&&!plan.virtual)){
-    res.status(409).json({error:"هذا القسم في مرحلة انتقالية: شروط التخرج تُحفظ لكل صحيفة من «المقررات ← الصحائف الأكاديمية».",code:"rules-per-plan"});return;
+    res.status(409).json({error:"هذا القسم في مرحلة انتقالية: شروط التخرج تُحفظ لكل صحيفة على حدة.",code:"rules-per-plan"});return;
   }
   const existingRule=(await Repository.getDegreeRules()).find(row=>Number(row.AdSectionId)===sectionId);
   const sectionName=String(sections.find((row:any)=>Number(row.AdSectionId)===sectionId)?.AdSectionName||"");

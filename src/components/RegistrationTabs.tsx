@@ -15,7 +15,7 @@ export default function RegistrationTabs({ active, canRoster, canRadar, onGo }: 
   if (!canRoster || !canRadar) return null;
   const tabs = [
     { view: "studentRegistration" as const, label: "كشف التسجيل", Icon: ClipboardCheck },
-    { view: "simulation" as const, label: "رادار يوم التسجيل", Icon: Ticket },
+    { view: "simulation" as const, label: "رادار التسجيل", Icon: Ticket },
   ];
   return (
     <nav className="registration-tabs no-print" aria-label="متابعة التسجيل">

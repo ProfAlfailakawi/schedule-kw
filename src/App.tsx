@@ -2232,8 +2232,8 @@ export default function App() {
   // ذي إذن المقررات، فتظهر في قائمة كل قسم دون حاجة؛ وقرار المالك ألا تُعرض إلا للإدارة.
   const canOpenAcademicCatalog = isPowerAdmin;
   const viewLabels: Partial<Record<View, string>> = {
-    dashboard: "لوحة العمل",
-    schedules: "إدارة الجدول",
+    dashboard: "الرئيسية",
+    schedules: "الجدول الدراسي",
     reportDepartment: "الاستعلامات والتقارير",
     searchAdvanced: "البحث المتقدم",
     instructors: "أساتذة المقررات",
@@ -2626,7 +2626,7 @@ export default function App() {
                 الطرفان معاً، فتجاور أختيها ولا تُنفى إلى قائمةٍ أخرى. */}
             {(allowed.schedule || hasPerm(14)) && !sessionRole.viewerOnly || simulationVisible ? (
               <NavSection navGroups={navGroups} onToggle={(id) => setNavGroups(current => ({ ...current, [id]: !current[id] }))}
-                id="registration" title="الإرشاد" icon={<ClipboardCheck />} rail="registration"
+                id="registration" title="متابعة التسجيل" icon={<ClipboardCheck />} rail="registration"
                 className="registration-nav" holdsActive={activeView === "studentRegistration" || activeView === "simulation"}>
                 {(allowed.schedule || hasPerm(14)) && !sessionRole.viewerOnly ? <NavButton activeView={activeView} onGo={go} view="studentRegistration" icon={<ClipboardCheck />} label="كشف التسجيل" data-guide-ignore="وجهةُ تنقّل مسجّلة في المرشد باسم page.studentRegistration" /> : null}
                 {simulationVisible ? <NavButton activeView={activeView} onGo={go} view="simulation" icon={<Ticket />} label="رادار التسجيل" data-guide-ignore="وجهةُ تنقّل مسجّلة في المرشد باسم page.simulation" /> : null}
