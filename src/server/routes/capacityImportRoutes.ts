@@ -196,7 +196,7 @@ export function registerCapacityImportRoutes(app: Express): void {
       const body = { batchId, applied, results, counts: { applied: applied.length, set: sets, change: applied.length - sets, skipped: results.length - applied.length } };
       res.locals.auditEntity = "location-capacity-import";
       res.locals.auditEntityId = batchId;
-      res.locals.auditChanges = `استيراد سعات من ملف: ${countOf(applied.length, AR.room)} (${sets} جديدة، ${applied.length - sets} تعديل)، وتخطّي ${results.length - applied.length}.`;
+      res.locals.auditChanges = `استيراد سعات من ملف: ${countOf(applied.length, AR.room)}؛ جديدة: ${sets}، تعديل: ${applied.length - sets}، متخطّاة: ${results.length - applied.length}.`;
       if (applied.length) remember(replayKey, body);
       res.json(body);
     } finally { inFlight.delete(lockKey); }
@@ -247,7 +247,7 @@ export function registerCapacityImportRoutes(app: Express): void {
       const refused = results.filter(row => row.status === "refused");
       res.locals.auditEntity = "location-capacity-import";
       res.locals.auditEntityId = batchId;
-      res.locals.auditChanges = `تراجع عن استيراد سعات: أُعيدت ${countOf(undone.length, AR.room)}، ورُفضت ${refused.length} لتعديلها بعد الدفعة.`;
+      res.locals.auditChanges = `تراجع عن استيراد سعات: أُعيدت ${countOf(undone.length, AR.room)}؛ مرفوضة لتعديلها بعد الدفعة: ${refused.length}.`;
       for (const [key, value] of finished) if (value.body?.batchId === batchId) finished.delete(key);
       res.json({ batchId, undone, refused, results, counts: { undone: undone.length, refused: refused.length, skipped: results.length - undone.length - refused.length } });
     } finally { inFlight.delete(lockKey); }
