@@ -8,6 +8,7 @@
  *   D4  سُلّم البدايات: لا موعدَ للقسم يبدأ الاثنين 8:30، فالأستاذُ الذي يكتبه يُمنع ومعه «الأقرب: 8:00 أو 9:30».
  *   D5  حتميّ ومرّةً واحدة: صندوقان يخزّنان البنية نفسها، والبذرُ مرتين لا يكرّر.
  *   D6  العزل: خارج الديمو لا يبذر شيئاً، وصندوقٌ آخر والمستودعُ الحقيقي لا يقرآن شيئاً، وملفُّ قاعدة البيانات كما هو.
+*   D8  أستاذُ «جرّب كأستاذ» (demoTeacherRequest) لا يكون المدرّبَ ذا الطلب المفتوح: فبطاقتُه تُفتح برقمه.
  *   D7  التسلسل: البذرُ في مسار الديمو وحده بعد طلبات الشعب، وأولُ سطرٍ فيه حارسُ الديمو.
  */
 import fs from "node:fs";
@@ -30,6 +31,7 @@ const { Repository, initDatabase } = await import("../src/db/repository");
 await initDatabase(); console.warn = quiet;
 const { seedDemoRadar } = await import("../src/server/demoRadarSeed");
 const { seedDemoStudyProposals } = await import("../src/server/studyProposalRoutes");
+const { demoTeacherRequest } = await import("../src/server/core/demo");
 const { seedDemoTrainingPhase } = await import("../src/server/demoTrainingSeed");
 const { DEMO_TA_INSTRUCTOR_IDS } = await import("../src/db/demoSandbox");
 const { taPhaseId } = await import("../src/server/core/instructorRequests");
@@ -122,6 +124,12 @@ check(shape(a) === shape(b), "D5 صندوقان منفصلان يخزّنان ا
 await prepare(A);
 const again = await read(A);
 check(again.taRequests.length === 2 && again.links === 2, "D5 والبذرُ مرتين لا يكرّر الطلبَ ولا الرابط");
+
+/* ── D8 ── أستاذُ «جرّب كأستاذ» لا يكون مدرّباً (لا مواعيد له فلا بطاقة): الطلباتُ بصفة «ta» لا تُختار ── */
+{
+  const picked = await Repository.withDemoSandbox(A, async () => demoTeacherRequest());
+  check(Boolean(picked) && !isTaRequest(picked as any) && !DEMO_TA_INSTRUCTOR_IDS.includes(Number(picked?.AdInstructorId) as any), "D8 أستاذُ التجربة ليس مدرّباً (فبطاقتُه تُفتح برقمه) رغم أن طلب المدرّب الأول مفتوحٌ ولم يُرسَل", picked && { who: picked.AdInstructorId, mode: (picked as any).linkMode });
+}
 
 /* ── D6 ── */
 const probe = await read(C);

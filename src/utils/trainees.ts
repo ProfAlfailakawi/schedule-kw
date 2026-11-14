@@ -7,10 +7,13 @@
  * التقارير) تقرأ معرّفاتهم من ‎/api/ta-trainees‎ مرّةً لكل نطاق، تُشارَك بين المكوّنات.
  * الوسمُ زينة: إن رُفضت القراءة (صلاحية) لا يظهر شيءٌ ولا تتعطّل الشاشة.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const EMPTY: ReadonlySet<number> = new Set();
 const cache = new Map<string, ReadonlySet<number>>();
+/* وأسماؤهم من الاستجابة نفسها (لمن لا يعرض الأساتذةَ من قائمةٍ تضمّهم). */
+const peopleCache = new Map<string, ReadonlyArray<TraineePerson>>();
+export interface TraineePerson { id: number; name: string }
 /* فتحُ مرحلة التدريب يغيّر مَن هو متدرّب: ما قُرئ قبل نصف دقيقة يُقرأ من جديد عند أول شاشةٍ تطلبه. */
 const readAt = new Map<string, number>();
 const FRESH_MS = 30_000;
@@ -27,6 +30,7 @@ async function load(key: string, collegeId: number, sectionId: number, termId: n
       const data = response.ok ? await response.json().catch(() => ({})) : {};
       const ids: ReadonlySet<number> = new Set((Array.isArray(data?.ids) ? data.ids : []).map(Number).filter(Boolean));
       cache.set(key, ids);
+      peopleCache.set(key, (Array.isArray(data?.people) ? data.people : []).map((row: any) => ({ id: Number(row?.id) || 0, name: String(row?.name || "") })).filter((row: TraineePerson) => row.id));
       readAt.set(key, Date.now());
       listeners.get(key)?.forEach(listener => listener(ids));
       return ids;
@@ -57,4 +61,11 @@ export function useTrainees(collegeId: unknown, sectionId: unknown, termId: unkn
 /** هل هذا الشخص متدرّبٌ في النطاق؟ (للشاشات التي تعرض شخصاً واحداً: رأس المقترح الدراسي ونماذجه.) */
 export function useIsTrainee(instructorId: unknown, collegeId: unknown, sectionId: unknown, termId: unknown): boolean {
   return useTrainees(collegeId, sectionId, termId).has(Number(instructorId) || 0);
+}
+
+/** المتدرّبون بأسمائهم (الاسمُ للعرض في شريحة «عضو تدريب»)؛ فارغةٌ حتى تصل أو بلا نطاق. */
+export function useTraineePeople(collegeId: unknown, sectionId: unknown, termId: unknown): ReadonlyArray<TraineePerson> {
+  const ids = useTrainees(collegeId, sectionId, termId);
+  const key = keyOf(Number(collegeId) || 0, Number(sectionId) || 0, Number(termId) || 0);
+  return useMemo(() => (peopleCache.get(key) || []).filter(person => ids.has(person.id)).sort((a, b) => a.name.localeCompare(b.name, "ar")), [ids, key]);
 }

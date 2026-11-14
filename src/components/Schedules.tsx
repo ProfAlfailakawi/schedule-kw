@@ -197,7 +197,7 @@ import CourseTags from "./CourseTags";
 import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import PersonChips from "./PersonChips";
-import { useTrainees } from "../utils/trainees";
+import { useTrainees, useTraineePeople } from "../utils/trainees";
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
@@ -9765,10 +9765,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const dept = new Set((departmentInstructorIds as number[]).map(Number));
     return studioPlaceholderIds.find(id => dept.has(id)) ?? studioPlaceholderIds[0] ?? 0;
   }, [studioPlaceholderIds, departmentInstructorIds]);
-  const seatTrainees = useMemo(() => (instructors as any[])
-    .filter(person => formTrainees.has(Number(person.AdInstructorId)) && !isFacultyPlaceholder(person))
-    .map(person => ({ id: Number(person.AdInstructorId), name: String(person.AdInstructorName || "") }))
-    .sort((a, b) => a.name.localeCompare(b.name, "ar")).slice(0, 8), [instructors, formTrainees]);
+  /* أسماءُ المتدرّبين من ‎/api/ta-trainees‎ نفسه: قائمةُ الأساتذة في الصفحة هي هيئةُ القسم، ولا تضمّ المدرّبين. */
+  const traineePeople = useTraineePeople(editor !== "index" ? formReachScope.collegeId : 0, Number(form.AdSectionId || filterSection || 0), formReachScope.termId);
+  const seatTrainees = useMemo(() => traineePeople.filter(person => !isFacultyPlaceholderId(person.id)).slice(0, 8), [traineePeople]);
   const [seatPick, setSeatPick] = useState(0);
   const seatAssignRow = editor === "edit" && editorOriginalRow && studioPlaceholderIds.includes(Number(editorOriginalRow.AdInstructorId)) && !practiceMode ? editorOriginalRow : null;
   useEffect(() => { setSeatPick(0); }, [editId, editor]);
@@ -10091,7 +10090,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </div>
                   </Field>
                   <SeatQuickPick value={Number(form.AdInstructorId) || 0} vacantId={seatVacantId} trainees={seatTrainees}
-                    onPick={(id) => { setForm((p) => ({ ...p, AdInstructorId: id })); setStudioTeacherOpen(false); }} />
+                    onPick={(id) => {
+                      /* المتدرّبُ ليس في قائمة الصفحة: يُضاف إليها فيُعرض اسمُه في الملخّص. */
+                      const person = seatTrainees.find(item => item.id === id);
+                      if (person) setInstructors((current: any[]) => current.some(row => Number(row.AdInstructorId) === id) ? current : [...current, { AdInstructorId: id, AdInstructorName: person.name, AdInstructorCivil: "", AdInstructorCategory: "ta" }]);
+                      setForm((p) => ({ ...p, AdInstructorId: id })); setStudioTeacherOpen(false);
+                    }} />
                 </section>
                 ) : (
                 <div className="appt-sumrow" aria-label="الأستاذ" data-appt-step="teacher">
@@ -10122,6 +10126,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       termId={Number(form.AdTermId) || filterTerm}
                       strictDepartmentOnly
                       emptyLabel="أسند إلى…"
+                      hidePlaceholder
                     />}
                     pickedName={instructorById.get(seatPick)?.AdInstructorName || ""}
                     pickedVisiting={visitingIds.has(seatPick)}
@@ -11252,8 +11257,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      to run, so switching from the index to the editor changed the hook count.
      The views are prepared earlier, but selected only after the hook list is
      complete. */
+  /* شريطُ «تراجع»: يُرى في اللوحة وفي المحرّر معاً — «بدّل القاعتين» ينقل شعبةً أخرى من داخل المحرّر،
+     فلو غاب الشريطُ هناك لم يجد من بدّل زرَّ التراجع حتى يغادر النموذج. */
+  const undoBarView = undoAction ? (
+    <div className="undo-bar no-print" role="status">
+      <History aria-hidden="true" />
+      <span>{undoAction.label}</span>
+      <button data-guide-target="schedule.undo" type="button" onClick={() => void runUndoEntry(undoAction)} disabled={Boolean(undoBusy)}>
+        {undoBusy === undoAction.id ? "يتراجع…" : "تراجع"}
+      </button>
+      <button type="button" className="undo-dismiss" onClick={() => setUndoBarId(null)} aria-label="إخفاء"><X /></button>
+    </div>
+  ) : null;
   if (mode === "copy") return copyView;
-  if (editor !== "index") return editorView;
+  if (editor !== "index") return <>{editorView}{undoBarView}</>;
 
   const visitingFilterButton = () => scheduledVisitingIds.size ? (
     <button
@@ -13886,16 +13903,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           </div>
         );
       })() : null}
-      {undoAction ? (
-        <div className="undo-bar no-print" role="status">
-          <History aria-hidden="true" />
-          <span>{undoAction.label}</span>
-          <button data-guide-target="schedule.undo" type="button" onClick={() => void runUndoEntry(undoAction)} disabled={Boolean(undoBusy)}>
-            {undoBusy === undoAction.id ? "يتراجع…" : "تراجع"}
-          </button>
-          <button type="button" className="undo-dismiss" onClick={() => setUndoBarId(null)} aria-label="إخفاء"><X /></button>
-        </div>
-      ) : null}
+      {undoBarView}
       {/*
         The bar leaves after a few seconds; the day does not. Everything undoable
         since this morning sits behind one quiet button, newest first, each line

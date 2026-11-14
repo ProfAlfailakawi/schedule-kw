@@ -8,6 +8,7 @@
 import { Repository } from "../../db/repository";
 import type { InstructorRequest } from "../../types";
 import { currentInstructorRequestGeneration } from "./instructorRequests";
+import { isTaRequest } from "../../utils/requestParticipation";
 
 /*
  * ── قصّةٌ لكل صفة، من أول نظرة ──────────────────────────────────────────────
@@ -34,10 +35,11 @@ export const DEMO_STORY_SCOPE = { collegeId: 1, sectionId: 1, termId: 1 } as con
  * وهمي (في تلميح الصفحة مع زرّ نسخ) ثم يصل منها إلى طلب تعديل الجدول (`/r/demo.…`) فيغيّر أيامَه ويوقّع. يُفضَّل أستاذٌ فتح رابطه ولم يرسل شيئاً بعد، لتكون التجربةُ من أولها. والمسارُ رابطٌ
  * عادي (لا JavaScript): إن لم يكتمل البذرُ بعدُ أجاب بصفحةٍ تعيد المحاولة وحدها كل ثانيتين.
  */
-/** أستاذُ التجربة: من فتح رابطه ولم يرسل (ثم من لم يرسل) — يُبذر طلبُه في صندوق الزائر. */
+/** أستاذُ التجربة: من فتح رابطه ولم يرسل (ثم من لم يرسل) — يُبذر طلبُه في صندوق الزائر.
+ *  مدرّبو مرحلة التدريب (بصفة «ta») لا يُعرضون أستاذاً للتجربة: لا مواعيدَ لهم فلا بطاقةَ لهم. */
 export async function demoTeacherRequest(): Promise<InstructorRequest | undefined> {
   const { collegeId, sectionId, termId } = DEMO_STORY_SCOPE;
   const requests = await Repository.getInstructorRequests(collegeId, sectionId, termId);
-  const active = (await currentInstructorRequestGeneration(requests)).filter(row => row.status !== "superseded");
+  const active = (await currentInstructorRequestGeneration(requests)).filter(row => row.status !== "superseded" && !isTaRequest(row));
   return active.find(row => !row.submittedAt && row.linkOpenedAt) || active.find(row => !row.submittedAt) || active[0];
 }

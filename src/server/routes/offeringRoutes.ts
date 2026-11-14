@@ -266,8 +266,10 @@ app.get("/api/ta-trainees", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), 
   const family = await staffFamilyScopes(collegeId, sectionId);
   const requests = (await Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId)))).flat();
   const ids = [...new Set(requests.filter(row => row.status !== "superseded" && isTaRequest(row)).map(row => Number(row.AdInstructorId)).filter(Boolean))];
+  /* وأسماؤهم: قائمةُ الأساتذة في جدول القسم لا تضمّ المدرّبين، فشريحةُ «عضو تدريب» تقرؤها من هنا. */
+  const named = new Map((await Repository.getInstructors(termId)).map(person => [Number(person.AdInstructorId), String(person.AdInstructorName || "")]));
   res.setHeader("Cache-Control", "no-store");
-  res.json({ ids });
+  res.json({ ids, people: ids.map(id => ({ id, name: named.get(id) || "" })).filter(person => person.name) });
 });
 
 /** F3: المقررات المسموحة لكل مدرّب — قبل فتح المرحلة أو أثناءها. */

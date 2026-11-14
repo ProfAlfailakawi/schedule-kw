@@ -18,8 +18,9 @@ const seats = read("src/components/InstructorSeats.tsx");
 const tools = read("src/server/routes/scheduleToolsRoutes.ts");
 
 check(/<SeatQuickPick value=\{Number\(form\.AdInstructorId\) \|\| 0\} vacantId=\{seatVacantId\} trainees=\{seatTrainees\}/.test(schedules), "Q1 الشريحتان تحت المنتقي في خطوة الأستاذ");
-check(/onPick=\{\(id\) => \{ setForm\(\(p\) => \(\{ \.\.\.p, AdInstructorId: id \}\)\)/.test(schedules) && !/fetch|setForm|save/.test(seats.replace(/data-guide-ignore="[^"]*"/g, "")), "Q2 الاختيار يضع الأستاذ في النموذج وحده (الأداة بلا شبكة ولا حفظ)");
-check(/formTrainees\.has\(Number\(person\.AdInstructorId\)\)/.test(schedules) && /trainees\.length \? <button/.test(seats), "Q3 عضو التدريب من متدرّبي النطاق نفسه (useTrainees) ويغيب بلا متدرّبين");
+check(/onPick=\{\(id\) => \{[\s\S]{0,500}setForm\(\(p\) => \(\{ \.\.\.p, AdInstructorId: id \}\)\)/.test(schedules) && !/fetch|setForm|save/.test(seats.replace(/data-guide-ignore="[^"]*"/g, "")), "Q2 الاختيار يضع الأستاذ في النموذج وحده (الأداة بلا شبكة ولا حفظ)");
+check(/useTraineePeople\(/.test(schedules) && /people: ids\.map/.test(read("src/server/routes/offeringRoutes.ts")) && /trainees\.length \? <button/.test(seats), "Q3 عضو التدريب من متدرّبي النطاق نفسه (/api/ta-trainees بأسمائهم، فقائمةُ الصفحة لا تضمّ المدرّبين) ويغيب بلا متدرّبين");
+check(/hidePlaceholder\n/.test(schedules) && /hidePlaceholder \? null/.test(read("src/components/InstructorPicker.tsx")), "A4 منتقي «أسند إلى…» لا يعرض «شاغر» (لا إسناد شاغرٍ إلى شاغر)");
 check(/studioPlaceholderIds\.find\(id => dept\.has\(id\)\)/.test(schedules), "Q4 شاغر القسم يُفضَّل (placeholder السجل نفسه)");
 check(/assignVacantTo = async[\s\S]{0,500}placeholderAction\([\s\S]{0,300}"assign"/.test(schedules), "A1 الإسناد عبر placeholderAction «assign» القائم");
 check(/seatAssignRow = editor === "edit" && editorOriginalRow && studioPlaceholderIds\.includes\(Number\(editorOriginalRow\.AdInstructorId\)\) && !practiceMode/.test(schedules), "A2 يظهر لموعدٍ محفوظٍ شاغر فقط وليس في وضع التدريب");
