@@ -258,6 +258,18 @@ app.get("/api/ta-phase", requirePermission(7), async (req: AuthenticatedRequest,
   });
 });
 
+/** أسماءُ المتدرّبين لشريحة «عضو تدريب» في محرّر الموعد: لمن يحرّر الجدول وحده (صلاحية 7)، فقراءُ التقارير يبقون على المعرّفات. */
+app.get("/api/ta-trainee-names", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  const requests = (await Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId)))).flat();
+  const ids = [...new Set(requests.filter(row => row.status !== "superseded" && isTaRequest(row)).map(row => Number(row.AdInstructorId)).filter(Boolean))];
+  const named = new Map((await Repository.getInstructors(termId)).map(person => [Number(person.AdInstructorId), String(person.AdInstructorName || "")]));
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ people: ids.map(id => ({ id, name: named.get(id) || "" })).filter(person => person.name) });
+});
+
 /** وسمُ «🎓 تدريب» بجانب الاسم (PersonChips): مَن طلبُه في هذا القسم (بعائلته) والفصل بصفة مرحلة التدريب. قراءةٌ خفيفة: معرّفاتٌ فقط.
  *  صلاحياتُ القراءة نفسُها في ‎/api/visiting-lookup‎ (وسمُ «منتدب»): قرّاءُ التقارير (14، 8، 9، 10) يرون الوسمين معاً، بنطاقهم. */
 app.get("/api/ta-trainees", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {

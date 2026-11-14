@@ -58,7 +58,9 @@ async function main() {
     await http("POST", "/api/demo/role", { role: "admin" }, cookie);
     const rows = (await http("GET", "/api/instructor-requests?collegeId=1&sectionId=1&termId=1", undefined, cookie)).json.rows as any[];
     check(rows.length >= 3, "بطاقاتٌ تجريبية للأساتذة", rows.length);
-    const [mine, colleague] = [rows[0], rows[1]];
+    /* مدرّبو مرحلة التدريب (linkMode «ta») بلا مواعيد: «أستاذٌ» هنا من له جدولٌ في القسم. */
+    const teachers = rows.filter(row => row.linkMode !== "ta");
+    const [mine, colleague] = [teachers[0], teachers[1]];
 
     /* ── data.week ── */
     const card = await http("GET", `/api/public/request/${encodeURIComponent(mine.linkId)}`);
