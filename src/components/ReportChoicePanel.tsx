@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Check, Printer } from "lucide-react";
+import { Check, Droplet, Printer } from "lucide-react";
 import type { ReportChoice } from "../utils/reportChoices";
 
 interface Props<Id extends string> {
@@ -9,6 +9,8 @@ interface Props<Id extends string> {
   active: ReportChoice<Id>;
   onChoose: (id: Id) => void;
   onPrint: (id: Id) => void;
+  /** إن مُرِّر ظهر زرّ «موفّر الحبر» بجانب الطباعة؛ يضبط الوضع ثم يطبع. */
+  onInk?: (on: boolean) => void;
 }
 
 /**
@@ -16,7 +18,7 @@ interface Props<Id extends string> {
  * الأسهم تتنقّل (في RTL اليسار هو التالي)، وEnter يطبع، وEscape يغلق ويعيد
  * التركيز إلى زر التقرير.
  */
-export default function ReportChoicePanel<Id extends string>({ title, choices, active, onChoose, onPrint }: Props<Id>) {
+export default function ReportChoicePanel<Id extends string>({ title, choices, active, onChoose, onPrint, onInk }: Props<Id>) {
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -71,14 +73,26 @@ export default function ReportChoicePanel<Id extends string>({ title, choices, a
         })}
       </div>
       <p className="report-choice-note">{active.note}</p>
-      <button
-        type="button"
-        className="report-choice-print"
-        data-guide-ignore="طباعة الورقة المختارة؛ قراءة فقط ولا تغيّر بيانات الجدول"
-        onClick={() => onPrint(active.id)}
-      >
-        <Printer aria-hidden="true" />طباعة
-      </button>
+      <div className="report-choice-actions">
+        <button
+          type="button"
+          className="report-choice-print"
+          data-guide-ignore="طباعة الورقة المختارة؛ قراءة فقط ولا تغيّر بيانات الجدول"
+          onClick={() => { onInk?.(false); onPrint(active.id); }}
+        >
+          <Printer aria-hidden="true" />طباعة
+        </button>
+        {onInk ? (
+          <button
+            type="button"
+            className="report-choice-print report-choice-ink"
+            data-guide-ignore="طباعة الورقة المختارة موفّرةً للحبر: الورقة نفسها بالرمادي؛ قراءة فقط"
+            onClick={() => { onInk(true); onPrint(active.id); }}
+          >
+            <Droplet aria-hidden="true" />موفّر الحبر
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

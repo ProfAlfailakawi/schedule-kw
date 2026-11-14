@@ -21,6 +21,7 @@ import QueryInsights from "./query/QueryInsights";
 import QuerySaved from "./query/QuerySaved";
 import QueryCompare, { type HistoryPoint } from "./query/QueryCompare";
 import QueryPrintPreview from "./query/QueryPrintPreview";
+import QueryPrintMenu from "./query/QueryPrintMenu";
 import QueryEmptyWhy, { type EmptyWhyItem } from "./query/QueryEmptyWhy";
 import QueryWhatIf, { type WhatIfRow } from "./query/QueryWhatIf";
 import QueryExcluded from "./query/QueryExcluded";
@@ -625,6 +626,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   const [inkSave, setInkSave] = useState(() => safeStorage.get("schedule-print-ink") === "1");
   const inkRef = useRef(inkSave);
   inkRef.current = inkSave;
+  const chooseInk = (on: boolean) => { inkRef.current = on; setInkSave(on); safeStorage.set("schedule-print-ink", on ? "1" : "0"); };
   const toggleInk = () => setInkSave(previous => { const next = !previous; safeStorage.set("schedule-print-ink", next ? "1" : "0"); return next; });
   const [expandedCourseRoomIds, setExpandedCourseRoomIds] = useState<Set<number>>(() => new Set());
   const [expandedCourseLoadIds, setExpandedCourseLoadIds] = useState<Set<number>>(() => new Set());
@@ -3078,9 +3080,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                 </div>
               ) : (
                 <>
-                  <button type="button" className="query-print-icon has-label" data-guide-ignore="طباعة العرض الحالي؛ قراءة فقط" onClick={() => printReport(lens)} disabled={lens === "occupancy" && familyPending} aria-label="طباعة هذا العرض" title="طباعة هذا العرض">
-                    <Printer aria-hidden="true" /><span>طباعة</span>
-                  </button>
+                  <QueryPrintMenu ink={inkSave} disabled={lens === "occupancy" && familyPending} onPrint={on => { chooseInk(on); printReport(lens); }} />
                   <QueryPrintPreview refreshKey={`${printKind}:${results.length}:${lens}`} onPrint={() => printReport(lens)} disabled={lens === "occupancy" && familyPending} label={REPORT_TITLES[lens]} ink={inkSave} onInk={toggleInk} />
                 </>
               )}
@@ -3112,7 +3112,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   <Table2 aria-hidden="true" />{branchBusy ? "يجمع الفروع…" : appendixBusy ? "يجهّز الملحق…" : "التقرير الشامل"}
                 </SecondaryButton>
                 {scopeMenu === "comprehensive" ? (
-                  <ReportChoicePanel title="التقرير الشامل" choices={comprehensiveList} active={activeChoice(comprehensiveList, comprehensiveChoiceId)} onChoose={setComprehensiveChoiceId} onPrint={printComprehensiveChoice} />
+                  <ReportChoicePanel title="التقرير الشامل" choices={comprehensiveList} active={activeChoice(comprehensiveList, comprehensiveChoiceId)} onChoose={setComprehensiveChoiceId} onPrint={printComprehensiveChoice} onInk={chooseInk} />
                 ) : null}
               </div>
             </> : null}
@@ -3122,7 +3122,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   <ClipboardList aria-hidden="true" />{authorityReportBusy ? "يجهّز التقرير…" : "تقرير تغييرات الجدول"}
                 </SecondaryButton>
                 {scopeMenu === "authority" ? (
-                  <ReportChoicePanel title="تقرير تغييرات الجدول" choices={authorityList} active={activeChoice(authorityList, authorityChoiceId)} onChoose={setAuthorityChoiceId} onPrint={printAuthorityChoice} />
+                  <ReportChoicePanel title="تقرير تغييرات الجدول" choices={authorityList} active={activeChoice(authorityList, authorityChoiceId)} onChoose={setAuthorityChoiceId} onPrint={printAuthorityChoice} onInk={chooseInk} />
                 ) : null}
               </div>
             ) : null}

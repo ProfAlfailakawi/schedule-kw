@@ -73,7 +73,8 @@
     "src/utils/excludedRows.ts",
     "src/components/query/QueryWhatIf.tsx",
     "src/components/query/QueryExcluded.tsx",
-    "src/styles/59-print-ink.css"
+    "src/styles/59-print-ink.css",
+    "src/components/query/QueryPrintMenu.tsx"
   ],
   "screens": [
     {
@@ -3161,13 +3162,19 @@
         {
           "ar": "إحداثيات كل كلمةٍ في كل ورقةٍ (الأربع عشرة عدسة والتقرير الشامل) متطابقةٌ مع الوضع العادي في متصفحٍ حقيقي.",
           "en": "The coordinates of every word on every sheet (the fourteen lenses and the comprehensive report) are identical to the normal mode in a real browser."
+        },
+        {
+          "ar": "زرّ «طباعة» يسأل حين يُضغط (عادية أو موفّر الحبر بأيقونتين)، وكذلك قائمتا التقرير الشامل وتقرير التغييرات بزرٍّ بجانب الطباعة؛ وما اختير يُحفظ.",
+          "en": "The «print» button asks when pressed (normal or ink saver, two icons), and so do the comprehensive and schedule-changes report panels with a button beside print; the choice is remembered."
         }
       ],
       "evidence": {
         "code": [
           "src/styles/59-print-ink.css",
           "src/components/query/QueryPrintPreview.tsx",
-          "src/components/Reports.tsx#invokePrint"
+          "src/components/Reports.tsx#invokePrint",
+          "src/components/query/QueryPrintMenu.tsx",
+          "src/components/ReportChoicePanel.tsx"
         ],
         "tests": [
           "tests/print-ink-audit.ts",
