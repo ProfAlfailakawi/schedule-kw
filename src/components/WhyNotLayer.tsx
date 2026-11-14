@@ -37,6 +37,8 @@ export interface WhyNotLayerProps {
   locked?: string | null;
   /** للقراءة فقط (الهاتف أو بلا صلاحية): بلا «انقل هنا». */
   readOnly: boolean;
+  /** هويةُ الصفوف: يُعاد الحقل حين تتغيّر لا حين يُعاد رسمُ الأب. */
+  rows: readonly FSchedule[];
   scope: { collegeId: number; sectionId: number; termId: number };
   ignoreInstructorIds?: Iterable<number>;
   onMove: (row: FSchedule, day: string, start: string, label: string) => void;
@@ -46,7 +48,13 @@ const SLOT = "[data-physics-slot][data-physics-day][data-physics-start]";
 const keyOf = (el: Element) => `${el.getAttribute("data-physics-day")}:${el.getAttribute("data-physics-start")}`;
 
 export default function WhyNotLayer(props: WhyNotLayerProps) {
-  const { subject, active, onToggle, days, slots, gridEnd, mins, buildCandidate, blockers, patternSwitch, hours, locked, readOnly, scope, ignoreInstructorIds, onMove } = props;
+  const { subject, active, onToggle, days, slots, gridEnd, mins, patternSwitch: patternIn, hours: hoursIn, locked, readOnly, rows, scope, ignoreInstructorIds, onMove } = props;
+  /* الأبُ يمرّر دوالَّ جديدةً في كل رسم؛ تُثبَّت هنا ويُعاد الحقلُ بتغيّر الصفوف والموعد وحدهما. */
+  const fns = useRef(props); fns.current = props;
+  const buildCandidate = useCallback<WhyNotInput["buildCandidate"]>((row, target) => fns.current.buildCandidate(row, target), []);
+  const blockers = useCallback<WhyNotInput["blockers"]>((source, probe) => fns.current.blockers(source, probe), [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const patternSwitch = useMemo(() => patternIn ? (day: string) => Boolean(fns.current.patternSwitch?.(day)) : undefined, [Boolean(patternIn), subject?.id, rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hours = useMemo(() => hoursIn || null, [hoursIn?.start, hoursIn?.end]); // eslint-disable-line react-hooks/exhaustive-deps
   const on = active && Boolean(subject);
   const [filter, setFilter] = useState<WhyKind | "free" | null>(null);
   const [open, setOpen] = useState<{ key: string; rect: DOMRect } | null>(null);

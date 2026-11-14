@@ -166,3 +166,10 @@
   .wn-cell,.wn-dock,.wn-pop,.rp-layer *,.rp-sheet,.rp-backdrop,.rp-chip{animation:none!important;transition:none!important}
   [data-wn-tier="free"]>.wn-cell{animation:none!important}
 }
+
+/* «لماذا لا؟» في أسبوع الأستاذ المصغّر: أيقونةٌ صغيرةٌ بسبب التنبيه على الخانة الحرّة (القاعة محجوزة، أو الخريجون) */
+.mini-week-why{position:absolute;inset-block-end:2px;inset-inline-start:2px;display:grid;place-items:center;width:15px;height:15px;border-radius:50%;pointer-events:none;
+  background:var(--warning-soft);color:var(--warning);box-shadow:0 0 0 1px color-mix(in srgb,var(--warning) 30%,transparent)}
+.mini-week-why svg{width:10px;height:10px}
+.mini-week-why.is-room{background:var(--danger-soft);color:var(--danger);box-shadow:0 0 0 1px color-mix(in srgb,var(--danger) 30%,transparent)}
+.mini-week-why.is-graduates{inset-inline-start:auto;inset-inline-end:2px}

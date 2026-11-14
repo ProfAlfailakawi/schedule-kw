@@ -300,6 +300,8 @@
     "test:quick-best-1114": "tsx tests/quick-best-1114-audit.ts",
     "test:chain-solve": "tsx tests/chain-solve-audit.ts",
     "test:chain-pulse": "tsx tests/chain-pulse-render-audit.tsx",
+    "test:why-not": "tsx tests/why-not-audit.ts",
+    "test:week-replay": "tsx tests/week-replay-audit.tsx",
     "test:section-plan": "tsx tests/section-plan-audit.ts",
     "test:colleagues-advising-registration": "tsx tests/colleagues-advising-registration-audit.ts",
     "test:quick-studio-family": "tsx tests/quick-studio-family-audit.ts",

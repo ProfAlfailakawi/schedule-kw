@@ -11,7 +11,7 @@ import WeekReplay, { type WeekReplayProps } from "./WeekReplay";
  * موضوعُ «لماذا لا؟» هو آخر موعدٍ حُدِّد في لوحة السياق: اللوحةُ تغطّي الشاشة فتُغلق قبل الضغط على الزرّ،
  * فيُتذكَّر الموعدُ بمعرّفه ما دام في الجدول.
  */
-export type WeekLayerWhyNot = Omit<WhyNotLayerProps, "subject" | "active" | "onToggle" | "patternSwitch"> & {
+export type WeekLayerWhyNot = Omit<WhyNotLayerProps, "subject" | "active" | "onToggle" | "patternSwitch" | "rows"> & {
   patternSwitchFor?: (row: FSchedule, day: string) => boolean;
 };
 export default function WeekLayerTools({ rows, selectedId, whyNot, replay, replayReady }: {
@@ -32,7 +32,7 @@ export default function WeekLayerTools({ rows, selectedId, whyNot, replay, repla
   const patternSwitch = useMemo(() => subject && patternSwitchFor ? (day: string) => patternSwitchFor(subject, day) : undefined, [subject, patternSwitchFor]);
   return (
     <div className="wk-tools" role="group" aria-label="طبقات الأسبوع">
-      <WhyNotLayer {...layer} patternSwitch={patternSwitch} subject={subject} active={whyOn} onToggle={() => setWhyOn(value => !value)} />
+      <WhyNotLayer {...layer} rows={rows} patternSwitch={patternSwitch} subject={subject} active={whyOn} onToggle={() => setWhyOn(value => !value)} />
       <button ref={opener} type="button" className="wk-tool wk-replay-btn" onClick={() => setReplayOpen(true)} disabled={!replayReady}
         title={replayReady ? "إعادة عرض الأسبوع — كيف تكوّن هذا الجدول" : "اختر الكلية والقسم والفصل أولاً"}
         data-guide-ignore="يفتح إعادة عرض للقراءة فقط لتكوّن جدول القسم من سجل التغييرات">

@@ -84,7 +84,7 @@
 @import "./styles/65-wish-patterns.css";
 @import "./styles/66-ladder-start-hint.css";
 @import "./styles/67-chain-solve.css";
-@import "./styles/68-section-goals.css";
+@import "./styles/69-section-goals.css";
 @import "./styles/67-student-pulse-live.css";
 @import "./styles/68-week-layers.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the

@@ -1498,10 +1498,22 @@
    "methods": [
     "get"
    ],
+   "path": "/api/schedules/replay",
+   "name": "bound dispatch",
+   "call": "73aab9f07aed0e45",
+   "site": "src/server/routes/scheduleLiveRoutes.ts:46",
+   "regexp": "/^\\/api\\/schedules\\/replay\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
    "path": "/api/schedules/events",
    "name": "bound dispatch",
    "call": "8b10cfe0d8c6f986",
-   "site": "src/server/routes/scheduleLiveRoutes.ts:36",
+   "site": "src/server/routes/scheduleLiveRoutes.ts:78",
    "regexp": "/^\\/api\\/schedules\\/events\\/?$/i",
    "end": true
   },
@@ -1513,7 +1525,7 @@
    "path": "/api/schedules/pulse",
    "name": "bound dispatch",
    "call": "d7e6a03d2326459f",
-   "site": "src/server/routes/scheduleLiveRoutes.ts:92",
+   "site": "src/server/routes/scheduleLiveRoutes.ts:134",
    "regexp": "/^\\/api\\/schedules\\/pulse\\/?$/i",
    "end": true
   },
@@ -1525,7 +1537,7 @@
    "path": "/api/schedules/pulse",
    "name": "bound dispatch",
    "call": "9cfd32545134bde3",
-   "site": "src/server/routes/scheduleLiveRoutes.ts:134",
+   "site": "src/server/routes/scheduleLiveRoutes.ts:176",
    "regexp": "/^\\/api\\/schedules\\/pulse\\/?$/i",
    "end": true
   },
@@ -4670,8 +4682,8 @@
    ],
    "path": "/api/section-build/preview",
    "name": "bound dispatch",
-   "call": "e53fa9a863f02074",
-   "site": "src/server/routes/planningRoutes.ts:203",
+   "call": "53ac1010310f0899",
+   "site": "src/server/routes/planningRoutes.ts:207",
    "regexp": "/^\\/api\\/section-build\\/preview\\/?$/i",
    "end": true
   },
@@ -4682,8 +4694,8 @@
    ],
    "path": "/api/section-build/apply",
    "name": "bound dispatch",
-   "call": "4f5263862f1658d0",
-   "site": "src/server/routes/planningRoutes.ts:221",
+   "call": "369d69c31ceabac0",
+   "site": "src/server/routes/planningRoutes.ts:230",
    "regexp": "/^\\/api\\/section-build\\/apply\\/?$/i",
    "end": true
   },
@@ -4694,8 +4706,8 @@
    ],
    "path": "/api/section-build/review-rows",
    "name": "bound dispatch",
-   "call": "54d8f749123980a4",
-   "site": "src/server/routes/planningRoutes.ts:286",
+   "call": "500d51e7ce4277d3",
+   "site": "src/server/routes/planningRoutes.ts:295",
    "regexp": "/^\\/api\\/section-build\\/review-rows\\/?$/i",
    "end": true
   },
@@ -4707,7 +4719,7 @@
    "path": "/api/section-build/undo",
    "name": "bound dispatch",
    "call": "dff1cec84498b24a",
-   "site": "src/server/routes/planningRoutes.ts:326",
+   "site": "src/server/routes/planningRoutes.ts:335",
    "regexp": "/^\\/api\\/section-build\\/undo\\/?$/i",
    "end": true
   },
@@ -4719,7 +4731,7 @@
    "path": "/api/forecast/term",
    "name": "bound dispatch",
    "call": "5cad4ee5163944e3",
-   "site": "src/server/routes/planningRoutes.ts:352",
+   "site": "src/server/routes/planningRoutes.ts:361",
    "regexp": "/^\\/api\\/forecast\\/term\\/?$/i",
    "end": true
   },
@@ -4731,7 +4743,7 @@
    "path": "/api/schedules/section-gap",
    "name": "bound dispatch",
    "call": "ad8cff7b3a5222d1",
-   "site": "src/server/routes/planningRoutes.ts:374",
+   "site": "src/server/routes/planningRoutes.ts:383",
    "regexp": "/^\\/api\\/schedules\\/section-gap\\/?$/i",
    "end": true
   },
@@ -4743,7 +4755,7 @@
    "path": "/api/schedules/section-gap/staffing",
    "name": "bound dispatch",
    "call": "acf52385949e8610",
-   "site": "src/server/routes/planningRoutes.ts:388",
+   "site": "src/server/routes/planningRoutes.ts:397",
    "regexp": "/^\\/api\\/schedules\\/section-gap\\/staffing\\/?$/i",
    "end": true
   },
@@ -4755,7 +4767,7 @@
    "path": "/api/schedules/openings-preview",
    "name": "bound dispatch",
    "call": "3c14d525115a59f7",
-   "site": "src/server/routes/planningRoutes.ts:405",
+   "site": "src/server/routes/planningRoutes.ts:414",
    "regexp": "/^\\/api\\/schedules\\/openings-preview\\/?$/i",
    "end": true
   },
@@ -4767,7 +4779,7 @@
    "path": "/api/schedules/academic-advice",
    "name": "bound dispatch",
    "call": "235423b273083908",
-   "site": "src/server/routes/planningRoutes.ts:431",
+   "site": "src/server/routes/planningRoutes.ts:440",
    "regexp": "/^\\/api\\/schedules\\/academic-advice\\/?$/i",
    "end": true
   },
@@ -4779,7 +4791,7 @@
    "path": "/api/schedules/demand",
    "name": "bound dispatch",
    "call": "7fb2a2118ef42dac",
-   "site": "src/server/routes/planningRoutes.ts:444",
+   "site": "src/server/routes/planningRoutes.ts:453",
    "regexp": "/^\\/api\\/schedules\\/demand\\/?$/i",
    "end": true
   },
@@ -4791,7 +4803,7 @@
    "path": "/api/schedules/staff-inbox",
    "name": "bound dispatch",
    "call": "ca162358782c707c",
-   "site": "src/server/routes/planningRoutes.ts:632",
+   "site": "src/server/routes/planningRoutes.ts:641",
    "regexp": "/^\\/api\\/schedules\\/staff-inbox\\/?$/i",
    "end": true
   },

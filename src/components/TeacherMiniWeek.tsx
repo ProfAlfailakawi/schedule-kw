@@ -12,6 +12,7 @@ import {
 } from "../utils/teacherMiniWeek";
 import { safeStorage } from "../utils/safeStorage";
 import PersonChips from "./PersonChips";
+import WhyIcon from "./WhyIcon";
 import { fitKeyOf, useFitGrid } from "./useFitGrid";
 
 /**
@@ -807,6 +808,8 @@ export default function TeacherMiniWeek({
                 data-guide-ignore="يملأ اليوم والبداية والنهاية وأيام النمط في النموذج؛ لا يحفظ شيئاً"><Plus aria-hidden="true" />
                 {pixels(target.start, target.end) >= 22 && !(fit && pixels(target.start, target.end) >= 34) ? <span className="mini-week-target-time" dir="ltr">{toClock(target.start)}</span> : null}
                 {golden === true ? <Star className="mini-week-target-star" aria-hidden="true" /> : null}
+                {golden === false ? <span className="mini-week-why is-room" aria-hidden="true" title="القاعة محجوزة"><WhyIcon name="room" /></span> : null}
+                {fit && fitTone(fit.percent) === "bad" ? <span className="mini-week-why is-graduates" aria-hidden="true" title="يزاحم الخريجين"><WhyIcon name="graduates" /></span> : null}
                 {fit && pixels(target.start, target.end) >= 34 ? <em className="mini-week-target-fit" dir="ltr" aria-hidden="true">{fit.percent}%</em> : null}
               </button>;
             })}

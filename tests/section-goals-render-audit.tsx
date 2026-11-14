@@ -28,8 +28,8 @@ const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "
   check(text(html).length < 260, "نصٌّ قليل", text(html).length);
   const same = renderToStaticMarkup(<GoalCards goals={goals.map((g: any) => ({ ...g, metrics: m() }))} value="balanced" onPick={() => {}} />);
   check(same.includes("sbg-same") && !same.includes("sbg-star"), "تطابق الأهداف: علامة «يساوي» بلا نجوم");
-  const css = fs.readFileSync("src/styles/68-section-goals.css", "utf8");
-  check(fs.readFileSync("src/index.css", "utf8").includes("68-section-goals.css") && css.includes("prefers-reduced-motion") && css.includes("max-width:560px") && /min-block-size:44px/.test(css), "CSS مسجّل ويحترم الحركة المخفّضة والجوال وهدف اللمس 44");
+  const css = fs.readFileSync("src/styles/69-section-goals.css", "utf8");
+  check(fs.readFileSync("src/index.css", "utf8").includes("69-section-goals.css") && css.includes("prefers-reduced-motion") && css.includes("max-width:560px") && /min-block-size:44px/.test(css), "CSS مسجّل ويحترم الحركة المخفّضة والجوال وهدف اللمس 44");
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();

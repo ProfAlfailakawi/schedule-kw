@@ -351,4 +351,6 @@ test:meeting-slots-clock
 test:verdict-regulation-warning
 test:searchable-select-change
 test:schedule-w3
+test:why-not
+test:week-replay
 test:teacher-registry
