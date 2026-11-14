@@ -13,11 +13,11 @@
 .sbg-ring b{display:grid;place-items:center;inline-size:26px;block-size:26px;border-radius:50%;background:var(--surface);font-size:.62rem;font-variant-numeric:tabular-nums;line-height:1}
 .sbg-card.is-on .sbg-ring b{background:var(--accent-softer)}
 .sbg-title{font-size:.8rem;line-height:1.3}
-.sbg-chips{display:grid;gap:3px;inline-size:100%}
-.sbg-chips i{display:flex;align-items:center;justify-content:center;gap:4px;font-style:normal;font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums;position:relative}
+.sbg-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 12px;inline-size:100%}
+.sbg-chips i{display:inline-flex;align-items:center;justify-content:center;gap:4px;font-style:normal;font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums;position:relative}
 .sbg-chips i svg{inline-size:13px;block-size:13px;flex:none;color:var(--accent-ink)}
 .sbg-chips i.is-bad,.sbg-chips i.is-bad svg{color:var(--warning)}
-.sbg-star{inline-size:12px!important;block-size:12px!important;color:var(--brass,var(--warning))!important;fill:currentColor}
+.sbg-star{position:absolute;inset-block-start:-6px;inset-inline-end:-9px;inline-size:12px!important;block-size:12px!important;color:var(--brass,var(--warning))!important;fill:currentColor}
 .sbg-same{position:absolute;inset-block-start:-9px;inset-inline-start:8px;display:grid;place-items:center;inline-size:20px;block-size:20px;margin:0;border-radius:50%;background:var(--surface);border:1px solid var(--line);color:var(--muted)}.sbg-same svg{inline-size:12px;block-size:12px}
-@media (max-width:560px){.sbg{gap:5px}.sbg-card{padding:9px 3px 8px}.sbg-top{flex-direction:column;gap:5px}.sbg-title{font-size:.72rem}.sbg-chips i{font-size:.66rem;gap:2px}}
+@media (max-width:560px){.sbg-chips{display:grid;grid-template-columns:1fr 1fr;gap:4px 2px}.sbg{gap:5px}.sbg-card{padding:9px 3px 8px}.sbg-top{flex-direction:column;gap:5px}.sbg-title{font-size:.72rem}.sbg-chips i{font-size:.66rem;gap:2px}}
 @media (prefers-reduced-motion:reduce){.sbg-card{transition:none}}

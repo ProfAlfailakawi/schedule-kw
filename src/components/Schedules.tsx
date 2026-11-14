@@ -226,6 +226,7 @@ import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHan
 import { ACTUAL_DEMAND_HANDOFF_EVENT, actualDemandNotice, FOCUS_COURSE_EVENT, graduateImpactNote, takeActualDemandHandoff, takeFocusedCourse } from "../utils/actualDemandHandoff";
 import { freshSectionOf, parseHoursIssue } from "../utils/hoursIssue";
 import ChainSolveSheet from "./ChainSolveSheet";
+import WeekLayerTools from "./WeekLayerTools";
 import StudentPulse, { FitImpact, saveImpactOf, type BestTime, type SaveImpact } from "./StudentPulse";
 import type { StudentFit } from "../utils/studentFit";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
@@ -11736,6 +11737,32 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             focusMode={focusMode}
             onToggleFocus={phoneReadOnly ? undefined : () => { physics.cancel(); setFocusMode(!focusMode); setPresentationMode(false); }}
           />
+          {viewMode === "week" ? (
+            <WeekLayerTools
+              rows={rows}
+              selectedId={context?.selected?.id ? Number(context.selected.id) : null}
+              replayReady={Boolean(filterCollege && filterSection && filterTerm)}
+              replay={{
+                scope: { collegeId: Number(filterCollege), sectionId: Number(filterSection), termId: Number(filterTerm) },
+                current: rows.filter(row => Number(row.AdCollegeId) === Number(filterCollege) && Number(row.AdSectionId) === Number(filterSection) && Number(row.AdTermId) === Number(filterTerm)),
+                instructorName: (id: number) => instructorById.get(id)?.AdInstructorName || "",
+              }}
+              whyNot={{
+                days, slots: timeSlots, gridEnd: gridWindow.end, mins,
+                buildCandidate: (row, target) => buildPhysicsTargetCandidate(row, target as any),
+                blockers: localPhysicsBlockers as any,
+                patternSwitchFor: (row, day) => Boolean(rhythmSwitchForTarget(row, day as DayKey)),
+                hours: { start: activeScheduleWindow.start, end: activeScheduleWindow.end },
+                locked: approvalLock || (termFrozen ? "الفصل مجمَّد" : null),
+                readOnly: phoneReadOnly || !canEditSchedule,
+                scope: { collegeId: Number(filterCollege), sectionId: Number(filterSection), termId: Number(filterTerm) },
+                onMove: (row, day, start, label) => {
+                  const sourceDay = (days.find(d => Boolean((row as any)[d.key]))?.key || day) as any;
+                  void commitMove({ row, sourceDay, target: { day: day as any, start, label }, decision: null });
+                },
+              }}
+            />
+          ) : null}
           {/* The live radar: what the board knows about itself, always visible.
               Counted locally on every change, so the number never waits for a
               request — pressing it takes you to the offending cards. */}

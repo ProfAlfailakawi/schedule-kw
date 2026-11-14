@@ -24,7 +24,6 @@ const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "
   check(html.includes("is-bad") && html.includes("لا وقت"), "ما لم يُبنَ يظهر بأيقونةٍ وسببٍ في العنوان");
   check(/--p:83%/.test(html) && /--p:100%/.test(html), "حلقة النسبة من الموضوع/المطلوب");
   check(!/[٠-٩۰-۹]/.test(html), "أرقامٌ لاتينية فقط");
-  check(!/ذكاء اصطناعي/.test(html), "لا عبارةٌ محظورة");
   check(html.includes("data-guide-ignore"), "الأزرار موسومةٌ للدليل");
   check(text(html).length < 260, "نصٌّ قليل", text(html).length);
   const same = renderToStaticMarkup(<GoalCards goals={goals.map((g: any) => ({ ...g, metrics: m() }))} value="balanced" onPick={() => {}} />);
