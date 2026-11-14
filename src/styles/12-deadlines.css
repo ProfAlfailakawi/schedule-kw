@@ -7,7 +7,7 @@
 .sd-panel{
   --sd-tone:var(--accent);
   --sd-tone-soft:var(--accent-softer);
-  position:relative;display:grid;gap:16px;
+  position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;
   padding:18px 20px;border-radius:var(--r-lg);
   border:1px solid color-mix(in srgb,var(--sd-tone) 22%,var(--line));
   background:
@@ -16,6 +16,7 @@
   box-shadow:var(--shadow-sm);
   overflow:hidden;
 }
+.sd-panel>*,.sd-head>*,.sd-hero>*,.sd-title>*{min-width:0}
 .sd-panel::before{
   content:"";position:absolute;inset-block-start:0;inset-inline:0;block-size:3px;
   background:linear-gradient(90deg,var(--brass),var(--sd-tone));
@@ -37,6 +38,7 @@
 }
 .sd-kicker svg{inline-size:16px;block-size:16px}
 .sd-term select{
+  max-inline-size:100%;min-inline-size:0;box-sizing:border-box;
   min-block-size:34px;padding:4px 10px;font:inherit;font-size:.85rem;font-weight:600;
   border:1px solid var(--line-strong);border-radius:var(--r-full);
   background:var(--surface);color:var(--ink);
@@ -827,12 +829,15 @@
 .travel-policy summary{display:flex;align-items:center;gap:7px;font-weight:700;cursor:pointer}
 .travel-policy summary svg{inline-size:16px;block-size:16px;color:var(--brass)}
 .travel-policy[open]{display:grid;gap:10px}
-.travel-policy-rows{display:grid;gap:6px}
+.travel-policy{grid-template-columns:minmax(0,1fr)}
+.travel-policy,.travel-policy>*{min-width:0}
+.travel-policy-rows{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
 .travel-policy-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;font-size:.84rem}
 .travel-policy-row input{inline-size:72px;min-block-size:38px;text-align:center}
 .travel-policy-rule{margin:0;font-size:.82rem;color:var(--ink-2,inherit)}
 .request-hold-saved{display:block;font-weight:700}
-.travel-policy-exempt{display:grid;gap:6px}
+.travel-policy-exempt{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.travel-policy-exempt input{inline-size:100%;min-inline-size:0;box-sizing:border-box}
 .travel-policy-exempt strong{display:inline-flex;align-items:center;gap:6px;font-size:.84rem}
 .travel-policy-exempt strong svg{inline-size:15px;block-size:15px}
 .travel-policy-chips,.travel-policy-found{display:flex;flex-wrap:wrap;gap:5px}

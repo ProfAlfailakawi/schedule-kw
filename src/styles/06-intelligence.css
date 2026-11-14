@@ -4743,6 +4743,9 @@ button.twin-delta{width:100%}
 .import-preview-table td[dir="ltr"],.import-preview-table td[dir="ltr"] *{white-space:nowrap}
 .lens-list>article>time,.lens-list>.agenda-rest>article>time,.query-detail-panel time,.time-slot-card time{white-space:nowrap!important}
 .report-instructor-with-badge .visiting-badge{flex:none}
+/* الاسمُ هو الذي يُقطع بنقاط لا الشارة: كانت الشارة (منتدب) تُدفع خارج إطار السطر فتُقصّ. */
+body strong.report-instructor-with-badge{display:inline-flex;max-inline-size:100%;align-items:center;gap:4px}
+.report-instructor-with-badge>.rib-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lens-week article time{display:block!important;white-space:nowrap!important}
 
 /* PDF orientation notice — visual treatment only. It is isolated from report

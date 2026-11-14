@@ -1772,11 +1772,11 @@ export default function AdminUsers({
               <tbody>
                 {headPlan.map(row => (
                   <tr key={planKind === "advisors" ? `${row.sectionName}:${(row.sectionIds || [row.sectionId]).join(",")}` : `${row.collegeId}:${row.sectionId}`}>
-                    <td>{row.sectionName}</td>
-                    <td>{(row.collegeNames?.length ? row.collegeNames : [row.collegeName]).filter(Boolean).map((name: string, index: number) => <span key={`${name}:${index}`} className="campus-name"><CampusChip collegeName={name} />{name}</span>)}</td>
-                    <td dir="ltr">{row.deptLogin || "—"}</td>
-                    <td dir="ltr">{row.status === "exists" ? row.existingLogin : row.proposedLogin}</td>
-                    <td>
+                    <td data-label="القسم">{row.sectionName}</td>
+                    <td data-label="الكلية">{(row.collegeNames?.length ? row.collegeNames : [row.collegeName]).filter(Boolean).map((name: string, index: number) => <span key={`${name}:${index}`} className="campus-name"><CampusChip collegeName={name} />{name}</span>)}</td>
+                    <td dir="ltr" data-label="حساب القسم">{row.deptLogin || "—"}</td>
+                    <td dir="ltr" data-label="اسم الدخول المقترح">{row.status === "exists" ? row.existingLogin : row.proposedLogin}</td>
+                    <td data-label="الحالة">
                       <Badge tone={row.status === "create" ? "info" : row.status === "review" ? "warning" : "neutral"}>{row.status === "create" ? "سيُنشأ" : row.status === "review" ? "يحتاج مراجعة" : "موجود"}</Badge>
                       {planKind === "advisors" && row.duplicateUserIds && row.duplicateUserIds.length > 1 ? <small> حسابات مكررة؛ {row.consolidationReady ? "توحيد آمن" : "توحيد يدوي"}</small> : null}
                       {row.note ? <small> {row.note}</small> : null}

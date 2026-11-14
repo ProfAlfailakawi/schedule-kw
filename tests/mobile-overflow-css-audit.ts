@@ -163,5 +163,28 @@ check(bookQueries.length > 200 && badBook.length === 0,
 check(!/@media[^{]*\(min-width:640px\)and\(max-width:1000px\)and\(min-height:520px\)(?!and\(orientation)/.test(flat(read("src/styles/55-duo-adaptive.css"))),
   "كتلة الكتاب في 55-duo-adaptive.css لا تقبل طولياً بعرض 721–1000 (768×920 على iPad)");
 
+/* 5) الدوو المطويّ (≈367px): عمودٌ ضمنيّ `1fr`/`auto` يتّسع لأعرض أبنائه فيقصّ إطارُ البطاقة نصفَ المحتوى. */
+const seatsCss = flat(read("src/components/seats/seats.css"));
+check(/\.seats-layout\{grid-template-columns:minmax\(0,1fr\)\}/.test(seatsCss) && /\.seats-list\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(seatsCss)
+  && /\.seats-filters\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(seatsCss),
+  "الفرق: قائمةُ الفرق وشريطُ تصنيفها عمودٌ minmax(0,1fr) فلا يُقصّ البحثُ ولا آخرُ لسان");
+check(/\.seats-stats>\*\{flex:11calc\(50%-4px\);min-inline-size:0\}/.test(seatsCss),
+  "الفرق: بطاقات الإحصاء مثنى مثنى بـflex-basis (min-inline-size:44px!important على الأزرار كان يُسقط نصف العرض)");
+const screens = flat(read("src/styles/04-screens.css"));
+check(/\.admin-head-plan\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(screens) && /\.admin-head-planthead\{display:none;?\}/.test(screens),
+  "معاينة حسابات الأقسام: بطاقةٌ لكل صفٍّ على الهاتف لا جدولُ خمسة أعمدة");
+check((read("src/components/AdminUsers.tsx").match(/<td[^>]*data-label="(القسم|الكلية|حساب القسم|اسم الدخول المقترح|الحالة)"/g) || []).length === 5,
+  "معاينة حسابات الأقسام: لكل خليةٍ تسميتها (data-label) لتظهر فوق قيمتها");
+check(/\.console-action-slot\{width:100%;flex-wrap:wrap/.test(flat(read("src/styles/07-responsive.css"))),
+  "أزرار رأس الكونسول تلتفّ على الهاتف بدل أن تُحشر في سطرٍ فيُقصّ نصُّها");
+const deadlines = flat(read("src/styles/12-deadlines.css"));
+check(/\.sd-panel\{[^}]*display:grid;grid-template-columns:minmax\(0,1fr\)/.test(deadlines) && /\.travel-policy\{grid-template-columns:minmax\(0,1fr\)\}/.test(deadlines)
+  && /\.travel-policy-exempt\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(deadlines),
+  "مواعيد التسليم وسياسة التنقل: أعمدةٌ minmax(0,1fr) فلا يبرز المحتوى عن حافة البطاقة");
+check(/\.srec-form,\.srec-result\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(flat(read("src/components/student-recovery.css"))),
+  "رمز استعادة الطالب: النموذجُ عمودٌ minmax(0,1fr)");
+check(/\.lens-groupsstrong\.report-instructor-with-badge\{display:flex!important/.test(flat(read("src/styles/07-responsive.css"))),
+  "أسماء الأساتذة في التقارير: الاسمُ يُقطع والشارةُ (منتدب) تبقى مرئية");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
