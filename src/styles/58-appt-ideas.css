@@ -38,3 +38,39 @@
 @media (max-width:700px){.appt-draft{max-width:none}}
 @media (prefers-reduced-motion:reduce){.appt-draft{animation:none}}
 @media print{.appt-draft{display:none}}
+
+/* ── الجولة الثانية (2026-11-14): «أفضل وقت» بضغطة، وسطرُ أثر الحفظ، وخاناتٌ أخفّ، وورقةٌ أنحف على الجوال ── */
+
+/* «أفضل وقت»: شريحةٌ واحدة في رأس بطاقة النبض — أيقونة وكلمتان ووقتٌ ونسبة */
+.pulse-best{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px 0 14px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:999px;background:var(--accent-softer);color:var(--accent-strong);font:inherit;font-size:12.5px;font-weight:800;white-space:nowrap;cursor:pointer;flex:none;transition:background .15s,border-color .15s,transform .15s}
+.pulse-best.is-grad{border-color:color-mix(in srgb,var(--brass) 45%,var(--line));background:var(--brass-soft);color:var(--brass)}
+.pulse-best:hover{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast,#fff)}
+.pulse-best.is-grad:hover{background:var(--brass);border-color:var(--brass);color:#fff}
+.pulse-best:active{transform:scale(.97)}
+.pulse-best:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pulse-best svg{width:15px;height:15px;flex:none}
+.pulse-best bdi{font-variant-numeric:tabular-nums;font-weight:800}
+.pulse-best b{padding:1px 7px;border-radius:999px;background:var(--surface);color:var(--ink-2);font-size:11.5px;font-variant-numeric:tabular-nums}
+@media (max-width:700px){.pulse-best{margin-inline-start:auto}}
+
+/* أثر الحفظ: سطرٌ واحد «يناسب الخريجين 0٪ ← 94٪» لثوانٍ */
+.fit-impact{display:inline-flex;align-items:center;align-self:flex-start;width:fit-content;max-width:100%;gap:8px;margin:0;min-height:38px;padding:6px 14px;border-radius:999px;border:1px solid color-mix(in srgb,var(--success) 30%,var(--line));background:var(--success-soft);color:var(--success);font-size:13.5px;font-weight:700;animation:pulse-in .3s var(--ease-out,ease-out) both}
+.fit-impact.is-down{border-color:color-mix(in srgb,var(--warning) 38%,var(--line));background:var(--warning-soft);color:var(--warning)}
+.fit-impact.is-grad:not(.is-down){border-color:color-mix(in srgb,var(--brass) 32%,var(--line));background:var(--brass-soft);color:var(--brass)}
+.fit-impact svg{width:16px;height:16px;flex:none}
+.fit-impact bdi{font-variant-numeric:tabular-nums;font-weight:800}
+.fit-impact-from{opacity:.62}
+.fit-impact-to{font-size:15px}
+@media (prefers-reduced-motion:reduce){.fit-impact{animation:none}}
+@media print{.fit-impact{display:none}}
+
+/* خاناتٌ أخفّ: النسبة وحدها حين تتسع الخانة، والوقت في التلميح، و«+» عند التمرير فقط */
+.mini-week-target.fit-labeled>svg{display:none}
+.mini-week-target.fit-labeled:hover>svg,.mini-week-target.fit-labeled:focus-visible>svg,.mini-week-target.fit-labeled.is-lit>svg{display:block;width:12px;height:12px;opacity:.9}
+.mini-week-target.fit-labeled .mini-week-target-fit{font-size:11px}
+
+/* الجوال: ورقةُ الأستاذ المطويّة تُظهر النصاب والأيام فقط (سطران)؛ الفراغ يظهر مع فتحها */
+@media (max-width:639px){
+  .mini-week.is-sheet:not(.is-open) .mini-week-facts>em:last-child:not(.is-load){display:none}
+  .mini-week.is-sheet:not(.is-open) .mini-week-head{padding-bottom:12px}
+}
