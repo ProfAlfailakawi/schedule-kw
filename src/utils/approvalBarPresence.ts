@@ -30,6 +30,8 @@ export interface ApprovalBarPresenceInput {
   historyEvents: number;
   /** زرُّ فعلٍ واحدٌ على الأقل معروضٌ لصاحب الحساب. */
   hasAction: boolean;
+  /** أساتذةُ الجدول بلا درجةٍ علمية: يمنعون التوقيع للجميع، فيُرسم الشريطُ ليقول ذلك (المالك 2026-11-14). */
+  missingRanks?: number;
   /** خطأٌ معروض أو ورقةٌ مفتوحة: لا يُخفى الشريط من تحتهما. */
   pinned?: boolean;
 }
@@ -49,6 +51,6 @@ export function approvalBarPresence(input: ApprovalBarPresenceInput): ApprovalBa
     || input.status === "submitted" || input.status === "accepted" || input.status === "returned";
   const details = relay;
   const bar = relay || input.hasDeadline || Number(input.openNotes || 0) > 0 || Number(input.escalatedNotes || 0) > 0
-    || Number(input.historyEvents || 0) > 0 || input.hasAction || Boolean(input.pinned);
+    || Number(input.historyEvents || 0) > 0 || input.hasAction || Number(input.missingRanks || 0) > 0 || Boolean(input.pinned);
   return { relay, details, bar };
 }

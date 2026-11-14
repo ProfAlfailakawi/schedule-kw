@@ -1594,6 +1594,8 @@
 .apb-ready{display:inline-flex;align-items:center;gap:5px}
 /* سعةٌ ناقصة تمنع التوقيع: شارةٌ حمراء تُفتح بها قائمة الإدخال، وصفوفُها في القائمة بحدٍّ أحمر */
 .apb-capacity-btn{display:inline-flex;align-items:center;gap:5px;border:0;font:inherit;font-weight:750;cursor:pointer}
+.apb-rank-gap>span{display:inline-flex;flex-direction:column;line-height:1.15;text-align:start}
+.apb-rank-gap small{font-size:.72em;font-weight:600;opacity:.85}
 .apb-capacity-btn:hover{background:color-mix(in srgb,var(--badge-tone) 18%,var(--surface))}
 .apb-dr-list li[data-blocks-sign="true"]{border-color:color-mix(in srgb,var(--danger) 45%,var(--line))}
 .apb-dr-list li[data-blocks-sign="true"] .apb-dr-ic{background:var(--danger-soft,color-mix(in srgb,var(--danger) 14%,var(--surface)));color:var(--danger)}
