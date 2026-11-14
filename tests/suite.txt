@@ -309,6 +309,7 @@ test:inbox-pilot
 test:advising
 test:admin-station
 test:query-center-plus
+test:morning-brief-pills
 test:vault-jobs
 test:advisor-seat-quota
 test:live-board
