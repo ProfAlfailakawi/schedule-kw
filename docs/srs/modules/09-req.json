@@ -13,6 +13,10 @@
     "src/styles/60-admin-panels.css",
     "src/utils/cardPulse.ts",
     "src/components/inbox/CardPulse.tsx",
+    "src/components/inbox/TeacherRegistry.tsx",
+    "src/utils/teacherRegistry.ts",
+    "src/utils/publishNeeds.ts",
+    "src/utils/roomlessRows.ts",
     "src/server/teacherWeekFacts.ts",
     "src/server/verifyAttempts.ts",
     "src/utils/teacherSafeFields.ts",
@@ -1944,6 +1948,55 @@
         ],
         "tests": [
           "tests/card-pulse-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-REQ-083",
+      "kind": "functional",
+      "title": {
+        "ar": "سجلّ الأساتذة بحالة هادئة واحدة، و«افتح التعديل»، وتنبيه بلا قاعة، وذكاء المستلمين",
+        "en": "A one-status teacher registry, «Open editing», a no-room warning, and smarter recipients"
+      },
+      "text": {
+        "ar": "يجب أن يعرض وارد رغبات الأساتذة «سجلّ الأساتذة»: سطراً واحداً لكل أستاذ بحالة واحدة (ثبّت · عدّل · لم يردّ · قيد المراجعة · للعرض فقط) تُحسب من طلبه الأحدث وحده مهما تعدّدت الإرسالات، مع رقاقات بأعداد الحالات تُصفّي القائمة، وحركته كاملة (لمن أُرسل ومتى، فتح الرابط كم مرة، أرسل، ثبّت، عدّل، قرار القسم) تُقرأ من مسار الأساتذة عند الطلب. ومن كانت بطاقته عرضاً لا تعديل فيه (نافذته أُغلقت أو رابطه للعرض) والقسم لم يُنهِ طلبه يظهر على سطره زر «افتح التعديل» بموعد مقترح، فيرسل له إرسالاً خاصاً بتعديل بالرابط نفسه ويُسجَّل في سجلّ طلبه. وفي شاشة النشر يُنبَّه القسم قبل زر الإنشاء بعدد المواعيد بلا قاعة مع «اعرضها» (تنبيه لا يمنع، وبلا أي اسم قاعة)، وتبدأ قائمة «أساتذة محددون» بمن يحتاج إرسالاً (لم يصله، لم يفتح، لم يردّ، بطاقته للعرض) مع جملة «سيصل إلى N: …» والموعد المقترح (موعد الإرسال السابق أو بعد ثلاثة أيام) ويغلب اختيار المنسّق على الاقتراح.",
+        "en": "The instructor requests inbox shall show a teacher registry: one row per teacher with a single status (confirmed, edited, silent, in review, view only) computed from the latest request alone however many sends reached them, status chips with counts that filter the list, and the full movement (sent to whom and when, how many times the link was opened, submitted, confirmed, edited, the department's decisions) read from the teacher track on demand. A teacher whose card is view-only (window closed or a view link) while the department has not finished the request gets an «Open editing» button with a suggested deadline, which sends a private edit send on the same link and is written to the request timeline. In the publish screen, before the create button, the department is warned how many appointments have no room, with a one-tap «show them» (a warning that never blocks, and without any room name); the «specific teachers» list starts with those who need a send (not reached, not opened, not replied, view-only card) with a «will reach N: ...» sentence and a suggested deadline (the previous send's deadline or three days ahead), and the coordinator's own selection always wins over the suggestion."
+      },
+      "rationale": {
+        "ar": "قال المالك: «لازم يبيّن لنا شنو صار والحركة كاملة… بعضهم ثبّتوا جدولهم وبعضهم عدّلوا»، وأن بطاقةً بقيت «للعرض» فلا يتذكّر القسم أي إرسالٍ يفتحها، وأن النشر بلا قاعة يؤثّر ولا يُقال له.",
+        "en": "The owner asked to see what happened and the full movement, noted a card that stayed view-only because the department could not recall which send reopens it, and that publishing without a room affects things without saying so."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "registryStatusOf يعيد حالة واحدة من الخمس من الطلب الأحدث، وviewOnlyStuck صحيح لقيد المراجعة ونافذته مغلقة وخطأ للمُسوّى والتدريب.",
+          "en": "registryStatusOf returns one of five statuses from the latest request, and viewOnlyStuck is true for in-review with a closed window and false for settled and training."
+        },
+        {
+          "ar": "roomlessRows يعدّ «القاعة المعلّقة» بلا قاعة، ولا يعطّل التنبيه زر النشر.",
+          "en": "roomlessRows counts a pending room as no room, and the warning never disables the publish button."
+        },
+        {
+          "ar": "sendNeed يعيد new وunopened وunreplied وviewOnly، ولا يعيد شيئاً لمن ردّ وبطاقته سليمة.",
+          "en": "sendNeed returns new, unopened, unreplied and viewOnly, and nothing for someone who replied with a healthy card."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/inbox/TeacherRegistry.tsx",
+          "src/utils/teacherRegistry.ts",
+          "src/utils/publishNeeds.ts",
+          "src/utils/roomlessRows.ts",
+          "src/components/SchedulePublish.tsx",
+          "src/components/PublishRecipientPicker.tsx"
+        ],
+        "tests": [
+          "tests/teacher-registry-audit.ts"
         ]
       }
     }

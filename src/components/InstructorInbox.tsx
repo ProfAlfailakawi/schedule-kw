@@ -57,6 +57,7 @@ import { proposalApi, type StaffProposalView } from "./proposal/proposalApi";
 const StudyProposalWorkspace = React.lazy(() => import("./proposal/StudyProposalWorkspace"));
 import InboxPilot, { InboxPilotLauncher } from "./inbox/InboxPilot";
 import CardPulse from "./inbox/CardPulse";
+import TeacherRegistry from "./inbox/TeacherRegistry";
 import { pulseStageOf, type PulseStage } from "../utils/cardPulse";
 import TermFrozenRibbon, { TermFrozenContext, useFrozenScreen, useTermFrozen } from "./TermFrozenRibbon";
 import { useScopedTerms } from "./useScopedTerms";
@@ -2162,6 +2163,9 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               هو الطلباتُ المُرسلة في هذا النطاق، لا كلُّ الأساتذة. */}
           {/* «نبض الكروت»: أين وصل كلُّ أستاذٍ في بطاقته — يحلّ محلّ حلقة «أجاب» وسطرِ «لم يفتحوا» القديمين (أرقامُهما فيه). */}
           <CardPulse rows={pulseRows as any} termId={termId} active={pulseActive} onPick={pickPulse} onReminded={() => void load()} isExcluded={row => rowVisiting(row as any)} />
+
+          {/* «سجلّ الأساتذة»: حالةٌ واحدة لكل أستاذ وحركتُه كاملةً، و«افتح التعديل» لمن بطاقتُه عرضٌ فقط. */}
+          <TeacherRegistry rows={pulseRows as any} termId={termId} trackScope={sectionId ? { collegeId, sectionId } : undefined} onChanged={() => void load()} isVisiting={row => rowVisiting(row as any)} />
 
           {totals ? (
             <div className="inbox-glance is-solo">
