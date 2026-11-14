@@ -646,17 +646,18 @@ export function instructorRequestItemIdentity(item: InstructorRequestItem) {
  * يُعيد رقمَه المطبَّع حين يطابق سجلَّه، أو "" وقد أُجيب الطلبُ بسببه.
  */
 export async function verifyRequestSigner(request: InstructorRequest, req: Request, res: Response): Promise<string> {
+  /* الصيغةُ تُفحص قبل حجز المحاولة (كما في /api/public/verify): خطأُ كتابةٍ في رقمٍ ناقص لا يأكل من محاولات
+     التوقيع العشر، ولا يُغلق البابَ على صاحبه. فشلُ رقم التحقق يسبق أيَّ مطابقة، فلا يُقال إنه خالف بيانات البطاقة. */
+  const civil = normalizeCivilId(req.body?.civil);
+  const civilCheck = validateCivilId(civil);
+  if (!civilCheck.isValid) {
+    res.status(400).json({ error: "الرقم المدني غير مكتمل أو فيه خطأ كتابة. راجعه وأعد المحاولة.", code: "civil-format" });
+    return "";
+  }
   const signScope = `request:${request.id}`;
   const signAttempt = publicAttemptReserve(signScope, req.ip || "unknown");
   if (!signAttempt) {
     res.status(429).json({ error: "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة." });
-    return "";
-  }
-  const civil = normalizeCivilId(req.body?.civil);
-  const civilCheck = validateCivilId(civil);
-  if (!civilCheck.isValid) {
-    /* فشلُ رقم التحقق يسبق أيَّ مطابقة، فلا يُقال إنه خالف بيانات البطاقة: لم تُقرأ بعدُ. */
-    res.status(400).json({ error: "الرقم المدني غير مكتمل أو فيه خطأ كتابة. راجعه وأعد المحاولة." });
     return "";
   }
   const signer = (await Repository.getInstructors() as any[])
@@ -669,7 +670,7 @@ export async function verifyRequestSigner(request: InstructorRequest, req: Reque
      سببٍ يظهر له ولا للقسم. */
   const storedCivil = normalizeCivilId(signer?.AdInstructorCivil);
   if (!storedCivil || storedCivil !== civil) {
-    res.status(403).json({ error: "الرقم المدني لا يطابق صاحب هذا الرابط." });
+    res.status(403).json({ error: "الرقم المدني لا يطابق صاحب هذا الرابط.", code: "civil-mismatch" });
     return "";
   }
   signAttempt.release();

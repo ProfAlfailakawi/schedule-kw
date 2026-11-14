@@ -228,8 +228,9 @@ export const REQUEST_V4_CSS = `
 .starts button.start-off{opacity:.5;cursor:not-allowed;background:var(--soft);border-style:dashed;display:inline-flex;align-items:center;justify-content:center;gap:4px}
 .starts button.start-off .why-ic svg{inline-size:13px;block-size:13px}
 .heat-shape{display:grid;gap:6px;color:var(--ink);font-weight:600}.heat-shape>svg{inline-size:16px;block-size:16px;color:var(--accent)}
-/* القاعة: إشارةٌ واحدة 🏫✓ بلا اسمٍ ولا رمز (قرار المالك 2026-10-29) — تلميحُها «قاعتك يحددها القسم». */
-.verdict>.room-ok{flex:none;align-self:center;display:inline-flex;align-items:center;gap:3px;margin:0;padding:3px 9px 3px 8px;border:1px solid currentColor;border-radius:999px;background:var(--card);color:inherit;font:inherit;font-size:14px;line-height:1.2;cursor:help}
+/* المكان: حالةٌ واحدة بأيقونة باب و✓ بلا اسمٍ ولا رمز (قرار المالك 2026-10-29) — تلميحُها «قاعة مناسبة تُحجز لك تلقائياً». */
+.verdict>.room-ok{flex:none;align-self:center;display:inline-flex;align-items:center;justify-content:center;gap:3px;margin:0;min-inline-size:44px;min-block-size:44px;padding:3px 10px 3px 9px;border:1px solid currentColor;border-radius:999px;background:var(--card);color:inherit;font:inherit;font-size:14px;line-height:1.2;cursor:help}
+.room-ok .sk-gi{inline-size:17px;block-size:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .verdict:has(>.room-ok)>span{flex:0 1 auto}
 .room-ok b{font-size:12px;font-weight:800}
 .room-ok:focus-visible{outline:2px solid currentColor;outline-offset:2px}

@@ -33,15 +33,17 @@ body[data-mode=ta]:not([data-ta-picked="1"]) .send{display:none}
 .offering-option[data-locked="1"] .offering-pick{white-space:normal;max-inline-size:170px;background:color-mix(in srgb,var(--muted) 12%,var(--card));color:var(--muted);font-weight:700;line-height:1.5}
 .tc-star{position:absolute;inset-block-start:6px;inset-inline-end:6px;border:0;background:none;font-size:18px;cursor:pointer;opacity:1;filter:grayscale(1)}
 .tc-star[aria-pressed=true]{filter:none}
-.tc-stick{margin:10px 0}.tc-stick>button.tc-open{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;border-radius:12px;border:1px dashed var(--accent);background:transparent;color:var(--accent);font-weight:700;font-family:inherit;cursor:pointer}
+.tc-stick{margin:10px 0}.tc-stick>button.tc-open{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:6px 14px;border-radius:12px;border:1px dashed var(--accent);background:transparent;color:var(--accent);font-weight:700;font-family:inherit;cursor:pointer}
 .tc-stick-panel{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:14px;background:var(--card);display:grid;gap:8px}
-.tc-best{display:flex;flex-wrap:wrap;gap:6px}.tc-best button,.tc-side{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 10px;border-radius:11px;border:1px solid var(--line);background:var(--soft);font-family:inherit;font-weight:700;cursor:pointer;color:var(--ink)}
+.tc-best{display:flex;flex-wrap:wrap;gap:6px}.tc-best button,.tc-side{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:6px 10px;border-radius:11px;border:1px solid var(--line);background:var(--soft);font-family:inherit;font-weight:700;cursor:pointer;color:var(--ink)}
 .tc-side[data-tone=ok]{border-color:#2f8f6a}.tc-side[data-tone=warn]{border-color:#c98a00}.tc-side[data-tone=bad]{opacity:.55;cursor:not-allowed}
 .tc-anchor{display:grid;gap:6px;padding:8px;border-radius:12px;background:var(--soft)}.tc-anchor-h{display:flex;justify-content:space-between;gap:8px;font-size:13px}
 .tc-anchor-row{display:flex;gap:6px;justify-content:space-between}
 .tc-tl{position:relative;block-size:14px;border-radius:7px;background:var(--line);overflow:hidden}.tc-tl i{position:absolute;inset-block:0;border-radius:7px}
 .tc-tl i.a{background:var(--accent)}.tc-tl i.c{background:#2f8f6a;opacity:.8}.tc-tl i.c[data-tone=warn]{background:#c98a00}.tc-tl i.c[data-tone=bad]{background:#b3261e;opacity:.45}
-.tc-tag{font-size:11px;padding:1px 6px;border-radius:999px;background:var(--card);border:1px solid var(--line)}
+.tc-stick-err{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted);font-size:13px}
+.tc-retry{flex:none;min-height:44px;padding:6px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--accent);font:inherit;font-weight:700;cursor:pointer}
+.tc-tag{font-size:12px;padding:1px 6px;border-radius:999px;background:var(--card);border:1px solid var(--line)}
 @media(max-width:520px){.tc-anchor-row{flex-direction:column}.tc-side{justify-content:center}}
 `;
 
@@ -80,7 +82,7 @@ function tcStickHtml(it,i){if(!data||data.mode!=="edit"||!data.windowOpen||it.of
  var h='<div class="tc-stick"><button type="button" class="tc-open" data-stick-open="'+i+'" aria-expanded="'+(!!st)+'">🧲 لاصق بمحاضرتي</button>';
  if(!st)return h+'</div>';
  if(st.loading)return h+'<div class="tc-stick-panel" role="status">…</div></div>';
- if(st.error)return h+'<div class="tc-stick-panel" role="status">'+esc(st.error)+'</div></div>';
+ if(st.error)return h+'<div class="tc-stick-panel tc-stick-err" role="status"><span>'+esc(st.error)+'</span><button type="button" class="tc-retry" data-stick-retry="'+i+'">↻ أعد المحاولة</button></div></div>';
  var pick=function(rowId,side){return(st.best||[]).find(function(c){return c.anchorRowId===rowId&&c.side===side})};
  h+='<div class="tc-stick-panel">';
  if(st.top&&st.top.length)h+='<div><b>✨ اقترح أفضل التصاق</b><div class="tc-best">'+st.top.map(function(c){var a=(st.anchors||[]).find(function(x){return x.rowId===c.anchorRowId})||{};return '<button type="button" data-stick="'+i+'" data-days="'+esc(c.days.join(","))+'" data-start="'+esc(c.start)+'">'+(c.side==="after"?"➡️":"⬅️")+' '+esc(fmtDays(c.days))+' <bdi dir="ltr">'+esc(c.start)+'</bdi> · '+esc(a.title||"")+'</button>'}).join("")+'</div></div>';
@@ -93,10 +95,12 @@ function tcStickLoad(i){tcStick[i]={loading:true};paint();
  /* البندُ نفسُه يُرسل «تعديلاً» ولو لم يتغيّر بعد (payloadItems يرسله «إبقاء»). */
  var items=payloadItems();items[i]=rawItem(state[i]);
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/stick",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:items,itemIndex:i})})
- .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"تعذّر الحساب");return d})})
- .then(function(d){tcStick[i]=d;paint()}).catch(function(e){tcStick[i]={error:e.message};paint()})}
+ .then(function(r){return r.json().then(function(d){if(!r.ok){var e=new Error(d.error||"تعذّر الحساب الآن");e.server=true;throw e}return d})})
+ /* رسالةُ الخادم تُقال كما هي؛ وانقطاعُ الشبكة («Failed to fetch» بلغة المتصفح) يُقال بالعربية ومعه «أعد المحاولة». */
+ .then(function(d){tcStick[i]=d;paint()}).catch(function(e){tcStick[i]={error:e&&e.server?e.message:"تعذّر الاتصال الآن"};paint()})}
 var tcTaOpened=false;
 function tcWire(){if(data&&data.mode==="ta"&&!tcTaOpened){var o=document.getElementById("offerings");if(o){o.open=true;tcTaOpened=true}}
  host.querySelectorAll("[data-stick-open]").forEach(function(b){b.onclick=function(){var i=Number(b.dataset.stickOpen);if(tcStick[i]){delete tcStick[i];paint()}else tcStickLoad(i)}});
+ host.querySelectorAll("[data-stick-retry]").forEach(function(b){b.onclick=function(){tcStickLoad(Number(b.dataset.stickRetry))}});
  host.querySelectorAll("[data-stick]").forEach(function(b){b.onclick=function(){if(b.disabled)return;var i=Number(b.dataset.stick),it=state[i];if(!it)return;it.days=String(b.dataset.days||"").split(",").filter(Boolean);it.start=b.dataset.start;it.autoNote="";delete tcStick[i];paint();recheckAll()}})}
 `;

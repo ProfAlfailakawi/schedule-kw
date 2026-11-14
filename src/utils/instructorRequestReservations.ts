@@ -143,9 +143,18 @@ export function allocateRequestReservations(entries: RequestReservation[], reque
  * ويختفي عن زملائه حتى يُرسل أو ينقضي الحجز. حجزُ البند نفسِه السابقُ يُستبدل،
  * وما أرسله الأستاذ من قبل يبقى كما هو.
  */
+/** سقفُ حجوز التحرير لرابطٍ واحد: مفتاحُ الحجز يأتي من الصفحة، فبلا سقفٍ كان رابطٌ واحدٌ يحجز عشراتِ الأوقات
+    بلا رقمٍ مدنيّ فيرى زملاؤه «سبقك زميل». ثلاثةٌ تكفي من يعدّل بنداً أو بندين. */
+export const DRAFT_HOLDS_PER_REQUEST = 3;
 export function holdRequestReservation(entries: RequestReservation[], request: InstructorRequest,
-  proposal: RequestReservationProposal, officialRows: FSchedule[], heldUntil: string): RequestReservation[] {
-  const next = liveReservations(entries).filter(entry => !(entry.requestId === request.id && entry.itemId === proposal.itemId));
+  proposal: RequestReservationProposal, officialRows: FSchedule[], heldUntil: string, maxHolds = DRAFT_HOLDS_PER_REQUEST): RequestReservation[] {
+  let next = liveReservations(entries).filter(entry => !(entry.requestId === request.id && entry.itemId === proposal.itemId));
+  /* حجزُ البند نفسِه يُستبدل (أعلاه)، وما زاد على السقف يُفرج أقدمُه أولاً: الأحدثُ هو ما يختاره الأستاذ الآن. */
+  const cap = Math.max(1, Math.min(DRAFT_HOLDS_PER_REQUEST, Math.floor(Number(maxHolds) || DRAFT_HOLDS_PER_REQUEST)));
+  const mineHeld = next.filter(entry => entry.requestId === request.id && entry.heldUntil)
+    .sort((a, b) => String(a.heldUntil).localeCompare(String(b.heldUntil)));
+  const drop = new Set(mineHeld.slice(0, Math.max(0, mineHeld.length - (cap - 1))));
+  if (drop.size) next = next.filter(entry => !drop.has(entry));
   /* حجوزُ الطلب نفسِه لا تُحسب عليه: المُرسَلُ سابقاً يُستبدل عند الإرسال، وحجوزُ بنوده الأخرى أثناء التحرير
      تعارضٌ بين بنود مسودّته يقوله الحكمُ نفسُه على الأسبوع كلِّه. وكان اختيارٌ ألغاه الأستاذ (إضافةٌ أو وقتٌ
      تركه) يبقى عشرَ دقائق فيمنعه «لديك موعد آخر» و«سبقك زميل ⏱️» عن وقتٍ يقول الفحصُ إنه متاح (محاكاة 2026-10-30). */
