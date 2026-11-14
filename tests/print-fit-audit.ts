@@ -118,9 +118,9 @@ check(comprehensiveGridStart >= 0 && !comprehensiveGrid.includes('"م",') && !co
   && printCss.includes("19mm 12mm minmax(51mm,1fr)"),
   "عمود م محذوف من الشامل والمساحة المستعادة للمقرر، مع بقاء بقية الأعمدة ١٢ كما هي");
 check(printCss.includes("font-size:4.2pt !important;")
-  && printCss.includes("--safari-comprehensive-scale:1;")
-  && printCss.includes("--safari-rot-scale:1;"),
-  "رقم الصفحة صغير وتقارير Safari تملأ A4 الطولي بحجم الشامل دون تغيير الصفوف أو الاتجاه");
+  && printCss.includes("--safari-comprehensive-scale:.97;")
+  && printCss.includes("--safari-rot-scale:.97;"),
+  "رقم الصفحة صغير وتقارير Safari تُطبع بمقياس ٩٧٪ (قرار المالك) دون تغيير الصفوف أو الاتجاه");
 check(printCss.includes('html[data-print-rotate="1"] .print-report.print-wide .print-explicit-page:last-child{\n    margin-bottom:0 !important;'),
   "آخر صفحة في التقرير المدوّر لا تحجز خانةً زائدة تُنشئ صفحة A4 فارغة");
 
