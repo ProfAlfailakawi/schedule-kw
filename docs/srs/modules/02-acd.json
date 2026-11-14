@@ -2546,6 +2546,7 @@
           "src/server/routes/offeringRoutes.ts#/api/ta-phase/allowed",
           "src/server/routes/offeringRoutes.ts#/api/ta-phase/close",
           "src/server/routes/offeringRoutes.ts#/api/ta-trainees",
+          "src/server/routes/offeringRoutes.ts#/api/ta-trainee-names",
           "src/utils/taPhase.ts#planWaves",
           "src/utils/taPhase.ts#vacantSections"
         ],
