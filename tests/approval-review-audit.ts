@@ -145,6 +145,12 @@ console.log("«للملاحظة» خارج اللائحة: لا في البسط 
   check(overlap.scored === 160 && overlap.segments.find(segment => segment.key === "fix")!.projected === 100, "موعدٌ عليه بندٌ وملاحظةٌ معاً: يبقى في المقام حتى يُعالج، ثم يخرج مع الملاحظة");
 }
 
+{
+  /* كلُّ المواعيد ملاحظاتٌ فقط: لا «0 ÷ 0 = 100» بل جملةٌ تقول إن لا شيء يُحسب. */
+  const allNotes = approvalScoreBreakdown([1, 2, 3], [{ key: "n", label: "ملاحظة", tone: "note", rowIds: [1, 2, 3] }]);
+  check(allNotes.scored === 0 && allNotes.score === 100 && /لا مواعيد تُحسب/.test(allNotes.formula) && !allNotes.formula.includes("÷"), `كلُّها ملاحظات: «${allNotes.formula}»`);
+}
+
 console.log("I2/I3 — شاشة المراجعة");
 {
   const source = fs.readFileSync(path.join(process.cwd(), "src/components/ScheduleReview.tsx"), "utf8");

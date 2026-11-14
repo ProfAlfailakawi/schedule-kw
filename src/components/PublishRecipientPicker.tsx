@@ -16,6 +16,8 @@ import { instructorPickerPeople } from "../utils/instructorPickerChoices";
 import { AR, countOf } from "../utils/arabicCount";
 import { instructorIdentityKey } from "../utils/instructorIdentity";
 
+const when = (value: string) => new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kuwait" }).format(new Date(value));
+
 export type Audience = "all" | "picked";
 
 /** شخصٌ مختار: كلُّ سجلّاته، واسمُه، وجوّالُه للتسليم، ومقرراتُ بطاقته إن اختارها المنسّق (null/غياب = كل المقررات). */
@@ -26,7 +28,10 @@ export interface PickedPerson {
   mobile: string;
   sections: number;
   courses?: number[] | null;
+  /** من عنده بطاقةٌ سارية: قرارُ المنسّق في هذا الإرسال (الافتراضي «تكرار»). يُرسَل بلا سؤالٍ ثانٍ. */
+  cardAction?: CardAction;
 }
+export type CardAction = "repeat" | "replace" | "skip";
 
 /** حالةُ ما بعد الإرسال: ✉️ لم يفتح · 👀 فتح · ✅ ردّ. */
 export const FOLLOW_ICON: Record<FollowUpState, { icon: string; label: string }> = {
@@ -59,7 +64,7 @@ export function AudiencePicker({ value, onChange }: { value: Audience; onChange:
   );
 }
 
-export default function PublishRecipientPicker({ collegeId, sectionId, termId, onChange, visitingOf, traineeOf, perPersonCourses = false, stateOf, onPreview, hintOf }: {
+export default function PublishRecipientPicker({ collegeId, sectionId, termId, onChange, visitingOf, traineeOf, perPersonCourses = false, stateOf, onPreview, hintOf, liveOf }: {
   collegeId: number; sectionId: number; termId: number;
   onChange: (people: PickedPerson[]) => void;
   visitingOf: (id: number) => boolean;
@@ -72,6 +77,8 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
   onPreview?: (person: PickedPerson) => void;
   /** «توقّع الرغبات»: شريحةٌ صغيرة على سطر الأستاذ (للمنسّق وحده). */
   hintOf?: (person: PickedPerson) => ReactNode;
+  /** بطاقتُه السارية إن وُجدت (موعدُها): تظهر عند اختياره، ويقرّر المنسّق فيها عند النقر على اسمه لا بعد «إرسال». */
+  liveOf?: (ids: number[]) => { closesAt: string } | undefined;
 }) {
   const [rows, setRows] = useState<Recipient[] | null>(null);
   const [error, setError] = useState("");
@@ -81,6 +88,8 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
   const [courses, setCourses] = useState<Map<number, number[]>>(new Map());
   const [defaults, setDefaults] = useState<CourseDefaultsPayload | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
+  /* قرارُ كل صاحبِ بطاقةٍ سارية؛ من لا مدخلَ له: «تكرار». */
+  const [cardActions, setCardActions] = useState<Map<number, CardAction>>(new Map());
   useEffect(() => {
     if (!perPersonCourses) return;
     let cancelled = false;
@@ -116,7 +125,7 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
     }));
   }, [rows]);
 
-  useEffect(() => { onChange(people.filter(person => selected.has(person.key)).map(person => ({ ...person, courses: perPersonCourses ? courses.get(person.key) ?? null : null }))); }, [people, selected, courses, perPersonCourses]);
+  useEffect(() => { onChange(people.filter(person => selected.has(person.key)).map(person => ({ ...person, courses: perPersonCourses ? courses.get(person.key) ?? null : null, ...(liveOf?.(person.ids) ? { cardAction: cardActions.get(person.key) ?? "repeat" } : {}) }))); }, [people, selected, courses, perPersonCourses, cardActions, liveOf]);
 
   const needle = instructorIdentityKey(query.trim());
   const shown = needle ? people.filter(person => instructorIdentityKey(person.name).includes(needle) || person.name.includes(query.trim())) : people;
@@ -154,6 +163,8 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
           const on = selected.has(person.key);
           const state = stateOf?.(person.ids);
           const custom = courses.get(person.key);
+          const live = liveOf?.(person.ids);
+          const action = cardActions.get(person.key) ?? "repeat";
           return (
             <div key={person.key} className="publish-pick-row">
               <button type="button" className="of-chip" role="checkbox" aria-checked={on} aria-pressed={on}
@@ -180,6 +191,16 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
                   </button>
                 ) : perPersonCourses ? <span className="publish-pick-slot" aria-hidden="true" /> : null}
               </span>
+              {on && live ? (
+                <div className="publish-pick-card" role="radiogroup" aria-label={`بطاقة ${person.name} السارية`}>
+                  <small>بطاقتُه سارية{live.closesAt ? ` حتى ${when(live.closesAt)}` : ""}</small>
+                  {([["repeat", "تكرار"], ["replace", "تبديل"], ["skip", "تخطّي"]] as const).map(([id, label]) => (
+                    <button key={id} type="button" role="radio" aria-checked={action === id} className={action === id ? "on" : ""}
+                      data-guide-ignore="قرار البطاقة السارية لهذا الأستاذ: تكرار أو تبديل أو تخطّي؛ لا يرسل شيئاً بنفسه"
+                      onClick={() => setCardActions(current => new Map(current).set(person.key, id))}>{label}</button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           );
         })}

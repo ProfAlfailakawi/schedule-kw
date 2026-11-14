@@ -157,8 +157,9 @@
 .publish-flag.is-regulation>summary svg{color:var(--brass)}
 .publish-flag.is-noted>summary svg{color:var(--info)}
 .publish-flag>ul{margin:0;padding:2px 12px 8px;list-style:none;display:grid;gap:4px;font-size:.8rem;max-block-size:180px;overflow:auto}
-.publish-flag>ul>li{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
-.publish-flag li details summary{cursor:pointer;color:var(--muted);font-size:.76rem;list-style:none}
+.publish-flag>ul>li{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-block:2px}
+.publish-flag details{padding:0;margin:0;border:0;background:none;min-block-size:0;box-shadow:none}
+.publish-flag li details summary{cursor:pointer;color:var(--muted);font-size:.76rem;list-style:none;min-block-size:32px;padding:0 6px;display:inline-flex;align-items:center}
 .publish-flag li details ul{margin:4px 0 0;padding-inline-start:16px;color:var(--muted)}
 .publish-flag>small,.publish-flag>p{display:block;margin:0;padding:0 12px 8px;font-size:.76rem;color:var(--muted)}
 .publish-flag>button{margin:0 12px 10px}
@@ -166,17 +167,25 @@
 .publish-cards-list li{display:flex;justify-content:space-between;gap:8px;font-size:.88rem}
 .publish-cards-list small,.publish-cards-more{color:var(--muted);font-size:.76rem}
 .publish-cards-actions{flex-direction:column;align-items:stretch}
-.publish-cards-actions .btn{justify-content:flex-start;gap:8px}
-.publish-cards-actions .btn small{margin-inline-start:auto;opacity:.75;font-weight:500}
+.ppr-actions.publish-cards-actions .btn{flex:0 0 auto;min-block-size:46px;justify-content:flex-start;gap:8px}
+.ppr-actions.publish-cards-actions .btn small{margin-inline-start:auto;opacity:.75;font-weight:500}
 .publish-cards-cancel{align-self:center;background:none;border:0;color:var(--muted);padding:6px;cursor:pointer;font:inherit;font-size:.82rem}
 .publish-send-log li.is-quiet{opacity:.78}
 
 /* ── «أستاذ جديد»: نموذجٌ واحد لأدوات الجدول و«موعد» (المالك 2026-11-14) ─────────── */
 .instructor-new-rank{display:grid;gap:4px}
-.instructor-new-rank select{inline-size:100%}
 .instructor-new-rank small{color:var(--muted);font-size:.76rem}
-.instructor-new-trainee{display:flex;align-items:center;gap:8px;font-size:.86rem}
+.instructor-new-trainee{display:flex;align-items:center;gap:8px;font-size:.86rem;cursor:pointer}
+.instructor-new-trainee input{inline-size:18px;block-size:18px;min-block-size:0;margin:0;flex:none}
+.instructor-new-trainee span{display:flex;flex-direction:column;line-height:1.35}
 .instructor-new-trainee small{color:var(--muted);margin-inline-start:4px}
 .dept-roster-add{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;margin-bottom:8px;border:1px dashed var(--line);border-radius:var(--r-md);background:transparent;cursor:pointer;font:inherit;font-size:.88rem}
 .dept-roster-add svg{inline-size:16px;block-size:16px}
 .dept-roster-added{margin:0 0 8px;font-size:.82rem;color:var(--muted)}
+
+/* قرارُ البطاقة السارية عند النقر على الاسم نفسه (المالك 2026-11-14): سطرٌ صغير تحت الاسم، لا نافذة. */
+.publish-pick-row:has(.publish-pick-card){flex-wrap:wrap}
+.publish-pick-card{flex:1 1 100%;display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:6px 10px 8px;margin-top:-2px;border-radius:var(--r-sm);background:var(--brass-soft)}
+.publish-pick-card small{flex:1 1 100%;color:var(--muted);font-size:.76rem}
+.publish-pick-card button{min-block-size:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font:inherit;font-size:.8rem;cursor:pointer}
+.publish-pick-card button.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}

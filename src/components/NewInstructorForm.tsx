@@ -9,31 +9,31 @@ import { numericText } from "../utils/digits";
  * الخادمُ يضمّه إلى دليل القسم ويحكم بالنطاق (POST /api/instructors)، فلا يُسجَّل أستاذٌ في قسمٍ خارج نطاق صاحب الطلب.
  */
 export interface RankChoice { id: string; name: string; minHours: number; maxHours: number; overtimeHours?: number }
-export interface CreatedInstructor { AdInstructorId: number; AdInstructorName: string; AdInstructorCivil?: string; AdInstructorMobile?: string; AdInstructorCategory?: string | null }
+export interface CreatedInstructor { existing?: boolean; loadApplied?: boolean; AdInstructorId: number; AdInstructorName: string; AdInstructorCivil?: string; AdInstructorMobile?: string; AdInstructorCategory?: string | null }
 
-let ranksCache: { enabled: boolean; ranks: RankChoice[] } | null = null;
-/** الدرجاتُ مرجعٌ نادر التغيّر: تُقرأ مرةً لكل جلسة صفحة، ويُعاد قراءتُها بعد أي إضافة (لا تُخزَّن بعد الفشل). */
+/** الدرجاتُ تُقرأ عند كل فتحٍ للنموذج: مرجعٌ يعدّله الأدمن، ولا يُبقي النموذجُ درجةً حُذفت. */
 function useRanks() {
-  const [state, setState] = useState(ranksCache);
+  const [state, setState] = useState<{ enabled: boolean; ranks: RankChoice[] } | null>(null);
   useEffect(() => {
-    if (ranksCache) return;
     let cancelled = false;
     void fetch("/api/section-roster/ranks", { cache: "no-store", credentials: "include" })
       .then(response => (response.ok ? response.json() : null))
-      .then(data => { if (data && Array.isArray(data.ranks)) { ranksCache = data; if (!cancelled) setState(data); } })
+      .then(data => { if (!cancelled && data && Array.isArray(data.ranks)) setState(data); })
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
   return state;
 }
 
-export default function NewInstructorForm({ collegeId, sectionId, initialName = "", precheck, onCreated, onCancel, submitLabel = "أضف" }: {
+export default function NewInstructorForm({ collegeId, sectionId, initialName = "", precheck, onCreated, onCancel, submitLabel = "أضف", inline = false }: {
   collegeId: number; sectionId: number; initialName?: string;
   /** فحصٌ محلي سريع قبل الطلب (رقمٌ مدني معروف…): نصُّ خطأٍ أو null. */
   precheck?: (civil: string) => string | null;
   onCreated: (person: CreatedInstructor) => void;
   onCancel: () => void;
   submitLabel?: string;
+  /** في صفحةٍ لا نافذةٍ منسدلة: بلا سقف ارتفاع. */
+  inline?: boolean;
 }) {
   const ranks = useRanks();
   const [name, setName] = useState(initialName);
@@ -71,7 +71,7 @@ export default function NewInstructorForm({ collegeId, sectionId, initialName = 
   };
 
   return (
-    <div className="instructor-new" role="group" aria-label="أستاذ جديد">
+    <div className={`instructor-new${inline ? " instructor-new--inline" : ""}`} role="group" aria-label="أستاذ جديد">
       <strong>أستاذ جديد</strong>
       <input value={name} onChange={event => setName(event.target.value)} placeholder="الاسم الكامل" aria-label="اسم الأستاذ" autoFocus />
       <input value={civil} onChange={event => setCivil(numericText(event.target.value).slice(0, 12))} inputMode="numeric" placeholder="12 رقمًا" aria-label="الرقم المدني" />

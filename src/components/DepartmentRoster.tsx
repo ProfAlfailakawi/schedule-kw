@@ -55,7 +55,7 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
     const word = status === "retired" ? "التقاعد" : "التفرّغ";
     return person.AdInstructorStatus === status
       ? confirmed(person, `إلغاء ${word}`, `يعود ${person.name} إلى قائمة الأساتذة.`, "إلغاء الحالة", { status: null })
-      : confirmed(person, status === "retired" ? "تسجيل التقاعد" : "تسجيل التفرّغ", `${person.name}: يبقى في السجل مع مواعيده السابقة، ولا يظهر في الاختيار.`, "تأكيد", { status });
+      : confirmed(person, status === "retired" ? "تسجيل التقاعد" : "تسجيل التفرّغ", `${person.name}: يبقى في السجل مع مواعيده السابقة، ولا يظهر في اختيار الأساتذة. الحالة على سجل الأستاذ نفسه فتسري في كل الأقسام التي يرد فيها.`, "تأكيد", { status });
   };
   const counts = useMemo(() => {
     const out: Record<RosterGroup, number> = { faculty: 0, ta: 0, sabbatical: 0, retired: 0 };
@@ -72,13 +72,16 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
   return (
     <div className="dept-roster">
       {error ? <Notice>{error}</Notice> : null}
-      {justAdded ? <p className="dept-roster-added" role="status">أُضيف {justAdded}. الاستثناء والتفرّغ والتقاعد من بطاقته.</p> : null}
+      {justAdded ? <p className="dept-roster-added" role="status">{justAdded}</p> : null}
       {adding ? (
-        <NewInstructorForm collegeId={collegeId} sectionId={sectionId}
+        <NewInstructorForm inline collegeId={collegeId} sectionId={sectionId}
           onCancel={() => setAdding(false)}
           onCreated={async created => {
             setAdding(false);
-            setJustAdded(created.AdInstructorName);
+            /* رقمٌ مدني لأستاذٍ موجود: يُضمّ إلى القسم، والمدرب لا يُطبَّق على سجلٍّ قائم، والدرجةُ تُكتب إن لم تكن له درجة. */
+            setJustAdded(created.existing
+              ? `${created.AdInstructorName}: موجود مسبقاً فضُمّ إلى القسم${created.loadApplied ? "" : "؛ لم تُطبَّق الدرجة أو «مدرب» عليه — عدّلها من بطاقته."}`
+              : `أُضيف ${created.AdInstructorName}. الاستثناء والتفرّغ والتقاعد من بطاقته.`);
             /* يُفتح تبويبُه ليراه صاحبُ الطلب فور الإضافة: المدرب في «المدربون»، وغيره في «الأساتذة». */
             setGroup(created.AdInstructorCategory === "ta" ? "ta" : "faculty");
             await read();

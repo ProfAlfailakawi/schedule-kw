@@ -13,7 +13,7 @@ import { gateGenerations, gatePublish, offeringScopeKey, readOffering, rememberR
 import type { LinkMode } from "../utils/linkMode";
 import { DnaStepper } from "./dna";
 import { WishChip, WishSummary, useWishHints, wishHintsOf } from "./inbox/WishPatterns";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BellRing, CalendarPlus, Check, Copy, Flag, GraduationCap, IdCard, Link2, QrCode, RefreshCw, Send, Trash2, UserX, Users, X } from "lucide-react";
 import MasariQrButton from "./MasariQrButton";
@@ -227,11 +227,25 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
    * قبل الإرسال (للجميع أو لمختارين) يُقرأ من الخادم من عنده بطاقةٌ سارية. إن وُجد سُئل المنسّق مرّةً واحدة:
    * تكرار (الرابطُ نفسه بالموعد الجديد) · تبديل (رابطٌ جديد) · تخطّي. لا أحد ⇒ يُرسل فوراً بلا سؤال. */
   const when = (value: string) => new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kuwait" }).format(new Date(value));
-  const cardChoice = useRef<{ action: "repeat" | "replace"; skip: number[] }>({ action: "repeat", skip: [] });
+  const cardChoice = useRef<{ action: "repeat" | "replace"; skip: number[]; replace: number[] }>({ action: "repeat", skip: [], replace: [] });
   const [cardAsk, setCardAsk] = useState<{ holders: Array<{ name: string; closesAt: string; ids: number[] }>; proceed: () => unknown } | null>(null);
   const [cardChoosing, setCardChoosing] = useState(false);
+  /* بطاقاتُ الأساتذة السارية الآن: تُقرأ عند فتح الخطوة وبعد كل إرسال؛ يُعرض قرارُها عند اختيار الاسم نفسه. */
+  const [liveCards, setLiveCards] = useState<Array<{ instructorId: number; closesAt: string; awaiting: boolean }>>([]);
+  const loadLiveCards = async () => {
+    if (!scoped || kind !== "staff") { setLiveCards([]); return; }
+    try {
+      const response = await fetch(`/api/instructor-requests/live-cards?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store", credentials: "include" });
+      setLiveCards(response.ok ? (await response.json())?.cards || [] : []);
+    } catch { setLiveCards([]); }
+  };
+  useEffect(() => { if (open) void loadLiveCards(); else setLiveCards([]); }, [open, kind, collegeId, sectionId, termId, sendLogStamp]);
+  const liveOf = useCallback((ids: number[]) => {
+    const card = liveCards.find(item => !item.awaiting && ids.includes(Number(item.instructorId)));
+    return card ? { closesAt: card.closesAt } : undefined;
+  }, [liveCards]);
   const askCards = async (targetIds: number[] | null, proceed: () => unknown) => {
-    cardChoice.current = { action: "repeat", skip: [] };
+    cardChoice.current = { action: "repeat", skip: [], replace: [] };
     if (kind !== "staff" || sendMode === "ta") { await proceed(); return; }
     let cards: Array<{ instructorId: number; name: string; closesAt: string; awaiting: boolean }> = [];
     setCardChoosing(true);
@@ -254,10 +268,10 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   const resolveCards = (choice: "repeat" | "replace" | "skip" | null) => {
     const ask = cardAsk;
     setCardAsk(null);
-    if (!ask || !choice) { cardChoice.current = { action: "repeat", skip: [] }; return; }
+    if (!ask || !choice) { cardChoice.current = { action: "repeat", skip: [], replace: [] }; return; }
     cardChoice.current = choice === "skip"
-      ? { action: "repeat", skip: ask.holders.flatMap(holder => holder.ids) }
-      : { action: choice, skip: [] };
+      ? { action: "repeat", skip: ask.holders.flatMap(holder => holder.ids), replace: [] }
+      : { action: choice, skip: [], replace: [] };
     void ask.proceed();
   };
   /* `instructorIds`: «أساتذة محددون» — يُرسل الحقلُ ولو فارغاً، فيرفضه الخادم ولا يصير «للجميع». */
@@ -269,7 +283,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
         ...(instructorId ? { instructorId, reason } : {}), ...(reopen ? { reopen: true } : {}), ...(instructorIds ? { instructorIds } : {}),
         ...(offeredCourses && Object.keys(offeredCourses).length ? { offeredCourses } : {}),
         ...(cardChoice.current.action === "replace" ? { cardAction: "replace" } : {}),
-        ...(cardChoice.current.skip.length ? { skipInstructorIds: cardChoice.current.skip } : {}) }),
+        ...(cardChoice.current.skip.length ? { skipInstructorIds: cardChoice.current.skip } : {}),
+        ...(cardChoice.current.replace.length ? { replaceInstructorIds: cardChoice.current.replace } : {}) }),
     });
     const data = await readReply(response, "تعذر فتح طلبات التعديل");
     if (data?.emptyTerm) {
@@ -304,6 +319,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     if (!manageDate || !manageTime || (manageMode === "one" && (!manageInstructorId || !manageReason.trim()))) {
       setError("اختر الموعد، وللاستثناء الفردي اختر الأستاذ واكتب السبب."); return;
     }
+    cardChoice.current = { action: "repeat", skip: [], replace: [] };
     setBusy(true); setError(null); setManageSuccess("");
     try {
       const personIds = manageMode === "one" ? (manageChoices.find(choice => choice.ids.includes(manageInstructorId))?.ids || [manageInstructorId]) : [0];
@@ -375,7 +391,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     } catch (e: any) {
       setError(e.message);
     } finally {
-      cardChoice.current = { action: "repeat", skip: [] };
+      cardChoice.current = { action: "repeat", skip: [], replace: [] };
       setBusy(false);
     }
   };
@@ -425,6 +441,15 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     setDelivered(people.map(person => ({ ...person, personalId: person.ids.map(id => personal.get(id) || "").find(Boolean) || "" })));
     void loadPersonal();
   };
+  /* «أساتذة محددون»: قرارُ كل صاحب بطاقةٍ سارية اتُّخذ عند اختيار اسمه، فلا سؤالَ ثانياً هنا. */
+  const startPicked = async () => {
+    cardChoice.current = {
+      action: "repeat",
+      skip: pickedPeople.filter(person => person.cardAction === "skip").flatMap(person => person.ids),
+      replace: pickedPeople.filter(person => person.cardAction === "replace").flatMap(person => person.ids),
+    };
+    await guardSend(sendPicked);
+  };
   const sendPicked = async () => {
     const ids = pickedPeople.flatMap(person => person.ids);
     if (!ids.length) { setError("اختر أستاذاً واحداً على الأقل."); return; }
@@ -461,7 +486,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     } catch (e: any) {
       setError(e.message);
     } finally {
-      cardChoice.current = { action: "repeat", skip: [] };
+      cardChoice.current = { action: "repeat", skip: [], replace: [] };
       setBusy(false);
     }
   };
@@ -550,6 +575,8 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
     reachGenerations.invalidate();
     setReachGate(null);
     setReachChecking(false);
+    /* أي إلغاءٍ أو تغيّر نطاق يمحو قرارَ البطاقات: لا يرثه إصدارٌ لاحق (استثناءٌ فردي، إعادةُ فتح…). */
+    cardChoice.current = { action: "repeat", skip: [], replace: [] };
   }, [open, reachScope, kind, sendMode, reachGenerations]);
   const guardSend = async (proceed: () => unknown) => {
     if (kind !== "staff") { await proceed(); return; }
@@ -584,6 +611,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
   };
   const reviewOffering = (tab: "new" | "old") => {
     setReachGate(null);
+    cardChoice.current = { action: "repeat", skip: [], replace: [] };
     setOfferingOpen(true);
     setOfferingFocus({ tab, nonce: Date.now() });
     window.setTimeout(() => document.getElementById("publish-offering")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
@@ -819,7 +847,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               </div>, document.body) : null}
             {reachGate ? <PrepublishReachSheet rows={reachGate.rows} onOpenCourse={openReachCourse}
               onSend={sendFromGate}
-              onReview={reviewOffering} onCancel={() => setReachGate(null)} /> : null}
+              onReview={reviewOffering} onCancel={() => { setReachGate(null); cardChoice.current = { action: "repeat", skip: [], replace: [] }; }} /> : null}
 
             <nav className="share-progress" aria-label="خطوات نشر الجدول">
               <DnaStepper
@@ -983,7 +1011,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
               {picking ? <WishSummary data={wishHints} /> : null}
               {picking ? <PublishRecipientPicker collegeId={collegeId} sectionId={sectionId} termId={termId} onChange={setPickedPeople}
                 visitingOf={id => isVisiting(id, collegeId, sectionId)} traineeOf={id => trainees.has(Number(id))}
-                perPersonCourses={sendMode === "edit"} stateOf={stateOf} onPreview={previewCard}
+                perPersonCourses={sendMode === "edit"} stateOf={stateOf} onPreview={previewCard} liveOf={liveOf}
                 hintOf={person => <WishChip hints={wishHintsOf(wishHints, person.ids)} name={person.name} visiting={person.ids.some(id => isVisiting(id, collegeId, sectionId))} trainee={person.ids.some(id => trainees.has(Number(id)))} />} /> : null}
               {picking && pickedPeople.length ? <p className="publish-summary-line" aria-live="polite">{pickSummary}</p> : null}
               {kind === "staff" && sendMode === "ta" ? <TAPhasePanel collegeId={collegeId} sectionId={sectionId} termId={termId} checking={reachChecking} confirmSend={proceed => void guardSend(proceed)} /> : null}
@@ -1040,7 +1068,7 @@ export default function SchedulePublish({ collegeId, sectionId, termId, scopeLab
                 <PrimaryButton
                   type="button"
                   data-guide-target="schedule.publish"
-                  onClick={() => void askCards(picking ? pickedPeople.flatMap(person => person.ids) : null, () => guardSend(picking ? sendPicked : create))}
+                  onClick={() => void (picking ? startPicked() : askCards(null, () => guardSend(create)))}
                   hidden={kind === "staff" && sendMode === "ta"}
                   disabled={busy || reachChecking || cardChoosing || (withRequests && sendMode === "edit" && !closesAt) || (picking && !pickedPeople.length)}
                 >
