@@ -31,3 +31,6 @@ database/*.backup
 
 # نسخ احتياطية لجداول حقيقية (scripts/clear-term-schedule.ts): بيانات خاصة، لا تُرفع
 schedule-backups/
+
+# تقرير بروفة جولة القبول (npm run rehearsal:acceptance)
+acceptance-report/

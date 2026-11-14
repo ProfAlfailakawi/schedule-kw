@@ -27,6 +27,7 @@ import { studentUnitFloorOf } from "../utils/studentUnitCap";
 import {
   pushMarkerKey, pushTestMessage, studentPushDue, studentPushMessage, type StudentPushKind, type StudentPushMessageText,
 } from "../utils/studentPush";
+import { bumpDay } from "../utils/featureHealth";
 import { offeringStatesForTerm } from "./offeringStates";
 import { ticketContext, universityUnitCap } from "./simulationData";
 import { readCookie } from "./studentDoor";
@@ -74,7 +75,7 @@ const vapidOf = (options: StudentExtrasOptions) => (): Promise<VapidKeys> => (pu
 
 /** يسقط ما لا يصحّ بعد تغيير الرمز أو الاستعادة: أجهزةُ التنبيه ورابطُ المشاركة. تبقى علاماتُ «أُرسل» فلا تتكرّر الرسائلُ بعد عودته. */
 export function voidedStudentSecrets(current: StudentProfile): Pick<StudentProfile, "push" | "pushOn" | "share"> {
-  return { pushOn: undefined, share: undefined, push: current.push ? { subs: [], sent: current.push.sent, offered: current.push.offered } : undefined };
+  return { pushOn: undefined, share: undefined, push: current.push ? { subs: [], sent: current.push.sent, offered: current.push.offered, removedDays: current.push.removedDays } : undefined };
 }
 
 /* ── مواعيدُ «جدولي المقترح» (الخطة «أ») ─────────────────────────────────────── */
@@ -131,7 +132,10 @@ function createDelivery(options: StudentExtrasOptions) {
       await Repository.updateStudentProfile(fingerprint, current => {
         if (!current?.push) return undefined;
         const subsNow = current.push.subs.filter(sub => !gone.includes(sub.id)).map(sub => (delivered.includes(sub.id) ? { ...sub, lastSentAt: at } : sub));
-        return { ...current, pushOn: subsNow.length ? true : undefined, push: { ...current.push, subs: subsNow } };
+        /* عدّادُ «أجهزةٌ أُزيلت لانتهائها» لسلامة الميزات: رقمٌ لكل يوم بلا هوية. */
+        const removedNow = current.push.subs.length - subsNow.length;
+        const removedDays = removedNow > 0 ? bumpDay(current.push.removedDays, kuwaitDateISO(new Date(clock())), removedNow) : current.push.removedDays;
+        return { ...current, pushOn: subsNow.length ? true : undefined, push: { ...current.push, subs: subsNow, ...(removedDays ? { removedDays } : {}) } };
       }).catch(error => console.warn("[student-push] cleanup:", error instanceof Error ? error.message : error));
     }
     return report;
@@ -347,7 +351,11 @@ export function registerStudentExtras(app: Express, ctx: StudentExtrasContext, o
     const { fingerprint } = ctx.doorOf(res);
     noStore(res);
     const issued = issueShare(await ctx.identityKey(), fingerprint, clock());
-    const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? { ...current, share: { hash: issued.hash, createdAt: issued.createdAt, expiresAt: issued.expiresAt } } : undefined));
+    const madeOn = kuwaitDateISO(new Date(clock()));
+    const saved = await Repository.updateStudentProfile(fingerprint, current => (current ? {
+      ...current, share: { hash: issued.hash, createdAt: issued.createdAt, expiresAt: issued.expiresAt },
+      shareStats: { ...current.shareStats, made: bumpDay(current.shareStats?.made, madeOn) },
+    } : undefined));
     if (!saved) { ctx.fail(res, 401, "انتهت جلستك. أدخل من جديد.", "signed-out"); return; }
     const url = `${req.protocol}://${req.get("host")}/me/share/${issued.token}`;
     res.json({ ok: true, url, svg: shareQrSvg(url), expiresAt: issued.expiresAt });
@@ -388,11 +396,26 @@ export function registerStudentExtras(app: Express, ctx: StudentExtrasContext, o
       if (!read || !profile || shareState(profile.share, read.secret, clock()) !== "ok") { gone(); return; }
       const snapshot = await shareSnapshot(profile, ctx, clock);
       res.send(renderSharePage(snapshot));
+      /* «فُتح»: عدّادٌ مجمَّعٌ لكل يوم على الملف نفسه (يُمحى معه) — لا زائرَ ولا عنوانَ ولا وكيلَ متصفح. ولا يفسد فشلُه الصفحةَ. */
+      await countShareOpen(profile.fingerprint, clock);
     } catch (error) {
       console.warn("[student-share]", error instanceof Error ? error.message : error);
       gone();
     }
   });
+}
+
+/** يزيد عدّادَ فتحاتِ اليوم على ملف صاحب الرابط. لا يرمي: إحصاءٌ لا شرط. */
+export async function countShareOpen(fingerprint: string, clock: () => number = Date.now): Promise<void> {
+  const day = kuwaitDateISO(new Date(clock()));
+  try {
+    await Repository.updateStudentProfile(fingerprint, current => (current?.share ? { ...current, shareStats: { ...current.shareStats, opens: bumpDay(current.shareStats?.opens, day) } } : undefined));
+  } catch (error) { console.warn("[student-share] opens:", error instanceof Error ? error.message : error); }
+}
+
+/** هل للتنبيهات مفاتيحُ إرسال على هذا الخادم؟ (لسلامة الميزات: «غير مفعّل: لا مفاتيح إرسال».) */
+export async function studentPushConfigured(): Promise<boolean> {
+  try { return Boolean((await vapidOf({})()).publicKey); } catch { return false; }
 }
 
 /** ما تراه صفحةُ المرشد، حقلاً حقلاً: لا يمرّ شيءٌ لم يُسمَّ هنا. */
