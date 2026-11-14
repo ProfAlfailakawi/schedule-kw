@@ -115,7 +115,7 @@ for (const selector of [".occupancy-slot-name", ".occupancy-slot-teacher", ".occ
 }
 check(/\.occupancy-slot-name\{[^}]*white-space:normal/.test(css) && /\.occupancy-slot-teacher-name\{[^}]*white-space:normal/.test(css),
   "والاسم الطويل ينزل سطراً ثانياً");
-check(/@media \(max-width:760px\)\{[^]*grid-template-areas:"time course" "time teacher" "time meta"/.test(css), "على الهاتف الصفّ مكدّس: الوقت في الطرف وما سواه تحته");
+check(/@media \(max-width:760px\)(?:,screen and \(min-width:640px\) and \(max-width:1000px\) and \(min-height:520px\) and \(max-height:960px\))?\{[^]*grid-template-areas:"time course" "time teacher" "time meta"/.test(css), "على الهاتف الصفّ مكدّس: الوقت في الطرف وما سواه تحته");
 check(/grid-template-areas:"time course teacher meta"/.test(css), "وعلى الحاسوب أعمدة");
 
 /* ── موصولة بالعدسة ──────────────────────────────────────────────────────── */

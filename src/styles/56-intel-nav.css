@@ -71,7 +71,7 @@
   background:transparent;
 }
 
-@media (max-width:760px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .intelligence-page .insight-page-nav{top:72px;gap:var(--s2);padding:6px}
   .intelligence-page .insight-page-nav .insight-back{padding:0 var(--s3)}
 }

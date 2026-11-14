@@ -85,7 +85,7 @@ details.of-section[open]>summary{background:var(--accent-softer)}
 .adv-scope-pick.is-fixed{cursor:default;background:var(--surface-2,#f4f6f3);box-shadow:none;padding-inline:12px}
 .adv-scope-pick.is-fixed span{font-size:.88rem;font-weight:800;color:var(--ink-2,var(--ink));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .adv-scope-pick select:disabled{opacity:.55;cursor:not-allowed}
-@media (max-width:640px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .adv-scope{width:100%}
   .adv-scope-pick{flex:1 1 0;max-width:none}
   .adv-scope-pick select{width:100%}

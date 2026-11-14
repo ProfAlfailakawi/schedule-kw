@@ -95,7 +95,7 @@
 }
 .render-recovery-actions button.primary{background:var(--accent);border-color:var(--accent);color:white}
 .render-recovery-actions svg{width:16px;height:16px}
-@media(max-width:680px){
+@media (max-width:680px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .render-recovery-bar{align-items:stretch;flex-direction:column}
   .render-recovery-actions{width:100%}
   .render-recovery-actions button{flex:1;justify-content:center}
@@ -628,7 +628,7 @@
 /* Never a wall of messages in the same place: keep the newest few legible. */
 .toast-layer>.notice:nth-child(n+4){display:none}
 
-@media screen and (max-width:768px){
+@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .toast-layer{top:max(var(--s2), env(safe-area-inset-top));padding-inline:var(--s3)}
   .notice{padding:var(--s3) var(--s4);border-radius:var(--r-sm)}
 }

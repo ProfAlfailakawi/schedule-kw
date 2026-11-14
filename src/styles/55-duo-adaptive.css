@@ -23,11 +23,220 @@
 @media screen and (max-width:1119px) and (max-height:480px){
   :root{--topbar-h:50px}
 }
-@media screen and (max-width:768px) and (max-height:480px){
+/* الطاولة (laptop): الشاشة عريضةٌ قصيرة (951×350، 600×350، 594×368). المحتوى في
+   الأعلى والتحكّم في الأسفل: الشريط العلوي يمضي مع التمرير ولا يلتصق، فيأخذ المحتوى
+   الشاشةَ كلها، ويبقى شريط التنقل ثابتاً في الأسفل والصفحةُ تحجز ارتفاعه (--dock-h)
+   فلا يغطّي آخرَ سطر. الجرس والمرشد يمضيان مع شريطهما. */
+@media screen and (max-width:1119px) and (max-height:480px){
+  .mobile-topbar{position:relative}
+  .notify-bell{position:absolute}
+  html .smart-guide-fab,html .smart-guide-fab:not(.icon-only),html .smart-guide-fab.icon-only{position:absolute}
+}
+/* بين 769 و1119 لم يكن للطاولة شريطٌ سفلي أصلاً (هو للهاتف ≤768): يُعطى الشريطَ نفسه. */
+@media screen and (min-width:769px) and (max-width:1119px) and (max-height:480px){
+  .mobile-bottom-dock{
+    position:fixed;inset-inline:0;bottom:0;z-index:55;
+    display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;
+    background:var(--surface);border-top:1px solid var(--line);
+    box-shadow:0 -6px 24px -18px rgb(17 25 22 / .3);
+    padding-left:max(var(--s2),env(safe-area-inset-left));padding-right:max(var(--s2),env(safe-area-inset-right));
+  }
+  .mobile-dock-link{display:flex;align-items:center;justify-content:center;border-radius:var(--r-xs);color:var(--muted)}
+  .mobile-dock-icon{display:grid;place-items:center}
+  .mobile-dock-label{font-size:12px;font-weight:600;line-height:1.15}
+  .mobile-dock-link.active,.mobile-dock-link.context-active{color:var(--accent)}
+  .mobile-dock-link:active{background:var(--surface-2)}
+}
+@media screen and (max-width:1119px) and (max-height:480px){
   :root{--dock-h:50px}
   .mobile-bottom-dock{padding-block:2px calc(2px + env(safe-area-inset-bottom))}
   .mobile-dock-link{flex-direction:row;gap:6px;min-height:44px;padding-block:0}
   .mobile-dock-icon svg{width:19px;height:19px}
   .schedule-dock{bottom:calc(var(--dock-h) + 8px + env(safe-area-inset-bottom))}
   .undo-bar{bottom:calc(var(--dock-h) + 8px + 52px + env(safe-area-inset-bottom))}
+  /* فقاعة وارد القاعات فوق شريط التنقل لا عليه. */
+  .hall-barter-inbox:not(.hall-barter-inbox-decision){bottom:calc(var(--dock-h) + 8px + env(safe-area-inset-bottom))}
+}
+
+/* ==========================================================================
+   iPhone Duo — الشاشة الداخلية كتابٌ مفتوح (2026-11-14)
+   على الشاشة الداخلية (≈669×867 طولياً و≈951×585 عرضياً) كان التطبيق صفحةَ
+   هاتفٍ ممدودة: عمودٌ واحد يعبر المفصل في منتصفه. Safari لا يكشف المفصل، فيُبنى
+   الكتاب من المساحة نفسها: صفحتان متساويتان حول كعبٍ هادئ في المنتصف.
+   - الصفحة اليمنى: الفهرس (القائمة والحساب والبحث والجرس). هي مكان القائمة على
+     الحاسوب، ومكانها في تخطيط المفصل الحقيقي (47-duo-open-workspace.css)،
+     فلا تنتقل القائمة من جهةٍ إلى جهة بين وضعيّتين.
+   - الصفحة اليسرى: العمل نفسه (الجدول، التقرير، القائمة، النموذج) ونوافذه.
+   - الكعب: --book-spine عرضاً، لا نصَّ فيه ولا زرّ؛ ظلُّ طيٍّ خفيف وخيطٌ رفيع.
+   القائمة لا تُعاد بناؤها: هي نفسها الدُّرج على الهاتف، تُرى هنا ثابتةً كصفحة.
+   فالطيّ والفتح لا يمسّان ما كُتب ولا التمرير ولا النافذة المفتوحة.
+   iPad (عرضه 768 بارتفاع 1024، أو أعرض من 1000) خارج هذه الكتلة.
+   ========================================================================== */
+:root{--book-spine:32px;--book-page:calc(50vw - var(--book-spine) / 2)}
+
+@media screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+  :root{--dock-h:0px}
+  .mobile-topbar,
+  .mobile-bottom-dock,
+  .sidebar-launcher,
+  .sidebar-backdrop,
+  .sidebar-close{display:none!important}
+
+  /* الكعب: لا يأخذ لمسة، ولا يغطّي شيئاً (لا شيء تحته أصلاً). */
+  .app-shell::before{
+    content:"";position:fixed;top:0;bottom:0;z-index:59;pointer-events:none;
+    left:var(--book-page);width:var(--book-spine);
+    background:
+      linear-gradient(90deg,transparent calc(50% - .5px),color-mix(in srgb,var(--line-strong,#c9cec6) 80%,transparent) calc(50% - .5px),color-mix(in srgb,var(--line-strong,#c9cec6) 80%,transparent) calc(50% + .5px),transparent calc(50% + .5px)),
+      linear-gradient(90deg,transparent,color-mix(in srgb,var(--ink,#111) 5%,transparent) 42%,color-mix(in srgb,var(--ink,#111) 8%,transparent) 50%,color-mix(in srgb,var(--ink,#111) 5%,transparent) 58%,transparent);
+  }
+
+  /* الصفحة اليمنى: الفهرس، بلون الورق نفسه لا بلون الشريط الداكن. */
+  .sidebar{
+    --nav:var(--canvas);--nav-2:var(--surface);--nav-3:var(--surface-2);
+    --nav-ink:var(--ink);--nav-muted:var(--muted);--nav-line:var(--line);
+    top:0;bottom:0;right:0;left:auto;
+    width:var(--book-page);max-width:none;min-width:0;
+    transform:none;visibility:visible;transition:none;
+    box-shadow:none;border:0;
+    padding-right:env(safe-area-inset-right);
+  }
+
+  /* الفهرس صفحةٌ تُقرأ من أعلاها: تُمرَّر كلها، فتأتي الوجهات بعد البحث مباشرةً ثم الحساب،
+     بدل قائمةٍ قصيرة محشورة بين شريط التجربة وبطاقة الحساب. */
+  .sidebar{overflow-y:auto;overscroll-behavior:contain}
+  .sidebar>*{flex-shrink:0}
+  .sidebar .side-nav{flex:0 0 auto;overflow:visible;mask-image:none;-webkit-mask-image:none}
+
+  /* الشريط مصمَّمٌ على خلفيته الداكنة بألوانٍ ثابتة؛ على الورق تأخذ عناصره رموزَ الصفحة. */
+  .sidebar .side-nav-link{color:var(--ink-2)}
+  .sidebar .side-nav-link>svg:first-child{color:var(--muted)}
+  .sidebar .side-nav-link:hover{background:var(--surface-2);color:var(--ink)}
+  .sidebar .side-nav-link:hover>svg:first-child{color:var(--ink-2)}
+  .sidebar .side-nav-link.active{color:var(--ink);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  .sidebar .side-nav-link.active>svg:first-child{color:var(--accent)}
+  .sidebar .side-nav-link.active .side-nav-badge{box-shadow:none}
+  .sidebar .nav-section-title{color:var(--muted)}
+  .sidebar .nav-section-title:hover{color:var(--ink)}
+  .sidebar .nav-section-icon{background:var(--surface-2)}
+  .sidebar .command-search{background:var(--surface)}
+  .sidebar .command-search:hover{border-color:var(--line-strong);background:var(--surface)}
+  .sidebar .command-search kbd{color:var(--muted);border-color:var(--line);background:var(--surface-2)}
+  .sidebar .user-card-tools button:hover{background:var(--surface-2)}
+  .sidebar .demo-rail-chip{background:color-mix(in srgb,var(--brass) 8%,var(--surface));color:var(--brass)}
+  .sidebar .demo-rail-chip>.demo-student-link{background:var(--surface);color:var(--brass)}
+  .sidebar .demo-role-switch>select{background:var(--surface);color:var(--ink)}
+  .sidebar .demo-seed-status{background:var(--surface);color:var(--success,#1f7a5c)}
+
+  /* الصفحة اليسرى: العمل. */
+  .app-main{
+    min-width:0;
+    margin-inline-start:calc(var(--book-page) + var(--book-spine));
+    padding-top:clamp(18px,3vh,28px);
+    padding-left:max(clamp(16px,2.4vw,24px),env(safe-area-inset-left));
+    padding-right:clamp(16px,2.4vw,24px);
+  }
+  .content-frame{width:100%;max-width:none}
+
+  /* الجرس في رأس الفهرس، مكانَ زرّ الإغلاق الذي لا حاجة له هنا. */
+  .notify-bell{
+    top:14px;right:auto;left:calc(var(--book-page) + var(--book-spine) + 12px);
+    width:44px;height:44px;box-shadow:none;visibility:visible!important;
+  }
+  .notify-panel,
+  .notify-toast{
+    top:66px;right:auto;left:calc(var(--book-page) + var(--book-spine) + 12px);
+    width:calc(var(--book-page) - 24px - env(safe-area-inset-right));
+  }
+
+  /* زرّ المرشد كان في الشريط العلوي بجوار القائمة؛ صار بجوار الجرس في رأس الفهرس. */
+  html .smart-guide-fab,html .smart-guide-fab:not(.icon-only),html .smart-guide-fab.icon-only{
+    inset-block-start:14px;right:auto;left:calc(var(--book-page) + var(--book-spine) + 64px);
+  }
+
+  /* أدوات الجدول العائمة في وسط صفحة العمل لا في وسط الكتاب. */
+  .schedule-dock{
+    --dock-rail:calc(var(--book-page) + var(--book-spine));
+    max-width:calc(var(--book-page) - 24px);
+    bottom:calc(var(--s4) + env(safe-area-inset-bottom));
+  }
+  .undo-bar{
+    inset-inline-start:calc(var(--book-page) + var(--book-spine) + var(--s4));
+    max-width:calc(var(--book-page) - 2 * var(--s4));
+    bottom:calc(var(--s4) + 60px + env(safe-area-inset-bottom));
+  }
+  /* الرسائل العابرة وتنبيه انتهاء الجلسة: في وسط صفحة العمل لا في وسط الكتاب. */
+  .toast-layer{top:max(var(--s4),env(safe-area-inset-top));left:0;right:calc(var(--book-page) + var(--book-spine))}
+  .idle-warning{left:var(--s4);right:calc(var(--book-page) + var(--book-spine) + var(--s4));max-width:calc(var(--book-page) - 2 * var(--s4))}
+  /* بطاقة مواعيد التسليم: عمودٌ واحد بعرض الصفحة لا بعرض أوسع أبنائها. */
+  .sd-panel{grid-template-columns:minmax(0,1fr)}
+  .sd-panel>*,.sd-hero>*,.sd-title>*{min-width:0}
+  .sd-term select{max-width:100%}
+
+  /* صحيفة التخرج المرجعية: عمودٌ بعرض البطاقة لا بعرض أوسع أبنائها (وحقولها بترتيب الهاتف، 12-deadlines.css). */
+  .curriculum-reference{grid-template-columns:minmax(0,1fr)}
+  .curriculum-reference>*,.curriculum-reference-head>*{min-width:0}
+  .curriculum-reference-head{flex-wrap:wrap}
+  /* مبدّل عرض الجدول: أزراره تلتفّ داخل صفحتها بدل أن تبرز عن حافّتها. */
+  .schedule-view-cluster{min-width:0;flex-wrap:wrap}
+  .schedule-view-cluster>.segmented{flex-wrap:wrap;max-width:100%}
+
+  /* نطاق مركز الذكاء ومرشّحات مركز الاستعلام: الحقلُ تحت تسميته وبعرض الصفحة، لا ثلاثُ قوائم مقطوعة الأسماء. */
+  #root .intel-context .intel-context-fields{display:grid;grid-template-columns:minmax(0,1fr)}
+  #root .intel-context .intel-context-fields>.field,
+  #root .query-primary-filters>.field{grid-template-columns:minmax(0,1fr)}
+
+  /* النوافذ المركزية (خلفيةٌ ثابتة تحمل النافذة ابنةً مباشرة): تُفتح على صفحة العمل،
+     والفهرس خلفها معتمٌ بظلّ الخلفية نفسها، فلا تعبر نافذةٌ الكعب. */
+  [class*="backdrop"]:has(> [role="dialog"],> [aria-modal="true"]),
+  [class*="scrim"]:has(> [role="dialog"],> [aria-modal="true"]){
+    left:0;right:calc(var(--book-page) + var(--book-spine));
+    box-shadow:calc(var(--book-page) + var(--book-spine)) 0 0 0 color-mix(in srgb,var(--nav,#0e1413) 45%,transparent);
+  }
+  /* والجرس والمرشد لا يلمعان فوق تعتيم الفهرس ما دامت نافذةٌ مفتوحة. */
+  html:has([class*="backdrop"]>[aria-modal="true"],.schedule-context,.intel-drawer,.catalog-form-drawer,.trail-sheet) :is(.notify-bell,.smart-guide-fab){z-index:1}
+  [class*="backdrop"]>[role="dialog"],[class*="backdrop"]>[aria-modal="true"],
+  [class*="scrim"]>[role="dialog"],[class*="scrim"]>[aria-modal="true"]{max-inline-size:100%}
+
+  /* الفهرس هنا صفحةٌ ثابتة لا دُرجٌ يغطّي العمل، فحالة «الدرج مفتوح» (حين تُطوى الشاشة
+     والدرج مفتوح ثم تُفتح) لا تُخفي أدوات الجدول. تقابل قاعدة 07-responsive.css
+     ذات !important بمثلها، داخل كتلة الكتاب وحدها. */
+  html[data-rail="open"] .schedule-dock{opacity:1!important;visibility:visible!important;pointer-events:auto!important}
+
+  /* الأدراج الجانبية (تفاصيل الموعد، درج مركز الذكاء، نموذج السجلّ، الأثر) تُفتح على صفحة
+     العمل كاملةً، ولا تمتدّ من حافة الكتاب عبر الكعب. */
+  .schedule-context,.intel-drawer,.catalog-form-drawer,.trail-sheet{
+    left:0;right:calc(var(--book-page) + var(--book-spine));
+    inline-size:auto;max-inline-size:none;width:auto;max-width:none;
+  }
+
+  /* وارد استعارة القاعات: فقاعةٌ عند الحافة الخارجية لصفحة العمل فوق أدوات الجدول، لا على الفهرس ولا عند الكعب. */
+  .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    inset-inline-start:auto;left:12px;
+    bottom:calc(var(--s4) + 64px + env(safe-area-inset-bottom));
+  }
+}
+
+/* موعدٌ جديد أو تعديل موعد على الكتاب: النموذج نفسه صفحتان. الأسئلة على الصفحة
+   اليمنى (العمل الأساسي)، و«أسبوع الأستاذ» على اليسرى بمحاذاتها (السياق). الفهرس
+   يتنحّى ما دام النموذج مفتوحاً، كما يتنحّى شريط التنقل على الهاتف، و«✕» هو الخروج.
+   `#root` لأن قواعد العمودين في 40-appointment-studio.css أعلى تحديداً. */
+@media screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+  html:has(.schedule-editor.is-studio){--book-pad:clamp(16px,2.4vw,24px)}
+  html:has(.schedule-editor.is-studio) .sidebar{display:none}
+  /* الجرس والمرشد بجوار «✕» في ركن الصفحة اليسرى، لا فوقه. */
+  html:has(.schedule-editor.is-studio) .notify-bell{left:calc(var(--book-pad) + 56px)}
+  html:has(.schedule-editor.is-studio) .smart-guide-fab,
+  html:has(.schedule-editor.is-studio) .smart-guide-fab.icon-only{left:calc(var(--book-pad) + 108px)}
+  html:has(.schedule-editor.is-studio) .app-main{margin-inline-start:0;padding-inline:var(--book-pad)}
+  #root .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    column-gap:calc(var(--book-spine) + 2 * var(--book-pad));
+  }
+  #root .schedule-editor.is-studio .appt-layout>.appt-form{grid-column:1;width:auto;max-width:none;margin-inline:0}
+  #root .schedule-editor.is-studio .appt-layout>.editor-side{grid-column:2;margin-top:0}
+  /* ما فوق العمودين (العنوان، النطاق، الخطأ، رسالة الحفظ) على الصفحة اليمنى وحدها. */
+  #root .schedule-editor.is-studio>:not(.appt-layout):not(.schedule-editor-close){
+    margin-inline-end:calc(50% + var(--book-spine) / 2 + var(--book-pad));
+  }
 }
