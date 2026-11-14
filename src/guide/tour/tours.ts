@@ -126,5 +126,5 @@ function navTitle(feature: GuideFeature) {
 }
 const VIEW_TITLES: Record<string, string> = {
   schedules: "الجدول الدراسي", intelligence: "مركز الذكاء", scheduleChanges: "تغييرات الجدول",
-  instructorRequests: "رغبات الأساتذة", studentRegistration: "كشف التسجيل", timeMachine: "آلة الزمن", sectionHours: "أوقات دوام الأقسام",
+  instructorRequests: "رغبات الأساتذة", studentRegistration: "كشف التسجيل", timeMachine: "ماذا لو", sectionHours: "أوقات دوام الأقسام",
 };
