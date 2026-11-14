@@ -23,7 +23,7 @@ import { AR, countOf, nounFor, oblique } from "../../utils/arabicCount";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { buildingIdentityKey, resolveBuilding, resolveRoom } from "../../utils/locationRegistry";
 import { noteScheduleMutation, scheduleLockRefusal, wholesaleRefusal } from "../core/approvals";
-import { type AuthenticatedRequest, isPowerUser, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin } from "../core/auth";
+import { type AuthenticatedRequest, isPowerUser, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, ROOT_ADMIN_USER_ID } from "../core/auth";
 import { canonicalizeHistoricalLocationForRuntime, readLocationRegistry } from "../core/locations";
 import { sortTermsNewestServer } from "../core/ordering";
 import { readSchedulesForRequest, splitArchivedCourseRows } from "../core/scheduleReads";
@@ -437,7 +437,7 @@ app.delete("/api/schedules/:id", requirePermission(7), deleteScheduleHandler);
 // --- COPY SCHEDULES API ---
 
 app.get("/api/schedules/copy-preview", requireAuth, requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  if (req.user.SystemUserId !== 1) { res.status(403).json({ error: "ليس لديك صلاحية لنسخ الجداول الدراسية. هذه العملية مقتصرة على المدير الرئيسي" }); return; }
+  if (Number(req.user.SystemUserId) !== ROOT_ADMIN_USER_ID) { res.status(403).json({ error: "ليس لديك صلاحية لنسخ الجداول الدراسية. هذه العملية مقتصرة على المدير الرئيسي" }); return; }
   const collegeId=Number(req.query.collegeId||0), sectionId=Number(req.query.sectionId||0), fromTermId=Number(req.query.fromTermId||0), toTermId=Number(req.query.toTermId||0);
   if(!collegeId||!sectionId||!fromTermId||!toTermId){res.status(400).json({error:"جميع الحقول مطلوبة"});return;}
   if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
@@ -466,8 +466,8 @@ app.post("/api/schedules/copy", requireAuth, requirePowerAdmin, async (req: Auth
     return;
   }
 
-  // Copy schedule has a custom legacy check: must be SystemUserId == 1
-  if (req.user.SystemUserId !== 1) {
+  // Copy schedule is reserved to the root administration account (ROOT_ADMIN_USER_ID, FR-ACC-033).
+  if (Number(req.user.SystemUserId) !== ROOT_ADMIN_USER_ID) {
     res.status(403).json({ error: "ليس لديك صلاحية لنسخ الجداول الدراسية. هذه العملية مقتصرة على المدير الرئيسي" });
     return;
   }

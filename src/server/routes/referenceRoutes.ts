@@ -216,7 +216,8 @@ app.put("/api/admin/section-schedule-windows",requirePermission(7),requireRootAd
   if(!withinUniversityDay(timeToMinutes(startTime),timeToMinutes(endTime))){res.status(400).json({error:`الدوام المسموح يبقى داخل الدوام الشامل (${SCHEDULE_DAY_START_TIME}–${SCHEDULE_DAY_END_TIME}).`});return;}
   const sections:AdSection[]=await Repository.getSectionsByCollege(collegeId),sectionById=new Map<number,AdSection>(sections.map((section:AdSection):[number,AdSection]=>[Number(section.AdSectionId),section]));
   if(sectionIds.some(id=>!sectionById.has(id))){res.status(400).json({error:"بعض الأقسام المختارة لا تتبع الكلية المحددة."});return;}
-  await Promise.all(sectionIds.map(id=>Repository.setSectionScheduleDayWindow(id,startTime,endTime)));
+  await Repository.setSectionScheduleDayWindows(sectionIds,startTime,endTime);
+  res.locals.auditChanges=`الدوام المسموح ${startTime}–${endTime}: ${sectionIds.map(id=>sectionById.get(id)?.AdSectionName||id).join("، ")}`;
   sectionIds.forEach(id=>sectionScheduleWindowCache.delete(dataContextCacheKey(id)));
   const selectedIds=new Set(sectionIds),terms=sortTermsNewestServer(await Repository.getTerms()),termId=Number(currentTermId(terms as any)||terms[0]?.AdTermId||0),rows=termId?await Repository.getSchedulesByScope({collegeId,termId}):[];
   const outOfWindowAppointments=rows.filter(row=>selectedIds.has(Number(row.AdSectionId))&&(!withinScheduleDay(timeToMinutes(row.fstarttime),timeToMinutes(row.fendtime),{startTime,endTime}))).length;

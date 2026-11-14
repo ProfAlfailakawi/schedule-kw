@@ -12,8 +12,9 @@ import { Repository } from "../../db/repository";
 import { ADVISOR_ROLE, DEPARTMENT_HEAD_ROLE, planAdvisorAccounts, planDepartmentHeadAccounts } from "../../utils/departmentHeadAccounts";
 import { ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, isAcademicRole, roleDefinition, roleLabel, type AcademicRole } from "../../utils/academicRoles";
 import { AR, countOf } from "../../utils/arabicCount";
-import { adminSetPasswordFields } from "../accountPassword";
-import { authCache, type AuthenticatedRequest, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin } from "../core/auth";
+import { adminSetPasswordFields, newPasswordProblem } from "../accountPassword";
+import { authCache, type AuthenticatedRequest, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin, ROOT_ADMIN_USER_ID } from "../core/auth";
+import { adminPasswordProblem, userDeleteRefusal, userEditDiff, userEditRefusal } from "../userAdminGuards";
 import { safeSystemUser } from "../core/scope";
 
 /* The schedule workspace and مركز الذكاء are the same permission — every
@@ -131,6 +132,21 @@ async function advisorPlan() {
   return planAdvisorAccounts({ users: users as any, assigns, colleges, sections });
 }
 
+/**
+ * صلاحياتُ الحساب الرئيسي يكتبها صاحبُها وحده؛ ولا ينزع أحدٌ عن نفسه شاشةَ المستخدمين (١١) أو
+ * الصلاحيات (١٢) فيُغلق البابَ الذي يُعيدها.
+ */
+function permissionEditRefusal(req: AuthenticatedRequest, userId: number, nextFormIds: number[]): string | null {
+  const actorId = Number(req.user?.SystemUserId);
+  if (userId === ROOT_ADMIN_USER_ID && actorId !== ROOT_ADMIN_USER_ID) return "صلاحيات حساب الإدارة الرئيسي يعدّلها صاحبه وحده.";
+  if (userId === actorId) {
+    const held = req.permissions || [];
+    const lost = [11, 12].filter(id => held.includes(id) && !nextFormIds.includes(id));
+    if (lost.length) return "لا يمكنك نزع شاشة المستخدمين أو الصلاحيات عن حسابك أنت.";
+  }
+  return null;
+}
+
 export function registerUsersRoutes(app: Express): void {
 
 /** قائمة الأدوار كما تُعرض في شاشة المستخدمين. مصدرها الوحيد هو وحدة الأدوار. */
@@ -159,7 +175,9 @@ app.get("/api/users", requirePermission(11), async (req: Request, res: Response)
    */
   const users = usersList.map(user => ({
     ...safeSystemUser(user),
-    HasPassword: Boolean(String(user.SystemUserPass || "").trim())
+    HasPassword: Boolean(String(user.SystemUserPass || "").trim()),
+    /* الواجهةُ تُطفئ ما يرفضه الخادم على الحساب الرئيسي (userAdminGuards) وتقول لماذا. */
+    IsRootAccount: Number(user.SystemUserId) === ROOT_ADMIN_USER_ID
   }));
   res.json(users);
 });
@@ -172,6 +190,13 @@ app.post("/api/users", requirePermission(11), async (req: Request, res: Response
   }
   if (!Name || !SystemUserLogin || !password) {
     res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" });
+    return;
+  }
+  const passwordProblem = adminPasswordProblem(String(password));
+  if (passwordProblem) { res.status(400).json({ error: passwordProblem }); return; }
+  /* «مدير» تتخطّى النطاق كله: يمنحها الحساب الرئيسي وحده (src/server/userAdminGuards.ts). */
+  if (IsAdminUser && Number((req as AuthenticatedRequest).user?.SystemUserId) !== ROOT_ADMIN_USER_ID) {
+    res.status(403).json({ error: "منح صفة «مدير» لحساب الإدارة الرئيسي وحده." });
     return;
   }
   const exists = await Repository.getUserByLogin(SystemUserLogin);
@@ -222,7 +247,7 @@ app.post("/api/users", requirePermission(11), async (req: Request, res: Response
     await Repository.createSecurity(newUser.SystemUserId, DECISION_CENTRE_FORM_ID);
     if (Array.isArray(assigns)) await Repository.saveUserAssigns(newUser.SystemUserId, sanitizeAssigns(assigns));
   }
-  res.locals.auditChanges = `حساب جديد بصفة «${roleLabel(createdRole)}»`;
+  res.locals.auditChanges = `حساب جديد «${newUser.Name}» (${newUser.SystemUserLogin}) بصفة «${roleLabel(createdRole)}»${newUser.IsAdminUser ? "، مدير" : ""}${newUser.IsActive ? "" : "، موقوف"}`;
   res.status(201).json({ ...safeSystemUser(newUser), HasPassword: true });
 });
 
@@ -379,6 +404,21 @@ app.put("/api/users/:id", requirePermission(11), async (req: Request, res: Respo
     return;
   }
 
+  const actorReq = req as AuthenticatedRequest;
+  const actorId = Number(actorReq.user?.SystemUserId);
+  const before = await Repository.getUserById(id);
+  if (!before || before.IsDeleted) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
+  /* الحُرّاس قبل أي كتابة (src/server/userAdminGuards.ts). */
+  const refusal = userEditRefusal({
+    actor: { id: actorId, permissions: actorReq.permissions || [] },
+    rootId: ROOT_ADMIN_USER_ID,
+    before: before as any,
+    next: { IsAdminUser: !!IsAdminUser, IsActive: !!IsActive, IsLocked: !!IsLocked },
+    roleChanged: isAcademicRole(Role) && Role !== roleDefinition((before as any).Role).id,
+    users: (await Repository.getUsers()) as any,
+  });
+  if (refusal) { res.status(403).json({ error: refusal }); return; }
+
   const fields: Partial<typeof exists> = {
     Name,
     SystemUserLogin,
@@ -390,7 +430,19 @@ app.put("/api/users/:id", requirePermission(11), async (req: Request, res: Respo
   if (isAcademicRole(Role)) (fields as any).Role = Role;
 
   let resetsAnotherUser = false;
-  if (password && password.trim() !== "") {
+  const passwordChanged = Boolean(password && String(password).trim() !== "");
+  if (passwordChanged) {
+    const passwordProblem = adminPasswordProblem(String(password));
+    if (passwordProblem) { res.status(400).json({ error: passwordProblem }); return; }
+    /* كلمتُك أنت لا تُغيَّر من هنا بلا الكلمة الحالية — كما في «تغيير كلمة السر» تماماً:
+       جلسةٌ مستعارة لا تكفي لتبديل كلمة صاحبها. */
+    if (actorId === id) {
+      const current = String(req.body?.currentPassword ?? "");
+      if (!current) { res.status(400).json({ error: "لتغيير كلمة سرّك اكتب كلمة السر الحالية.", code: "current-password-required" }); return; }
+      if (!Repository.verifyPassword(current, String(before.SystemUserPass || ""))) { res.status(400).json({ error: "كلمة السر الحالية غير صحيحة" }); return; }
+      const ownProblem = newPasswordProblem(current, String(password));
+      if (ownProblem) { res.status(400).json({ error: ownProblem }); return; }
+    }
     fields.SystemUserPass = Repository.hashPassword(password);
     fields.SystemUserPassVault = Repository.encryptPasswordForVault(password);
     /* كلمةٌ عيّنها مسؤولٌ لغيره: يعرفها اثنان، فيغيّرها صاحبها عند دخوله ويخرج كلُّ جهازٍ مفتوح.
@@ -399,7 +451,6 @@ app.put("/api/users/:id", requirePermission(11), async (req: Request, res: Respo
     Object.assign(fields, resetsAnotherUser ? adminSetPasswordFields(password) : { InitialPasswordExpiresAt: "" });
   }
 
-  const before = await Repository.getUserById(id);
   try {
     const updated = await Repository.updateUser(id, fields);
     if (resetsAnotherUser) { await Repository.deleteSessionsForUser(id); authCache.clear(); }
@@ -464,13 +515,14 @@ app.put("/api/users/:id", requirePermission(11), async (req: Request, res: Respo
         }
       }
       await applyRoleTemplate(id, Role, { collegeIds, assigns: Array.isArray(assigns) ? sanitizeAssigns(assigns) : undefined });
-      res.locals.auditChanges = `الصفة: «${roleLabel(previousRole)}» ← «${roleLabel(Role)}»`;
     } else if (isAcademicRole(Role) && roleDefinition(Role).scopeMode === "college" && Array.isArray(collegeIds)) {
       /* الصفة كما هي وتغيّرت كلياتُها: يُكتب النطاق وحده، ولا تُمسّ الشاشات. */
       await applyRoleScopeOnly(id, Role, collegeIds);
     } else if (Array.isArray(assigns)) {
       await Repository.saveUserAssigns(id, sanitizeAssigns(assigns));
     }
+    /* السجلُّ يقول ما تغيّر: الاسم والدخول و«مدير» والتفعيل والقفل والصفة، وكلمةُ السر علامةً لا قيمة. */
+    res.locals.auditChanges = userEditDiff(before as any, updated as any, { passwordChanged, roleLabel: role => roleLabel(roleDefinition(role).id) });
     res.json({ ...safeSystemUser(updated), HasPassword: Boolean(String(updated.SystemUserPass || "").trim()) });
   } catch (e: any) {
     res.status(404).json({ error: e.message });
@@ -479,7 +531,14 @@ app.put("/api/users/:id", requirePermission(11), async (req: Request, res: Respo
 
 app.delete("/api/users/:id", requirePermission(11), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
+  const users = await Repository.getUsers();
+  const target = users.find(user => Number(user.SystemUserId) === id);
+  const refusal = userDeleteRefusal({ actor: { id: Number((req as AuthenticatedRequest).user?.SystemUserId), permissions: (req as AuthenticatedRequest).permissions || [] }, rootId: ROOT_ADMIN_USER_ID, target: target as any, users: users as any });
+  if (refusal) { res.status(target ? 403 : 404).json({ error: refusal }); return; }
   await Repository.deleteUser(id);
+  await Repository.deleteSessionsForUser(id);
+  authCache.clear();
+  res.locals.auditChanges = `حذف الحساب «${target!.Name}» (${target!.SystemUserLogin})${target!.IsAdminUser ? "، كان مديراً" : ""}`;
   res.json({ success: true });
 });
 
@@ -497,6 +556,8 @@ app.post("/api/permissions", requirePermission(12), async (req: Request, res: Re
   const userId = Number(req.body.SystemUserId);
   const formId = Number(req.body.FormNameId);
   if (!userId || !formId) { res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" }); return; }
+  const permissionRefusal = permissionEditRefusal(req as AuthenticatedRequest, userId, [formId, 11, 12]);
+  if (permissionRefusal) { res.status(403).json({ error: permissionRefusal }); return; }
   // Legacy FormSecurity has a row Id and no unique constraint on user/form. Preserve that CRUD model.
   const row = await Repository.createSecurity(userId, formId);
   res.status(201).json(row);
@@ -512,6 +573,8 @@ app.put("/api/permissions/user/:userId", requirePermission(12), async (req: Requ
   const known = new Set((await Repository.getFormNames()).map(form => Number(form.FormNameId)));
   const formIds = [...new Set(raw.map(Number))];
   if (formIds.some(id => !known.has(id))) { res.status(400).json({ error: "صلاحيةٌ غير معروفة" }); return; }
+  const permissionRefusal = permissionEditRefusal(req as AuthenticatedRequest, userId, formIds);
+  if (permissionRefusal) { res.status(403).json({ error: permissionRefusal }); return; }
   const { added, removed } = await Repository.saveSecurityByUser(userId, formIds);
   res.locals.auditChanges = `صلاحيات الحساب ${userId}: أُضيف [${added.join("، ") || "—"}]، وأُزيل [${removed.join("، ") || "—"}]`;
   res.json({ success: true, added, removed, permissions: await Repository.getSecurityByUser(userId) });
@@ -520,6 +583,12 @@ app.put("/api/permissions/user/:userId", requirePermission(12), async (req: Requ
 app.put("/api/permissions/:id", requirePermission(12), async (req: Request, res: Response) => {
   const legacyId = Number(req.params.id), userId = Number(req.body.SystemUserId), formId = Number(req.body.FormNameId);
   if (!legacyId || !userId || !formId) { res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" }); return; }
+  const previous = (await Repository.getFormSecurity()).find(item => Number(item.legacyId) === legacyId);
+  for (const owner of new Set([userId, Number(previous?.SystemUserId || userId)])) {
+    const next = (await Repository.getSecurityByUser(owner)).filter(item => item.legacyId !== legacyId).map(item => Number(item.FormNameId)).concat(owner === userId ? [formId] : []);
+    const permissionRefusal = permissionEditRefusal(req as AuthenticatedRequest, owner, next);
+    if (permissionRefusal) { res.status(403).json({ error: permissionRefusal }); return; }
+  }
   try { res.json(await Repository.updateSecurity(legacyId, userId, formId)); }
   catch (e:any) { res.status(404).json({ error:e.message }); }
 });
@@ -527,6 +596,12 @@ app.put("/api/permissions/:id", requirePermission(12), async (req: Request, res:
 app.delete("/api/permissions/:id", requirePermission(12), async (req: Request, res: Response) => {
   const legacyId = Number(req.params.id);
   if (!legacyId) { res.status(400).json({ error: "الصلاحية غير موجودة" }); return; }
+  const row = (await Repository.getFormSecurity()).find(item => Number(item.legacyId) === legacyId);
+  if (row) {
+    const remaining = (await Repository.getSecurityByUser(Number(row.SystemUserId))).filter(item => item.legacyId !== legacyId).map(item => Number(item.FormNameId));
+    const permissionRefusal = permissionEditRefusal(req as AuthenticatedRequest, Number(row.SystemUserId), remaining);
+    if (permissionRefusal) { res.status(403).json({ error: permissionRefusal }); return; }
+  }
   await Repository.deleteSecurity(legacyId);
   res.json({ success: true });
 });

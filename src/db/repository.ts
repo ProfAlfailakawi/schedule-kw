@@ -1128,7 +1128,17 @@ async function markRegistrationRunsStale(termId?: number): Promise<void> {
 
 const identityListeners = new Set<() => void>();
 /** Fired whenever an account, its permissions or its scopes change. */
-function announceIdentityChange() { for (const listener of identityListeners) listener(); }
+/** عدّادٌ يزيد مع كل تغيير هوية: قراءةٌ بدأت قبله لا تُحفظ في ذاكرة الهويات بعده (core/auth.ts). */
+let identityGeneration = 0;
+function announceIdentityChange() { identityGeneration += 1; for (const listener of identityListeners) listener(); }
+/**
+ * التبليغُ بعد الكتابة لا قبلها: كان يسبقها، فطلبٌ من صاحب الحساب يقرأ في أثناء الكتابة يعيد الهويةَ
+ * القديمة إلى الذاكرة دقيقتين بعد أن «مُسحت». والكتابةُ التي تفشل تُبلّغ أيضاً — المسحُ لا يضرّ.
+ */
+async function afterIdentityWrite<T>(write: () => Promise<T>): Promise<T> {
+  try { return await write(); }
+  finally { announceIdentityChange(); }
+}
 
 const registrationFactsChanged = (before?: StudentProfile, after?: StudentProfile | null) => JSON.stringify(before ? [before.AdCollegeId, before.AdSectionId, before.curriculumPlanId, before.passedCourseIds, before.wishes] : null)
   !== JSON.stringify(after ? [after.AdCollegeId, after.AdSectionId, after.curriculumPlanId, after.passedCourseIds, after.wishes] : null);
@@ -1249,7 +1259,8 @@ interface SystemExportJobRecord extends SystemExportJobSummary {
   fileChunkCount: number;
 }
 
-export type SystemImportJobStatus = "running" | "ready" | "failed";
+/* abandoned: أُلغيت المهمة بيد المدير (وأُعيد النظام إلى نقطة أمانها إن كانت مسّت شيئاً)، أو بتراجعٍ كامل. */
+export type SystemImportJobStatus = "running" | "ready" | "failed" | "abandoned";
 export type SystemImportJobPhase = "safety" | "apply" | "finalizing";
 
 export interface SystemImportJobSummary {
@@ -1989,7 +2000,7 @@ async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<Syst
   if (!firestoreDb || demoSandboxContext.getStore()) {
     let row = readLocalImportJob(id);
     if (!row || row.rootAdminId !== rootAdminId) throw new Error("مهمة الاستيراد غير موجودة");
-    if (row.status === "ready") return importJobSummary(row);
+    if (row.status === "ready" || row.status === "abandoned") return importJobSummary(row);
     try {
       if (!row.restorePointId) {
         const restore = await createSystemRestorePointFromExport("قبل الاستيراد الكامل", row.byUserId, row.safetyExportJobId, rootAdminId);
@@ -2011,7 +2022,7 @@ async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<Syst
   if (!snap.exists) throw new Error("مهمة الاستيراد غير موجودة");
   let row = snap.data() as SystemImportJobRecord;
   if (Number(row.rootAdminId) !== rootAdminId) throw new Error("مهمة الاستيراد لا تخص هذا الحساب");
-  if (row.status === "ready") return importJobSummary(row);
+  if (row.status === "ready" || row.status === "abandoned") return importJobSummary(row);
   if (row.status === "failed") { row.status = "running"; row.error = undefined; }
 
   try {
@@ -2079,6 +2090,58 @@ async function advanceSystemImportJob(id: string, rootAdminId = 1): Promise<Syst
     await root.set(row, { merge: false });
     return importJobSummary(row);
   }
+}
+
+/**
+ * ── إلغاءُ استيرادٍ لم يكتمل: العودةُ إلى نقطة أمانه ─────────────────────────────
+ *
+ * كانت مهمةٌ متوقّفة تسدّ الخزنة: لا يبدأ ملفٌّ آخر ما دامت «failed»، ولا بابَ لإلغائها، وما
+ * استُبدل من مجموعاتها يبقى مستبدلاً. الآن: مهمةٌ لم تتجاوز نقطةَ الأمان تُلغى فقط (لم يُمسّ شيء)؛
+ * ومهمةٌ بدأت الاستبدال يُعاد النظامُ فيها كاملاً من نقطة الأمان التي حفظتها قبل أول كتابة، ثم تُعلَّم
+ * «abandoned» فتنفتح الخزنة لملفٍّ جديد. والمرحلةُ المرفوعة تُحذف.
+ */
+async function abandonSystemImportJob(id: string, rootAdminId = 1): Promise<SystemImportJobSummary & { rolledBack: boolean }> {
+  const local = !firestoreDb || Boolean(demoSandboxContext.getStore());
+  const root = local ? null : firestoreDb!.collection(SYSTEM_IMPORT_JOB_COLLECTION).doc(id);
+  let row: SystemImportJobRecord | null;
+  if (root) {
+    const snap = await root.get();
+    row = snap.exists ? snap.data() as SystemImportJobRecord : null;
+  } else row = readLocalImportJob(id);
+  if (!row || Number(row.rootAdminId) !== rootAdminId) throw new Error("مهمة الاستيراد غير موجودة");
+  if (row.status === "ready") throw new Error("اكتمل هذا الاستيراد؛ للعودة عنه استعمل «تراجع كامل».");
+  if (row.status === "abandoned") return { ...importJobSummary(row), rolledBack: false };
+  /* محلياً يُستبدل النظامُ في خطوةٍ واحدة؛ وفي Firestore تبدأ الكتابةُ مع مرحلة apply. */
+  const touched = Boolean(row.restorePointId) && (local || row.phase !== "safety");
+  if (touched) {
+    const original = await loadSystemRestorePoint(String(row.restorePointId), rootAdminId);
+    await replaceSystemFromBackup(original, rootAdminId);
+    await markRestorePointConsumed(String(row.restorePointId));
+  }
+  row = { ...row, status: "abandoned", current: touched ? "أُلغي الاستيراد وعاد النظام إلى نقطة الأمان" : "أُلغي الاستيراد قبل أي تغيير", error: undefined, updatedAt: new Date().toISOString() };
+  if (root) {
+    await root.set(row, { merge: false });
+    try { await deleteFirestoreTree(root.collection("payloadChunks")); } catch {}
+  } else {
+    writeLocalImportJob(row);
+    try { fs.unlinkSync(localImportSourcePath(id)); } catch {}
+  }
+  return { ...importJobSummary(row), rolledBack: touched };
+}
+
+/** يُعلِّم مهمةَ استيرادٍ معلّقة «ملغاة» بلا استعادة — بعد تراجعٍ كاملٍ أعاد النظام بنفسه. */
+async function markOpenImportJobAbandoned(rootAdminId: number, note: string): Promise<void> {
+  const latest = await latestSystemImportJob(rootAdminId);
+  if (!latest || !["running", "failed"].includes(latest.status)) return;
+  const patch = { status: "abandoned" as const, current: note, error: undefined, updatedAt: new Date().toISOString() };
+  if (firestoreDb && !demoSandboxContext.getStore()) {
+    const ref = firestoreDb.collection(SYSTEM_IMPORT_JOB_COLLECTION).doc(latest.id);
+    await ref.set({ ...patch, error: null }, { merge: true });
+    try { await deleteFirestoreTree(ref.collection("payloadChunks")); } catch {}
+    return;
+  }
+  const row = readLocalImportJob(latest.id);
+  if (row) writeLocalImportJob({ ...row, ...patch });
 }
 
 function validateFirestoreDocumentPath(documentPath: string): boolean {
@@ -2817,6 +2880,8 @@ export const Repository = {
 
   /** يبلّغ ذاكرةَ الهويات أن شيئاً فيها تغيّر (شاغلُ كرسي، فريقُه، نائبُه)، فتُقرأ من جديد. */
   notifyIdentityChanged: (): void => { announceIdentityChange(); },
+  /** رقمُ الجيل الحالي لذاكرة الهويات (يُقرأ قبل قراءة الهوية ويُقارن قبل حفظها). */
+  identityGeneration: (): number => identityGeneration,
 
   // Audit log: additive operational history. It is intentionally separate from legacy tables.
   createAuditLog: async (entry: Omit<AuditLogEntry, "id" | "timestamp">): Promise<AuditLogEntry> => {
@@ -2832,13 +2897,25 @@ export const Repository = {
     return row;
   },
 
-  getAuditLogs: async (limit = 250): Promise<AuditLogEntry[]> => {
+  /**
+   * السجلُّ صفحةً صفحة: الأحدث أولاً، و`before` مؤشّرُ الصفحة التالية (طابعُ آخر سطرٍ قُرئ)،
+   * و`from`/`to` نطاقُ تاريخ. الترتيبُ والتصفيةُ على حقلٍ واحد (timestamp)، فلا فهرسَ مركّب.
+   */
+  getAuditLogs: async (limit = 250, range: { before?: string; from?: string; to?: string } = {}): Promise<AuditLogEntry[]> => {
     const safeLimit = Math.max(1, Math.min(1000, Number(limit) || 250));
+    const iso = (value?: string) => (value && !Number.isNaN(Date.parse(value)) ? new Date(value).toISOString() : "");
+    const before = iso(range.before), from = iso(range.from), to = iso(range.to);
     if (firestoreDb && !demoSandboxContext.getStore()) {
-      const snap = await firestoreDb.collection("auditLogs").orderBy("timestamp", "desc").limit(safeLimit).get();
+      let query: FirebaseFirestore.Query = firestoreDb.collection("auditLogs");
+      if (from) query = query.where("timestamp", ">=", from);
+      if (to) query = query.where("timestamp", "<=", to);
+      if (before) query = query.where("timestamp", "<", before);
+      const snap = await query.orderBy("timestamp", "desc").limit(safeLimit).get();
       return snap.docs.map(doc => doc.data() as AuditLogEntry);
     }
-    return [...(db.auditLogs || [])].sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp))).slice(0, safeLimit);
+    return [...(db.auditLogs || [])]
+      .filter(row => (!from || String(row.timestamp) >= from) && (!to || String(row.timestamp) <= to) && (!before || String(row.timestamp) < before))
+      .sort((a,b)=>String(b.timestamp).localeCompare(String(a.timestamp))).slice(0, safeLimit);
   },
 
   /* ── «👣 الأثر» (src/utils/activityTrail.ts) ─────────────────────────────────
@@ -2925,8 +3002,7 @@ export const Repository = {
     return db.users.find(u => u.SystemUserLogin.toLowerCase() === login.toLowerCase());
   },
 
-  createUser: async (user: Omit<SystemUser, "SystemUserId">): Promise<SystemUser> => {
-    announceIdentityChange();
+  createUser: async (user: Omit<SystemUser, "SystemUserId">): Promise<SystemUser> => afterIdentityWrite(async () => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const nextId = await reserveFirestoreIds("users");
       const newUser = { ...user, IsDeleted: user.IsDeleted ?? false, SystemUserId: nextId };
@@ -2938,10 +3014,9 @@ export const Repository = {
     db.users.push(newUser);
     saveDatabase();
     return newUser;
-  },
+  }),
 
-  updateUser: async (id: number, fields: Partial<SystemUser>): Promise<SystemUser> => {
-    announceIdentityChange();
+  updateUser: async (id: number, fields: Partial<SystemUser>): Promise<SystemUser> => afterIdentityWrite(async () => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const docRef = firestoreDb.collection("users").doc(`user_${id}`);
       const doc = await docRef.get();
@@ -2955,14 +3030,13 @@ export const Repository = {
     db.users[idx] = { ...db.users[idx], ...fields };
     saveDatabase();
     return db.users[idx];
-  },
+  }),
 
   /**
    * إعادةُ التعيين تكتب الكلمة وسجلَّها معاً في معاملةٍ واحدة: لو كُتبا منفصلين لاقترنت في إعادتين
    * متزامنتين كلمةُ إحداهما بسجلّ الأخرى، فتسقط عنها قاعدةُ الدخول الواحد.
    */
-  applyPasswordReset: async (id: number, fields: Partial<SystemUser>, record: { userId: number }, recordId: string): Promise<void> => {
-    announceIdentityChange();
+  applyPasswordReset: async (id: number, fields: Partial<SystemUser>, record: { userId: number }, recordId: string): Promise<void> => afterIdentityWrite(async () => {
     const key = featureDocId(recordId);
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const userRef = firestoreDb.collection("users").doc(`user_${id}`);
@@ -2981,7 +3055,7 @@ export const Repository = {
     const all = db.featureDocs || {};
     db.featureDocs = { ...all, passwordResets: { ...(all.passwordResets || {}), [key]: record } };
     saveDatabase();
-  },
+  }),
 
   /**
    * A deleted account takes its keys with it.
@@ -3037,8 +3111,7 @@ export const Repository = {
     return db.formSecurity.filter(fs => fs.SystemUserId === userId).sort((a,b)=>(a.legacyId ?? 0)-(b.legacyId ?? 0));
   },
 
-  createSecurity: async (userId: number, formId: number): Promise<FormSecurity> => {
-    announceIdentityChange();
+  createSecurity: async (userId: number, formId: number): Promise<FormSecurity> => afterIdentityWrite(async () => {
     invalidateReference(REFERENCE_KEYS.formNames);
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const legacyId = await reserveFirestoreIds("formSecurity");
@@ -3049,10 +3122,9 @@ export const Repository = {
     const legacyId = maxId(db.formSecurity, row => row.legacyId ?? 0) + 1;
     const row: FormSecurity = { legacyId, SystemUserId: userId, FormNameId: formId };
     db.formSecurity.push(row); saveDatabase(); return row;
-  },
+  }),
 
-  updateSecurity: async (legacyId: number, userId: number, formId: number): Promise<FormSecurity> => {
-    announceIdentityChange();
+  updateSecurity: async (legacyId: number, userId: number, formId: number): Promise<FormSecurity> => afterIdentityWrite(async () => {
     invalidateReference(REFERENCE_KEYS.formNames);
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const ref = firestoreDb.collection("formSecurity").doc(`permission_${legacyId}`);
@@ -3064,19 +3136,17 @@ export const Repository = {
     if (idx < 0) throw new Error("الصلاحية غير موجودة");
     db.formSecurity[idx] = { legacyId, SystemUserId: userId, FormNameId: formId };
     saveDatabase(); return db.formSecurity[idx];
-  },
+  }),
 
-  deleteSecurity: async (legacyId: number): Promise<void> => {
-    announceIdentityChange();
+  deleteSecurity: async (legacyId: number): Promise<void> => afterIdentityWrite(async () => {
     invalidateReference(REFERENCE_KEYS.formNames);
     if (firestoreDb && !demoSandboxContext.getStore()) { await firestoreDb.collection("formSecurity").doc(`permission_${legacyId}`).delete(); return; }
     db.formSecurity = db.formSecurity.filter(row => row.legacyId !== legacyId); saveDatabase();
-  },
+  }),
 
   // يستبدل مجموعةَ صلاحيات الحساب في كتابةٍ واحدة: يبقى ما بقي بمعرّفه، ويُحذف ما لم يُختر
   // (ومعه الصفوفُ بلا legacyId والمكرّرة)، ويأخذ الجديدُ معرّفاً جديداً. لا حالةَ نصفية عند الفشل.
-  saveSecurityByUser: async (userId: number, formIds: number[]): Promise<{ added: number[]; removed: number[] }> => {
-    announceIdentityChange();
+  saveSecurityByUser: async (userId: number, formIds: number[]): Promise<{ added: number[]; removed: number[] }> => afterIdentityWrite(async () => {
     invalidateReference(REFERENCE_KEYS.formNames);
     const wanted = new Set(formIds.map(Number).filter(id => Number.isInteger(id) && id > 0));
     const plan = <T extends { row: FormSecurity }>(items: T[]) => {
@@ -3114,7 +3184,7 @@ export const Repository = {
     db.formSecurity = [...db.formSecurity.filter(row => !dropped.has(row)), ...add.map(formId => ({ legacyId: ++next, SystemUserId: userId, FormNameId: formId }))];
     saveDatabase();
     return { added: add, removed };
-  },
+  }),
 
   // FormNames
   getFormNames: async (): Promise<FormName[]> => scopedCachedReference(REFERENCE_KEYS.formNames, async () => {
@@ -3142,8 +3212,7 @@ export const Repository = {
     return db.collegeUserAssign.filter(c => c.SystemUserId === userId).sort((a,b)=>(a.legacyId ?? 0)-(b.legacyId ?? 0));
   },
 
-  createUserAssign: async (userId:number, collegeId:number, sectionId:number): Promise<AdCollegeUserAssign> => {
-    announceIdentityChange();
+  createUserAssign: async (userId:number, collegeId:number, sectionId:number): Promise<AdCollegeUserAssign> => afterIdentityWrite(async () => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const legacyId = await reserveFirestoreIds("userScopes");
       const row: AdCollegeUserAssign = { legacyId, SystemUserId:userId, AdCollegeId:collegeId, AdSectionId:sectionId };
@@ -3152,10 +3221,9 @@ export const Repository = {
     const legacyId = maxId(db.collegeUserAssign, row => row.legacyId ?? 0) + 1;
     const row: AdCollegeUserAssign = { legacyId, SystemUserId:userId, AdCollegeId:collegeId, AdSectionId:sectionId };
     db.collegeUserAssign.push(row); saveDatabase(); return row;
-  },
+  }),
 
-  updateUserAssign: async (legacyId:number, userId:number, collegeId:number, sectionId:number): Promise<AdCollegeUserAssign> => {
-    announceIdentityChange();
+  updateUserAssign: async (legacyId:number, userId:number, collegeId:number, sectionId:number): Promise<AdCollegeUserAssign> => afterIdentityWrite(async () => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const ref=firestoreDb.collection("userScopes").doc(`scope_${legacyId}`); const snap=await ref.get();
       if(!snap.exists) throw new Error("صلاحية الكلية والقسم العلمي غير موجودة");
@@ -3163,16 +3231,14 @@ export const Repository = {
     }
     const idx=db.collegeUserAssign.findIndex(row=>row.legacyId===legacyId); if(idx<0) throw new Error("صلاحية الكلية والقسم العلمي غير موجودة");
     db.collegeUserAssign[idx]={legacyId,SystemUserId:userId,AdCollegeId:collegeId,AdSectionId:sectionId}; saveDatabase(); return db.collegeUserAssign[idx];
-  },
+  }),
 
-  deleteUserAssign: async (legacyId:number): Promise<void> => {
-    announceIdentityChange();
+  deleteUserAssign: async (legacyId:number): Promise<void> => afterIdentityWrite(async () => {
     if (firestoreDb && !demoSandboxContext.getStore()){await firestoreDb.collection("userScopes").doc(`scope_${legacyId}`).delete();return;}
     db.collegeUserAssign=db.collegeUserAssign.filter(row=>row.legacyId!==legacyId); saveDatabase();
-  },
+  }),
 
-  saveUserAssigns: async (userId: number, assigns: { AdCollegeId: number; AdSectionId: number }[]): Promise<void> => {
-    announceIdentityChange();
+  saveUserAssigns: async (userId: number, assigns: { AdCollegeId: number; AdSectionId: number }[]): Promise<void> => afterIdentityWrite(async () => {
     const existing = await Repository.getUserAssigns(userId);
     const targetCounts = new Map<string, number>();
     for (const a of assigns) { const k=`${a.AdCollegeId}:${a.AdSectionId}`; targetCounts.set(k,(targetCounts.get(k)||0)+1); }
@@ -3187,7 +3253,7 @@ export const Repository = {
       const k=`${a.AdCollegeId}:${a.AdSectionId}`; const remaining=existingCounts.get(k)||0;
       if(remaining>0) existingCounts.set(k,remaining-1); else await Repository.createUserAssign(userId,a.AdCollegeId,a.AdSectionId);
     }
-  },
+  }),
 
   // Terms
   getTerms: async (): Promise<AdTerm[]> => scopedCachedReference(REFERENCE_KEYS.terms, async () => {
@@ -3525,6 +3591,28 @@ export const Repository = {
     section.scheduleDayEndTime = endTime;
     saveDatabase();
     return section;
+  },
+
+  /**
+   * دوامُ عدة أقسام في كتابةٍ واحدة: كلُّها أو لا شيء. كان كلُّ قسمٍ يُكتب وحده بالتوازي، فتعثّرُ واحدٍ
+   * يترك الكلية نصفها على الدوام الجديد ونصفها على القديم والشاشةُ تقول «تعذّر».
+   */
+  setSectionScheduleDayWindows: async (ids: number[], startTime: string, endTime: string): Promise<void> => {
+    invalidateReference(REFERENCE_KEYS.sections);
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      const refs = ids.map(id => firestoreDb!.collection("sections").doc(`section_${id}`));
+      await firestoreDb.runTransaction(async tx => {
+        const docs = await Promise.all(refs.map(ref => tx.get(ref)));
+        if (docs.some(doc => !doc.exists)) throw new Error("القسم غير موجود");
+        docs.forEach((doc, index) => tx.set(refs[index], { ...doc.data(), scheduleDayStartTime: startTime, scheduleDayEndTime: endTime }));
+      });
+      invalidateScheduleRelationCache();
+      return;
+    }
+    const rows = ids.map(id => db.sections.find(row => Number(row.AdSectionId) === Number(id)));
+    if (rows.some(row => !row)) throw new Error("القسم غير موجود");
+    for (const section of rows) { section!.scheduleDayStartTime = startTime; section!.scheduleDayEndTime = endTime; }
+    saveDatabase();
   },
 
   deleteSection: async (id: number): Promise<void> => {
@@ -8772,26 +8860,10 @@ export const Repository = {
   getSystemRestorePoints: async (): Promise<SystemRestorePointSummary[]> =>
     listSystemRestorePoints(),
 
-  importSystemBackup: async (input: unknown, byUserId: number, rootAdminId = 1): Promise<{ backup: SystemBackupPayload; restorePoint: SystemRestorePointSummary }> => {
-    const backup = validateSystemBackupPayload(input, rootAdminId);
-    const restorePoint = await saveSystemRestorePoint("قبل الاستيراد الكامل", byUserId, rootAdminId);
-    try {
-      await replaceSystemFromBackup(backup, rootAdminId);
-      return { backup, restorePoint };
-    } catch (error: any) {
-      // Full-system replacement spans many Firestore batches. Treat the saved
-      // point as a transaction journal: if any batch fails, put the exact old
-      // state back before surfacing the error instead of leaving half a system.
-      try {
-        const original = await loadSystemRestorePoint(restorePoint.id, rootAdminId);
-        await replaceSystemFromBackup(original, rootAdminId);
-        await markRestorePointConsumed(restorePoint.id);
-      } catch (rollbackError: any) {
-        throw new Error(`تعذر الاستيراد وتعذر التراجع التلقائي: ${String(rollbackError?.message || rollbackError)}`);
-      }
-      throw new Error(`تعذر الاستيراد؛ أعاد النظام حالته السابقة تلقائياً. ${String(error?.message || error)}`);
-    }
-  },
+  /* الاستيرادُ دفعةً واحدة (importSystemBackup) أُزيل: لم يعد يناديه مسار، وحلّ محلّه الاستيرادُ المتدرّج
+     وإلغاؤه بالعودة إلى نقطة الأمان (abandonSystemImportJob). */
+  abandonSystemImportJob: async (id: string, rootAdminId = 1): Promise<SystemImportJobSummary & { rolledBack: boolean }> =>
+    abandonSystemImportJob(id, rootAdminId),
 
   resetSystem: async (byUserId: number, rootAdminId = 1): Promise<SystemRestorePointSummary> => {
     const restorePoint = await saveSystemRestorePoint("قبل تصفير النظام", byUserId, rootAdminId);
@@ -8821,6 +8893,8 @@ export const Repository = {
     try {
       await replaceSystemFromBackup(backup, rootAdminId);
       await markRestorePointConsumed(target.id);
+      /* استيرادٌ متوقّف قبل هذا التراجع لا يبقى معلّقاً يُستكمل فوق ما أُعيد: يُعلَّم ملغى. */
+      await markOpenImportJobAbandoned(rootAdminId, "أُلغي بالتراجع الكامل");
       return { restored: { ...target, consumedAt: new Date().toISOString() }, redoPoint };
     } catch (error: any) {
       try {

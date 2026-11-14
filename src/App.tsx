@@ -2091,7 +2091,7 @@ export default function App() {
         );
       case "users":
         return isPowerAdmin && hasPerm(11) ? (
-          <AdminUsers mode="users" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} demoReadOnly={Boolean(user.IsDemo)} />
+          <AdminUsers mode="users" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} currentUserId={Number(user.SystemUserId)} demoReadOnly={Boolean(user.IsDemo)} />
         ) : (
           unauthorized()
         );
@@ -2126,15 +2126,17 @@ export default function App() {
           unauthorized()
         );
       case "roomSetup":
-        return user.IsRootAdmin && allowed.admin ? (
+        /* الحارسُ نفسه في الخادم: الحساب الرئيسي مع شاشة الجدول (٧) — src/server/routes/locationsRoutes.ts. */
+        return user.IsRootAdmin && allowed.admin && hasPerm(7) ? (
           <AdminUsers mode="roomSetup" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
         ) : unauthorized();
       case "sectionHours":
-        return allowed.admin ? (
-          <AdminUsers mode="sectionHours" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} demoReadOnly={Boolean(user.IsDemo)} />
+        /* التعديلُ لمن يقبله الخادم (الحساب الرئيسي مع الشاشة ٧)، والقراءةُ لإدارة النظام كما السجل. */
+        return isPowerAdmin && allowed.admin ? (
+          <AdminUsers mode="sectionHours" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin) && hasPerm(7)} demoReadOnly={Boolean(user.IsDemo)} />
         ) : unauthorized();
       case "teachingLoad":
-        return user.IsRootAdmin && allowed.admin ? (
+        return user.IsRootAdmin && allowed.admin && hasPerm(7) ? (
           <AdminUsers mode="teachingLoad" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
         ) : unauthorized();
       case "backup":
