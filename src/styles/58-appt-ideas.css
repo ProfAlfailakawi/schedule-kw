@@ -111,3 +111,15 @@
 .fit-chip.tone-bad,.fit-chip.is-alarm{background:var(--danger-soft);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 32%,var(--line))}
 @media print{.fit-strip{display:none}}
 .pulse-best-days{font-size:11.5px;font-weight:700;opacity:.85}
+
+/* نبض الطلبة مسكّرٌ افتراضاً (2026-11-14): سطرٌ واحد — العنوان والشرائح و«أفضل وقت» — ويُفتح التفصيل لمن يريد */
+.student-pulse.is-closed{gap:0;padding:8px 12px}
+.pulse-toggle{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0;padding:0;border:0;background:none;font:inherit;color:inherit;text-align:start;cursor:pointer;border-radius:12px}
+.pulse-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.pulse-toggle .pulse-head-copy{min-width:0;flex:1}
+.pulse-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
+.pulse-chevron{width:18px;height:18px;flex:none;color:var(--muted);transition:transform .2s var(--ease-out,ease-out)}
+.student-pulse.is-open .pulse-chevron{transform:rotate(180deg)}
+.pulse-toggle:hover .pulse-chevron{color:var(--ink-2)}
+.pulse-body{display:grid;gap:12px;animation:pulse-in .24s var(--ease-out,ease-out) both}
+@media (prefers-reduced-motion:reduce){.pulse-chevron{transition:none}.pulse-body{animation:none}}

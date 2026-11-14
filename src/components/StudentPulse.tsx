@@ -1,7 +1,8 @@
-import React from "react";
-import { ChevronLeft, GraduationCap, Layers3, Loader2, Sparkles, TriangleAlert, Users } from "lucide-react";
+import React, { useId, useState } from "react";
+import { ChevronDown, ChevronLeft, GraduationCap, Layers3, Loader2, Sparkles, TriangleAlert, Users } from "lucide-react";
 import type { FitSide, StudentFit } from "../utils/studentFit";
 import { AR, countOf } from "../utils/arabicCount";
+import { safeStorage } from "../utils/safeStorage";
 
 /**
  * ── «نبض الطلبة» في نموذج الموعد ─────────────────────────────────────────────
@@ -88,6 +89,9 @@ export function FitImpact({ impact }: { impact: SaveImpact }) {
   );
 }
 
+/** مسكّرةٌ افتراضاً؛ ومن فتحها بقيت مفتوحةً له على هذا الجهاز (طلب المالك 2026-11-14). */
+const OPEN_KEY = "schedule-pulse-open";
+
 export default function StudentPulse({ fit, graduateImpact, best, onPickBest, bestBusy = false, currentDays = [] }: {
   fit: StudentFit | null;
   graduateImpact?: { graduates: number; pairs?: string[] } | null;
@@ -99,6 +103,9 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest, be
   /** أيام الموعد الحالية: حين تخالف أيامَ أفضل وقتٍ تُذكر الأيام في الزرّ، وإلا قيل «08:00» وهو الوقت الحالي نفسه ظاهراً. */
   currentDays?: readonly string[];
 }) {
+  const bodyId = useId();
+  const [open, setOpenState] = useState(() => safeStorage.get(OPEN_KEY) === "on");
+  const setOpen = (next: boolean) => { setOpenState(next); safeStorage.set(OPEN_KEY, next ? "on" : "off"); };
   if (!fit) return null;
   const grad = fit.graduates, stud = fit.students;
   if (!grad && !stud) return null;
@@ -106,15 +113,23 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest, be
   const current = grad?.percent ?? stud?.percent ?? null;
   const showBest = Boolean(best && onPickBest && current != null && best.percent >= current + 5);
   const bestDays = best && best.days.join() !== [...currentDays].join() ? best.days.map(day => DAY_SHORT[day]).filter(Boolean).join("·") : "";
+  const chips = fitChipsOf(fit, graduateImpact);
   return (
-    <section className="student-pulse" aria-label="نبض الطلبة: من يناسبهم هذا الوقت" role="status">
+    <section className={`student-pulse ${open ? "is-open" : "is-closed"}`} aria-label="نبض الطلبة: من يناسبهم هذا الوقت" role="status">
       <header className="pulse-head">
-        <span className="pulse-mark" aria-hidden="true"><GraduationCap /></span>
-        <div className="pulse-head-copy">
-          <b>نبض الطلبة</b>
-          <small>من يناسبه هذا الوقت ممن يحتاجون المقرر {trackWord(fit.track)} · تقديرٌ من الطلب الفعلي</small>
-        </div>
-        {sectionsChanged ? (
+        <button type="button" className="pulse-toggle" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(!open)}
+          title={open ? "طيّ نبض الطلبة" : "افتح نبض الطلبة: التفصيل والمقررات التي يحجبها الوقت"}
+          data-guide-ignore="يفتح بطاقة نبض الطلبة أو يطويها؛ لا يغيّر الموعد">
+          <span className="pulse-mark" aria-hidden="true"><GraduationCap /></span>
+          <span className="pulse-head-copy">
+            <b>نبض الطلبة</b>
+            {open
+              ? <small>من يناسبه هذا الوقت ممن يحتاجون المقرر {trackWord(fit.track)} · تقديرٌ من الطلب الفعلي</small>
+              : <span className="pulse-chips">{chips.map(chip => pulseChip(chip))}</span>}
+          </span>
+          <ChevronDown className="pulse-chevron" aria-hidden="true" />
+        </button>
+        {open && sectionsChanged ? (
           <span className="pulse-sections" title="شعب المقرر في هذا المسار قبل هذا الموعد وبعده">
             <Layers3 aria-hidden="true" /><bdi dir="ltr">{fit.sections.before}</bdi><span aria-hidden="true">←</span><bdi dir="ltr">{fit.sections.after}</bdi><small>{AR.section.few}</small>
           </span>
@@ -128,22 +143,34 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest, be
           </button>
         ) : null}
       </header>
-      {graduateImpact && graduateImpact.graduates > 0 ? (
-        <p className="pulse-alarm">
-          <TriangleAlert aria-hidden="true" />
-          <span className="pulse-alarm-copy">
-            <span>تعارضٌ لا مفرّ منه يمسّ <b>{countOf(graduateImpact.graduates, AR.graduate)}</b></span>
-            {(graduateImpact.pairs || []).map(pair => <bdi key={pair} dir="ltr" className="pulse-pair">{pair}</bdi>)}
-          </span>
-        </p>
+      {open ? (
+        <div className="pulse-body" id={bodyId}>
+          {graduateImpact && graduateImpact.graduates > 0 ? (
+            <p className="pulse-alarm">
+              <TriangleAlert aria-hidden="true" />
+              <span className="pulse-alarm-copy">
+                <span>تعارضٌ لا مفرّ منه يمسّ <b>{countOf(graduateImpact.graduates, AR.graduate)}</b></span>
+                {(graduateImpact.pairs || []).map(pair => <bdi key={pair} dir="ltr" className="pulse-pair">{pair}</bdi>)}
+              </span>
+            </p>
+          ) : null}
+          <div className="pulse-sides">
+            {grad ? <Side side={grad} kind="grad" /> : null}
+            {stud ? <Side side={stud} kind="stud" /> : null}
+          </div>
+          <small className="pulse-foot">ملاحظةٌ لا تمنع الحفظ · الأرقام بجانب المقررات: من يحجبهم الوقت عنها</small>
+        </div>
       ) : null}
-      <div className="pulse-sides">
-        {grad ? <Side side={grad} kind="grad" /> : null}
-        {stud ? <Side side={stud} kind="stud" /> : null}
-      </div>
-      <small className="pulse-foot">ملاحظةٌ لا تمنع الحفظ · الأرقام بجانب المقررات: من يحجبهم الوقت عنها</small>
     </section>
   );
+}
+
+/** شريحةٌ واحدة من شرائح النبض (الشريط الصغير في البطاقة السريعة، والبطاقة المطويّة هنا). */
+function pulseChip(chip: FitChip) {
+  const Icon = chip.kind === "alarm" ? TriangleAlert : chip.kind === "grad" ? GraduationCap : Users;
+  return <span key={chip.key} className={`fit-chip is-${chip.kind} tone-${chip.tone}`} title={chip.title}>
+    <Icon aria-hidden="true" /><span>{chip.label}</span><b dir="ltr">{chip.value}</b>
+  </span>;
 }
 
 /**
@@ -170,12 +197,7 @@ export function FitStrip({ fit, graduateImpact }: { fit: StudentFit | null | und
   if (!chips.length) return null;
   return (
     <div className="fit-strip" role="status" aria-label="نبض الطلبة: من يناسبهم هذا الوقت">
-      {chips.map(chip => {
-        const Icon = chip.kind === "alarm" ? TriangleAlert : chip.kind === "grad" ? GraduationCap : Users;
-        return <span key={chip.key} className={`fit-chip is-${chip.kind} tone-${chip.tone}`} title={chip.title}>
-          <Icon aria-hidden="true" /><span>{chip.label}</span><b dir="ltr">{chip.value}</b>
-        </span>;
-      })}
+      {chips.map(chip => pulseChip(chip))}
     </div>
   );
 }
