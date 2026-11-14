@@ -122,6 +122,7 @@
     "test:student-advice": "tsx tests/student-advice-audit.ts",
     "test:inbox-heat": "tsx tests/inbox-heat-audit.ts",
     "test:wish-patterns": "tsx tests/wish-patterns-audit.ts",
+    "test:ladder-start-hint": "tsx tests/ladder-start-hint-audit.ts",
     "test:curriculum-reference-pdf": "tsx tests/curriculum-reference-pdf-audit.ts",
     "test:reference-apply": "tsx tests/reference-apply-audit.ts",
     "test:schedule-apply": "tsx tests/schedule-apply-proposal-audit.ts",
