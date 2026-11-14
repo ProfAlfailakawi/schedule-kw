@@ -24,7 +24,8 @@ import { pushHooks } from "../pushRoutes";
 import { isTaRequest } from "../../utils/requestParticipation";
 import { emptyOfferingDoc, normalizeLevel, normalizeOfferingEntry, offeringDocId, offeringEntryIsDefault, suggestFutureCourses, type CourseInterestDoc, type CourseOfferingDoc } from "../../utils/courseOffering";
 import { compactReach, forgetCourseReach, reachForScope } from "../courseReachShared";
-import { alternativeSections, baseCapacityFor, nearFull, normalizeQuotaConfig, sectionKey, seatState, tryAddSeats, type SeatLedger, type SeatQuotaConfig } from "../../utils/advisorSeats";
+import { alternativeSections, baseCapacityFor, mineIn, nearFull, applySeatException, normalizeQuotaConfig, pendingExceptionOf, quotaFor, SEAT_CONFIG_MAX, sectionKey, seatState, seatWritePowers, tryAddSeats, undoLastAdd, type SeatLedger, type SeatQuotaConfig } from "../../utils/advisorSeats";
+import { termIsFrozen } from "../../utils/termSequence";
 import { countdown, dueWaves, phaseOpen, planWaves, vacantSections, vacantSummary, type TaPhaseDoc, type TaWave } from "../../utils/taPhase";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
 import { refuseIfTermFrozen } from "../core/approvals";
@@ -328,22 +329,43 @@ app.get("/api/advisor-seats", requireAnyPermission([7, 14]), async (req: Authent
     Repository.listFeatureDocs<any>("advisorSeatRequests", `${id}:`),
   ]);
   const sections = await seatSections(collegeId, sectionId, termId, config);
+  const me = Number(req.user?.SystemUserId || 0);
+  const powers = await seatPowersOf(req);
   res.setHeader("Cache-Control", "no-store");
-  res.json({ config: config || normalizeQuotaConfig({}, id), sections,
+  res.json({ config: config || normalizeQuotaConfig({}, id),
+    /* ما أضفتُه أنا في كل شعبة وآخرُ إضافةٍ لي: بها يُرسم «تراجع» لصاحبها وحده. */
+    sections: sections.map(row => ({ ...row, mine: mineIn(row.ledger, me) })),
     nearFull: nearFull(sections.map(row => row.ledger), config).map(row => ({ key: row.ledger.id, state: row.state, byAdvisor: row.byAdvisor })),
-    requests: requests.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 50),
-    canConfigure: !isAdvisorRole(req.user?.Role) && !isReadOnlyRole(req.user?.Role) });
+    /* المعلّقُ أولاً (هو ما ينتظر البتّ)، ثم الأحدث. */
+    requests: requests.sort((a, b) => Number(b.status === "pending") - Number(a.status === "pending") || String(b.at).localeCompare(String(a.at))).slice(0, 50),
+    canConfigure: powers.canConfigure, canAdd: powers.canAdd, maxConfig: SEAT_CONFIG_MAX,
+    frozen: termIsFrozen(termId, (await Repository.getTerms()) as any) });
 });
+
+/** صلاحياتُ الكتابة في الرصيد لهذا الحساب: الحكمُ نفسُه للعرض وللحراسة (seatWritePowers). */
+async function seatPowersOf(req: AuthenticatedRequest) {
+  const granted = req.permissions ?? (req.user ? (await Repository.getSecurityByUser(req.user.SystemUserId)).map(item => Number(item.FormNameId)) : []);
+  return seatWritePowers({
+    power: Boolean(req.user?.IsAdminUser),
+    readOnly: isReadOnlyRole(req.user?.Role),
+    advisor: isAdvisorRole(req.user?.Role),
+    granted: granted.map(Number),
+  });
+}
 
 app.put("/api/advisor-seats/config", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
   if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  if (!(await seatPowersOf(req)).canConfigure) { res.status(403).json({ error: "إعدادُ الرصيد للمسؤول (صلاحية الجدول)، لا للمرشد." }); return; }
+  if (await refuseIfTermFrozen(res, termId)) return;
   const id = seatConfigId(collegeId, sectionId, termId);
   /* ذرّي بختم الإصدار: حفظُ زميلٍ قبلي — أو سعةٌ كتبها طلبُ شعبة — لا يُمحى بنسخةٍ قديمة في يدي. */
   const expected = expectedRev(req.body?.rev ?? req.body?.config?.rev);
   const out = await Repository.updateFeatureDoc<SeatQuotaConfig, null>("advisorSeatLedgers", `config:${id}`, current => {
     if (expected !== null && Number(current?.rev || 0) !== expected) return { refuse: null };
-    return { next: { ...normalizeQuotaConfig(req.body?.config, id), rev: Number(current?.rev || 0) + 1 }, result: null };
+    /* سجلُّ الاستثناءات المطبَّقة يملكه الخادم: حفظُ الإعداد من النموذج لا يمحوه. */
+    const kept = Array.isArray((current as any)?.appliedExceptions) ? { appliedExceptions: (current as any).appliedExceptions } : {};
+    return { next: { ...normalizeQuotaConfig({ ...(req.body?.config || {}), ...kept }, id), rev: Number(current?.rev || 0) + 1 }, result: null };
   });
   if (!out.ok) { res.status(409).json(staleWriteBody()); return; }
   const config = out.next;
@@ -355,6 +377,8 @@ app.put("/api/advisor-seats/config", requirePermission(7), async (req: Authentic
 app.post("/api/advisor-seats/add", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
   if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  if (!(await seatPowersOf(req)).canAdd) { res.status(403).json({ error: "رصيدُ المقاعد يُضاف منه بصفة المرشد أو صفةٍ تكتب." }); return; }
+  if (await refuseIfTermFrozen(res, termId)) return;
   const id = seatConfigId(collegeId, sectionId, termId);
   const config = await Repository.getFeatureDoc<SeatQuotaConfig>("advisorSeatLedgers", `config:${id}`);
   const sections = await seatSections(collegeId, sectionId, termId, config);
@@ -382,18 +406,107 @@ app.post("/api/advisor-seats/add", requireAnyPermission([7, 14]), async (req: Au
   res.status(out.ok ? 200 : 409).json({ ...result, alternatives, ...(out.ok ? { state: seatState(out.next as SeatLedger, config), rev: (out.next as SeatLedger).adds.length } : {}) });
 });
 
+/**
+ * التراجعُ عن إضافة: آخرُ إضافةٍ كتبها هذا المرشدُ نفسُه في الشعبة (undoLastAdd) — لا إضافةُ زميل. ذرّيٌّ بختم
+ * الإصدار نفسه (عددُ الإضافات التي رآها)، ويُكتب في سجلّ التدقيق والأثر كما تُكتب الإضافة.
+ */
+app.post("/api/advisor-seats/undo", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  if (!(await seatPowersOf(req)).canAdd) { res.status(403).json({ error: "رصيدُ المقاعد يُضاف منه بصفة المرشد أو صفةٍ تكتب." }); return; }
+  if (await refuseIfTermFrozen(res, termId)) return;
+  const id = seatConfigId(collegeId, sectionId, termId);
+  const config = await Repository.getFeatureDoc<SeatQuotaConfig>("advisorSeatLedgers", `config:${id}`);
+  const sections = await seatSections(collegeId, sectionId, termId, config);
+  const target = sections.find(row => row.key === String(req.body?.key || ""));
+  if (!target) { res.status(404).json({ error: "الشعبة ليست في جدول هذا القسم." }); return; }
+  const me = Number(req.user?.SystemUserId || 0);
+  const expected = expectedRev(req.body?.rev);
+  let stale = false;
+  const out = await Repository.updateFeatureDoc<SeatLedger, { removed: number } | null>("advisorSeatLedgers", target.key, current => {
+    if (expected !== null && (current?.adds || []).length !== expected) { stale = true; return { refuse: null }; }
+    const undone = undoLastAdd({ ...target.ledger, adds: current?.adds || [] }, me);
+    return undone ? { next: undone.next, result: { removed: Number(undone.removed.count) || 0 } } : { refuse: null };
+  });
+  if (stale) { res.status(409).json(staleWriteBody()); return; }
+  if (!out.ok) { res.status(409).json({ error: "لا إضافةَ لك في هذه الشعبة يُتراجع عنها.", icon: "⛔" }); return; }
+  const removed = Number(out.result?.removed || 0);
+  bumpTeamWork(Repository.currentDemoSessionId(), collegeId, termId);
+  res.locals.auditChanges = `مرشد: تراجع عن +${countOf(removed, AR.seat)} · ${target.courseName} (${target.section})`;
+  noteTrail(res, { target: `مقاعد المرشد · ${target.courseName} (${target.section})`, after: `−${countOf(removed, AR.seat)}`, scope: { collegeId, sectionId, termId } });
+  const state = seatState(out.next as SeatLedger, config);
+  res.json({ ok: true, icon: "↩️", message: `تراجعتَ عن ${countOf(removed, AR.seat)} · متبقٍّ ${state.remaining}`, state, rev: (out.next as SeatLedger).adds.length });
+});
+
 app.post("/api/advisor-seats/exception", requireAnyPermission([7, 14]), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
   if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  if (!(await seatPowersOf(req)).canAdd) { res.status(403).json({ error: "طلبُ الاستثناء بصفة المرشد أو صفةٍ تكتب." }); return; }
+  if (await refuseIfTermFrozen(res, termId)) return;
   const id = seatConfigId(collegeId, sectionId, termId);
   const key = String(req.body?.key || "").slice(0, 80), count = Math.max(1, Math.min(50, Math.trunc(Number(req.body?.count || 1))));
   const note = String(req.body?.note || "").trim().slice(0, 300);
+  const sections = await seatSections(collegeId, sectionId, termId, await Repository.getFeatureDoc<SeatQuotaConfig>("advisorSeatLedgers", `config:${id}`));
+  if (!sections.some(row => row.key === key)) { res.status(404).json({ error: "الشعبة ليست في جدول هذا القسم." }); return; }
+  const me = Number(req.user?.SystemUserId || 0);
+  /* طلبٌ معلّقٌ لي على الشعبة نفسها: لا ثانٍ — يُقال إنه عند المسؤول. */
+  const twin = pendingExceptionOf(await Repository.listFeatureDocs<any>("advisorSeatRequests", `${id}:`), key, me);
+  if (twin) { res.status(409).json({ error: `طلبُك السابق (+${twin.count}) لهذه الشعبة ما زال عند المسؤول.`, code: "duplicate-exception" }); return; }
   const at = new Date().toISOString();
-  const row = { id: `${id}:${Date.now()}`, scope: id, key, count, note, at, by: String(req.user?.Name || req.user?.UserName || "مرشد"), status: "pending" };
+  const row = { id: `${id}:${Date.now()}`, scope: id, key, count, note, at, by: String(req.user?.Name || req.user?.UserName || "مرشد"), byId: me, status: "pending" };
   await Repository.saveFeatureDoc("advisorSeatRequests", row.id, row);
+  res.locals.auditChanges = `مقاعد المرشد: طلب استثناء +${countOf(count, AR.seat)} · ${key}`;
   noteTrail(res, { target: "مقاعد المرشد · طلب استثناء", after: countOf(count, AR.seat), ...(note ? { detail: note } : {}), scope: { collegeId, sectionId, termId } });
   broadcastNotify(Repository.currentDemoSessionId());
   bumpTeamWork(Repository.currentDemoSessionId(), collegeId, termId);
   res.json({ ok: true, request: row, hint: "طلبك عند المسؤول · قد يقترح فتح شعبة جديدة" });
+});
+
+/**
+ * البتُّ في طلب الاستثناء — للمسؤول (FR-STU-024: «طلب استثناء للمسؤول»)، أي صاحب إعداد الرصيد نفسه.
+ * الموافقةُ ترفع رصيد تلك الشعبة بعدد الطلب (حتى الحدّ ٢٠٠) في الإعداد ذرّياً، والاعتذارُ يُغلق الطلب بسطرٍ اختياري.
+ */
+app.post("/api/advisor-seats/exception/resolve", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.body?.collegeId || 0), sectionId = Number(req.body?.sectionId || 0), termId = Number(req.body?.termId || 0);
+  if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
+  if (!(await seatPowersOf(req)).canConfigure) { res.status(403).json({ error: "البتُّ في الاستثناء للمسؤول (صلاحية الجدول)، لا للمرشد." }); return; }
+  if (await refuseIfTermFrozen(res, termId)) return;
+  const id = seatConfigId(collegeId, sectionId, termId);
+  const requestId = String(req.body?.id || "");
+  const decision = String(req.body?.decision || "");
+  if (!requestId.startsWith(`${id}:`) || (decision !== "approved" && decision !== "declined")) { res.status(400).json({ error: "حدّد الطلب والقرار: موافقة أو اعتذار." }); return; }
+  const note = String(req.body?.note || "").trim().slice(0, 300);
+  const at = new Date().toISOString();
+  const by = String(req.user?.Name || req.user?.UserName || "المسؤول");
+  /* الموافقةُ خطوتان في مجموعتين: رفعُ رصيد الشعبة أولاً، وهو يُطبَّق مرّةً واحدة لكل طلب (appliedExceptions)،
+     ثم إغلاقُ الطلب. فإن تعذّر الإغلاقُ بعد الرفع بقي الطلبُ «معلّقاً» وأعادت الموافقةُ إغلاقَه بلا زيادةٍ ثانية،
+     ولا يُستهلك طلبٌ «موافَقٌ عليه» بلا مقاعد. */
+  const pending = await Repository.getFeatureDoc<any>("advisorSeatRequests", requestId);
+  if (!pending) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف." }); return; }
+  if (pending.status !== "pending") { res.status(409).json({ error: "بُتّ في هذا الطلب من قبل." }); return; }
+  let quota: number | null = null;
+  if (decision === "approved") {
+    const raised = await Repository.updateFeatureDoc<SeatQuotaConfig, number>("advisorSeatLedgers", `config:${id}`, current => {
+      const config = normalizeQuotaConfig(current || {}, id);
+      const step = applySeatException(config, requestId, String(pending.key), Number(pending.count || 0));
+      return { next: { ...step.config, rev: Number(current?.rev || 0) + (step.applied ? 1 : 0) }, result: step.quota };
+    });
+    if (!raised.ok) { res.status(409).json({ error: "تعذّر رفعُ رصيد الشعبة؛ لم يُغلق الطلب. أعد المحاولة." }); return; }
+    quota = Number(raised.result);
+  }
+  const closed = await Repository.updateFeatureDoc<any, any>("advisorSeatRequests", requestId, current => {
+    if (!current) return { refuse: { status: 404, error: "لا يوجد طلبٌ بهذا المعرّف." } };
+    if (current.status !== "pending") return { refuse: { status: 409, error: "بُتّ في هذا الطلب من قبل." } };
+    return { next: { ...current, status: decision, resolvedAt: at, resolvedBy: by, ...(note ? { resolution: note } : {}) }, result: current };
+  });
+  if (!closed.ok) { const why = closed.result || { status: 409, error: "تعذّر البتّ." }; res.status(why.status).json({ error: why.error }); return; }
+  const asked = closed.next;
+  res.locals.auditChanges = decision === "approved"
+    ? `مقاعد المرشد: موافقة على استثناء +${countOf(Number(asked.count || 0), AR.seat)} · ${asked.key}${quota !== null ? ` · رصيد الشعبة ${quota}` : ""}`
+    : `مقاعد المرشد: اعتذار عن استثناء · ${asked.key}${note ? ` · ${note}` : ""}`;
+  noteTrail(res, { target: "مقاعد المرشد · طلب استثناء", after: decision === "approved" ? "وافق المسؤول" : "اعتذر المسؤول", scope: { collegeId, sectionId, termId } });
+  broadcastNotify(Repository.currentDemoSessionId());
+  bumpTeamWork(Repository.currentDemoSessionId(), collegeId, termId);
+  res.json({ ok: true, status: decision, quota });
 });
 }

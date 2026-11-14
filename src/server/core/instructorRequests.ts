@@ -627,16 +627,17 @@ export function instructorRequestItemIdentity(item: InstructorRequestItem) {
  */
 export async function verifyRequestSigner(request: InstructorRequest, req: Request, res: Response): Promise<string> {
   const signScope = `request:${request.id}`;
-  const signAttempt = publicAttemptReserve(signScope, req.ip || "unknown");
-  if (!signAttempt) {
-    res.status(429).json({ error: "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة." });
-    return "";
-  }
   const civil = normalizeCivilId(req.body?.civil);
   const civilCheck = validateCivilId(civil);
   if (!civilCheck.isValid) {
-    /* فشلُ رقم التحقق يسبق أيَّ مطابقة، فلا يُقال إنه خالف بيانات البطاقة: لم تُقرأ بعدُ. */
+    /* فشلُ رقم التحقق يسبق أيَّ مطابقة، فلا يُقال إنه خالف بيانات البطاقة: لم تُقرأ بعدُ.
+       ولا يُعدّ محاولةً (FR-REQ-012): خطأُ كتابةٍ لا يكشف شيئاً، وكان يأكل من العشر فيُغلق البابَ على صاحبه. */
     res.status(400).json({ error: "الرقم المدني غير مكتمل أو فيه خطأ كتابة. راجعه وأعد المحاولة." });
+    return "";
+  }
+  const signAttempt = publicAttemptReserve(signScope, req.ip || "unknown");
+  if (!signAttempt) {
+    res.status(429).json({ error: "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة." });
     return "";
   }
   const signer = (await Repository.getInstructors() as any[])

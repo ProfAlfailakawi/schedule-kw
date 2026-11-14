@@ -126,6 +126,7 @@
     "test:live-pulse": "tsx tests/live-pulse-audit.ts",
     "test:live-pulse-http": "tsx tests/live-pulse-http-audit.ts",
     "test:radar-insight": "tsx tests/radar-insight-audit.ts",
+    "test:radar-suggestions": "tsx tests/radar-suggestions-audit.ts",
     "test:outcome-story": "tsx tests/outcome-story-audit.ts",
     "test:registration-causes": "tsx tests/registration-causes-audit.ts",
     "test:plan-pdf": "tsx tests/plan-pdf-audit.ts",
@@ -138,6 +139,8 @@
     "test:student-showcase": "tsx tests/student-showcase-audit.ts",
     "test:review-family": "tsx tests/review-family-audit.ts",
     "test:changes-unified-review": "tsx tests/changes-unified-review-audit.ts",
+    "test:academic-console": "tsx tests/academic-console-audit.ts",
+    "test:request-decisions-notify": "tsx tests/request-decisions-notify-audit.ts",
     "test:masari-responsive": "tsx tests/masari-responsive-audit.ts",
     "test:registration-sim": "tsx tests/registration-sim-audit.ts",
     "test:academic-advice": "tsx tests/academic-advice-audit.ts",
@@ -192,6 +195,7 @@
     "test:inbox-live": "tsx tests/inbox-live-audit.ts",
     "test:inbox-studio": "tsx tests/inbox-studio-audit.ts",
     "test:inbox-campus": "tsx tests/inbox-campus-audit.ts",
+    "test:inbox-pilot": "tsx tests/inbox-pilot-audit.ts",
     "test:id-types": "tsx tests/id-type-conflict-audit.ts",
     "test:notifications": "tsx tests/notification-center-audit.ts",
     "test:bell-yield": "tsx tests/notify-bell-yield-audit.ts",
@@ -327,7 +331,9 @@
     "test:pr-lines-guard": "tsx tests/pr-lines-guard-audit.ts",
     "test:srs-route": "tsx tests/srs-route-audit.ts",
     "test:srs-regulation-sync": "tsx tests/srs-regulation-sync-audit.ts",
-    "test:tsconfig-strictness": "tsx tests/tsconfig-strictness-audit.ts"
+    "test:tsconfig-strictness": "tsx tests/tsconfig-strictness-audit.ts",
+    "test:advising": "tsx tests/advising-audit.ts",
+    "test:admin-station": "tsx tests/admin-station-audit.ts"
   },
   "dependencies": {
     "@google-cloud/firestore": "^8.7.1",

@@ -120,9 +120,12 @@ check(!/=\s*seed[?.]*\.(roomCode|roomHall|roomId|buildingId|SCode)/.test(seedBlo
       والبندُ يبقى كما هو، وزرُّه يُنشئها مرّةً بعد مرّة. */
 check(workshop.includes("pendingHandoff.current = handoff;"),
   "الورشةُ تحتفظ بالطلب حتى يُحفظ الصفّ");
-check(workshop.includes('`/api/instructor-requests/${handoff.requestId}/decide`')
-  && workshop.includes('state: "fixed", scheduleId: createdRowId'),
-  "ثم تسجّل القرارَ ومعه معرّفُ الصفّ الذي أنتجه الحفظ");
+/* والقرارُ اليوم في التثبيت الذرّي نفسه (/apply مع الإضافة) حين يطابق الموقع؛ وموقعٌ آخر لا يُسجَّل «ثُبّت» عليه
+   (FR-REQ-025) — كان يُرسل قراراً بلا ختمٍ ولا هويّة فيُردّ دائماً — فيُقال إن البندَ باقٍ في الوارد. */
+check(workshop.includes('`/api/instructor-requests/${handoffForSave!.requestId}/apply`')
+  && !workshop.includes('state: "fixed", scheduleId: createdRowId')
+  && workshop.includes("حُفظ الموعد في موقعٍ غير الذي طلبه الأستاذ"),
+  "ثم تسجّل القرارَ في التثبيت الذرّي، أو تقول إن البندَ باقٍ حين يختلف الموقع");
 /* وترتيبُهما هو المهمّ: قرارٌ يُسجَّل قبل الحفظ يقول إن الطلب نُفِّذ وقد لا
    يكون — وهو الحارسُ نفسُه المفروض في الخادم. */
 check(workshop.indexOf("const saved = await fetchJson(url,") < workshop.indexOf("const handoff = pendingHandoff.current;"),

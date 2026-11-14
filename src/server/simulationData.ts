@@ -361,7 +361,11 @@ export async function runRegistrationSimulation(term: AdTerm, by: string, option
     for (const seat of scenario.seats) {
       const base = owner.get(seat.courseId);
       if (!base) continue;
-      const row = perCourse.get(seat.courseId) || { courseId: seat.courseId, collegeId: base.collegeId, sectionId: base.sectionId, sections: 0, capacity: 0, taken: 0, wanted: 0, seated: 0, unmet: { "not-offered": 0, conflict: 0, full: 0, prereq: 0, units: 0 } };
+      /* المقرّرُ يُنسب إلى مالكه في الكتالوج — القاعدةُ نفسُها لصفّ «يريدونه ولا يُطرح» أدناه — لا إلى قسم
+         أوّل شعبةٍ صادفها التجميع: مقرّرٌ تطرحه شعبتان في قسمين كان يُعدّ لأحدهما ويغيب عن مالكه. */
+      const catalogOwner = courses.get(seat.courseId);
+      const ownerCollege = Number(catalogOwner?.AdCollegeId) || base.collegeId, ownerSection = Number(catalogOwner?.AdSectionId) || base.sectionId;
+      const row = perCourse.get(seat.courseId) || { courseId: seat.courseId, collegeId: ownerCollege, sectionId: ownerSection, sections: 0, capacity: 0, taken: 0, wanted: 0, seated: 0, unmet: { "not-offered": 0, conflict: 0, full: 0, prereq: 0, units: 0 } };
       row.sections += 1; row.capacity += seat.capacity; row.taken += seat.taken;
       perCourse.set(seat.courseId, row);
     }

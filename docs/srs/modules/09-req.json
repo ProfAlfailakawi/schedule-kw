@@ -68,7 +68,10 @@
     "src/utils/personCourseDefaults.ts",
     "src/components/PersonCoursesSheet.tsx",
     "src/utils/cardPreview.ts",
-    "src/utils/requestOpenRow.ts"
+    "src/utils/requestOpenRow.ts",
+    "src/components/inbox/InboxPilot.tsx",
+    "src/utils/applyBusyRetry.ts",
+    "src/utils/proposalSettlesRequest.ts"
   ],
   "screens": [
     { "name": { "ar": "بطاقة طلب الأستاذ (/r/)", "en": "Instructor request card (/r/)" }, "file": "src/server/pages/instructorRequestPage.ts", "note": { "ar": "صفحة عامة تُفتح بالرابط الشخصي: أسبوع الأستاذ، تعديل البنود، التوقيع، الحوار مع القسم، وذاكرة الفصول.", "en": "Public page opened with the personal link: the member's week, item editing, signing, dialogue with the department and term memory." } },
@@ -1419,6 +1422,109 @@
         { "ar": "لا يُعبّأ النموذج إلا إن فُتح فعلاً (لا قفل ولا بوابة هاتف)، وأوقاتٌ تختلف بين الأيام تفتح الموعد كما هو.", "en": "The form is only filled when it actually opened (no lock, no phone gate), and times that differ between days open the appointment as it is." }
       ],
       "evidence": { "code": ["src/utils/requestOpenRow.ts#requestedChangeOf", "src/components/InstructorInbox.tsx#openRowInSchedule", "src/components/Schedules.tsx"], "tests": ["tests/proposal-open-row-audit.ts", "tests/instructor-requests-owner-notes-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-060",
+      "kind": "functional",
+      "title": { "ar": "«ما تقرّر منذ آخر زيارة» و«أضف إلى تقويمي» للأستاذ", "en": "«What was decided since your last visit» and «add to my calendar» for the member" },
+      "text": {
+        "ar": "يجب أن تعرض صفحةُ طلب الأستاذ (/r) وبطاقتُه الشخصية (/s بعد التحقق من هويّته) قائمةً واحدة «ما تقرّر منذ آخر زيارة» من مصدرٍ واحد (decisionDigest): ما ثُبّت بالأيام والوقت المكتوبين في الجدول فعلاً (fixedAs) لا المطلوبين، وما تعذّر بسببه من القائمة المغلقة وبدائل القسم (حتى ثلاث)، وما ألغاه القسم، وآخرَ ردٍّ من القسم؛ بلا قاعةٍ ولا مبنى، وبلا ملاحظةٍ نصّية في البطاقة. ولحظةُ الزيارة السابقة من الجهاز (req-seen أو card-seen لكل رابط) وإلا من آخر فتحٍ مسجّل قبل هذا الفتح، وتُحفظ لحظةُ هذه الزيارة فلا تُمحى القائمةُ بإعادة قراءةٍ صامتة، و«تمّ» يطويها. ولكل موعدٍ ثُبّت زرُّ «أضف إلى تقويمي» يُنزّل ملف ICS بحدثٍ أسبوعيّ واحد طوال الفصل من الصفّ الرسمي نفسه (GET /api/public/request/:token/fixed/:itemId.ics) بلا مكان، ومعه اشتراكُ التقويم الدائم القائم. ويجب أن يُسجَّل في قرار التثبيت ما كُتب فعلاً (الأيام والبداية والنهاية)، وأن تُحدَّث أيامُ الإضافة ووقتُها في البند إلى ما كتبه المنسّق حين يختلفان عن المطلوب.",
+        "en": "The member's request page (/r) and personal card (/s, after identity verification) shall show one list «what was decided since your last visit» from a single source (decisionDigest): what was fixed with the days and time actually written to the schedule (fixedAs), not the requested ones; what could not be done with its reason from the closed list and the department's alternatives (up to three); what the department cancelled; and the department's latest reply — with no room or building, and with no free-text note on the card. The previous visit time comes from the device (req-seen or card-seen per link), otherwise from the last recorded open before this one; this visit's time is stored so a silent re-read does not wipe the list, and «done» folds it. Each fixed appointment has an «add to my calendar» button that downloads an ICS file with one weekly event for the term built from the official row itself (GET /api/public/request/:token/fixed/:itemId.ics), with no place, alongside the existing permanent calendar subscription. The fix decision shall record what was actually written (days, start and end), and an addition's days and time on the item shall be updated to what the coordinator wrote when they differ from the request."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["instructor", "system"],
+      "acceptance": [
+        { "ar": "بندٌ ثُبّت بوقتٍ غير المطلوب يظهر في القائمة بالوقت المكتوب، وبندٌ مرفوضٌ ببديلين يظهر بسببه وبديليه، وما قُرّر قبل الزيارة السابقة لا يظهر.", "en": "An item fixed at a time other than the requested one shows the written time, a rejected item with two alternatives shows its reason and both, and decisions made before the previous visit do not show." },
+        { "ar": "طلب ملف ICS لبندٍ لم يُثبَّت أو لصفٍّ لم يعد لصاحب الرابط يُردّ 404، والملفُ المنزَّل لا يحمل مكاناً.", "en": "Requesting the ICS file for an unfixed item, or for a row no longer owned by the link holder, returns 404, and the downloaded file carries no place." }
+      ],
+      "evidence": { "code": ["src/utils/requestDecisionDigest.ts#decisionDigest", "src/server/routes/publicRequestRoutes.ts#serveRequestCard", "src/server/routes/publicStaffRoutes.ts", "src/server/pages/instructorRequestPage.ts#sinceHtml", "src/server/pages/staffCardPage.ts#renderDecisions", "src/server/routes/instructorRequestsRoutes.ts#fixedAsOf"], "tests": ["tests/request-decisions-notify-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-061",
+      "kind": "functional",
+      "title": { "ar": "«أبلغ من صدر لهم قرار» في الوارد", "en": "«Notify those with new decisions» in the inbox" },
+      "text": {
+        "ar": "يجب أن يعرض الواردُ زرّ «أبلغ من صدر لهم قرار (n)» حين يكون بين المعروضين أستاذٌ صدر له قرار (تثبيت أو رفض أو إلغاء) بعد آخر إبلاغ له، فيفتح نافذةً تمرّ عليهم واحداً بعد واحد بالترتيب المعروض، لكلٍّ منهم ملخّصُ ما ثُبّت وما رُفض ورسالةُ واتساب جاهزة برابط بطاقته نفسه تُفتح بضغطة المنسّق وحدها، فيُسجَّل الإبلاغ (POST /api/instructor-requests/:id/notified يكتب decisionNotifiedAt وحده بلا رفع ختم الطلب) وينتقل إلى التالي، مع «تخطَّ»؛ ولا يُرسل النظامُ شيئاً إلى الخارج من تلقاء نفسه. وزرُّ «أبلغ الأستاذ» على البطاقة يسجّل الإبلاغ كذلك ويقول «أُبلغ» حين لا جديد. ولا تصل لحظةُ الإبلاغ صفحةَ الأستاذ.",
+        "en": "The inbox shall show a «notify those with new decisions (n)» button when a shown member has a decision (fix, rejection or cancellation) made after their last notification; it opens a window that walks through them one by one in the shown order, each with a summary of what was fixed and rejected and a prepared WhatsApp message with their own card link, opened only by the coordinator's tap; the notification is then recorded (POST /api/instructor-requests/:id/notified writes decisionNotifiedAt alone, without raising the request revision) and the next member follows, with «skip». The system sends nothing externally on its own. The card's «notify the member» button records the notification too and reads «notified» when there is nothing new. The notification time never reaches the member's page."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "طلبٌ أُبلغ صاحبُه ثم صدر له قرارٌ جديد يعود إلى القائمة، وما قُرّر قبل الإبلاغ لا يعيده؛ وردُّ الحوار وحده لا يُعدّ قراراً.", "en": "A request whose member was notified and then received a new decision returns to the list, while decisions before the notification do not; a dialogue reply alone is not counted as a decision." },
+        { "ar": "POST /api/instructor-requests/:id/notified بلا نطاقٍ على الطلب يُردّ 403، ولطلبٍ غير موجود 404.", "en": "POST /api/instructor-requests/:id/notified without scope over the request is refused with 403, and an unknown request with 404." }
+      ],
+      "evidence": { "code": ["src/utils/requestDecisionDigest.ts#unsentDecisions", "src/components/InstructorInbox.tsx#NotifySheet", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/:id/notified", "src/db/repository.ts#setInstructorRequestDecisionNotified"], "tests": ["tests/request-decisions-notify-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-062",
+      "kind": "functional",
+      "title": { "ar": "تثبيتُ المقترح الدراسي يُغلق بنودَ الطلب التي عالجها", "en": "Committing a study proposal settles the request items it handled" },
+      "text": {
+        "ar": "يجب أن يُثبَّت مع المقترح الدراسي، في المعاملة نفسها التي تكتب الجدول، كلُّ بندٍ معلّقٍ من طلب الأستاذ طابق عمليةً ثُبّتت فعلاً — التعديلُ أو الحذفُ لموعدٍ نقله المقترح أو أخرجه، وإضافةُ مقرّرٍ أدخله — لا البندُ الذي فُتح منه المقترح وحده؛ بقرار «ثُبّت» يحمل معرّف المقترح ووقتَه المكتوب ورقمَ الصفّ المكتوب للإضافة، وتُفكّ حجوزُ تلك البنود في الدفتر نفسه، ولا يُمسّ ما قُرّر من قبل. والتراجعُ عن التثبيت يعيدها معلّقة. وأحداثُ المقترح في سجلّ الطلب تُكتب حقلاً واحداً لا يرفع ختم الطلب، فلا يُردّ إرسالُ أستاذٍ يكتب في تلك اللحظة. ويصل الأستاذَ تنبيهٌ إلى كرته (إن اشترك منه) حين يُرسل إليه مقترحٌ أو نسخةٌ معدّلة منه وحين يُثبَّت، بنصٍّ عامّ بلا مقرّرٍ ولا وقتٍ ولا قاعة.",
+        "en": "Every pending item of the member's request that the study proposal handled shall be fixed together with the proposal, in the same transaction that writes the schedule: only items matching an operation actually committed — a change or deletion of an appointment the proposal moved or removed, and an addition of a course it brought in, not the item it was opened from by that fact alone — with a fixed decision carrying the proposal id, the written time and, for an addition, the written row id — and those items' reservations are released in the same ledger, while items already decided are untouched. Undoing the commit reopens them. Proposal events in the request timeline are written as a single field that does not raise the request revision, so a member typing at that moment is not refused. The member receives a card notification (when subscribed from it) when a proposal or a revised version is sent and when it is committed, with generic text carrying no course, time or room."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair", "instructor", "system"],
+      "acceptance": [
+        { "ar": "مقترحٌ ينقل موعد بند تعديلٍ معلّق يثبّته بـviaProposal وfixedAs من هدف المقترح، وبندٌ مرفوضٌ من قبل يبقى مرفوضاً، والتراجعُ يعيد البندَ معلّقاً.", "en": "A proposal that moves the appointment of a pending change item fixes it with viaProposal and fixedAs from the proposal target, an item rejected earlier stays rejected, and undo returns the item to pending." },
+        { "ar": "حدثُ المقترح في سجلّ الطلب لا يغيّر requestRevision.", "en": "A proposal event in the request timeline does not change requestRevision." }
+      ],
+      "evidence": { "code": ["src/utils/proposalSettlesRequest.ts#settleRequestFromProposal", "src/db/repository.ts#commitStudyProposal", "src/db/repository.ts#appendInstructorRequestTimeline", "src/server/studyProposalRoutes.ts", "src/server/pushMessages.ts#proposalSentMessage"], "tests": ["tests/request-decisions-notify-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-063",
+      "kind": "functional",
+      "title": { "ar": "متانةُ الوارد: أوراقٌ لا تُضيع ما كُتب، وقراءةٌ لا تُفرغ الشاشة، وأعدادٌ تتبع ما يُعرض", "en": "Inbox robustness: sheets keep input, reads never blank the screen, counts follow what is shown" },
+      "text": {
+        "ar": "يجب ألا تُغلق ورقةُ الرفض وورقةُ «إلغاء الموعد» وحقلُ الرد قبل أن يقبل الخادم، وأن يُقال سببُ التعذّر داخلها وما كُتب باقٍ؛ وأن تُغلق الورقتان بـEscape والنقر خارجهما ويدخلهما التركيز ويعود إلى زرّهما، وسطرُ الرفض محدودٌ بـ400 حرف كحدّ الخادم. ويجب أن يبدأ المنسّق الحوارَ على أي بندٍ غير مثبَّت بزرّ «ردّ / اقترح وقتاً». ويجب ألا يُفرغ تعذّرُ قراءة الوارد البطاقاتِ المعروضة: يبقى آخرُ ما قُرئ وشريطٌ بـ«أعد المحاولة»، والقراءاتُ متسلسلة فلا يكتب جوابٌ قديمٌ فوق أحدث. ويجب أن تتبع أعدادُ المرشّحات البحثَ والأستاذَ والقسمَ و«🎓 تدريب» والموقع، وكلُّ مجموعةٍ تعدّ نفسها تحت المرشّحات الأخرى، وأن يطابق البحثُ بالاسم مفتاحَ المطابقة العربي (الهمزات والتاء المربوطة والياء والتشكيل)، وأن يُرتَّب الواردُ أبجدياً أو «الأقدم أولاً». ويجب ألا تأخذ معاينةُ التثبيت قفلَ الفصل، وأن يُعاد التثبيتُ حين يُردّ «يجري الآن تثبيتٌ آخر» (apply-busy) ثلاث مرّات بتراجعٍ قبل أن يُقال للمنسّق.",
+        "en": "The reject sheet, the cancel-appointment sheet and the reply field shall not close before the server accepts, and the failure reason shall be shown inside them with the typed text kept; both sheets close with Escape and a backdrop click, take focus and return it to their button, and the rejection note is limited to 400 characters like the server. The coordinator shall be able to start a dialogue on any unfixed item with a «reply / suggest a time» button. A failed inbox read shall not blank the shown cards: the last read stays with a «try again» banner, and reads are sequenced so an older answer never overwrites a newer one. Filter counts shall follow the search, member, department, training and location filters, each group counting itself under the other filters; name search shall match by the Arabic matching key (hamza, taa marbuta, yaa and diacritics); and the inbox can be sorted alphabetically or oldest first. The fix preview shall not take the term lease, and a fix refused with «another fix is running» (apply-busy) shall be retried three times with backoff before the coordinator is told."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        { "ar": "تسعةُ تعديلاتٍ وإضافتان بانتظار القرار ومرشّحُ النوع على «تعديل»: عددُ «بانتظار قرارك» 9، وعددُ «إضافة» 2.", "en": "Nine pending changes and two pending additions with the type filter on «change»: «awaiting your decision» counts 9 and «addition» counts 2." },
+        { "ar": "apply-busy مرّتين ثم نجاح يُنجز التثبيت بلا خطأ، وأربعُ مرّات تُعيد الخطأ للمنسّق.", "en": "apply-busy twice then success completes the fix without an error, while four times returns the error to the coordinator." }
+      ],
+      "evidence": { "code": ["src/utils/inboxFacets.ts#inboxFacetCounts", "src/utils/inboxFacets.ts#nameMatches", "src/utils/inboxFacets.ts#sortInboxRows", "src/utils/applyBusyRetry.ts#withApplyBusyRetry", "src/components/InstructorInbox.tsx#useSheetKeys", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/:id/apply"], "tests": ["tests/request-decisions-notify-audit.ts", "tests/inbox-studio-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-064",
+      "kind": "functional",
+      "title": { "ar": "حوافّ الخادم: رابطُ العرض لا يردّ، وجولةٌ جديدة تستبدل القديمة، وقرارٌ على ما لم يُطلب", "en": "Server edges: view links do not reply, a new round supersedes the old, no decision on what was not asked" },
+      "text": {
+        "ar": "يجب أن يرفض الخادمُ ردَّ الأستاذ وقبولَ البدائل (واحداً ودفعة) من رابطٍ صفتُه «للعرض فقط» بـ403. ويجب حين يُنشئ الإصدارُ جولةً جديدة لأستاذٍ طلبُه السابق «انتهى» أن يُستبدل الطلبُ القديم (superseded) ويُوقف رابطُه، فلا يبقى رابطان حيّان ولا يعدّه الواردُ مرّتين. ويجب أن يرفض قرارُ القسم بندَ «كما هو» (400) وطلباً لم يرسله الأستاذ بعد (409 not-submitted) إلا بنداً وضعه القسم من «موعد»، وأن يُسجّل «إلغاء الموعد» على أحدث نسخةٍ من الطلب حين يتغيّر بين حذف الصف وتسجيل القرار، وأن يطابق «تراجع» عن التثبيت ختمَ الطلب حين يحمله، وألا يُعدّ الرقمُ المدنيّ المشوّه الصيغة محاولةً في حدّ التخمين. وتسليمُ الإضافة من الوارد إلى «الجدول الدراسي» يحمل هويّة البند ويكتب الأيام التي اختارها المنسّق، وحفظُها في موقعٍ غير المطلوب يقول إن البند باقٍ في الوارد بدل نداءٍ يُردّ دائماً.",
+        "en": "The server shall refuse a member's reply and acceptance of alternatives (single and batch) from a view-only link with 403. When an issue creates a new round for a member whose previous request was settled, the old request shall be superseded and its link revoked, so no two live links remain and the inbox does not count them twice. A department decision shall refuse a «keep» item (400) and a request the member has not sent yet (409 not-submitted), except an item the department placed from an appointment; «cancel appointment» shall record its decision on the latest request version when the request changes between deleting the row and recording; an undo of a fix shall check the request revision when it carries one; and a civil ID with a malformed format shall not count as an attempt in the guessing limit. Handing an addition from the inbox to the schedule editor carries the item identity and writes the days the coordinator chose, and saving it in another location says the item stays in the inbox instead of a call that is always refused."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": ["instructor", "departmentHead", "committeeChair", "system"],
+      "acceptance": [
+        { "ar": "POST /api/public/request/:token/reply من رابطٍ linkMode=view يُردّ 403 «هذا الرابط للعرض فقط».", "en": "POST /api/public/request/:token/reply from a link with linkMode=view is refused with 403 «this link is view only»." },
+        { "ar": "POST /api/instructor-requests/:id/decide على طلبٍ status=sent بلا submittedAt يُردّ 409 code=not-submitted.", "en": "POST /api/instructor-requests/:id/decide on a request with status=sent and no submittedAt is refused with 409 code=not-submitted." }
+      ],
+      "evidence": { "code": ["src/server/routes/publicRequestRoutes.ts", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/issue", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/:id/decide", "src/server/core/instructorRequests.ts#verifyRequestSigner", "src/utils/requestHandoff.ts", "src/components/Schedules.tsx"], "tests": ["tests/request-decisions-notify-audit.ts", "tests/request-handoff-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-065",
+      "kind": "functional",
+      "title": {"ar": "«وضع الطيّار»: بندٌ واحد في كل مرّة بثلاثة أفعال ومفاتيحها", "en": "Pilot mode: one pending item at a time with three keyed actions"},
+      "text": {
+        "ar": "يجب أن يتيح «وضع الطيّار» في «رغبات الأساتذة» لمن يقرّر (في فصلٍ غير مجمَّد، وحين ينتظر بندٌ واحد على الأقل) شاشةً تملأ النافذة تعرض بنداً واحداً ينتظر القرار: الأستاذ وقسمه وتاريخ إرساله، والمقرّر وشعبته، و«كان ← المطلوب» يوماً ووقتاً وقاعة، وما يحسبه الوارد من حكمٍ محفوظ (تعارض أو مخالفة لائحية) وفحصٍ حيّ، والبدائلَ الجاهزة المحسوبة؛ مع «7 من 30» وشريط تقدّم. وترتيبُ القائمة الأقدمُ إرسالاً أولاً، ويُتخطّى ما قُرّر (هنا أو من زميل). والأفعال ثلاثة: «ثبّت» (F، أو Enter حين لا يكون التركيز على زرٍّ آخر) عبر دالّة التثبيت نفسها في الوارد (المعاينة ثم /apply بختم الإصدار)، و«بديل» (B) يفتح ورقةَ الرفض نفسها بأسبابها وبدائلها المحسوبة ثم /decide، و«التالي» (→ أو Space) يتخطّى البندَ ويعيده في جولةٍ ثانية؛ وEscape يخرج. والإضافةُ تُسلَّم إلى بطاقتها السريعة في الوارد. وما ردّه الخادم (تعارض، فصلٌ مجمَّد، إصدارٌ أحدث) يبقى على البطاقة نفسها برسالته، وورقةُ الرفض لا تُغلق قبل الحفظ فلا يضيع ما كُتب. ولا «تراجع» إلا عن التخطّي، لأن مسار الوارد لا يعيد فتحَ بندٍ ثُبّت منه أو رُفض.",
+        "en": "Pilot mode in the faculty-requests inbox shall give a deciding user (in a non-frozen term, with at least one pending item) a full-window screen showing one pending item at a time: the member, department and submission date, the course and section, the before-to-after day, time and room, the stored verdict (conflict or regulation breach) and live check the inbox already computes, and the pre-computed ready alternatives; with an \"n of N\" counter and a progress bar. The queue is oldest-submitted first and skips items already decided here or by a colleague. Three actions: Fix (F, or Enter when focus is not on another button) through the inbox's own fix function (preview then /apply with the revision stamp), Alternative (B) opening the same reject sheet with its reasons and computed alternatives then /decide, and Next (Right arrow or Space) which skips the item and brings it back in a second pass; Escape exits. An add item is handed to its quick card in the inbox. A server refusal (conflict, frozen term, newer revision) stays on the same card with its message, and the reject sheet stays open until saved so nothing typed is lost. Undo is offered for skipping only, because the inbox flow does not reopen an item it fixed or rejected."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        {"ar": "حوارٌ مشروط (role=dialog وaria-modal) بحصر التركيز وإعادته إلى زرّ الدخول عند الخروج، ومفاتيحُ مرئية على الأزرار، ولا تعمل المفاتيح في حقل كتابة أو مع Ctrl/Meta/Alt، وتعمل واللوحةُ عربية.", "en": "A modal dialog (role=dialog, aria-modal) with a focus trap that returns focus to the entry button on exit, visible key hints on the buttons, keys inactive inside text fields or with Ctrl/Meta/Alt, and working on an Arabic keyboard layout."},
+        {"ar": "على عرض الهاتف (390px) يملأ الشاشة والأزرارُ عمودٌ واحد بارتفاع 56px على الأقل، والحركةُ تتوقّف مع prefers-reduced-motion.", "en": "At phone width (390px) it fills the screen with the buttons in one column at least 56px tall, and motion stops under prefers-reduced-motion."},
+        {"ar": "لا نداءَ خادمٍ في الوضع نفسه: كلُّ فعلٍ عبر دوالّ الوارد، فيرث فحوصَ الإصدار وتجميدَ الفصل والقفلَ ومعالجةَ الأخطاء كما هي.", "en": "The mode makes no server call itself: every action goes through the inbox's functions, inheriting revision checks, term freeze, locks and error handling unchanged."}
+      ],
+      "evidence": {"code": ["src/components/inbox/InboxPilot.tsx", "src/utils/inboxPilot.ts#buildPilotQueue", "src/utils/inboxPilot.ts#pilotCommand", "src/components/InstructorInbox.tsx", "src/styles/59-inbox-pilot.css"], "tests": ["tests/inbox-pilot-audit.ts"]}
     }
   ],
   "edgeCases": [

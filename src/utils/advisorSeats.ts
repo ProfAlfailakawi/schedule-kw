@@ -31,6 +31,8 @@ export interface SeatQuotaConfig {
   advisorCount?: number;
   /** رقمُ الإصدار: يزيد مع كل حفظ، وتحمله الكتابة (src/utils/staleWrite.ts). */
   rev?: number;
+  /** طلباتُ استثناءٍ رُفع بها رصيدُ شعبةٍ: تُطبَّق مرّةً واحدة ولو أُعيدت الموافقة بعد تعذّرٍ في منتصفها. */
+  appliedExceptions?: string[];
 }
 
 export interface SeatLedger {
@@ -150,8 +152,48 @@ export function nearFull(rows: SeatLedger[], config: SeatQuotaConfig | null | un
     .sort((a, b) => a.state.remaining - b.state.remaining);
 }
 
+/** أقصى ما يُحفظ لأيّ عددٍ في الإعداد (السعة، والرصيد، وعدد المرشدين): الحدُّ نفسه في الخادم وفي خانة الإدخال. */
+export const SEAT_CONFIG_MAX = 200;
+
+/**
+ * التراجعُ عن إضافة: آخرُ إضافةٍ كتبها هذا المرشدُ نفسُه في هذه الشعبة تُمحى، ولا تُمسّ إضافاتُ غيره.
+ * الدفترُ يخصّ الفصل نفسه (مفتاحُ الشعبة يبدأ برقم الفصل)، فالتراجعُ لا يعبر فصلاً.
+ */
+export function undoLastAdd(ledger: SeatLedger, advisorId: number): { next: SeatLedger; removed: SeatLedger["adds"][number] } | null {
+  const adds = ledger.adds || [];
+  for (let at = adds.length - 1; at >= 0; at--) {
+    if (Number(adds[at].advisorId) !== Number(advisorId)) continue;
+    return { next: { ...ledger, adds: [...adds.slice(0, at), ...adds.slice(at + 1)] }, removed: adds[at] };
+  }
+  return null;
+}
+
+/** ما أضافه هذا المرشدُ في الشعبة، وآخرُ إضافةٍ له (للتراجع عنها). */
+export function mineIn(ledger: Pick<SeatLedger, "adds">, advisorId: number): { added: number; last: number } {
+  const own = (ledger.adds || []).filter(add => Number(add.advisorId) === Number(advisorId));
+  return { added: own.reduce((sum, add) => sum + Math.max(0, Number(add.count || 0)), 0), last: Number(own[own.length - 1]?.count || 0) };
+}
+
+/**
+ * من يكتب في الرصيد — الحكمُ نفسُه الذي يحرس به الخادم، فلا يُرسم زرٌّ يُردّ:
+ *  - الإضافةُ والتراجعُ وطلبُ الاستثناء: كلُّ صفةٍ تكتب، والمرشدُ (صفةُ اطّلاعٍ لها هذا البابُ وحده)؛ لا صفاتُ الاطّلاع الأخرى.
+ *  - الإعدادُ والبتُّ في الاستثناء: «المسؤول» — صاحبُ صلاحية الجدول (٧) بصفةٍ تكتب، لا المرشد.
+ */
+export function seatWritePowers(input: { power: boolean; readOnly: boolean; advisor: boolean; granted: number[] }): { canAdd: boolean; canConfigure: boolean } {
+  if (input.power) return { canAdd: true, canConfigure: true };
+  return {
+    canAdd: input.advisor || !input.readOnly,
+    canConfigure: !input.advisor && !input.readOnly && input.granted.includes(7),
+  };
+}
+
+/** طلبُ استثناءٍ معلّقٌ للشعبة نفسها من المرشد نفسه: الثاني لا يُكتب. */
+export function pendingExceptionOf<T extends { key: string; status: string; byId?: number }>(requests: ReadonlyArray<T>, key: string, userId: number): T | null {
+  return requests.find(row => row.status === "pending" && row.key === key && Number(row.byId || 0) === Number(userId)) || null;
+}
+
 export function normalizeQuotaConfig(input: any, id: string): SeatQuotaConfig {
-  const clean = (value: unknown) => Math.max(0, Math.min(200, Math.trunc(Number(value || 0))));
+  const clean = (value: unknown) => Math.max(0, Math.min(SEAT_CONFIG_MAX, Math.trunc(Number(value || 0))));
   const map = (value: any) => Object.fromEntries(Object.entries(value && typeof value === "object" ? value : {})
     .filter(([key, v]) => key && v !== "" && v !== null && Number.isFinite(Number(v))).map(([key, v]) => [key, clean(v)]));
   return {
@@ -160,7 +202,17 @@ export function normalizeQuotaConfig(input: any, id: string): SeatQuotaConfig {
     ...(Number(input?.capacityDefault) > 0 ? { capacityDefault: clean(input.capacityDefault) } : {}),
     capacityBySection: map(input?.capacityBySection),
     ...(Number.isInteger(Number(input?.rev)) && Number(input?.rev) > 0 ? { rev: Number(input.rev) } : {}),
+    ...(Array.isArray(input?.appliedExceptions) && input.appliedExceptions.length
+      ? { appliedExceptions: [...new Set(input.appliedExceptions.map(String).filter(Boolean))].slice(-200) as string[] } : {}),
   };
+}
+
+/** يرفع رصيدَ الشعبة بطلب استثناءٍ مرّةً واحدة: إن سبق تطبيقُ الطلب نفسه لا يُزاد شيء. */
+export function applySeatException(config: SeatQuotaConfig, requestId: string, key: string, count: number): { config: SeatQuotaConfig; quota: number; applied: boolean } {
+  const courseId = Number(String(key).split(":")[1] || 0);
+  if ((config.appliedExceptions || []).includes(requestId)) return { config, quota: quotaFor(config, courseId, key), applied: false };
+  const quota = Math.min(SEAT_CONFIG_MAX, quotaFor(config, courseId, key) + Math.max(0, Number(count || 0)));
+  return { config: { ...config, bySection: { ...(config.bySection || {}), [key]: quota }, appliedExceptions: [...(config.appliedExceptions || []), requestId].slice(-200) }, quota, applied: true };
 }
 
 /** السعة الأساسية لشعبة: الخاصة ثم الافتراضية؛ 0 = لم تُحدَّد بعد. */

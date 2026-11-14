@@ -17,7 +17,7 @@
  */
 import type { Express, Response } from "express";
 import { randomBytes } from "crypto";
-import { Repository } from "../db/repository";
+import { Repository, withSerialLock } from "../db/repository";
 import { type AuthenticatedRequest, isPowerUser, requireAnyPermission } from "./core/auth";
 import { isScopeAllowed } from "./core/scope";
 import { refuseIfTermFrozen } from "./core/approvals";
@@ -36,7 +36,7 @@ import { SCHEDULE_DAYS } from "../utils/scheduleIntelligence";
 import { AR, countOf, oblique } from "../utils/arabicCount";
 import type { CenterNotification } from "../utils/notificationCenter";
 import {
-  approveStudents, capacityShare, countsOf, planCapacities, declineRequest, linkSections, markRegistered, matchesPeriod, parsePastedStudents,
+  approveStudents, capacityShare, countsOf, planCapacities, declineRequest, linkSections, markRegistered, markRegisteredCount, matchesPeriod, parsePastedStudents, openDuplicateOf,
   PERIOD_LABEL, powersFor, SECTION_REQUEST_SHEET_PERMISSIONS, SECTION_REQUEST_MAX_COUNT, SECTION_REQUEST_MAX_STUDENTS, SECTION_REQUEST_NOTE_MAX, SECTION_REQUEST_PERIODS,
   stageOf, timelineOf, unlinkSection, withdrawRequest,
   type SectionRequest, type SectionRequestActorFacts, type SectionRequestPeriod, type SectionRequestPowers, type SectionRequestStudent, type SectionRequestLink, type Transition,
@@ -150,7 +150,7 @@ async function requestView(req: AuthenticatedRequest, request: SectionRequest, n
     sectionId: request.sectionId, sectionName: names.section.get(Number(request.sectionId)) || "",
     fromSectionId: request.fromSectionId, fromSectionName: names.section.get(Number(request.fromSectionId)) || "",
     courseId: request.courseId, courseCode: String(course?.CourseCode || request.courseCode || ""), courseName: String(course?.CourseName || request.courseName || `مقرر ${request.courseId}`),
-    period: request.period, count: request.count, note: request.note || "",
+    period: request.period, count: request.count, note: request.note || "", registeredCount: Number(request.registeredCount || 0),
     stage, timeline: timelineOf(request), counts: countsOf(request),
     /* الشعبُ التي يحتاجها العدد بسعة المقرر: «١٠٠ ÷ ٤٠ ≈ ٣ شعب». */
     sectionsNeeded: maxStudent > 0 ? Math.max(1, Math.ceil(request.count / maxStudent)) : 0,
@@ -204,6 +204,7 @@ export async function sectionRequestNotices(req: AuthenticatedRequest, termIds: 
       /* التسجيل: من اعتُمد ولم يُسجَّل بعد. */
       if (powers.registration && (stage === "approved" || stage === "registering")) {
         const left = counts.approved - counts.registered;
+        if (left <= 0) continue;
         items.push({ ...base, id: `section-request:${request.id}:register:${left}`, tone: "action",
           title: `سجّل ${countOf(left, oblique(AR.student))} في «${courseName}»`, detail: "اعتمدتهم لجنة الجدول من طلب الإرشاد",
           collegeId: request.collegeId, sectionId: request.sectionId });
@@ -345,7 +346,17 @@ app.post("/api/section-requests", requireRegistrationSheet, async (req: Authenti
     events: [{ kind: "sent", at, by, detail: countOf(count, AR.student) }],
   };
   if (!request.note) delete request.note;
-  await Repository.saveFeatureDoc(COLLECTION, request.id, request);
+  /* لا طلبان مفتوحان للمقرر نفسه من الإرشاد نفسه: الفحصُ والحفظُ تحت قفلٍ واحد، فضغطتان معاً لا تُنشئان اثنين. */
+  const duplicate = await withSerialLock(`section-request:${termId}:${collegeId}:${fromSectionId}:${courseId}`, async () => {
+    const twin = openDuplicateOf(await termRequests(termId), request);
+    if (twin) return twin;
+    await Repository.saveFeatureDoc(COLLECTION, request.id, request);
+    return null;
+  });
+  if (duplicate) {
+    res.status(409).json({ error: `في الطلبات طلبٌ مفتوح لـ«${request.courseName}» من قسمك (${countOf(duplicate.count, AR.student)}). عدّله باللجنة أو اسحبه أولاً.`, code: "duplicate-request", id: duplicate.id });
+    return;
+  }
   res.locals.auditEntity = "طلب شعبة";
   res.locals.auditChanges = `طلب شعبة: ${request.courseName} · ${countOf(count, AR.student)} · ${PERIOD_LABEL[request.period]}`;
   noteTrail(res, { target: `طلب شعبة · ${request.courseName || ""}`, after: `${countOf(count, AR.student)} · ${PERIOD_LABEL[request.period]}`, scope: { collegeId: request.collegeId, sectionId: request.fromSectionId || request.sectionId, termId: request.termId } });
@@ -388,10 +399,30 @@ async function rebalanceCapacities(request: SectionRequest, removed: SectionRequ
   const scope = `${request.collegeId}:${request.sectionId}:${request.termId}`;
   const keyOf = (code: string) => sectionKey(request.termId, request.courseId, code);
   let planned: SectionRequestLink[] = request.sections || [];
+  /* طلبٌ مغلق لا يحجز سعةً: كلُّ شعبه تُعدّ مفكوكةً منه. */
+  const live = request.closed ? [] : (request.sections || []);
+  const gone = request.closed ? [...removed, ...(request.sections || [])] : removed;
+  /* الطلباتُ المفتوحةُ الأخرى على الشعب نفسها: أنصبتُها تُجمع مع نصيب هذا الطلب، وما كتبته يُعرف بأنه للطلبات. */
+  const others: Record<string, { shares: number; applied: number[] }> = {};
+  const sharers = new Map<string, Set<string>>();
+  for (const other of await termRequests(request.termId)) {
+    if (other.id === request.id || other.closed || Number(other.courseId) !== Number(request.courseId)
+      || Number(other.collegeId) !== Number(request.collegeId) || Number(other.sectionId) !== Number(request.sectionId)) continue;
+    for (const link of other.sections || []) {
+      if (link.appliedCapacity === undefined) continue;
+      const key = keyOf(link.sectionCode);
+      const slot = others[key] || (others[key] = { shares: 0, applied: [] });
+      slot.shares += Number(link.capacity) || 0;
+      slot.applied.push(Number(link.appliedCapacity));
+      sharers.set(other.id, new Set([...(sharers.get(other.id) || []), String(link.sectionCode)]));
+    }
+  }
+  let written: Record<string, number | null> = {};
   await Repository.updateFeatureDoc<SeatQuotaConfig, null>("advisorSeatLedgers", `config:${scope}`, current => {
     const config = normalizeQuotaConfig(current || {}, scope);
-    const plan = planCapacities(request.sections || [], request.count, config.capacityBySection || {}, keyOf, removed);
+    const plan = planCapacities(live, request.count, config.capacityBySection || {}, keyOf, gone, 200, others);
     planned = plan.sections;
+    written = plan.writes;
     if (!Object.keys(plan.writes).length) return { refuse: null };
     const bySection: Record<string, number> = { ...(config.capacityBySection || {}) };
     for (const [key, value] of Object.entries(plan.writes)) { if (value === null) delete bySection[key]; else bySection[key] = value; }
@@ -402,6 +433,19 @@ async function rebalanceCapacities(request: SectionRequest, removed: SectionRequ
   const saved = await Repository.updateFeatureDoc<SectionRequest, null>(COLLECTION, request.id, current => current
     ? { next: { ...current, sections: (current.sections || []).map(row => byCode.get(String(row.sectionCode)) || row) }, result: null }
     : { refuse: null });
+  /* والطلباتُ الأخرى على الشعبة نفسها تعرف ما صار مكتوباً، فتعرفه غداً سعةَ الطلبات لا سعةَ المسؤول. */
+  for (const [otherId, codes] of sharers) {
+    const touched = [...codes].filter(code => keyOf(code) in written);
+    if (!touched.length) continue;
+    await Repository.updateFeatureDoc<SectionRequest, null>(COLLECTION, otherId, current => current
+      ? { next: { ...current, sections: (current.sections || []).map(row => {
+          if (!touched.includes(String(row.sectionCode))) return row;
+          const value = written[keyOf(row.sectionCode)];
+          if (value === null || value === undefined) { const { appliedCapacity: _drop, ...rest } = row; return rest; }
+          return { ...row, appliedCapacity: value };
+        }) }, result: null }
+      : { refuse: null }).catch(() => undefined);
+  }
   return saved.ok ? saved.next : request;
 }
 
@@ -441,6 +485,8 @@ app.post("/api/section-requests/:id/decline", requireRegistrationSheet, async (r
   if (!request) return;
   const next = await finish(req, res, request.id, current => declineRequest(current, String(req.body?.note || ""), byLine(req), new Date().toISOString()), `طلب شعبة «${request.courseName}»: اعتذرت اللجنة`);
   if (!next) return;
+  /* طلبٌ أُغلق لا يحجز سعةً في رصيد المرشد: ما كتبه يُمحى (أو يبقى منه نصيبُ طلبٍ آخر على الشعبة نفسها). */
+  await rebalanceCapacities(next).catch(error => { console.warn("[section-requests] capacity:", error instanceof Error ? error.message : error); });
   await pushTo(["advising"], next, sectionRequestMessage("declined", { id: next.id, courseName: next.courseName || "" }));
   res.json({ ok: true, rev: Number(next.rev || 0) });
 });
@@ -449,7 +495,9 @@ app.post("/api/section-requests/:id/withdraw", requireRegistrationSheet, async (
   const request = await guarded(req, res, "advising");
   if (!request) return;
   const next = await finish(req, res, request.id, current => withdrawRequest(current, byLine(req), new Date().toISOString()), `طلب شعبة «${request.courseName}»: سُحب`);
-  if (next) res.json({ ok: true, rev: Number(next.rev || 0) });
+  if (!next) return;
+  await rebalanceCapacities(next).catch(error => { console.warn("[section-requests] capacity:", error instanceof Error ? error.message : error); });
+  res.json({ ok: true, rev: Number(next.rev || 0) });
 });
 
 /** الاعتماد (اللجنة أو التسجيل): من في القائمة معتمَد، ومن سواه «لم يُعتمد». */
@@ -475,6 +523,17 @@ app.post("/api/section-requests/:id/approve", requireRegistrationSheet, async (r
 app.post("/api/section-requests/:id/register", requireRegistrationSheet, async (req: AuthenticatedRequest, res: Response) => {
   const request = await guarded(req, res, "registration");
   if (!request) return;
+  /* طلبٌ بعددٍ بلا قائمة: يُكتب كم سُجّل منه، فيُكمَل الطلبُ ولا يبقى «تم الاعتماد» بلا نهاية. */
+  if (req.body?.registeredCount !== undefined) {
+    const wanted = Number(req.body.registeredCount);
+    const next = await finish(req, res, request.id, current => markRegisteredCount(current, wanted, byLine(req), new Date().toISOString()),
+      `طلب شعبة «${request.courseName}»: سُجّل ${wanted} من ${request.count}`);
+    if (!next) return;
+    const counts = countsOf(next);
+    if (counts.registered) await pushTo(["advising"], next, sectionRequestMessage("registered", { id: next.id, courseName: next.courseName || "", approved: counts.approved, registered: counts.registered }));
+    res.json({ ok: true, rev: Number(next.rev || 0), counts });
+    return;
+  }
   const all = req.body?.all === true;
   const registered = req.body?.registered !== false;
   const pick = (current: SectionRequest) => all ? (current.students || []).filter(row => row.approved === true && Boolean(row.registered) !== registered).map(row => row.id)

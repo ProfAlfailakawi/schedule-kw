@@ -22,10 +22,16 @@ import {
 import { DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES } from "../utils/campusTravel";
 import { sortByName } from "../utils/sorting";
 import { TravelHeatMatrix } from "./VisualBits";
+import { sameBuildingMinutesOf, sameReferenceName } from "../utils/academicGuards";
 type Mode = "index" | "create" | "edit";
 /** `embedded` means the academic console already supplies the page identity. */
-export default function Colleges({ embedded = false, actionSlot = null }: { embedded?: boolean; actionSlot?: HTMLElement | null }) {
+export default function Colleges({ embedded = false, actionSlot = null, onCount }: { embedded?: boolean; actionSlot?: HTMLElement | null; onCount?: (count: number) => void }) {
   const [items, setItems] = useState<any[]>([]),
+    [loadFailed, setLoadFailed] = useState(false),
+    [submitting, setSubmitting] = useState(false),
+    [initial, setInitial] = useState(""),
+    /* كلمات السر الأولى لحسابات الكلية: تُعرض داخل الشاشة حتى يغلقها المسؤول بنفسه — لا نافذة متصفح تُغلق بضغطة. */
+    [issued, setIssued] = useState<Array<{ label: string; login: string; password: string }>>([]),
     [mode, setMode] = useState<Mode>("index"),
     [editId, setEditId] = useState<number | null>(null),
     [selectedId, setSelectedId] = useState<number | null>(null),
@@ -51,12 +57,15 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
       if (!r.ok) throw new Error();
       const data = sortByName(await r.json(), (row: any) => row.AdCollegeName);
       setItems(data);
+      setLoadFailed(false);
+      onCount?.(data.length);
       setSelectedId((v) =>
         v && data.some((x: any) => x.AdCollegeId === v)
           ? v
           : data[0]?.AdCollegeId || null,
       );
     } catch {
+      setLoadFailed(true);
       setError("فشل تحميل بيانات الكلية");
     } finally {
       setLoading(false);
@@ -88,6 +97,7 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
       setName("");
       setEditId(null);
       setError(null);
+      setInitial(JSON.stringify(["", ""]));
       setMode("create");
     },
     openEdit = (x: any) => {
@@ -95,51 +105,79 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
       setName(x.AdCollegeName);
       setEditId(x.AdCollegeId);
       setError(null);
+      setInitial(JSON.stringify([x.AdCollegeCode, x.AdCollegeName]));
       setMode("edit");
     },
     back = () => {
       setMode("index");
       setError(null);
     };
+  const dirty = mode !== "index" && JSON.stringify([code, name]) !== initial;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setError(null);
     if (!code.trim() || !name.trim()) {
       setError("الرجاء إدخال الحقول المطلوبة بالأحمر");
       return;
     }
-    const r = await fetch(
-        mode === "edit" ? `/api/colleges/${editId}` : "/api/colleges",
-        {
-          method: mode === "edit" ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            AdCollegeCode: code.trim(),
-            AdCollegeName: name.trim(),
-          }),
-        },
-      ),
-      d = await r.json();
-    if (!r.ok) {
-      setError(d.error || "فشل حفظ بيانات الكلية");
+    /* الخادم يرفض التكرار أيضاً؛ هنا يُقال قبل الإرسال وباسم السجل القائم. */
+    /* الاسمُ وحده يُرفض مكرّراً: حرما الكلية الواحدة (بنين وبنات) يتشاركان رمزها عمداً. */
+    const clash = items.find(x => x.AdCollegeId !== editId && sameReferenceName(x.AdCollegeName, name));
+    if (clash) {
+      setError(`اسم الكلية «${name.trim()}» مسجّلٌ من قبل برمز «${clash.AdCollegeCode}».`);
       return;
     }
-    /* حسابا العميد والعميد المساعد يولدان بكلمتين أوليين خاصتين: تُعرضان مرّةً ليسلّمهما المسؤول. */
-    const issued = (Array.isArray(d.accounts) ? d.accounts : []).filter((item: any) => item?.status === "created" && item.password);
-    if (issued.length) window.alert(`أُنشئت حسابات الكلية. كلمات السر الأولى (تظهر مرّة واحدة، ويُطلب تغييرها عند أول دخول):\n\n${issued.map((item: any) => `${item.label}: ${item.login} — ${item.password}`).join("\n")}`);
-    await load();
-    back();
+    setSubmitting(true);
+    try {
+      const r = await fetch(
+          mode === "edit" ? `/api/colleges/${editId}` : "/api/colleges",
+          {
+            method: mode === "edit" ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              AdCollegeCode: code.trim(),
+              AdCollegeName: name.trim(),
+            }),
+          },
+        ),
+        d = await r.json();
+      if (!r.ok) {
+        setError(d.error || "فشل حفظ بيانات الكلية");
+        return;
+      }
+      /* حسابا العميد والعميد المساعد يولدان بكلمتين أوليين خاصتين: تُعرضان مرّةً ليسلّمهما المسؤول. */
+      setIssued((Array.isArray(d.accounts) ? d.accounts : []).filter((item: any) => item?.status === "created" && item.password)
+        .map((item: any) => ({ label: String(item.label || ""), login: String(item.login || ""), password: String(item.password || "") })));
+      await load();
+      if (d && Number(d.AdCollegeId)) setSelectedId(Number(d.AdCollegeId));
+      back();
+    } catch {
+      setError("تعذّر الاتصال بالخادم، تحقّق من الشبكة وحاول مرة أخرى");
+    } finally {
+      setSubmitting(false);
+    }
   };
-  const remove = async (id: number) => {
-    if (!(await visualConfirm({ title: "حذف الكلية", message: "سيُحذف سجل الكلية من النظام.", confirmLabel: "حذف", tone: "danger", compact: true }))) return;
-    const r = await fetch(`/api/colleges/${id}`, { method: "DELETE" }),
-      d = await r.json();
-    if (!r.ok) {
-      setError(d.error || "فشل حذف بيانات الكلية");
-      return;
+  const remove = async (college: any) => {
+    if (submitting) return;
+    const id = Number(college.AdCollegeId);
+    if (!(await visualConfirm({ title: `حذف «${college.AdCollegeName}»`, message: `ستُحذف كلية «${college.AdCollegeName}» (${college.AdCollegeCode}) من النظام. لا تُحذف ما دامت لها أقسام علمية، أو حساباتٌ نطاقها فيها (العميد والعميد المساعد وفريق التسجيل) — تُسمّى لك لتعالجها من «المستخدمون».`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/colleges/${id}`, { method: "DELETE" }),
+        d = await r.json();
+      if (!r.ok) {
+        setError(d.error || "فشل حذف بيانات الكلية");
+        return;
+      }
+      setSelectedId(null);
+      await load();
+    } catch {
+      setError("تعذّر الاتصال بالخادم، تحقّق من الشبكة وحاول مرة أخرى");
+    } finally {
+      setSubmitting(false);
     }
-    setSelectedId(null);
-    await load();
   };
   const mobilityPairs = useMemo(() => {
     const buildings = (mobility?.buildings || []).map((x: any) => String(x.code));
@@ -168,7 +206,7 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
     try {
       const payload = {
         defaultTravelMinutes: Number(mobility.profile?.defaultTravelMinutes || DEFAULT_TRAVEL_MINUTES),
-        sameBuildingMinutes: Number(mobility.profile?.sameBuildingMinutes || SAME_BUILDING_MINUTES),
+        sameBuildingMinutes: sameBuildingMinutesOf(mobility.profile?.sameBuildingMinutes),
         pairs: mobilityPairs,
       };
       const r = await fetch(`/api/colleges/${selectedId}/mobility`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -193,7 +231,7 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
       filtered.find((x) => x.AdCollegeId === selectedId) || filtered[0] || null,
     activeId = selected?.AdCollegeId ?? null;
   const editorDrawer = mode !== "index" ? (
-      <CatalogFormDrawer onClose={back} label={mode === "create" ? "إنشاء كلية جديدة" : "تعديل بيانات الكلية"}>
+      <CatalogFormDrawer onClose={back} dirty={dirty} label={mode === "create" ? "إنشاء كلية جديدة" : "تعديل بيانات الكلية"}>
         <PageTitle
           eyebrow="البيانات الأكاديمية"
           subtitle="قواعد الحفظ كما هي"
@@ -235,7 +273,7 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
             </div>
             <FormActions
               onBack={back}
-              loading={loading}
+              loading={loading || submitting}
               submitLabel={mode === "create" ? "إنشاء الكلية" : "حفظ التعديلات"}
             />
           </form>
@@ -257,7 +295,15 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
           الكليات
         </PageTitle>
       )}
-      {error ? <Notice>{error}</Notice> : null}
+      {error && mode === "index" ? <Notice action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : undefined}>{error}</Notice> : null}
+      {issued.length ? (
+        <Notice type="warning" inline onDismiss={() => setIssued([])}>
+          <strong>أُنشئت حسابات الكلية.</strong> كلمات السر الأولى تظهر هنا مرّة واحدة — سلّمها لأصحابها، ويُطلب تغييرها عند أول دخول:
+          <ul className="issued-accounts">
+            {issued.map(item => <li key={item.login}>{item.label}: <b dir="ltr">{item.login}</b> — <b dir="ltr">{item.password}</b></li>)}
+          </ul>
+        </Notice>
+      ) : null}
       <div className="catalog-workspace" aria-busy={loading}>
         <Surface className="catalog-master">
           <h2 className="sr-only">قائمة الكليات</h2>
@@ -290,9 +336,9 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
             </RecordDeck>
           ) : (
             <EmptyState
-              title={query ? "لا توجد كلية مطابقة" : "لا توجد كليات بعد"}
-              detail={query ? "جرّب عبارة أخرى أو امسح البحث." : "أنشئ الكلية الأولى لبناء الهيكل الأكاديمي."}
-              action={query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
+              title={loadFailed ? "تعذّر تحميل الكليات" : query ? "لا توجد كلية مطابقة" : "لا توجد كليات بعد"}
+              detail={loadFailed ? "لم تصل القائمة من الخادم؛ هذا لا يعني أنها فارغة." : query ? "جرّب عبارة أخرى أو امسح البحث." : "أنشئ الكلية الأولى لبناء الهيكل الأكاديمي."}
+              action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
             />
           )}
         </Surface>
@@ -339,7 +385,7 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
                   </div>
                   <div className="mobility-defaults">
                     <label><span>افتراضي بين مبنيين غير مضبوطين</span><div><input type="number" min="1" max="120" value={mobility.profile?.defaultTravelMinutes || DEFAULT_TRAVEL_MINUTES} onChange={e=>{setMobility((m:any)=>({...m,profile:{...m.profile,defaultTravelMinutes:Number(e.target.value)}}));setMobilitySaved(false);}}/><b>دقيقة</b></div></label>
-                    <label><span>داخل المبنى نفسه</span><div><input type="number" min="0" max="30" value={mobility.profile?.sameBuildingMinutes || SAME_BUILDING_MINUTES} onChange={e=>{setMobility((m:any)=>({...m,profile:{...m.profile,sameBuildingMinutes:Number(e.target.value)}}));setMobilitySaved(false);}}/><b>دقيقة</b></div></label>
+                    <label><span>داخل المبنى نفسه</span><div><input type="number" min="0" max="30" value={mobility.profile?.sameBuildingMinutes ?? SAME_BUILDING_MINUTES} onChange={e=>{setMobility((m:any)=>({...m,profile:{...m.profile,sameBuildingMinutes:e.target.value===""?"":Number(e.target.value)}}));setMobilitySaved(false);}}/><b>دقيقة</b></div></label>
                   </div>
                   {mobilityPairs.length ? (() => {
                     const needle = mobilityFind.trim().toLowerCase();
@@ -388,7 +434,7 @@ export default function Colleges({ embedded = false, actionSlot = null }: { embe
                 <SecondaryButton
                   data-guide-ignore="إجراء حذف حساس داخل شاشة الإدارة ويستخدم تأكيد الشاشة نفسه"
                   className="danger-action"
-                  onClick={() => remove(selected.AdCollegeId)}
+                  onClick={() => remove(selected)}
                 >
                   <Trash2 /> حذف
                 </SecondaryButton>

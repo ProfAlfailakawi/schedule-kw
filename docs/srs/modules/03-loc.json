@@ -37,7 +37,6 @@
     "src/utils/campusTravelPolicy.ts",
     "src/utils/campusTravelHint.ts",
     "src/components/LocationQuickSetup.tsx",
-    "src/components/LocationRegistryAdmin.tsx",
     "src/components/LocationPicker.tsx",
     "src/components/LocationRoomTypeManager.tsx",
     "src/components/HallBarterBoard.tsx",
@@ -368,7 +367,7 @@
         { "ar": "المسارات: GET /api/admin/location-registry (السجل مع حالات المراجعة والتشغيلات والصحة والمواعيد المعلّقة)، وPUT /api/admin/location-registry/review/:id بالحالات open أو resolved أو ignored، وGET …/migration/preview، وPOST …/migration/apply، وPOST …/migration/:id/rollback؛ كلها للشاشة 7 مع الإدارة الرئيسية.", "en": "The routes are GET /api/admin/location-registry (registry with review cases, runs, health and pending appointments), PUT /api/admin/location-registry/review/:id with status open, resolved or ignored, GET …/migration/preview, POST …/migration/apply and POST …/migration/:id/rollback; all need screen 7 with main administration." },
         { "ar": "التهيئة تدمج أولاً بذرة السجل ثم تبني الخطة؛ وتشغيل تراجع سابقاً يردّ alreadyRolledBack، وتشغيل غير موجود 404.", "en": "Initialisation first merges the registry seed and then builds the plan; a run already rolled back answers alreadyRolledBack, and an unknown run 404." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/server/locationRegistryEngine.ts", "src/components/LocationRegistryAdmin.tsx", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/review/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/preview", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/apply", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/:id/rollback"], "tests": ["tests/location-registry-audit.py"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/server/locationRegistryEngine.ts","src/server/routes/locationsRoutes.ts#/api/admin/location-registry", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/review/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/preview", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/apply", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/:id/rollback"], "tests": ["tests/location-registry-audit.py"] }
     },
     {
       "id": "FR-LOC-012",
@@ -715,7 +714,7 @@
         { "ar": "ربط مبنى بكلية رمز موقعها يخالف كوده 409، وربط قاعة بكلية لا يتبعها كود المبنى 409؛ وكل تعديل يعلّم الصف CONFIRMED وadminVerified ويضيف سطراً إلى تاريخه.", "en": "Linking a building to a college whose site prefix differs from its code returns 409, and linking a room to a college its building code does not belong to returns 409; every edit marks the row CONFIRMED and adminVerified and appends a line to its history." },
         { "ar": "الصيغ التاريخية المحرَّرة يدوياً حتى 250 صيغة، لكل منها حتى 12 دليلاً، ويُسقط منها الرمز البديل؛ والأقسام الرئيسية للقاعة جزء من أقسامها.", "en": "Manually edited historical forms are capped at 250, each with up to 12 evidence lines, placeholders are dropped, and a room's primary departments are a subset of its departments." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts#/api/admin/location-setup", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms/:id", "src/components/LocationQuickSetup.tsx", "src/components/LocationRegistryAdmin.tsx"], "tests": ["tests/location-registry-audit.py"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts#/api/admin/location-setup", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms/:id", "src/components/LocationQuickSetup.tsx"], "tests": ["tests/location-registry-audit.py"] }
     },
     {
       "id": "FR-LOC-034",
@@ -732,6 +731,23 @@
         { "ar": "من المحرّر: جسرٌ «لم تجد قاعة متاحة في هذا الوقت؟ استعِر قاعة من قسم آخر» يظهر حين تُحدَّد الأيام أو الوقت دون قاعة، و«اطلب» يرسل POST /api/hall-barter/requests ويقول «أُرسل طلب استعارة … تظهر في مختار القاعة بعد الموافقة — واصل جدولك.».", "en": "From the editor: a bridge «found no available hall at this time? borrow one from another department» appears when days or time are set without a hall, and «request» sends POST /api/hall-barter/requests and says the borrowing request was sent and the hall will appear in the hall picker after approval." }
       ],
       "evidence": { "code": ["src/components/Schedules.tsx#barterInbox", "src/components/Schedules.tsx#dismissBarterDecisions", "src/components/Schedules.tsx#openBorrow", "src/components/Schedules.tsx#requestBorrow", "src/components/HallBarterBoard.tsx", "src/server/routes/hallBarterRoutes.ts#/api/hall-barter/requests"], "tests": ["tests/location-registry-audit.py"] }
+    },
+    {
+      "id": "FR-LOC-035",
+      "kind": "functional",
+      "title": { "ar": "قبل إيقاف قاعة أو مبنى: كم موعداً فيه، وإعادة التفعيل بدل الرفض", "en": "Before deactivating a hall or building: how many appointments use it, and reactivation instead of refusal" },
+      "text": {
+        "ar": "يجب أن يعيد GET ‎/api/admin/location-setup/usage (roomId أو buildingId) للحساب الرئيسي عددَ المواعيد التي تقف في القاعة أو في قاعات المبنى في الفصل الحالي وفيما بعده (بالمعرّف أو بالرمز القديم في المبنى نفسه)، وأن تعرضه شاشة «إضافة مبانٍ وقاعات» في نافذة التأكيد المرئية قبل الإيقاف؛ وأن يرفض DELETE لقاعةٍ أو مبنى مستعمل بـ409 (الرمز location-in-use مع العددين) إلا بالترويسة x-schedule-confirm=location-in-use، ويبقى الإيقاف كما في FR-LOC-007 لا يمسّ المواعيد. ويجب أن يردّ إنشاءُ مبنى أو قاعات رمزُها موجودٌ موقوفاً بـ409 بالرمز inactive-exists ومعرّفاتها، فتعرض الشاشة «إعادة تفعيل» بدل رفضٍ لا مخرج منه؛ وأن يكون لكل قاعة في القائمة زرُّ QR لبابها.",
+        "en": "GET /api/admin/location-setup/usage (roomId or buildingId) shall return to the root account how many appointments stand in the hall, or in the building's halls, in the current term and after it (by id or by the legacy code in the same building), and the «add buildings and rooms» screen shall show it in the visual confirmation dialog before deactivating; DELETE of a hall or building in use shall be refused with 409 (code location-in-use with both counts) unless sent with header x-schedule-confirm=location-in-use, and deactivation stays as in FR-LOC-007 without touching appointments. Creating a building or halls whose code exists inactive shall answer 409 with code inactive-exists and their ids, and the screen shall offer «reactivate» instead of a dead-end refusal; every hall in the list shall have its door QR button."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        { "ar": "قاعة فيها 3 مواعيد في الفصل الحالي ← النافذة تقول ذلك، وDELETE بلا الترويسة ← 409 location-in-use.", "en": "A hall with 3 appointments in the current term ← the dialog says so, and DELETE without the header ← 409 location-in-use." },
+        { "ar": "إضافة مبنى رمزه موجودٌ موقوفاً ← «إعادة تفعيل» ثم PUT بـactive=true.", "en": "Adding a building whose code exists inactive ← «reactivate» then PUT with active=true." }
+      ],
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationQuickSetup.tsx", "src/components/RoomDoorTools.tsx"], "tests": ["tests/admin-station-audit.ts", "tests/location-registry-audit.py"] }
     }
   ],
   "edgeCases": [
