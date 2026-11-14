@@ -312,3 +312,4 @@ test:report-insight
 test:names-one-label
 test:weekly-smoke
 test:whatif-in-changes
+test:system-health

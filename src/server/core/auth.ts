@@ -106,6 +106,9 @@ const identitySync = createGenerationWatcher({
   onChanged: () => Repository.noteForeignIdentityChange(),
 });
 
+/** آخرُ فحصٍ لجيل الهويات المشترك أجرته هذه النسخة (لبطاقة «سلامة النظام»). */
+export const identityLastCheckedAt = (): number | null => identitySync.lastCheckedAt();
+
 /* جلسةٌ لا وجود لها تُسأل عنها قاعدةُ البيانات مرةً واحدة، لا مع كل طلب؛ وعنوانٌ
    يخترع معرّفاتٍ يُقرأ مجهولاً بعد حدٍّ لا يبلغه متصفّحٌ حقيقي. القاعدة كلها
    في src/server/anonymousGuard.ts. */
