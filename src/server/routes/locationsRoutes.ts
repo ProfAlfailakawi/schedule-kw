@@ -24,6 +24,7 @@ import { confirmedDepartmentRoomIds, invalidateLocationRegistry, readLocationReg
 import { sortTermsNewestServer, termChronologyServer } from "../core/ordering";
 import { SCHEDULE_DAY_KEYS } from "../core/scheduleRules";
 import { isScopeAllowed } from "../core/scope";
+import { roomCapacityGaps } from "../../utils/roomCapacityGaps";
 import { locationUsage } from "../deleteImpact";
 
 type DepartmentRoomReference={building:string;hall:string};
@@ -234,6 +235,13 @@ app.get("/api/admin/location-registry", requirePermission(7), requirePowerAdmin,
 app.get("/api/admin/location-setup", requirePermission(7), requireRootAdmin, async (_req:AuthenticatedRequest,res:Response)=>{
   const [registry,colleges,sections]=await Promise.all([readLocationRegistry(),Repository.getColleges(),Repository.getSections()]);
   res.json({buildings:registry.buildings,rooms:registry.rooms,colleges,sections});
+});
+/* «قاعات بلا سعة»: قراءةٌ خفيفة تحسب في الخادم — نسبةُ القاعات الفعّالة المعتمدة التي لها سعة، وقوائمُ ما ينقص. النطاقُ نفسه
+   كشاشة الإضافة (حساب الإدارة الرئيسي)، والحفظُ بعدها يمرّ بمسار تعديل القاعة القائم بسجلّه وصلاحيته. */
+app.get("/api/admin/location-setup/capacity-gaps", requirePermission(7), requireRootAdmin, async (_req:AuthenticatedRequest,res:Response)=>{
+  const registry=await readLocationRegistry();
+  res.setHeader("Cache-Control","no-store");
+  res.json(roomCapacityGaps(registry.rooms,registry.buildings));
 });
 app.post("/api/admin/location-setup/buildings", requirePermission(7), requireRootAdmin, async (req:AuthenticatedRequest,res:Response)=>{
   const collegeId=Number(req.body?.collegeId||0),sectionId=Number(req.body?.sectionId||0);

@@ -7,6 +7,7 @@
  *
  *   tcRibbon      🔒 «انتهت فترة الطلبات» بتاريخها · 👁️ «للعرض فقط» · 🎓 مرحلة التدريب بعدّادٍ وحلقة نصاب
  *   tcCourseLock  🔒/🌱/🎯 على المقرر غير المتاح + 🌟 «اهتمام مستقبلي»
+ *   tcNextHtml / tcWeekHtml  «محاضرتك القادمة» وإنفوجرافيك «أسبوعي الصحي» من جدوله الرسمي (data.week) — بلا قاعةٍ ولا مبنى
  *   tcStickHtml   🧲 «لاصق بمحاضرتي»: ⬅️ قبلها / ➡️ بعدها لكل محاضرة، شريطٌ زمني، «اقترح أفضل التصاق»
  *                 الوقتُ وحده: لا قاعةَ ولا مبنى ولا تلميحَ بهما (قرار المالك 2026-10-29).
  *
@@ -103,4 +104,41 @@ function tcWire(){if(data&&data.mode==="ta"&&!tcTaOpened){var o=document.getElem
  host.querySelectorAll("[data-stick-open]").forEach(function(b){b.onclick=function(){var i=Number(b.dataset.stickOpen);if(tcStick[i]){delete tcStick[i];paint()}else tcStickLoad(i)}});
  host.querySelectorAll("[data-stick-retry]").forEach(function(b){b.onclick=function(){tcStickLoad(Number(b.dataset.stickRetry))}});
  host.querySelectorAll("[data-stick]").forEach(function(b){b.onclick=function(){if(b.disabled)return;var i=Number(b.dataset.stick),it=state[i];if(!it)return;it.days=String(b.dataset.days||"").split(",").filter(Boolean);it.start=b.dataset.start;it.autoNote="";delete tcStick[i];paint();recheckAll()}})}
+
+/* ── «محاضرتك القادمة» و«أسبوعي الصحي» (من data.week: جدولُه الرسميّ وحده، بلا قاعةٍ ولا مبنى) ──
+   الحسابُ في teacherCardLogic (tcNextLecture, tcWeekHealth)؛ هنا الرسمُ وحده، والعدّادُ يتحدّث في مكانه بلا إعادة رسمٍ للصفحة. */
+function tcWeekData(){return data&&data.week?data.week:null}
+function tcSvg(d){return '<svg class="tc-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'}
+var TC_SV={pulse:'<path d="M3 12h4l2-6 4 12 2-6h6"/>',route:'<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"/>',
+ clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',spark:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',ok:'<path d="m5 12 4 4L19 6"/>',warn:'<path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>'};
+function tcNextIndex(n){if(!n)return -1;for(var i=0;i<state.length;i++){if(Number(state[i].rowId)===Number(n.rowId))return i}return -1}
+function tcNextHtml(){var n=tcNextLecture(tcWeekData(),Date.now());if(!n)return "";
+ var go=tcNextIndex(n)>=0,tag=go?"button":"div",pct=n.soon?Math.max(4,Math.min(100,Math.round(100-n.minutes/60*100))):0;
+ return '<'+tag+(go?' type="button" data-tc-next-go="1"':'')+' class="tc-next" data-soon="'+(n.soon?1:0)+'">'+
+  '<span class="tc-nx-ic">'+tcSvg(TC_SV.clock)+'</span>'+
+  '<span class="tc-nx-b"><small>محاضرتك القادمة</small><b class="tc-nx-t">'+esc(n.text)+'</b>'+(tcNextSub(n)?'<span class="tc-nx-s">'+esc(tcNextSub(n))+'</span>':'')+'</span>'+
+  '<span class="tc-nx-time"><bdi dir="ltr">'+esc(n.start)+'</bdi></span>'+(n.soon?'<i class="tc-nx-bar" style="--p:'+pct+'%"></i>':'')+'</'+tag+'>'}
+function tcNextSlot(){var n=tcNextLecture(tcWeekData(),Date.now());return '<div id="tcNextSlot" data-sig="'+esc(n?n.key:"")+'">'+tcNextHtml()+'</div>'}
+function tcNextTick(){if(document.visibilityState==="hidden")return;var slot=document.getElementById("tcNextSlot");if(!slot)return;
+ var n=tcNextLecture(tcWeekData(),Date.now()),sig=n?n.key:"";
+ if(slot.getAttribute("data-sig")!==sig){slot.innerHTML=tcNextHtml();slot.setAttribute("data-sig",sig);return}
+ if(!n)return;var t=slot.querySelector(".tc-nx-t");if(t&&t.textContent!==n.text)t.textContent=n.text;
+ var card=slot.firstChild;if(card&&card.setAttribute)card.setAttribute("data-soon",n.soon?"1":"0")}
+setInterval(tcNextTick,20000);
+document.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("[data-tc-next-go]"):null;if(!b)return;
+ var n=tcNextLecture(tcWeekData(),Date.now()),i=tcNextIndex(n);if(i<0)return;
+ var jump=function(){var el=document.getElementById("item-"+i);if(!el)return;
+  el.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"center"});
+  el.setAttribute("data-flash","1");setTimeout(function(){el.removeAttribute("data-flash")},1600)};
+ if(activeTab!=="schedule"){activeTab="schedule";paint()}jump()});
+function tcWeekHtml(){var h=tcWeekHealth(tcWeekData());if(!h)return "";
+ var dots=h.days.map(function(d){return '<i data-on="'+(d.attend?1:0)+'" title="'+esc(d.name)+'"><span class="sr">'+esc(d.name+(d.attend?" — حضور":" — بلا محاضرات"))+'</span><span aria-hidden="true">'+esc(d.short)+'</span></i>'}).join("");
+ var att='<div class="tc-wk-t tc-wk-att"><span class="tc-wk-ring" style="--p:'+Math.round(h.attend/h.of*100)+'" role="img" aria-label="'+esc("تحضر "+countOf(h.attend,AR.day)+" من "+h.of)+'"><b>'+h.attend+'<small>/'+h.of+'</small></b></span>'+
+  '<span class="tc-wk-tx"><small>أيام الحضور</small><span class="tc-wk-dots" aria-hidden="true">'+dots+'</span></span></div>';
+ var g=h.gap?'<div class="tc-wk-t"><small>أطول فراغ</small><b>'+esc(h.gap.dur)+'</b><span class="tc-wk-bar" data-long="'+(h.gap.long?1:0)+'" aria-hidden="true"><i style="inline-size:'+h.gap.pct+'%"></i></span><em>'+esc(h.gap.name)+'</em></div>'
+  :'<div class="tc-wk-t"><small>أطول فراغ</small><b>لا فراغ</b><span class="tc-wk-bar" aria-hidden="true"><i style="inline-size:0"></i></span><em>'+(h.multi?'محاضراتك متتالية':'محاضرةٌ واحدة في اليوم')+'</em></div>';
+ var bz=h.busiest?'<div class="tc-wk-t"><small>أكثف يوم</small><b>'+esc(h.busiest.name)+'</b><span class="tc-wk-sub">'+esc(countOf(h.busiest.count,AR.lecture))+' · '+esc(h.busiestDur)+'</span></div>':'';
+ var hops=h.hops.length?'<ul class="tc-wk-hops" aria-label="التنقّل بين الحرمين">'+h.hops.map(function(x){return '<li data-tight="'+(x.tight?1:0)+'">'+tcSvg(TC_SV.route)+'<span class="tc-hp-t">'+esc(x.name)+' · '+esc(x.fromLabel)+' ← '+esc(x.toLabel)+'</span><span class="tc-hp-n">'+esc(tcDur(x.need))+'</span><em>'+tcSvg(x.tight?TC_SV.warn:TC_SV.ok)+esc(x.tight?"الفاصل ضيّق":"الفاصل يكفي")+'</em></li>'}).join("")+'</ul>':'';
+ var say=h.sentence?'<p class="tc-wk-say" data-k="'+esc(h.kind)+'" role="note">'+tcSvg(TC_SV.spark)+'<span>'+esc(h.sentence)+'</span></p>':'';
+ return '<section class="tc-week" aria-labelledby="tcWkT"><h2 class="tc-wk-h" id="tcWkT">'+tcSvg(TC_SV.pulse)+'أسبوعي الصحي</h2><div class="tc-wk-grid">'+att+g+bz+'</div>'+hops+say+'</section>'}
 `;

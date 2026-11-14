@@ -567,8 +567,8 @@ const ROOMY_REQUEST = () => ({
   const routes = read("src/server/pushRoutes.ts");
   check((routes.match(/setTimeout\(/g) || []).length === 1 && /setTimeout\(resolve, HOOK_WAIT_MS\)/.test(routes) && !/createPushDigest|setInterval/.test(routes + read("src/server/webPush.ts")),
     "pushRoutes: المؤقّتُ الوحيد حدُّ انتظار الخطاف — لا مؤقّتَ تجميعٍ في الخلفية");
-  check((server.match(/^\s*(?:if \([^)]*\) )?pushHooks\./gm) || []).length === 0 && (server.match(/await pushHooks\./g) || []).length === 9,
-    "server.ts: الخطافاتُ التسعة كلُّها تُنتظر قبل الرد");
+  check((server.match(/^\s*(?:if \([^)]*\) )?pushHooks\./gm) || []).length === 0 && (server.match(/await pushHooks\./g) || []).length === 10,
+    "server.ts: الخطافاتُ العشرة كلُّها تُنتظر قبل الرد");
 
   /* اكتشافُ المستلمين لا يقف عند الخمسمئة الأولى */
   const all = Array.from({ length: 1234 }, (_, i) => i);

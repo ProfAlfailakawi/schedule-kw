@@ -273,7 +273,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   const publish = read("src/components/SchedulePublish.tsx");
   check(/\{!dead \? <div className="share-row-actions"/.test(publish) && /\{link\.views \? /.test(publish), "D الروابط: لا أزرارَ معطّلة لرابطٍ منتهٍ، ولا «0 فتحة»");
   const inbox = read("src/components/InstructorInbox.tsx");
-  check(/\{totals\?\.changed \? <div>/.test(inbox) && !/disabled=\{option\.count === 0/.test(inbox), "D وارد الأساتذة: لا لوحة صفرية ولا شريحة معطّلة بصفر");
+  check(/<CardPulse/.test(inbox) && /count \|\| active === stage \?/.test(read("src/components/inbox/CardPulse.tsx")) && !/disabled=\{!count/.test(read("src/components/inbox/CardPulse.tsx")) && !/disabled=\{option\.count === 0/.test(inbox), "D وارد الأساتذة: لا لوحة صفرية ولا شريحة معطّلة بصفر");
   const intel = read("src/components/IntelligenceWorkspace.tsx");
   check(/\{overview\.metrics\.criticalConflicts \? <button/.test(intel) && /\{metricBadge\(item\.metric\)\}/.test(intel), "D مركز الذكاء: بطاقات الصفر لا تُعرض");
   const barter = read("src/components/HallBarterBoard.tsx");

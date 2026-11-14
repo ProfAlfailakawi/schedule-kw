@@ -214,7 +214,7 @@ type Day = typeof DAYS[number];
   const keep7 = { rowId: 7, action: "keep", days: [], start: "", excuse: "" };
   const moved7 = { rowId: 7, action: "change", days: ["fsunday", "ftuesday"], start: "14:00", excuse: "" };
   check(untouchedSrc.length > 0 && untouchedIn({ base: [keep7] }, keep7) && !untouchedIn({ base: [keep7] }, moved7) && !untouchedIn({ items: [keep7] }, keep7)
-    && script.includes("items:payloadItems(),base:baseItems,") && script.includes("if(draft){var applied=applyDraft(draft,[]).applied;if(applied){restoredDraft=true;syncDirty()}else clearDraft()}"),
+    && script.includes("items:payloadItems(),base:baseItems,") && script.includes("if(draft){var back=applyDraft(draft,[]);draftClosed=back.closed;if(back.applied){restoredDraft=true;syncDirty()}else clearDraft()}"),
     "والمسودةُ تُطبَّق على ما لمسه تبويبُها وحده: «كما هو» الذي لم يُلمس لا يمحو تعديلاً أرسله تبويبٌ آخر، ولا «استعدنا» بلا شيء");
   /* وانقطاعُ الاتصال حالةٌ محايدة «تعذّر الفحص — أعد المحاولة» بزرّ، لا «الوقت غير متاح» (الجولة الخامسة). */
   check(script.includes("e.server=true;e.itemIndex=d.itemIndex;throw e") && script.includes("if(said){it.tone=\"bad\";it.note=tcNoPlace(said);return}")

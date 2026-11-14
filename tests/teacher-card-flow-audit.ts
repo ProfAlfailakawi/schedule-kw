@@ -400,40 +400,38 @@ async function main() {
     check(flood.includes(429), "ورابطٌ واحدٌ يكرّر بلا توقف يقف عند حدّه الشخصيّ", flood.slice(-3));
   }
 
-  /* ═══ القرار ٥ (2026-10-29): الاشتراكُ الثابت يعيش ما دامت بطاقةٌ حيّة ═════════
-     آخرَ الملف لأنه يوقف روابطَ هذا الصندوق. صاحبُ «pending» (المرحلة ٤) يدرّس في
-     القسم ١:١ وحده، وبطاقاتُه: رابطُ طلبه وبطاقةُ القسم العامة. */
+  /* ═══ القرار ٥ (2026-10-29) + ربطُ الاشتراك برابطه (2026-11-14) ═════════════════
+     آخرَ الملف لأنه يوقف روابطَ هذا الصندوق. الاشتراكُ يعيش ما دام الرمزُ في مساره بطاقةً حيّةً لصاحبه:
+     إيقافُ ذلك الرابط (أو تجديدُه) يُوقف اشتراكَه فارغاً ولو بقيت للأستاذ بطاقةٌ أخرى حيّة؛ والرابطُ الجديد يحمل اشتراكاً جديداً.
+     صاحبُ «pending» (المرحلة ٤) يدرّس في القسم ١:١ وحده، وبطاقاتُه: رابطُ طلبه وبطاقةُ القسم العامة. */
   {
     const unfold = (t: string) => t.replace(/\r\n[ \t]/g, "");
-    const read = async () => { const r = await fetch(BASE + feedPath); const text = unfold(await r.text()); return { status: r.status, type: r.headers.get("content-type") || "", text }; };
+    const readAt = async (path: string) => { const r = await fetch(BASE + path); const text = unfold(await r.text()); return { status: r.status, type: r.headers.get("content-type") || "", text }; };
+    const read = () => readAt(feedPath);
     const nameOf = (t: string) => (/^X-WR-CALNAME:(.*)$/m.exec(t) || [])[1] || "";
     const departmentCard = () => A("GET", `/api/share?${SCOPE}`).then(r => (r.json as any[]).find(l => l.kind === "staff" && !Number(l.AdInstructorId || 0) && !l.revoked));
     const live = await read();
     check(live.status === 200 && /BEGIN:VEVENT/.test(live.text) && !!nameOf(live.text), "الاشتراك حيٌّ ومعه محاضراته", live.status);
-    /* إيقافُ رابط طلبه وحده ليس نهائياً: بطاقةُ القسم ما زالت تفتح بطاقته. */
+    /* إيقافُ رابط طلبه يوقف الاشتراكَ المحمول عليه، وبطاقةُ القسم ما زالت تفتح بطاقته: الاشتراكُ مربوطٌ برابطه لا بالشخص. */
     const revokeOwn = await A("DELETE", `/api/share/${encodeURIComponent(pending.linkId)}`);
     /* ورابطُ طلبه للفصل اللاحق (المرحلة ٥ أصدرته) بطاقةٌ حيّة أخرى: يُوقف هو أيضاً. */
     for (const later of ((await A("GET", "/api/instructor-requests?collegeId=1&sectionId=1&termId=2")).json.rows || []) as any[])
       if (Number(later.AdInstructorId) === Number(pending.AdInstructorId)) await A("DELETE", `/api/share/${encodeURIComponent(later.linkId)}`);
     const afterOwn = await read();
-    check(revokeOwn.status === 200 && afterOwn.status === 200 && /BEGIN:VEVENT/.test(afterOwn.text), "إيقافُ رابط الطلب وبطاقةُ القسم حيّة: التقويم باقٍ", afterOwn.status);
-    /* إعادةُ نشر بطاقة القسم: القديمة تُوقف والجديدة تحلّ محلّها — والتقويم لا ينقطع. */
+    check(revokeOwn.status === 200 && afterOwn.status === 200 && /text\/calendar/.test(afterOwn.type) && afterOwn.text.startsWith("BEGIN:VCALENDAR")
+      && !/BEGIN:VEVENT/.test(afterOwn.text), "إيقافُ رابط الطلب يوقف الاشتراكَ المربوط به: 200 بتقويمٍ صالحٍ فارغ (تُمسح المحاضرات من الهاتف بهدوء)", { status: afterOwn.status });
+    check(/^X-WR-CALDESC:توقّف/m.test(afterOwn.text) && nameOf(afterOwn.text) === nameOf(live.text), "بالاسم نفسه، ووصفُه يقول إنه توقّف", nameOf(afterOwn.text));
+    /* إعادةُ نشر بطاقة القسم: الرابطُ المحمول يبقى متوقفاً (رمزُه مات)، والبطاقةُ الجديدة تحمل اشتراكاً جديداً. */
     const first = await departmentCard();
     const republished = await A("POST", "/api/share", { collegeId: 1, sectionId: 1, termId: 1, kind: "staff" });
     const afterReissue = await read();
-    check(!!first && republished.status === 201 && republished.json.id !== first.id && /BEGIN:VEVENT/.test(afterReissue.text),
-      "إعادةُ الإصدار تُبقي الاشتراك حيّاً", { status: republished.status, replaced: republished.json.replaced });
-    /* الإيقافُ النهائي: لا يبقى بيده رابطُ بطاقةٍ حيّ. */
-    const cancelled = await A("DELETE", `/api/share/${encodeURIComponent(republished.json.id)}`);
-    const paused = await read();
-    check(cancelled.status === 200 && paused.status === 200 && /text\/calendar/.test(paused.type) && paused.text.startsWith("BEGIN:VCALENDAR")
-      && paused.text.includes("END:VCALENDAR") && !/BEGIN:VEVENT/.test(paused.text),
-      "الإيقافُ النهائي: 200 بتقويمٍ صالحٍ فارغ (تُمسح المحاضرات من الهاتف بهدوء)", { status: paused.status, type: paused.type });
-    check(/^X-WR-CALDESC:توقّف/m.test(paused.text) && nameOf(paused.text) === nameOf(live.text), "بالاسم نفسه، ووصفُه يقول إنه توقّف", nameOf(paused.text));
-    /* ويعود وحده متى صدرت بطاقةٌ جديدة. */
-    const reissued = await A("POST", "/api/share", { collegeId: 1, sectionId: 1, termId: 1, kind: "staff" });
-    const resumed = await read();
-    check(reissued.status === 201 && resumed.status === 200 && /BEGIN:VEVENT/.test(resumed.text) && nameOf(resumed.text) === nameOf(live.text), "ويعود وحده حين يصدر القسم بطاقةً جديدة");
+    check(!!first && republished.status === 201 && republished.json.id !== first.id && !/BEGIN:VEVENT/.test(afterReissue.text),
+      "تجديدُ رابطٍ آخر لا يُحيي اشتراكاً مربوطاً برابطٍ مات", { status: republished.status, replaced: republished.json.replaced });
+    /* من لم يُغرَق رابطُه بالطلبات في قسم الحدود أعلاه (429). */
+    const another = rows.slice(4).find(r => r.linkId !== pending.linkId && r.linkId !== target.linkId) || rows[rows.length - 1];
+    const anotherCard = another ? await http("GET", `/api/public/request/${encodeURIComponent(another.linkId)}`) : null;
+    const fresh = anotherCard && anotherCard.status === 200 ? await readAt(String(anotherCard.json.calendarFeed || "")) : null;
+    check(!!fresh && fresh.status === 200 && /BEGIN:VEVENT/.test(fresh.text), "وبطاقةٌ حيّة أخرى تحمل اشتراكَها الحيّ (الرمزُ في مساره بطاقةٌ حيّةٌ لصاحبها)", { another: another?.linkId, card: anotherCard?.status, feed: anotherCard?.json?.calendarFeed, status: fresh?.status, head: fresh?.text.slice(0, 160) });
   }
 
   /* ورمزٌ بتوقيعٍ قديمٍ بلا بنود: يُقال ذلك ولا يُخترع. */

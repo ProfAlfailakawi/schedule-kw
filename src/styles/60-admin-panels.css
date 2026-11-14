@@ -1,0 +1,124 @@
+/* ── لوحتان للمدير: «قاعات بلا سعة» (LocationCapacityGaps) و«نبض الكروت» (inbox/CardPulse) ───────────────
+   من رموز النظام وحدها، فتعمل في الوضعين. الحدّ الأدنى للخط 12px وللهدف 44px. */
+
+/* ═══ قاعات بلا سعة ═══ */
+.cap-gaps{position:relative;display:grid;gap:14px;padding:16px;border:1px solid color-mix(in srgb,var(--warning) 26%,var(--line));border-radius:18px;
+  background:
+    radial-gradient(120% 140% at 100% 0%,color-mix(in srgb,var(--warning) 8%,transparent) 0%,transparent 55%),
+    var(--surface);box-shadow:var(--shadow-xs)}
+.cap-gaps.is-complete{border-color:color-mix(in srgb,var(--success) 30%,var(--line));
+  background:radial-gradient(120% 140% at 100% 0%,color-mix(in srgb,var(--success) 9%,transparent) 0%,transparent 55%),var(--surface)}
+.cap-gaps .mini-ring>b{font-size:19px}
+.cap-gaps-head{display:flex;align-items:center;gap:16px;min-width:0}
+.cap-gaps-copy{display:grid;gap:4px;min-width:0;flex:1}
+.cap-gaps-copy strong{font-size:16px;font-weight:800;line-height:1.3;color:var(--ink)}
+.cap-gaps-copy small{color:var(--muted);font-size:13px;line-height:1.5;font-variant-numeric:tabular-nums}
+.cap-gaps-effect{display:flex;align-items:center;gap:6px;margin:0;color:var(--accent-strong);font-size:12.5px;font-weight:700;line-height:1.5}
+.cap-gaps-effect svg{inline-size:15px;block-size:15px;flex:none}
+.cap-gaps-count{display:grid;justify-items:center;gap:2px;min-inline-size:92px;padding:10px 14px;border-radius:14px;background:var(--warning-soft);color:var(--warning);text-align:center}
+.cap-gaps-count svg{inline-size:20px;block-size:20px}
+.cap-gaps-count b{font-size:15px;font-weight:800;line-height:1.3;color:var(--ink);font-variant-numeric:tabular-nums}
+.cap-gaps-count span{font-size:12px;font-weight:700;color:var(--ink-2)}
+.cap-gaps-count[data-zero="1"]{background:var(--success-soft);color:var(--success)}
+.cap-gaps-count[data-zero="1"] span{display:none}
+.cap-gaps-sr{position:absolute;inline-size:1px;block-size:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.cap-gaps-fail{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0;color:var(--danger);font-weight:700}
+.cap-gaps-retry{min-block-size:44px;padding:0 14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-weight:700;cursor:pointer}
+.cap-gaps-done{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:var(--success-soft);color:var(--ink-2)}
+.cap-gaps-done svg{inline-size:22px;block-size:22px;color:var(--success);flex:none}
+.cap-gaps-done strong{color:var(--ink);font-size:14px}
+.cap-gaps-done span{font-size:13px}
+.cap-gaps-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.cap-gaps-search{position:relative;display:flex;align-items:center;flex:0 1 220px;min-inline-size:150px}
+.cap-gaps-search>svg{position:absolute;inset-inline-start:12px;inline-size:16px;block-size:16px;color:var(--muted);pointer-events:none}
+.cap-gaps-search input{inline-size:100%;min-block-size:44px;padding:0 12px 0 12px;padding-inline-start:36px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;text-align:start}
+.cap-gaps-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cap-gaps-chips button{display:inline-flex;align-items:center;gap:6px;min-block-size:44px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);color:var(--ink-2);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.cap-gaps-chips button svg{inline-size:15px;block-size:15px}
+.cap-gaps-chips button b{min-inline-size:22px;block-size:22px;padding:0 6px;border-radius:999px;display:inline-grid;place-items:center;background:var(--surface);color:var(--ink);font-size:12px;font-variant-numeric:tabular-nums}
+.cap-gaps-chips button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.cap-gaps-chips button:focus-visible,.cap-gaps-save:focus-visible,.cap-gaps-retry:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cap-gaps-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));gap:10px;margin:0;padding:0;list-style:none}
+.cap-gaps-card{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);min-width:0}
+.cap-gaps-card[data-error="1"]{border-color:color-mix(in srgb,var(--danger) 45%,var(--line))}
+.cap-gaps-card header{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.cap-gaps-card header strong{font-size:15px;font-weight:800;letter-spacing:.04em;color:var(--ink)}
+.cap-gaps-door{display:grid;place-items:center;inline-size:30px;block-size:30px;border-radius:10px;background:var(--accent-softer);color:var(--accent-strong);flex:none}
+.cap-gaps-door svg{inline-size:16px;block-size:16px}
+.cap-gaps-card>small{color:var(--muted);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.cap-gaps-entry{display:flex;gap:8px}
+.cap-gaps-entry input{flex:1 1 0;inline-size:0;width:0;min-inline-size:0;min-block-size:44px;padding:0 12px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:15px;font-variant-numeric:tabular-nums;text-align:start}
+.cap-gaps-entry input[aria-invalid="true"]{border-color:var(--danger)}
+.cap-gaps-save{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-block-size:44px;min-inline-size:76px;padding:0 14px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-contrast);font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+.cap-gaps-save svg{inline-size:16px;block-size:16px}
+.cap-gaps-save:disabled{opacity:.5;cursor:not-allowed}
+.cap-gaps-error{margin:0;color:var(--danger);font-size:12.5px;font-weight:700;line-height:1.5}
+.cap-gaps-none{margin:0;color:var(--muted);font-size:13px}
+@media(max-width:560px){
+  .cap-gaps{padding:14px 12px}
+  .cap-gaps-head{flex-wrap:wrap;gap:12px}
+  .cap-gaps-count{display:flex;align-items:center;min-inline-size:0;inline-size:100%;justify-content:center;gap:8px;padding:8px 14px}
+  .cap-gaps-search{flex:1 1 100%}
+  .cap-gaps-grid{grid-template-columns:1fr}
+}
+
+/* ═══ نبض الكروت ═══ */
+.card-pulse{position:relative;display:grid;gap:12px;padding:14px 16px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:18px;
+  background:
+    radial-gradient(120% 140% at 100% 0%,color-mix(in srgb,var(--accent) 8%,transparent) 0%,transparent 55%),
+    var(--surface);box-shadow:var(--shadow-xs)}
+.card-pulse-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card-pulse-mark{display:grid;place-items:center;inline-size:34px;block-size:34px;border-radius:11px;background:var(--accent-soft);color:var(--accent-strong);flex:none}
+.card-pulse-mark svg{inline-size:18px;block-size:18px}
+.card-pulse-title{display:grid;min-width:0;flex:1}
+.card-pulse-title b{font-size:15px;font-weight:800;color:var(--ink);line-height:1.3}
+.card-pulse-title small{color:var(--muted);font-size:12.5px;line-height:1.45;font-variant-numeric:tabular-nums}
+.card-pulse-remind{display:inline-flex;align-items:center;gap:8px;min-block-size:44px;padding:0 16px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-contrast);font:inherit;font-size:14px;font-weight:800;cursor:pointer}
+.card-pulse-remind svg{inline-size:17px;block-size:17px}
+.card-pulse-remind b{min-inline-size:24px;block-size:24px;padding:0 7px;border-radius:999px;display:inline-grid;place-items:center;background:color-mix(in srgb,var(--accent-contrast) 22%,transparent);font-size:12.5px;font-variant-numeric:tabular-nums}
+.card-pulse-remind:disabled{opacity:.5;cursor:not-allowed}
+.card-pulse-bar{display:flex;block-size:14px;border-radius:999px;overflow:hidden;background:var(--surface-3);gap:2px}
+.card-pulse-bar>span{min-inline-size:6px;transition:flex-grow .5s var(--ease-out,ease-out)}
+.card-pulse-bar[data-empty="1"]{opacity:.6}
+.card-pulse-stages{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0;padding:0;list-style:none}
+.card-pulse-stage{display:grid;justify-items:center;align-content:center;gap:2px;inline-size:100%;min-block-size:76px;padding:8px 6px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);color:var(--ink-2);font:inherit;text-align:center;cursor:pointer}
+.card-pulse-stage svg{inline-size:20px;block-size:20px;color:var(--stage)}
+.card-pulse-stage b{font-size:20px;font-weight:800;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
+.card-pulse-stage span{font-size:12px;font-weight:700;line-height:1.35;color:var(--ink-2)}
+.card-pulse-stage[data-zero="1"]{opacity:.62}
+.card-pulse-stage[aria-pressed="true"]{border-color:var(--stage);background:color-mix(in srgb,var(--stage) 12%,var(--surface))}
+.card-pulse-stage:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.card-pulse-stage[data-stage="unopened"]{--stage:var(--danger)}
+.card-pulse-stage[data-stage="opened"]{--stage:var(--warning)}
+.card-pulse-stage[data-stage="sent"]{--stage:var(--muted)}
+.card-pulse-stage[data-stage="awaiting"]{--stage:var(--info)}
+.card-pulse-stage[data-stage="complete"]{--stage:var(--success)}
+.card-pulse-bar [data-stage="unopened"]{background:var(--danger)}
+.card-pulse-bar [data-stage="opened"]{background:var(--warning)}
+.card-pulse-bar [data-stage="sent"]{background:var(--muted-2,var(--muted))}
+.card-pulse-bar [data-stage="awaiting"]{background:var(--info)}
+.card-pulse-bar [data-stage="complete"]{background:var(--success)}
+.card-pulse-note{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+@media(max-width:640px){
+  .card-pulse{padding:12px}
+  .card-pulse-stages{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-block-end:4px;scrollbar-width:none}
+  .card-pulse-stage{flex:0 0 96px;scroll-snap-align:start}
+  .card-pulse-remind{inline-size:100%;justify-content:center}
+}
+@media(prefers-reduced-motion:reduce){.card-pulse-bar>span{transition:none}}
+
+/* ورقةُ تأكيد «ذكّر الباقين» */
+.card-pulse-sheet .changes-extend-card{display:grid;gap:12px}
+.card-pulse-sheet-lead{margin:0;color:var(--ink-2);font-size:14px;line-height:1.7}
+.card-pulse-sheet-lead b{color:var(--ink);font-variant-numeric:tabular-nums}
+.card-pulse-skip{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.card-pulse-skip li{display:inline-flex;align-items:center;min-block-size:28px;padding:0 10px;border-radius:999px;background:var(--surface-3);color:var(--ink-2);font-size:12px;font-weight:700}
+.card-pulse-people{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none;max-block-size:132px;overflow-y:auto}
+.card-pulse-people li{display:inline-flex;align-items:center;min-block-size:28px;padding:0 10px;border-radius:999px;background:var(--accent-softer);color:var(--accent-ink);font-size:12.5px;font-weight:700}
+
+/* خريطةُ التكدّس وحدَها بعد أن حلّ «نبض الكروت» محلّ بطاقة الحلقة: تملأ العرض كلَّه. */
+.inbox-glance.is-solo{grid-template-columns:minmax(0,1fr)}
+.card-pulse-wa{display:grid;gap:8px;margin:0;padding:0;list-style:none;max-block-size:260px;overflow-y:auto}
+.card-pulse-wa li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-block-size:44px;padding:4px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);font-weight:700;font-size:14px}
+.card-pulse-wa .request-remind{min-block-size:44px;display:inline-flex;align-items:center;gap:6px}
+.card-pulse-error{margin:0;color:var(--danger);font-size:13px;font-weight:700;line-height:1.5}

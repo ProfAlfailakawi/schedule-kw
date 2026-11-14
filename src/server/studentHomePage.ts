@@ -3,6 +3,7 @@ import { CRITICAL_COURSES_SCRIPT } from "../utils/criticalCourses";
 import { TRAVEL_HINT_SCRIPT } from "../utils/campusTravelHint";
 import { MASARI_ACK_CSS, MASARI_ACK_JS, MASARI_ACK_TEXT } from "./masariDisclaimer";
 import { STUDENT_RECOVERY_CSS, STUDENT_RECOVERY_SCRIPT } from "./studentRecoveryScript";
+import { STUDENT_EXTRAS_CSS, STUDENT_EXTRAS_SCRIPT } from "./studentExtrasScript";
 import { PUBLIC_FONT_FACES } from "./publicKit";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
 import { STUDENT_MAP_CSS, STUDENT_MAP_SCRIPT } from "./studentMapUi";
@@ -582,7 +583,7 @@ export const STUDENT_HOME_SCRIPT = String.raw`
 (function(){
 "use strict";
 var app=document.getElementById("app"),topEl=document.getElementById("top"),dockEl=document.getElementById("dock");
-var S={state:null,view:"boot",civil:"",exists:false,resetPending:false,resetAt:"",catalog:null,catalogErr:"",plans:null,planSource:"",draft:null,offered:null,busy:false,remember:false,sheet:"",track:window.__SCHEDULE_TRACK||""};
+var S={state:null,view:"boot",civil:"",exists:false,resetPending:false,resetAt:"",colleges:null,college:null,catalog:null,catalogErr:"",plans:null,planSource:"",draft:null,offered:null,busy:false,remember:false,sheet:"",track:window.__SCHEDULE_TRACK||""};
 S.trackFixed=!!S.track;
 
 /* وحداتُه في الفصل: ما كتبه في رغباته لهذا الفصل، وإلا المعدلُ المقرَّب. منه تُحسب فصولُ التخرّج في كل مكانٍ في الصفحة (الرحلة، ماذا لو، الخريطة). */
@@ -737,8 +738,8 @@ function viewCode(){
   setTimeout(function(){var i=document.getElementById("code");if(i)i.focus()},60);
 }
 /* ── تقدّم الإعداد: «الخطوة ٢ من ٤» شريطٌ رفيع فوق كل شاشة، والعددُ بما سيُرى فعلاً (المسار المحدَّد من الرابط والصحيفةُ الوحيدة لا تُعدّان). ── */
-var PROG_NAME={create:"ملفّك",track:"المسار",spec:"التخصص",plan:"الصحيفة",passed:"ما أنجزت"};
-function setupKeys(){var k=[];if(S.firstRun)k.push("create");if(!S.trackFixed)k.push("track");k.push("spec");if(S.plans&&S.plans.length>1)k.push("plan");k.push("passed");return k}
+var PROG_NAME={create:"ملفّك",college:"الكلية",spec:"التخصص",plan:"الصحيفة",passed:"ما أنجزت"};
+function setupKeys(){var k=[];if(S.firstRun)k.push("create");if(!(S.colleges&&S.colleges.length===1))k.push("college");k.push("spec");if(S.plans&&S.plans.length>1)k.push("plan");k.push("passed");return k}
 function firstSetup(){return !!S.firstRun||!(S.state&&S.state.profile&&S.state.profile.setupDone)}
 function prog(key){if(!firstSetup())return"";var k=setupKeys(),i=k.indexOf(key);if(i<0||k.length<2)return"";
   return '<div class="prog fade" role="progressbar" aria-valuemin="1" aria-valuemax="'+k.length+'" aria-valuenow="'+(i+1)+'" aria-label="الخطوة '+(i+1)+' من '+k.length+'"><div class="prog-t">الخطوة '+(i+1)+' من '+k.length+'<span>'+PROG_NAME[key]+'</span></div><div class="prog-bar"><i style="inline-size:'+Math.round((i+1)/k.length*100)+'%"></i></div></div>'}
@@ -760,36 +761,59 @@ function viewCreate(){S.firstRun=true;
   document.getElementById("other").addEventListener("click",function(){S.civil="";S.firstRun=false;setView("gate")});
   setTimeout(function(){var i=document.getElementById("nm");if(i)i.focus()},60);
 }
+/* الخروج: لا يُعرض الباب إلا بعد أن يؤكّد الخادمُ مسحَ الكوكي. فشلُ الطلب (انقطاعٌ أو مهلة) يُبقي الطالب داخلاً ويقول له ذلك،
+   فلا يترك جهازاً مشتركاً مفتوحاً وهو يظنّه مغلقاً. */
+function doExit(btn){if(btn.disabled)return;btn.disabled=true;
+  api("POST","/api/public/me/exit",{}).then(function(r){if(!r.ok||r.unknown){btn.disabled=false;toast("لم يكتمل الخروج، تأكد من الاتصال وأعد المحاولة",true);return}
+    S.state.signedIn=false;S.state.profile=null;S.civil="";S.remember=false;S.draft=null;S.offered=null;setView("gate")})}
 function afterSignIn(){S.civil="";api("GET","/api/public/me/state").then(function(r){if(r.ok){S.state=r.d;applyDevice();setTop()}S.draft=null;S.offered=null;S.restore=rescueTake();
   rescueRestore(function(){setView(S.state&&S.state.profile&&S.state.profile.setupDone?"home":"setup")})})}
 
 /* ── إعداد الملف: القسم ← الصحيفة ← ما أنجزت ── */
-/* التخصصات: ما تعذّر تحميلُه لا يُحفظ فارغاً (فيبدو «لا تخصص»)، بل يُعرض خطأً بزرّ إعادة. */
-function ensureCatalog(cb){if(!S.track||S.catalog)return cb();api("GET","/api/public/me/catalog?track="+encodeURIComponent(S.track)).then(function(r){if(r.ok){S.catalog=r.d.specializations||[];S.catalogErr=""}else{S.catalog=null;S.catalogErr=r.d.error||"تعذّر تحميل التخصصات"}cb()})}
-/* الرجوع من المسار: زرٌّ في الصفحة وزرُّ المتصفح كلاهما يعيدان الاختيار (اختيارُ المسار يُدفع في السجل). */
-function trackLeave(){S.track="";S.trackFixed=false;S.catalog=null;S.catalogErr="";if(S.draft)S.draft.step=1}
-function trackBack(){if(history.state&&history.state.masari==="track"){history.back();return}trackLeave();try{history.replaceState(null,"","/me")}catch(e){}viewSetup()}
-window.addEventListener("popstate",function(){if(S.view!=="setup")return;var m=/[?&]track=(boys|girls)/.exec(location.search),t=m?m[1]:"";if(t===S.track)return;if(t){S.track=t;S.catalog=null;S.catalogErr="";if(S.draft)S.draft.step=1}else trackLeave();viewSetup()});
-function startDraft(){var p=S.state.profile||{};S.draft={sectionId:p.sectionId||0,sectionName:p.sectionName||"",planId:p.planId||"",passed:(p.passedCourseIds||[]).slice(),step:1,q:"",filter:"all"};return S.draft}
+/* الكليات ثم تخصصات الكلية المختارة: ما تعذّر تحميلُه لا يُحفظ فارغاً (فيبدو «لا كلية»)، بل يُعرض خطأً بزرّ إعادة.
+   كلُّ كليةٍ في الجامعة تظهر؛ وإن كانت واحدةً وحدها اختيرت بلا سؤال، وملفٌّ محفوظ يبدأ من كليته. */
+function ensureCatalog(cb){var tq=S.track?"track="+encodeURIComponent(S.track):"";
+  if(!S.colleges){api("GET","/api/public/me/catalog"+(tq?"?"+tq:"")).then(function(r){
+    if(!r.ok){S.colleges=null;S.catalogErr=r.d.error||"تعذّر تحميل الكليات";return cb()}
+    S.colleges=r.d.colleges||[];S.catalogErr="";
+    if(!S.college){var pc=S.state&&S.state.profile&&S.state.profile.setupDone?S.state.profile.collegeId:0,hit=null;
+      S.colleges.forEach(function(c){if(c.id===pc||(!hit&&S.colleges.length===1))hit=c});
+      if(hit)S.college=hit}
+    ensureCatalog(cb)});return}
+  if(S.college&&!S.catalog){api("GET","/api/public/me/catalog?collegeId="+encodeURIComponent(S.college.id)+(tq?"&"+tq:"")).then(function(r){
+    if(r.ok){S.catalog=r.d.specializations||[];S.catalogErr=""}else{S.catalog=null;S.catalogErr=r.d.error||"تعذّر تحميل التخصصات"}cb()});return}
+  cb()}
+/* الرجوع من الكلية: زرٌّ في الصفحة وزرُّ المتصفح كلاهما يعيدان الاختيار (اختيارُ الكلية يُدفع في السجل). */
+function collegeLeave(){S.college=null;S.catalog=null;S.catalogErr="";if(S.draft)S.draft.step=1}
+function collegeBack(){if(history.state&&history.state.masari==="college"){history.back();return}collegeLeave();viewSetup()}
+window.addEventListener("popstate",function(){if(S.view!=="setup"||!S.college||(history.state&&history.state.masari==="college"))return;collegeLeave();viewSetup()});
+function startDraft(){var p=S.state.profile||{};S.draft={sectionId:p.sectionId||0,collegeId:p.collegeId||0,sectionName:p.sectionName||"",planId:p.planId||"",passed:(p.passedCourseIds||[]).slice(),step:1,q:"",filter:"all"};return S.draft}
 function viewSetup(){var d=S.draft||startDraft();ensureCatalog(function(){if(d.step===1)setupSection();else if(d.step===2)setupPlan();else setupPassed()})}
+function retryBox(key,msg,back){app.innerHTML=prog(key)+(back||"")+'<section class="card fade"><div class="err" role="alert">'+esc(msg)+'</div><button class="btn" id="catr">'+ic("swap")+' أعد المحاولة</button></section>';
+  document.getElementById("catr").addEventListener("click",function(){this.disabled=true;viewSetup()})}
 function setupSection(){var d=S.draft;
-  if(!S.track){
-    app.innerHTML=prog("track")+'<h1 class="h2 fade">اختر مسار الدراسة</h1><div class="track-picks"><button type="button" class="opt" data-track="boys"><span class="pk">'+ic("building")+'</span><span class="tx"><b>مسار البنين</b><small>أقسام كلية التربية الأساسية</small></span>'+ic("fwd")+'</button><button type="button" class="opt" data-track="girls"><span class="pk">'+ic("building")+'</span><span class="tx"><b>مسار البنات</b><small>أقسام كلية التربية الأساسية</small></span>'+ic("fwd")+'</button></div>';
-    app.querySelectorAll("[data-track]").forEach(function(b){b.addEventListener("click",function(){S.track=b.getAttribute("data-track");try{history.pushState({masari:"track"},"","/me?track="+encodeURIComponent(S.track))}catch(e){}S.catalog=null;S.catalogErr="";viewSetup()})});return;
-  }
-  var back='<button type="button" class="bk" id="bktr">'+ic("back")+(S.track==="girls"?"مسار البنات":"مسار البنين")+' · غيّره</button>';
-  if(!S.catalog){
-    app.innerHTML=prog("spec")+back+'<section class="card fade"><div class="err" role="alert">'+esc(S.catalogErr||"تعذّر تحميل التخصصات")+'</div><button class="btn" id="catr">'+ic("swap")+' أعد المحاولة</button></section>';
-    document.getElementById("bktr").addEventListener("click",trackBack);
-    document.getElementById("catr").addEventListener("click",function(){this.disabled=true;viewSetup()});return}
+  if(!S.colleges){retryBox("college",S.catalogErr||"تعذّر تحميل الكليات");return}
+  if(!S.college){
+    var cs=S.colleges;
+    app.innerHTML=prog("college")+'<h1 class="h2 fade">ما كليتك؟</h1>'+(cs.length>8?'<div class="srch" style="margin-block-start:12px">'+ic("search")+'<input class="inp" id="q" type="search" placeholder="ابحث باسم الكلية" aria-label="ابحث باسم الكلية" autocomplete="off"></div>':'')+'<div id="lst" class="list" style="margin-block-start:12px"></div>';
+    var cl=document.getElementById("lst"),cq=document.getElementById("q");
+    function cpaint(){var t=cq?arNorm(cq.value):"",h="";cs.filter(function(c){return!t||arNorm(c.name).indexOf(t)>=0}).forEach(function(c){h+='<button type="button" class="opt" data-id="'+c.id+'" aria-pressed="'+(d.collegeId===c.id?"true":"false")+'"><span class="pk">'+ic("building")+'</span><span class="tx"><b>'+esc(c.name)+'</b></span>'+ic("fwd")+'</button>'});cl.innerHTML=h||'<p class="muted">'+(t?'لا كلية بهذا الاسم.':'لا كليات بعد.')+'</p>'}
+    if(cq)cq.addEventListener("input",cpaint);cpaint();
+    cl.addEventListener("click",function(e){var b=e.target.closest(".opt");if(!b)return;var id=Number(b.getAttribute("data-id"));
+      cs.forEach(function(c){if(c.id===id)S.college=c});S.catalog=null;S.catalogErr="";
+      try{history.pushState({masari:"college"},"",location.href)}catch(x){}viewSetup()});
+    return}
+  var back=S.colleges.length>1?'<button type="button" class="bk" id="bkcol">'+ic("back")+esc(S.college.name)+' · غيّرها</button>':'';
+  function wireBack(){var bk=document.getElementById("bkcol");if(bk)bk.addEventListener("click",collegeBack)}
+  if(!S.catalog){retryBox("spec",S.catalogErr||"تعذّر تحميل التخصصات",back);wireBack();return}
   app.innerHTML=prog("spec")+back+'<h1 class="h2 fade">ما تخصصك؟</h1><div class="srch" style="margin-block-start:12px">'+ic("search")+'<input class="inp" id="q" type="search" placeholder="ابحث باسم التخصص" aria-label="ابحث باسم التخصص" autocomplete="off"></div><div id="lst" class="list" style="margin-block-start:12px"></div>';
   var lst=document.getElementById("lst"),q=document.getElementById("q");
-  document.getElementById("bktr").addEventListener("click",trackBack);
-  function paint(){var t=arNorm(q.value),h="",items=(S.catalog||[]).filter(function(s){return!t||arNorm(s.name).indexOf(t)>=0});items.forEach(function(s){h+='<button type="button" class="opt" data-id="'+s.id+'" data-n="'+esc(s.name)+'" aria-pressed="'+(d.sectionId===s.id?"true":"false")+'"><span class="tx"><b>'+esc(s.name)+'</b></span>'+ic("fwd")+'</button>'});lst.innerHTML=h||'<p class="muted">'+(t?'لا تخصص بهذا الاسم في هذا المسار.':'لا تخصصات في هذا المسار بعد.')+'</p>'}
+  wireBack();
+  function paint(){var t=arNorm(q.value),h="",items=(S.catalog||[]).filter(function(s){return!t||arNorm(s.name).indexOf(t)>=0});items.forEach(function(s){h+='<button type="button" class="opt" data-id="'+s.id+'" data-n="'+esc(s.name)+'" aria-pressed="'+(d.sectionId===s.id?"true":"false")+'"><span class="tx"><b>'+esc(s.name)+'</b></span>'+ic("fwd")+'</button>'});lst.innerHTML=h||'<p class="muted">'+(t?'لا تخصص بهذا الاسم في هذه الكلية.':'لا تخصصات في هذه الكلية بعد.')+'</p>'}
   q.addEventListener("input",paint);paint();
-  lst.addEventListener("click",function(e){var b=e.target.closest(".opt");if(!b)return;var id=Number(b.getAttribute("data-id"));if(id!==d.sectionId){d.passed=[];d.planId=""}d.sectionId=id;d.sectionName=b.getAttribute("data-n");
+  lst.addEventListener("click",function(e){var b=e.target.closest(".opt");if(!b)return;var id=Number(b.getAttribute("data-id"));if(id!==d.sectionId){d.passed=[];d.planId=""}d.sectionId=id;d.collegeId=S.college.id;d.sectionName=b.getAttribute("data-n");
     api("GET","/api/public/me/plan?sectionId="+id).then(function(r){if(!r.ok){toast(r.d.error||"تعذّر تحميل القسم",true);return}S.plans=r.d.plans;S.planSource=r.d.source;
-      if(S.plans.length===1){d.planId=S.plans[0].id;d.step=3}else d.step=2;viewSetup()})});
+      if(S.plans.length===1){if(d.planId!==S.plans[0].id)d.passed=[];d.planId=S.plans[0].id;d.step=3}else d.step=2;viewSetup()})});
 }
 function setupPlan(){var d=S.draft;
   var label={transition:"السابقة",active:"الجديدة"};
@@ -797,7 +821,7 @@ function setupPlan(){var d=S.draft;
   /* صحيفةٌ بلا مقررات لا تُختار: لا خطةَ تُحسب منها، وكانت تُظهر «أكملتَ خطتك» لمن لم يبدأ. */
   var h="";S.plans.forEach(function(p){var empty=!(p.courses&&p.courses.length);h+='<button type="button" class="opt'+(empty?' off':'')+'" data-id="'+esc(p.id)+'" aria-pressed="'+(d.planId===p.id?"true":"false")+'"'+(empty?' disabled':'')+'><span class="tx"><b>'+esc(p.name)+'</b><small>'+(label[p.status]&&p.name.indexOf(label[p.status])<0?"الصحيفة "+label[p.status]+" · ":"")+(empty?"لا مقررات فيها بعد":countOf(p.courses.length,AR.course))+'</small></span>'+(empty?'':ic("fwd"))+'</button>'});
   document.getElementById("pl").innerHTML=h;
-  document.getElementById("pl").addEventListener("click",function(e){var b=e.target.closest(".opt");if(!b||b.disabled)return;d.planId=b.getAttribute("data-id");d.passed=[];d.step=3;viewSetup()});
+  document.getElementById("pl").addEventListener("click",function(e){var b=e.target.closest(".opt");if(!b||b.disabled)return;var pid=b.getAttribute("data-id");if(pid!==d.planId)d.passed=[];d.planId=pid;d.step=3;viewSetup()});
   document.getElementById("bk").addEventListener("click",function(){d.step=1;viewSetup()});
 }
 function currentPlan(){var d=S.draft,pl=S.plans||[];for(var i=0;i<pl.length;i++)if(pl[i].id===d.planId)return pl[i];return pl[0]||{courses:[]}}
@@ -853,7 +877,7 @@ function setupPassed(){var d=S.draft,load=function(){
   document.getElementById("bk").addEventListener("click",function(){dockEl.innerHTML="";d.passed=Object.keys(set).map(Number);
     if(!S.state.profile.setupDone||S.draft.fromStart){d.step=S.plans&&S.plans.length>1?2:1;viewSetup()}else{S.draft=null;setView("home")}});
   document.getElementById("sv").addEventListener("click",function(){var b=this,label=b.textContent;b.disabled=true;b.textContent="يحفظ…";d.passed=Object.keys(set).map(Number);
-    api("PUT","/api/public/me/profile",{sectionId:d.sectionId,curriculumPlanId:d.planId,passedCourseIds:Object.keys(set).map(Number),transfer:transfer,equivalentCourseIds:transfer?Object.keys(eq).filter(function(k){return set[k]}).map(Number):[]}).then(function(r){
+    api("PUT","/api/public/me/profile",{sectionId:d.sectionId,collegeId:d.collegeId||undefined,curriculumPlanId:d.planId,passedCourseIds:Object.keys(set).map(Number),transfer:transfer,equivalentCourseIds:transfer?Object.keys(eq).filter(function(k){return set[k]}).map(Number):[]}).then(function(r){
       if(!r.ok){b.disabled=false;b.textContent=label;if(!signedOut(r))toast(r.d.error||"تعذّر الحفظ",true);return}
       dockEl.innerHTML="";S.state.profile=r.d;S.draft=null;S.offered=null;
       /* أولُ إعداد: سطرُ «مقترحات فقط» كان فوق الحفظ، فالحفظُ إقرارُه — لا شاشةَ «فهمت» بعده. */
@@ -939,12 +963,12 @@ function viewHome(){
     e.preventDefault();showTab(keys[n]);var b=document.getElementById("tab-"+keys[n]);if(b)b.focus()});
   placeTabs();nextStepPaint();
   document.getElementById("edp").addEventListener("click",function(){var d=startDraft();d.step=3;setView("setup")});
-  document.getElementById("out").addEventListener("click",function(){api("POST","/api/public/me/exit",{}).then(function(){S.state.signedIn=false;S.state.profile=null;S.civil="";S.remember=false;S.draft=null;S.offered=null;setView("gate")})});
+  document.getElementById("out").addEventListener("click",function(){doExit(this)});
   document.getElementById("chg").addEventListener("click",sheetCode);
   var nmb=document.getElementById("nmb");if(nmb)nmb.addEventListener("click",sheetName);
   document.getElementById("del").addEventListener("click",sheetForget);
   var icsB=document.getElementById("icsNext");if(icsB)icsB.addEventListener("click",function(){addToCalendar("next")});
-  recoveryHomeHook();
+  recoveryHomeHook();extrasHook();
   laterMO=null;S.homeReady=false;renderWishes();laterUpdate();
   loadNotices();loadCases();loadCaseRequest();loadTicket();loadReport();loadPlan();
   var ready=function(){if(S.homeReady)return;S.homeReady=true;laterUpdate()};
@@ -1225,7 +1249,8 @@ function paintTicket(host){var t=S.ticket,cur=null;S.tkOverrides=S.tkOverrides||
       if(chosen.timesVisible&&alternatives.length){h+='<div class="ticket-alt"><label for="ta'+chosen.courseId+'">جرّب شعبة بديلة · معاينة شخصية</label><select class="inp ticket-alt-select" id="ta'+chosen.courseId+'" data-course="'+chosen.courseId+'"><option value="'+esc(i.offeringId)+'">الشعبة المقترحة · '+esc(i.section)+'</option>'+alternatives.map(function(a){return '<option value="'+esc(a.offeringId)+'"'+(chosen.offeringId===a.offeringId?' selected':'')+'>شعبة '+esc(a.section)+(a.tight?' · مقاعد قليلة':'')+'</option>'}).join("")+'</select></div>'}})}
   var removed=cur.items.filter(function(i){return S.tkRemoved[cur.label+":"+i.courseId]});
   if(removed.length)h+='<div class="chps"><small class="muted">أزلتَ:</small>'+removed.map(function(i){return '<button type="button" class="chp" data-undo="'+i.courseId+'">'+ic("plus","")+esc(i.name)+'</button>'}).join("")+'</div>';
-  if(visibleTimes)h+='<div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn alt small" data-act="share" style="inline-size:auto">'+ic("up")+'شارك جدولي صورة</button>'+(w.start?'<button type="button" class="btn alt small" data-act="ics" style="inline-size:auto">'+ic("cal")+'ذكّرني بموعد تسجيلي</button>':'')+'</div>';
+  /* التذكيرُ بموعد التسجيل لا يتوقف على ظهور مواعيد المحاضرات: يكفي أن يُعرف دورُ الطالب وتاريخُه. */
+  if(visibleTimes||w.start)h+='<div class="row" style="gap:8px;flex-wrap:wrap">'+(visibleTimes?'<button type="button" class="btn alt small" data-act="share" style="inline-size:auto">'+ic("up")+'شارك جدولي صورة</button>':'')+(w.start?'<button type="button" class="btn alt small" data-act="ics" style="inline-size:auto">'+ic("cal")+'ذكّرني بموعد تسجيلي</button>':'')+'</div>';
   h+=calSubRow();
   h+='<div class="row" style="gap:8px;flex-wrap:wrap">'+((t.pool||[]).length?'<button type="button" class="btn alt small" data-act="add" style="inline-size:auto">'+ic("plus")+'أضف مقرراً</button>':'')
     +(tkEdited(cur)&&S.state.phase&&S.state.phase.canEditWishes?'<button type="button" class="btn small" data-act="wish" style="inline-size:auto">'+ic("heart")+'احفظ في رغباتي</button>':'')+'</div>';
@@ -1275,7 +1300,7 @@ function paintReport(host){/* ما كُتب في الاسم والرقم يبق�
   if(anyStuck&&d.canReport){var known=S.state&&S.state.profile&&S.state.profile.hasIdentity;
     h+='<div class="help"><label class="row" style="gap:10px"><input type="checkbox" id="hp"'+(S.rpHelp?" checked":"")+'><span>أريد أن يساعدني القسم في حالتي</span></label>'
     +(S.rpHelp&&known?'<p class="muted">'+ic("shield","")+' سيصل اسمك المحفوظ مع ملفّك لقسم المقرر وللتسجيل فقط.</p>':'')
-    +(S.rpHelp&&!known?'<div class="field"><label for="hn">الاسم الثلاثي</label><input class="inp" id="hn" autocomplete="name" value="'+esc(S.rpHN||"")+'"></div><div class="field"><label for="hc">الرقم المدني</label><input class="inp civil" id="hc" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="off" value="'+esc(S.rpHC||"")+'"></div><p class="muted">'+ic("shield","")+' يصل اسمك ورقمك المدني لقسم المقرر وللتسجيل فقط، ولا يُحفظان في ملفّك الدائم.</p>':'')+'</div>'}
+    +(S.rpHelp&&!known?'<div class="field"><label for="hn">الاسم الثلاثي</label><input class="inp" id="hn" autocomplete="name" value="'+esc(S.rpHN||"")+'"></div><div class="field"><label for="hc">الرقم المدني</label><input class="inp civil" id="hc" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="off" value="'+esc(S.rpHC||"")+'"></div><p class="muted">'+ic("shield","")+' يصل اسمك ورقمك المدني لقسم المقرر وللتسجيل فقط. يُحفظان مختومَين، ولا يظهران إلا في طلبك هذا، ويُحذفان مع ملفّك.</p>':'')+'</div>'}
   h+=errBox("rperr");
   if(d.canReport)h+='<button class="btn" id="rps"'+(Object.keys(S.rp).length?"":" disabled")+'>'+ic("check")+' أرسل</button>';
   h+='<div id="rpdone"></div></section>';host.innerHTML=h;
@@ -1459,6 +1484,7 @@ function sheetForget(){sheet('<h3>حذف ملفّي</h3><p class="lead">يُحذ
 
 ${MASARI_ACK_JS}
 ${STUDENT_RECOVERY_SCRIPT}
+${STUDENT_EXTRAS_SCRIPT}
 function render(){
   closeSheet();window.scrollTo(0,0);var oldNav=topEl.querySelector("nav.tabs");if(oldNav)oldNav.remove();if(S.view!=="setup")dockEl.innerHTML="";
   var appEl=document.querySelector(".app");if(appEl)appEl.setAttribute("data-view",S.view);
@@ -1494,7 +1520,7 @@ export function studentHomePage(nonce: string, track: "boys" | "girls" | "" = ""
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/schedule-icon-192.png">
 <link rel="manifest" href="/me.webmanifest">
-<style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}${STUDENT_HOME_CSS}${MASARI_ACK_CSS}${STUDENT_RECOVERY_CSS}</style>
+<style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}${STUDENT_HOME_CSS}${MASARI_ACK_CSS}${STUDENT_RECOVERY_CSS}${STUDENT_EXTRAS_CSS}</style>
 </head>
 <body>
 ${SPRITE}

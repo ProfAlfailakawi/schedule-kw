@@ -55,6 +55,19 @@ import { pinIssueShort } from "../../utils/pinIssueShort";
 import { individualExceptionOpen } from "../../utils/instructorRequestWindows";
 import { teacherPlanFacts, type TeacherPlanFact } from "../../utils/teacherPlanFacts";
 
+/** حقائقُ أسبوع الأستاذ الرسمي لكرته (محاضرتك القادمة وأسبوعي الصحي): صفوفُ جدوله في فصل طلبه، وسياسةُ التنقّل. */
+async function teacherWeekOf(request: InstructorRequest, term: Parameters<typeof teacherWeekFacts>[0]["term"]) {
+  const [rows, colleges, courses, policy] = await Promise.all([
+    Repository.getSchedulesByScope({ termId: Number(request.AdTermId) }), Repository.getColleges(), Repository.getCourses(), readTravelPolicy(),
+  ]);
+  const collegeName = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
+  const courseName = new Map((courses as any[]).map(row => [Number(row.AdCourseId), String(row.CourseName || "")]));
+  return teacherWeekFacts({
+    rows, instructorId: Number(request.AdInstructorId), policy, term,
+    collegeNameOf: id => collegeName.get(id) || "", courseNameOf: id => courseName.get(id) || "",
+  });
+}
+
 /** مانعُ «ثبّت» برقم بنده ومادّته ("" لساعات المقرّر)، ومعه ما يراه الأستاذ في صفّه: اسمُ المقرّر وأيقونةٌ وعبارةٌ قصيرة. */
 export interface PinBlock { itemIndex: number; text: string; article: string; rule?: string; course?: string; icon?: string; short?: string }
 import { calendarKey, stableCalendarPath } from "../core/shareLinks";
@@ -68,6 +81,8 @@ import { withoutPlaceFields } from "../../utils/teacherSafeFields";
 import { decisionDigest, digestItemId } from "../../utils/requestDecisionDigest";
 import { sendCalendar } from "./publicCalendarRoutes";
 import { shareDayIndexes } from "../core/shareLinks";
+import { teacherWeekFacts } from "../teacherWeekFacts";
+import { readTravelPolicy } from "../core/travelPolicy";
 import { planTargetsFor } from "../actualDemand";
 import { forHistory } from "../../utils/inboxUndo";
 
@@ -866,6 +881,8 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
     deadline: teacherDeadline(request),
     /* إنفوجرافيك التخطيط لمقرّراته (أرقامٌ مجمَّعة من «تخطيط الشعب» وحده). */
     planning,
+    /* «محاضرتك القادمة» و«أسبوعي الصحي»: من جدوله الرسمي في هذا الفصل وحده، بلا قاعةٍ ولا مبنى (teacherWeekFacts). */
+    week: await teacherWeekOf(request, term as any).catch(() => null),
     ...(preview ? { preview: true } : {}),
   });
 }
@@ -959,7 +976,11 @@ app.post("/api/public/request/:token", rateLimitPublicRequest, async (req: Reque
     const adds = (Array.isArray(req.body?.items) ? req.body.items : []).filter((item: any) => item?.action === "add" && !item.offeringId);
     if (adds.length) {
       const views = await offeringViewsFor(Number(resolved.request.AdTermId), adds.map((item: any) => ({ id: Number(item.courseId), collegeId: Number(item.collegeId), sectionId: Number(item.sectionId) })));
-      if ([...views.values()].some(view => !view.selectable)) { res.status(400).json({ error: "مقررٌ مختار غير مطروح هذا الفصل." }); return; }
+      /* البندُ المخالف برقمه في القائمة المرسلة: الكرتُ يُبرزه ويقول السببَ عنده، لا رسالةً عامة بلا موضع. */
+      const sentList: any[] = Array.isArray(req.body?.items) ? req.body.items : [];
+      const closedAt = sentList.findIndex(item => item?.action === "add" && !item.offeringId
+        && views.get(`${Number(item.collegeId)}:${Number(item.sectionId)}:${Number(item.courseId)}`)?.selectable === false);
+      if (closedAt >= 0 || [...views.values()].some(view => !view.selectable)) { res.status(400).json({ error: "مقررٌ مختار غير مطروح هذا الفصل.", ...(closedAt >= 0 ? { itemIndex: closedAt } : {}) }); return; }
     }
   }
   /* ── وفصلٌ انتهى لا يُطلب فيه ─────────────────────────────────────────────

@@ -23,6 +23,7 @@ import { ARABIC_COUNT_SCRIPT } from "../../utils/arabicCount";
 import { CALENDAR_LINKS_CLIENT_JS } from "../../utils/calendarLinks";
 import { TEACHER_CARD_EXTRAS_CSS, TEACHER_CARD_EXTRAS_JS } from "../teacherCardExtras";
 import { TEACHER_CARD_LOGIC_JS, TEACHER_CARD_R5_CSS } from "../teacherCardLogic";
+import { TRAVEL_HINT_SCRIPT } from "../../utils/campusTravelHint";
 import { PUSH_CARD_CSS, PUSH_CARD_JS, pushCardHead } from "../pushCard";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, SCHEDULE_DAY_START_TIME } from "../../utils/scheduleTime";
 
@@ -233,6 +234,7 @@ ${TEACHER_CARD_R5_CSS}
 ${PUBLIC_KIT_SCRIPT}
 ${CALENDAR_LINKS_CLIENT_JS}
 ${TEACHER_CARD_EXTRAS_JS}
+${TRAVEL_HINT_SCRIPT}
 ${TEACHER_CARD_LOGIC_JS}
 ${PUSH_CARD_JS}
 var PLIB=${JSON.stringify(patternLibraryHtml(patternLibraryInput()))},PLIB_ICON=${JSON.stringify(PATTERN_LIBRARY_ICON)};
@@ -592,7 +594,7 @@ function editHtml(it,i){if(it.offeringId)return '<p class="sub">'+gi("check")+'�
 function bodyHtml(it,i,open){/* ما ثبّته القسم كُتب في الجدول الرسمي: للقراءة فقط، والتغييرُ رسالةٌ للقسم — الخادمُ يرفض تعديلَه أصلاً. */
  var fixed=!!(it.decision&&it.decision.state==="fixed");if(fixed)open=false;var plan=planHtml(it),h=decisionBox(it,i,open)+threadBox(it,i);
  if(open&&data.mode!=="ta"){if(it.negotiation==="proposed")h+='<p class="hint-pro" title="تعديل الموعد من هنا يبدأ طلبًا جديدًا">'+gi("star")+'<span>للرد على اقتراح القسم: بطاقة «قرارك» أعلاه</span></p>';h+='<div class="acts" role="group" aria-label="خيارات الموعد">'+actionsHtml(it,i)+'</div>';if(it.action==="change"||it.action==="add")h+=editHtml(it,i)}
- else if(!h)h+='<p class="appt-ro">انتهت مدّة الطلبات — هذا الموعد للاطلاع.</p>';
+ else if(!h)h+='<p class="appt-ro">'+esc(tcRowReadOnly(data,Date.now()))+'</p>';
  if(fixed)h+='<p class="appt-ro">'+gi("shield")+'<span>ثبّته القسم في جدولك الرسمي، فلا يُعدَّل من هنا.</span> <button type="button" class="link-msg" data-msg="'+i+'">'+gi("chat")+'اكتب للقسم</button></p>';
  return plan+h}
 /* ما عدّله الأستاذ في هذه الزيارة ولم يُرسل بعد: قيسٌ على ما حمّله الخادم، لا على «ما تغيّر عن الجدول»
@@ -922,15 +924,16 @@ function paint(){
  var readyTxt=sent&&!blocked?countOf(edited,AR.edit):ready;
  var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?(pinNoted?"ليس تثبيتاً · المخالفات تُعرض للقسم":"تأكيدك يثبّت الجدول كما هو"):sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
  var h=skBackIcon()+proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم</span><button type="button" class="fn-go" id="rebase">'+gi("history")+'حدّث مع الإبقاء على تعديلي</button></div>':'')+
+  (draftClosed.length?'<div class="fresh-note" data-k="kept" role="status">'+gi("alert")+'<span>'+esc(tcClosedLine(draftClosed))+'</span><button type="button" class="fn-x" id="dropClosed" aria-label="إخفاء">'+gi("x")+'</button></div>':'')+
   (draftConflict.length?'<div class="fresh-note" data-k="kept" role="status">'+gi("shield")+'<span>قرّر القسم في «'+esc(draftConflict.join("، "))+'» فأبقينا قراره بدل تعديلك.</span><button type="button" class="fn-x" id="dropConflict" aria-label="إخفاء">'+gi("x")+'</button></div>':'')+
   '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open||data.mode==="view"?"":(r.window&&r.window.closesAt&&Date.parse(r.window.closesAt)<=Date.now())?" · انتهت مدّة الطلبات، والصفحة للقراءة":approved?" · اكتمل طلبك، والصفحة للقراءة":" · الصفحة للقراءة")+'</p>'+
-  '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+tcRibbon(r,open)+
+  '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+tcRibbon(r,open)+tcNextSlot()+
   since+(anyFixed()&&!calmHtml()&&since.indexOf("cal-line")<0?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited,badN,incompleteN,pinBlockTxt)+
   /* كلُّ موعدٍ يخالف اللائحة برقم مادّته، وزرُّ «عدّل» يأخذه إليه (قرار المالك النهائي 2026-11-13) — قبل الإرسال وبعده، بملاحظةٍ وبلا ملاحظة. */
   /* صفٌّ واحدٌ لكل مقرّر بأيقونةٍ وعبارةٍ قصيرة (tcPinGroups)، والتفصيلُ عند الضغط، و«عدّل» واحدٌ يأخذه إلى موعده. */
   (pinList.length?'<ul class="pin-blocks" aria-label="مواعيد تحتاج تعديلاً في جدولك">'+tcPinGroups(pinList).map(function(p){return '<li><details class="pin-g"><summary><span class="pin-ic">'+gi(p.marks[0].ic)+'</span><span class="pin-m"><b>'+esc(p.course)+'</b><span class="pin-chips">'+p.marks.map(function(m){return '<i>'+gi(m.ic)+esc(m.t)+'</i>'}).join("")+'</span></span></summary><ul class="pin-why">'+p.texts.map(function(t){return '<li>'+esc(t)+'</li>'}).join("")+'</ul></details>'+(open?'<button type="button" class="act" data-pin-edit="'+Number(p.itemIndex)+'">'+gi("pen")+'عدّل</button>':'')+'</li>'}).join("")+'</ul>':'')+
   '<div class="tabs" role="tablist"><button type="button" data-tab="schedule" role="tab" aria-selected="'+(activeTab==="schedule")+'">الجدول والطلبات'+(pend?'<span class="tb">'+pend+'</span>':'')+'</button><button type="button" data-tab="activity" role="tab" aria-selected="'+(activeTab==="activity")+'">الحركة'+(events?'<span class="tb" data-q="mute">'+events+'</span>':'')+'</button></div>'+(restoredDraft&&open?'<div class="restored">استعدنا ما كتبتَه في زيارتك السابقة ولم يُرسل بعد. <button type="button" id="dropDraft">ابدأ من جديد</button></div>':'')+'<div id="err"></div>';
- h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(notedScope().length?'<div class="noted-banner" role="status">'+gi("eye")+'<span>التسجيل أعاد جدولك بملاحظات. عدّل المقررات المميّزة فقط.</span></div>':'')+(deckHtml()||calmHtml())+offeringsHtml()+replayHtml()+memoryHtml()+planTable();
+ h+='<section data-panel="schedule" '+(activeTab==="schedule"?'':'hidden')+'>'+(notedScope().length?'<div class="noted-banner" role="status">'+gi("eye")+'<span>التسجيل أعاد جدولك بملاحظات. عدّل المقررات المميّزة فقط.</span></div>':'')+tcWeekHtml()+(deckHtml()||calmHtml())+offeringsHtml()+replayHtml()+memoryHtml()+planTable();
  if(open&&!notedScope().length&&data.courses&&data.courses.length){
   var collegeMap={};data.courses.forEach(function(c){if(c.collegeId&&!collegeMap[c.collegeId])collegeMap[c.collegeId]=c.collegeName||("كلية "+c.collegeId)});
   var collegeOptions=Object.keys(collegeMap).map(function(id){return{id:Number(id),name:collegeMap[id]}});
@@ -1049,6 +1052,7 @@ function wire(){tcWire();
  var drop=document.getElementById("dropDraft");if(drop)drop.onclick=function(){clearAllDrafts();dirty=false;location.reload()};
  var rb=document.getElementById("rebase");if(rb)rb.onclick=function(){rb.disabled=true;rebaseDraft()};
  var dc=document.getElementById("dropConflict");if(dc)dc.onclick=function(){draftConflict="";paint()};
+ var dcl=document.getElementById("dropClosed");if(dcl)dcl.onclick=function(){draftClosed=[];paint()};
  var send=document.getElementById("send");if(send)send.onclick=submit;
  var replay=document.getElementById("replay");if(replay)replay.onclick=replayPrevious;
  VI.wire(function(key,value){if(key.indexOf("ex-")===0&&state[+key.slice(3)]){state[+key.slice(3)].excuse=value;saveDraft()}if(key==="gen"){var hadNote=!!String(noteNow()).trim();genNote=value;saveDraft();if(hadNote!==!!String(value||"").trim())paint()}});
@@ -1218,21 +1222,22 @@ function adoptCard(d){var ords={},had=state.length>0;state.forEach(function(it){
 /* ── «حدّث مع الإبقاء على تعديلي» ──
    يُقرأ الطلبُ من جديد، ثم يُعاد ما لم يُرسل فوقه: نسخةٌ جديدة فيمرّ الإرسال. وبندٌ قرّر فيه القسمُ بعد أن عدّله الأستاذ
    يبقى على قرار القسم، ويُقال ذلك في سطرٍ واحد. */
-var draftConflict=[];
+var draftConflict=[],draftClosed=[];
 function rebaseDraft(){if(!data)return;var draft=draftNow(),was=data.request;
  fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"?live=1",{cache:"no-store"}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d}})}).then(function(x){
   if(!x.ok){toast("alert",(x.d&&x.d.error)||"تعذّر التحديث. أعد المحاولة.");paint();return}
   var changed=tcDeptChangedKeys(was,x.d.request);lastFetch=Date.now();adoptCard(x.d);freshNote=false;restoredDraft=false;
   if(!data.windowOpen){paint();return}
-  var res=applyDraft(draft,changed);genNote=typeof draft.note==="string"?draft.note:genNote;draftConflict=res.kept;
+  var res=applyDraft(draft,changed);genNote=typeof draft.note==="string"?draft.note:genNote;draftConflict=res.kept;draftClosed=res.closed;
   saveDraft();paint();recheckAll();toast("check","حدّثنا طلبك وأبقينا تعديلك")})
  .catch(function(){toast("alert","تعذّر الاتصال. أعد المحاولة.");paint()})}
 /* ما في المسودة يُعاد فوق بطاقة الخادم: ما ثبّته القسم لا يُمسّ، وما لم يلمسه التبويبُ لا يُعاد (untouchedIn)،
    وما غيّر القسمُ فيه شيئاً منذ كُتب (skip) يبقى على قراره. */
-function applyDraft(draft,skip){var out={applied:0,kept:[]};if(!draft||!Array.isArray(draft.items))return out;skip=skip||[];
+function applyDraft(draft,skip){var out={applied:0,kept:[],closed:[]};if(!draft||!Array.isArray(draft.items))return out;skip=skip||[];
  var byRow={};state.forEach(function(it){if(it.rowId!=null)byRow[it.rowId]=it});var adds=[];if(String(draft.note||"")!==serverNote())out.applied++;
  draft.items.forEach(function(d,k){var nm=(draft.names||[])[k]||{};if(d.rowId!=null&&byRow[d.rowId]){var it=byRow[d.rowId];if(it.decision&&it.decision.state==="fixed")return;if(untouchedIn(draft,d))return;if(d.action!==it.action||d.excuse!==it.excuse||(d.action==="change"&&(String(d.days)!==String(it.days)||d.start!==it.start))){if(skip.indexOf(tcItemKey(it))>=0){if(out.kept.indexOf(courseOf(it))<0)out.kept.push(courseOf(it));return}it.action=d.action;it.days=d.days||[];it.start=d.start||"";it.excuse=d.excuse||"";it.tone="";it.note="";out.applied++}}
-  else if(d.action==="add"&&d.courseId&&(data.courses||[]).some(function(c){return c.id===d.courseId&&Number(c.collegeId)===Number(d.collegeId)&&Number(c.sectionId)===Number(d.sectionId)})&&!state.some(function(it){return it.action==="add"&&it.courseId===d.courseId&&String(it.days)===String(d.days)&&it.start===d.start})){
+  else if(d.action==="add"&&d.courseId&&tcCourseClosed(data.courses,d)){var closedName=tcCourseFor(data.courses,d).name;if(out.closed.indexOf(closedName)<0)out.closed.push(closedName)}
+  else if(d.action==="add"&&d.courseId&&tcCourseOpen(data.courses,d)&&!state.some(function(it){return it.action==="add"&&it.courseId===d.courseId&&String(it.days)===String(d.days)&&it.start===d.start})){
    var c=(data.courses||[]).filter(function(c){return c.id===d.courseId&&Number(c.collegeId)===Number(d.collegeId)})[0];
    adds.push({rowId:null,action:"add",offeringId:d.offeringId,courseId:d.courseId,collegeId:d.collegeId,sectionId:d.sectionId,collegeName:c.collegeName||nm.collegeName||"",before:{courseName:c.name,sectionCode:""},after:{courseId:d.courseId,courseName:c.name,collegeId:d.collegeId,collegeName:c.collegeName,sectionId:d.sectionId},decision:null,slots:d.offeringId?((data.availableOfferings||[]).filter(function(o){return o.id===d.offeringId})[0]||{}).slots||[]:[],days:d.days||[],start:d.start||"",excuse:d.excuse||"",key:d.key||newKey(),tone:"",note:"",alts:[]});out.applied++}});
  state=state.concat(adds);return out}
@@ -1275,7 +1280,7 @@ fetch("/api/public/request/"+encodeURIComponent(TOKEN)).then(function(r){
  if(draft&&Array.isArray(draft.items)&&sentSig(draft.items)===sentSig(payloadItems())&&String(draft.note||"")===String(data.request.note||"")){clearDraft();draft=null}
  if(draft&&typeof draft.note==="string"&&genNote===null)genNote=draft.note;
  /* «استعدنا ما كتبتَه» حين يُستعاد شيءٌ فعلاً؛ مسودةٌ لم يبقَ فيها ما يخالف الخادم تُمسح بلا شريط. */
- if(draft){var applied=applyDraft(draft,[]).applied;if(applied){restoredDraft=true;syncDirty()}else clearDraft()}
+ if(draft){var back=applyDraft(draft,[]);draftClosed=back.closed;if(back.applied){restoredDraft=true;syncDirty()}else clearDraft()}
  paint();
  loadProposalBanner();
  loadPrevious();

@@ -1019,6 +1019,24 @@ export interface StudentProfile {
   recovery?: { hash: string; issuedAt: string; expiresAt: string; issuedById: number; issuedByName: string; failures?: number };
   /** سجلُّ إصدار رموز الاستعادة (آخرُ عشرة): من ومتى، ومتى استُعمل. */
   recoveryLog?: Array<{ at: string; byId: number; byName: string; usedAt?: string }>;
+  /**
+   * تنبيهاتُ الجوال (src/server/studentExtras.ts): أجهزتُه المشتركة وما أُرسل له في كل فصل. لا رقمَ مدنياً ولا اسماً:
+   * الاشتراكُ رابطُ خدمة الدفع ومفتاحاه، والملفُّ مفتاحُه البصمة. يسقط الاشتراكُ بتغيير الرمز وبالاستعادة وبحذف الملف.
+   */
+  push?: { subs: StudentPushSub[]; sent?: Record<string, string>; offered?: string };
+  /** true ما دام له اشتراكٌ واحد على الأقل: حقلٌ مفردٌ يكفيه الفهرسُ التلقائي لاستعلام المُرسِل المجدول. */
+  pushOn?: boolean;
+  /** «شارك مرشدك»: بصمةُ الرمز (SHA-256) وانتهاؤه، لا الرمزُ نفسه. رمزٌ جديد يُبطل السابق. */
+  share?: { hash: string; createdAt: string; expiresAt: string };
+}
+
+export interface StudentPushSub {
+  id: string;
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  createdAt: string;
+  device?: string;
+  lastSentAt?: string;
 }
 
 /** ما قاله الطالبُ بعد جولة التسجيل: لكل مقررٍ سجّله أو تعثّر فيه وسبب التعثّر. */

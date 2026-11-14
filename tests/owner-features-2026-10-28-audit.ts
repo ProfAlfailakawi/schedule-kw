@@ -68,7 +68,7 @@ for (const file of [...serverSourceFiles(), "src/components/InstructorInbox.tsx"
   ok(server1.includes("unopened: notOpened(rows).length"), "D2 عدّادُ «لم يفتحوا» في الخادم بالقاعدة نفسها");
   ok(server1.includes("if (!modeAllowsWrite(linkMode(resolved.request)) || !requestWindowOpen(resolved.request)"), "E1 رابطُ العرض لا يحجز وقتاً");
   const inbox = fs.readFileSync("src/components/InstructorInbox.tsx", "utf8");
-  ok(inbox.includes("notOpened<InboxRequest>(visible)") && inbox.includes("openedNotAnswered(rows || [])") && inbox.includes("(!taOnly || isTaRequest(row))"), "D1/D2/F3 الوارد يفلتر بالمساعدات نفسها");
+  ok(inbox.includes("notOpened<InboxRequest>(visible)") && inbox.includes("<CardPulse") && inbox.includes("const pulseRows") && inbox.includes("(!taOnly || isTaRequest(row))"), "D1/D2/F3 الوارد يفلتر بالمساعدات نفسها");
   const repo = fs.readFileSync("src/db/repository.ts", "utf8");
   const setMode = repo.slice(repo.indexOf("setInstructorRequestLinkMode: async"), repo.indexOf("setInstructorRequestLinkMode: async") + 1200);
   ok(setMode.includes("tx.update(ref, { linkMode: mode, updatedAt: at })") && !setMode.includes("requestRevision"), "E1 الصفةُ تُكتب حقلاً وحده بلا رفع المراجعة");
@@ -171,7 +171,7 @@ ok(server.includes('courses: mode === "edit" ? coursesWithOffering(') && server.
 /* ── C4 ── */
 ok(server.includes('const open = mode !== "view" && requestWindowOpen(request);') && server.includes('if (postMode === "view")'), "C4/E1 view-only link never writes");
 ok(server.includes("+tcRibbon(r,open)+") && TEACHER_CARD_EXTRAS_JS.includes("انتهت فترة الطلبات"), "C4 closed ribbon in the card");
-const tc = vm.createContext({ countOf: arCountOf, AR: arNouns, data: { mode: "edit" }, esc: (v: string) => String(v), state: [], TOKEN: "t", fmtDays: (d: string[]) => d.join(","), host: null, paint() {}, recheckAll() {}, payloadItems: () => [], Intl, Date });
+const tc = vm.createContext({ setInterval: () => 0, clearInterval: () => {}, document: { visibilityState: "visible", getElementById: () => null, addEventListener() {} }, countOf: arCountOf, AR: arNouns, data: { mode: "edit" }, esc: (v: string) => String(v), state: [], TOKEN: "t", fmtDays: (d: string[]) => d.join(","), host: null, paint() {}, recheckAll() {}, payloadItems: () => [], Intl, Date });
 vm.runInContext(TEACHER_CARD_EXTRAS_JS, tc);
 const ribbon = vm.runInContext(`tcRibbon({window:{closesAt:"2026-10-20T20:59:00Z"},items:[{action:"change",decision:{state:"fixed"}},{action:"add",decision:{state:"rejected"}},{action:"add"},{action:"keep"}]},false)`, tc);
 ok(ribbon.includes("🔒") && ribbon.includes("انتهت فترة الطلبات") && ribbon.includes("✅ ثُبّت <b>1") && ribbon.includes("❌ رُفض <b>1") && ribbon.includes("⏳ قيد المراجعة <b>1"), "C4 ribbon: date + previous request states");

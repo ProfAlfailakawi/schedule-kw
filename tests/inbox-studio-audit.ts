@@ -35,9 +35,11 @@ check(silentLine(1) === "أستاذ واحد لم يفتح الرابط بعد" 
 check(nounFor(1, AR.openedQuietVerb) === "فتح ولم يُجب" && nounFor(2, AR.askedChangeVerb) === "طلبا تغييراً"
   && nounFor(5, AR.saidVerb) === "قالوا" && nounFor(1, AR.saidVerb) === "قال",
   "S1 «فتح ولم يُجب»، «طلبا تغييراً»، «قال/قالوا» بعددها");
-check(inbox.includes("{countOf(silent.length, AR.instructor)} {nounFor(silent.length, AR.openedLinkVerb)} الرابط بعد")
+/* سطرُ «لم يفتحوا الرابط بعد» حلّ محلَّه شريطُ «نبض الكروت» (inbox/CardPulse.tsx) بالأفعال نفسها بعددها. */
+const pulse = read("src/components/inbox/CardPulse.tsx");
+check(pulse.includes("unopened: AR.openedLinkVerb") && pulse.includes("nounFor(count, LABEL[stage])")
   && inbox.includes("{nounFor(unchanged.length, AR.saidVerb)} «الجدول كما هو»")
-  && !/لم يفتحوا الرابط|<span>فتحوا ولم يجيبوا<\/span>|<span>لم يفتحوا<\/span>|<span>طلبوا تغييراً<\/span>/.test(inbox),
+  && !/لم يفتحوا الرابط|<span>فتحوا ولم يجيبوا<\/span>|<span>لم يفتحوا<\/span>|<span>طلبوا تغييراً<\/span>/.test(inbox + pulse),
   "S1 الوارد يمرّر أفعالَ العدد كلَّها بـ nounFor، ولا يبقى جمعٌ مكتوبٌ بيد");
 check(!/count === 1 \? "موعد" : "مواعيد"/.test(inbox) && inbox.includes("countOf(count, AR.appointment)"),
   "S1 تلميحُ خليّة التكدّس بـ countOf لا بثنائيّة «موعد/مواعيد»");
