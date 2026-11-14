@@ -189,3 +189,22 @@
 .publish-pick-card small{flex:1 1 100%;color:var(--muted);font-size:.76rem}
 .publish-pick-card button{min-block-size:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font:inherit;font-size:.8rem;cursor:pointer}
 .publish-pick-card button.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+
+/* الدرجةُ لازمةٌ لكل عضو (قرار المالك 2026-11-14): لوحة استكمال الدرجات في «الأساتذة» وتنبيه غياب الدرجات في النموذج. */
+.dept-roster-complete{display:grid;gap:8px;margin-bottom:10px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--brass) 45%,var(--line));border-radius:var(--r-md);background:var(--brass-soft)}
+.dept-roster-complete header{display:grid;gap:2px}
+.dept-roster-complete strong{display:inline-flex;align-items:center;gap:6px;font-size:.9rem}
+.dept-roster-complete strong svg{inline-size:16px;block-size:16px;color:var(--brass)}
+.dept-roster-complete small{color:var(--muted);font-size:.78rem}
+.dept-roster-complete ul{margin:0;padding:0;list-style:none;display:grid;gap:6px;max-block-size:280px;overflow:auto}
+.dept-roster-complete li{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.dept-roster-complete li b{flex:1 1 140px;min-inline-size:0;font-size:.84rem}
+.dept-roster-complete select{flex:1 1 150px;min-block-size:38px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r-xs);background:var(--surface);color:var(--ink);font:inherit;font-size:.84rem}
+.dept-roster-complete footer .btn{inline-size:100%;justify-content:center}
+.dept-roster-card .is-missing-rank{color:var(--danger);font-weight:700}
+.instructor-new-norank{color:var(--danger);font-size:.8rem}
+@media (max-width:560px){
+  .dept-roster-complete li{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
+  .dept-roster-complete li b{flex:none}
+  .dept-roster-complete select{inline-size:100%}
+}

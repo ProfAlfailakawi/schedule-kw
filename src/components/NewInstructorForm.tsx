@@ -51,6 +51,8 @@ export default function NewInstructorForm({ collegeId, sectionId, initialName = 
     if (!cleanName || !cleanCivil) { setError("الاسم والرقم المدني مطلوبان."); return; }
     const check = validateCivilId(cleanCivil);
     if (!check.isValid) { setError(check.message || "الرقم المدني غير صحيح."); return; }
+    /* الدرجةُ لازمة (قرار المالك 2026-11-14): تُختار من النصاب، فلا إضافةَ بدونها ما دامت درجاتٌ معرَّفة. */
+    if (ranks?.ranks.length && !rankId) { setError("اختر الدرجة العلمية من النصاب."); return; }
     const known = precheck?.(cleanCivil);
     if (known) { setError(known); return; }
     setBusy(true);
@@ -78,21 +80,21 @@ export default function NewInstructorForm({ collegeId, sectionId, initialName = 
       <input value={mobile} onChange={event => setMobile(numericText(event.target.value).slice(0, 8))} inputMode="numeric" placeholder="الهاتف (اختياري)" aria-label="الهاتف" dir="ltr" />
       {ranks?.ranks.length ? (
         <label className="instructor-new-rank">
-          <span className="sr-only">الدرجة العلمية</span>
-          <select value={rankId} onChange={event => setRankId(event.target.value)} aria-label="الدرجة العلمية">
-            <option value="">الدرجة العلمية (اختياري)</option>
+          <span className="sr-only">الدرجة العلمية (لازمة)</span>
+          <select value={rankId} onChange={event => setRankId(event.target.value)} aria-label="الدرجة العلمية" aria-required="true" required>
+            <option value="" disabled>الدرجة العلمية *</option>
             {ranks.ranks.map(rank => <option key={rank.id} value={rank.id}>{rank.name} · {rank.minHours}–{rank.maxHours} س</option>)}
           </select>
-          {picked ? <small>نصابُه {picked.minHours}–{picked.maxHours} س{picked.overtimeHours ? ` · +${picked.overtimeHours} إضافي` : ""}</small> : null}
+          {picked ? <small>نصابُه {picked.minHours}–{picked.maxHours} س{picked.overtimeHours ? ` · +${picked.overtimeHours} إضافي` : ""}</small> : <small>لازمة: منها تُحسب ساعاتُه</small>}
         </label>
-      ) : null}
+      ) : ranks ? <small className="instructor-new-norank">لم تُعرَّف درجات علمية في النصاب بعد؛ يعرّفها المدير الرئيسي من «النصاب التدريسي».</small> : null}
       <label className="instructor-new-trainee">
         <input type="checkbox" checked={trainee} onChange={event => setTrainee(event.target.checked)} />
         <span>مدرب <small>يُضاف إلى قائمة المدربين</small></span>
       </label>
       {error ? <em>{error}</em> : null}
       <div>
-        <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy} data-guide-ignore="يحفظ أستاذاً جديداً في القسم بعد التأكيد في النموذج؛ الإضافة نفسها موثقة في schedule.action.change-instructor">{busy ? "يحفظ…" : submitLabel}</button>
+        <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy || Boolean(ranks?.ranks.length && !rankId)} data-guide-ignore="يحفظ أستاذاً جديداً في القسم بعد التأكيد في النموذج؛ الإضافة نفسها موثقة في schedule.action.change-instructor">{busy ? "يحفظ…" : submitLabel}</button>
         <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy} data-guide-ignore="يغلق نموذج الأستاذ الجديد دون حفظ">إلغاء</button>
       </div>
     </div>

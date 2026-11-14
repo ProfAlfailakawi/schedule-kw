@@ -48,6 +48,10 @@ function staticChecks() {
   check(form.includes('"/api/instructors"') && form.includes("load: { rankId }") && form.includes('AdInstructorCategory: "ta"'), "A7 الاسمُ ثم الدرجة، وخيارُ «مدرب»، من طلبٍ واحد للخادم");
   check(/ExceptionBadge/.test(roster) && /toggleStatus\(person, "retired"\)/.test(roster) && /toggleStatus\(person, "sabbatical"\)/.test(roster), "A7 بطاقةُ العضو تحمل الاستثناءَ والتقاعدَ والتفرّغ");
   check(roster.includes("إلغاء ${word}") && roster.includes("visualConfirm"), "A6 تغييرُ الحالة يمرّ بتأكيد، وإلغاؤها يُعيد الأستاذ");
+  /* A8 الدرجةُ لازمةٌ للجميع: النموذجُ لا يقبل بلا درجة، ومحرّرُ القسم بلا «بلا درجة»، ولوحةُ استكمال القائمين */
+  check(form.includes("اختر الدرجة العلمية من النصاب.") && form.includes("required") && !form.includes("(اختياري)</option>"), "A8 النموذجُ يُلزم باختيار الدرجة من النصاب");
+  check(roster.includes("requireRank={roster.ranks.length > 0}") && roster.includes("استكمال الدرجات العلمية") && roster.includes("saveRanks"), "A8 محرّرُ القسم بلا «بلا درجة»، ولوحةُ «استكمال الدرجات» لمن لا درجةَ له");
+  check(/!person\.assignment\?\.rankId/.test(roster) && roster.includes('AdInstructorStatus !== "retired"'), "A8 من بلا درجة يُعدّ غيرَ المتقاعدين وحدهم");
 }
 
 async function main() {
@@ -81,7 +85,12 @@ async function main() {
 
   /* A3 */
   const civil2 = civilNext();
-  const ta = await A("POST", "/api/instructors", { AdInstructorCivil: civil2, AdInstructorName: "مدرب إضافة اختبار", collegeId: 1, sectionId: 1, AdInstructorCategory: "ta" });
+  /* A2b الدرجةُ لازمةٌ للجميع حتى المدرب (قرار المالك 2026-11-14): بلا درجة 400 ولا يُنشأ أحد. */
+  const noRank = await A("POST", "/api/instructors", { AdInstructorCivil: civil2, AdInstructorName: "بلا درجة", collegeId: 1, sectionId: 1 });
+  check(noRank.status === 400 && noRank.json.code === "rank-required", "A2b بلا درجة تُرفض الإضافةُ بسياق القسم", noRank.json);
+  const noRankTa = await A("POST", "/api/instructors", { AdInstructorCivil: civil2, AdInstructorName: "مدرب بلا درجة", collegeId: 1, sectionId: 1, AdInstructorCategory: "ta" });
+  check(noRankTa.status === 400 && noRankTa.json.code === "rank-required", "A2b والمدربُ كذلك: لا استثناء", noRankTa.json);
+  const ta = await A("POST", "/api/instructors", { AdInstructorCivil: civil2, AdInstructorName: "مدرب إضافة اختبار", collegeId: 1, sectionId: 1, AdInstructorCategory: "ta", load: { rankId: rank.id } });
   const taRow = (await roster()).find(p => p.id === ta.json.AdInstructorId);
   check(ta.status === 201 && taRow?.AdInstructorCategory === "ta", "A3 «مدرب»: يظهر بتصنيف ta (قائمة المدربين)", taRow);
 
@@ -89,17 +98,25 @@ async function main() {
   const civil3 = civilNext();
   const bad = await A("POST", "/api/instructors", { AdInstructorCivil: civil3, AdInstructorName: "لن يُنشأ", collegeId: 1, sectionId: 1, load: { rankId: "لا-توجد" } });
   check(bad.status === 400, "A4 درجةٌ غير موجودة تُرفض", bad.json);
-  const retry = await A("POST", "/api/instructors", { AdInstructorCivil: civil3, AdInstructorName: "بعد الرفض", collegeId: 1, sectionId: 1 });
+  const retry = await A("POST", "/api/instructors", { AdInstructorCivil: civil3, AdInstructorName: "بعد الرفض", collegeId: 1, sectionId: 1, load: { rankId: rank.id } });
   check(retry.status === 201, "A4 والرقمُ لم يُسجَّل بالرفض: يُقبل بعد التصحيح", retry.json);
 
   /* A4b رقمٌ مدني لأستاذٍ موجود (المراجِع المستقل): يُضمّ ويُكتب له الدرجةُ إن لم تكن له درجة، ولا تُستبدل قائمة؛ والردُّ يقول ما طُبّق */
-  const again = await A("POST", "/api/instructors", { AdInstructorCivil: civil3, AdInstructorName: "بعد الرفض", collegeId: 1, sectionId: 1, load: { rankId: rank.id } });
-  check(again.status === 200 && again.json.existing === true && again.json.loadApplied === true, "A4b إعادةُ المحاولة برقمٍ موجود بلا درجة: تُكتب الدرجةُ ويقول الردُّ ذلك", again.json);
-  const rosterAfter = (await roster()).find(p => p.id === retry.json.AdInstructorId);
+  const civilLoose = civilNext();
+  const looseUnranked = await A("POST", "/api/instructors", { AdInstructorCivil: civilLoose, AdInstructorName: "قائم بلا درجة" });
+  check(looseUnranked.status === 201, "A4b تجهيز: سجلٌّ قائم بلا درجة (إضافةٌ بلا سياق قسم)", looseUnranked.json);
+  const noPick = await A("POST", "/api/instructors", { AdInstructorCivil: civilLoose, AdInstructorName: "قائم بلا درجة", collegeId: 1, sectionId: 1 });
+  check(noPick.status === 400 && noPick.json.code === "rank-required", "A4b ضمُّه إلى القسم بلا درجة يُرفض ما دامت له لا درجةَ", noPick.json);
+  const again = await A("POST", "/api/instructors", { AdInstructorCivil: civilLoose, AdInstructorName: "قائم بلا درجة", collegeId: 1, sectionId: 1, load: { rankId: rank.id } });
+  check(again.status === 200 && again.json.existing === true && again.json.loadApplied === true, "A4b وبدرجةٍ يُضمّ وتُكتب الدرجةُ ويقول الردُّ ذلك", again.json);
+  const rosterAfter = (await roster()).find(p => p.id === looseUnranked.json.AdInstructorId);
   check(rosterAfter?.rankName === rank.name, "A4b والدرجةُ تظهر في «الأساتذة»", rosterAfter);
-  const third = await A("POST", "/api/instructors", { AdInstructorCivil: civil3, AdInstructorName: "بعد الرفض", collegeId: 1, sectionId: 1, load: { rankId: rank.id }, AdInstructorCategory: "ta" });
+  const other = ranks.json.ranks?.[1];
+  const third = await A("POST", "/api/instructors", { AdInstructorCivil: civilLoose, AdInstructorName: "قائم بلا درجة", collegeId: 1, sectionId: 1, load: { rankId: (other || rank).id }, AdInstructorCategory: "ta" });
   check(third.status === 200 && third.json.existing === true && third.json.loadApplied === false, "A4b ودرجةٌ قائمة لا تُستبدل، والردُّ يقول إنها لم تُطبَّق", third.json);
-  check((await roster()).find(p => p.id === retry.json.AdInstructorId)?.AdInstructorCategory !== "ta", "A4b و«مدرب» لا يُطبَّق على سجلٍّ قائم");
+  check((await roster()).find(p => p.id === looseUnranked.json.AdInstructorId)?.AdInstructorCategory !== "ta", "A4b و«مدرب» لا يُطبَّق على سجلٍّ قائم");
+  const withRank = await A("POST", "/api/instructors", { AdInstructorCivil: civilLoose, AdInstructorName: "قائم بلا درجة", collegeId: 1, sectionId: 1 });
+  check(withRank.status === 200 && withRank.json.existing === true, "A4b ومن له درجةٌ يُضمّ إلى قسمٍ آخر دون إعادة اختيارها", withRank.json);
 
   /* A5 */
   const civil4 = civilNext();
@@ -111,6 +128,14 @@ async function main() {
   const assigned = cfg.json?.config?.assignments || cfg.json?.assignments || {};
   check(assigned[String(created.json.AdInstructorId)]?.rankId === rank.id, "A5 (ضابط) درجةُ الأستاذ المضموم مكتوبةٌ في الإعداد", Object.keys(assigned).slice(0, 5));
   check(!assigned[String(loose.json.AdInstructorId)], "A5 ولا تُكتب لها درجةٌ بلا نطاق", assigned[String(loose.json.AdInstructorId)]);
+
+  /* A5b الدرجةُ لا تُمحى من أدوات الجدول: تُغيَّر إلى أخرى من النصاب لا إلى «بلا درجة» */
+  const clear = await A("PUT", `/api/section-roster/${created.json.AdInstructorId}`, { collegeId: 1, sectionId: 1, termId: 1, load: {} });
+  check(clear.status === 400 && clear.json.code === "rank-required", "A5b محوُ الدرجة يُرفض", clear.json);
+  const changeRank = await A("PUT", `/api/section-roster/${created.json.AdInstructorId}`, { collegeId: 1, sectionId: 1, termId: 1, load: { rankId: (ranks.json.ranks?.[1] || rank).id } });
+  check(changeRank.status === 200, "A5b وتغييرُها إلى أخرى من النصاب مقبول", changeRank.json);
+  const badRank = await A("PUT", `/api/section-roster/${created.json.AdInstructorId}`, { collegeId: 1, sectionId: 1, termId: 1, load: { rankId: "لا-توجد" } });
+  check(badRank.status === 400, "A5b ولا تُقبل درجةٌ خارج النصاب", badRank.json);
 
   /* A6 */
   const retire = await A("PUT", `/api/section-roster/${created.json.AdInstructorId}`, { collegeId: 1, sectionId: 1, termId: 1, status: "retired" });
