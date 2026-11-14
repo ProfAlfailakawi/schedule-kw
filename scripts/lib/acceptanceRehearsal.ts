@@ -189,7 +189,7 @@ export function renderReport(results: readonly StepResult[], meta: ReportMeta): 
     const def = stepById(result.id);
     const meta = STATUS_META[result.status];
     const shots = result.shots.length
-      ? `<div class="shots">${result.shots.map(shot => `<figure><img loading="lazy" alt="${escapeHtml(shot.caption)}" src="data:image/jpeg;base64,${shot.data}"><figcaption>${escapeHtml(shot.caption)} · ${shot.width}px</figcaption></figure>`).join("")}</div>`
+      ? `<div class="shots">${result.shots.map(shot => `<figure><img loading="lazy" alt="${escapeHtml(shot.caption)}" src="data:image/jpeg;base64,${shot.data}"><figcaption>${escapeHtml(shot.caption)} · <bdi dir="ltr">${shot.width}px</bdi></figcaption></figure>`).join("")}</div>`
       : "";
     const details = result.details.length ? `<ul class="det">${result.details.map(line => `<li>${escapeHtml(line)}</li>`).join("")}</ul>` : "";
     const issues = result.issues.length
@@ -286,7 +286,7 @@ th,td{padding:6px 10px;border-block-end:1px solid var(--line);text-align:start;v
       <li>⏭️ تحتاج جولةً حقيقية: ${summary.counts.skip}</li>
       <li>🧯 أخطاء مرصودة: ${summary.issueCount}</li>
     </ul>
-    <p class="meta">${escapeHtml(formatStamp(meta.generatedAt))} · المدة ${escapeHtml(formatDuration(meta.durationMs))} · ${escapeHtml(meta.browser)} · العروض ${meta.widths.join(" و")}px · ${escapeHtml(meta.serverNote)}</p>
+    <p class="meta"><bdi dir="ltr">${escapeHtml(formatStamp(meta.generatedAt))}</bdi> · المدة <bdi dir="ltr">${escapeHtml(formatDuration(meta.durationMs))}</bdi> · <bdi dir="ltr">${escapeHtml(meta.browser)}</bdi> · العروض <bdi dir="ltr">${meta.widths.join(" / ")}px</bdi> · ${escapeHtml(meta.serverNote)}</p>
   </div>
 </section>
 <p class="legend"><span>✅ نجحت على الديمو</span><span>⚠️ نجحت مع ملاحظة تستحق النظر</span><span>❌ فشلت</span><span>⏭️ لا يثبتها الديمو: تُجرَّب على الموقع الحيّ بجهازٍ وبياناتٍ حقيقية (docs/ACCEPTANCE_ROUND.md)</span></p>

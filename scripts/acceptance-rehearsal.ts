@@ -356,9 +356,9 @@ async function studentSteps(browser: any) {
       await sleep(800);
       await step.shot(page, "الرئيسية");
       await noSideScroll(step, page, "الرئيسية");
-      for (const [tab, marker] of [["#tab-plan", /خطة الفصل/], ["#tab-me", /شارك مرشدك/], ["#tab-now", /أهلاً،/]] as Array<[string, RegExp]>) {
+      for (const [tab, name, marker] of [["#tab-plan", "خطتي", /خطة الفصل/], ["#tab-me", "ملفي", /شارك مرشدك/], ["#tab-now", "الآن", /أهلاً،/]] as Array<[string, string, RegExp]>) {
         await page.locator(tab).click(); await sleep(700);
-        step.ok(marker.test(await visibleText(page)), `اللسان ${tab.slice(5)} يُفتح بمحتواه`);
+        step.ok(marker.test(await visibleText(page)), `لسان «${name}» يُفتح بمحتواه`);
       }
       await page.locator("#tab-now").click(); await sleep(300);
       await page.reload({ waitUntil: "domcontentloaded" }); await sleep(900);
