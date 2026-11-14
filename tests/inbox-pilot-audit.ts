@@ -108,7 +108,7 @@ check(pilotHandsOff(item({ action: "add", rowId: undefined }) as any) && !pilotH
 /* P5 */
 const pilot = read("src/components/inbox/InboxPilot.tsx");
 const inbox = read("src/components/InstructorInbox.tsx");
-const css = read("src/styles/57-inbox-pilot.css");
+const css = read("src/styles/59-inbox-pilot.css");
 check(!/\bfetch\(|\/api\//.test(pilot), "P5 لا نداءَ خادمٍ في الوضع: كلُّ فعلٍ عبر دوالّ الوارد");
 check(/onDecide\(row, entry\.index, "fixed"/.test(pilot) && /onDecide\(row, entry\.index, "rejected"/.test(pilot), "P5 «ثبّت» و«بديل» عبر decide نفسها");
 check(/<RejectSheet item=\{item\}/.test(pilot), "P5 «بديل» ورقةُ الرفض نفسُها ببدائلها المحسوبة");
@@ -119,7 +119,7 @@ check(/<kbd[^>]*>F<\/kbd>/.test(pilot) && /<kbd[^>]*>B<\/kbd>/.test(pilot) && /i
 check(/role="progressbar"/.test(pilot) && /من \$\{num\(total\)\}/.test(pilot), "P5 «٧ من ٣٠» وشريطُ التقدّم");
 check(/prefers-reduced-motion:reduce/.test(css) && /max-width:560px/.test(css) && /min-block-size:56px/.test(css), "P5 الهاتفُ بلمسٍ كبير والحركةُ تحترم التقليل");
 check(!/#[0-9a-f]{3,6}\b(?![^{]*var\()/i.test(css.replace(/var\([^)]*\)/g, "").replace(/color-mix\([^)]*\)/g, "")), "P5 الألوانُ من رموز التصميم");
-check(read("src/index.css").includes('@import "./styles/57-inbox-pilot.css";'), "P5 ورقةُ الأنماط مسجّلة");
+check(read("src/index.css").includes('@import "./styles/59-inbox-pilot.css";'), "P5 ورقةُ الأنماط مسجّلة");
 check(/import InboxPilot, \{ InboxPilotLauncher \} from "\.\/inbox\/InboxPilot";/.test(inbox), "P5 الوارد: استيرادٌ واحد");
 check((inbox.match(/const \[pilotOpen, setPilotOpen\] = useState\(false\);/g) || []).length === 1, "P5 الوارد: علَمٌ واحد");
 check(/counts\.pending && !frozen[^\n]*\n\s*<InboxPilotLauncher count=\{counts\.pending\}/.test(inbox), "P5 الزرّ لمن يقرّر وحين ينتظر شيء");

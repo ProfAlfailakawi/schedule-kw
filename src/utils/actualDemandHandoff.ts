@@ -60,6 +60,20 @@ export const graduateImpactNote = (graduates: number) => `يمسّ ${countOf(gra
 
 /** سطرٌ يقول للجنة من أين جاء النموذج. */
 export function actualDemandNotice(handoff: ActualDemandHandoff): string {
+  if (!handoff.students && !handoff.graduates) return "تخطيط الشعب: شعبةٌ جديدة لهذا المقرر.";
   const who = handoff.graduates ? `${countOf(handoff.students, AR.student)}، منهم ${countOf(handoff.graduates, AR.graduate)}` : countOf(handoff.students, AR.student);
-  return `الطلب الفعلي: ${who} يحتاجون هذا المقرر ولا شعبة له.`;
+  return `تخطيط الشعب: ${who} بلا مقعد في هذا المقرر.`;
+}
+
+/* ── «اختر ما يُغلق»: الجدول يُظهر شعبَ المقرر، والقسم يختار بنفسه ─────────────────
+   داخل الجدول يكفي الحدث؛ ومن خارجه (مركز التحليلات) يُخزَّن الرمز ويُقرأ مرةً عند فتح الجدول. */
+export const FOCUS_COURSE_EVENT = "schedule:focus-course";
+const FOCUS_KEY = "schedule.focusCourse";
+export function openCourseSections(code: string, inPlace = false): void {
+  if (inPlace) { window.dispatchEvent(new CustomEvent(FOCUS_COURSE_EVENT, { detail: { code } })); return; }
+  try { sessionStorage.setItem(FOCUS_KEY, code); } catch { /* تخزينٌ ممنوع: يُفتح الجدول كما هو. */ }
+  window.location.assign("/FSchedule/Index");
+}
+export function takeFocusedCourse(): string {
+  try { const code = sessionStorage.getItem(FOCUS_KEY) || ""; sessionStorage.removeItem(FOCUS_KEY); return code; } catch { return ""; }
 }

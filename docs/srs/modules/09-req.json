@@ -1524,7 +1524,7 @@
         {"ar": "على عرض الهاتف (390px) يملأ الشاشة والأزرارُ عمودٌ واحد بارتفاع 56px على الأقل، والحركةُ تتوقّف مع prefers-reduced-motion.", "en": "At phone width (390px) it fills the screen with the buttons in one column at least 56px tall, and motion stops under prefers-reduced-motion."},
         {"ar": "لا نداءَ خادمٍ في الوضع نفسه: كلُّ فعلٍ عبر دوالّ الوارد، فيرث فحوصَ الإصدار وتجميدَ الفصل والقفلَ ومعالجةَ الأخطاء كما هي.", "en": "The mode makes no server call itself: every action goes through the inbox's functions, inheriting revision checks, term freeze, locks and error handling unchanged."}
       ],
-      "evidence": {"code": ["src/components/inbox/InboxPilot.tsx", "src/utils/inboxPilot.ts#buildPilotQueue", "src/utils/inboxPilot.ts#pilotCommand", "src/components/InstructorInbox.tsx", "src/styles/57-inbox-pilot.css"], "tests": ["tests/inbox-pilot-audit.ts"]}
+      "evidence": {"code": ["src/components/inbox/InboxPilot.tsx", "src/utils/inboxPilot.ts#buildPilotQueue", "src/utils/inboxPilot.ts#pilotCommand", "src/components/InstructorInbox.tsx", "src/styles/59-inbox-pilot.css"], "tests": ["tests/inbox-pilot-audit.ts"]}
     }
   ],
   "edgeCases": [
