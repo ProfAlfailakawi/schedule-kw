@@ -144,6 +144,8 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     return;
   }
 
+  /* جيلُ الهويات قبل القراءة: إن تغيّر حسابٌ أو صلاحيةٌ أثناءها لا يُحفظ ما قُرئ في الذاكرة. */
+  const generationAtRead = Repository.identityGeneration();
   let sess: Awaited<ReturnType<typeof Repository.getSession>>;
   try {
     sess = await Repository.getSession(sessionId);
@@ -185,7 +187,7 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
       req.user = identity.user;
       req.scopes = identity.scopes;
       req.permissions = identity.permissions;
-      authCache.set(sessionId, { at: Date.now(), userId: sess.userId, user: req.user, scopes: req.scopes || [], permissions: req.permissions });
+      if (Repository.identityGeneration() === generationAtRead) authCache.set(sessionId, { at: Date.now(), userId: sess.userId, user: req.user, scopes: req.scopes || [], permissions: req.permissions });
       touchSession(sessionId, idleTtlMs);
       next();
       return;

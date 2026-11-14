@@ -155,7 +155,7 @@
 .srq-compose-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--line)}
 .srq-summary{flex:1 1 200px;color:var(--ink-2,var(--ink));font-size:var(--t-sm);font-weight:600}
 
-@media (max-width:640px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .srq{padding:14px;gap:12px;border-radius:var(--r-lg)}
   .srq-tiles{grid-template-columns:repeat(2,1fr);flex-basis:100%}
   .srq-head>.btn{inline-size:100%;justify-content:center}
@@ -173,3 +173,13 @@
   .srq-section button::after{content:"";position:absolute;inset:-10px}
   .srq-available button,.srq-pick li label,.srq-masari li label{min-block-size:44px}
 }
+/* الطلباتُ المغلقة مطويّةٌ تحت ما يحتاج عملاً. */
+.srq-done{margin-block-start:10px}
+.srq-done>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;padding:8px 2px;font-weight:700}
+.srq-done>summary small{color:var(--muted);font-weight:500}
+.srq-done>.srq-list{margin-block-start:8px}
+/* طلبٌ بعددٍ بلا قائمة: التسجيلُ يكتب كم سُجّل منه. */
+.srq-count-register{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px}
+.srq-count-register label{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.srq-count-register input{inline-size:5.5em;min-block-size:38px;border:1px solid var(--line);border-radius:10px;padding:4px 8px;font:inherit}
+.srq-count-register em{font-style:normal;color:var(--muted)}

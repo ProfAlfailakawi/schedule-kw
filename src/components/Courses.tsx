@@ -13,6 +13,7 @@ import type { AdSection } from "../types";
 import type { CurriculumPlan } from "../types";
 import { sheetTagOf } from "../utils/sheetTag";
 import { byCourseNumber } from "../utils/sheetMembership";
+import { authorityCourseCode, authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 import {
   AddButton,
   EmbeddedAction,
@@ -77,6 +78,8 @@ type CurriculumTarget = {
 /** `embedded` means the academic console already supplies the page identity. */
 /** السعةُ حسب طبيعة المقرر: قسمٌ واحد باسمه في كل الحُرُم — معاينةٌ أولاً ثم تطبيق. لمدير النظام وحده. */
 const CAPACITY_MODE_ROWS = [["theoretical", "نظري", "50"], ["practical", "عملي", "20"], ["field_training", "تدريب ميداني", "15"]] as const;
+/* «الرقم الأكاديمي» تسميةٌ واحدة في القائمة والتفاصيل والنموذج، وقيمته رقم الهيئة بسبع خانات (قاعدة المالك: authorityCourseCode). */
+const COURSE_NUMBER_LABEL = "الرقم الأكاديمي";
 function CapacityByMode({ sections, onDone }: { sections: any[]; onDone: () => void }) {
   const names = useMemo(() => [...new Set(sections.map(item => String(item.AdSectionName || "")).filter(Boolean))].sort(byArabic), [sections]);
   const [sectionName, setSectionName] = useState("");
@@ -121,7 +124,7 @@ function CapacityByMode({ sections, onDone }: { sections: any[]; onDone: () => v
 }
 
 /** م.9: استثناءُ السعة لمقررٍ في عائلة قسم، ونوعُ تخصص العائلة (للتدريب الميداني). لمدير النظام وحده. */
-function CapacityExceptions({ sections, courses }: { sections: any[]; courses: any[] }) {
+function CapacityExceptions({ sections, courses, numberOf }: { sections: any[]; courses: any[]; numberOf: (course: any) => string }) {
   const names = useMemo(() => [...new Set(sections.map(item => String(item.AdSectionName || "")).filter(Boolean))].sort(byArabic), [sections]);
   const [sectionName, setSectionName] = useState("");
   const [data, setData] = useState<{ rules: any; reasons: Record<string, string> } | null>(null);
@@ -142,15 +145,17 @@ function CapacityExceptions({ sections, courses }: { sections: any[]; courses: a
   }, [courses, familyIds]);
   const family = data?.rules?.families?.[key] || {};
   const entries: Array<[string, any]> = Object.entries(family.courses || {});
-  const send = async (body: Record<string, unknown>) => {
+  /* يعيد true عند النجاح وحده: النموذج لا يُفرَّغ بعد رفضٍ فيضيع ما كُتب. */
+  const send = async (body: Record<string, unknown>): Promise<boolean> => {
     setBusy(true); setMessage(null);
     try {
       const response = await fetch("/api/admin/capacity-exceptions", { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionName, ...body }) });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) { setMessage({ ok: false, text: result.error || "تعذّر الحفظ." }); return; }
+      if (!response.ok) { setMessage({ ok: false, text: result.error || "تعذّر الحفظ." }); return false; }
       setData(current => ({ reasons: current?.reasons || {}, rules: result.rules }));
       setMessage({ ok: true, text: "تم الحفظ." });
-    } catch { setMessage({ ok: false, text: "تعذّر الاتصال." }); } finally { setBusy(false); }
+      return true;
+    } catch { setMessage({ ok: false, text: "تعذّر الاتصال." }); return false; } finally { setBusy(false); }
   };
   return <details className="capacity-by-mode" onToggle={event => { if ((event.currentTarget as HTMLDetailsElement).open && !data) void load(); }}>
     <summary data-guide-ignore="فتح استثناءات حدود السعة (م.9)"><Users aria-hidden="true" />استثناءات حدود السعة · م.9</summary>
@@ -169,23 +174,32 @@ function CapacityExceptions({ sections, courses }: { sections: any[]; courses: a
           <button type="button" disabled={busy} data-guide-ignore="إلغاء استثناء هذا المقرر" aria-label={`إلغاء استثناء ${code}`} onClick={() => void send({ courseCode: code, remove: true })}>إلغاء</button></li>)}</ul> : <p className="capacity-by-mode-msg">لا استثناءات مسجّلة لهذا القسم.</p>}
         <select aria-label="المقرر" value={courseCode} disabled={busy} data-guide-ignore="اختيار المقرر المستثنى" onChange={event => setCourseCode(event.target.value)}>
           <option value="">اختر المقرر</option>
-          {familyCourses.map(course => <option key={course.AdCourseId} value={course.CourseCode}>{course.CourseCode} · {course.CourseName}</option>)}
+          {familyCourses.map(course => <option key={course.AdCourseId} value={course.CourseCode}>{numberOf(course)} · {course.CourseName}</option>)}
         </select>
         <select aria-label="سبب الاستثناء" value={reason} disabled={busy} data-guide-ignore="سبب الاستثناء من م.9" onChange={event => setReason(event.target.value)}>
           <option value="">اختر السبب</option>
           {Object.entries(data?.reasons || {}).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
         <input type="text" maxLength={300} placeholder="ملاحظة (اختياري)" aria-label="ملاحظة الاستثناء" value={note} disabled={busy} data-guide-ignore="ملاحظة قصيرة على الاستثناء" onChange={event => setNote(event.target.value)} />
-        <button type="button" className="capacity-by-mode-go" data-tone="apply" disabled={busy || !courseCode || !reason} data-guide-ignore="تسجيل استثناء السعة لهذا المقرر" onClick={() => void send({ courseCode, reason, note }).then(() => { setCourseCode(""); setReason(""); setNote(""); })}>تسجيل الاستثناء</button>
+        <button type="button" className="capacity-by-mode-go" data-tone="apply" disabled={busy || !courseCode || !reason} data-guide-ignore="تسجيل استثناء السعة لهذا المقرر" onClick={() => void send({ courseCode, reason, note }).then(ok => { if (ok) { setCourseCode(""); setReason(""); setNote(""); } })}>تسجيل الاستثناء</button>
       </> : null}
       {message ? <p className="capacity-by-mode-msg" data-ok={message.ok ? "1" : "0"} role="status">{message.text}</p> : null}
     </div>
   </details>;
 }
 
-export default function Courses({ embedded = false, actionSlot = null, scopes = [], isAdmin = true }: { embedded?: boolean; actionSlot?: HTMLElement | null; scopes?: ScopeAssignmentLike[]; isAdmin?: boolean }) {
+/** `rootAdmin`: أدوات السعة للمدير الرئيسي وحده كما يقصرها الخادم (requireRootAdmin).
+ *  `openPlansFor` / `onPlansOpened`: طلبٌ من تبويبٍ آخر (الأقسام) بفتح الصحائف الأكاديمية على قسم. */
+export default function Courses({ embedded = false, actionSlot = null, scopes = [], isAdmin = true, rootAdmin = false, onCount, openPlansFor = null, onPlansOpened }: { embedded?: boolean; actionSlot?: HTMLElement | null; scopes?: ScopeAssignmentLike[]; isAdmin?: boolean; rootAdmin?: boolean; onCount?: (count: number) => void; openPlansFor?: number | null; onPlansOpened?: () => void }) {
   const shape = scopeShape(scopes, isAdmin);
   const [items, setItems] = useState<any[]>([]),
+    [loaded, setLoaded] = useState(false),
+    [scopedRead, setScopedRead] = useState(false),
+    [loadFailed, setLoadFailed] = useState(false),
+    [errorCode, setErrorCode] = useState<{ code: string; sectionId: number } | null>(null),
+    [initial, setInitial] = useState(""),
+    /* الصحائف فُتحت من نموذج إنشاءٍ مفتوح: يعود النموذج بما كُتب فيه عند إغلاقها. */
+    [resumeCreate, setResumeCreate] = useState(false),
     [colleges, setColleges] = useState<any[]>([]),
     [sections, setSections] = useState<any[]>([]),
     [listCollege, setListCollege] = useState(0),
@@ -223,9 +237,10 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     setLoading(true);
     try {
       let correction: any = null;
-      try { correction = JSON.parse(sessionStorage.getItem("schedule-reference-course-action") || "null"); } catch { /* discard malformed local intent */ }
-      const courseUrl = correction && Number(correction.sectionId) > 0
-        ? `/api/courses?sectionId=${Number(correction.sectionId)}&plans=1`
+      try { correction = JSON.parse(sessionStorage.getItem("schedule-reference-course-action") || "null"); } catch { sessionStorage.removeItem("schedule-reference-course-action"); /* discard malformed local intent */ }
+      const correctionSection = correction && Number(correction.sectionId) > 0 ? Number(correction.sectionId) : 0;
+      const courseUrl = correctionSection
+        ? `/api/courses?sectionId=${correctionSection}&plans=1`
         : "/api/courses?operational=1&plans=1";
       const [a, b, c] = await Promise.all([
         fetch(courseUrl),
@@ -237,12 +252,18 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setItems(data);
       setColleges(sortByName(await b.json(), (row:any)=>row.AdCollegeName));
       setSections(sortByName(await c.json(), (row:any)=>row.AdSectionName));
+      /* قائمةٌ قُرئت لقسمٍ واحد (طلب تصحيح) تقول ذلك في مرشّحها، ولا تُعلن عدداً للجامعة كلها. */
+      if (correctionSection) setListSection(correctionSection);
+      setScopedRead(Boolean(correctionSection));
+      setLoaded(true);
+      setLoadFailed(false);
       setSelectedId((v) =>
         v && data.some((x: any) => x.AdCourseId === v)
           ? v
           : data[0]?.AdCourseId || null,
       );
     } catch {
+      setLoadFailed(true);
       setError("فشل تحميل بيانات المقررات الدراسية");
     } finally {
       setLoading(false);
@@ -250,6 +271,8 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
   };
 
   useEffect(() => { void load(); }, []);
+  /* عددُ شريط التبويبات = القائمة نفسها بعد كل تحميلٍ وإنشاءٍ وحذف (لا عدّ الكتالوج الخام). */
+  useEffect(() => { if (loaded && !scopedRead) onCount?.(items.length); }, [items, loaded, scopedRead]);
 
   useEffect(() => {
     if (!sectionId) return;
@@ -332,12 +355,14 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setCourseRoomType("");
       setCourseTeachingMode("");setCourseCompanionRoomType("");
       setError(null);
+      setErrorCode(null);
       setCurriculumTarget(null);
       setBootstrapOk(false);
     },
     back = () => {
       setMode("index");
       setError(null);
+      setErrorCode(null);
     },
     cancelEditor = () => {
       back();
@@ -346,6 +371,8 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     create = () => {
       reset();
       setReceipt(null);
+      setResumeCreate(false);
+      setCaptureNext(true);
       setMode("create");
     },
     /* Started from the plans drawer: the department is already chosen. */
@@ -367,20 +394,39 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setCourseTeachingMode(String(x.CourseTeachingMode || ""));
     setCourseCompanionRoomType(String(x.CourseCompanionRoomType || ""));
       setError(null);
+      setErrorCode(null);
       setCurriculumTarget(null);
+      setCaptureNext(true);
       setMode("edit");
     };
+  /* ما في النموذج لحظة فتحه: يُقارن به ما فيه الآن، فلا يُغلق نموذجٌ معدَّل بنقرةٍ خارجه دون سؤال. */
+  const [captureNext, setCaptureNext] = useState(false);
+  const snapshot = JSON.stringify([collegeId, sectionId, code, name, credit, hours, capacity, courseRoomType, courseTeachingMode, courseCompanionRoomType]);
+  useEffect(() => {
+    if (!captureNext) return;
+    setInitial(snapshot);
+    setCaptureNext(false);
+  }, [captureNext, snapshot]);
+  const dirty = mode !== "index" && !captureNext && snapshot !== initial;
 
   useEffect(() => {
     let intent: any = null;
     try { intent = JSON.parse(sessionStorage.getItem("schedule-reference-course-action") || "null"); } catch { return; }
-    if (!intent || !["edit", "create"].includes(intent.kind)) return;
+    if (!intent) return;
+    /* طلبٌ لا يُنفَّذ بعد اكتمال القراءة (قسمٌ أو مقررٌ لم يعد موجوداً، أو نوعٌ مجهول) يُمسح
+       ويُعاد تحميل القائمة كاملة — وإلا بقيت كل قراءةٍ لاحقة محصورةً في قسمه والمرشّح يقول «كل الأقسام». */
+    const drop = () => {
+      sessionStorage.removeItem("schedule-reference-course-action");
+      setListSection(0);
+      void load();
+    };
+    if (!["edit", "create"].includes(intent.kind)) { if (loaded) drop(); return; }
     const section = sections.find((row: any) => Number(row.AdSectionId) === Number(intent.sectionId));
     const college = colleges.find((row: any) => Number(row.AdCollegeId) === Number(intent.collegeId));
-    if (!section || !college) return;
+    if (!section || !college) { if (loaded) drop(); return; }
     if (intent.kind === "edit") {
       const existing = items.find(row => Number(row.AdCourseId) === Number(intent.courseId));
-      if (!existing) return;
+      if (!existing) { if (loaded) drop(); return; }
       sessionStorage.removeItem("schedule-reference-course-action");
       setListSection(Number(intent.sectionId));
       setSelectedId(Number(existing.AdCourseId));
@@ -399,8 +445,11 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     setCapacity("");
     setCourseRoomType("");
       setCourseTeachingMode("");setCourseCompanionRoomType("");
+    /* ما جاء مملوءاً من شاشةٍ أخرى عملٌ لا يُرمى بنقرةٍ خارج النموذج: يُعدّ غير محفوظ منذ البداية. */
+    setInitial("");
+    setResumeCreate(false);
     setMode("create");
-  }, [items, sections, colleges]);
+  }, [items, sections, colleges, loaded]);
 
   const numeric = (v: string, setter: (x: string) => void) => {
       setter(numericText(v));
@@ -430,6 +479,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     e.preventDefault();
     if (submitting) return;
     setError(null);
+    setErrorCode(null);
     if (!collegeId || !sectionId || !code || !name.trim() || !credit || !hours) {
       setError("الرجاء إدخال الحقول المطلوبة بالأحمر");
       return;
@@ -476,6 +526,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
         d = await r.json();
       if (!r.ok) {
         setError(d.error || "فشل حفظ بيانات المقررات الدراسية");
+        if (d?.code === "curriculum-linked") setErrorCode({ code: d.code, sectionId: Number(d.sectionId || sectionId) });
         return;
       }
       if (d && Number(d.AdCourseId)) {
@@ -513,16 +564,20 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     }
   };
 
-  const remove = async (id: number) => {
+  const remove = async (course: any) => {
     if (submitting) return;
-    if (!(await visualConfirm({ title: "حذف المقرر الدراسي", message: "سيُحذف سجل المقرر الدراسي من النظام.", confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    const id = Number(course.AdCourseId);
+    const label = `${courseNumberOf(course)} — ${course.CourseName}`;
+    if (!(await visualConfirm({ title: `حذف «${course.CourseName}»`, message: `سيُحذف المقرر ${label} من النظام. لا يُحذف إن كان مرتبطاً بصحيفة أكاديمية أو له أي موعد في الجدول في أي فصل.`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
     setSubmitting(true);
     setError(null);
+    setErrorCode(null);
     try {
       const r = await fetch(`/api/courses/${id}`, { method: "DELETE" }),
         d = await r.json();
       if (!r.ok) {
         setError(d.error || "فشل حذف بيانات المقررات الدراسية");
+        if (d?.code === "curriculum-linked") setErrorCode({ code: d.code, sectionId: Number(d.sectionId || course.AdSectionId) });
         return;
       }
       setSelectedId(null);
@@ -537,6 +592,9 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
   useEffect(() => setVisibleLimit(160), [query]);
   const coll = (id: number) => colleges.find((c) => c.AdCollegeId === id)?.AdCollegeName || "",
     sec = (id: number) => sections.find((s) => s.AdSectionId === id)?.AdSectionName || "";
+  /* رقم الهيئة بسبع خانات (الكلية ٢ + القسم ٢ + المقرر ٣) — لا الرمز المخزَّن ولا معرّف النظام. */
+  const departmentKeys = useMemo(() => authorityDepartmentKeys(sections, colleges), [sections, colleges]);
+  const courseNumberOf = (course: any) => authorityCourseCode(course?.CourseCode, departmentKeys.get(Number(course?.AdSectionId))) || "—";
 
   const filtered = useMemo(() => {
       const q = query.trim().toLowerCase();
@@ -551,40 +609,60 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       });
       const base = q
         ? list.filter((x) =>
-            [x.CourseCode, x.CourseName, coll(x.AdCollegeId), sec(x.AdSectionId)].some((v) =>
+            [x.CourseCode, courseNumberOf(x), x.CourseName, coll(x.AdCollegeId), sec(x.AdSectionId)].some((v) =>
               String(v || "").toLowerCase().includes(q),
             ),
           )
         : list;
       /* برقم المقرر تصاعدياً (src/utils/sheetMembership.ts) — الترتيبُ نفسه في كل قائمة مقررات. */
       return [...base].sort(byCourseNumber((x: any) => x.CourseCode, (x: any) => x.CourseName));
-    }, [items, colleges, sections, query, listCollege, listSection, listPlan]),
+    }, [items, colleges, sections, departmentKeys, query, listCollege, listSection, listPlan]),
     selected = filtered.find((x) => x.AdCourseId === selectedId) || filtered[0] || null,
     activeId = selected?.AdCourseId ?? null;
 
   const openCurriculum = (preferredSectionId = 0) => {
     const sid = preferredSectionId || listSection || Number(selected?.AdSectionId || 0);
+    /* من نموذج إنشاءٍ مفتوح: الحقول تبقى في الحالة (لا reset)، ويعود النموذج بها عند إغلاق الصحائف. */
+    setResumeCreate(mode === "create");
     setCurriculumSectionId(sid);
     setMode("index");
     setError(null);
+    setErrorCode(null);
     setCurriculumOpen(true);
   };
+  const closeCurriculum = () => {
+    setCurriculumOpen(false);
+    setCurriculumProbe(value => value + 1);
+    if (resumeCreate) { setResumeCreate(false); setMode("create"); }
+  };
+  /* طلبٌ من تبويب الأقسام: تُفتح الصحائف على القسم المطلوب بعد أن تصل الأقسام. */
+  useEffect(() => {
+    if (!openPlansFor || !sections.length) return;
+    openCurriculum(Number(openPlansFor));
+    onPlansOpened?.();
+  }, [openPlansFor, sections.length]);
   const createBlocked = mode === "create" && Boolean(sectionId) && Boolean(
     curriculumTarget?.loading || curriculumTarget?.error || (!curriculumTarget?.plan && !(curriculumTarget?.bootstrap && bootstrapOk)),
   );
   const listSections = useMemo(() => sections.filter((s) => !listCollege || s.AdCollegeId === listCollege), [sections, listCollege]),
     listSectionLabel = useMemo(() => sectionLabels(listSections, colleges), [listSections, colleges]);
   const hasPlans = useMemo(() => items.some(item => planTagOf(item)), [items]);
+  /* رفضٌ سببه الصحيفة (حذفُ مقررٍ مرتبط، أو هويةٌ مجمّدة) يأتي ومعه بابُها. */
+  const plansAction = errorCode?.code === "curriculum-linked" ? (
+    <SecondaryButton type="button" data-guide-ignore="يفتح الصحائف الأكاديمية لقسم المقرر؛ لا يغيّر شيئاً" onClick={() => { setResumeCreate(false); openCurriculum(errorCode.sectionId); }}>
+      <GraduationCap aria-hidden="true" /> فتح الصحائف الأكاديمية
+    </SecondaryButton>
+  ) : undefined;
 
   const editorDrawer = mode !== "index" ? (
-    <CatalogFormDrawer onClose={cancelEditor} label={mode === "create" ? "إنشاء مقرر جديد" : "تعديل بيانات المقرر"}>
+    <CatalogFormDrawer onClose={cancelEditor} dirty={dirty} label={mode === "create" ? "إنشاء مقرر جديد" : "تعديل بيانات المقرر"}>
       <PageTitle
         eyebrow="البيانات الأكاديمية"
         subtitle={mode === "create" ? "المقرر الجديد يرتبط بالصحيفة الحالية تلقائياً" : "مرتبط بالكلية والقسم"}
       >
         {mode === "create" ? "تسجيل مقرر دراسي جديد" : "تعديل بيانات المقرر"}
       </PageTitle>
-      {error ? <Notice>{error}</Notice> : null}
+      {error ? <Notice action={plansAction}>{error}</Notice> : null}
       <Surface className="form-card smart-form">
         <div className="form-intro">
           <span><BookOpen /></span>
@@ -681,13 +759,14 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
               </div>
             ) : null}
 
-            <Field label="الرقم الأكاديمي للمقرر" required>
+            <Field label={COURSE_NUMBER_LABEL} required hint={code && sectionId && courseNumberOf({ CourseCode: code, AdSectionId: Number(sectionId) }) !== code ? `يُعرض ويُطبع: ${courseNumberOf({ CourseCode: code, AdSectionId: Number(sectionId) })}` : undefined}>
               <input
                 inputMode="numeric"
+                dir="ltr"
                 value={code}
                 onChange={(e) => numeric(e.target.value, setCode)}
                 onBlur={validateCourseCode}
-                aria-label="الرقم الأكاديمي للمقرر"
+                aria-label={COURSE_NUMBER_LABEL}
                 autoComplete="off"
                 required
               />
@@ -751,29 +830,40 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     </CatalogFormDrawer>
   ) : null;
 
+  /* الصحائف الأكاديمية بابٌ دائم في رأس الشاشة: إليها تحيل رسائل الحذف والتجميد وشاشة الأقسام. */
+  const headActions = (
+    <div className="course-head-actions">
+      <SecondaryButton data-guide-ignore="يفتح الصحائف الأكاديمية للقسم المختار؛ لا يغيّر شيئاً بنفسه" onClick={() => openCurriculum()}>
+        <GraduationCap aria-hidden="true" /> الصحائف الأكاديمية
+      </SecondaryButton>
+      <AddButton onClick={create}>إنشاء مقرر</AddButton>
+    </div>
+  );
   return (
     <div className={`content-stack library-page catalog-inspector-page visual-minimal ${embedded ? "embedded-catalog" : ""}`}>
       {embedded ? (
         <EmbeddedAction slot={actionSlot}>
-          <div className="course-head-actions">
-            <AddButton onClick={create}>إنشاء مقرر</AddButton>
-          </div>
+          {headActions}
         </EmbeddedAction>
       ) : (
         <PageTitle
           eyebrow="المكتبة الأكاديمية"
           subtitle="المكتبة والتفاصيل في لوحة واحدة"
-          action={<div className="course-head-actions"><AddButton onClick={create}>إنشاء مقرر</AddButton></div>}
+          action={headActions}
         >
           المقررات الدراسية
         </PageTitle>
       )}
       {receipt ? <Notice type="success" onDismiss={() => setReceipt(null)}>{receipt}</Notice> : null}
-      {error ? <Notice>{error}</Notice> : null}
-      {isAdmin ? <CapacityByMode sections={sections} onDone={() => window.location.reload()} /> : null}
-      {isAdmin ? <CapacityExceptions sections={sections} courses={items} /> : null}
-      <div className="catalog-workspace">
+      {error && mode === "index" ? (
+        <Notice action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : plansAction}>{error}</Notice>
+      ) : null}
+      {/* أدوات السعة للمدير الرئيسي وحده — كما يقصرها الخادم؛ وبعد التطبيق تُعاد القائمة لا الصفحة كلها. */}
+      {rootAdmin ? <CapacityByMode sections={sections} onDone={() => void load()} /> : null}
+      {rootAdmin ? <CapacityExceptions sections={sections} courses={items} numberOf={courseNumberOf} /> : null}
+      <div className="catalog-workspace" aria-busy={loading}>
         <Surface className="catalog-master">
+          <h2 className="sr-only">قائمة المقررات الدراسية</h2>
           <ListToolbar value={query} onChange={setQuery} count={filtered.length} placeholder="الرقم الأكاديمي، اسم المقرر، الكلية أو القسم">
             {!hidesCollege(shape) ? <select
               className="list-filter"
@@ -819,12 +909,16 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                   icon={<BookOpen />}
                   title={<span className="course-room-type-line"><span>{x.CourseName}<CourseTags courseId={x.AdCourseId} /></span>{teachingModeBadge(x)}<CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
                   subtitle={<span className="record-path"><Building2 />{sec(x.AdSectionId)} <i className="record-path-dot" aria-hidden="true" /> {coll(x.AdCollegeId)}</span>}
-                  meta={<><MetaPill label="الرقم الأكاديمي" value={x.CourseCode} /><MetaPill label="الوحدات" value={x.CourseCredit} /><MetaPill label="الساعات" value={x.CourseHours} /></>}
+                  meta={<><MetaPill label={COURSE_NUMBER_LABEL} value={courseNumberOf(x)} dir="ltr" /><MetaPill label="الوحدات" value={x.CourseCredit} /><MetaPill label="الساعات" value={x.CourseHours} /></>}
                 />
               ))}
             </RecordDeck>
           ) : (
-            <EmptyState title="لا توجد مقررات مطابقة" detail="جرّب رمزاً آخر أو امسح عبارة البحث." />
+            <EmptyState
+              title={loadFailed ? "تعذّر تحميل المقررات" : "لا توجد مقررات مطابقة"}
+              detail={loadFailed ? "لم تصل القائمة من الخادم؛ هذا لا يعني أنها فارغة." : "جرّب رقماً آخر أو امسح عبارة البحث."}
+              action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton data-guide-ignore="يمسح نص البحث في القائمة؛ لا يكتب شيئاً" onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
+            />
           )}
           {filtered.length > visibleLimit ? (
             <div className="catalog-more">
@@ -834,7 +928,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             </div>
           ) : null}
         </Surface>
-        <aside className="academic-inspector">
+        <aside className="academic-inspector" aria-label="تفاصيل المقرر المحدد" aria-live="polite">
           {selected ? (
             <>
               <div className="academic-inspector-icon"><BookOpen /></div>
@@ -846,7 +940,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                 <article><span>الوحدات</span><b>{selected.CourseCredit}</b></article>
                 <article><span>الساعات</span><b>{selected.CourseHours}</b></article>
                 <article><span>السعة</span><b>{selected.MaxStudent || 0}</b></article>
-                <article><span>رمز المقرر</span><b>{selected.CourseCode || "—"}</b></article>
+                <article><span>{COURSE_NUMBER_LABEL}</span><b dir="ltr">{courseNumberOf(selected)}</b></article>
                 <article className="course-detail-fact"><small><DoorOpen aria-hidden="true"/>نوع القاعة</small><b>{String(selected.CourseRoomType || "").trim() || "غير محدد"}</b></article>
                 <article className="course-detail-fact"><small><GraduationCap aria-hidden="true"/>طبيعة التدريس</small><b>{teachingModeValue(selected)}</b></article>{selected.CourseCompanionRoomType?<article className="course-detail-fact"><small><DoorOpen aria-hidden="true"/>مرفق مرافق إلزامي</small><b>{selected.CourseCompanionRoomType}</b></article>:null}
               </div>
@@ -855,7 +949,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                 <SecondaryButton
                   data-guide-ignore="إجراء حذف حساس داخل شاشة الإدارة ويستخدم تأكيد الشاشة نفسه"
                   className="danger-action"
-                  onClick={() => remove(selected.AdCourseId)}
+                  onClick={() => remove(selected)}
                 >
                   <Trash2 /> حذف
                 </SecondaryButton>
@@ -873,11 +967,12 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
           colleges={colleges}
           collegeId={listCollege}
           initialSectionId={curriculumSectionId || listSection || Number(selected?.AdSectionId || 0)}
-          onClose={() => { setCurriculumOpen(false); setCurriculumProbe(value => value + 1); }}
+          onClose={closeCurriculum}
           onChanged={() => { void load(); setCurriculumProbe(value => value + 1); }}
           onCreateCourse={(sid) => {
             const section = sections.find((row: any) => Number(row.AdSectionId) === Number(sid));
             setCurriculumOpen(false);
+            setResumeCreate(false);
             createIn({ collegeId: Number(section?.AdCollegeId || 0), sectionId: Number(sid) });
             setCurriculumSectionId(Number(sid));
             setReturnToPlans(true);

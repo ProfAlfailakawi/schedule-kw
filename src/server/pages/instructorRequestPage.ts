@@ -817,6 +817,26 @@ function calendarHtml(compact){if(!data||!data.calendarFeed)return "";
  var L=calLinks(location.origin+data.calendarFeed,"جدولي — SCHEDULE");
  return '<details class="cal-line'+(compact?' compact':'')+'"><summary>خيارات التقويم <small>اختياري</small></summary><div class="cal-body"><div class="cal-btns"><a class="cal-btn" href="'+esc(L.apple)+'">'+gi("cal")+'Apple</a><a class="cal-btn" target="_blank" rel="noopener" href="'+esc(L.google)+'">'+gi("cal")+'Google</a><a class="cal-btn" target="_blank" rel="noopener" href="'+esc(L.outlook)+'">'+gi("cal")+'Outlook</a></div>'+
   '<p>أضف جدولك الرسمي إلى تقويمك ليتحدّث تلقائياً.</p></div></details>'}
+/* ── «ما تقرّر منذ آخر زيارة» ─────────────────────────────────────────────────
+   قراراتُ القسم وردودُه بعد زيارتك السابقة: ما ثُبّت وبأيّ وقتٍ كُتب فعلاً (مع «أضف إلى تقويمي» لموعده وحده)،
+   وما تعذّر وبدائلُه. لحظةُ الزيارة السابقة من الجهاز، وإلا من الخادم؛ وتُحفظ لحظةُ هذه الزيارة للمرة القادمة،
+   فلا تُمحى القائمةُ بإعادة قراءةٍ صامتة أثناء الزيارة نفسها. «تمّ» يطويها. */
+var SEEN_KEY="req-seen:"+TOKEN,sinceBase=null;
+function sinceList(){if(!data||!data.decisions)return [];
+ if(sinceBase===null){var stored="";try{stored=localStorage.getItem(SEEN_KEY)||""}catch(e){}sinceBase=stored||data.lastVisitAt||"";try{localStorage.setItem(SEEN_KEY,new Date().toISOString())}catch(e){}}
+ var base=Date.parse(sinceBase||"");return data.decisions.filter(function(d){return !isFinite(base)||Date.parse(d.at)>base})}
+function sinceHtml(){var list=sinceList();if(!list.length)return "";
+ var row=function(d){var c='«'+esc(d.course||"المقرر")+'»',time=d.start?' — '+esc(fmtDays(d.days||[]))+' '+ltr(d.start+(d.end?"–"+d.end:"")):"";
+  var alts=(d.alternatives||[]).map(function(a){return esc(fmtDays(a.days||[]))+' '+ltr(a.start)}).join(" · ");
+  if(d.kind==="fixed")return '<li data-k="fix">'+gi("check")+'<span>'+(d.action==="delete"?'حُذف '+c+' من جدولك':'ثُبّت '+c+time)+'</span>'+
+   (d.calendarReady?'<a class="cal-btn" download href="/api/public/request/'+encodeURIComponent(TOKEN)+'/fixed/'+encodeURIComponent(d.itemId)+'.ics">'+gi("cal")+'أضف إلى تقويمي</a>':'')+'</li>';
+  if(d.kind==="reply")return '<li data-k="reply">'+gi("chat")+'<span>ردّ القسم على '+c+(d.note?': '+esc(d.note):'')+(alts?' · يقترح: '+alts:'')+'</span></li>';
+  return '<li data-k="bad">'+gi("x")+'<span>'+(d.kind==="cancelled"?'ألغى القسم '+c:'تعذّر '+c+time)+(d.reasonCode&&REASONS[d.reasonCode]&&d.kind!=="cancelled"?' · '+esc(REASONS[d.reasonCode]):'')+(d.note?' · '+esc(d.note):'')+
+   (alts?'<br><small>بدائلُ القسم: '+alts+' — اختر منها في موعده أدناه.</small>':'')+'</span></li>'};
+ var fixedN=list.filter(function(d){return d.kind==="fixed"}).length;
+ return '<section class="since" aria-labelledby="sinceTitle"><header><h2 id="sinceTitle">ما تقرّر منذ آخر زيارة</h2><button type="button" id="sinceDone" class="act">تمّ</button></header>'+
+  '<ul>'+list.map(row).join("")+'</ul>'+(fixedN?calendarHtml(true):'')+'</section>'}
+document.addEventListener("click",function(e){var b=e.target&&e.target.closest?e.target.closest("#sinceDone"):null;if(!b)return;sinceBase=new Date().toISOString();paint()});
 function anyFixed(){return state.some(function(it){return it.decision&&it.decision.state==="fixed"})||(data&&data.request&&data.request.status==="settled")}
 /* رمزُ التوقيع له مكانٌ يُطابَق فيه: يُعرض مع رابطٍ يفتح التحقّق جاهزاً بالرمز. */
 function verifyHtml(code,linkOnly){if(!code)return "";
@@ -898,14 +918,14 @@ function paint(){
  var pinList=(data.pinBlocked||[]).filter(function(p){var it=state[p.itemIndex];return !it||it.action==="keep"||unchangedEdit(it)});
  var pinBlockTxt=(!sent&&edited===0&&!String(noteNow()).trim()&&data.pinBlocked&&data.pinBlocked.length&&pinList.length)?pinList.map(function(p){return p.text}).join(" · "):"";
  var pinNoted=!sent&&edited===0&&pinList.length>0&&!pinBlockTxt;
- var showReady=open&&(!sent||edited>0);
+ var showReady=open&&(!sent||edited>0),since=sinceHtml();
  var readyTxt=sent&&!blocked?countOf(edited,AR.edit):ready;
  var readySub=incompleteN&&!blocked?"أيامٌ ووقتُ بدايةٍ ناقصان":blocked?countOf(blocked,AR.item)+" "+nounFor(blocked,AR.needsVerb):(edited===0?(pinNoted?"ليس تثبيتاً · المخالفات تُعرض للقسم":"تأكيدك يثبّت الجدول كما هو"):sent?"لم تُرسل بعد":"فحص مباشر قبل الإرسال");
  var h=skBackIcon()+proposalBanner+(freshNote?'<div class="fresh-note" role="status">'+gi("eye")+'<span>وصل ردّ من القسم</span><button type="button" class="fn-go" id="rebase">'+gi("history")+'حدّث مع الإبقاء على تعديلي</button></div>':'')+
   (draftConflict.length?'<div class="fresh-note" data-k="kept" role="status">'+gi("shield")+'<span>قرّر القسم في «'+esc(draftConflict.join("، "))+'» فأبقينا قراره بدل تعديلك.</span><button type="button" class="fn-x" id="dropConflict" aria-label="إخفاء">'+gi("x")+'</button></div>':'')+
   '<div class="hd"><span class="av" aria-hidden="true">'+esc(initials(data.instructorName))+'</span><div><span class="hd-k">جدولك</span><h1>'+esc(data.instructorName)+'</h1><p class="sub">'+esc(data.termName)+(r.source==="previous-term"?" · مبدئيّ من الفصل السابق":"")+(open||data.mode==="view"?"":(r.window&&r.window.closesAt&&Date.parse(r.window.closesAt)<=Date.now())?" · انتهت مدّة الطلبات، والصفحة للقراءة":approved?" · اكتمل طلبك، والصفحة للقراءة":" · الصفحة للقراءة")+'</p>'+
   '<div class="statusline" role="status" data-approved="'+(approved?"1":"0")+'"><span class="chip st">'+stateTxt+'</span><span id="demoSlot"></span></div>'+deadlineHtml(r,open)+'</div></div>'+tcRibbon(r,open)+
-  (anyFixed()&&!calmHtml()?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited,badN,incompleteN,pinBlockTxt)+
+  since+(anyFixed()&&!calmHtml()&&since.indexOf("cal-line")<0?calendarHtml(true):'')+pathHtml()+skNext(open,sent,edited,badN,incompleteN,pinBlockTxt)+
   /* كلُّ موعدٍ يخالف اللائحة برقم مادّته، وزرُّ «عدّل» يأخذه إليه (قرار المالك النهائي 2026-11-13) — قبل الإرسال وبعده، بملاحظةٍ وبلا ملاحظة. */
   /* صفٌّ واحدٌ لكل مقرّر بأيقونةٍ وعبارةٍ قصيرة (tcPinGroups)، والتفصيلُ عند الضغط، و«عدّل» واحدٌ يأخذه إلى موعده. */
   (pinList.length?'<ul class="pin-blocks" aria-label="مواعيد تحتاج تعديلاً في جدولك">'+tcPinGroups(pinList).map(function(p){return '<li><details class="pin-g"><summary><span class="pin-ic">'+gi(p.marks[0].ic)+'</span><span class="pin-m"><b>'+esc(p.course)+'</b><span class="pin-chips">'+p.marks.map(function(m){return '<i>'+gi(m.ic)+esc(m.t)+'</i>'}).join("")+'</span></span></summary><ul class="pin-why">'+p.texts.map(function(t){return '<li>'+esc(t)+'</li>'}).join("")+'</ul></details>'+(open?'<button type="button" class="act" data-pin-edit="'+Number(p.itemIndex)+'">'+gi("pen")+'عدّل</button>':'')+'</li>'}).join("")+'</ul>':'')+

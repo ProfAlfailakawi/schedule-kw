@@ -1,0 +1,12201 @@
+{
+"engine": "Playwright WebKit (build 2359), headless, demo data, production build",
+"generated": "2026-11-14",
+"metrics": "doc = document scrollWidth - innerWidth; spine = text/interactive elements intersecting W/2±16px on book sizes; clipped = headings/controls cut or off-screen; cramped = one word per line; tap = interactive <44px",
+"baseline_origin_main": {
+"book_scenes_crossing_spine": "63/63",
+"rooms_x_times_doc_overflow": {
+"669x867": 414,
+"951x585": 146
+},
+"login_spine_elements": {
+"669x867": 9,
+"951x585": 10
+}
+},
+"matrix": [
+{
+"pose": "A",
+"size": "382x580",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/DepartmentSchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/CopySchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/TimeMachine",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/InstructorRequests",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/StudentRegistration",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/PlanReview",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/Rehearsal",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/InstructorReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/RoomReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/TimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/AdTerm/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/AdCollege/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/AdSection/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/AdInstructor/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/SystemUser/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/SystemUser/Seats",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 1
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/FormSecurity/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/AdCollegeUserAssign/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/System/AuditLog",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/System/Locations",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/System/LocationSetup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/System/SectionHours",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/System/TeachingLoad",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/System/Backup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/System/Audience",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/System/Ads",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/Public/Aboutus",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/no-such-page",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/DepartmentSchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/CopySchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/TimeMachine",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/InstructorRequests",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/StudentRegistration",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/PlanReview",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/Rehearsal",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/InstructorReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/RoomReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/TimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/RoomTimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/MainScheduleReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/InstructorReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/RoomReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/TimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FSchedule/RoomTimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/AdTerm/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/AdCollege/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/AdSection/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/AdInstructor/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/SystemUser/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/SystemUser/Seats",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 1
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/FormSecurity/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/AdCollegeUserAssign/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/System/AuditLog",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/System/Locations",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/System/LocationSetup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/System/SectionHours",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/System/TeachingLoad",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/System/Backup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/System/Audience",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/System/Ads",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/Public/Aboutus",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/no-such-page",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/DepartmentSchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/CopySchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/TimeMachine",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/InstructorRequests",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/StudentRegistration",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 4
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/PlanReview",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/Rehearsal",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/InstructorReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/RoomReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/TimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/RoomTimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/MainScheduleReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/InstructorReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/RoomReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/TimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FSchedule/RoomTimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/AdTerm/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/AdCollege/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/AdSection/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/AdInstructor/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 1
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/SystemUser/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/SystemUser/Seats",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/FormSecurity/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/AdCollegeUserAssign/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/System/AuditLog",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/System/Locations",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/System/LocationSetup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/System/SectionHours",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 1
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/System/TeachingLoad",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/System/Backup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/System/Audience",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/System/Ads",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/Public/Aboutus",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/no-such-page",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/DepartmentSchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/CopySchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/TimeMachine",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/InstructorRequests",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/StudentRegistration",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/PlanReview",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/Rehearsal",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/InstructorReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/RoomReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/TimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/RoomTimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/MainScheduleReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/InstructorReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/RoomReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/TimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FSchedule/RoomTimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/AdTerm/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/AdCollege/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/AdSection/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/AdInstructor/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/SystemUser/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/SystemUser/Seats",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 1
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/FormSecurity/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/AdCollegeUserAssign/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/System/AuditLog",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/System/Locations",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/System/LocationSetup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/System/SectionHours",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/System/TeachingLoad",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/System/Backup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/System/Audience",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/System/Ads",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/Public/Aboutus",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/no-such-page",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/Home/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 27,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/DepartmentSchedule",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/CopySchedule",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/Schedule/Intelligence",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 5,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/TimeMachine",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 5,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/Changes",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/InstructorRequests",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/StudentRegistration",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 4
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/PlanReview",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/Rehearsal",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/InstructorReportRPT",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/RoomReportRPT",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/TimeReportRPT",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReportRPT",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/AdTerm/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/AdCollege/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/AdSection/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/AdInstructor/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/AdCourse/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 1
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/SystemUser/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/SystemUser/Seats",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/FormSecurity/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/AdCollegeUserAssign/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/System/AuditLog",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/System/Locations",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/System/LocationSetup",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/System/SectionHours",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 1
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/System/TeachingLoad",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 14,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/System/Backup",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/System/Audience",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/System/Ads",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/Public/Aboutus",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/no-such-page",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/Home/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 148,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/DepartmentSchedule",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/CopySchedule",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/Schedule/Intelligence",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 5,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/TimeMachine",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 5,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/Changes",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/InstructorRequests",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/StudentRegistration",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/PlanReview",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/Rehearsal",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/InstructorReportRPT",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/RoomReportRPT",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/TimeReportRPT",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReportRPT",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/AdTerm/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/AdCollege/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/AdSection/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/AdInstructor/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/AdCourse/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/SystemUser/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/SystemUser/Seats",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 1
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/FormSecurity/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/AdCollegeUserAssign/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/System/AuditLog",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/System/Locations",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/System/LocationSetup",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/System/SectionHours",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/System/TeachingLoad",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 14,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/System/Backup",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/System/Audience",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/System/Ads",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/Public/Aboutus",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/no-such-page",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/Home/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 149
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/DepartmentSchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/CopySchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/Schedule/Intelligence",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/TimeMachine",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/Changes",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/InstructorRequests",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/StudentRegistration",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/PlanReview",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 2,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/Rehearsal",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/InstructorReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/RoomReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/TimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/RoomTimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/MainReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/MainScheduleReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/InstructorReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/RoomReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/TimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FSchedule/RoomTimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/AdTerm/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/AdCollege/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/AdSection/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/AdInstructor/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/AdCourse/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/SystemUser/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/SystemUser/Seats",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/FormSecurity/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/AdCollegeUserAssign/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/System/AuditLog",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/System/Locations",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/System/LocationSetup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/System/SectionHours",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/System/TeachingLoad",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 12
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/System/Backup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/System/Audience",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/System/Ads",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/Public/Aboutus",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/no-such-page",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/Home/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 23
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/DepartmentSchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/CopySchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/Schedule/Intelligence",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/TimeMachine",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/Changes",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/InstructorRequests",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/StudentRegistration",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/PlanReview",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/Rehearsal",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/InstructorReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/RoomReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/TimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/RoomTimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/MainReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/MainScheduleReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/InstructorReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/RoomReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/TimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FSchedule/RoomTimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/AdTerm/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/AdCollege/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/AdSection/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/AdInstructor/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/AdCourse/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/SystemUser/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/SystemUser/Seats",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 1,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/FormSecurity/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/AdCollegeUserAssign/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/System/AuditLog",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/System/Locations",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/System/LocationSetup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/System/SectionHours",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/System/TeachingLoad",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 12
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/System/Backup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/System/Audience",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/System/Ads",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/Public/Aboutus",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/no-such-page",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/Home/Index",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/Index",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 27
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/DepartmentSchedule",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/CopySchedule",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/Schedule/Intelligence",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 5
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/TimeMachine",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 5
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/Changes",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/InstructorRequests",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/StudentRegistration",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 4,
+"tap": 3
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/PlanReview",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/Rehearsal",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/InstructorReport",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/RoomReport",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/TimeReport",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/RoomTimeReport",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/MainReport",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/MainScheduleReport",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/InstructorReportRPT",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/RoomReportRPT",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/TimeReportRPT",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FSchedule/RoomTimeReportRPT",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/AdTerm/Index",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/AdCollege/Index",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/AdSection/Index",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/AdInstructor/Index",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/AdCourse/Index",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 1,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/SystemUser/Index",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/SystemUser/Seats",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/FormSecurity/Index",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/AdCollegeUserAssign/Index",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/System/AuditLog",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/System/Locations",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 12
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/System/LocationSetup",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 12
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/System/SectionHours",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 1,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/System/TeachingLoad",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 14
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/System/Backup",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/System/Audience",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/System/Ads",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/Public/Aboutus",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/no-such-page",
+"doc": 0,
+"book": true,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/Home/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 25
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/DepartmentSchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/CopySchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/Schedule/Intelligence",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/TimeMachine",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/Changes",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/InstructorRequests",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/StudentRegistration",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/PlanReview",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/Rehearsal",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/InstructorReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/RoomReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/TimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/RoomTimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/MainReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/MainScheduleReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/InstructorReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/RoomReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/TimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FSchedule/RoomTimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/AdTerm/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/AdCollege/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/AdSection/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/AdInstructor/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/AdCourse/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/SystemUser/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/SystemUser/Seats",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 1,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/FormSecurity/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/AdCollegeUserAssign/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/System/AuditLog",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/System/Locations",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/System/LocationSetup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/System/SectionHours",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/System/TeachingLoad",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 12
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/System/Backup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/System/Audience",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/System/Ads",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/Public/Aboutus",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/no-such-page",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/Home/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 3,
+"cramped": 0,
+"tap": 56
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/DepartmentSchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/CopySchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/Schedule/Intelligence",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/TimeMachine",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/Changes",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/InstructorRequests",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/StudentRegistration",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/PlanReview",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/Rehearsal",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/InstructorReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/RoomReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/TimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/RoomTimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/MainReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/MainScheduleReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/InstructorReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/RoomReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/TimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FSchedule/RoomTimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/AdTerm/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/AdCollege/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/AdSection/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/AdInstructor/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/AdCourse/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/SystemUser/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/SystemUser/Seats",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/FormSecurity/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/AdCollegeUserAssign/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/System/AuditLog",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/System/Locations",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/System/LocationSetup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/System/SectionHours",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/System/TeachingLoad",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 12
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/System/Backup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/System/Audience",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/System/Ads",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/Public/Aboutus",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/no-such-page",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/Home/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 153
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/DepartmentSchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/CopySchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/Schedule/Intelligence",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/TimeMachine",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/Changes",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/InstructorRequests",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/StudentRegistration",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/PlanReview",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/Rehearsal",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/InstructorReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/RoomReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/TimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/RoomTimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/MainReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/MainScheduleReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/InstructorReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/RoomReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/TimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FSchedule/RoomTimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/AdTerm/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/AdCollege/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/AdSection/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/AdInstructor/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/AdCourse/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/SystemUser/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/SystemUser/Seats",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/FormSecurity/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/AdCollegeUserAssign/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/System/AuditLog",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/System/Locations",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/System/LocationSetup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/System/SectionHours",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/System/TeachingLoad",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 12
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/System/Backup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/System/Audience",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/System/Ads",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/Public/Aboutus",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/no-such-page",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/Home/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 156
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/DepartmentSchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/CopySchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/Schedule/Intelligence",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 7
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/TimeMachine",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 7
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/Changes",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/InstructorRequests",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/StudentRegistration",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 5
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/PlanReview",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 2,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/Rehearsal",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 1,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/InstructorReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/RoomReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/TimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/RoomTimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/MainReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/MainScheduleReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/InstructorReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/RoomReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/TimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FSchedule/RoomTimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/AdTerm/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/AdCollege/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/AdSection/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/AdInstructor/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/AdCourse/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/SystemUser/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/SystemUser/Seats",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/FormSecurity/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/AdCollegeUserAssign/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/System/AuditLog",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/System/Locations",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 14
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/System/LocationSetup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 14
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/System/SectionHours",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/System/TeachingLoad",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 16
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/System/Backup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/System/Audience",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/System/Ads",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/Public/Aboutus",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/no-such-page",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/Home/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 157
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/DepartmentSchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/CopySchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/Schedule/Intelligence",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 7
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/TimeMachine",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 7
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/Changes",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/InstructorRequests",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/StudentRegistration",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 5
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/PlanReview",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/Rehearsal",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/InstructorReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/RoomReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/TimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/RoomTimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/MainReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/MainScheduleReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/InstructorReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/RoomReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/TimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FSchedule/RoomTimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/AdTerm/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/AdCollege/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/AdSection/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/AdInstructor/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/AdCourse/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/SystemUser/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/SystemUser/Seats",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/FormSecurity/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/AdCollegeUserAssign/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/System/AuditLog",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/System/Locations",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 14
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/System/LocationSetup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 14
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/System/SectionHours",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/System/TeachingLoad",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 16
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/System/Backup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/System/Audience",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/System/Ads",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/Public/Aboutus",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 4
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/no-such-page",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 6
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/Home/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 23
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/DepartmentSchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/CopySchedule",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/Schedule/Intelligence",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/TimeMachine",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 3
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/Changes",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/InstructorRequests",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/StudentRegistration",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/PlanReview",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/Rehearsal",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/InstructorReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/RoomReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/TimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/RoomTimeReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/MainReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/MainScheduleReport",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/InstructorReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 1
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/RoomReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/TimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/RoomTimeReportRPT",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 2
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdTerm/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdCollege/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdSection/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdInstructor/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdCourse/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/SystemUser/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/SystemUser/Seats",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FormSecurity/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdCollegeUserAssign/Index",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/AuditLog",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/Locations",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/LocationSetup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 10
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/SectionHours",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/TeachingLoad",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 12
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/Backup",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/Audience",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/Ads",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/Public/Aboutus",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/no-such-page",
+"doc": 0,
+"book": false,
+"spine": 0,
+"clipped": 0,
+"cramped": 0,
+"tap": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/DepartmentSchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/CopySchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/TimeMachine",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/InstructorRequests",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/StudentRegistration",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/PlanReview",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/Rehearsal",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/InstructorReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/RoomReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/TimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/RoomTimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/MainScheduleReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/InstructorReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/RoomReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/TimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FSchedule/RoomTimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdTerm/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdCollege/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdSection/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdInstructor/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/SystemUser/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/SystemUser/Seats",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/FormSecurity/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/AdCollegeUserAssign/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/AuditLog",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/Locations",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/LocationSetup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/SectionHours",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/TeachingLoad",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/Backup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/Audience",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/System/Ads",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/Public/Aboutus",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/no-such-page",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/DepartmentSchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/CopySchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/TimeMachine",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/InstructorRequests",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/StudentRegistration",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/PlanReview",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/Rehearsal",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/InstructorReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/RoomReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/TimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/RoomTimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/MainScheduleReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/InstructorReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/RoomReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/TimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FSchedule/RoomTimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/AdTerm/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/AdCollege/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/AdSection/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/AdInstructor/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/SystemUser/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/SystemUser/Seats",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 1
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/FormSecurity/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/AdCollegeUserAssign/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/System/AuditLog",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/System/Locations",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/System/LocationSetup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/System/SectionHours",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/System/TeachingLoad",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/System/Backup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/System/Audience",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/System/Ads",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/Public/Aboutus",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/no-such-page",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 10,
+"tap": 104,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/DepartmentSchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/CopySchedule",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/TimeMachine",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/InstructorRequests",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/StudentRegistration",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/PlanReview",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/Rehearsal",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 2
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/InstructorReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/RoomReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/TimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/RoomTimeReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/MainScheduleReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/InstructorReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/RoomReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/TimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FSchedule/RoomTimeReportRPT",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/AdTerm/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/AdCollege/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/AdSection/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/AdInstructor/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/SystemUser/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/SystemUser/Seats",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/FormSecurity/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/AdCollegeUserAssign/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/System/AuditLog",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/System/Locations",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/System/LocationSetup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 10,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/System/SectionHours",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/System/TeachingLoad",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 12,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/System/Backup",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/System/Audience",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/System/Ads",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/Public/Aboutus",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/no-such-page",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "382x580",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "385x571",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "A",
+"size": "320x568",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "B",
+"size": "594x368",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "C",
+"size": "669x867",
+"route": "/ (الدخول)",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "D",
+"size": "951x585",
+"route": "/ (الدخول)",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "E",
+"size": "951x350",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "E",
+"size": "600x350",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "F",
+"size": "669x520",
+"route": "/ (الدخول)",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "F",
+"size": "600x480",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "G",
+"size": "768x1024",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "G",
+"size": "1024x768",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "G",
+"size": "1280x800",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "G",
+"size": "1440x900",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "360x640",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "390x844",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "H",
+"size": "844x390",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x350",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x600",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x900",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x350",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 1
+},
+{
+"pose": "S",
+"size": "470x600",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x900",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x350",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x600",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x900",
+"route": "/ (الدخول)",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+}
+],
+"split": [
+{
+"pose": "S",
+"size": "320x350",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x350",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x350",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x350",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 1
+},
+{
+"pose": "S",
+"size": "320x350",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x350",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x600",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x600",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x600",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x600",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 1
+},
+{
+"pose": "S",
+"size": "320x600",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x600",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x900",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x900",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x900",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x900",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 1
+},
+{
+"pose": "S",
+"size": "320x900",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "320x900",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x350",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x350",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x350",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x350",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x350",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x350",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x600",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x600",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x600",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x600",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x600",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x600",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x900",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x900",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x900",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x900",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x900",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "470x900",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x350",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x350",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x350",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x350",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x350",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x350",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x600",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x600",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 25,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x600",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x600",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x600",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x600",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x900",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x900",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 25,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x900",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x900",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x900",
+"route": "/Schedule/Intelligence",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0
+},
+{
+"pose": "S",
+"size": "620x900",
+"route": "/FSchedule/Changes",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0
+}
+],
+"dialogs": [
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الجدول › موعد جديد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 28,
+"cramped": 1,
+"scene": "الجدول › تفاصيل موعد",
+"clicked": true,
+"open": 1
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "البحث الشامل",
+"clicked": true,
+"open": 1
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "الإشعارات",
+"clicked": false,
+"open": 0
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "الأثر",
+"clicked": true,
+"open": 1
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 6,
+"cramped": 0,
+"scene": "مركز الذكاء › درج القاعة",
+"clicked": true,
+"open": 1
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "الفصول › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "الأقسام › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "الأساتذة › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 1,
+"scene": "المقررات › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "صندوق الطلبات › طلب",
+"clicked": true,
+"open": 0
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأسبوع",
+"clicked": true,
+"open": 0
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأساتذة",
+"clicked": true,
+"open": 0
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "مركز الاستعلام › المزيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الجدول › موعد جديد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 149,
+"cramped": 0,
+"scene": "الجدول › تفاصيل موعد",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "البحث الشامل",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "الإشعارات",
+"clicked": false,
+"open": 0
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "الأثر",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 6,
+"cramped": 0,
+"scene": "مركز الذكاء › درج القاعة",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "الفصول › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "الأقسام › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "الأساتذة › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "المقررات › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "صندوق الطلبات › طلب",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأسبوع",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأساتذة",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "مركز الاستعلام › المزيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الجدول › موعد جديد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 25,
+"cramped": 0,
+"scene": "الجدول › تفاصيل موعد",
+"clicked": true,
+"open": 1
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "البحث الشامل",
+"clicked": true,
+"open": 1
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الإشعارات",
+"clicked": false,
+"open": 0
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "الأثر",
+"clicked": true,
+"open": 1
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "مركز الذكاء › درج القاعة",
+"clicked": true,
+"open": 1
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "الفصول › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "الأقسام › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "الأساتذة › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "المقررات › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "صندوق الطلبات › طلب",
+"clicked": true,
+"open": 0
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأسبوع",
+"clicked": true,
+"open": 1
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأساتذة",
+"clicked": true,
+"open": 0
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "مركز الاستعلام › المزيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الجدول › موعد جديد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 25,
+"cramped": 0,
+"scene": "الجدول › تفاصيل موعد",
+"clicked": true,
+"open": 1
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "البحث الشامل",
+"clicked": true,
+"open": 1
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الإشعارات",
+"clicked": false,
+"open": 0
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "الأثر",
+"clicked": true,
+"open": 1
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "مركز الذكاء › درج القاعة",
+"clicked": true,
+"open": 1
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "الفصول › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "الأقسام › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "الأساتذة › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "المقررات › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "صندوق الطلبات › طلب",
+"clicked": true,
+"open": 0
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأسبوع",
+"clicked": true,
+"open": 1
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأساتذة",
+"clicked": true,
+"open": 0
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "مركز الاستعلام › المزيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الجدول › موعد جديد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 150,
+"cramped": 0,
+"scene": "الجدول › تفاصيل موعد",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "البحث الشامل",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "الإشعارات",
+"clicked": false,
+"open": 0
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "الأثر",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "مركز الذكاء › درج القاعة",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الفصول › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "الأقسام › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الأساتذة › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "المقررات › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "صندوق الطلبات › طلب",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأسبوع",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأساتذة",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "مركز الاستعلام › المزيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الجدول › موعد جديد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 25,
+"cramped": 0,
+"scene": "الجدول › تفاصيل موعد",
+"clicked": true,
+"open": 1
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "البحث الشامل",
+"clicked": true,
+"open": 1
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "الإشعارات",
+"clicked": false,
+"open": 0
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "الأثر",
+"clicked": true,
+"open": 1
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "مركز الذكاء › درج القاعة",
+"clicked": true,
+"open": 1
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "الفصول › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "الأقسام › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "الأساتذة › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"scene": "المقررات › نموذج",
+"clicked": true,
+"open": 1
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "صندوق الطلبات › طلب",
+"clicked": true,
+"open": 0
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأسبوع",
+"clicked": true,
+"open": 1
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "مركز الاستعلام › الأساتذة",
+"clicked": true,
+"open": 0
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "مركز الاستعلام › المزيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 16,
+"cramped": 0,
+"scene": "الجدول › أدوات البيانات",
+"clicked": true,
+"open": 1
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 17,
+"cramped": 0,
+"scene": "الجدول › النشر",
+"clicked": true,
+"open": 2
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "فريقي",
+"clicked": false,
+"open": 0
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 7,
+"cramped": 0,
+"scene": "التغييرات › تعديل المواعيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "669x867",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "التغييرات › تغيير موعد التسليم",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0,
+"scene": "الجدول › أدوات البيانات",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 24,
+"cramped": 0,
+"scene": "الجدول › النشر",
+"clicked": true,
+"open": 2
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"scene": "فريقي",
+"clicked": false,
+"open": 0
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 7,
+"cramped": 0,
+"scene": "التغييرات › تعديل المواعيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x585",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"scene": "التغييرات › تغيير موعد التسليم",
+"clicked": true,
+"open": 0
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 24,
+"cramped": 0,
+"scene": "الجدول › أدوات البيانات",
+"clicked": true,
+"open": 1
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 25,
+"cramped": 0,
+"scene": "الجدول › النشر",
+"clicked": true,
+"open": 2
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "فريقي",
+"clicked": false,
+"open": 0
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 5,
+"cramped": 0,
+"scene": "التغييرات › تعديل المواعيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "382x580",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "التغييرات › تغيير موعد التسليم",
+"clicked": true,
+"open": 0
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 20,
+"cramped": 0,
+"scene": "الجدول › أدوات البيانات",
+"clicked": true,
+"open": 1
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 21,
+"cramped": 0,
+"scene": "الجدول › النشر",
+"clicked": true,
+"open": 2
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "فريقي",
+"clicked": false,
+"open": 0
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 5,
+"cramped": 0,
+"scene": "التغييرات › تعديل المواعيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "594x368",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "التغييرات › تغيير موعد التسليم",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 148,
+"cramped": 0,
+"scene": "الجدول › أدوات البيانات",
+"clicked": true,
+"open": 1
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 149,
+"cramped": 0,
+"scene": "الجدول › النشر",
+"clicked": true,
+"open": 2
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "فريقي",
+"clicked": false,
+"open": 0
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 5,
+"cramped": 0,
+"scene": "التغييرات › تعديل المواعيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "951x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "التغييرات › تغيير موعد التسليم",
+"clicked": true,
+"open": 0
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 20,
+"cramped": 0,
+"scene": "الجدول › أدوات البيانات",
+"clicked": true,
+"open": 1
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 21,
+"cramped": 0,
+"scene": "الجدول › النشر",
+"clicked": true,
+"open": 2
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"scene": "فريقي",
+"clicked": false,
+"open": 0
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 5,
+"cramped": 0,
+"scene": "التغييرات › تعديل المواعيد",
+"clicked": true,
+"open": 0
+},
+{
+"size": "600x350",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"scene": "التغييرات › تغيير موعد التسليم",
+"clicked": true,
+"open": 0
+}
+],
+"tabs": [
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/InstructorReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/TimeReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "669x867",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/InstructorReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/TimeReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "951x585",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainScheduleReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/InstructorReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/TimeReport",
+"tab": "لوحة القرار",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الكل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الأسبوع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "المواد × المواقع",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "نسبة الإشغال",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "القاعات والأساتذة",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "المقررات × القاعات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "القاعات × الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "الأوقات",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "المنتدبون",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "عدالة الحمل",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "ميزان الأقسام",
+"doc": 0
+},
+{
+"size": "382x580",
+"route": "/FSchedule/RoomTimeReport",
+"tab": "لوحة القرار",
+"doc": 0
+}
+],
+"live": {
+"hasField": true,
+"typed": "تكنولوجيا",
+"steps": [
+{
+"size": "951x585",
+"mark": "same-page",
+"path": "/FSchedule/MainReport",
+"value": "تكنولوجيا",
+"scrollY": 194,
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0
+},
+{
+"size": "669x867",
+"mark": "same-page",
+"path": "/FSchedule/MainReport",
+"value": "تكنولوجيا",
+"scrollY": 194,
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0
+},
+{
+"size": "470x700",
+"mark": "same-page",
+"path": "/FSchedule/MainReport",
+"value": "تكنولوجيا",
+"scrollY": 194,
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0
+},
+{
+"size": "382x580",
+"mark": "same-page",
+"path": "/FSchedule/MainReport",
+"value": "تكنولوجيا",
+"scrollY": 194,
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0
+},
+{
+"size": "594x368",
+"mark": "same-page",
+"path": "/FSchedule/MainReport",
+"value": "تكنولوجيا",
+"scrollY": 194,
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0
+},
+{
+"size": "951x350",
+"mark": "same-page",
+"path": "/FSchedule/MainReport",
+"value": "تكنولوجيا",
+"scrollY": 194,
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0
+},
+{
+"size": "951x585",
+"mark": "same-page",
+"path": "/FSchedule/MainReport",
+"value": "تكنولوجيا",
+"scrollY": 194,
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0
+}
+],
+"dialogOpenedAtStart": 1,
+"dialogSteps": [
+{
+"size": "669x867",
+"open": 1,
+"spine": 0,
+"doc": 0
+},
+{
+"size": "382x580",
+"open": 1,
+"spine": 0,
+"doc": 0
+},
+{
+"size": "951x350",
+"open": 1,
+"spine": 0,
+"doc": 0
+},
+{
+"size": "951x585",
+"open": 1,
+"spine": 0,
+"doc": 0
+}
+],
+"mark": "same-page"
+},
+"stress": [
+{
+"size": "669x867",
+"route": "/Home/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "669x867",
+"route": "/FSchedule/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 27,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "669x867",
+"route": "/AdCourse/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 1,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/Home/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/FSchedule/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 148,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/AdCourse/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "382x580",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "382x580",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 23,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "382x580",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "382x580",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"case": "text-200",
+"focused": null
+},
+{
+"size": "669x867",
+"route": "/Home/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"case": "dark",
+"focused": null
+},
+{
+"size": "669x867",
+"route": "/FSchedule/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 27,
+"cramped": 0,
+"case": "dark",
+"focused": null
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"case": "dark",
+"focused": null
+},
+{
+"size": "669x867",
+"route": "/AdCourse/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 1,
+"case": "dark",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/Home/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"case": "dark",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/FSchedule/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 148,
+"cramped": 0,
+"case": "dark",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"case": "dark",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/AdCourse/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"case": "dark",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"case": "keyboard",
+"focused": "none"
+},
+{
+"size": "951x585",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 60,
+"cramped": 0,
+"case": "keyboard",
+"focused": "off-view"
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"case": "keyboard",
+"focused": "in-view"
+},
+{
+"size": "951x585",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"case": "keyboard",
+"focused": "off-view"
+},
+{
+"size": "669x867",
+"route": "/Home/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 1,
+"cramped": 0,
+"case": "keyboard",
+"focused": "none"
+},
+{
+"size": "669x867",
+"route": "/FSchedule/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 19,
+"cramped": 0,
+"case": "keyboard",
+"focused": "off-view"
+},
+{
+"size": "669x867",
+"route": "/FSchedule/MainReport",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"case": "keyboard",
+"focused": "in-view"
+},
+{
+"size": "669x867",
+"route": "/AdCourse/Index",
+"book": false,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 0,
+"cramped": 0,
+"case": "keyboard",
+"focused": "in-view"
+},
+{
+"size": "951x585",
+"route": "/Home/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 3,
+"cramped": 0,
+"case": "safe-area-asym",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/FSchedule/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 148,
+"cramped": 0,
+"case": "safe-area-asym",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/FSchedule/MainReport",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 4,
+"cramped": 0,
+"case": "safe-area-asym",
+"focused": null
+},
+{
+"size": "951x585",
+"route": "/AdCourse/Index",
+"book": true,
+"doc": 0,
+"spine": 0,
+"clipped": 0,
+"tap": 2,
+"cramped": 0,
+"case": "safe-area-asym",
+"focused": null
+}
+]
+}

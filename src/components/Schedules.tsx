@@ -126,6 +126,7 @@ import {
   FSchedule,
 } from "../types";
 import LivingScheduleLayer from "./LivingScheduleLayer";
+import { openIntelligenceCard, peekScheduleEditHandoff, takeScheduleEditHandoff } from "../utils/intelligenceLink";
 import HallBarterBoard, { type HallBarterReservationView } from "./HallBarterBoard";
 import TeachingLoadNotice from "./TeachingLoadNotice";
 import { loadNisabOf } from "../utils/teachingLoad";
@@ -1043,13 +1044,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [phoneReadOnly, setPhoneReadOnly] = useState(() => isPhoneDevice());
   const [livingPanelOpen, setLivingPanelOpen] = useState(false);
   /* ── فصلٌ فارغ ليس طريقاً مسدوداً ───────────────────────────────────────
-     «بداية الفصل» تعيش في الطبقة الحية، والطبقة لا تُركَّب إلا حين يكون في
-     الجدول صفّ — أي أن الفصل الذي يحتاجها أكثر من غيره لم يكن يراها. فالحالة
-     الفارغة تطلبها صراحةً، وتُركَّب الطبقة مفتوحةً عليها، وتُغلق معها. */
-  const [genesisFromEmpty, setGenesisFromEmpty] = useState(false);
+     «بداية الفصل» صارت بطاقةً في «مركز الذكاء ← جرّب»؛ الحالةُ الفارغة تفتحها
+     هناك مباشرةً على النطاق نفسه. */
   const onLivingPanelOpenChange = useCallback((open: boolean) => {
     setLivingPanelOpen(open);
-    if (!open) setGenesisFromEmpty(false);
   }, []);
   const [returnNote] = useState(() => {
     const note = sessionStorage.getItem("schedule-return-note") || "";
@@ -4929,6 +4927,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       void openContext(row);
     }
   }, [mode, rows.length]);
+  /* ── عودةٌ من «مركز الذكاء» إلى نموذج الموعد ────────────────────────────
+     «افتح الموعد الأصلي» في غرفة القرار، و«افتح في نموذج التعديل» في مساعد السياق:
+     يفتحان هنا كما كانا يفتحان من نافذة «مركز القرار» — الموعدُ وحده، أو طابورُ
+     المواعيد المتداخلة معه، أو الموعدُ ممتلئاً بالبديل المقترح قبل الحفظ. */
+  useEffect(() => {
+    if (mode !== "schedule" || !rows.length || !peekScheduleEditHandoff()) return;
+    const handoff = takeScheduleEditHandoff();
+    if (!handoff) return;
+    const queue = handoff.ids.map(id => rows.find(row => Number(row.id) === Number(id))).filter(Boolean) as FSchedule[];
+    if (!queue.length) return;
+    if (handoff.candidate) openEdit({ ...queue[0], ...(handoff.candidate as Partial<FSchedule>), id: queue[0].id } as FSchedule);
+    else if (queue.length > 1) openDecisionRows(queue);
+    else openEdit(queue[0]);
+  }, [mode, rows.length]);
   /* ── بذرةٌ من وارد الأساتذة ───────────────────────────────────────────────
    *
    * إضافةٌ طلبها أستاذ: المقرّرُ والأيامُ والوقتُ من طلبه، والشعبةُ والقاعةُ
@@ -5241,6 +5253,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
             itemIndex: handoffForSave!.itemIndex, requestRevision: handoffForSave!.requestRevision, add: { courseId: form.AdCourseId, scode: form.SCode,
               start: form.fstarttime, end: form.fendtime, room: form.AdRoomCode, hall: form.AdRoomHall,
+              /* الأيامُ كما اختارها المنسّق في النموذج: كانت تُهمل فيُكتب ما طلبه الأستاذ ويقول النموذجُ غيره. */
+              days: (["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const).filter(day => Boolean((form as any)[day])),
               buildingId: form.buildingId, roomId: form.roomId, locationStatus: form.locationStatus, companionRoomId: form.companionRoomId || handoffForSave!.companionRoomId } }),
         });
         pendingHandoff.current = null;
@@ -5307,14 +5321,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         && Number(form.AdCourseId || 0) === Number(handoff!.courseId)
         && Number(form.AdTermId || 0) === Number(handoff!.termId)
         && Number(form.AdInstructorId || 0) === Number(handoff!.instructorId);
+      /* المقرّرُ والأستاذُ والفصلُ كما طُلب، لكن في كليةٍ أو قسمٍ غير الذي طلبه الأستاذ: التثبيتُ الذرّي (/apply)
+         لم يُستعمل، والخادمُ لا يسجّل «ثُبّت» على موقعٍ آخر (FR-REQ-025). كان يُرسل قراراً بلا ختم الطلب ولا هويّة البند
+         فيُردّ دائماً؛ فيُقال الآن صراحةً إن الموعد حُفظ وبندَ الأستاذ باقٍ في الوارد ليُقرَّر فيه. */
       if (handoff && matchesHandoff && editor !== "edit" && createdRowId) {
         pendingHandoff.current = null;
-        void fetch(`/api/instructor-requests/${handoff.requestId}/decide`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ itemIndex: handoff.itemIndex, state: "fixed", scheduleId: createdRowId }),
-        }).then(response => { if (!response.ok) throw new Error("حُفظ الموعد لكن تعذّر تسجيل قرار الطلب. راجع الوارد."); }).catch(issue => setError(issue.message));
+        setError("حُفظ الموعد في موقعٍ غير الذي طلبه الأستاذ، فبقي طلبه معلّقاً في «رغبات الأساتذة». ثبّته أو ارفضه من هناك.");
       }
       /* الشعبةُ التي فُتحت لطلب الإرشاد تُربط به بعد الحفظ: المقررُ والفصلُ نفساهما، وإلا فهي إضافةٌ أخرى. */
       const sectionSeed = pendingSectionRequest.current;
@@ -10558,8 +10570,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     focusMode ||
     presentationMode ||
     livingPanelOpen ||
-    experience.decisionOpen ||
-    experience.signatureOpen ||
     reviewOpen ||
     editor !== "index" ||
     viewDialog ||
@@ -11141,7 +11151,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           technology and diagnostics; blocking problems still use the existing
           conflict/error UI, and undo remains in the compact undo bar. */}
       {physicsNotice ? <span className="sr-only" role="status" aria-live="polite">{physicsNotice}</span> : null}
-      {!rowsForeign && (rows.length > 0 || genesisFromEmpty) ? (
+      {!rowsForeign && rows.length > 0 ? (
       <div className="schedule-overview-stack no-print">
         {/* An empty term shows no zero counters — only the genesis scene it asked for. */}
         {/* The cards count what is SHOWN: a filter that matches nothing shows none. */}
@@ -11161,7 +11171,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           experience={experience}
           onEnsureWeek={() => setViewMode("week")}
           onPanelOpenChange={onLivingPanelOpenChange}
-          initialScene={genesisFromEmpty ? "genesis" : null}
+          onOpenHealth={() => openIntelligenceCard("command", "quality")}
         />
       </div>
       ) : null}
@@ -11566,15 +11576,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       {mode === "schedule" && filterCollege && filterSection && filterTerm ? (
         <TeachingLoadNotice collegeId={filterCollege} sectionId={filterSection} termId={filterTerm} refreshSignal={liveFeedSerial + rows.length} />
       ) : null}
-      <ScheduleExperienceLayer
-        experience={experience}
-        isPowerAdmin={isPowerAdmin}
-        onOpenRow={openEdit}
-        onOpenRows={openDecisionRows}
-        onEnsureWeek={() => setViewMode("week")}
-        rows={filteredRows}
-        headless
-      />
+      <ScheduleExperienceLayer experience={experience} />
       {(rowsLoading && !rows.length) || rowsForeign ? (
         <Surface className="sched-skeleton-surface">
           <ScheduleSkeleton viewMode={viewMode} />
@@ -11842,8 +11844,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   {filterCollege && filterSection && filterTerm && !rowsForeign ? (
                     <SecondaryButton
                       type="button"
-                      data-guide-ignore="يفتح «بداية الفصل» في الطبقة الحية: مسودة من الفصل السابق لا تغيّر الجدول قبل النشر"
-                      onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) setGenesisFromEmpty(true); }}
+                      data-guide-ignore="يفتح «بداية الفصل» في «مركز الذكاء ← جرّب»: مسودة من الفصل السابق لا تغيّر الجدول قبل النشر"
+                      onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) openIntelligenceCard("twin", "genesis"); }}
                     >
                       بداية الفصل من الفصل السابق
                     </SecondaryButton>

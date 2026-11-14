@@ -57,6 +57,7 @@ const PATTERN = new RegExp(`(?:${INTERP})${ISO}${TAGS}${ISO}(?:${nounAlternation
  * line; each entry must still match something, so a stale one is reported. */
 const ALLOW: Array<{ file: string; contains: string; why: string }> = [
   { file: "src/server/studentHomePage.ts", contains: "ic(\"heart\")+' تغيير رغباتي", why: "أيقونةٌ قبل عنوان «تغيير رغباتي»، لا عدد" },
+  { file: "src/server/pages/instructorRequestPage.ts", contains: "<span>ردّ القسم على '+c", why: "«ردّ القسم على المقرر» عنوانُ بندٍ بعد وسمٍ، لا معدودٌ بعد رقم" },
   { file: "src/components/ads/CampaignDrawer.tsx", contains: ": \"\"} نقرات ${nf.format(c.totals.clicks)}", why: "«نقرات» عنوانٌ يسبق رقمَه بعد وصلةٍ نصّية («نقرات 25»)، لا معدود" },
   { file: "src/server/routes/intelligenceRoutes.ts", contains: "${dayLabel} يوم محجوز", why: "«الأحد يوم محجوز» — اسم يوم قبل «يوم»، لا عدد" },
   { file: "src/server/routes/intelligenceRoutes.ts", contains: "${requestedInstructor.AdInstructorName} يوم ${dayMatch.label}", why: "اسم أستاذ ثم «يوم الأحد»" },
@@ -68,7 +69,6 @@ const ALLOW: Array<{ file: string; contains: string; why: string }> = [
   { file: "src/components/Schedules.tsx", contains: "</bdi> قاعة {roomOwner.section", why: "«12/3 قاعة القسم …» — رقم القاعة ثم نسبتها" },
   { file: "src/components/IntelligenceWorkspace.tsx", contains: "<Badge tone=\"neutral\">شعبة {r.SCode}</Badge>", why: "اسم المقرر ثم شارة «شعبة 01»" },
   { file: "src/components/Reports.tsx", contains: "<i>شعبة {row.SCode", why: "رمز المقرر ثم «شعبة 01»" },
-  { file: "src/components/LocationRegistryAdmin.tsx", contains: "<p>مبنى {buildingNumberLabel", why: "رمز المبنى ثم «مبنى 7»" },
   { file: "src/components/Schedules.tsx", contains: "</b><span>موعد جديد</span>", why: "نطاق وقت ثم وسم «موعد جديد»، لا عدد" },
   { file: "src/server/studentHomePage.ts", contains: "<span class=\"lbl\">صحيفة التخرّج الرسمية", why: "عنوان حقل «صحيفة التخرّج» بعد وصلة نصّية، لا عدد" },
 ];

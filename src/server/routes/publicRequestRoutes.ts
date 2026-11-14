@@ -65,6 +65,9 @@ import { instructorRequestPage } from "../pages/instructorRequestPage";
 import { publicInvalidLinkPage } from "../pages/publicInvalidLinkPage";
 import { offeredAllows, offeredBreach, offeredCourseSet } from "../../utils/offeredCourses";
 import { withoutPlaceFields } from "../../utils/teacherSafeFields";
+import { decisionDigest, digestItemId } from "../../utils/requestDecisionDigest";
+import { sendCalendar } from "./publicCalendarRoutes";
+import { shareDayIndexes } from "../core/shareLinks";
 
 /* طلبُ الأستاذ وردُّه من رابطه العام: حدٌّ سخيٌّ لإنسانٍ يكتب، فوق عدّاد
    المحاولات الموقّعة (publicAttempts) لا بدلاً منه. */
@@ -105,6 +108,8 @@ function stripForInstructor(request: InstructorRequest) {
       opensAt: request.individualException.opensAt, closesAt: request.individualException.closesAt,
       grantedAt: request.individualException.grantedAt, ...(request.individualException.revokedAt ? { revokedAt: request.individualException.revokedAt } : {}),
     } as InstructorRequest["individualException"] : undefined,
+    /* متى أبلغه القسمُ بواتساب شأنُ القسم وحده. */
+    decisionNotifiedAt: undefined,
     /* والتوقيعُ يصل بتاريخه ورمزه، لا ببصمته: البصمةُ تُطابَق في الخادم ولا
        تُعرض، وإرسالُها إلى المتصفّح يجعلها رقماً يُجرَّب عليه. */
     signatureHistory: undefined,
@@ -821,8 +826,13 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
   const taHours = taRows ? weeklyLoadOf((taRows[0] as any[]).filter(row => Number(row.AdInstructorId) === Number(request.AdInstructorId)) as any,
     new Map((taRows[1] as any[]).map(row => [Number(row.AdCourseId), row])) as any) : 0;
   res.setHeader("Cache-Control", "no-store");
+  const publicRequest = stripForInstructor(judgedRequest);
   res.json({
-    request: stripForInstructor(judgedRequest),
+    request: publicRequest,
+    /* «ما تقرّر منذ آخر زيارة»: قراراتُ القسم وردودُه من النسخة المجرّدة نفسها (لا قاعة)، ولحظةُ الفتح السابق
+       قبل هذا الفتح. والصفحةُ تُبقي لحظتَها في الجهاز أيضاً، فلا تُمحى القائمةُ بإعادة قراءةٍ صامتة. */
+    decisions: decisionDigest(publicRequest as InstructorRequest),
+    lastVisitAt: String(resolved.request.linkLastOpenAt || ""),
     serviceCourses: [...new Set([...serviceCourses, ...tagFacts.services])],
     planBadges,
     courseKinds: tagFacts.kinds,
@@ -1109,6 +1119,8 @@ app.post("/api/public/request/:token/reply", rateLimitPublicRequest, async (req:
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   if (!requireInstructorRequestRevision(req, res, resolved.request)) return;
+  /* E1: رابطُ «للعرض فقط» لا يكتب شيئاً — ولا ردّاً: طلبٌ أُرسل بصفة التعديل ثم أُعيد نشرُه للعرض كان يقبل الردود. */
+  if (!modeAllowsWrite(linkMode(resolved.request))) { res.status(403).json({ error: "هذا الرابط للعرض فقط." }); return; }
   if (!resolved.request.submittedAt) { res.status(409).json({ error: "أرسل طلبك أولاً، ثم يبدأ الحوار مع القسم." }); return; }
   const term = (await Repository.getTerms()).find(row => Number(row.AdTermId) === Number(resolved.request.AdTermId));
   if (term?.AdTermClosed === true) {
@@ -1228,6 +1240,7 @@ app.post("/api/public/request/:token/reply-batch", rateLimitPublicRequest, async
   const resolved = await resolveRequestLink(String(req.params.token || ""));
   if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
   if (!requireInstructorRequestRevision(req, res, resolved.request)) return;
+  if (!modeAllowsWrite(linkMode(resolved.request))) { res.status(403).json({ error: "هذا الرابط للعرض فقط." }); return; }
   if (!resolved.request.submittedAt) { res.status(409).json({ error: "أرسل طلبك أولاً، ثم يبدأ الحوار مع القسم." }); return; }
   const term = (await Repository.getTerms()).find(row => Number(row.AdTermId) === Number(resolved.request.AdTermId));
   if (term?.AdTermClosed === true) { res.status(409).json({ error: "انتهى هذا الفصل الدراسي، ولم يعد جدولُه يقبل التعديل." }); return; }
@@ -1660,6 +1673,29 @@ app.get("/api/public/request/:token/movement", async (req: Request, res: Respons
     .map(entry => ({ ...entry, text: scrubPlaceText(entry.text, placeTokens), label: scrubPlaceText(entry.label, placeTokens) }));
   res.setHeader("Cache-Control", "no-store");
   res.json({ movementHistory: entries, movementSince: firstSentAt === null ? null : new Date(firstSentAt).toISOString() });
+});
+
+/**
+ * «أضف إلى تقويمي» لموعدٍ ثبّته القسم: حدثٌ أسبوعيٌّ واحد طوالَ الفصل، من الصفّ الرسمي نفسه (لا من المطلوب).
+ * بندٌ لم يُثبَّت، أو صفٌّ لم يعد لصاحب الرابط، جوابُه 404 واحد. ولا مكانَ فيه: مسارُ الطلب لا يحمل المكان
+ * (قرار المالك 2026-10-29) — والاشتراكُ الكامل في «خيارات التقويم» هو التقويمُ الرسميّ الدائم.
+ */
+app.get("/api/public/request/:token/fixed/:itemId.ics", rateLimitCheckTimes, async (req: Request, res: Response) => {
+  const resolved = await resolveRequestLink(String(req.params.token || ""));
+  if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  const wanted = String(req.params.itemId || "");
+  const item = (resolved.request.items || []).find(entry => digestItemId(entry) === wanted);
+  const rowId = Number(item?.decision?.scheduleId || item?.rowId || 0);
+  const row = item?.decision?.state === "fixed" && item.action !== "delete" && rowId ? await Repository.getScheduleById(rowId) : undefined;
+  if (!row || Number(row.AdInstructorId) !== Number(resolved.request.AdInstructorId) || Number(row.AdTermId) !== Number(resolved.request.AdTermId)) {
+    res.status(404).json({ error: "لا يوجد موعدٌ مثبَّت بهذا المعرّف." }); return;
+  }
+  const course = await Repository.getCourseById(Number(row.AdCourseId));
+  const title = [course?.CourseCode, row.AdCourseName || course?.CourseName].filter(Boolean).join(" · ") || "محاضرة";
+  await sendCalendar(req, res, title, Number(row.AdTermId), [{
+    id: row.id, title, code: course?.CourseCode || "", section: row.SCode || "",
+    start: row.fstarttime, end: row.fendtime, days: shareDayIndexes(row), revision: Number(row.rev || 0),
+  }], [], "", `lecture-${Number(row.id)}.ics`);
 });
 
 app.get("/r/:token", async (req: Request, res: Response) => {

@@ -226,7 +226,7 @@
 }
 
 /* ٨) الهاتف: رأسٌ مختصر فيصل أولُ طلبٍ إلى أعلى الشاشة ────────────────── */
-@media (max-width:760px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .content-stack.inbox-studio{gap:10px}
   .inbox-studio>.page-heading{flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;padding:2px 0 4px}
   /* المسطرة تحت العنوان زخرفةٌ لا معلومة: تغيب على الهاتف. */
@@ -287,7 +287,7 @@
   .inbox-studio .inbox-bulk-text{font-size:12.5px}
   .inbox-studio .inbox-bulk-go{padding-inline:12px;font-size:13px}
 }
-@media (max-width:700px){
+@media (max-width:700px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .inbox-studio .request-row-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"what" "change" "decision";gap:10px}
   .inbox-studio .request-what{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
   .inbox-studio .request-course{flex:1 1 100%}
@@ -327,3 +327,22 @@
   .inbox-studio .inbox-bulk,.inbox-bulk-sheet,.inbox-studio .glance-heat-toggle{display:none!important}
   .inbox-studio .glance-heat-body{display:grid!important}
 }
+
+/* ── الترتيب و«أبلغ من صدر لهم قرار» وشريطُ تعذّر القراءة ── */
+.inbox-studio .request-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-block:4px}
+.inbox-studio .request-tools .request-notify-all{display:inline-flex;align-items:center;gap:6px;margin-inline-start:auto}
+.inbox-studio .request-tools .request-notify-all b{min-width:20px;padding:0 6px;border-radius:999px;background:var(--accent-soft,var(--surface-2));color:var(--accent)}
+.inbox-studio .request-tools .request-notify-all svg{width:15px;height:15px}
+.inbox-studio .request-notify:not([data-unsent]):not([data-blocked]){background:var(--surface-2);color:var(--ink-2);border-color:var(--line)}
+.inbox-studio .request-load-failed .btn{display:inline-flex;align-items:center;gap:6px;margin-inline-start:8px}
+.inbox-studio .request-load-failed .btn svg{width:14px;height:14px}
+.inbox-notify-sheet .inbox-notify-lead{margin:0 0 8px;color:var(--ink-2);font-size:13px}
+.inbox-notify-sheet .inbox-notify-current{display:grid;gap:6px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);margin-bottom:10px}
+.inbox-notify-sheet .inbox-notify-current b{font-size:15px}
+.inbox-notify-sheet .inbox-notify-current .btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.inbox-notify-sheet .inbox-notify-list{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:40vh;overflow:auto}
+.inbox-notify-sheet .inbox-notify-list li{display:flex;align-items:center;gap:8px;font-size:13px}
+.inbox-notify-sheet .inbox-notify-list li small{color:var(--ink-2);margin-inline-start:auto}
+.inbox-notify-sheet .inbox-notify-list li[data-state="done"]{color:var(--success)}
+.inbox-notify-sheet .inbox-notify-list li[data-state="current"]{font-weight:700}
+.inbox-notify-sheet .inbox-notify-list svg{width:14px;height:14px;flex:none}

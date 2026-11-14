@@ -24,4 +24,4 @@
 .spw-chips b{font-size:1.05rem;color:var(--ink)}.spw-chips em{font-style:normal;font-size:.66rem;color:var(--muted)}
 .spw-verdict{display:flex;align-items:center;gap:8px;margin:0;padding:8px 12px;border-radius:10px;background:var(--accent-softer);color:var(--ink);font-weight:650}
 .spw-verdict svg{flex:none;inline-size:18px;block-size:18px;color:var(--accent-ink)}
-@media (max-width:760px){.spw-tiles{grid-template-columns:1fr}}
+@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.spw-tiles{grid-template-columns:1fr}}

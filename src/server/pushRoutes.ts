@@ -31,7 +31,7 @@ import {
 } from "./webPush";
 import {
   adminRepliesMessage, adminRequestsMessage, adminTestMessage, cardReminderMessage, cardTestMessage, messageMentionsRoom, roomTokensOf,
-  taWindowMessage, teacherDigestMessage, teacherEventFor, type TeacherEvent,
+  taWindowMessage, teacherDigestMessage, teacherEventFor, proposalCommittedMessage, proposalSentMessage, type TeacherEvent,
 } from "./pushMessages";
 import { CARD_TOKEN_PATTERN, cardManifest } from "./pushCard";
 
@@ -195,6 +195,29 @@ function createPushEngine(deps: PushRouteDeps) {
     const message = teacherDigestMessage(events, token);
     /* القاعدةُ لا تُترك للنصّ وحده: تنبيهٌ فيه أثرُ قاعةٍ لا يُرسل. */
     if (messageMentionsRoom(message, picked.flatMap(index => roomTokensOf(request.items[index])))) { log("card", "room token in teacher text — not sent"); return; }
+    if (repeatedForCard(token, message)) return;
+    await deliver(records, message, { urgency: "high", topic: pushTopic(`card:${token}`) });
+  }
+
+  /**
+   * تنبيهٌ واحدٌ لكل دفعة قرار: النصُّ نفسُه إلى الكرت نفسه خلال دقيقة لا يُعاد (نداءان لخطافين لقرارٍ واحد،
+   * أو إعادةُ محاولةٍ من الشاشة). وما اختلف نصُّه يستبدل سابقَه على الهاتف بالوسم نفسه.
+   */
+  const lastCardNote = new Map<string, { text: string; at: number }>();
+  function repeatedForCard(token: string, message: PushMessage): boolean {
+    const key = contextKey(`card:${token}`), text = `${message.title}|${message.body}|${message.url}`;
+    const held = lastCardNote.get(key);
+    if (held && held.text === text && clock() - held.at < 60_000) return true;
+    if (lastCardNote.size > 2000) lastCardNote.clear();
+    lastCardNote.set(key, { text, at: clock() });
+    return false;
+  }
+
+  /** مقترحٌ دراسيٌّ أُرسل أو ثُبّت: إلى كرت صاحبه وحده، إن فعّل تنبيهاته منه. */
+  async function proposalForCard(token: string, message: PushMessage) {
+    if (!token) return;
+    const records = await liveCardRecords(token);
+    if (!records.length || repeatedForCard(token, message)) return;
     await deliver(records, message, { urgency: "high", topic: pushTopic(`card:${token}`) });
   }
 
@@ -241,6 +264,8 @@ function createPushEngine(deps: PushRouteDeps) {
     requestDecided(request: InstructorRequest, index: number) { return noteForCard(request, [index]); },
     requestFixed(request: InstructorRequest, indexes: number[]) { return noteForCard(request, indexes, "fixed"); },
     departmentReplied(request: InstructorRequest, index: number) { return noteForCard(request, [index], "reply"); },
+    proposalSent(token: string, proposalId: string, revised: boolean) { return proposalForCard(token, proposalSentMessage(token, proposalId, revised, new Date(clock()).toISOString())); },
+    proposalCommitted(token: string) { return proposalForCard(token, proposalCommittedMessage(token, new Date(clock()).toISOString())); },
     /**
      * خروجٌ صريح من جلسة: الأجهزةُ التي فُعّلت منها لا تحمل بعده تنبيهاتِ من خرج
      * (جهازٌ مشترك). الصفحةُ تُلغي اشتراكها قبل الخروج (forgetPushDevice)، وهذا
@@ -306,6 +331,10 @@ export const pushHooks = {
   requestFixed: (request: InstructorRequest, indexes: number[]) => fire("fixed", current => current.requestFixed(request, indexes)),
   /** ردُّ القسم أو اقتراحُه في حوار البند. */
   departmentReplied: (request: InstructorRequest, index: number) => fire("department reply", current => current.departmentReplied(request, index)),
+  /** 📝 مقترحٌ دراسيٌّ أُرسل (أو نسخةٌ معدّلة): إلى كرت صاحبه. */
+  proposalSent: (token: string, proposalId: string, revised: boolean) => fire("proposal sent", current => current.proposalSent(token, proposalId, revised)),
+  /** 📌 ثُبّت مقترحٌ وافق عليه الأستاذ: إلى كرته. */
+  proposalCommitted: (token: string) => fire("proposal committed", current => current.proposalCommitted(token)),
   /** 🎓 موجةُ مرحلة التدريب أُرسلت: لكل مدرّبٍ إلى كرته الجديد. */
   taWindowOpened: (closesAt: string, sent: Array<{ instructorId: number; linkId: string }>) => fire("ta window", current => current.taWindowOpened(closesAt, sent)),
   /** 🔔 «ذكّر من لم يرد» (نشر ← بطاقة الأستاذ): إلى كرت كل من لم يرد. */

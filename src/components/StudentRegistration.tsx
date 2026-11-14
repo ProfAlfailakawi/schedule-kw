@@ -43,13 +43,14 @@ import { errorWithCode, useStaleWrite } from "./StaleWriteToast";
 import { useTeamPeers, useTeamPlace, useTeamWork } from "../hooks/useTeamWork";
 import { workClashes, type TeamPeer, type WorkMark } from "../utils/teamWork";
 import { caseStampOf } from "../utils/staleWrite";
+import { quickDecideKeyAction } from "../utils/quickDecideKeys";
 import StudentCasesTable, { exportStudentCasesXlsx, GRADUATE_REASON_LABEL, STUDENT_CASE_TYPE_LABEL, type StudentCaseView } from "./StudentCasesTable";
 import {
   CASE_STATUS_LABEL, COMMITTEE_REASONS, CaseStateChip, PENDING_COMMITTEE, REJECT_REASONS, RegistrationJourney, STATE_LABEL,
-  courseStateLabel, reasonLabel, statusOf, viewStatuses, type RowStatus, type StatusFilter,
+  courseStateLabel, journeyFromViews, reasonLabel, statusOf, viewStatuses, type RowStatus, type StatusFilter,
 } from "./StudentCaseStatus";
 import TermFrozenRibbon, { useTermFrozen } from "./TermFrozenRibbon";
-import { EmptyState, MicroLoader, Notice, PageTitle, PrimaryButton, SecondaryButton } from "./ui";
+import { EmptyState, MicroLoader, Notice, PageTitle, PrimaryButton, SecondaryButton, visualConfirm } from "./ui";
 import { AR, countOf, nounFor, studentNounsFor } from "../utils/arabicCount";
 import { currentTermId } from "../utils/termSequence";
 import { singleDepartmentOf } from "../utils/scopeContext";
@@ -163,7 +164,7 @@ const REQUEST_TYPE_LABEL: Record<string, string> = STUDENT_CASE_TYPE_LABEL;
 
 /* ── ورقةُ الردّ ────────────────────────────────────────────────────────── */
 
-function RejectSheet({ course, busy, onClose, onSubmit, committee = false }: {
+function RejectSheet({ course, busy, onClose, onSubmit, committee = false, error = null }: {
   /** ما يُردّ: مقرّرٌ، أو حالةُ الخريج كلها (اسمُها يكفي للعنوان). */
   course: { name: string };
   busy: boolean;
@@ -171,13 +172,31 @@ function RejectSheet({ course, busy, onClose, onSubmit, committee = false }: {
   onSubmit: (reason: string, note: string) => void;
   /** عدمُ موافقة اللجنة: أسبابُها غير أسباب ردّ التسجيل. */
   committee?: boolean;
+  /** الحفظُ رُدّ: الورقةُ تبقى بما كُتب فيها، والسببُ يُقال هنا. */
+  error?: string | null;
 }) {
   const [reason, setReason] = useState<string>("");
   const reasons: Array<[string, string]> = committee ? COMMITTEE_REASONS : REJECT_REASONS;
   const [note, setNote] = useState("");
+  const card = useRef<HTMLDivElement | null>(null);
+  /* التركيزُ يبدأ على السبب، ويبقى داخل الورقة؛ وEscape يُغلقها (إلا أثناء الحفظ). */
+  useEffect(() => {
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    card.current?.querySelector<HTMLElement>("select")?.focus();
+    return () => { trigger?.focus?.(); };
+  }, []);
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Escape") { event.stopPropagation(); if (!busy) onClose(); return; }
+    if (event.key !== "Tab" || !card.current) return;
+    const items = [...card.current.querySelectorAll<HTMLElement>("button:not([disabled]),select,input")];
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  };
   return (
-    <div className="changes-extend-sheet" role="dialog" aria-modal="true" aria-label={committee ? "عدم موافقة اللجنة" : "ردّ مقرّر"}>
-      <div className="changes-extend-card">
+    <div className="changes-extend-sheet" role="dialog" aria-modal="true" aria-label={committee ? "عدم موافقة اللجنة" : "ردّ مقرّر"} onKeyDown={onKeyDown}>
+      <div className="changes-extend-card" ref={card}>
         <header>
           <strong>{committee ? `عدم موافقة اللجنة على «${course.name}»` : `ردّ «${course.name}»`}</strong>
           <button type="button" onClick={onClose} aria-label="إغلاق" data-guide-ignore="إغلاق الورقة — لا يغيّر شيئاً"><X /></button>
@@ -191,8 +210,9 @@ function RejectSheet({ course, busy, onClose, onSubmit, committee = false }: {
         </label>
         <label>
           <span>سطرٌ للطالب <small>اختياري</small></span>
-          <input value={note} onChange={event => setNote(event.target.value)} placeholder="راجع المرشد الأكاديمي" />
+          <input value={note} onChange={event => setNote(event.target.value)} maxLength={300} placeholder="راجع المرشد الأكاديمي" />
         </label>
+        {error ? <p className="qd-error" role="alert">{error}</p> : null}
         <div className="changes-extend-actions">
           <SecondaryButton type="button" onClick={onClose} data-guide-ignore="إلغاء — لا يغيّر شيئاً">تراجع</SecondaryButton>
           <PrimaryButton
@@ -213,10 +233,14 @@ function RejectSheet({ course, busy, onClose, onSubmit, committee = false }: {
    (setState/setCaseState): لا طريقَ ثانياً إلى الكتابة. الرفضُ يمرّ بورقة السبب نفسها. */
 interface QuickItem { key: string; row: CaseRow; course: CaseCourse | null; side: "committee" | "registration" }
 
-function QuickDecide({ items, busy, onApprove, onReject, onClose, peers = [] }: {
+function QuickDecide({ items, busy, onApprove, onReject, onClose, peers = [], suspended = false, error = null }: {
   items: QuickItem[]; busy: boolean; onApprove: (item: QuickItem) => void; onReject: (item: QuickItem) => void; onClose: () => void;
   /** زملاءُ الفريق: من يعمل الآن على الطالب نفسه يُقال على البطاقة. */
   peers?: readonly TeamPeer[];
+  /** ورقةُ السبب مفتوحةٌ فوق النافذة: لا يُقرأ اختصارٌ واحد حتى تُغلق. */
+  suspended?: boolean;
+  /** خطأُ آخر قرارٍ يُقال داخل النافذة لا خلف ستارتها. */
+  error?: string | null;
 }) {
   const [skipped, setSkipped] = useState<string[]>([]);
   const [start] = useState(items.length);
@@ -226,15 +250,18 @@ function QuickDecide({ items, busy, onApprove, onReject, onClose, peers = [] }: 
   const touch = useRef<{ x: number; y: number } | null>(null);
   const skip = () => { if (current && items.length > 1) setSkipped(list => [...list.filter(key => key !== current.key), current.key]); };
   const nf = (n: number) => n.toLocaleString("ar-KW-u-nu-latn");
+  const scrim = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
+    /* القاعدةُ في quickDecideKeyAction: لا يُقرأ Enter على زرٍّ أو رابطٍ أو من نافذةٍ أخرى، ولا شيء ما دامت ورقةُ السبب مفتوحة. */
     const onKey = (event: KeyboardEvent) => {
-      const tag = (event.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (event.key === "Escape") onClose();
-      else if (!current || busy) return;
-      else if (event.key === "Enter") { event.preventDefault(); onApprove(current); }
-      else if (event.key === "r" || event.key === "R" || event.key === "ر") onReject(current);
-      else if (event.key === "ArrowLeft" || event.key === " ") { event.preventDefault(); skip(); }
+      const action = quickDecideKeyAction(event.key, event.target as HTMLElement | null, { suspended, dialog: scrim.current });
+      if (!action) return;
+      if (action === "close") { onClose(); return; }
+      if (!current || busy) return;
+      event.preventDefault();
+      if (action === "approve") onApprove(current);
+      else if (action === "reject") onReject(current);
+      else skip();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -243,7 +270,7 @@ function QuickDecide({ items, busy, onApprove, onReject, onClose, peers = [] }: 
   /* البطاقةُ المعروضة هي ما أعمل عليه الآن. */
   useTeamWork(caseWork(row));
   return (
-    <div className="qd-scrim" role="dialog" aria-modal="true" aria-label="قرار سريع" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <div ref={scrim} className="qd-scrim" role="dialog" aria-modal="true" aria-label="قرار سريع" onClick={event => { if (event.target === event.currentTarget && !suspended) onClose(); }}>
       <div className="qd">
         <header>
           <b><Zap aria-hidden="true" /> قرار سريع</b>
@@ -251,6 +278,7 @@ function QuickDecide({ items, busy, onApprove, onReject, onClose, peers = [] }: 
           <button type="button" onClick={onClose} aria-label="إغلاق" data-guide-ignore="إغلاق القرار السريع — لا يغيّر شيئاً"><X /></button>
         </header>
         <div className="qd-bar" aria-hidden="true"><i style={{ inlineSize: `${start ? (doneCount / start) * 100 : 100}%` }} /></div>
+        {error ? <p className="qd-error" role="alert">{error}</p> : null}
         {current && row ? (
           <article
             className="qd-card" key={current.key}
@@ -390,11 +418,19 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
     if (only && sectionId !== only) setSectionId(only);
   }, [scopes, collegeId, sectionId, powerAdmin]);
 
+  /* كلُّ قراءةٍ تحمل رقمَها: ردٌّ بطيءٌ لقسمٍ سابق لا يُرسم تحت عنوان القسم الجديد. */
+  const loadSeq = useRef(0);
+  /* القراءةُ رُدّت (جدولٌ لم يوقَّع، أو خطأ): تُقال بسببها، لا «لا طلبات بعد». */
+  const [loadFailed, setLoadFailed] = useState<{ message: string; code?: string } | null>(null);
+  useEffect(() => { setRows(null); setTotals(null); setLoadFailed(null); }, [collegeId, sectionId, termId]);
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     if (!collegeId || !sectionId || !termId) { setRows(null); return; }
     setError(null);
     try {
       const data = await request(`/api/student-registration?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`);
+      if (seq !== loadSeq.current) return;
+      setLoadFailed(null);
       setRows(data.rows || []);
       setTotals(data.totals || null);
       setCanWrite(Boolean(data.canWrite));
@@ -407,7 +443,11 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
         const queue: StatusFilter = nextViewer === "registration" ? "approved" : nextViewer === "committee" ? "pending" : "all";
         setStatusFilter(queue !== "all" && statuses.includes(queue) ? queue : "all");
       }
-    } catch (e: any) { setError(e.message); setRows([]); }
+    } catch (e: any) {
+      if (seq !== loadSeq.current) return;
+      setLoadFailed({ message: e.message || "تعذّرت قراءة الكشف.", code: e.code });
+      setRows([]);
+    }
   }, [collegeId, sectionId, termId]);
 
   useEffect(() => { void load(); }, [load]);
@@ -535,11 +575,16 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
   /* قرارُ التسجيل لا تنقضه اللجنة. */
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const row of rows || []) for (const status of rowStatuses(row)) counts[status] = (counts[status] || 0) + 1;
+    /* وحدةٌ واحدة في الشاشة كلها: الطالب. صفٌّ فيه مقرّران ينتظران يُعدّ مرةً واحدة، كما يُصفّى. */
+    for (const row of rows || []) for (const status of new Set(rowStatuses(row))) counts[status] = (counts[status] || 0) + 1;
     return counts;
   }, [rows]);
+  const journey = useMemo(() => journeyFromViews(rows || []), [rows]);
 
   const [quick, setQuick] = useState(false);
+  /* ورقةُ سببٍ تُفتح نظيفة: خطأٌ قديم في الشاشة لا يُقرأ كأنه ردٌّ على هذه الورقة. */
+  const rejectingKey = rejecting ? `${rejecting.row.id}:${rejecting.course?.id ?? "case"}` : "";
+  useEffect(() => { if (rejectingKey) setError(null); }, [rejectingKey]);
   /* ورقةُ السبب مفتوحة، أو قرارٌ قبل دقيقة: هذا الطالب ما أعمل عليه الآن. */
   useTeamWork(caseWork(rejecting?.row || touched));
   const quickItems = useMemo<QuickItem[]>(() => {
@@ -599,8 +644,9 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
     finally { setBusyKey(null); }
   };
 
-  const setState = async (row: CaseRow, course: CaseCourse, state: StudentCourseStateValue, extra: any = {}) => {
-    if (frozen) return;
+  /* كلُّ كتابةٍ تقول هل حُفظت: ورقةُ السبب لا تُغلق (ولا يضيع ما كُتب فيها) إلا بعد حفظٍ ناجح. */
+  const setState = async (row: CaseRow, course: CaseCourse, state: StudentCourseStateValue, extra: any = {}): Promise<boolean> => {
+    if (frozen) return false;
     const key = `${row.id}:${course.id}`;
     setBusyKey(key);
     setTouched(row);
@@ -613,13 +659,14 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
         body: JSON.stringify({ courseId: course.id, state, expectedAt: course.at || "", ...extra }),
       });
       await load();
-    } catch (e: any) { if (!catchStale(e)) setError(e.message); }
+      return true;
+    } catch (e: any) { if (!catchStale(e)) setError(e.message); return false; }
     finally { setBusyKey(null); }
   };
 
   /* قرارٌ في الحالة كلها (طلب الخريج): اللجنةُ ثم التسجيل، والخادمُ يحرس الترتيب. */
-  const setCaseState = async (row: CaseRow, side: "committee" | "registrar", decision: "approved" | "rejected" | "pending", extra: any = {}) => {
-    if (frozen) return;
+  const setCaseState = async (row: CaseRow, side: "committee" | "registrar", decision: "approved" | "rejected" | "pending", extra: any = {}): Promise<boolean> => {
+    if (frozen) return false;
     const key = `${row.id}:case`;
     setBusyKey(key);
     setTouched(row);
@@ -631,7 +678,32 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
         body: JSON.stringify({ side, decision, expectedStamp: caseStampOf(row.caseState), ...extra }),
       });
       await load();
-    } catch (e: any) { if (!catchStale(e)) setError(e.message); }
+      return true;
+    } catch (e: any) { if (!catchStale(e)) setError(e.message); return false; }
+    finally { setBusyKey(null); }
+  };
+
+  /* ── شعبةٌ فُتحت لطلبٍ ثم لم يُوافَق عليه ─────────────────────────────────────
+     لا تُحذف بصمت: تُعرض على الخانة بزرٍّ صريح، ويحرسه الخادم (صلاحية الجدول، والحالة مرفوضة، ومرجعُ الشعبة هذا الطلب). */
+  const closeOpenedSection = async (row: CaseRow, course: CaseCourse) => {
+    if (frozen || !course.scheduleId) return;
+    const ok = await visualConfirm({
+      title: "حذف الشعبة المفتوحة لهذا الطلب",
+      message: `فُتحت الشعبة ${course.sectionCode || ""} في الجدول لطلب «${course.name}» ثم لم يُوافَق عليه. تُحذف من الجدول بمسار الحذف المعتاد (النطاق والقفل وسجلّ التدقيق).`,
+      confirmLabel: "احذف الشعبة", cancelLabel: "أبقها", tone: "danger", safeCancel: true,
+    });
+    if (!ok) return;
+    const key = `${row.id}:${course.id}`;
+    setBusyKey(key);
+    setError(null);
+    try {
+      await request(`/api/student-registration/${row.id}/close-opened-section`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId: course.id, scheduleId: course.scheduleId }),
+      });
+      await load();
+      void loadOpenings();
+    } catch (e: any) { setError(e.message); }
     finally { setBusyKey(null); }
   };
 
@@ -674,6 +746,19 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
         {course.reasonCode ? <em>{reasonLabel(course.reasonCode)}{course.note ? ` · ${course.note}` : ""}</em>
           : course.note ? <em>{course.note}</em> : null}
         {course.droppedByStudent ? <em className="registration-dropped">{course.droppedLabel || "ألغاه الطالب بعد التسجيل"}</em> : null}
+        {course.scheduleId && course.settled && (course.state === "committee-rejected" || course.state === "rejected") ? (
+          <span className="student-case-actions" aria-label="شعبة فُتحت لهذا الطلب">
+            <em className="registration-dropped">فُتحت الشعبة {course.sectionCode || ""} لهذا الطلب ولم يُوافَق عليه</em>
+            {canReadDemand && canWrite ? <button
+              type="button" className="changes-chip"
+              disabled={frozen || busyKey === key}
+              onClick={() => void closeOpenedSection(row, course)}
+              data-guide-ignore="يسأل قبل حذف الشعبة التي فُتحت لطلبٍ لم يُوافَق عليه؛ لا يحذف دون تأكيد"
+            >
+              <X aria-hidden="true" /> احذف الشعبة من الجدول
+            </button> : null}
+          </span>
+        ) : null}
             {!frozen && committeeActs && !course.settled && !course.readOnly && !course.droppedByStudent && openings.get(course.id) ? (() => {
               const proposal = openings.get(course.id)!, slot = proposal.slot;
               return (
@@ -860,7 +945,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
   return (
     <div className="content-stack changes-screen visual-minimal">
       <PageTitle
-        eyebrow={<><ClipboardList aria-hidden="true" /> التسجيل</>}
+        eyebrow={<><ClipboardList aria-hidden="true" /> الإرشاد</>}
         subtitle="ما طلبه الطلبة: اللجنة توافق أولاً، ثم يسجّل التسجيل"
         action={<>
           <TeamPresenceChip peers={peers} team={team} />
@@ -871,7 +956,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
       </PageTitle>
 
       {/* «طلب شعبة»: الإرشاد ← لجنة الجدول ← التسجيل، على الشاشة التي يفتحها الثلاثة أصلاً. */}
-      {termId ? <SectionRequestsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} onNavigate={onNavigate} mayCompose={mayCompose} /> : null}
+      {termId ? <SectionRequestsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} onNavigate={onNavigate} mayCompose={mayCompose} frozen={frozen} /> : null}
 
       {Boolean(collegeId && sectionId && termId) && <details className="surface" style={{ padding: "10px 14px" }}><summary>🎟️ رصيد مقاعد المرشد <CampusChip collegeName={collegeName} /></summary><AdvisorSeatsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} /></details>}
 
@@ -903,6 +988,12 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
 
       {!collegeId || !sectionId || !termId ? (
         <EmptyState title="اختر النطاق" detail="يُعرض كشف التسجيل لقسمٍ واحدٍ في فصلٍ واحد." />
+      ) : loadFailed ? (
+        <EmptyState
+          title={loadFailed.code === "not-signed" ? "لم يُوقَّع جدولُ القسم بعد" : "تعذّرت قراءة الكشف"}
+          detail={loadFailed.message}
+          action={<SecondaryButton type="button" onClick={() => void load()} data-guide-ignore="يعيد قراءة الكشف — لا يكتب شيئاً">أعد المحاولة</SecondaryButton>}
+        />
       ) : !rows ? (
         <MicroLoader label="يقرأ الكشف…" />
       ) : !rows.length ? (
@@ -913,7 +1004,7 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
       ) : (
         <>
 <RegistrationJourney
-            totals={{ all: totals?.students ?? 0, pending: totals?.pendingCommittee ?? 0, approved: totals?.waiting ?? 0, registered: totals?.registered ?? 0 }}
+            totals={journey}
             active={statusFilter} registrationView={viewer === "registration"}
             onPick={value => { filterChosen.current = true; setStatusFilter(value); }}
           />
@@ -1001,6 +1092,8 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
           items={quickItems}
           busy={busyKey !== null}
           peers={peers}
+          suspended={Boolean(rejecting)}
+          error={rejecting ? null : error}
           onClose={() => setQuick(false)}
           onApprove={item => {
             if (item.course) void setState(item.row, item.course, item.side === "committee" ? "awaiting-registration" : "registered");
@@ -1015,15 +1108,19 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
           course={rejecting.course || { name: "حالة الخريج" }}
           committee={rejecting.committee}
           busy={busyKey === `${rejecting.row.id}:${rejecting.course ? rejecting.course.id : "case"}`}
+          error={error}
           onClose={() => setRejecting(null)}
           onSubmit={(reason, note) => {
             const target = rejecting;
-            setRejecting(null);
-            if (!target.course) {
-              void setCaseState(target.row, target.committee ? "committee" : "registrar", "rejected", { reasonCode: reason, note });
-              return;
-            }
-            void setState(target.row, target.course, target.committee ? "committee-rejected" : "rejected", { reasonCode: reason, note });
+            /* يُكتب على أحدث نسخةٍ قُرئت (بعد «حدّث ثم أعد» مثلاً)، والورقةُ تبقى مفتوحةً بما فيها حتى يُحفظ القرار. */
+            const row = rowById.get(target.row.id) || target.row;
+            const course = target.course ? (row.courses.find(entry => entry.id === target.course!.id) || target.course) : null;
+            void (async () => {
+              const saved = !course
+                ? await setCaseState(row, target.committee ? "committee" : "registrar", "rejected", { reasonCode: reason, note })
+                : await setState(row, course, target.committee ? "committee-rejected" : "rejected", { reasonCode: reason, note });
+              if (saved) setRejecting(null);
+            })();
           }}
         />
       ) : null}

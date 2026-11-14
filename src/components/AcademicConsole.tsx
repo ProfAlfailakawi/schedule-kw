@@ -1,7 +1,8 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, Building2, GraduationCap, Landmark, UsersRound } from "lucide-react";
 import { ConsoleRail } from "./ui";
 import type { ScopeAssignmentLike } from "../utils/scopeContext";
+import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 
 /**
  * One console for the whole academic reference.
@@ -81,17 +82,20 @@ interface TabSpec {
   value: AcademicTab;
   label: string;
   icon: React.ReactNode;
+  /** The same read the catalogue itself makes, so the rail counts what the list shows. */
   endpoint: string;
   /** Permission id that unlocks this catalogue. */
   perm: number;
+  /** What the list shows of the payload (the instructors list hides «هيئة تدريسية»). */
+  count?: (rows: any[]) => number;
 }
 
 const TABS: TabSpec[] = [
   { value: "terms", label: "الفصول", icon: <GraduationCap />, endpoint: "/api/terms", perm: 5 },
   { value: "colleges", label: "الكليات", icon: <Landmark />, endpoint: "/api/colleges", perm: 2 },
   { value: "sections", label: "الأقسام", icon: <Building2 />, endpoint: "/api/sections", perm: 4 },
-  { value: "instructors", label: "الأساتذة", icon: <UsersRound />, endpoint: "/api/instructors", perm: 3 },
-  { value: "courses", label: "المقررات", icon: <BookOpen />, endpoint: "/api/courses", perm: 6 },
+  { value: "instructors", label: "الأساتذة", icon: <UsersRound />, endpoint: "/api/instructors", perm: 3, count: rows => rows.filter(row => !isFacultyPlaceholder(row)).length },
+  { value: "courses", label: "المقررات", icon: <BookOpen />, endpoint: "/api/courses?operational=1&plans=1", perm: 6 },
 ];
 
 const arabicNumber = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
@@ -116,6 +120,15 @@ export default function AcademicConsole({
 }) {
   const visible = useMemo(() => TABS.filter(spec => hasPerm(spec.perm)), [hasPerm]);
   const [counts, setCounts] = useState<Partial<Record<AcademicTab, number>>>({});
+  const setCount = useCallback((tab: AcademicTab, value: number) => {
+    setCounts(prev => (prev[tab] === value ? prev : { ...prev, [tab]: value }));
+  }, []);
+  /* The open catalogue reports its own count after every load, create and
+     delete — so the rail never lags the list it labels. Stable per tab. */
+  const reporters = useMemo(() => Object.fromEntries(TABS.map(spec => [spec.value, (value: number) => setCount(spec.value, value)])) as Record<AcademicTab, (value: number) => void>, [setCount]);
+  /* «الأقسام ← فتح الصحائف الأكاديمية»: ينتقل إلى المقررات ويطلب فتح الصحائف على القسم. */
+  const [plansFor, setPlansFor] = useState<number | null>(null);
+  const canOpenPlans = visible.some(spec => spec.value === "courses");
 
   // The counts are a nicety, never a blocker: the rail renders immediately and
   // each number fades in as its catalogue answers. Reads are already cached by
@@ -127,14 +140,14 @@ export default function AcademicConsole({
         .then(response => (response.ok ? response.json() : null))
         .then(data => {
           if (!alive || !Array.isArray(data)) return;
-          setCounts(prev => (prev[spec.value] === data.length ? prev : { ...prev, [spec.value]: data.length }));
+          setCount(spec.value, spec.count ? spec.count(data) : data.length);
         })
         .catch(() => undefined);
     });
     return () => {
       alive = false;
     };
-  }, [visible]);
+  }, [visible, setCount]);
 
   const active = visible.some(spec => spec.value === tab) ? tab : visible[0]?.value;
   // The open catalogue lends its one creation action to the console header, so
@@ -159,11 +172,11 @@ export default function AcademicConsole({
         <div className="console-action-slot no-print" ref={setActionSlot} />
       </div>
       <Suspense fallback={<CatalogSkeleton />}>
-        {active === "terms" ? <Terms embedded actionSlot={actionSlot} rootAdmin={rootAdmin} /> : null}
-        {active === "colleges" ? <Colleges embedded actionSlot={actionSlot} /> : null}
-        {active === "sections" ? <Sections embedded actionSlot={actionSlot} /> : null}
-        {active === "instructors" ? <Instructors embedded actionSlot={actionSlot} loadAdmin={rootAdmin} demoReadOnly={demoReadOnly} /> : null}
-        {active === "courses" ? <Courses embedded actionSlot={actionSlot} scopes={scopes} isAdmin={isAdmin} /> : null}
+        {active === "terms" ? <Terms embedded actionSlot={actionSlot} rootAdmin={rootAdmin} onCount={reporters.terms} /> : null}
+        {active === "colleges" ? <Colleges embedded actionSlot={actionSlot} onCount={reporters.colleges} /> : null}
+        {active === "sections" ? <Sections embedded actionSlot={actionSlot} onCount={reporters.sections} onOpenPlans={canOpenPlans ? (sectionId) => { setPlansFor(sectionId); onTab("courses"); } : undefined} /> : null}
+        {active === "instructors" ? <Instructors embedded actionSlot={actionSlot} loadAdmin={rootAdmin} demoReadOnly={demoReadOnly} onCount={reporters.instructors} /> : null}
+        {active === "courses" ? <Courses embedded actionSlot={actionSlot} scopes={scopes} isAdmin={isAdmin} rootAdmin={rootAdmin} onCount={reporters.courses} openPlansFor={plansFor} onPlansOpened={() => setPlansFor(null)} /> : null}
       </Suspense>
     </div>
   );

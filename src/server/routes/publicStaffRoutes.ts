@@ -17,6 +17,7 @@ import { enrichCompanionRoomTypes } from "../../utils/companionRoomDisplay";
 import { clearStaffDeviceCookie, createStaffDeviceSecretResolver, signStaffDevice, staffDeviceCookie, staffDeviceExpiry, verifyStaffDevice, STAFF_DEVICE_COOKIE } from "../staffDeviceKey";
 import { cardRequestsCloseAt } from "../../utils/instructorRequestWindows";
 import { negotiationState } from "../../utils/instructorRequestThread";
+import { decisionDigest } from "../../utils/requestDecisionDigest";
 import { instructorScheduleFingerprint } from "../../utils/scheduleFingerprint";
 import { isFacultyPlaceholder } from "../../utils/placeholderInstructor";
 import { APPROVAL_STATUS_LABEL } from "../../utils/approvalWorkflow";
@@ -164,6 +165,9 @@ async function buildStaffCard(link: ScheduleShareLink, identity: StaffIdentity, 
       windowOpen,
       closesAt: request.window?.closesAt || "",
       proposed: (request.items || []).filter(item => negotiationState(item) === "proposed").length,
+      /* «ما تقرّر منذ آخر زيارة» في البطاقة: قراراتُ القسم على طلبه هو (بعد التحقق من هويّته)، بلا ملاحظةٍ نصّية —
+         الملاحظةُ تُقرأ مُنقّاةً في صفحة الطلب — ولا قاعة. والبطاقةُ تُبقي لحظةَ زيارتها في الجهاز. */
+      decisions: decisionDigest(request, 8).map(({ note: _note, ...entry }) => entry),
     }));
 
   const courseById = new Map(courses.map(row => [row.AdCourseId, row]));

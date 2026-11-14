@@ -66,6 +66,8 @@ fs.writeFileSync(path.join(dir, "db.json"), JSON.stringify({
 }), { mode: 0o600 });
 process.env.STUDENT_DOOR_WRITES_PER_MINUTE = "100000"; process.env.STUDENT_DOOR_IDENTITY_MAX = "100000";
 process.env.NODE_ENV = "test"; process.env.DATA_MODE = "demo"; process.env.SCHEDULE_PRIVATE_DIR = dir;
+/* الاختبارُ يشغّل الرادار مرّاتٍ متتالية عمداً: لا فاصلَ أدنى هنا (الفاصلُ مفحوصٌ في advising-audit). */
+process.env.RADAR_MANUAL_GAP_SECONDS = "0";
 const quiet = console.warn; console.warn = () => {};
 const { Repository, initDatabase } = await import("../src/db/repository");
 const { registerStudentDoorRoutes } = await import("../src/server/studentDoorRoutes");
@@ -87,12 +89,12 @@ await Repository.approveRuleDraft("p11", draft.updatedAt, "اختبار");
 
 const USERS: Record<string, any> = {
   admin: { user: { Role: "committeeChair", Name: "المدير", IsAdminUser: true }, scopes: [] },
-  chair11: { user: { Role: "committeeChair", Name: "رئيس لجنة" }, scopes: [{ AdCollegeId: 1, AdSectionId: 11 }] },
-  chair12: { user: { Role: "committeeChair", Name: "رئيس لجنة ٢" }, scopes: [{ AdCollegeId: 1, AdSectionId: 12 }] },
+  chair11: { user: { Role: "committeeChair", Name: "رئيس لجنة" }, scopes: [{ AdCollegeId: 1, AdSectionId: 11 }], permissions: [7] },
+  chair12: { user: { Role: "committeeChair", Name: "رئيس لجنة ٢" }, scopes: [{ AdCollegeId: 1, AdSectionId: 12 }], permissions: [7] },
 };
 const app = express();
 app.use(express.json());
-app.use((req: any, _res, next) => { const who = USERS[String(req.headers["x-who"] || "")]; if (who) { req.user = who.user; req.scopes = who.scopes; } next(); });
+app.use((req: any, _res, next) => { const who = USERS[String(req.headers["x-who"] || "")]; if (who) { req.user = who.user; req.scopes = who.scopes; req.permissions = who.permissions || []; } next(); });
 const identityKey = createHmac("sha256", "test-secret").update("identity").digest();
 registerStudentDoorRoutes(app, {
   surveyFingerprint: async civilId => createHash("sha256").update("fp|" + civilId).digest("hex").slice(0, 32),

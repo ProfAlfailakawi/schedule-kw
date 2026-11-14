@@ -55,6 +55,7 @@ import { effectiveStatus } from "../utils/studyProposal";
 import { ProposalLauncherBar, ProposalStrip, type OpenWorkspace } from "./proposal/ProposalInboxParts";
 import { proposalApi, type StaffProposalView } from "./proposal/proposalApi";
 const StudyProposalWorkspace = React.lazy(() => import("./proposal/StudyProposalWorkspace"));
+import InboxPilot, { InboxPilotLauncher } from "./inbox/InboxPilot";
 import TermFrozenRibbon, { TermFrozenContext, useFrozenScreen, useTermFrozen } from "./TermFrozenRibbon";
 import { useScopedTerms } from "./useScopedTerms";
 import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBar";
@@ -78,6 +79,9 @@ import { campusChipOf } from "../utils/campusChip";
 import { takeNotifyFocus } from "../utils/notifyFocus";
 import { NEGOTIATION_LABEL, THREAD_TEXT_LIMIT, negotiationState } from "../utils/instructorRequestThread";
 import { isUnchangedConfirmed, unchangedConfirmationKind } from "../utils/instructorRequestConfirmation";
+import { inboxFacetCounts, nameMatches, sortInboxRows, type InboxSort } from "../utils/inboxFacets";
+import { unsentDecisions } from "../utils/requestDecisionDigest";
+import { withApplyBusyRetry } from "../utils/applyBusyRetry";
 import type {
   AdTerm, FSchedule, InstructorRequest, InstructorRequestItem, InstructorRequestRejectReason,
 } from "../types";
@@ -126,9 +130,11 @@ const request = async (url: string, init?: RequestInit): Promise<any> => {
   /* تثبيتُ طلبٍ يخالف اللائحة: سؤالٌ صريح ثم الطلبُ نفسه موسوماً. */
   const settled = await settleRegulationException(response.status, data, init?.body, marked => request(url, { ...init, body: marked }));
   if (settled) return settled.value;
-  if (!response.ok) throw new Error(data.error || "تعذّر تنفيذ العملية");
+  if (!response.ok) throw Object.assign(new Error(data.error || "تعذّر تنفيذ العملية"), { status: response.status, code: String(data.code || "") });
   return data;
 };
+
+/* «يجري الآن تثبيتٌ آخر في هذا الفصل» يُعاد بتراجعٍ قبل أن يُقال (utils/applyBusyRetry). */
 
 /** أسبابُ الرفض كما تُقرأ. قائمةٌ مغلقةٌ تجعل السببَ قابلاً للعدّ عبر الفصول. */
 const REJECT_REASONS: Array<[InstructorRequestRejectReason, string]> = [
@@ -168,14 +174,48 @@ function PlaceWarning({ text }: { text: string }) {
   ) : null;
 }
 
+/* ── أوراقُ القرار: Escape يُغلق، والتركيزُ يدخلها ويبقى فيها ويعود إلى زرّه، والنقرُ خارجها يُغلق ──
+   كما في نافذة «ثبّت الجاهز كله». وأثناء الحفظ لا تُغلق: ما كُتب فيها لا يضيع قبل أن يقول الخادم كلمته. */
+function useSheetKeys(cardRef: React.RefObject<HTMLDivElement | null>, onClose: () => void, locked: boolean) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const focusables = () => [...(cardRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), select, input, textarea, [href]") || [])];
+    window.requestAnimationFrame(() => (focusables().find(el => el.tagName !== "BUTTON") || focusables()[0])?.focus());
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !lockedRef.current) { event.preventDefault(); closeRef.current(); return; }
+      if (event.key !== "Tab") return;
+      const list = focusables();
+      if (!list.length) return;
+      const first = list[0], last = list[list.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); if (opener?.isConnected) opener.focus(); };
+  }, [cardRef]);
+}
+
+/** حدُّ سطر الرفض كما يقصّه الخادم (decide: ‎.slice(0, 400)‎) — يُقال في الحقل بدل أن يُقصّ بصمت. */
+export const REJECT_NOTE_LIMIT = 400;
+
 /* ── ورقةُ الرفض ────────────────────────────────────────────────────────── */
 
-function RejectSheet({ item, onClose, onSubmit, busy }: {
+function RejectSheet({ item, onClose, onSubmit, busy: busyProp }: {
   item: InstructorRequestItem;
   onClose: () => void;
-  onSubmit: (reason: InstructorRequestRejectReason, note: string, alternatives: any[]) => void;
+  /** يعيد null عند النجاح (فتُغلق الورقة)، أو سببَ التعذّر فيُقال فيها وما كُتب باقٍ. */
+  onSubmit: (reason: InstructorRequestRejectReason, note: string, alternatives: any[]) => Promise<string | null>;
   busy: boolean;
 }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
+  const [failure, setFailure] = useState("");
+  const busy = busyProp || saving;
+  useSheetKeys(cardRef, onClose, busy);
   const [reason, setReason] = useState<InstructorRequestRejectReason | "">("");
   /* البدائلُ يقترحها النظام من أقرب الأوقات المتاحة، والمنسّقُ يختار منها ما يعرضه —
      لا يكتبها. تبدأ كلها غير مختارة: لا يُعرض على الأستاذ وقتٌ لم يقصده المنسّق. */
@@ -188,11 +228,12 @@ function RejectSheet({ item, onClose, onSubmit, busy }: {
     setOffered(current => current.includes(key) ? current.filter(entry => entry !== key) : [...current, key]);
 
   return (
-    <div className="changes-extend-sheet" role="dialog" aria-modal="true" aria-label="رفض بند">
-      <div className="changes-extend-card">
+    <div className="changes-extend-sheet" role="dialog" aria-modal="true" aria-label="رفض بند"
+      onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose(); }}>
+      <div className="changes-extend-card" ref={cardRef}>
         <header>
           <strong>رفض «{item.after?.courseName || item.before?.courseName || "البند"}»</strong>
-          <button type="button" onClick={onClose} aria-label="إغلاق" data-guide-ignore="إغلاق الورقة — لا يغيّر شيئاً"><X /></button>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="إغلاق" data-guide-ignore="إغلاق الورقة — لا يغيّر شيئاً"><X /></button>
         </header>
 
         <label>
@@ -227,21 +268,28 @@ function RejectSheet({ item, onClose, onSubmit, busy }: {
 
         <label>
           <span>سطرٌ للأستاذ <small>اختياري</small></span>
-          <input value={note} onChange={event => setNote(event.target.value)} placeholder="هذا الوقت مخصّصٌ لنشاطٍ آخر في القسم" />
+          <input value={note} maxLength={REJECT_NOTE_LIMIT} onChange={event => setNote(event.target.value)} placeholder="هذا الوقت مخصّصٌ لنشاطٍ آخر في القسم" />
+          {note.length > REJECT_NOTE_LIMIT - 40 ? <small>{num(note.length)} / {num(REJECT_NOTE_LIMIT)}</small> : null}
         </label>
         <PlaceWarning text={note} />
+        {failure ? <p className="request-row-error" role="alert"><ShieldAlert aria-hidden="true" />{failure}</p> : null}
 
         <div className="changes-extend-actions">
-          <SecondaryButton type="button" onClick={onClose} data-guide-ignore="إلغاء — لا يغيّر شيئاً">تراجع</SecondaryButton>
+          <SecondaryButton type="button" onClick={onClose} disabled={busy} data-guide-ignore="إلغاء — لا يغيّر شيئاً">تراجع</SecondaryButton>
           <PrimaryButton
             type="button"
             disabled={busy || !reason}
             data-guide-target="requests.action.reject"
-            onClick={() => onSubmit(reason as InstructorRequestRejectReason, note, offered.map(key => {
-              const [days, start, end] = key.split("|");
-              const list = days.split(",").filter(Boolean);
-              return { day: list[0], days: list, start, end };
-            }))}
+            onClick={async () => {
+              setSaving(true); setFailure("");
+              const problem = await onSubmit(reason as InstructorRequestRejectReason, note, offered.map(key => {
+                const [days, start, end] = key.split("|");
+                const list = days.split(",").filter(Boolean);
+                return { day: list[0], days: list, start, end };
+              }));
+              setSaving(false);
+              if (problem) setFailure(problem); else onClose();
+            }}
           >
             {busy ? "يحفظ…" : "سجّل الرفض"}
           </PrimaryButton>
@@ -436,12 +484,18 @@ export function opensInSchedule(item: Pick<InstructorRequestItem, "action" | "ro
 function RequestThread({ item, busy: busyProp, onReply, onClose }: {
   item: InstructorRequestItem;
   busy: boolean;
-  onReply: (text: string, slots: any[]) => void;
+  /** يعيد null عند النجاح (فيُمسح الحقل)، أو سببَ التعذّر فيُقال تحته وما كُتب باقٍ. */
+  onReply: (text: string, slots: any[]) => Promise<string | null>;
   onClose?: () => void;
 }) {
   const frozenScreen = useFrozenScreen();
+  const [sending, setSending] = useState(false);
+  const [failure, setFailure] = useState("");
   /* فصلٌ سابق: كلُّ ما يُقرِّر معطَّل كما لو كان مشغولاً. */
-  const busy = busyProp || frozenScreen;
+  const busy = busyProp || frozenScreen || sending;
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  /* فُتح الحوارُ بزرّ «ردّ / اقترح وقتاً»: يدخل التركيزُ حقلَ الرد مباشرة. */
+  useEffect(() => { if (onClose) textRef.current?.focus(); }, [onClose]);
   const slotKey = (slot: { day: string; days?: string[]; start: string; end: string }) =>
     `${(slot.days?.length ? slot.days : [slot.day]).join(",")}|${slot.start}|${slot.end}`;
   const [text, setText] = useState("");
@@ -500,21 +554,25 @@ function RequestThread({ item, busy: busyProp, onReply, onClose }: {
           ) : null}
           <label>
             <span>ردُّك على الأستاذ</span>
-            <textarea rows={2} maxLength={THREAD_TEXT_LIMIT} value={text} onChange={event => setText(event.target.value)}
+            <textarea ref={textRef} rows={2} maxLength={THREAD_TEXT_LIMIT} value={text} onChange={event => setText(event.target.value)}
+              onKeyDown={event => { if (event.key === "Escape" && onClose && !text.trim() && !sending) { event.preventDefault(); onClose(); } }}
               placeholder="هل يناسبك الاثنين والأربعاء بدل الأحد؟" />
           </label>
           <PlaceWarning text={text} />
+          {failure ? <p className="request-row-error" role="alert"><ShieldAlert aria-hidden="true" />{failure}</p> : null}
           <PrimaryButton
             type="button"
             disabled={busy || (!text.trim() && !offered.length)}
             data-guide-ignore="إرسال ردٍّ للأستاذ — لا يكتب في الجدول"
-            onClick={() => {
-              onReply(text, offered.map(key => {
+            onClick={async () => {
+              setSending(true); setFailure("");
+              const problem = await onReply(text, offered.map(key => {
                 const [days, start, end] = key.split("|");
                 const list = days.split(",").filter(Boolean);
                 return { day: list[0], days: list, start, end };
               }));
-              setText(""); setOffered([]);
+              setSending(false);
+              if (problem) setFailure(problem); else { setText(""); setOffered([]); }
             }}
           >
             {busy ? "يرسل…" : "أرسل الرد"}
@@ -539,14 +597,17 @@ function CampusChip({ label }: { key?: React.Key; label?: { chip: string; name: 
   );
 }
 
-function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelScheduled, onReply, busyKey, filter, rowErrors, proposals, onOpenProposal, onOpenInSchedule, onBulk }: {
+function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelScheduled, onReply, onNotified, busyKey, filter, rowErrors, proposals, onOpenProposal, onOpenInSchedule, onBulk }: {
   key?: React.Key;
   row: InboxRequest;
   currentRows: Map<number, FSchedule>;
   campusLabels: CampusLabels;
-  onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => void;
-  onCancelScheduled: (index: number, note: string) => void;
-  onReply: (index: number, text: string, slots: any[]) => void;
+  /** null عند النجاح، أو سببُ التعذّر (تعرضه الورقةُ التي أرسلته وتبقى مفتوحة). */
+  onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => Promise<string | null>;
+  onCancelScheduled: (index: number, note: string) => Promise<string | null>;
+  onReply: (index: number, text: string, slots: any[]) => Promise<string | null>;
+  /** فُتحت رسالةُ «أبلغ الأستاذ»: يُسجَّل الإبلاغ. */
+  onNotified?: () => void;
   busyKey: string | null;
   filter: (item: InstructorRequestItem, row: InboxRequest) => boolean;
   rowErrors: Record<string, string>;
@@ -625,9 +686,11 @@ function RequestCard({ row, currentRows, campusLabels, onDecide, onCancelSchedul
             { AdInstructorName: row.instructorName, AdInstructorMobile: row.instructorMobile },
             `${location.origin}/r/${row.linkId}`, "decided", summary,
           );
+          const unsent = unsentDecisions(row).length;
           return reach.href ? (
-            <a className="request-notify" href={reach.href} target="_blank" rel="noreferrer noopener" title="رسالة واتساب جاهزة بالقرار ورابط الطلب">
-              <Send aria-hidden="true" /> أبلغ الأستاذ
+            <a className="request-notify" href={reach.href} target="_blank" rel="noreferrer noopener" title="رسالة واتساب جاهزة بالقرار ورابط الطلب"
+              data-unsent={unsent ? "1" : undefined} onClick={() => onNotified?.()}>
+              <Send aria-hidden="true" /> {unsent ? "أبلغ الأستاذ" : "أُبلغ · أعد الإبلاغ"}
             </a>
           ) : (
             <span className="request-notify" data-blocked="true" title={reach.blocked || ""}><Send aria-hidden="true" /> لا رقم جوّال</span>
@@ -706,9 +769,9 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
   campus?: { chip: string; name: string };
   busy: boolean; rejecting: boolean; error?: string;
   onReject: () => void; onCloseReject: () => void;
-  onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => void;
-  onCancelScheduled: (index: number, note: string) => void;
-  onReply: (index: number, text: string, slots: any[]) => void;
+  onDecide: (index: number, state: "fixed" | "rejected", extra?: any) => Promise<string | null>;
+  onCancelScheduled: (index: number, note: string) => Promise<string | null>;
+  onReply: (index: number, text: string, slots: any[]) => Promise<string | null>;
   /** «مقترح دراسي»: يفتح الموعدَ الأصلي (أو نموذجَ الإضافة) في الجدول بنموذجه المعتاد. */
   onOpenInSchedule?: () => void;
   onBulk?: (key: string, entry: BulkEntry | null) => void;
@@ -908,7 +971,7 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
                 <SecondaryButton key={`${(slot.days || [slot.day]).join(",")}|${slot.start}`} type="button" disabled={busy}
                   title="يُقترح على الأستاذ فيوافق بضغطة"
                   data-guide-ignore="اقتراحُ بديلٍ جاهز على الأستاذ — ردٌّ في حوار البند لا يكتب في الجدول"
-                  onClick={() => onReply(index, "", [{ day: slot.day, days: slot.days?.length ? slot.days : [slot.day], start: slot.start, end: slot.end }])}>
+                  onClick={() => void onReply(index, "", [{ day: slot.day, days: slot.days?.length ? slot.days : [slot.day], start: slot.start, end: slot.end }])}>
                   {(slot.days?.length ? slot.days : [slot.day]).map(day => INBOX_DAY_NAMES[day as keyof typeof INBOX_DAY_NAMES] || day).join(" · ")} <bdi dir="ltr">{slot.start}</bdi>
                 </SecondaryButton>
               ))}
@@ -932,7 +995,7 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
                 disabled={busy || blocked || readiness === "checking"}
                 onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
                   const rect = event.currentTarget.getBoundingClientRect();
-                  onDecide(index, "fixed", { current, anchor: { x: rect.left + rect.width / 2, y: rect.bottom }, after: dependsOn.filter(entry => !entry.elsewhere).map(entry => entry.index) });
+                  void onDecide(index, "fixed", { current, anchor: { x: rect.left + rect.width / 2, y: rect.bottom }, after: dependsOn.filter(entry => !entry.elsewhere).map(entry => entry.index) });
                 }}
                 title={waitsElsewhere ? "ينتظر قرار القسم الآخر في حذف محاضرته" : blocked ? "لا يُثبَّت بندٌ ممنوع — عالج سببه أو ارفضه" : undefined}
               >
@@ -944,6 +1007,15 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
               </SecondaryButton>
             </div>
           )}
+          {/* الحوارُ يبدأ من القسم أيضاً (FR-REQ-027): كان مقفلاً حتى يكتب الأستاذ أولاً. */}
+          {!hasThread && !talking && decided !== "fixed" ? (
+            <div className="request-actions">
+              <SecondaryButton type="button" disabled={frozenScreen} onClick={() => setTalking(true)}
+                data-guide-ignore="يفتح الحوار مع الأستاذ — ردٌّ أو أوقاتٌ مقترحة، لا يكتب في الجدول">
+                <MessageSquare aria-hidden="true" />ردّ / اقترح وقتاً
+              </SecondaryButton>
+            </div>
+          ) : null}
           {decided === "fixed" && item.decision?.fromSchedule && item.action === "add" ? (
             <div className="request-actions">
               <SecondaryButton type="button" disabled={busy} data-guide-ignore="يفتح ورقة إلغاء موعدٍ وضعه القسم" onClick={() => setCancelling(true)}>
@@ -954,7 +1026,7 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
           {error ? <p className="request-row-error"><ShieldAlert aria-hidden="true" />{error}</p> : null}
         </div>
       </div>
-      {cancelling ? <CancelScheduledSheet item={item} busy={busy} onClose={() => setCancelling(false)} onSubmit={note => { onCancelScheduled(index, note); setCancelling(false); }} /> : null}
+      {cancelling ? <CancelScheduledSheet item={item} busy={busy} onClose={() => setCancelling(false)} onSubmit={note => onCancelScheduled(index, note)} /> : null}
       {hasThread || talking ? (
         <div className="request-thread-slot">
           <RequestThread
@@ -970,10 +1042,7 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
           item={item}
           busy={busy}
           onClose={onCloseReject}
-          onSubmit={(reason, note, alternatives) => {
-            onDecide(index, "rejected", { reasonCode: reason, note, alternatives });
-            onCloseReject();
-          }}
+          onSubmit={(reason, note, alternatives) => onDecide(index, "rejected", { reasonCode: reason, note, alternatives })}
         />
       ) : null}
     </li>
@@ -981,22 +1050,31 @@ function RequestRow({ row, item, index, current, campus, busy: busyProp, rejecti
 }
 
 /* ── «إلغاء الموعد» لبندٍ وضعه القسم: قرارُه هو، فلا رفضَ له — حذفٌ وسطرٌ للأستاذ (ملاحظة المالك 1) ── */
-function CancelScheduledSheet({ item, busy, onClose, onSubmit }: { item: InstructorRequestItem; busy: boolean; onClose: () => void; onSubmit: (note: string) => void }) {
+function CancelScheduledSheet({ item, busy: busyProp, onClose, onSubmit }: { item: InstructorRequestItem; busy: boolean; onClose: () => void; onSubmit: (note: string) => Promise<string | null> }) {
   const [note, setNote] = useState("");
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
+  const [failure, setFailure] = useState("");
+  const busy = busyProp || saving;
+  useSheetKeys(cardRef, onClose, busy);
   return (
-    <div className="changes-extend-sheet" role="dialog" aria-modal="true" aria-label="إلغاء الموعد">
-      <div className="changes-extend-card">
+    <div className="changes-extend-sheet" role="dialog" aria-modal="true" aria-label="إلغاء الموعد"
+      onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose(); }}>
+      <div className="changes-extend-card" ref={cardRef}>
         <header>
           <strong>إلغاء «{item.after?.courseName || "الموعد"}»</strong>
-          <button type="button" onClick={onClose} aria-label="إغلاق" data-guide-ignore="إغلاق الورقة — لا يغيّر شيئاً"><X /></button>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="إغلاق" data-guide-ignore="إغلاق الورقة — لا يغيّر شيئاً"><X /></button>
         </header>
         <label>
           <span>سطرٌ للأستاذ</span>
           <input value={note} maxLength={160} onChange={event => setNote(event.target.value)} placeholder="سبب الإلغاء" />
         </label>
+        <PlaceWarning text={note} />
+        {failure ? <p className="request-row-error" role="alert"><ShieldAlert aria-hidden="true" />{failure}</p> : null}
         <div className="changes-extend-actions">
-          <SecondaryButton type="button" data-guide-ignore="إغلاق الورقة — لا يغيّر شيئاً" onClick={onClose}>تراجع</SecondaryButton>
-          <PrimaryButton type="button" disabled={busy || !note.trim()} data-guide-ignore="يحذف الموعد الذي وضعه القسم ويرسل السطر إلى الأستاذ" onClick={() => onSubmit(note.trim())}>
+          <SecondaryButton type="button" disabled={busy} data-guide-ignore="إغلاق الورقة — لا يغيّر شيئاً" onClick={onClose}>تراجع</SecondaryButton>
+          <PrimaryButton type="button" disabled={busy || !note.trim()} data-guide-ignore="يحذف الموعد الذي وضعه القسم ويرسل السطر إلى الأستاذ"
+            onClick={async () => { setSaving(true); setFailure(""); const problem = await onSubmit(note.trim()); setSaving(false); if (problem) setFailure(problem); else onClose(); }}>
             {busy ? "يحفظ…" : "إلغاء الموعد"}
           </PrimaryButton>
         </div>
@@ -1121,6 +1199,57 @@ function BulkSheet({ state, onConfirm, onStop, onClose }: {
   );
 }
 
+/* ── «أبلغ من صدر لهم قرار» ───────────────────────────────────────────────────
+ * من صدر له قرارٌ بعد آخر إبلاغ، واحداً بعد واحد: رسالةُ واتساب جاهزة لكلٍّ منهم (رابطُ البطاقة نفسه) تُفتح
+ * بضغطة المنسّق، فيُسجَّل الإبلاغ وينتقل إلى التالي. لا يُرسل النظامُ شيئاً إلى الخارج من تلقاء نفسه. */
+interface NotifyEntry { id: string; name: string; summary: string; href: string; blocked: string }
+function NotifySheet({ entries, onNotified, onClose }: { entries: NotifyEntry[]; onNotified: (id: string) => void; onClose: () => void }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  useSheetKeys(cardRef, onClose, false);
+  const [done, setDone] = useState<string[]>([]);
+  const [skipped, setSkipped] = useState<string[]>([]);
+  const current = entries.find(entry => !done.includes(entry.id) && !skipped.includes(entry.id));
+  const left = entries.filter(entry => !done.includes(entry.id) && !skipped.includes(entry.id)).length;
+  return (
+    <div className="changes-extend-sheet inbox-notify-sheet" role="dialog" aria-modal="true" aria-labelledby="inbox-notify-title"
+      onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="changes-extend-card" ref={cardRef}>
+        <header>
+          <strong id="inbox-notify-title"><BellRing aria-hidden="true" /> أبلغ من صدر لهم قرار</strong>
+          <button type="button" onClick={onClose} aria-label="إغلاق" data-guide-ignore="إغلاق النافذة — لا يغيّر شيئاً"><X /></button>
+        </header>
+        <p className="inbox-notify-lead" aria-live="polite">
+          {current ? `${num(done.length)} من ${num(entries.length)} · بقي ${countOf(left, AR.instructor)}` : `أُبلغ ${countOf(done.length, AR.instructor)}${skipped.length ? ` · تُخطّي ${num(skipped.length)}` : ""}`}
+        </p>
+        {current ? (
+          <div className="inbox-notify-current">
+            <b>{current.name}</b>
+            <span>{current.summary}</span>
+            <div className="changes-extend-actions">
+              <SecondaryButton type="button" onClick={() => setSkipped(list => [...list, current.id])} data-guide-ignore="تخطّي هذا الأستاذ الآن — لا يُسجَّل إبلاغ">تخطَّ</SecondaryButton>
+              {current.href ? (
+                <a className="btn btn-primary" href={current.href} target="_blank" rel="noreferrer noopener"
+                  onClick={() => { onNotified(current.id); setDone(list => [...list, current.id]); }}>
+                  <Send aria-hidden="true" /> افتح رسالة واتساب
+                </a>
+              ) : <span className="request-notify" data-blocked="true" title={current.blocked}><Send aria-hidden="true" /> لا رقم جوّال</span>}
+            </div>
+          </div>
+        ) : null}
+        <ol className="inbox-notify-list">
+          {entries.map(entry => (
+            <li key={entry.id} data-state={done.includes(entry.id) ? "done" : skipped.includes(entry.id) ? "skipped" : entry === current ? "current" : "waiting"}>
+              {done.includes(entry.id) ? <Check aria-hidden="true" /> : skipped.includes(entry.id) ? <X aria-hidden="true" /> : <CircleDashed aria-hidden="true" />}
+              <span>{entry.name}</span><small>{entry.summary}</small>
+            </li>
+          ))}
+        </ol>
+        {!current ? <div className="changes-extend-actions"><PrimaryButton data-guide-ignore="يغلق النافذة؛ لا يكتب شيئاً" type="button" onClick={onClose}>إغلاق</PrimaryButton></div> : null}
+      </div>
+    </div>
+  );
+}
+
 type FilterOption = { value: string; label: string; count?: number; tone?: "ok" | "warn" | "bad" };
 const ALL_VALUES = new Set(["all", "0"]);
 
@@ -1218,6 +1347,11 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const [campusStored, setCampusStored] = useState(() => readInboxCampus(sharedScopeUser()));
   const pickCampus = (collegeId: number) => { setCampusStored(collegeId); writeInboxCampus(sharedScopeUser(), collegeId); };
   const [instructorFilter, setInstructorFilter] = useState(0);
+  /* الترتيب: أبجدياً كما كان، أو «الأقدم أولاً» — من ينتظر أطولَ يُرى أولاً. يُتذكَّر في هذا الجهاز. */
+  const [sortBy, setSortBy] = useState<InboxSort>(() => { try { return localStorage.getItem("inbox.sort") === "oldest" ? "oldest" : "name"; } catch { return "name"; } });
+  const pickSort = (next: InboxSort) => { setSortBy(next); try { localStorage.setItem("inbox.sort", next); } catch { /* تفضيلٌ لا يلزم */ } };
+  /* «أبلغ من صدر لهم قرار»: نافذةٌ تمرّ على من لم يُبلَّغ واحداً بعد واحد. */
+  const [notifyOpen, setNotifyOpen] = useState<NotifyEntry[] | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [quick, setQuick] = useState<{ row: InboxRequest; index: number; after?: number[]; seed: QuickSeed } | null>(null);
   /* تنبيهاتٌ لا تمنع (انتقالٌ ضيّق بين مبنيين…) بعد تثبيتٍ نجح. */
@@ -1238,7 +1372,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     if (item.action === "change") { openRowInSchedule(Number(item.rowId), item, row.instructorName); return; }
     const slots = item.slots || [];
     putHandoff({
-      requestId: row.id, requestRevision: row.requestRevision || 0, itemIndex: index, instructorId: Number(row.AdInstructorId), instructorName: row.instructorName,
+      requestId: row.id, requestRevision: row.requestRevision || 0, itemIndex: index, itemId: requestItemId(item), instructorId: Number(row.AdInstructorId), instructorName: row.instructorName,
       courseId: Number(item.after?.courseId || 0), collegeId: Number(item.after?.collegeId || row.AdCollegeId),
       sectionId: Number(item.after?.sectionId || row.AdSectionId), termId: Number(row.AdTermId),
       days: [...new Set(slots.flatMap(slot => (slot.days?.length ? slot.days : [slot.day])))] as any,
@@ -1269,6 +1403,8 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     });
   }, []);
   const [bulk, setBulk] = useState<BulkState | null>(null);
+  /* «وضع الطيّار» (inbox/InboxPilot.tsx): بندٌ واحد في كل مرّة بـ`decide` نفسها. */
+  const [pilotOpen, setPilotOpen] = useState(false);
   const bulkStop = useRef(false);
   const bulkTrigger = useRef<HTMLButtonElement>(null);
   /* آخرُ سببٍ ردّ به الخادمُ تثبيتاً — يقرؤه التثبيتُ الجماعيّ ليقول أين توقّف ولماذا. */
@@ -1355,11 +1491,21 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     if (only && sectionId !== only) setSectionId(only);
   }, [scopes, collegeId, sectionId, powerAdmin]);
 
+  /* ── القراءةُ بتسلسل، والإخفاقُ لا يُفرغ الشاشة ─────────────────────────────
+     جوابٌ قديم (نطاقٌ سابق، أو نبضةٌ أبطأ) لا يكتب فوق أحدث منه. وتعذّرُ القراءة كان يُفرغ الوارد فيقول «لم تُرسَل
+     مسوّدات بعد» ويُغلق كلَّ ورقةٍ مفتوحة؛ الآن تبقى البطاقاتُ كما هي وشريطٌ يقول ذلك بزرّ «أعد المحاولة». */
+  const loadSeq = useRef(0);
+  const loadedScope = useRef("");
+  const [loadFailed, setLoadFailed] = useState<string | null>(null);
   const load = useCallback(async () => {
     if (!collegeId || !termId) { setRows(null); return; }
-    setError(null);
+    const seq = ++loadSeq.current;
+    const scopeKey = `${collegeId}:${sectionId}:${termId}`;
     try {
       const data = await request(`/api/instructor-requests?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`);
+      if (seq !== loadSeq.current) return;
+      loadedScope.current = scopeKey;
+      setLoadFailed(null);
       setRows((data.rows || []).slice().sort((a: any, b: any) => byArabic(a.instructorName, b.instructorName)));
       setTotals(data.totals || null);
       setFamilyColleges(Array.isArray(data.familyColleges) ? data.familyColleges : []);
@@ -1367,9 +1513,14 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       setCurrentRows(new Map((data.currentRows || []).map((row: FSchedule) => [Number(row.id), row])));
       /* المقترحات تأتي بعد الطلبات ولا تُوقف عرضها إن تعذّرت. */
       Promise.all(scopesInFamily.map((scope: any) => proposalApi.list(Number(scope.collegeId), Number(scope.sectionId), termId)))
-        .then(results => setProposals([...new Map(results.flatMap(result => result.proposals || []).map(view => [view.proposal.id, view])).values()]))
+        .then(results => { if (seq === loadSeq.current) setProposals([...new Map(results.flatMap(result => result.proposals || []).map(view => [view.proposal.id, view])).values()]); })
         .catch(() => undefined);
-    } catch (e: any) { setError(e.message); setRows([]); }
+    } catch (e: any) {
+      if (seq !== loadSeq.current) return;
+      setLoadFailed(e.message || "تعذّرت قراءة الوارد.");
+      /* نطاقٌ جديدٌ لم يُقرأ قطّ: لا تُعرض بطاقاتُ النطاق السابق كأنها له. */
+      if (loadedScope.current !== scopeKey) setRows([]);
+    }
   }, [collegeId, sectionId, termId]);
 
   useEffect(() => { void load(); }, [load]);
@@ -1427,11 +1578,12 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const instructorChoices = useMemo(() => inboxInstructorChoices(rows || []), [rows]);
   const visible = useMemo(() => {
     const chosen = instructorFilter ? instructorChoices.find(choice => choice.ids.includes(instructorFilter)) : undefined;
-    return (rows || [])
+    return sortInboxRows((rows || [])
       .filter(row => !isPlaceholderInboxRow(row))
-      .filter(row => !needle || row.instructorName.includes(needle))
-      .filter(row => !instructorFilter || (chosen ? chosen.ids.includes(Number(row.AdInstructorId)) : Number(row.AdInstructorId) === instructorFilter));
-  }, [rows, needle, instructorFilter, instructorChoices]);
+      /* «احمد» تجد «أحمد»، و«فاطمه» تجد «فاطمة» (مفتاحُ المطابقة العربي). */
+      .filter(row => !needle || nameMatches(row.instructorName, needle))
+      .filter(row => !instructorFilter || (chosen ? chosen.ids.includes(Number(row.AdInstructorId)) : Number(row.AdInstructorId) === instructorFilter)), sortBy, byArabic);
+  }, [rows, needle, instructorFilter, instructorChoices, sortBy]);
 
   /* «تكدّس الطلبات»: كم موعداً مطلوباً يبدأ في كل خليّة (يوم × وقت بداية).
      عدٌّ لا غير، من بنود الطلبات المُجابة المحمَّلة أصلاً في الشاشة — لا
@@ -1495,26 +1647,24 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   }, [rows]);
 
   /* الأعدادُ كلُّها داخل الموقع المختار: من اختار «بنات» يرى ما ينتظره في البنات. */
+  /* الأعدادُ تتبع ما يُعرض (utils/inboxFacets): البحثُ والأستاذُ والقسمُ و«🎓 تدريب» والموقع، وكلُّ مجموعةٍ
+     تعدّ نفسها تحت المرشّحات الأخرى — كان «بانتظار قرارك 12» يُقرأ فوق بطاقتين. */
   const counts = useMemo(() => {
-    const inCampus = (rows || []).filter(row => requestInCampus(row as any, campusFilter));
-    const all = (rows || []).flatMap(row => (row.items || []).filter(item => item.action !== "keep" && !(item as any).hidden && itemInCampus(row as any, item as any, campusFilter)));
+    const scoped = visible.filter(row => (!deptFilter || Number(row.AdSectionId) === deptFilter) && requestInCampus(row as any, campusFilter));
+    const inCampus = scoped;
+    const items = scoped.filter(row => !taOnly || isTaRequest(row)).flatMap(row => (row.items || [])
+      .filter(item => item.action !== "keep" && !(item as any).hidden && itemInCampus(row as any, item as any, campusFilter))
+      .map(item => ({ state: item.decision?.state, action: item.action, verdict: item.verdict })));
     return {
-      pending: all.filter(item => !item.decision?.state).length,
-      fixed: all.filter(item => item.decision?.state === "fixed").length,
-      rejected: all.filter(item => item.decision?.state === "rejected").length,
-      all: all.length,
-      change: all.filter(item => item.action === "change").length,
-      add: all.filter(item => item.action === "add").length,
-      delete: all.filter(item => item.action === "delete").length,
-      clear: all.filter(item => (item.verdict || "clear") === "clear").length,
-      exception: all.filter(item => item.verdict === "exception").length,
-      conflict: all.filter(item => item.verdict === "conflict").length,
+      ...inboxFacetCounts(items, { state: stateFilter, action: actionFilter, verdict: verdictFilter }),
       confirmedUnchanged: inCampus.filter(row => isUnchangedConfirmed(row)).length,
       /* «لم يشاركوا» (D1): لم يرسلوا شيئاً — فتحوا أو لم يفتحوا — وروابطُ العرض وحده لا تُعدّ (D2). */
       absent: notParticipated(inCampus.filter(row => !isPlaceholderInboxRow(row))).length,
       ta: inCampus.filter(isTaRequest).length,
     };
-  }, [rows, campusFilter]);
+  }, [visible, deptFilter, taOnly, campusFilter, stateFilter, actionFilter, verdictFilter]);
+  /* من صدر له قرارٌ لم يُبلَّغ به (utils/requestDecisionDigest): بالترتيب المعروض نفسه. */
+  const unnotified = useMemo(() => visible.filter(row => unsentDecisions(row).length > 0), [visible]);
 
   const visibleConfirmedUnchanged = visible.filter(row => isUnchangedConfirmed(row)
     && (!deptFilter || Number(row.AdSectionId) === deptFilter) && requestInCampus(row as any, campusFilter));
@@ -1544,8 +1694,9 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
    * أخفقت الأولى لم تقع الثانية: قرارٌ مسجّلٌ بلا أثرٍ في الجدول أسوأُ من
    * قرارٍ لم يُسجَّل، لأنه يقول للأستاذ «ثُبّت» ولم يُثبَّت شيء.
    */
-  const decide = async (row: InboxRequest, index: number, state: "fixed" | "rejected", extra: any = {}): Promise<boolean> => {
+  const decide = async (row: InboxRequest, index: number, state: "fixed" | "rejected", extra: any = {}, quiet = false): Promise<boolean> => {
     if (frozen) return false;
+    decideFailure.current = "";
     const key = `${row.id}:${index}`;
     /* ما ثُبّت قد كُتب في الجدول: لا يُعاد (كان يُنشئ صفّاً مكرّراً أو يناقض الجدول). */
     if (row.items[index]?.decision?.state === "fixed") return true;
@@ -1593,7 +1744,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           /* لا يُتوقّع هنا (الإضافة تفتح بطاقتها أعلاه)؛ يبقى طريقُ الورشة إن وصل. */
           const slots = item.slots || [];
           putHandoff({
-            requestId: row.id, requestRevision: row.requestRevision || 0, itemIndex: index, instructorId: Number(row.AdInstructorId), instructorName: row.instructorName,
+            requestId: row.id, requestRevision: row.requestRevision || 0, itemIndex: index, itemId: requestItemId(item), instructorId: Number(row.AdInstructorId), instructorName: row.instructorName,
             courseId: Number(item.after?.courseId || 0), collegeId: Number(item.after?.collegeId || row.AdCollegeId),
             sectionId: Number(item.after?.sectionId || row.AdSectionId), termId: Number(row.AdTermId),
             days: slots.map(slot => slot.day) as any, start: slots[0]?.start || "", end: slots[0]?.end || "",
@@ -1603,11 +1754,11 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
         }
         const payload = { itemIndex: index, itemId: requestItemId(item), after, requestRevision: row.requestRevision || 0, revs: revsFor(row, [...after, index]) };
         if (!(await previewAndConfirm(row, payload))) return false;
-        const result = await request(`/api/instructor-requests/${row.id}/apply`, {
+        const result = await withApplyBusyRetry(() => request(`/api/instructor-requests/${row.id}/apply`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        });
+        }));
         await load();
         announceApplied(result);
         return true;
@@ -1619,12 +1770,20 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       });
       await load();
       return true;
-    } catch (e: any) { decideFailure.current = inboxMessage(e.message); setRowErrors(prev => ({ ...prev, [key]: inboxMessage(e.message) })); return false; }
+    } catch (e: any) {
+      decideFailure.current = inboxMessage(e.message);
+      /* ورقةٌ أرسلت القرار تعرض السبب فيها وتبقى مفتوحة؛ فلا يُكرَّر تحت البند. */
+      if (!quiet) setRowErrors(prev => ({ ...prev, [key]: inboxMessage(e.message) }));
+      return false;
+    }
     finally { setBusyKey(null); }
   };
+  /* القرارُ من ورقته (الرفض): السببُ يعود إليها، وما كُتب فيها لا يضيع. */
+  const decideFromSheet = async (row: InboxRequest, index: number, state: "fixed" | "rejected", extra: any = {}): Promise<string | null> =>
+    (await decide(row, index, state, extra, state === "rejected")) ? null : (decideFailure.current || (frozen ? "الفصل مجمَّد." : ""));
 
-  const cancelScheduled = async (row: InboxRequest, index: number, note: string) => {
-    if (frozen) return;
+  const cancelScheduled = async (row: InboxRequest, index: number, note: string): Promise<string | null> => {
+    if (frozen) return "الفصل مجمَّد.";
     const key = `${row.id}:${index}`;
     setBusyKey(key);
     setRowErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
@@ -1635,14 +1794,16 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
         body: JSON.stringify({ itemIndex: index, itemId: requestItemId(row.items[index]), requestRevision: row.requestRevision || 0, note }),
       });
       await load();
-    } catch (e: any) { setRowErrors(prev => ({ ...prev, [key]: inboxMessage(e.message) })); }
+      return null;
+    } catch (e: any) { return inboxMessage(e.message); }
     finally { setBusyKey(null); }
   };
 
   /* ── ردُّ القسم في حوار البند ─────────────────────────────────────────────
-     رسالةٌ وأوقاتٌ مقترحة تصل الأستاذَ في صفحته. لا حفظَ في الجدول هنا. */
-  const reply = async (row: InboxRequest, index: number, text: string, slots: any[]) => {
-    if (frozen) return;
+     رسالةٌ وأوقاتٌ مقترحة تصل الأستاذَ في صفحته. لا حفظَ في الجدول هنا.
+     والتعذّرُ يعود إلى الحوار نفسه، والنصُّ المكتوب باقٍ فيه حتى ينجح الإرسال. */
+  const reply = async (row: InboxRequest, index: number, text: string, slots: any[]): Promise<string | null> => {
+    if (frozen) return "الفصل مجمَّد.";
     const key = `${row.id}:${index}`;
     setBusyKey(key);
     setRowErrors(prev => { const next = { ...prev }; delete next[key]; return next; });
@@ -1653,8 +1814,17 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
         body: JSON.stringify({ itemIndex: index, itemId: requestItemId(row.items[index]), requestRevision: row.requestRevision || 0, text, slots }),
       });
       await load();
-    } catch (e: any) { setRowErrors(prev => ({ ...prev, [key]: inboxMessage(e.message) })); }
+      return null;
+    } catch (e: any) { return inboxMessage(e.message); }
     finally { setBusyKey(null); }
+  };
+
+  /* ── «أبلغ الأستاذ»: فُتحت رسالةُ واتساب بيد المنسّق — يُسجَّل الإبلاغُ فقط، لا يُرسَل شيء ── */
+  const markNotified = async (row: InboxRequest) => {
+    const at = new Date().toISOString();
+    setRows(prev => prev ? prev.map(entry => entry.id === row.id ? { ...entry, decisionNotifiedAt: at } : entry) : prev);
+    try { await request(`/api/instructor-requests/${row.id}/notified`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }); }
+    catch (e: any) { setError(`فُتحت الرسالة، وتعذّر تسجيل الإبلاغ: ${e.message}`); }
   };
 
   /* ── حفظُ البطاقة السريعة ─────────────────────────────────────────────────
@@ -1682,11 +1852,11 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
         },
       };
       if (!(await previewAndConfirm(row, payload))) return;
-      const result = await request(`/api/instructor-requests/${row.id}/apply`, {
+      const result = await withApplyBusyRetry(() => request(`/api/instructor-requests/${row.id}/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+      }));
       setQuick(null);
       await load();
       announceApplied(result);
@@ -1866,13 +2036,23 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
       })()}
 
       {error ? <Notice type="error" onDismiss={() => setError(null)}>{error}</Notice> : null}
+      {loadFailed ? (
+        <div className="request-load-failed" role="alert">
+          <Notice type="error">
+            {rows && rows.length ? `تعذّر تحديث الوارد (${loadFailed}). ما تراه آخرُ ما قُرئ.` : `تعذّرت قراءة الوارد (${loadFailed}).`}
+            {" "}<button type="button" className="btn btn-secondary" onClick={() => void load()} data-guide-ignore="إعادة قراءة الوارد — لا يغيّر شيئاً">
+              <RefreshCw aria-hidden="true" /> أعد المحاولة
+            </button>
+          </Notice>
+        </div>
+      ) : null}
       {notice ? <Notice type="info" onDismiss={() => setNotice(null)}>{notice}</Notice> : null}
 
       {!collegeId || !termId ? (
         <EmptyState title="اختر النطاق" detail="اختر الكلية والفصل، واترك القسم فارغاً لعرض وارد الكلية كاملاً." />
       ) : !rows ? (
         <MicroLoader label="يقرأ الوارد…" />
-      ) : !rows.length ? (
+      ) : !rows.length ? (loadFailed ? null :
         <EmptyState
           title="لم تُرسَل مسوّدات بعد"
           detail="تُرسل مسوّدات الجدول للأساتذة من شاشة النسخ، فيفتح كلٌّ منهم جدوله ويقول رأيه فيه."
@@ -1995,6 +2175,30 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             </button>
           ) : null}
 
+          <div className="request-tools" role="toolbar" aria-label="ترتيب الوارد وإبلاغ الأساتذة">
+            <div className="request-filter" role="group" aria-label="الترتيب">
+              <span className="request-filter-label">الترتيب</span>
+              <div className="request-filter-chips">
+                {([["name", "أبجدياً"], ["oldest", "الأقدم أولاً"]] as Array<[InboxSort, string]>).map(([value, label]) => (
+                  <button key={value} type="button" className={sortBy === value ? "active" : ""} aria-pressed={sortBy === value}
+                    data-guide-ignore="ترتيب البطاقات — عرضٌ لا فعل" onClick={() => pickSort(value)}>{label}</button>
+                ))}
+              </div>
+            </div>
+            {unnotified.length ? (
+              <button type="button" className="btn btn-secondary request-notify-all" onClick={() => setNotifyOpen(unnotified.map(row => {
+                  const unsent = unsentDecisions(row);
+                  const fixed = unsent.filter(entry => entry.kind === "fixed").length, rejected = unsent.length - fixed;
+                  const summary = [fixed ? `ثُبّت: ${countOf(fixed, AR.change)}` : "", rejected ? `رُفض: ${countOf(rejected, AR.change)}` : ""].filter(Boolean).join(" · ");
+                  const reach = reachAboutCard({ AdInstructorName: row.instructorName, AdInstructorMobile: row.instructorMobile }, `${location.origin}/r/${row.linkId}`, "decided", summary);
+                  return { id: row.id, name: row.instructorName, summary, href: reach.href || "", blocked: reach.blocked || "" };
+                }))}
+                data-guide-ignore="يفتح قائمة من صدر لهم قرار لم يُبلَّغوا به — رسالةُ واتساب لكلٍّ منهم بضغطتك، لا يُرسل شيءٌ تلقائياً">
+                <BellRing aria-hidden="true" /> أبلغ من صدر لهم قرار <b>{num(unnotified.length)}</b>
+              </button>
+            ) : null}
+          </div>
+
           {(() => {
             /* المجموعاتُ مبنيّةٌ مرّةً: منها يُعرف أيبقى في الشريط ما يُختار، فلا
                يبقى رمزُ المرشّحات وحده فوق لا شيء (قاعدة إخفاء الفارغ). */
@@ -2074,6 +2278,10 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             );
           })()}
 
+          {counts.pending && !frozen && stateFilter !== "absent" && stateFilter !== "confirmed-unchanged" ? (
+            <InboxPilotLauncher count={counts.pending} onOpen={() => setPilotOpen(true)} />
+          ) : null}
+
           {/* حاويةٌ كتلية (لا شبكة) كي يلتصق شريطُ «ثبّت الجاهز كله» بأسفل الشاشة طوال القائمة. */}
           <div className="inbox-deck">
           {stateFilter === "absent" ? (absentRows.length ? (
@@ -2138,9 +2346,10 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                       proposals={proposals.filter(view => view.proposal.requestId === row.id)}
                       onOpenProposal={openStudyProposal}
                       onOpenInSchedule={openItemInSchedule}
-                      onDecide={(index, state, extra) => void decide(row, index, state, extra)}
-                      onCancelScheduled={(index, note) => void cancelScheduled(row, index, note)}
-                      onReply={(index, text, slots) => void reply(row, index, text, slots)}
+                      onDecide={(index, state, extra) => decideFromSheet(row, index, state, extra)}
+                      onCancelScheduled={(index, note) => cancelScheduled(row, index, note)}
+                      onReply={(index, text, slots) => reply(row, index, text, slots)}
+                      onNotified={() => void markNotified(row)}
                       onBulk={reportBulk}
                     />
                   ))}
@@ -2204,7 +2413,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
                 return;
               }
               putHandoff({
-                requestId: quick.row.id, requestRevision: quick.row.requestRevision || 0, itemIndex: quick.index, companionRoomId: draft.companionRoomId,
+                requestId: quick.row.id, requestRevision: quick.row.requestRevision || 0, itemIndex: quick.index, itemId: requestItemId(item), companionRoomId: draft.companionRoomId,
                 instructorId: Number(quick.row.AdInstructorId), instructorName: quick.row.instructorName,
                 courseId: Number(item.after?.courseId || 0),
                 collegeId: Number(item.after?.collegeId || quick.row.AdCollegeId),
@@ -2237,6 +2446,31 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             onChanged={() => void load()}
           />
         </React.Suspense>
+      ) : null}
+
+      {notifyOpen ? (
+        <NotifySheet
+          /* القائمةُ كما كانت لحظةَ الفتح: من أُبلغ يبقى فيها موسوماً ولا يقفز ما بعده. */
+          entries={notifyOpen}
+          onNotified={id => { const row = (rows || []).find(entry => entry.id === id); if (row) void markNotified(row); }}
+          onClose={() => setNotifyOpen(null)}
+        />
+      ) : null}
+
+      {pilotOpen ? (
+        <InboxPilot
+          rows={rows || []}
+          include={(item, row) => itemInCampus(row as any, item as any, campusFilter)}
+          currentRows={currentRows}
+          busyKey={busyKey}
+          rowErrors={rowErrors}
+          frozen={frozen}
+          onDecide={decide}
+          candidateOf={proposedRow}
+          useLiveCheck={useLiveCheck}
+          RejectSheet={RejectSheet}
+          onClose={() => setPilotOpen(false)}
+        />
       ) : null}
 
       {bulk ? (

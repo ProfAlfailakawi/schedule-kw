@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, Crown, Plus, Search, Snowflake, UsersRound } from "lucide-react";
 import SeatPanel from "./SeatPanel";
 import SeatLinkCard from "./SeatLinkCard";
+import { visualConfirm } from "../ui";
 import { AR, countOf } from "../../utils/arabicCount";
 import { invitationHref } from "../../utils/invitationLink";
 import { seatCaption } from "../../utils/seatAccessCard";
@@ -93,7 +94,7 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
   /* رئيسُ تسجيلٍ لكل كلية ناقصة دفعةً واحدة، بالكلمة الافتراضية وتغييرها عند أول دخول. */
   const createAll = async () => {
     const count = listing?.missingCollegeRegistrars.length || 0;
-    if (!count || !window.confirm(`إنشاء رئيس تسجيل لـ${count} من الكليات الناقصة، كلٌّ بحرمها، بالكلمة الافتراضية 12345678 وتغييرها عند أول دخول؟`)) return;
+    if (!count || !(await visualConfirm({ title: "إنشاء رؤساء التسجيل الناقصين", message: `إنشاء رئيس تسجيل لـ${count} من الكليات الناقصة، كلٌّ بحرمها، بالكلمة الافتراضية 12345678 وتغييرها عند أول دخول؟`, confirmLabel: "أنشئها", tone: "warning" }))) return;
     setBusy(true); setError("");
     try {
       setBulk(await call<{ results: Array<{ seatId: number; login: string; seatName: string; colleges: string[]; status: "created" | "extended" }>; password: string }>("/api/seats/college-registrars/all", { method: "POST" }));

@@ -89,7 +89,8 @@ check('requireAnyPermission([7, 8, 9, 10, 14, 16, 17])' in server,'schedule/repo
 # صار الحرسُ أضيقَ لا أوسع: `isPowerAdmin && hasPerm(7) && user.IsRootAdmin`.
 # فيُثبَّت القائمُ اليوم، وهو يفي بما كان يفي به الرقمُ الصريح وزيادة.
 check('isPowerAdmin && hasPerm(7) && user.IsRootAdmin' in app,'CopySchedule UI restricted to legacy primary admin')
-check('req.user.SystemUserId !== 1' in server,'CopySchedule API restricted to legacy primary admin')
+# الرقمُ الصريح ١ صار ROOT_ADMIN_USER_ID (افتراضه ١): الحسابُ الرئيسي نفسه الذي تحرسه الخزنة.
+check('Number(req.user.SystemUserId) !== ROOT_ADMIN_USER_ID' in server,'CopySchedule API restricted to the root administration account')
 # زرُّ التنقّل انتقل إلى `NavButton`، والضغطةُ ما زالت واحدةً مباشرة.
 check('onClick={() => onGo(view)}' in app,'navigation is direct single-click')
 check('onClick={() => go("dashboard")}' in app and 'SCHEDULE' in app,'SCHEDULE brand returns to dashboard')
@@ -102,7 +103,9 @@ for rel,tokens in {
  'src/components/Sections.tsx':['رمز القسم','اسم القسم'],
  'src/components/Terms.tsx':['الفصل الدراسي'],
  'src/components/Instructors.tsx':['الرقم المدني','رقم الهاتف'],
- 'src/components/Courses.tsx':['رمز المقرر','الوحدات','الساعات','السعة'],
+ # «رمز المقرر» صار «الرقم الأكاديمي» بسبع خانات تحت تسميةٍ واحدة في القائمة والنموذج (FR-ACD-051..056)؛
+ # الحقلُ نفسه باقٍ، والتسميةُ وحدها تغيّرت.
+ 'src/components/Courses.tsx':['الرقم الأكاديمي','الوحدات','الساعات','السعة'],
  # «رقم المبنى» حقلٌ نصّيٌّ حرّ زال عمداً: صار المبنى يُختار من سجلّ المباني
  # الرسميّ بمعرّفٍ لا باسمٍ يُكتب باليد، وذلك ما يمنع قاعةً تُنسب إلى مبنى
  # ليس لكليّتها. فيُثبَّت السجلُّ مكانه.
@@ -180,11 +183,13 @@ ocr=txt('src/utils/documentOcr.ts')
 check('createWorker("' not in ocr and 'newOcrWorker(' in ocr and 'ocrLanguageDataDir' in ocr,'every OCR worker loads language data from a known place, not the working directory')
 
 # 7) Refinement contract: calm UI, advanced features behind one decision hub.
-check('headless?: boolean' in experience and 'headless' in schedules,'legacy intelligence strip can operate headlessly while keeping dialogs functional')
-check('experience={experience}' in schedules and 'مركز القرار' in decision and 'قرار الآن' in decision,'schedule exposes one compact decision entry point')
-check('living-experience-tools' in living,'advanced schedule tools remain available inside decision center')
+iw=txt('src/components/IntelligenceWorkspace.tsx')
+# «مركز القرار» صار بطاقاتٍ في «مركز الذكاء»: الحلقاتُ فوق الجدول بابُه، وكلُّ أداةٍ في بطاقتها.
+check('<ScheduleExperienceLayer experience={experience} />' in schedules and 'onOpenHealth={() => openIntelligenceCard("command", "quality")}' in schedules,'schedule health rings open the health card in the intelligence centre')
+check('experience={experience}' in schedules and 'القرار الأهم الآن' in iw and 'مركز الذكاء' in living,'schedule exposes one compact decision entry point')
+check('embeddedScenes' in living and 'embeddedScenes={["genesis"]}' in iw,'advanced schedule tools remain available inside the intelligence centre')
 # مقارنةُ الفصل السابق باقيةٌ بلفظٍ أقصر، والوظيفتان الأُخريان في موضعهما.
-check('الفصل السابق' in decision and 'القرار الأهم الآن' in decision and 'بصمة القسم' in decision,'no advanced decision function was removed')
+check('الفصل السابق' in decision and 'القرار الأهم الآن' in iw and 'بصمة القسم' in iw,'no advanced decision function was removed')
 for forbidden in ['SEMESTER GENESIS','DECISION SAFETY NET','MEETING INTELLIGENCE','CONFLICT TOPOLOGY','Decision Memory','FAIRNESS ENGINE','FRAGILITY MAP','ROOM INTELLIGENCE','What‑If','Undo بلغة','Living Report','WHY ENGINE','WHY NOT?','ONE‑MINUTE BRIEF','Decision Safety Net']:
     check(forbidden not in all_client,f'visible technical label removed/localized: {forbidden}')
 # يُرفض الرمزُ نفسُه لا صيغةُ سطرٍ بعينها: `var(--font)}` و`var(--font) !important`

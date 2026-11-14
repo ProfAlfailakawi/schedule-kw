@@ -1,22 +1,29 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Building2, ChevronDown, DoorOpen, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
 import type { AdCollege, AdSection, MasterBuilding, MasterRoom } from "../types";
-import { Badge, Field, Notice, PageTitle, PrimaryButton, SecondaryButton, Surface } from "./ui";
+import { Badge, Field, Notice, PageTitle, PrimaryButton, SecondaryButton, Surface, visualConfirm } from "./ui";
 import { officialCollegeSitePrefix, officialSiteLabel } from "../utils/locationCollegePrefixes";
 import { byArabic, sortByName } from "../utils/sorting";
 import { AR, countOf } from "../utils/arabicCount";
 import LocationRoomTypeManager from "./LocationRoomTypeManager";
 import { visibleRoomTypes, type RoomTypeScopes } from "../utils/roomTypeForSection";
-import { RoomDoorBuildingActions, useRoomDoorLinks } from "./RoomDoorTools";
+import { RoomDoorBuildingActions, RoomDoorQr, useRoomDoorLinks } from "./RoomDoorTools";
 
 type SetupData = { colleges: AdCollege[]; sections: AdSection[]; buildings: MasterBuilding[]; rooms: MasterRoom[] };
 const empty: SetupData = { colleges: [], sections: [], buildings: [], rooms: [] };
 async function request(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers || {}) } });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "تعذر إكمال العملية");
+  /* الخطأ يحمل ردَّ الخادم كاملاً: «موجود موقوفاً» و«مستعمل في الجدول» يُقرآن برمزهما لا بنصّهما. */
+  if (!response.ok) throw Object.assign(new Error(data.error || "تعذر إكمال العملية"), { data });
   return data;
 }
+const IN_USE = "location-in-use";
+/** كم موعداً يقف في القاعة/المبنى الآن وفيما بعد — يُقرأ قبل الإيقاف ليُؤكَّد على بيّنة. */
+const usageLine = (usage: { current: number; future: number }) =>
+  usage.current || usage.future
+    ? `يقف فيه الآن ${countOf(usage.current, AR.appointment)} في الفصل الحالي و${countOf(usage.future, AR.appointment)} فيما بعده؛ تبقى هذه المواعيد كما هي لكن لا يُحجز فيه جديد.`
+    : "لا مواعيد فيه في الفصل الحالي ولا فيما بعده.";
 
 export default function LocationQuickSetup({ header, demoReadOnly = false, demoSandbox = false }: { header?: React.ReactNode; demoReadOnly?: boolean; demoSandbox?: boolean }) {
   const [data, setData] = useState<SetupData>(empty);
@@ -72,7 +79,25 @@ export default function LocationQuickSetup({ header, demoReadOnly = false, demoS
       const building = await request("/api/admin/location-setup/buildings", { method: "POST", body: JSON.stringify({ collegeId, sectionId, buildingNumber }) }) as MasterBuilding;
       const next = await request("/api/admin/location-setup") as SetupData;
       setData(next); setBuildingId(building.id); setBuildingNumber(""); setAddBuilding(false); setNotice(`تمت إضافة المبنى ${building.officialCode}`);
-    } catch (e: any) { setError(e?.message || "تعذرت إضافة المبنى"); }
+    } catch (e: any) {
+      /* مبنى «حُذف» قبلاً موقوفٌ لا ممحوّ: يُعرض إعادةُ تفعيله بدل رفضٍ لا مخرج منه. */
+      if (e?.data?.code === "inactive-exists" && e.data.id) { setBusy(false); await reactivate([{ kind: "building", id: String(e.data.id) }], e.message); return; }
+      setError(e?.message || "تعذرت إضافة المبنى");
+    }
+    finally { setBusy(false); }
+  };
+  const reactivate = async (items: Array<{ kind: "building" | "room"; id: string }>, message: string) => {
+    if (!(await visualConfirm({ title: "إعادة تفعيل", message, confirmLabel: "إعادة تفعيل", tone: "info" }))) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      for (const item of items) {
+        await request(item.kind === "building" ? `/api/admin/location-setup/buildings/${encodeURIComponent(item.id)}` : `/api/admin/location-registry/rooms/${encodeURIComponent(item.id)}`, { method: "PUT", body: JSON.stringify({ active: true }) });
+      }
+      setAddBuilding(false); setAddRooms(false); setBuildingNumber(""); setRoomCodes("");
+      if (items[0]?.kind === "building") setBuildingId(items[0].id);
+      setNotice(items[0]?.kind === "building" ? "أُعيد تفعيل المبنى. قاعاته الموقوفة تظهر في «غير الفعّالة» لتُفعَّل واحدةً واحدة." : `أُعيد تفعيل ${countOf(items.length, AR.room)}.`);
+      await load();
+    } catch (e: any) { setError(e?.message || "تعذرت إعادة التفعيل"); }
     finally { setBusy(false); }
   };
 
@@ -83,7 +108,10 @@ export default function LocationQuickSetup({ header, demoReadOnly = false, demoS
       const result = await request("/api/admin/location-setup/rooms", { method: "POST", body: JSON.stringify({ buildingId: currentBuilding?.id, roomCodes: codes, sectionIds: roomSectionIds, capacity: roomCapacity === "" ? undefined : Number(roomCapacity), roomType, bookingPolicy: roomBookingPolicy }) });
       setData(await request("/api/admin/location-setup") as SetupData); setRoomCodes(""); setRoomCapacity(""); setRoomType(""); setRoomBookingPolicy("normal"); setAddRooms(false);
       setNotice(`أُضيفت ${countOf(result.created, AR.room)}${roomSectionIds.length > 1 ? " مشتركة" : ""} إلى ${currentBuilding?.officialCode}`);
-    } catch (e: any) { setError(e?.message || "تعذرت إضافة القاعات"); }
+    } catch (e: any) {
+      if (e?.data?.code === "inactive-exists" && Array.isArray(e.data.ids) && e.data.ids.length) { setBusy(false); await reactivate(e.data.ids.map((id: string) => ({ kind: "room" as const, id })), e.message); return; }
+      setError(e?.message || "تعذرت إضافة القاعات");
+    }
     finally { setBusy(false); }
   };
 
@@ -102,10 +130,14 @@ export default function LocationQuickSetup({ header, demoReadOnly = false, demoS
     finally { setBusy(false); }
   };
   const deleteBuilding = async (building: MasterBuilding) => {
-    if (!window.confirm(`حذف المبنى ${building.officialCode}؟ ستتوقف قاعاته عن الاستخدام الجديد، مع الاحتفاظ بسجل المواعيد القديمة.`)) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const result = await request(`/api/admin/location-setup/buildings/${encodeURIComponent(building.id)}`, { method: "DELETE" });
+      const usage = await request(`/api/admin/location-setup/usage?buildingId=${encodeURIComponent(building.id)}`);
+      const inUse = Boolean(usage.current || usage.future);
+      setBusy(false);
+      if (!(await visualConfirm({ title: `حذف المبنى ${building.officialCode}`, message: `ستتوقف قاعاته عن الاستخدام الجديد، مع الاحتفاظ بسجل المواعيد القديمة. ${usageLine(usage)}`, confirmLabel: inUse ? "أوقفه رغم المواعيد" : "حذف المبنى", tone: "danger" }))) return;
+      setBusy(true);
+      const result = await request(`/api/admin/location-setup/buildings/${encodeURIComponent(building.id)}`, { method: "DELETE", headers: inUse ? { "X-Schedule-Confirm": IN_USE } : {} });
       setBuildingId(""); setEditingBuilding(null); setData(current => ({ ...current, buildings: current.buildings.filter(item => item.id !== building.id), rooms: current.rooms.filter(room => room.buildingId !== building.id) })); setNotice(`حُذف المبنى ${building.officialCode} وأُوقفت ${countOf(result.deactivatedRoomCount, AR.room)} تابعة له.`);
     } catch (e: any) { setError(e?.message || "تعذر حذف المبنى"); }
     finally { setBusy(false); }
@@ -125,10 +157,14 @@ export default function LocationQuickSetup({ header, demoReadOnly = false, demoS
     finally { setBusy(false); }
   };
   const deleteRoom = async (room: MasterRoom) => {
-    if (!window.confirm(`حذف القاعة ${room.canonicalCode}؟ ستتوقف عن الاستخدام الجديد، مع الاحتفاظ بسجل المواعيد القديمة.`)) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      await request(`/api/admin/location-setup/rooms/${encodeURIComponent(room.id)}`, { method: "DELETE" });
+      const usage = await request(`/api/admin/location-setup/usage?roomId=${encodeURIComponent(room.id)}`);
+      const inUse = Boolean(usage.current || usage.future);
+      setBusy(false);
+      if (!(await visualConfirm({ title: `حذف القاعة ${room.canonicalCode}`, message: `ستتوقف عن الاستخدام الجديد، مع الاحتفاظ بسجل المواعيد القديمة. ${usageLine(usage)}`, confirmLabel: inUse ? "أوقفها رغم المواعيد" : "حذف القاعة", tone: "danger" }))) return;
+      setBusy(true);
+      await request(`/api/admin/location-setup/rooms/${encodeURIComponent(room.id)}`, { method: "DELETE", headers: inUse ? { "X-Schedule-Confirm": IN_USE } : {} });
       setEditingRoom(null); setData(current => ({ ...current, rooms: current.rooms.filter(item => item.id !== room.id) })); setNotice(`حُذفت القاعة ${room.canonicalCode} وحُفظ سجلها التاريخي.`);
     } catch (e: any) { setError(e?.message || "تعذر حذف القاعة"); }
     finally { setBusy(false); }
@@ -170,7 +206,7 @@ export default function LocationQuickSetup({ header, demoReadOnly = false, demoS
     <Surface className="location-quick-directory"><header><div><h2>{currentBuilding ? `${currentBuilding.officialCode} · القاعات` : "المباني والقاعات"}</h2><p>{loading ? "جارٍ تحميل السجل…" : `${countOf(buildings.length, AR.building)} · ${countOf(visibleRooms.length, AR.room)} ظاهرة`}</p></div><SecondaryButton type="button" data-guide-ignore="تحديث سجل المباني والقاعات" onClick={() => void load()}>تحديث</SecondaryButton></header>
       {currentBuilding ? <RoomDoorBuildingActions links={doorLinks}/> : null}
       {!loading && !currentBuilding ? <div className="location-quick-empty"><Building2/><strong>اختر موقعًا لعرض مبانيه</strong></div> : null}
-      {visibleRooms.length ? <div className="location-quick-room-list">{visibleRooms.map(room => { const fullCode = `${room.buildingCode}${room.canonicalCode}`; return <article key={room.id}><div className="location-room-code-line"><DoorOpen aria-hidden="true"/><strong className="location-room-full-code" dir="ltr">{fullCode}</strong>{room.sectionIds.length > 1 ? <Badge>مشتركة</Badge> : null}{room.active?<Badge>فعّالة</Badge>:<Badge>غير فعّالة</Badge>}{room.bookingPolicy==="companion_only"?<Badge>مرفق مرافق فقط</Badge>:room.bookingPolicy==="blocked"?<Badge>الحجز غير متاح</Badge>:null}</div><small>{room.sectionIds.map(id => data.sections.find(item => Number(item.AdSectionId) === Number(id))?.AdSectionName).filter(Boolean).join(" · ") || "غير مخصصة"}{room.roomType ? ` · ${room.roomType}` : ""}</small><div className="location-quick-item-actions"><button type="button" data-guide-ignore="تعديل القاعة" aria-label={`تعديل القاعة ${fullCode}`} title="تعديل القاعة" disabled={busy || demoReadOnly} onClick={() => startRoomEdit(room)}><Pencil aria-hidden="true"/><span>تعديل</span></button><button type="button" data-guide-ignore="حذف القاعة مع حفظ السجل التاريخي" aria-label={`حذف القاعة ${fullCode}`} title="حذف القاعة" disabled={busy || demoReadOnly} onClick={() => void deleteRoom(room)}><Trash2 aria-hidden="true"/><span>حذف</span></button></div></article>; })}</div> : null}
+      {visibleRooms.length ? <div className="location-quick-room-list">{visibleRooms.map(room => { const fullCode = `${room.buildingCode}${room.canonicalCode}`; return <article key={room.id}><div className="location-room-code-line"><DoorOpen aria-hidden="true"/><strong className="location-room-full-code" dir="ltr">{fullCode}</strong>{room.sectionIds.length > 1 ? <Badge>مشتركة</Badge> : null}{room.active?<Badge>فعّالة</Badge>:<Badge>غير فعّالة</Badge>}{room.bookingPolicy==="companion_only"?<Badge>مرفق مرافق فقط</Badge>:room.bookingPolicy==="blocked"?<Badge>الحجز غير متاح</Badge>:null}</div><small>{room.sectionIds.map(id => data.sections.find(item => Number(item.AdSectionId) === Number(id))?.AdSectionName).filter(Boolean).join(" · ") || "غير مخصصة"}{room.roomType ? ` · ${room.roomType}` : ""}</small><div className="location-quick-item-actions"><RoomDoorQr links={doorLinks} roomId={room.id}/><button type="button" data-guide-ignore="تعديل القاعة" aria-label={`تعديل القاعة ${fullCode}`} title="تعديل القاعة" disabled={busy || demoReadOnly} onClick={() => startRoomEdit(room)}><Pencil aria-hidden="true"/><span>تعديل</span></button><button type="button" data-guide-ignore="حذف القاعة مع حفظ السجل التاريخي" aria-label={`حذف القاعة ${fullCode}`} title="حذف القاعة" disabled={busy || demoReadOnly} onClick={() => void deleteRoom(room)}><Trash2 aria-hidden="true"/><span>حذف</span></button></div></article>; })}</div> : null}
       {!visibleRooms.length && !loading ? <div className="location-quick-empty"><DoorOpen/><strong>لا توجد قاعات مطابقة للفلاتر</strong><span>يمكنك إضافة قاعات من بطاقة المبنى المحدد.</span></div> : null}
     </Surface>
   </div>;

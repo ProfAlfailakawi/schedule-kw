@@ -47,6 +47,8 @@ import {
 import { withoutProposalPlaces } from "../utils/proposalTeacherView";
 import { sheetTagOf } from "../utils/sheetTag";
 import { loadLimitOf } from "../utils/teachingLoad";
+import { reopenRequestFromProposal, settleRequestFromProposal } from "../utils/proposalSettlesRequest";
+import { pushHooks } from "./pushRoutes";
 
 export interface StudyProposalRouteDeps extends EngineDeps {
   requirePermission: (formNameId: number) => RequestHandler;
@@ -197,12 +199,8 @@ function pushEvent(proposal: StudyProposal, event: Omit<StudyProposalEvent, "at"
 /** يضيف حدثاً إلى سجل طلب الأستاذ (يظهر في الحوار). فشلُه لا يُبطل ما كُتب. */
 async function noteOnRequest(requestId: string, kind: InstructorRequestEventKind, by: string | undefined, detail: string): Promise<void> {
   try {
-    const request = await Repository.getInstructorRequest(requestId);
-    if (!request) return;
-    await Repository.saveInstructorRequest({
-      ...request,
-      timeline: [...(request.timeline || []), { kind, at: new Date().toISOString(), ...(by ? { by } : {}), detail }].slice(-300),
-    });
+    /* حقلُ السجلّ وحده: لا يُرفع ختمُ الطلب، فلا يُردّ إرسالُ أستاذٍ يكتب الآن بـ«تغيّر الطلب». */
+    await Repository.appendInstructorRequestTimeline(requestId, { kind, at: new Date().toISOString(), ...(by ? { by } : {}), detail });
   } catch (error) {
     console.error("[study-proposal] تعذّر تسجيل الحدث في الحوار:", error instanceof Error ? error.message : error);
   }
@@ -575,6 +573,8 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     try {
       const saved = await Repository.saveStudyProposal(next, expectedRev);
       await noteOnRequest(proposal.requestId, revised ? "study-proposal-revised" : "study-proposal-sent", by, `${saved.id}|${saved.version}`);
+      /* يصل الأستاذَ تنبيهٌ إلى كرته إن فعّله منه — نصٌّ عامّ بلا مقرّرٍ ولا قاعة. */
+      if (!(Repository.isDemoMode() || Repository.isDemoRequest())) await pushHooks.proposalSent(String(saved.linkId || ""), saved.id, revised);
       deps.broadcastNotify(deps.demoSessionId());
       res.json({ ...staffView(saved, termClosedOf(world)), alreadySent: false, evaluation });
     } catch (error) {
@@ -659,6 +659,8 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     try {
       const result = await Repository.commitStudyProposal({
         reverse: true, proposalId: proposal.id, expectedRev: proposal.rev, termId: proposal.AdTermId,
+        /* ما ثبّته المقترحُ من بنود الطلب يعود معلّقاً مع الجدول نفسه. */
+        settleRequest: request => reopenRequestFromProposal(request, proposal.id, new Date().toISOString(), by),
         creates: undo.deletedRows as any, updates: undo.updates.map(item => ({ id: item.id, fields: item.fields, expectedRev: item.rev })),
         deletes: undo.created.map(item => ({ id: item.id, expectedRev: item.rev })),
         /* ما فُحص عليه الوقت القديم ثم تغيّر قبل الكتابة (حجزٌ جديد للأستاذ أو القاعة) يلغي التراجع كلَّه. */
@@ -823,6 +825,8 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     try {
       const result = await Repository.commitStudyProposal({
         proposalId: proposal.id, expectedRev, creates, updates, deletes, termId: proposal.AdTermId,
+        /* بندُ الأستاذ الذي عالجه المقترح يُثبَّت معه ويُفكّ حجزُه في المعاملة نفسها (utils/proposalSettlesRequest). */
+        settleRequest: (request, written) => settleRequestFromProposal(request, proposal, ops, new Date().toISOString(), by, written),
         /* ما قُيِّم عليه المقترح ثم تغيّر قبل الكتابة (صفٌّ جديد أو معدَّل للأستاذ أو الشعبة أو القاعة) يُلغي التثبيت كاملاً. */
         guard: termRows => {
           const seen = new Map<number, number>(world.termRows.map((r: FSchedule) => [Number(r.id), Number(r.rev || 0)]));
@@ -860,6 +864,8 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
       });
       await noteWrites(req, proposal.AdTermId, touchedScopes, versions, result, deletes.map(d => liveById.get(d.id)!).filter(Boolean));
       await noteOnRequest(proposal.requestId, "study-proposal-committed", by, proposal.id);
+      /* لا يُدفع شيءٌ من صندوق العرض (كتذكير «ذكّر من لم يرد»). */
+      if (!(Repository.isDemoMode() || Repository.isDemoRequest())) await pushHooks.proposalCommitted(String(proposal.linkId || ""));
       if (gate.issues.length) res.locals.auditChanges = `تثبيت مقترح دراسي${gate.auditSuffix()}`;
       deps.broadcastNotify(deps.demoSessionId());
       res.json({ ...staffView(result.proposal, termClosedOf(world)), committed: true });

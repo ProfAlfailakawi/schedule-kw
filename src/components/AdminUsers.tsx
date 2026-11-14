@@ -36,6 +36,7 @@ import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import type { HeadPlanRow } from "../utils/departmentHeadAccounts";
 import CampusChip from "./CampusChip";
 import AppointmentMeasureCard from "./AppointmentMeasureCard";
+import { IMPORT_PHRASE, RESET_PHRASE, UNDO_PHRASE } from "../utils/vaultPhrases";
 
 /* «نسخ فصل» is administration, not day-to-day scheduling: it belongs on this
    rail beside the users, the scopes and the log. It keeps its own screen and
@@ -53,14 +54,25 @@ interface SafeUser {
   IsLocked: boolean;
   AdInstructorId?: number;
   Role?: AcademicRole;
+  /** حسابُ الإدارة الرئيسي (ROOT_ADMIN_USER_ID): لا يعدّله ولا يحذفه إلا صاحبه. */
+  IsRootAccount?: boolean;
 }
 interface Props {
   mode: AdminMode;
   onNavigate?: (mode: AdminMode) => void;
   permissions?: number[];
   rootAdmin?: boolean;
+  /** صاحبُ الجلسة: لا يوقف حسابه ولا يقفله ولا يحذفه (src/server/userAdminGuards.ts). */
+  currentUserId?: number;
   demoReadOnly?: boolean;
 }
+
+/** مديرٌ فاعل: المرآةُ في الواجهة لـisActiveAdmin في الخادم (src/server/userAdminGuards.ts). */
+const activeAdmin = (user: SafeUser) => user.IsActive && !user.IsLocked && (user.IsAdminUser || Boolean(user.IsRootAccount));
+const sameSet = (a: number[], b: number[]) => a.length === b.length && [...a].sort((x, y) => x - y).every((value, index) => value === [...b].sort((x, y) => x - y)[index]);
+const AUDIT_PAGE = 200;
+/** طولُ كلمة السر التي يكتبها مسؤول: ما تُلزم به شاشةُ «تغيير كلمة السر» (MIN_PASSWORD_LENGTH). */
+const MIN_ADMIN_PASSWORD = 8;
 
 interface BackupPreview {
   valid: boolean;
@@ -99,7 +111,7 @@ interface ImportJob {
   id: string;
   createdAt: string;
   updatedAt: string;
-  status: "running" | "ready" | "failed";
+  status: "running" | "ready" | "failed" | "abandoned";
   phase: "safety" | "apply" | "finalizing";
   totalUnits: number;
   completedUnits: number;
@@ -192,6 +204,7 @@ export default function AdminUsers({
   onNavigate,
   permissions = [],
   rootAdmin = false,
+  currentUserId = 0,
   demoReadOnly = false,
 }: Props) {
   /* شاشةُ «الصلاحيات» المستقلة أُزيلت (Note 26): الصلاحياتُ تُحرَّر داخل شاشة المستخدمين،
@@ -252,7 +265,25 @@ export default function AdminUsers({
     [isAdmin, setIsAdmin] = useState(false),
     [isActive, setIsActive] = useState(true),
     [isLocked, setIsLocked] = useState(false),
-    [linkedInstructor, setLinkedInstructor] = useState(0);
+    [linkedInstructor, setLinkedInstructor] = useState(0),
+    /* كلمتُك أنت لا تُغيَّر من هنا إلا بالحالية (الخادم يطلبها كما في «تغيير كلمة السر»). */
+    [currentPassword, setCurrentPassword] = useState(""),
+    /* صورةُ النموذج لحظةَ فتحه: إغلاقُه بعد تعديلٍ لم يُحفظ يُسأل عنه. */
+    [userFormSnapshot, setUserFormSnapshot] = useState("");
+  /* السجلُّ صفحةً صفحة، بنطاق تاريخ. */
+  const [auditFrom, setAuditFrom] = useState(""),
+    [auditTo, setAuditTo] = useState(""),
+    [auditMore, setAuditMore] = useState(false),
+    [auditBusy, setAuditBusy] = useState(false);
+  /* عبارةُ التأكيد المكتوبة لاستيراد النسخة والتراجع الكامل (كما «تصفير النظام»). */
+  const [confirmPhrase, setConfirmPhrase] = useState("");
+  /* مرآةُ حُرّاس الخادم في النموذج (src/server/userAdminGuards.ts): تُطفأ الخانة ويُقال السبب. */
+  const editingSelf = Boolean(editUserId) && editUserId === currentUserId;
+  const editedUser = editUserId ? users.find(user => user.SystemUserId === editUserId) || null : null;
+  const lastActiveAdmin = Boolean(editedUser && activeAdmin(editedUser) && !users.some(user => user.SystemUserId !== editedUser.SystemUserId && activeAdmin(user)));
+  const roleLocked = Boolean(editUserId) && !rootAdmin && !permissions.includes(12);
+  const statusLockReason = editingSelf ? "لا يمكنك إيقاف حسابك أو قفله." : lastActiveAdmin ? "هذا آخر مديرٍ فاعل؛ لا يُوقف ولا يُقفل." : "";
+  const adminLockReason = !rootAdmin ? "منح «مدير» أو نزعها لحساب الإدارة الرئيسي وحده." : editingSelf && isAdmin ? "لا تنزع «مدير» عن حسابك أنت." : lastActiveAdmin && isAdmin ? "هذا آخر مديرٍ فاعل." : "";
   const [permUser, setPermUser] = useState(0),
     [permSelections, setPermSelections] = useState<number[]>([]),
     [scopeUser, setScopeUser] = useState(0),
@@ -297,6 +328,8 @@ export default function AdminUsers({
     xhr.responseType = "text";
     xhr.setRequestHeader("Content-Type", file.name.endsWith(".gz") ? "application/gzip" : "application/octet-stream");
     xhr.setRequestHeader("X-Schedule-Confirm", "FULL-SYSTEM-IMPORT");
+    /* العبارةُ العربية مُرمّزة: الترويسةُ لا تحمل إلا ASCII، والخادم يفكّها ويطابقها. */
+    xhr.setRequestHeader("X-Schedule-Phrase", encodeURIComponent(IMPORT_PHRASE));
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
       const percent = Math.max(1, Math.min(100, Math.round((event.loaded / event.total) * 100)));
@@ -508,7 +541,7 @@ export default function AdminUsers({
       return;
     }
     if (!backupFile || !backupPreview) { setError("افحص النسخة أولاً قبل الاستيراد"); return; }
-    if (!confirmed) { setBackupConfirm("import"); return; }
+    if (!confirmed) { setConfirmPhrase(""); setBackupConfirm("import"); return; }
     setBackupConfirm(null);
     setBackupMessage("أرفع النسخة مرة واحدة؛ بعد ذلك كل مرحلة تحفظ تقدمها تلقائياً.");
     setError(null);
@@ -526,8 +559,28 @@ export default function AdminUsers({
       setError(e.message || "تعذر بدء الاستيراد");
     }
   };
+  /* إلغاءُ استيرادٍ متوقف: إن كان قد بدأ الاستبدال يعيد الخادمُ النظامَ من نقطة الأمان التي حفظها قبله. */
+  const abandonImport = async () => {
+    if (!importJob || !["running", "failed"].includes(importJob.status)) return;
+    if (!(await visualConfirm({
+      title: "إلغاء الاستيراد",
+      message: "يتوقف هذا الاستيراد نهائياً. إن كان قد بدأ استبدال البيانات يعيد الخادم النظام كاملاً إلى نقطة الأمان التي حُفظت قبله، ثم تستطيع رفع ملفٍّ آخر.",
+      confirmLabel: "ألغِ الاستيراد وعُد لنقطة الأمان",
+      tone: "danger",
+      safeCancel: true,
+    }))) return;
+    importRunner.current += 1;
+    setError(null); setBackupMessage(null); setBackupBusy("import");
+    try {
+      const result = await api(`/api/system-backup/import-jobs/${encodeURIComponent(importJob.id)}`, { method: "DELETE", headers: { "X-Schedule-Confirm": "FULL-SYSTEM-IMPORT-ABANDON" } });
+      setBackupFile(null); setBackupPreview(null); setImportUploadPercent(0);
+      await refreshBackupStatus();
+      setBackupMessage(result.rolledBack ? "أُلغي الاستيراد وعاد النظام إلى نقطة الأمان التي سبقته." : "أُلغي الاستيراد قبل أن يتغيّر شيء.");
+    } catch (e: any) { setError(e.message); }
+    finally { setBackupBusy(null); }
+  };
   const resetFullSystem = async (confirmed = false) => {
-    if (resetPhrase !== "تصفير النظام") { setError("اكتب «تصفير النظام» حرفياً للتأكيد"); return; }
+    if (resetPhrase !== RESET_PHRASE) { setError(`اكتب «${RESET_PHRASE}» حرفياً للتأكيد`); return; }
     if (!confirmed) { setBackupConfirm("reset"); return; }
     setBackupConfirm(null); setBackupMessage(null); setError(null); setBackupBusy("reset");
     try {
@@ -542,10 +595,10 @@ export default function AdminUsers({
   };
   const undoSystemOperation = async (confirmed = false) => {
     if (!backupStatus?.latest) { setError("لا توجد نقطة تراجع متاحة"); return; }
-    if (!confirmed) { setBackupConfirm("undo"); return; }
+    if (!confirmed) { setConfirmPhrase(""); setBackupConfirm("undo"); return; }
     setBackupConfirm(null); setBackupMessage(null); setError(null); setBackupBusy("undo");
     try {
-      await api("/api/system-backup/undo", { method: "POST", headers: { "Content-Type": "application/json", "X-Schedule-Confirm": "FULL-SYSTEM-UNDO" } });
+      await api("/api/system-backup/undo", { method: "POST", headers: { "Content-Type": "application/json", "X-Schedule-Confirm": "FULL-SYSTEM-UNDO" }, body: JSON.stringify({ phrase: UNDO_PHRASE }) });
       await refreshBackupStatus();
       setBackupMessage("تم التراجع الكامل بنجاح، وحُفظت الحالة التي غادرتها كنقطة إعادة آمنة.");
     } catch (e: any) { setError(e.message); }
@@ -605,15 +658,49 @@ export default function AdminUsers({
          النطاقات يبقى قادراً على عمله، ويفقد ملءَ حقل الكليات وحده — لا
          الشاشة كلها. */
       if (mode === "users") setAssigns(await api("/api/user-scopes").catch(() => []));
-      if (mode === "audit") setLogs(await api("/api/audit-logs?limit=500"));
+      if (mode === "audit") await loadAuditPage(false);
     } catch (e: any) {
       setError(e.message);
     }
+  };
+  /**
+   * السجلُّ صفحةً صفحة: الأحدث أولاً، و«المزيد» يطلب ما قبل آخر سطرٍ ظاهر (before)، ونطاقُ التاريخ
+   * يُطبَّق على الخادم — فلا يقف البحثُ عند آخر خمسمئة عملية.
+   */
+  const loadAuditPage = async (append: boolean) => {
+    const params = new URLSearchParams({ limit: String(AUDIT_PAGE) });
+    if (auditFrom) params.set("from", new Date(`${auditFrom}T00:00:00`).toISOString());
+    if (auditTo) params.set("to", new Date(`${auditTo}T23:59:59.999`).toISOString());
+    const last = append ? logs[logs.length - 1] : null;
+    /* الطابعُ والرقمُ معاً: أسطرٌ تشاركت الطابعَ عند حدّ الصفحة لا يسقط منها شيء. */
+    if (last?.timestamp) { params.set("before", String(last.timestamp)); if (last.id) params.set("beforeId", String(last.id)); }
+    setAuditBusy(true);
+    try {
+      const page = await api(`/api/audit-logs?${params}`) as AuditLogEntry[];
+      setLogs(current => (append ? [...current, ...page] : page));
+      setAuditMore(page.length === AUDIT_PAGE);
+    } finally { setAuditBusy(false); }
+  };
+  /* تصديرُ ما يظهر في القائمة (بعد البحث والتصفية) ملفَّ CSV يُفتح في Excel بالعربية. */
+  const exportAudit = (rows: AuditLogEntry[]) => {
+    const cell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const head = ["الوقت", "المستخدم", "العملية", "الكيان", "العنصر", "ما تغيّر", "الحالة", "المسار"];
+    const lines = rows.map(x => [x.timestamp, x.userName, x.action, auditEntityLabel(x.entity), x.entityId || "", x.changes || "", x.status, x.path].map(cell).join(","));
+    const blob = new Blob([`﻿${[head.map(cell).join(","), ...lines].join("\r\n")}`], { type: "text/csv;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `audit-log-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    window.setTimeout(() => { link.remove(); window.URL.revokeObjectURL(url); }, 1000);
   };
   useEffect(() => {
     // Stop only the browser-side driver when leaving the screen. The durable
     // server checkpoint remains resumable when the vault is opened again.
     exportRunner.current += 1;
+    /* ومتابِعُ الاستيراد كذلك: ما حفظه الخادم يبقى، ويُستكمل حين تُفتح الخزنة ثانيةً. */
+    importRunner.current += 1;
     setBackupBusy(null);
     setPage("index");
     setQuery("");
@@ -660,6 +747,8 @@ export default function AdminUsers({
       () => new Map(sections.map((s) => [s.AdSectionId, s])),
       [sections],
     );
+  /* صفُّ «القسم صفر» معناه الكلية كلها (FR-ACC-019)، لا قسمٌ مجهول. */
+  const scopeSectionLabel = (a: AdCollegeUserAssign) => !Number(a.AdSectionId) ? "الكلية كلها" : sectionById.get(a.AdSectionId)?.AdSectionName || "قسم غير موجود";
   const filteredSections = sections.filter(
     (s) => !scopeCollege || s.AdCollegeId === scopeCollege,
   );
@@ -672,15 +761,18 @@ export default function AdminUsers({
     setIsActive(true);
     setIsLocked(false);
     setLinkedInstructor(0);
+    setCurrentPassword("");
   };
+  /* لقطةُ حقول النموذج: تُقارن عند الإغلاق، فلا يضيع ما كُتب بنقرةٍ على الخلفية. */
+  const userFormState = () => JSON.stringify([name, login, password, isAdmin, isActive, isLocked, linkedInstructor, role, [...roleColleges].sort()]);
+  /* لا تُمسح هنا صلاحياتُ الحساب المختار: الشبكةُ مربوطةٌ به، وتُعاد بذرتُها من الخادم بعد كل حفظ.
+     مسحُها كان يُظهر «0 من N» بعد الحفظ، ويجعل الحفظ الثاني يقول «اختر المستخدم». */
   const back = () => {
     setPage("index");
     setError(null);
     resetUser();
     setRole("committeeChair");
     setRoleColleges([]);
-    setPermUser(0);
-    setPermSelections([]);
     setScopeUser(0);
     setScopeCollege(0);
     setScopeSection(0);
@@ -692,6 +784,16 @@ export default function AdminUsers({
       setError("الرجاء إدخال الحقول المطلوبة بالأحمر");
       return;
     }
+    if (password && password.length < MIN_ADMIN_PASSWORD) { setError(`كلمة السر ${countOf(MIN_ADMIN_PASSWORD, AR.character)} على الأقل`); return; }
+    if (password && editingSelf && !currentPassword) { setError("لتغيير كلمة سرّك اكتب كلمة السر الحالية."); return; }
+    /* صفةُ كليةٍ بلا كلية: الخادم يقرؤها سحباً صريحاً للنطاق كله، فتُسأل قبل أن تقع. */
+    if (roleDefinition(role).scopeMode === "college" && !roleColleges.length && !(await visualConfirm({
+      title: "بلا كلية",
+      message: `لم تُختر كلية لصفة «${roleDefinition(role).label}». الحفظ هكذا يسحب نطاق الحساب كله فلا يرى شيئاً. متابعة؟`,
+      confirmLabel: "احفظ بلا نطاق",
+      tone: "warning",
+      safeCancel: true,
+    }))) return;
     try {
       await api(editUserId ? `/api/users/${editUserId}` : "/api/users", {
         method: editUserId ? "PUT" : "POST",
@@ -700,6 +802,7 @@ export default function AdminUsers({
           Name: name.trim(),
           SystemUserLogin: login.trim(),
           password: password || undefined,
+          currentPassword: password && editingSelf ? currentPassword : undefined,
           IsAdminUser: isAdmin,
           IsActive: isActive,
           IsLocked: isLocked,
@@ -739,20 +842,43 @@ export default function AdminUsers({
      * رئيس تسجيلٍ إلى عميد، لظهرت الجامعةُ كلها مختارةً في نموذجه — ولكتبها
      * الحفظُ نطاقاً لعميدٍ كليتُه واحدة، دون أن يُلاحظ أحد.
      */
-    setRoleColleges(
-      roleDefinition(storedRole).scopeMode === "college"
-        ? assigns
-            .filter((row) => row.SystemUserId === u.SystemUserId && !row.AdSectionId)
-            .map((row) => Number(row.AdCollegeId))
-        : [],
-    );
+    const storedColleges = roleDefinition(storedRole).scopeMode === "college"
+      ? assigns
+          .filter((row) => row.SystemUserId === u.SystemUserId && !row.AdSectionId)
+          .map((row) => Number(row.AdCollegeId))
+      : [];
+    setRoleColleges(storedColleges);
+    setUserFormSnapshot(JSON.stringify([u.Name, u.SystemUserLogin, "", u.IsAdminUser, u.IsActive, u.IsLocked, Number(u.AdInstructorId || 0), storedRole, [...storedColleges].sort()]));
     setPage("edit");
   };
+  const startCreateUser = () => {
+    resetUser();
+    setRole("committeeChair");
+    setRoleColleges([]);
+    setUserFormSnapshot(JSON.stringify(["", "", "", false, true, false, 0, "committeeChair", []]));
+    setPage("create");
+  };
+  /* إغلاقُ النموذج (الخلفية، Escape، «إلغاء») بعد تعديلٍ لم يُحفظ يُسأل عنه. */
+  const closeUserDrawer = async () => {
+    if (userFormState() !== userFormSnapshot && !(await visualConfirm({ title: "تغييرات لم تُحفظ", message: "أُغلق النموذج وتضيع التعديلات التي كتبتها؟", confirmLabel: "أغلق دون حفظ", tone: "warning", safeCancel: true }))) return;
+    back();
+  };
+  /* صلاحياتٌ بُدّلت في الشبكة ولم تُحفظ: الانتقالُ إلى حسابٍ آخر يُسأل عنه، فلا تضيع بصمت. */
+  const savedPermsOf = (userId: number | null): number[] => perms.filter((item) => item.SystemUserId === userId).map((item) => Number(item.FormNameId));
+  const permDirty = mode === "users" && Boolean(selectedUserId) && !sameSet(Array.from(new Set<number>(permSelections)), Array.from(new Set<number>(savedPermsOf(selectedUserId))));
+  const selectUser = async (id: number) => {
+    if (id === selectedUserId) return;
+    if (permDirty && !(await visualConfirm({ title: "صلاحيات لم تُحفظ", message: "بدّلت صلاحيات هذا الحساب ولم تحفظها. الانتقال إلى حسابٍ آخر يتجاهلها.", confirmLabel: "تجاهلها وانتقل", tone: "warning", safeCancel: true }))) return;
+    setSelectedUserId(id);
+  };
+  /* لماذا لا يُحذف هذا الحساب؟ المرآةُ في الواجهة لـuserDeleteRefusal في الخادم. */
+  const deleteRefusal = (u: SafeUser | null) => !u ? "" : u.IsRootAccount ? "حساب الإدارة الرئيسي لا يُحذف." : u.SystemUserId === currentUserId ? "لا يمكنك حذف حسابك أنت." : activeAdmin(u) && !users.some(other => other.SystemUserId !== u.SystemUserId && activeAdmin(other)) ? "هذا آخر مديرٍ فاعل؛ لا يُحذف." : "";
   const deleteUser = async (id: number) => {
     // Deletion now removes the account's permissions and departments with it,
     // so the sentence says so — a confirmation that hides half the consequence
     // is not a confirmation.
     const who = users.find(user => user.SystemUserId === id);
+    if (deleteRefusal(who || null)) { setError(deleteRefusal(who || null)); return; }
     if (!(await visualConfirm({
       title: `حذف «${who?.Name || "المستخدم"}»`,
       message: "ستُحذف معه صلاحياته وارتباطه بالأقسام العلمية، ولا يمكن التراجع.",
@@ -785,7 +911,6 @@ export default function AdminUsers({
         body: JSON.stringify({ FormNameIds: [...new Set(permSelections)] }),
       });
       await load();
-      back();
     } catch (e: any) {
       setError(e.message);
     }
@@ -826,6 +951,23 @@ export default function AdminUsers({
     }
   };
 
+  const permissionLockReason = (target: SafeUser | null, formId: number, active: boolean) => {
+    if (!target) return "";
+    if (target.IsRootAccount && !rootAdmin) return "صلاحيات حساب الإدارة الرئيسي يعدّلها صاحبه وحده.";
+    if (target.SystemUserId === currentUserId && active && (formId === 11 || formId === 12)) return "لا تنزع شاشة المستخدمين أو الصلاحيات عن حسابك أنت.";
+    return "";
+  };
+  /* المعاينةُ من الخادم نفسه الذي يُنشئ (departmentHeadAccounts): لا يُنشأ إلا ما عُرض. */
+  const openHeadPlan = async (kind: "department-heads" | "advisors") => {
+    setHeadBusy(true); setError(null); setHeadMessage(null);
+    try {
+      const result = await api(`/api/users/${kind}/preview`);
+      setPlanKind(kind);
+      setHeadPlan(result.rows || []);
+    } catch (e: any) { setError(e.message); }
+    finally { setHeadBusy(false); }
+  };
+
   // Only the open section's records are loaded, so the rail stays purely
   // navigational rather than showing counts it would have to guess at.
   const tabs = [
@@ -842,10 +984,11 @@ export default function AdminUsers({
       ? { value: "scopes", label: "النطاقات", icon: <Building2 /> }
       : null,
     { value: "audit", label: "السجل", icon: <ScrollText /> },
-    rootAdmin ? { value: "roomSetup", label: "إضافة مبانٍ وقاعات", icon: <DoorOpen /> } : null,
+    /* الحارسُ نفسه في الخادم: الحساب الرئيسي مع شاشة الجدول (٧). */
+    rootAdmin && permissions.includes(7) ? { value: "roomSetup", label: "إضافة مبانٍ وقاعات", icon: <DoorOpen /> } : null,
     { value: "sectionHours", label: "أوقات دوام الأقسام", icon: <Clock3 /> },
-    rootAdmin ? { value: "teachingLoad", label: "النصاب التدريسي", icon: <GraduationCap /> } : null,
-    rootAdmin ? { value: "copyTerm", label: "نسخ فصل", icon: <CopyPlus /> } : null,
+    rootAdmin && permissions.includes(7) ? { value: "teachingLoad", label: "النصاب التدريسي", icon: <GraduationCap /> } : null,
+    rootAdmin && permissions.includes(7) ? { value: "copyTerm", label: "نسخ فصل", icon: <CopyPlus /> } : null,
     rootAdmin ? { value: "backup", label: "النسخة الاحتياطية", icon: <DatabaseBackup /> } : null,
   ].filter(Boolean) as Array<{ value: string; label: string; icon: React.ReactNode }>;
   // One header line for the whole console: the section rail plus whatever the
@@ -886,7 +1029,7 @@ export default function AdminUsers({
   }
 
   const usersFormDrawer = (mode === "users" && page !== "index") ? (
-      <CatalogFormDrawer onClose={back} label={page === "create" ? "إنشاء مستخدم" : "تعديل المستخدم"}>
+      <CatalogFormDrawer onClose={() => void closeUserDrawer()} label={page === "create" ? "إنشاء مستخدم" : "تعديل المستخدم"}>
         <PageTitle
           eyebrow="إدارة النظام"
           subtitle="يمكن ربطه بأستاذ مقرر"
@@ -923,7 +1066,7 @@ export default function AdminUsers({
               <Field
                 label="كلمة السر"
                 required={!editUserId}
-                hint={editUserId ? "اتركها فارغة للإبقاء على كلمة السر الحالية" : undefined}
+                hint={`${editUserId ? "اتركها فارغة للإبقاء على كلمة السر الحالية. " : ""}${countOf(MIN_ADMIN_PASSWORD, AR.character)} على الأقل${editUserId && !editingSelf ? "، ويغيّرها صاحبها عند دخوله." : "."}`}
               >
                 <input
                   type="password"
@@ -932,8 +1075,15 @@ export default function AdminUsers({
                   placeholder={editUserId ? "••••••••" : ""}
                   onChange={(e) => setPassword(e.target.value)}
                   required={!editUserId}
+                  minLength={password ? MIN_ADMIN_PASSWORD : undefined}
                 />
               </Field>
+              {/* كلمتُك أنت: كما في «تغيير كلمة السر» — بالحالية، فلا تكفي جلسةٌ مفتوحة لتبديلها. */}
+              {editingSelf && password ? (
+                <Field label="كلمة السر الحالية" required hint="لتغيير كلمة سرّك أنت.">
+                  <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+                </Field>
+              ) : null}
               {/* ── الصفة ────────────────────────────────────────────────
                   حقلٌ واحد يختصر عشرين خطوة: اختياره يكتب شاشات الحساب
                   ونطاقه على الخادم في العملية نفسها. ولذلك يقف هنا قبل كل
@@ -941,10 +1091,11 @@ export default function AdminUsers({
               <Field
                 label="الصفة"
                 required
-                hint={roleDefinition(role).hint}
+                hint={roleLocked ? "تغيير الصفة يعيد كتابة شاشات الحساب، فيلزمه صلاحية شاشة الصلاحيات." : roleDefinition(role).hint}
               >
                 <select
                   className="role-select"
+                  disabled={roleLocked}
                   value={role}
                   onChange={(e) => {
                     const next = e.target.value as AcademicRole;
@@ -1019,31 +1170,38 @@ export default function AdminUsers({
               </Field>
               <Field label="حالة الحساب">
                 <div className="checkbox-row day-pills">
-                  <label>
+                  <label title={adminLockReason || undefined}>
                     <input
                       type="checkbox"
                       checked={isAdmin}
+                      disabled={Boolean(adminLockReason)}
                       onChange={(e) => setIsAdmin(e.target.checked)}
                     />
                     <span>مدير</span>
                   </label>
-                  <label>
+                  <label title={statusLockReason || undefined}>
                     <input
                       type="checkbox"
                       checked={isActive}
+                      disabled={Boolean(statusLockReason) && isActive}
                       onChange={(e) => setIsActive(e.target.checked)}
                     />
                     <span>فعال</span>
                   </label>
-                  <label>
+                  <label title={statusLockReason || undefined}>
                     <input
                       type="checkbox"
                       checked={isLocked}
+                      disabled={Boolean(statusLockReason) && !isLocked}
                       onChange={(e) => setIsLocked(e.target.checked)}
                     />
                     <span>مقفل</span>
                   </label>
                 </div>
+                {/* السببُ ظاهرٌ لا في التلميح وحده: الخانةُ المطفأة بلا جملةٍ تبدو عطلاً. */}
+                {adminLockReason || statusLockReason ? (
+                  <p className="soft-copy admin-guard-note" role="note">{[adminLockReason, statusLockReason].filter(Boolean).join(" ")}</p>
+                ) : null}
                 {/* «مدير» على صفة اطّلاع (N27): صلاحيةُ المدير تتجاوز الصفة —
                     نطاقاً وقراءةً للمسوّدات والبيانات الشخصية — فتُبطل «للاطّلاع فقط»
                     بصمت. يُقال ذلك هنا، لحظةَ الاختيار. */}
@@ -1054,7 +1212,7 @@ export default function AdminUsers({
                 ) : null}
               </Field>
             </div>
-            <FormActions onBack={back} />
+            <FormActions onBack={() => void closeUserDrawer()} submitLabel={page === "create" ? "إنشاء الحساب" : "حفظ التعديلات"} backLabel="إلغاء" />
           </form>
         </Surface>
       </CatalogFormDrawer>
@@ -1101,7 +1259,7 @@ export default function AdminUsers({
                     {(() => {
                       const mine = assigns.filter((a) => a.SystemUserId === scopeUser);
                       if (!mine.length) return "لا أقسام مسندة لهذا المستخدم بعد.";
-                      const names = [...new Set(mine.map((a) => sectionById.get(a.AdSectionId)?.AdSectionName).filter(Boolean))];
+                      const names = [...new Set(mine.map((a) => a.AdSectionId ? sectionById.get(a.AdSectionId)?.AdSectionName : `${collegeShortName(collegeById.get(a.AdCollegeId)?.AdCollegeName) || "كلية"} — الكلية كلها`).filter(Boolean))];
                       return `مسند حالياً إلى: ${names.join(" · ")}`;
                     })()}
                   </p>
@@ -1140,7 +1298,7 @@ export default function AdminUsers({
                 </select>
               </Field>
             </div>
-            <FormActions onBack={back} />
+            <FormActions onBack={back} submitLabel="إضافة النطاق" backLabel="إلغاء" />
           </form>
         </Surface>
       </CatalogFormDrawer>
@@ -1163,7 +1321,8 @@ export default function AdminUsers({
     const importPercent = importJob?.status === "ready" ? 100
       : importJob?.totalUnits ? Math.max(0, Math.min(99, Math.round((importJob.completedUnits / importJob.totalUnits) * 100)))
       : importUploadPercent;
-    const importStatusLabel = importJob?.status === "ready" ? "اكتمل الاستيراد"
+    const importStatusLabel = importJob?.status === "abandoned" ? (importJob.current || "أُلغي الاستيراد")
+      : importJob?.status === "ready" ? "اكتمل الاستيراد"
       : importJob?.status === "failed" ? "توقفت مرحلة — التقدم محفوظ"
       : importJob?.phase === "safety" ? "نقطة أمان قبل الاستيراد"
       : importJob?.phase === "apply" ? "استعادة البيانات"
@@ -1285,7 +1444,7 @@ export default function AdminUsers({
                   <i style={{ width: `${importPercent}%` }} />
                 </div>
                 <div className="vault-export-progress-meta">
-                  {importJob ? <span><b>{importJob.completedUnits.toLocaleString("ar-KW-u-nu-latn")}</b> / {countOf(importJob.totalUnits, AR.stage)}</span> : <span><b>{importUploadPercent}%</b> رفع الملف</span>}
+                  {importJob?.status === "abandoned" ? null : importJob ? <span><b>{importJob.completedUnits.toLocaleString("ar-KW-u-nu-latn")}</b> / {countOf(importJob.totalUnits, AR.stage)}</span> : <span><b>{importUploadPercent}%</b> رفع الملف</span>}
                   {importJob ? <span><b>{importJob.documentCount.toLocaleString("ar-KW-u-nu-latn")}</b> {nounFor(importJob.documentCount, AR.record)} في النسخة</span> : null}
                 </div>
                 {importJob?.current ? <small className="vault-export-current">{importJob.current}</small> : null}
@@ -1322,14 +1481,20 @@ export default function AdminUsers({
             <div className="vault-inline-actions">
               <SecondaryButton type="button" disabled={!backupFile || Boolean(backupBusy) || exportInProgress || importResumable} onClick={() => void previewBackup()}>{backupBusy === "preview" ? "أفحص…" : "فحص النسخة"}</SecondaryButton>
               <PrimaryButton type="button" data-guide-ignore="إجراء استيراد إداري حساس وله معاينة وتأكيد مستقلان" disabled={Boolean(backupBusy) || exportInProgress || (!importResumable && !backupPreview)} onClick={() => void importFullBackup()}>{backupBusy === "import" ? "أتابع الاستيراد…" : importResumable ? "استكمال الاستيراد" : "استيراد"}</PrimaryButton>
+              {/* استيرادٌ متوقف لا يسدّ الخزنة: يُلغى، ويعيد الخادمُ النظام من نقطة أمانه إن كان قد بدأ الاستبدال. */}
+              {importResumable ? (
+                <SecondaryButton type="button" className="danger-action" data-guide-ignore="إلغاء استيراد متوقف والعودة إلى نقطة أمانه؛ له تأكيد مستقل" disabled={Boolean(backupBusy)} title={backupBusy ? "انتظر توقف الخطوة الجارية" : undefined} onClick={() => void abandonImport()}>
+                  <X aria-hidden="true" /> إلغاء الاستيراد
+                </SecondaryButton>
+              ) : null}
             </div>
           </Surface>
 
           <Surface className="system-vault-action vault-reset">
             <span className="vault-action-icon"><Eraser /></span>
             <div><small>03</small><h3>تصفير النظام</h3><p>يمسح بيانات العمل كاملة ويُبقي حساب الإدارة الرئيسي فقط كي لا تفقد باب التراجع.</p></div>
-            <input className="vault-confirm-input" value={resetPhrase} onChange={(event) => setResetPhrase(event.target.value)} placeholder="اكتب: تصفير النظام" aria-label="عبارة التأكيد" autoComplete="off" />
-            <SecondaryButton type="button" disabled={resetPhrase !== "تصفير النظام" || vaultLocked} onClick={() => void resetFullSystem()}>
+            <input className="vault-confirm-input" value={resetPhrase} onChange={(event) => setResetPhrase(event.target.value)} placeholder={`اكتب: ${RESET_PHRASE}`} aria-label="عبارة التأكيد" autoComplete="off" />
+            <SecondaryButton data-guide-ignore="تصفير النظام في الخزنة؛ محروسٌ بعبارةٍ مكتوبة ونقطة أمان، ولحساب الإدارة الرئيسي وحده" type="button" disabled={resetPhrase !== RESET_PHRASE || vaultLocked} onClick={() => void resetFullSystem()}>
               <Eraser /> {backupBusy === "reset" ? "أصنع نقطة أمان ثم أصفّر…" : "تصفير"}
             </SecondaryButton>
           </Surface>
@@ -1367,15 +1532,28 @@ export default function AdminUsers({
               <div className="vault-confirm-copy">
                 <small>تأكيد سيادي · حساب الإدارة الرئيسي</small>
                 <h3>{backupConfirm === "import" ? "استبدال النظام بالنسخة المفحوصة؟" : backupConfirm === "reset" ? "تصفير بيانات العمل؟" : "العودة إلى نقطة الأمان؟"}</h3>
+                {/* الجملةُ تقول ما يحدث فعلاً: الاستيراد المتدرّج لا يعود وحده عند التوقف — يبقى تقدّمه
+                    محفوظاً، ويُستكمل أو يُلغى فيعيد الخادم النظام من نقطة الأمان. */}
                 <p>{backupConfirm === "import"
-                  ? `النسخة مؤرخة ${backupPreview ? new Date(backupPreview.createdAt).toLocaleString("ar-KW-u-nu-latn") : "—"}. سيُحفظ النظام الحالي كاملًا أولًا، وإذا فشلت أي خطوة يعيده الخادم تلقائيًا.`
+                  ? `النسخة مؤرخة ${backupPreview ? new Date(backupPreview.createdAt).toLocaleString("ar-KW-u-nu-latn") : "—"}. سيُحفظ النظام الحالي كاملًا أولًا نقطةَ أمان. إن توقفت خطوةٌ يبقى التقدم محفوظاً: تستكمل من حيث توقف، أو «تلغي الاستيراد» فيعود النظام إلى نقطة الأمان.`
                   : backupConfirm === "reset"
                     ? "سيُحفظ النظام كاملًا أولًا ثم تُمسح بيانات العمل، مع إبقاء حساب الإدارة الرئيسي وباب التراجع فقط. إذا فشلت العملية يعود النظام تلقائيًا إلى حالته السابقة."
-                    : `سيعود النظام إلى «${backupStatus?.latest?.action || "نقطة الأمان"}»، وسيحفظ الحالة الحالية كنقطة إعادة قبل التغيير.`}</p>
+                    : `سيعود النظام إلى «${backupStatus?.latest?.action || "نقطة الأمان"}»، وسيحفظ الحالة الحالية كنقطة إعادة قبل التغيير.${importResumable ? " والاستيراد المتوقف يُلغى معه." : ""}`}</p>
+                {backupConfirm !== "reset" ? (
+                  <input
+                    className="vault-confirm-input"
+                    value={confirmPhrase}
+                    onChange={(event) => setConfirmPhrase(event.target.value)}
+                    placeholder={`اكتب: ${backupConfirm === "import" ? IMPORT_PHRASE : UNDO_PHRASE}`}
+                    aria-label="عبارة التأكيد"
+                    autoComplete="off"
+                    autoFocus
+                  />
+                ) : null}
               </div>
               <div className="vault-confirm-actions">
                 <SecondaryButton type="button" disabled={Boolean(backupBusy)} onClick={() => setBackupConfirm(null)}>إلغاء</SecondaryButton>
-                <PrimaryButton type="button" data-guide-ignore="تأكيد سيادي حساس لا ينفذه المرشد تلقائيًا" disabled={Boolean(backupBusy)} onClick={() => {
+                <PrimaryButton type="button" data-guide-ignore="تأكيد سيادي حساس لا ينفذه المرشد تلقائيًا" disabled={Boolean(backupBusy) || (backupConfirm === "import" && confirmPhrase !== IMPORT_PHRASE) || (backupConfirm === "undo" && confirmPhrase !== UNDO_PHRASE)} onClick={() => {
                   if (backupConfirm === "import") void importFullBackup(true);
                   else if (backupConfirm === "reset") void resetFullSystem(true);
                   else void undoSystemOperation(true);
@@ -1403,12 +1581,14 @@ export default function AdminUsers({
       <div className="content-stack admin-page master-detail-page visual-minimal">
         {consoleHead(
           <>
-          <AddButton
-            onClick={() => {
-              resetUser();
-              setPage("create");
-            }}
-          >
+          {/* «حسابات رؤساء الأقسام» و«حسابات المرشدين»: معاينةٌ أولاً من الخادم، ثم إنشاءٌ بعد تأكيد (FR-ACC-024). */}
+          <SecondaryButton type="button" disabled={headBusy || demoReadOnly} data-guide-ignore="يعرض معاينة حسابات رؤساء الأقسام الناقصة؛ لا يكتب شيئاً" onClick={() => void openHeadPlan("department-heads")}>
+            <Layers aria-hidden="true" /> حسابات رؤساء الأقسام
+          </SecondaryButton>
+          <SecondaryButton type="button" disabled={headBusy || demoReadOnly} data-guide-ignore="يعرض معاينة حسابات مرشدي الأقسام الناقصة؛ لا يكتب شيئاً" onClick={() => void openHeadPlan("advisors")}>
+            <GraduationCap aria-hidden="true" /> حسابات المرشدين
+          </SecondaryButton>
+          <AddButton data-guide-ignore="يفتح نموذج حسابٍ جديد؛ الكتابةُ عند الحفظ ويحرسها الخادم" onClick={startCreateUser}>
             مستخدم جديد
           </AddButton>
           </>,
@@ -1468,7 +1648,7 @@ export default function AdminUsers({
                   disabled={headBusy}
                   onClick={async () => {
                     const groups = headPlan.filter(row => row.consolidationReady).length;
-                    if (!window.confirm(`سيُبقى حساب مرشد واحد لكل قسم، ويُضم نطاق كليات القسم إليه. الحسابات المكررة غير النشطة وبلا كلمة سر ستُسحب صلاحياتها وتُخفى من القائمة دون حذف سجلها. الأقسام المتأثرة: ${groups}. هل تريد التوحيد؟`)) return;
+                    if (!(await visualConfirm({ title: "توحيد حسابات المرشدين", message: `سيُبقى حساب مرشد واحد لكل قسم، ويُضم نطاق كليات القسم إليه. الحسابات المكررة غير النشطة وبلا كلمة سر ستُسحب صلاحياتها وتُخفى من القائمة دون حذف سجلها. الأقسام المتأثرة: ${groups}.`, confirmLabel: "وحّد الحسابات", tone: "warning", safeCancel: true }))) return;
                     setHeadBusy(true); setError(null);
                     try {
                       const result = await api("/api/users/advisors/consolidate", { method: "POST" });
@@ -1519,7 +1699,7 @@ export default function AdminUsers({
                   className={
                     selected?.SystemUserId === u.SystemUserId ? "active" : ""
                   }
-                  onClick={() => setSelectedUserId(u.SystemUserId)}
+                  onClick={() => void selectUser(u.SystemUserId)}
                 >
                   <span className="master-avatar">
                     {u.Name.trim().charAt(0) || "د"}
@@ -1625,12 +1805,16 @@ export default function AdminUsers({
                       <div className="permission-choice-grid" aria-label="اختيار صلاحيات المستخدم">
                         {forms.map((f) => {
                           const active = permSelections.includes(f.FormNameId);
+                          /* مرآةُ الخادم: صلاحياتُ الحساب الرئيسي لصاحبه، ولا تنزع عن نفسك ١١ أو ١٢. */
+                          const lockReason = permissionLockReason(selected, f.FormNameId, active);
                           return (
-                            <button
+                            <button data-guide-ignore="مفتاح صلاحية شاشةٍ في الشبكة؛ لا يُكتب شيءٌ قبل «حفظ الصلاحيات»"
                               type="button"
                               key={f.FormNameId}
                               className={active ? "active" : ""}
                               aria-pressed={active}
+                              disabled={Boolean(lockReason)}
+                              title={lockReason || undefined}
                               onClick={() =>
                                 setPermSelections((current) =>
                                   current.includes(f.FormNameId)
@@ -1647,10 +1831,11 @@ export default function AdminUsers({
                         })}
                       </div>
                       <div className="inspector-perm-actions">
-                        <PrimaryButton onClick={() => savePermission()}>حفظ الصلاحيات</PrimaryButton>
-                        {permSelections.length ? (
-                          <SecondaryButton onClick={() => setPermSelections([])}>مسح الاختيار</SecondaryButton>
+                        <PrimaryButton data-guide-ignore="يحفظ شبكة صلاحيات المستخدم المختار؛ يحرسه الخادم (لا ينزع المرء 11 أو 12 عن نفسه)" disabled={!permDirty || Boolean(selected.IsRootAccount && !rootAdmin)} onClick={() => savePermission()}>حفظ الصلاحيات</PrimaryButton>
+                        {permDirty ? (
+                          <SecondaryButton data-guide-ignore="يعيد الشبكة إلى آخر ما حُفظ؛ محليٌّ لا يكتب شيئاً" onClick={() => setPermSelections(savedPermsOf(selected.SystemUserId))}>تراجع عن التغييرات</SecondaryButton>
                         ) : null}
+                        {permDirty ? <span className="soft-copy" role="status">تغييراتٌ لم تُحفظ</span> : null}
                       </div>
                     </>
                   ) : (
@@ -1658,17 +1843,28 @@ export default function AdminUsers({
                   )}
                 </section>
                 <div className="inspector-actions">
-                  <PrimaryButton onClick={() => editUser(selected)}>
+                  <PrimaryButton data-guide-ignore="حفظ نطاقات المستخدم؛ حسابُ الإدارة الرئيسي لا يعدّله إلا صاحبه"
+                    disabled={Boolean(selected.IsRootAccount && !rootAdmin)}
+                    title={selected.IsRootAccount && !rootAdmin ? "حساب الإدارة الرئيسي لا يعدّله إلا صاحبه." : undefined}
+                    onClick={() => editUser(selected)}
+                  >
                     تعديل الحساب
                   </PrimaryButton>
                   <SecondaryButton
                     data-guide-ignore="إجراء حذف حساس داخل شاشة الإدارة ويستخدم تأكيد الشاشة نفسه"
                     className="danger-action"
+                    disabled={Boolean(deleteRefusal(selected))}
+                    title={deleteRefusal(selected) || undefined}
                     onClick={() => deleteUser(selected.SystemUserId)}
                   >
                     <Trash2 /> حذف
                   </SecondaryButton>
                 </div>
+                {(selected.IsRootAccount && !rootAdmin) || deleteRefusal(selected) ? (
+                  <p className="soft-copy admin-guard-note" role="note">
+                    {selected.IsRootAccount && !rootAdmin ? "حساب الإدارة الرئيسي لا يعدّله ولا يحذفه إلا صاحبه." : deleteRefusal(selected)}
+                  </p>
+                ) : null}
               </>
             ) : (
               <EmptyInspector icon={<UsersRound />} title="اختر مستخدماً" />
@@ -1741,7 +1937,7 @@ export default function AdminUsers({
                     </span>
                     <div>
                       <strong>
-                        {sectionById.get(a.AdSectionId)?.AdSectionName || "قسم"}
+                        {scopeSectionLabel(a)}
                         {collegeById.get(a.AdCollegeId)
                           ? ` · ${collegeShortName(collegeById.get(a.AdCollegeId)?.AdCollegeName)}`
                           : ""}
@@ -1773,10 +1969,7 @@ export default function AdminUsers({
                   </span>
                   <div>
                     <small>نطاق أكاديمي</small>
-                    <h2>
-                      {sectionById.get(selected.AdSectionId)?.AdSectionName ||
-                        "القسم"}
-                    </h2>
+                    <h2>{scopeSectionLabel(selected)}</h2>
                     <p>
                       {collegeById.get(selected.AdCollegeId)?.AdCollegeName ||
                         ""}
@@ -1804,10 +1997,7 @@ export default function AdminUsers({
                   </article>
                   <article>
                     <span>القسم العلمي</span>
-                    <b>
-                      {sectionById.get(selected.AdSectionId)?.AdSectionName ||
-                        "—"}
-                    </b>
+                    <b>{scopeSectionLabel(selected)}</b>
                   </article>
                 </div>
                 <div className="inspector-actions">
@@ -1847,10 +2037,22 @@ export default function AdminUsers({
   return (
     <div className="content-stack admin-page master-detail-page visual-minimal">
       {consoleHead(
-        <SecondaryButton type="button" onClick={() => void load()}>
-          تحديث السجل
-        </SecondaryButton>,
+        <>
+          <SecondaryButton type="button" disabled={!filteredLogs.length} onClick={() => exportAudit(filteredLogs)} data-guide-ignore="تنزيل ما يظهر من السجل ملفَّ CSV؛ لا يغيّر شيئاً">
+            <Download aria-hidden="true" /> تصدير CSV
+          </SecondaryButton>
+          <SecondaryButton data-guide-ignore="يعيد قراءة سجل العمليات؛ لا يكتب شيئاً" type="button" disabled={auditBusy} onClick={() => void load()}>
+            تحديث السجل
+          </SecondaryButton>
+        </>,
       )}
+      {/* نطاقُ التاريخ يُطبَّق على الخادم؛ والبحثُ والتصفيةُ بالمستخدم على ما حُمّل. */}
+      <div className="audit-range no-print" role="group" aria-label="نطاق تاريخ السجل">
+        <label className="field"><span>من</span><input type="date" dir="ltr" value={auditFrom} max={auditTo || undefined} onChange={(e) => setAuditFrom(e.target.value)} /></label>
+        <label className="field"><span>إلى</span><input type="date" dir="ltr" value={auditTo} min={auditFrom || undefined} onChange={(e) => setAuditTo(e.target.value)} /></label>
+        <SecondaryButton data-guide-ignore="يطبّق نطاق التاريخ على السجل؛ قراءةٌ فقط" type="button" disabled={auditBusy} onClick={() => { setSelectedLogId(null); void loadAuditPage(false).catch((e: any) => setError(e.message)); }}>تطبيق</SecondaryButton>
+        {auditFrom || auditTo ? <SecondaryButton data-guide-ignore="يمسح نطاق التاريخ في السجل؛ محليٌّ" type="button" onClick={() => { setAuditFrom(""); setAuditTo(""); }}>مسح التاريخ</SecondaryButton> : null}
+      </div>
       {/* «وقت إدخال المواعيد» (src/utils/appointmentMeasure.ts): كم يأخذ الموعدُ الواحد — لحساب الإدارة الرئيسي وحده. */}
       {rootAdmin ? <AppointmentMeasureCard /> : null}
       <div className="master-detail-shell audit-master-detail">
@@ -1910,6 +2112,12 @@ export default function AdminUsers({
                 <ChevronLeft />
               </button>
             ))}
+            {!logs.length && !auditBusy ? <p className="soft-copy">لا عمليات في هذا النطاق.</p> : null}
+            {auditMore ? (
+              <SecondaryButton data-guide-ignore="يحمّل صفحةً أقدم من السجل؛ قراءةٌ فقط" type="button" disabled={auditBusy} onClick={() => void loadAuditPage(true).catch((e: any) => setError(e.message))}>
+                {auditBusy ? "أحمّل…" : `تحميل ${countOf(AUDIT_PAGE, AR.record)} أقدم`}
+              </SecondaryButton>
+            ) : null}
           </div>
         </section>
         <aside className="inspector-pane">
