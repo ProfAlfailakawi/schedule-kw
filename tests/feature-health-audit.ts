@@ -108,8 +108,8 @@ const pushProfile = (extra: Partial<FeatureProfile["push"]> & { subs?: any[] } =
     { status: "submitted", submittedAt: iso("2026-11-11"), items: [{ action: "move" }] },
     { status: "superseded" },
   ];
-  const c = cardsTile(rows);
-  check(c.v.sent >= c.v.settled && c.v.opened >= c.v.sent && c.v.total <= rows.length && c.v.settled <= c.v.total, "فُتحت ≥ أُرسلت ≥ سُوّيت، ولا تتجاوز المجموع", c.v);
+  const c = cardsTile(rows); const cv = c.v as Record<string, number>;
+  check(cv.sent >= cv.settled && cv.opened >= cv.sent && cv.total <= rows.length && cv.settled <= cv.total, "فُتحت ≥ أُرسلت ≥ سُوّيت، ولا تتجاوز المجموع", c.v);
   const m = masariTile([
     { createdAt: iso("2026-11-01"), wishes: { termId: 1, targetUnits: 15, courseIds: [1, 2], constraints: {}, updatedAt: "" } },
     { createdAt: iso("2026-02-01"), wishes: { termId: 1, targetUnits: 15, courseIds: [], constraints: {}, updatedAt: "" } },
