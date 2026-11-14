@@ -79,7 +79,7 @@ import { campusChipOf } from "../utils/campusChip";
 import { takeNotifyFocus } from "../utils/notifyFocus";
 import { NEGOTIATION_LABEL, THREAD_TEXT_LIMIT, negotiationState } from "../utils/instructorRequestThread";
 import { isUnchangedConfirmed, unchangedConfirmationKind } from "../utils/instructorRequestConfirmation";
-import { inboxFacetCounts, nameMatches, sortInboxRows, type InboxSort } from "../utils/inboxFacets";
+import { inboxFacetCounts, sortInboxRows, type InboxSort } from "../utils/inboxFacets";
 import { unsentDecisions } from "../utils/requestDecisionDigest";
 import { withApplyBusyRetry } from "../utils/applyBusyRetry";
 import { undoWindowLeftMs } from "../utils/inboxUndo";
