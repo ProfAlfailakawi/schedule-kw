@@ -54,6 +54,11 @@
 .staff-badge.is-delegate{background:var(--accent-soft);color:var(--accent-ink)}
 .staff-badge.is-retired{background:color-mix(in srgb,var(--muted) 22%,transparent);color:var(--muted)}
 .staff-badge.is-sabbatical{background:color-mix(in srgb,var(--warning) 18%,transparent);color:var(--warning)}
+/* وسم TA في «البيانات الأكاديمية ← الأساتذة» (كان <style> داخل المكوّن). */
+.ta-category-badge{display:inline-flex;align-items:center;vertical-align:middle;margin-inline-start:7px;padding:2px 7px;border:1px solid currentColor;border-radius:8px;background:transparent;color:inherit;opacity:.74;font-size:10px;font-weight:600}
+/* كلمات السر الأولى لحسابات كليةٍ جديدة: قائمةٌ مقروءة داخل الرسالة. */
+.issued-accounts{margin:6px 0 0;padding-inline-start:18px;display:grid;gap:2px}
+.issued-accounts b{font-family:var(--font-mono,monospace);user-select:all}
 
 /* --- Page heading --------------------------------------------------------- */
 

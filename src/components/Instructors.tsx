@@ -8,6 +8,8 @@ import VisitingBadge from "./VisitingBadge";
 import { ExceptionBadge, InstructorLoadPanel } from "./LoadException";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import { ROSTER_GROUPS, rosterGroupOf, type RosterGroup } from "../utils/rosterGroups";
+import { INSTRUCTOR_LOAD_MAX, readInstructorLoad } from "../utils/academicGuards";
+import { arrowChoice } from "../utils/arrowChoice";
 import {
   AddButton,
   EmbeddedAction,
@@ -30,8 +32,10 @@ import {
 type Mode = "index" | "create" | "edit";
 /** `embedded` means the academic console already supplies the page identity.
  *  `loadAdmin` (المدير الرئيسي): بطاقةُ النصاب واستثناءُ العضو من اسمه في التفاصيل. */
-export default function Instructors({ embedded = false, actionSlot = null, loadAdmin = false, demoReadOnly = false }: { embedded?: boolean; actionSlot?: HTMLElement | null; loadAdmin?: boolean; demoReadOnly?: boolean }) {
+export default function Instructors({ embedded = false, actionSlot = null, loadAdmin = false, demoReadOnly = false, onCount }: { embedded?: boolean; actionSlot?: HTMLElement | null; loadAdmin?: boolean; demoReadOnly?: boolean; onCount?: (count: number) => void }) {
   const [items, setItems] = useState<any[]>([]),
+    [loadFailed, setLoadFailed] = useState(false),
+    [initial, setInitial] = useState(""),
     [mode, setMode] = useState<Mode>("index"),
     [editId, setEditId] = useState<number | null>(null),
     [selectedId, setSelectedId] = useState<number | null>(null),
@@ -61,19 +65,23 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
       if (!r.ok) throw 0;
       const data = await r.json();
       setItems(data);
+      setLoadFailed(false);
+      /* العدد كما تعرضه القائمة: الأشخاص الحقيقيون، بلا سجلات «هيئة تدريسية». */
+      onCount?.(data.filter((x: any) => !isFacultyPlaceholder(x)).length);
       setSelectedId((v) =>
         v && data.some((x: any) => x.AdInstructorId === v)
           ? v
           : data[0]?.AdInstructorId || null,
       );
     } catch {
+      setLoadFailed(true);
       setError("فشل تحميل بيانات أستاذ المقرر");
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    void load();
+  /* الانتداب والنسب: يُقرآن عند الفتح، ويُعادان بعد تحويل منتدب ⇄ معيّن فلا يبقى الوسم قديماً. */
+  const loadAffiliations = () => {
     fetch("/api/delegates")
       .then(r => (r.ok ? r.json() : { instructorIds: [] }))
       .then(d => setDelegateIds(new Set((d.instructorIds || []).map(Number))))
@@ -84,6 +92,11 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
       .then(r => (r.ok ? r.json() : { affiliations: {} }))
       .then(d => setAffiliations(d?.affiliations && typeof d.affiliations === "object" ? d.affiliations : {}))
       .catch(() => undefined);
+  };
+  const [detailVersion, setDetailVersion] = useState(0);
+  useEffect(() => {
+    void load();
+    loadAffiliations();
   }, []);
   const back = () => {
       setMode("index");
@@ -97,6 +110,7 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
       setStatus("");
       setCategory("");
       setTeachingLoad("");
+      setInitial(JSON.stringify(["", "", "", "", "", ""]));
       setMode("create");
       setError(null);
     },
@@ -108,9 +122,15 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
       setStatus(x.AdInstructorStatus === "retired" || x.AdInstructorStatus === "sabbatical" ? x.AdInstructorStatus : "");
       setCategory(x.AdInstructorCategory === "ta" ? "ta" : "");
       setTeachingLoad(Number(x.AdInstructorLoad) > 0 ? String(x.AdInstructorLoad) : "");
+      setInitial(JSON.stringify([
+        x.AdInstructorCivil || "", x.AdInstructorName || "", x.AdInstructorMobile || "",
+        x.AdInstructorStatus === "retired" || x.AdInstructorStatus === "sabbatical" ? x.AdInstructorStatus : "",
+        x.AdInstructorCategory === "ta" ? "ta" : "", Number(x.AdInstructorLoad) > 0 ? String(x.AdInstructorLoad) : "",
+      ]));
       setMode("edit");
       setError(null);
     };
+  const dirty = mode !== "index" && JSON.stringify([civil, name, mobile, status, category, teachingLoad]) !== initial;
   const onCivil = (value: string) => {
       setCivil(numericText(value).slice(0, 12));
       setError(null);
@@ -150,6 +170,12 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
       setError(v.message);
       return;
     }
+    /* حدُّ النصاب نفسه الذي يرفض به الخادم (academicGuards): يُقال هنا بدل أن يُمحى النصاب. */
+    const loadCheck = readInstructorLoad(teachingLoad);
+    if ("error" in loadCheck) {
+      setError(loadCheck.error);
+      return;
+    }
     setSubmitting(true);
     try {
       const r = await fetch(
@@ -180,9 +206,10 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
       setSubmitting(false);
     }
   };
-  const remove = async (id: number) => {
+  const remove = async (person: any) => {
     if (submitting) return;
-    if (!(await visualConfirm({ title: "حذف أستاذ المقرر", message: "سيُحذف سجل أستاذ المقرر من النظام.", confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    const id = Number(person.AdInstructorId);
+    if (!(await visualConfirm({ title: `حذف «${person.AdInstructorName}»`, message: `سيُحذف سجل «${person.AdInstructorName}» من النظام. إن كان له أي موعد في الجدول في أي فصل فلن يُحذف — اجعله «متقاعداً» بدلاً من ذلك ليختفي من الإسناد وتبقى بياناته.`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -201,17 +228,6 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
     }
   };
   useEffect(() => setVisibleLimit(160), [query]);
-  useEffect(() => {
-    if (!selectedId) { setDetail(null); return; }
-    const controller = new AbortController();
-    setDetailLoading(true);
-    fetch(`/api/instructors/${selectedId}/affiliation`, { signal: controller.signal })
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (d) setDetail({ instructorId: Number(d.instructorId), teaching: d.teaching || [], delegate: d.delegate || [] }); })
-      .catch(() => undefined)
-      .finally(() => setDetailLoading(false));
-    return () => controller.abort();
-  }, [selectedId]);
   const affiliationOf = (id: number) => affiliations[String(id)] || { delegate: [], teaching: [] };
   /* البطاقة تكتفي بالفصل الأحدث لتبقى القائمة خفيفة، أما البطاقة المفتوحة
      فتسأل عن سجل هذا الشخص كله باستعلام واحد على معرّفه. */
@@ -257,8 +273,21 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
     selected =
       filtered.find((x) => x.AdInstructorId === selectedId) || filtered[0] || null,
     activeId = selected?.AdInstructorId ?? null;
+  /* سجلُّ الشخص المعروض فعلاً (activeId) لا المحفوظ في الاختيار: بعد تبديل المجموعة
+     أو البحث قد يُعرض غيرُه، فكانت البطاقة تقول عن شخصٍ ما يخصّ آخر. */
+  useEffect(() => {
+    if (!activeId) { setDetail(null); return; }
+    const controller = new AbortController();
+    setDetailLoading(true);
+    fetch(`/api/instructors/${activeId}/affiliation`, { signal: controller.signal })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d) setDetail({ instructorId: Number(d.instructorId), teaching: d.teaching || [], delegate: d.delegate || [] }); })
+      .catch(() => undefined)
+      .finally(() => { if (!controller.signal.aborted) setDetailLoading(false); });
+    return () => controller.abort();
+  }, [activeId, detailVersion]);
   const editorDrawer = mode !== "index" ? (
-      <CatalogFormDrawer onClose={back} label={mode === "create" ? "إنشاء أستاذ جديد" : "تعديل بيانات الأستاذ"}>
+      <CatalogFormDrawer onClose={back} dirty={dirty} label={mode === "create" ? "إنشاء أستاذ جديد" : "تعديل بيانات الأستاذ"}>
         <PageTitle
           eyebrow="البيانات الأكاديمية"
           subtitle="تحقق الرقم المدني فعّال"
@@ -320,22 +349,23 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
 
                   ويبقى اختيارياً: أستاذٌ بلا نصابٍ مسجّل لا يُفرض عليه رقمٌ
                   مخترع، ويُترك القيدُ صامتاً كما كان. */}
-              <Field label="النصاب" hint="اختياري — ساعاتٌ معتمدة. يُترك فارغاً فلا يُقيَّد به أحد.">
+              <Field label="النصاب" hint={`اختياري — ساعاتٌ معتمدة حتى ${INSTRUCTOR_LOAD_MAX}. يُترك فارغاً فلا يُقيَّد به أحد.`}>
                 <input
                   inputMode="numeric"
+                  aria-label="النصاب"
                   value={teachingLoad}
                   placeholder="مثال: 12"
                   onChange={(e) => setTeachingLoad(numericText(e.target.value).slice(0, 2))}
                 />
               </Field>
               <Field label="الصفة" hint="تصنيف يدوي، لا يغيّر المواعيد السابقة.">
-                <div className="status-choice" role="radiogroup" aria-label="الصفة الأكاديمية">
+                <div className="status-choice" role="radiogroup" aria-label="الصفة الأكاديمية" onKeyDown={arrowChoice}>
                   <button type="button" role="radio" data-guide-ignore="تعيين صفة الأستاذ من داخل نموذج تحرير بطاقته فقط" aria-checked={!category} className={!category ? "on" : ""} onClick={() => setCategory("")}>عضو تدريس</button>
                   <button type="button" role="radio" data-guide-ignore="تعيين صفة الأستاذ من داخل نموذج تحرير بطاقته فقط" aria-checked={category === "ta"} className={category === "ta" ? "on" : ""} onClick={() => setCategory("ta")}><GraduationCap aria-hidden="true" /> هيئة تدريب · TA</button>
                 </div>
               </Field>
               <Field label="الحالة">
-                <div className="status-choice" role="radiogroup" aria-label="حالة الأستاذ">
+                <div className="status-choice" role="radiogroup" aria-label="حالة الأستاذ" onKeyDown={arrowChoice}>
                   {[
                     { value: "", label: "نشط" },
                     { value: "sabbatical", label: "متفرّغ" },
@@ -358,10 +388,10 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
             {status ? (
               <p className="smart-term-hint">
                 <UserRound aria-hidden="true" />
-                {status === "retired" ? "متقاعد" : "متفرّغ"}: يبقى في السجل ويحتفظ بمواعيده السابقة، لكن لا يظهر عند إسناد مواعيد جديدة.{status === "retired" ? " ويُنقل بعد الحفظ إلى تبويب «المتقاعدون»، وبياناته باقية." : ""}
+                {status === "retired" ? "متقاعد" : "متفرّغ"}: يبقى في السجل ويحتفظ بمواعيده السابقة، لكن لا يظهر عند إسناد مواعيد جديدة.{status === "retired" ? ` ${mode === "create" ? "ويُحفظ" : "ويُنقل بعد الحفظ"} في تبويب «المتقاعدون»، وبياناته باقية.` : ""}
               </p>
             ) : null}
-            {mode === "edit" && editId ? <VisitingConversionPanel instructorId={Number(editId)} /> : null}
+            {mode === "edit" && editId ? <VisitingConversionPanel instructorId={Number(editId)} onChanged={() => { loadAffiliations(); setDetailVersion(n => n + 1); }} /> : null}
             <FormActions
               onBack={back}
               loading={loading || submitting}
@@ -373,7 +403,6 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
     ) : null;
   return (
     <div className={`content-stack library-page catalog-inspector-page visual-minimal ${embedded ? "embedded-catalog" : ""}`}>
-      <style>{".ta-category-badge{display:inline-flex;align-items:center;vertical-align:middle;margin-inline-start:7px;padding:2px 7px;border:1px solid currentColor;border-radius:8px;background:transparent;color:inherit;opacity:.74;font-size:10px;font-weight:600}"}</style>
       {embedded ? (
         <EmbeddedAction slot={actionSlot}>
           <AddButton onClick={create}>إضافة أستاذ</AddButton>
@@ -387,15 +416,15 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
           أساتذة المقررات
         </PageTitle>
       )}
-      {error ? <Notice>{error}</Notice> : null}
+      {error && mode === "index" ? <Notice action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : undefined}>{error}</Notice> : null}
       <div className="catalog-workspace" aria-busy={loading}>
         <Surface className="catalog-master">
           <h2 className="sr-only">قائمة أساتذة المقررات</h2>
-          <div className="roster-tabs" role="tablist" aria-label="مجموعات الأساتذة">
+          <div className="roster-tabs" role="tablist" aria-label="مجموعات الأساتذة" onKeyDown={arrowChoice}>
             {ROSTER_GROUPS.map(entry => {
               const Icon = { faculty: UsersRound, ta: GraduationCap, sabbatical: BookOpenCheck, retired: Archive }[entry.id];
               return (
-                <button key={entry.id} type="button" role="tab" aria-selected={group === entry.id} className={group === entry.id ? "on" : ""}
+                <button key={entry.id} type="button" role="tab" aria-selected={group === entry.id} tabIndex={group === entry.id ? 0 : -1} className={group === entry.id ? "on" : ""}
                   onClick={() => setGroup(entry.id)} data-guide-ignore="تصفية قائمة الأساتذة بالمجموعة — لا يغيّر بياناً">
                   <Icon aria-hidden="true" />{entry.label}<b>{groupCounts[entry.id].toLocaleString("ar-KW-u-nu-latn")}</b>
                 </button>
@@ -449,9 +478,9 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
             </RecordDeck>
           ) : (
             <EmptyState
-              title={query ? "لا يوجد أستاذ مطابق" : "لا يوجد أساتذة بعد"}
-              detail={query ? "جرّب الاسم أو الرقم المدني أو امسح البحث." : "أضف الأستاذ الأول ليصبح متاحًا عند بناء الجدول."}
-              action={query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
+              title={loadFailed ? "تعذّر تحميل الأساتذة" : query ? "لا يوجد أستاذ مطابق" : "لا يوجد أساتذة بعد"}
+              detail={loadFailed ? "لم تصل القائمة من الخادم؛ هذا لا يعني أنها فارغة." : query ? "جرّب الاسم أو الرقم المدني أو امسح البحث." : "أضف الأستاذ الأول ليصبح متاحًا عند بناء الجدول."}
+              action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
             />
           )}
           {filtered.length > visibleLimit ? (
@@ -504,7 +533,7 @@ export default function Instructors({ embedded = false, actionSlot = null, loadA
                 <SecondaryButton
                   data-guide-ignore="إجراء حذف حساس داخل شاشة الإدارة ويستخدم تأكيد الشاشة نفسه"
                   className="danger-action"
-                  onClick={() => remove(selected.AdInstructorId)}
+                  onClick={() => remove(selected)}
                 >
                   <Trash2 /> حذف
                 </SecondaryButton>

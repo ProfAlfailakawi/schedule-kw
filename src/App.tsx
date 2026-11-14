@@ -1865,6 +1865,10 @@ export default function App() {
       case "sections":
       case "instructors":
       case "courses":
+        /* البوابة أوسع من القائمة عمداً: القائمة للإدارة وحدها (canOpenAcademicCatalog)، لكن رئيس لجنة الجدول
+           ورئيس القسم ذا القسم الواحد يصلان إلى «المقررات» وحدها (hasAcademicPerm) من روابط عملهم —
+           تصحيح الصحيفة في PlanReview ونافذة تعديل المقررات (FR-ACD-040)، و«المقررات» في شريط الاعتماد.
+           تضييقها على الإدارة يقطع تلك المسارات؛ والخادم يحرس كل كتابة بصلاحيتها ونطاقها. */
         return (isPowerAdmin || ((sessionRole.id === "committeeChair" || sessionRole.id === "departmentHead") && singleDepartmentOf(scopes, 0, false) !== null)) && hasAcademicPerm(ACADEMIC_PERM[activeView]) ? (
           <AcademicConsole
             tab={activeView}
