@@ -37,7 +37,6 @@
     "src/utils/campusTravelPolicy.ts",
     "src/utils/campusTravelHint.ts",
     "src/components/LocationQuickSetup.tsx",
-    "src/components/LocationRegistryAdmin.tsx",
     "src/components/LocationPicker.tsx",
     "src/components/LocationRoomTypeManager.tsx",
     "src/components/HallBarterBoard.tsx",
@@ -368,7 +367,7 @@
         { "ar": "المسارات: GET /api/admin/location-registry (السجل مع حالات المراجعة والتشغيلات والصحة والمواعيد المعلّقة)، وPUT /api/admin/location-registry/review/:id بالحالات open أو resolved أو ignored، وGET …/migration/preview، وPOST …/migration/apply، وPOST …/migration/:id/rollback؛ كلها للشاشة 7 مع الإدارة الرئيسية.", "en": "The routes are GET /api/admin/location-registry (registry with review cases, runs, health and pending appointments), PUT /api/admin/location-registry/review/:id with status open, resolved or ignored, GET …/migration/preview, POST …/migration/apply and POST …/migration/:id/rollback; all need screen 7 with main administration." },
         { "ar": "التهيئة تدمج أولاً بذرة السجل ثم تبني الخطة؛ وتشغيل تراجع سابقاً يردّ alreadyRolledBack، وتشغيل غير موجود 404.", "en": "Initialisation first merges the registry seed and then builds the plan; a run already rolled back answers alreadyRolledBack, and an unknown run 404." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/server/locationRegistryEngine.ts", "src/components/LocationRegistryAdmin.tsx", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/review/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/preview", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/apply", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/:id/rollback"], "tests": ["tests/location-registry-audit.py"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/server/locationRegistryEngine.ts", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/review/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/preview", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/apply", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/migration/:id/rollback"], "tests": ["tests/location-registry-audit.py"] }
     },
     {
       "id": "FR-LOC-012",
@@ -715,7 +714,7 @@
         { "ar": "ربط مبنى بكلية رمز موقعها يخالف كوده 409، وربط قاعة بكلية لا يتبعها كود المبنى 409؛ وكل تعديل يعلّم الصف CONFIRMED وadminVerified ويضيف سطراً إلى تاريخه.", "en": "Linking a building to a college whose site prefix differs from its code returns 409, and linking a room to a college its building code does not belong to returns 409; every edit marks the row CONFIRMED and adminVerified and appends a line to its history." },
         { "ar": "الصيغ التاريخية المحرَّرة يدوياً حتى 250 صيغة، لكل منها حتى 12 دليلاً، ويُسقط منها الرمز البديل؛ والأقسام الرئيسية للقاعة جزء من أقسامها.", "en": "Manually edited historical forms are capped at 250, each with up to 12 evidence lines, placeholders are dropped, and a room's primary departments are a subset of its departments." }
       ],
-      "evidence": { "code": ["src/server/routes/locationsRoutes.ts#/api/admin/location-setup", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms/:id", "src/components/LocationQuickSetup.tsx", "src/components/LocationRegistryAdmin.tsx"], "tests": ["tests/location-registry-audit.py"] }
+      "evidence": { "code": ["src/server/routes/locationsRoutes.ts#/api/admin/location-setup", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/buildings/:id", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms", "src/server/routes/locationsRoutes.ts#/api/admin/location-registry/rooms/:id", "src/components/LocationQuickSetup.tsx"], "tests": ["tests/location-registry-audit.py"] }
     },
     {
       "id": "FR-LOC-034",

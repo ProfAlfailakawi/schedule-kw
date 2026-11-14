@@ -67,7 +67,6 @@ const ALLOW: Array<{ file: string; contains: string; why: string }> = [
   { file: "src/components/Schedules.tsx", contains: "</bdi> قاعة {roomOwner.section", why: "«12/3 قاعة القسم …» — رقم القاعة ثم نسبتها" },
   { file: "src/components/IntelligenceWorkspace.tsx", contains: "<Badge tone=\"neutral\">شعبة {r.SCode}</Badge>", why: "اسم المقرر ثم شارة «شعبة 01»" },
   { file: "src/components/Reports.tsx", contains: "<i>شعبة {row.SCode", why: "رمز المقرر ثم «شعبة 01»" },
-  { file: "src/components/LocationRegistryAdmin.tsx", contains: "<p>مبنى {buildingNumberLabel", why: "رمز المبنى ثم «مبنى 7»" },
   { file: "src/components/Schedules.tsx", contains: "</b><span>موعد جديد</span>", why: "نطاق وقت ثم وسم «موعد جديد»، لا عدد" },
   { file: "src/server/studentHomePage.ts", contains: "<span class=\"lbl\">صحيفة التخرّج الرسمية", why: "عنوان حقل «صحيفة التخرّج» بعد وصلة نصّية، لا عدد" },
 ];

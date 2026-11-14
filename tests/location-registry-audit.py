@@ -26,9 +26,16 @@ def load_seed():
 data=load_seed()
 B=data['buildings'];R=data['rooms'];C=data['reviewCases']; summary=data['summary']
 passed=[]
+# «LocationRegistryAdmin» حُذف (المالك 2026-11-14: شاشةٌ لا يستوردها شيء، و«المباني والقاعات» صارت LocationQuickSetup).
+# ما كان يفحص نصَّ تلك الشاشة وحدها يُسجَّل «شاشة متقاعدة» ولا يُحكم به.
+RETIRED_ADMIN=not (ROOT/'src/components/LocationRegistryAdmin.tsx').exists() if 'ROOT' in globals() else True
+RETIRED_IDS={'13b1','13b5','13c','41','43','46','47','48','50','51','53','212','214','215'}
 def ok(name,cond):
+    if RETIRED_ADMIN and str(name).split(' ')[0] in RETIRED_IDS:
+        passed.append(f"{name} — شاشة متقاعدة"); return
     if not cond: raise AssertionError(name)
     passed.append(name)
+def _retired_text(path): return path.read_text() if path.exists() else ''
 def norm(v): return re.sub(r'\s+','',str(v or '')).upper()
 def aliases(x): return {norm(x.get('officialCode') or x.get('canonicalCode'))}|{norm(a['value']) for a in x.get('aliases',[])}
 def resolve_build(raw,college=None,section=None):
@@ -60,7 +67,7 @@ ok('13 admin backend protected', 'app.post("/api/admin/location-registry/rooms",
 room_create=server[server.index('app.post("/api/admin/location-registry/rooms"'):server.index('app.put("/api/admin/location-registry/rooms/:id"')]
 room_update=server[server.index('app.put("/api/admin/location-registry/rooms/:id"'):server.index('app.put("/api/admin/location-registry/review/:id"')]
 quick_create=server[server.index('app.post("/api/admin/location-setup/rooms"'):server.index('app.delete("/api/admin/location-setup/rooms/:id"')]
-room_admin=(ROOT/'src/components/LocationRegistryAdmin.tsx').read_text()
+room_admin=_retired_text(ROOT/'src/components/LocationRegistryAdmin.tsx')
 quick_setup=(ROOT/'src/components/LocationQuickSetup.tsx').read_text()
 ok('13a room capacity optional and validated on create', 'capacityRaw=req.body?.capacity' in room_create and 'capacity>5000' in room_create and '...(capacity===undefined?{}:{capacity})' in room_create)
 ok('13b room capacity editable and clearable', 'capacityRaw=req.body?.capacity' in room_update and 'capacity:roomCapacity??null' in room_update)
@@ -119,7 +126,7 @@ ok('37 room report filters use canonical ids', 'String(row.roomId) === matrixHal
 ok('38 smart room proposals carry canonical ids', '{ ...row, ...change, locationStatus: change.locationStatus || "VERIFIED" }' in intel)
 ok('39 operational buildings require an actually usable room', 'eligibleBuildingIds' in server and '!sectionId||eligibleBuildingIds.has(building.id)' in server and 'stale\n  // building.sectionIds relationship' in server)
 ok('40 import blocker guides user to preview (server), and the analytics centre has no second import screen', 'أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.' in server and 'importErrorModal' not in intel and 'tab === "import"' not in intel)
-admin=(ROOT/'src/components/LocationRegistryAdmin.tsx').read_text()
+admin=_retired_text(ROOT/'src/components/LocationRegistryAdmin.tsx')
 ok('41 shared room is derived, never manually checked', 'shared=sectionIds.length>1' in server and 'checked={Boolean(editEntity.shared)}' not in admin and 'checked={newRoom.shared}' not in admin and 'تُصنّف تلقائيًا كمشتركة' in admin)
 registry_src=(ROOT/'src/utils/locationRegistry.ts').read_text(encoding='utf-8')
 ok('42 suggestions obey the same department room scope', 'room.shared||room.sectionIds.length===0||room.sectionIds.includes(sectionId)' not in server and 'eligibleHallsForSection(registry,sectionId,borrowedRoomIds,pinnedRoomIds)' in server and 'pinnedRoomIds.has(room.id)' in registry_src and 'borrowedRoomIds.has(room.id)' in registry_src and '(room.sectionIds || []).includes(sectionId)' in registry_src)
@@ -135,7 +142,7 @@ ok('49 historical migration uses smart safe recovery without promoting PROBABLE 
 ok('50 invalid historical garbage is classified explicitly', 'CANCELLED' in loc and 'Pure punctuation/garbage' in loc and 'Placeholder تاريخي' in admin)
 
 
-admin=(ROOT/'src/components/LocationRegistryAdmin.tsx').read_text()
+admin=_retired_text(ROOT/'src/components/LocationRegistryAdmin.tsx')
 picker=(ROOT/'src/components/LocationPicker.tsx').read_text()
 quick_create=(ROOT/'src/components/QuickCreatePopover.tsx').read_text()
 schedules=(ROOT/'src/components/Schedules.tsx').read_text()
@@ -630,7 +637,7 @@ ok('210 non-basic colleges rebase shared academic department/course keys to the 
    and '`${college}${section.slice(-2)}`' in auth
    and '`${ocrDepartmentKey}${digits.slice(-3)}`' in server)
 
-location_admin=(ROOT/'src/components/LocationRegistryAdmin.tsx').read_text()
+location_admin=_retired_text(ROOT/'src/components/LocationRegistryAdmin.tsx')
 index_css=(ROOT/'src/index.css').read_text()
 
 ok('211 only the root administrator may create a building and the server accepts a full official code only inside the selected college prefix',
