@@ -37,7 +37,6 @@ import {
   WifiOff,
   Wrench,
   X,
-  Hourglass,
   CircleHelp,
 } from "lucide-react";
 import { controlLabel } from "./utils/controlLabel";
@@ -145,7 +144,6 @@ const InstructorInbox = safeLazy(() => import("./components/InstructorInbox"));
 const StudentRegistration = safeLazy(() => import("./components/StudentRegistration"));
 const PlanReview = safeLazy(() => import("./components/PlanReview"));
 const RegistrationRehearsal = safeLazy(() => import("./components/RegistrationRehearsal"));
-const TimeMachine = safeLazy(() => import("./components/TimeMachine"));
 const loadJourney = () => import("./components/ScheduleJourney");
 const ScheduleJourney = safeLazy(loadJourney);
 const IntelligenceWorkspace = safeLazy(loadIntelligence);
@@ -380,7 +378,6 @@ function prefetchView(view: View) {
   else if (view === "studentRegistration") void import("./components/StudentRegistration");
   else if (view === "planReview") void import("./components/PlanReview");
   else if (view === "simulation") void import("./components/RegistrationRehearsal");
-  else if (view === "timeMachine") void import("./components/TimeMachine");
   else if (view === "about") void loadAbout();
 }
 
@@ -1396,6 +1393,12 @@ export default function App() {
     window.addEventListener("popstate", pop);
     return () => window.removeEventListener("popstate", pop);
   }, []);
+  /* رابطٌ قديم إلى آلة الزمن لمن لا يبني الجدول: يُستبدل في التاريخ بـ«تغييرات الجدول» (لا خطوةَ إضافية للرجوع). */
+  useEffect(() => {
+    if (activeView !== "timeMachine" || !user || permissions.includes(7) || !opensChangesScreen(sessionRole)) return;
+    window.history.replaceState({}, "", pathByView.scheduleChanges);
+    setActiveView("scheduleChanges");
+  }, [activeView, user, permissions, sessionRole]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -1903,10 +1906,11 @@ export default function App() {
           unauthorized()
         );
       case "timeMachine":
-        /* آلة الزمن: لمن يبني الجدول هي «جرّب ← ماذا لو» داخل مركز الذكاء (والرابطُ القديم يفتحها هناك)؛
-           ومن يقرأ الجدول ولا يدخل المركز (رئيس القسم والعميد) يبقى له بابُها المستقل. والحارسُ في الخادم. */
+        /* رابط آلة الزمن القديم (/FSchedule/TimeMachine): لمن يبني الجدول هي «جرّب ← ماذا لو» داخل مركز الذكاء؛
+           ولمن يراجع الجدول بلا بنائه تُحوَّله الواجهةُ إلى «تغييرات الجدول» حيث «جرّب بديلاً» على كل موعد (انظر
+           الأثر أدناه). لا قائمةَ لها بعد الآن، والحارسُ في الخادم. */
         if (hasPerm(7)) return <IntelligenceWorkspace key="intelligence-whatif" user={user} scopes={scopes} initialTab="whatif" />;
-        return opensChangesScreen(sessionRole) ? <TimeMachine /> : unauthorized();
+        return opensChangesScreen(sessionRole) ? null : unauthorized();
       case "scheduleChanges":
         /* الشاشة لمن يشارك في الدورة: التسجيل يراجع، والقسم يردّ. أمّا أدوار
            العرض الصرف فيكفيها عمود الاعتماد في ميزان الأقسام — وشاشةٌ لا يفعل
@@ -2592,17 +2596,6 @@ export default function App() {
                 icon={<BrainCircuit />}
                 label="مركز الذكاء"
                 data-guide-ignore="وجهةُ تنقّل مسجّلة في المرشد باسم page.intelligence"
-              />
-            ) : null}
-            {/* من يبني الجدول يجد آلة الزمن في «مركز الذكاء ← جرّب ← ماذا لو»؛ زرٌّ ثانٍ هنا كان بابين لشيءٍ واحد. */}
-            {!allowed.schedule && opensChangesScreen(sessionRole) ? (
-              <NavButton
-                activeView={activeView}
-                onGo={go}
-                view="timeMachine"
-                icon={<Hourglass />}
-                label="آلة الزمن"
-                data-guide-ignore="سيناريوهاتٌ افتراضية فوق الجدول؛ لا تكتب إلا بالاعتماد الذرّي"
               />
             ) : null}
             {opensChangesScreen(sessionRole) ? (
