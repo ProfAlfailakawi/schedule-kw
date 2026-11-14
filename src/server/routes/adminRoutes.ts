@@ -78,10 +78,11 @@ export function registerAdminRoutes(app: Express): void {
  * they are bearer credentials / safety infrastructure, not university data.
  */
 app.get("/api/system-backup/status", requireAuth, requireRootAdmin, async (_req: AuthenticatedRequest, res: Response) => {
-  const [restorePoints, latestExport, latestImport] = await Promise.all([
+  const [restorePoints, latestExport, latestImport, latestOperation] = await Promise.all([
     Repository.getSystemRestorePoints(),
     Repository.getLatestSystemExportJob(ROOT_ADMIN_USER_ID),
     Repository.getLatestSystemImportJob(ROOT_ADMIN_USER_ID),
+    Repository.getLatestSystemOpJob(ROOT_ADMIN_USER_ID),
   ]);
   res.json({
     rootOnly: true,
@@ -90,6 +91,7 @@ app.get("/api/system-backup/status", requireAuth, requireRootAdmin, async (_req:
     latest: restorePoints.find(point => !point.consumedAt) || null,
     latestExport,
     latestImport,
+    latestOperation,
   });
 });
 
@@ -197,17 +199,21 @@ app.post("/api/system-backup/import", requireAuth, requireRootAdmin, async (_req
   res.status(409).json({ error: "تم استبدال الاستيراد المباشر باستيراد متدرج قابل للاستكمال. افتح خزنة النظام واضغط «استيراد» من جديد." });
 });
 
+/*
+ * التصفير والتراجع الكامل: مهمّتان متدرجتان على شكل الاستيراد (src/server/vaultJobPlanner.ts).
+ * البدءُ يحفظ المهمة ويعيد 202، وكل طلب step يتقدّم مجموعةً واحدة، والإلغاءُ يعيد النظام من نقطة الأمان.
+ * العبارةُ المكتوبة تُطلب عند البدء كما كانت تُطلب عند الطلب الواحد.
+ */
+const opJobStatus = (job: { status: string }) => (job.status === "ready" ? 200 : 202);
+
 app.post("/api/system-backup/reset", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
   if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-RESET" || String(req.body?.phrase || "") !== RESET_PHRASE) {
     res.status(409).json({ error: `اكتب «${RESET_PHRASE}» للتأكيد` });
     return;
   }
-  const restorePoint = await Repository.resetSystem(req.user!.SystemUserId, ROOT_ADMIN_USER_ID);
-  res.json({
-    success: true,
-    message: "تم تصفير بيانات العمل. بقي حساب الإدارة الرئيسي فقط مع نقطة تراجع جاهزة.",
-    restorePoint,
-  });
+  const job = await Repository.startSystemOpJob("reset", req.user!.SystemUserId, ROOT_ADMIN_USER_ID);
+  res.locals.auditChanges = "بدء تصفير النظام (مهمة متدرجة بنقطة أمان)";
+  res.status(opJobStatus(job)).json(job);
 });
 
 app.post("/api/system-backup/undo", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
@@ -215,13 +221,29 @@ app.post("/api/system-backup/undo", requireAuth, requireRootAdmin, async (req: A
     res.status(409).json({ error: `اكتب «${UNDO_PHRASE}» للتأكيد` });
     return;
   }
-  const result = await Repository.undoLastSystemOperation(req.user!.SystemUserId, ROOT_ADMIN_USER_ID);
-  res.json({
-    success: true,
-    message: `تمت العودة إلى نقطة الأمان: ${result.restored.action}`,
-    restored: result.restored,
-    redoPoint: result.redoPoint,
-  });
+  const job = await Repository.startSystemOpJob("undo", req.user!.SystemUserId, ROOT_ADMIN_USER_ID);
+  res.locals.auditChanges = `بدء التراجع الكامل إلى «${job.targetAction || "نقطة الأمان"}» (مهمة متدرجة)`;
+  res.status(opJobStatus(job)).json(job);
+});
+
+app.get("/api/system-backup/op-jobs/:id", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  res.json(await Repository.getSystemOpJob(String(req.params.id), ROOT_ADMIN_USER_ID));
+});
+
+app.post("/api/system-backup/op-jobs/:id/step", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const job = await Repository.advanceSystemOpJob(String(req.params.id), ROOT_ADMIN_USER_ID);
+  if (job.status === "ready") res.locals.auditChanges = job.kind === "reset" ? "اكتمل تصفير النظام" : "اكتمل التراجع الكامل";
+  res.status(opJobStatus(job)).json(job);
+});
+
+app.delete("/api/system-backup/op-jobs/:id", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-OP-ABANDON") {
+    res.status(409).json({ error: "إلغاء العملية يحتاج تأكيداً صريحاً" });
+    return;
+  }
+  const job = await Repository.abandonSystemOpJob(String(req.params.id), ROOT_ADMIN_USER_ID);
+  res.locals.auditChanges = job.rolledBack ? "إلغاء عملية نظام متوقفة والعودة إلى نقطة الأمان" : "إلغاء عملية نظام قبل أي تغيير";
+  res.json(job);
 });
 
 app.get("/api/audit-logs", requireAuth, requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
