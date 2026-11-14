@@ -158,7 +158,10 @@ async function main() {
       const lost: any[] = [], deep: any[] = [];
       await drive(p, async state => {
         console.log("state:", state);
-        const want = base[state] || [];
+        /* أسبوع الأستاذ (خلاياه وأزرار الالتصاق وإغلاقه) يتغيّر بالبيانات والتخطيط ويملكه عاملٌ آخر؛ والدرج المفتوح يحجب ما خلفه فيُتحقق من ضوابط الصفحة في حالة «ready». */
+        const gridish = (c: Control) => /^(ضع الموعد|بعدها|قبلها|إغلاق جدول الأ)/.test(c.name);
+        const readyNames = new Set((base["ready"] || []).map(c => c.kind + "|" + c.name));
+        const want = (base[state] || []).filter(c => !gridish(c) && !(state === "checks-open" && readyNames.has(c.kind + "|" + c.name)));
         const have = await collect(p);
         const has = (list: Control[], c: Control) => list.some(h => h.name === c.name && h.kind === c.kind);
         const missing = want.filter(c => !has(have, c));
