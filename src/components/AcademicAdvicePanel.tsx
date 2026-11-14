@@ -12,7 +12,7 @@ interface Props {
   courseId?: number;
   candidate?: { days: string[]; start: string; end: string };
   compact?: boolean;
-  /** بطاقتُها المخصّصة (مركز الذكاء، أدوات البيانات): مفتوحةٌ وظاهرةٌ دائماً، حتى في الانتظار والفراغ. */
+  /** بطاقتُها المخصّصة (مركز الذكاء، أدوات الجدول): مفتوحةٌ وظاهرةٌ دائماً، حتى في الانتظار والفراغ. */
   defaultOpen?: boolean;
 }
 const minute = (value: string) => {

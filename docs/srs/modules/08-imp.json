@@ -2548,8 +2548,8 @@
         ]
       },
       "rationale": {
-        "ar": "زرّ «نزّل الشعب» أُزيل مع تخطيط الشعب القديم؛ مسار المراجعة باقٍ في أدوات البيانات بلا مدخل.",
-        "en": "The 'build sections' button was removed with the old section planning; the review path remains in the data tools without an entry point."
+        "ar": "زرّ «نزّل الشعب» أُزيل مع تخطيط الشعب القديم؛ مسار المراجعة باقٍ في أدوات الجدول بلا مدخل.",
+        "en": "The 'build sections' button was removed with the old section planning; the review path remains in the schedule tools without an entry point."
       }
     },
     {

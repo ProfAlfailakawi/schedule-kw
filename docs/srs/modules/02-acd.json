@@ -2635,8 +2635,8 @@
       "id": "FR-ACD-046",
       "kind": "functional",
       "title": {
-        "ar": "أساتذة القسم في أدوات البيانات",
-        "en": "Department instructors in the data tools"
+        "ar": "أساتذة القسم في أدوات الجدول",
+        "en": "Department instructors in the schedule tools"
       },
       "text": {
         "ar": "يجب على النظام أن يعرض عبر GET /api/section-roster لمن يملك الشاشة 7 أساتذة قسم في نطاقه مرتبين أبجدياً مع ساعاتهم في الفصل المختار ودرجتهم وحدّي نصابهم وإضافيّهم واستثنائهم، بلا رقم مدني ولا هاتف، وأن يتيح عبر PUT /api/section-roster/:id تعديل اسم الأستاذ وحالته وتصنيفه وإسناد نصابه لأعضاء القسم وحدهم، دون حذف السجل ودون المساس برقمه المدني.",
@@ -2662,8 +2662,8 @@
           "en": "The name is trimmed to 120 characters and an empty one returns 400; status is retired, sabbatical or active; an unknown load rank returns 400; without a bound override the reason and until-term are dropped."
         },
         {
-          "ar": "كل حفظ يُسجَّل في سجل التدقيق «تعديل بيانات … من أدوات البيانات» مع ما تغيّر (الاسم، الحالة والتصنيف، النصاب)، وإسناد النصاب يُكتب ذرياً لعضو واحد لا للإعداد كله.",
-          "en": "Each save is written to the audit log as an edit from the data tools listing what changed (name, status and category, load), and the load assignment is written atomically for one member, not the whole configuration."
+          "ar": "كل حفظ يُسجَّل في سجل التدقيق «تعديل بيانات … من أدوات الجدول» مع ما تغيّر (الاسم، الحالة والتصنيف، النصاب)، وإسناد النصاب يُكتب ذرياً لعضو واحد لا للإعداد كله.",
+          "en": "Each save is written to the audit log as an edit from the schedule tools listing what changed (name, status and category, load), and the load assignment is written atomically for one member, not the whole configuration."
         }
       ],
       "evidence": {

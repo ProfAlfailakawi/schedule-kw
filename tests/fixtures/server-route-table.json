@@ -994,7 +994,7 @@
    ],
    "path": "/api/section-roster/:id",
    "name": "bound dispatch",
-   "call": "fc66a3e0a27cf8ad",
+   "call": "653cd129d72b57dd",
    "site": "src/server/routes/instructorsRoutes.ts:410",
    "regexp": "/^\\/api\\/section-roster(?:\\/([^/]+?))\\/?$/i",
    "end": true

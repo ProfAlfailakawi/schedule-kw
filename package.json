@@ -142,6 +142,7 @@
     "test:student-map": "tsx tests/student-map-audit.ts",
     "test:student-showcase": "tsx tests/student-showcase-audit.ts",
     "test:review-family": "tsx tests/review-family-audit.ts",
+    "test:schedule-tools-groups": "tsx tests/schedule-tools-groups-audit.ts",
     "test:changes-unified-review": "tsx tests/changes-unified-review-audit.ts",
     "test:academic-console": "tsx tests/academic-console-audit.ts",
     "test:request-decisions-notify": "tsx tests/request-decisions-notify-audit.ts",

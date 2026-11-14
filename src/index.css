@@ -69,6 +69,7 @@
 @import "./styles/56-intel-nav.css";
 @import "./styles/57-student-pulse.css";
 @import "./styles/57-decision-merge.css";
+@import "./styles/57-schedule-tools.css";
 @import "./styles/58-query-plus.css";
 @import "./styles/59-inbox-pilot.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the

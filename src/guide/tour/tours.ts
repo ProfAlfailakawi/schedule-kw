@@ -42,7 +42,7 @@ export type TourEnv = {
 export type TourPlan = { steps: TourStepSpec[]; note?: string };
 
 const IN_MORE = new Set(["schedule.tool.review", "schedule.tool.data", "schedule.tool.focus", "schedule.practice"]);
-/** النشر يسكن نافذة أدوات البيانات، فتُفتح أولاً. */
+/** النشر يسكن نافذة أدوات الجدول، فتُفتح أولاً. */
 const IN_TRANSFER = new Set(["schedule.publish", "schedule.publish.requests"]);
 const EDIT_FIELD: Record<string, { task: string; field: string; ask: string }> = {
   "schedule.action.change-time": { task: "time", field: "[data-guide-editor-field='time']", ask: "اختر المحاضرة التي تريد تعديل وقتها، وسأكمل تلقائياً." },
