@@ -77,20 +77,24 @@ export async function sendCalendar(req: Request, res: Response, name: string, te
   res.send(body);
 }
 
-/** هل بيد الأستاذ رابطُ بطاقةٍ حيّ؟ القاعدةُ كلُّها في liveCardLinkFor؛ هنا قراءةُ الروابط:
- *  ما يحمل رقمَه (الشخصيةُ وروابطُ الطلب) باستعلامٍ واحد، ثم بطاقةُ القسم العامة لعائلة
- *  كل قسمٍ يدرّس فيه في فصل التقويم (‎ownRows‎). */
-async function holdsLiveCardLink(instructorId: number, ownRows: FSchedule[], terms: Awaited<ReturnType<typeof Repository.getTerms>>): Promise<boolean> {
+/** هل رمزُ المسار بطاقةٌ حيّة لهذا الأستاذ؟ القاعدةُ كلُّها في liveCardLinkFor (src/utils/shareLinkLifetime.ts):
+ *  رابطُه الشخصي أو رابطُ طلبه، أو بطاقةُ قسمٍ يدرّس فيه في فصل التقويم (‎ownRows‎). رابطٌ لغيره، أو أُوقف، أو انقضى: لا. */
+async function holdsLiveCardLink(token: string, instructorId: number, ownRows: FSchedule[], terms: Awaited<ReturnType<typeof Repository.getTerms>>): Promise<boolean> {
+  const link = token ? await Repository.getShareLink(token) : undefined;
+  if (!link) return false;
   const termOf = (termId: number) => terms.find(term => Number(term.AdTermId) === termId) as any;
-  if (liveCardLinkFor(await Repository.getShareLinksByInstructor(instructorId), instructorId, { termOf })) return true;
-  const scopes = new Map(ownRows.map(row => [`${row.AdCollegeId}:${row.AdSectionId}:${row.AdTermId}`, row]));
-  const departmentCards = (await Promise.all([...scopes.values()].map(row =>
-    staffFamilyShareLinks(Number(row.AdCollegeId), Number(row.AdSectionId), Number(row.AdTermId))))).flat();
-  return Boolean(liveCardLinkFor(departmentCards, instructorId, { termOf, teachesIn: () => true }));
+  let teaches = false;
+  if (link.kind === "staff" && !Number(link.AdInstructorId || 0)) {
+    const scopes = new Map(ownRows.map(row => [`${row.AdCollegeId}:${row.AdSectionId}:${row.AdTermId}`, row]));
+    const departmentCards = (await Promise.all([...scopes.values()].map(row =>
+      staffFamilyShareLinks(Number(row.AdCollegeId), Number(row.AdSectionId), Number(row.AdTermId))))).flat();
+    teaches = departmentCards.some(card => card.id === link.id);
+  }
+  return Boolean(liveCardLinkFor([link], instructorId, { termOf, teachesIn: () => teaches }));
 }
 
 /** جدول الأستاذ في الفصل الجاري (أو القادم المثبّت بـ‎?term=‎) ملفَّ تقويم. */
-async function sendInstructorCalendar(req: Request, res: Response, person: { AdInstructorId: number; AdInstructorName?: string }, options: { pauseWithoutLiveCard?: boolean } = {}) {
+async function sendInstructorCalendar(req: Request, res: Response, person: { AdInstructorId: number; AdInstructorName?: string }, options: { liveCardToken?: string } = {}) {
   const [courses, terms, colleges] = await Promise.all([
     Repository.getCourses(), Repository.getTerms(), Repository.getColleges(),
   ]);
@@ -109,7 +113,7 @@ async function sendInstructorCalendar(req: Request, res: Response, person: { AdI
   const rows = termRows.filter(row => row.AdInstructorId === person.AdInstructorId);
   const calendarName = `جدول ${person.AdInstructorName || "الأستاذ"}`;
   /* الاشتراكُ الثابت بلا بطاقةٍ حيّة: تقويمٌ صالحٌ فارغ بالاسم نفسه، ووصفُه يقول إنه توقّف. */
-  if (options.pauseWithoutLiveCard && !(await holdsLiveCardLink(Number(person.AdInstructorId), rows, terms))) {
+  if (options.liveCardToken !== undefined && !(await holdsLiveCardLink(options.liveCardToken, Number(person.AdInstructorId), rows, terms))) {
     await sendCalendar(req, res, calendarName, liveTermId, [], [], CALENDAR_FEED_PAUSED_NOTE);
     return;
   }
@@ -220,21 +224,22 @@ app.get("/api/public/ics/:token/:key", async (req: Request, res: Response) => {
 });
 
 /**
- * ── الاشتراكُ الثابت (M3) — يتبع الأستاذَ ما دامت بيده بطاقةٌ حيّة ───────────────
- * ‎/api/public/cal/<رمز البطاقة>/p<رقم>-<مفتاح>.ics‎ — المفتاحُ للأستاذ لا للرابط
- * (src/server/calendarSecret.ts)، فإعادةُ نشر البطاقة أو تجديدُها (رابطٌ جديد يحلّ
- * محلّ القديم) لا تقطع اشتراكاتِ الهواتف. أما الإيقافُ النهائي — لم يبقَ بيده رابطُ
- * بطاقةٍ حيّ: شخصيٌّ، أو رابطُ طلبه، أو بطاقةُ قسمٍ يدرّس فيه؛ غيرُ موقوفٍ ومقروءٌ الآن
- * فالانتهاءُ يُحتسب (liveCardLinkFor في src/utils/shareLinkLifetime.ts) — فيُوقفه:
- * 200 بتقويمٍ صالحٍ فارغ بالاسم نفسه ووصفٍ يقول إنه توقّف، فتُمسح المحاضراتُ من الهاتف
- * بهدوء بدل خطأٍ يُبقيها، ويعود وحده متى صدرت له بطاقةٌ جديدة (قرار المالك 2026-10-29).
- * ورمزُ البطاقة في المسار يربط الطلبَ بصندوق الديمو وحده؛ لا يُشترط أن يكون هو حياً.
+ * ── اشتراكُ الأستاذ (M3) — مربوطٌ ببطاقته الحيّة ──────────────────────────────────
+ * ‎/api/public/cal/<رمز البطاقة>/p<رقم>-<مفتاح>.ics‎. كان الرمزُ في المسار لا يُفحص والمفتاحُ للشخص وحده، فرابطٌ مسرَّب
+ * يكشف الجدولَ الرسمي (بقاعاته) ما دام للأستاذ أيُّ بطاقةٍ حيّة. الآن لا يُعرض الجدولُ إلا إذا كان رمزُ المسار **بطاقةً حيّةً
+ * لهذا الأستاذ** (holdsLiveCardLink: رابطُه الشخصي، أو رابطُ طلبه، أو بطاقةُ قسمٍ يدرّس فيه؛ غيرُ موقوفٍ ومقروءٌ الآن
+ * فالانتهاءُ يُحتسب — liveCardLinkFor في src/utils/shareLinkLifetime.ts)، والمفتاحُ مشتقٌّ من الرمز ورقم الأستاذ
+ * (src/server/calendarSecret.ts) فيُبطله تجديدُ الرابط أو إيقافُه. وفي غير ذلك — رمزٌ أُوقف أو انتهى، أو مفتاحٌ قديم
+ * لا يخصّ صاحبَه — 200 بتقويمٍ صالحٍ فارغ بالاسم نفسه ووصفٍ يقول إنه توقّف (لا جدولَ ولا خطأ، فتُمسح المحاضراتُ
+ * من الهاتف بهدوء). مفتاحٌ مزوَّر أو لا يطابق رمزَ المسار (ومنه رمزُ زميل): 404. والمفاتيح القديمة (بلا ربط) على الهواتف تعمل ما دام رابطُها هو الحيّ نفسُه.
+ * (قرار المالك 2026-10-29 بإيقاف الاشتراك بلا بطاقة حيّة يبقى؛ ويُضاف إليه ربطُ الاشتراك برابطٍ بعينه.)
  */
 app.get("/api/public/cal/:token/:key", async (req: Request, res: Response) => {
-  const id = instructorFromCalendarKey(await calendarSecret(), String(req.params.key || ""));
+  const token = String(req.params.token || "");
+  const id = instructorFromCalendarKey(await calendarSecret(), String(req.params.key || ""), token);
   const person = id ? (await Repository.getInstructors()).find(row => Number(row.AdInstructorId) === id) : undefined;
   if (!person) { res.status(404).type("text/plain; charset=utf-8").send("Not found"); return; }
-  await sendInstructorCalendar(req, res, person, { pauseWithoutLiveCard: true });
+  await sendInstructorCalendar(req, res, person, { liveCardToken: token });
 });
 
 /* تذكيرُ «مساري» ليومٍ واحد كان هنا رابطاً عامّاً بلا جلسة يقبل عنواناً حرّاً؛ صار بجلسة الطالب

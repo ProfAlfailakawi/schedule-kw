@@ -139,6 +139,6 @@ export const calendarSecret = createCalendarSecretResolver(() => process.env.CAL
 export const calendarKey = async (token: string, instructorId: number) =>
   calendarFeedKey(await calendarSecret(), token, instructorId);
 
-/** رابطُ الاشتراك الثابت لأستاذ، نسبياً للموقع. */
+/** رابطُ اشتراك أستاذ، نسبياً للموقع: مفتاحُه مربوطٌ برمز بطاقته الحيّ (src/server/calendarSecret.ts). */
 export const stableCalendarPath = async (token: string, instructorId: number) =>
-  `/api/public/cal/${encodeURIComponent(token)}/${personCalendarKey(await calendarSecret(), instructorId)}.ics`;
+  `/api/public/cal/${encodeURIComponent(token)}/${personCalendarKey(await calendarSecret(), instructorId, token)}.ics`;

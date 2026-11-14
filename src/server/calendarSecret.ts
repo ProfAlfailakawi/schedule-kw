@@ -53,19 +53,25 @@ export function createCalendarSecretResolver(readEnv: () => string | undefined, 
 }
 
 /**
- * ── مفتاحُ اشتراكٍ ثابتٌ للأستاذ نفسه، لا للرابط ─────────────────────────────
+ * ── مفتاحُ اشتراكٍ للأستاذ نفسه، مربوطٌ برابط بطاقته الحيّ ───────────────────────
  *
- * كان المفتاح مشتقاً من رمز الرابط؛ وكلُّ نشرٍ جديدٍ لبطاقة الأستاذ يوقف
- * البطاقة السابقة، فيموت اشتراكُ كل هاتفٍ أضافه (404) — «التقويم لا يتحدّث».
- * هذا المفتاح يتبع الأستاذ وحده: ‎p<رقم>-<HMAC>‎، فيبقى الرابطُ نفسه فصلاً بعد
- * فصل ويتبع الجدول — ما دامت بيده بطاقةٌ حيّة (liveCardLinkFor في
- * src/utils/shareLinkLifetime.ts)؛ وبلا بطاقةٍ حيّة يجيب تقويماً فارغاً وصفُه
- * CALENDAR_FEED_PAUSED_NOTE. لا يكشف رقماً مدنياً ولا يُخمَّن بلا السرّ، ويُبطَل
- * كلُّه بتدوير CALENDAR_SECRET.
+ * الصيغة: ‎p<رقم>-<HMAC>‎ في ‎/api/public/cal/<رمز البطاقة>/p<رقم>-<مفتاح>.ics‎. كان المفتاحُ للأستاذ وحده والرمزُ في
+ * المسار لا يُفحص، فمن حصل على رابطٍ مسرَّب قرأ الجدولَ الرسمي (بقاعاته) ما دام للأستاذ بطاقةٌ حيّة أيّاً كانت.
+ * الآن (قرار المراجعة 2026-11-14):
+ *   1) المفتاحُ يُشتقّ من رمز الرابط ورقم الأستاذ معاً، فتجديدُ الرابط أو إيقافُه يُبطل ما حُمل عليه؛
+ *   2) والخادمُ لا يعرض الجدولَ إلا والرمزُ في المسار بطاقةٌ حيّة **لهذا الأستاذ** (liveCardLinkFor في
+ *      src/utils/shareLinkLifetime.ts: رابطُه الشخصي، أو رابطُ طلبه، أو بطاقةُ قسمٍ يدرّس فيه)؛ وإلا أجاب تقويماً
+ *      صالحاً فارغاً وصفُه CALENDAR_FEED_PAUSED_NOTE (لا جدولَ ولا خطأ، فتُمسح المحاضراتُ من الهاتف بهدوء)؛
+ *   3) المفاتيحُ القديمة (بلا ربط) التي حُملت على الهواتف قبل هذا التغيير تبقى تعمل ما دام الرابطُ نفسُه حيّاً، وتموت
+ *      بأول تجديدٍ له. وبعد التجديد يضيف الأستاذُ الرابطَ الجديد إلى هاتفه مرّةً واحدة.
+ * لا يكشف رقماً مدنياً ولا يُخمَّن بلا السرّ، ويُبطَل كلُّه بتدوير CALENDAR_SECRET.
  */
-export function personCalendarKey(secret: string, instructorId: number): string {
+export function personCalendarKey(secret: string, instructorId: number, token?: string): string {
   const id = Math.trunc(Number(instructorId));
-  return `p${id}-${createHmac("sha256", secret).update(`calendar-person|${id}`).digest("hex").slice(0, 32)}`;
+  /* مع رمز البطاقة: المفتاحُ مربوطٌ بالرابط الذي صدر منه، فتجديدُ الرابط أو إيقافُه يُبطل ما حُمل عليه
+     (والخادمُ يتحقّق فوق ذلك أن الرمز بطاقةٌ حيّة لهذا الأستاذ). وبلا رمزٍ الصيغةُ القديمة حرفاً بحرف: اشتراكاتُ الهواتف القائمة. */
+  const label = token ? `calendar-person-link|${id}|${token}` : `calendar-person|${id}`;
+  return `p${id}-${createHmac("sha256", secret).update(label).digest("hex").slice(0, 32)}`;
 }
 
 /**
@@ -75,15 +81,24 @@ export function personCalendarKey(secret: string, instructorId: number): string 
  */
 export const CALENDAR_FEED_PAUSED_NOTE = "توقّف هذا الاشتراك: لا بطاقة سارية لك الآن. يعود وحده متى أصدر القسم بطاقتك.";
 
-/** يقرأ رقم الأستاذ من المفتاح ويتحقق منه؛ 0 حين لا يطابق. يقبل لاحقة ".ics". */
-export function instructorFromCalendarKey(secret: string, key: string): number {
+const sameText = (a: string, b: string): boolean => {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+};
+
+/**
+ * يقرأ رقم الأستاذ من المفتاح ويتحقق منه؛ 0 حين لا يطابق. يقبل لاحقة ".ics".
+ * مع `token` (رمز البطاقة في المسار) يُقبل المفتاحُ المربوط بالرمز، أو المفتاحُ القديم الذي حُمل على الهواتف قبل الربط
+ * — والأخيرُ لا يُجدي إلا والرمزُ نفسُه بطاقةٌ حيّةٌ لصاحبه (يتحقّق منها المسار)، فيموت بتجديد الرابط.
+ */
+export function instructorFromCalendarKey(secret: string, key: string, token?: string): number {
   const clean = String(key || "").replace(/\.ics$/i, "");
   const match = /^p(\d{1,9})-[0-9a-f]{32}$/.exec(clean);
   if (!match) return 0;
   const id = Number(match[1]);
-  const expected = personCalendarKey(secret, id);
-  if (expected.length !== clean.length) return 0;
-  let diff = 0;
-  for (let i = 0; i < clean.length; i++) diff |= expected.charCodeAt(i) ^ clean.charCodeAt(i);
-  return diff === 0 ? id : 0;
+  if (token === "") return 0;
+  if (token !== undefined && sameText(personCalendarKey(secret, id, token), clean)) return id;
+  return sameText(personCalendarKey(secret, id), clean) ? id : 0;
 }
