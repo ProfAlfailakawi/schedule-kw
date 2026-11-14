@@ -107,7 +107,7 @@ try {
   /* الصفحة */
   const page = await call("GET", pathOf(made.json.url));
   check(page.status === 200 && page.text.includes("قسم التربية الإسلامية") && page.text.includes("الصحيفة الجديدة") && page.text.includes("كلية التربية الأساسية"), "تُظهر القسمَ والكليةَ واسمَ الصحيفة");
-  check(page.text.includes("الوحدات المنجزة") && page.text.includes("الوحدات المتبقية") && /فصول للتخرّج/.test(page.text) && /\d+٪/.test(page.text), "وحلقةَ التقدّم: منجَز ومتبقٍّ وفصولُ التخرّج المقدَّرة");
+  check(page.text.includes("الوحدات المنجزة") && page.text.includes("الوحدات المتبقية") && /فصول للتخرّج/.test(page.text) && /\d+%/.test(page.text), "وحلقةَ التقدّم: منجَز ومتبقٍّ وفصولُ التخرّج المقدَّرة");
   const snapshot = (await import("../src/server/studentExtras"));
   const courseNames = h.courseOf(SECTION_A).map(c => c.CourseName as string);
   check(page.text.includes(courseNames[0]), "المقررُ المنجَز بأسمائه", courseNames[0]);
