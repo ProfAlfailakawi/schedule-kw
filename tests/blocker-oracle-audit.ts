@@ -188,6 +188,7 @@ const ALLOWED_RAW: Array<[string, string]> = [
   ["const externalConflicts=findConflicts([selected]", "row explanation panel: lists every finding (advice too), placeholder-exempt; decides nothing"],
   ["const conflicts=findConflicts([r],v.rows).length", "timeline of past versions: a historical reading, not an approval decision"],
   ["conflicts:findConflicts([selected],await Repository", "timeline 'current' point: same historical reading"],
+  ["findConflicts([normalize(row)], others", "atomic write guard (slotGuard): re-reads the save gate's blockers inside the write transaction through isBlockingConflict; only NEW ones refuse (A6)"],
 ];
 const rawCalls = (server.match(/findConflicts\(/g) || []).length;
 check(rawCalls === ALLOWED_RAW.length && ALLOWED_RAW.every(([snippet]) => server.includes(snippet)),

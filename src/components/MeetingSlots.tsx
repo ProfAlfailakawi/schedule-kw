@@ -2,6 +2,7 @@ import { byArabic } from "../utils/sorting";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarCheck2, CalendarSearch, Check, Globe2, Search, X, Clock3 } from "lucide-react";
 import { PrimaryButton } from "./ui";
+import { TimeField } from "./TimeField";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
 import { meetingParticipants, type MeetingAnswer, type MeetingWindow } from "../utils/meetingSlots";
@@ -189,8 +190,8 @@ export default function MeetingSlots({ instructors, scopeNarrowed = false, termI
           <label><span>اليوم</span><select value={chosenDay} onChange={event => { setChosenDay(event.target.value); setInspection(null); }}>
             {SCHEDULE_DAYS.map(day => <option key={day.key} value={day.key}>{day.label}</option>)}
           </select></label>
-          <label><span>الوقت</span><input type="text" dir="ltr" lang="en" inputMode="numeric" autoComplete="off" maxLength={5} placeholder="10:05" aria-label="وقت بدء الاجتماع بصيغة ساعة:دقيقة" value={chosenTime} onChange={event => { setChosenTime(event.target.value); setInspection(null); }} /></label>
-          <PrimaryButton type="button" data-guide-ignore="فحص توفر المشاركين للموعد المحدد يدوياً" disabled={picked.size < 1 || loading} onClick={() => void inspect()}>{loading ? "يفحص…" : "افحص الوقت"}</PrimaryButton>
+          <label><span>الوقت</span><TimeField className="meeting-time-field" aria-label="وقت بدء الاجتماع بصيغة ساعة:دقيقة" placeholder="10:05" value={chosenTime} onChange={event => { setChosenTime(event.target.value); setInspection(null); }} /></label>
+          <PrimaryButton type="button" data-guide-ignore="فحص توفر المشاركين للموعد المحدد يدوياً" disabled={picked.size < 1 || loading || !chosenTime} onClick={() => void inspect()}>{loading ? "يفحص…" : "افحص الوقت"}</PrimaryButton>
         </div>
 
         <div className="meeting-slots-bulk">

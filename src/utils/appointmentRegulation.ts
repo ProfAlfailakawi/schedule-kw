@@ -8,9 +8,9 @@
  *   • اختيار يومٍ يكمّل أيام النمط المعتمد لساعات المقرر (الأحد ← الأحد·الثلاثاء·الخميس).
  *   • اختيار البداية يحسب النهاية من دقائق النمط (3 ساعات كتلة: 08:00 → 10:50).
  *   • أكثر من نمط يحتوي اليوم → يُطبَّق الأنسب لطبيعة المقرر، والبقية شرائح.
- *   • التعديل اليدوي مسموح، وما خرج عن اللائحة يُعلَّم ⚠️ ولا يُمنع.
+ *   • التعديل اليدوي مسموح، وما خرج عن اللائحة يُعلَّم ⚠️ ولا يُمنع (يُحفظ باستثناءٍ صريح).
  */
-import { DAY_KEYS, DAY_NAMES, daysFitLibrary, patternsForHours, type DayKey, type WeeklyPattern } from "./scheduleRegulations";
+import { DAY_KEYS, DAY_NAMES, daysFitLibrary, maxWeeklyMinutesFor, patternsForHours, sectionDaysFitLibrary, sectionWeeklyHours, type DayKey, type WeeklyPattern } from "./scheduleRegulations";
 import { SCHEDULE_CLOCK_END } from "./scheduleTime";
 
 export type { DayKey } from "./scheduleRegulations";
@@ -32,9 +32,12 @@ export interface RegulationChoice {
   block: boolean;
 }
 
+/** NaN لما ليس ساعةً صحيحة («25:00» و«08:60» كانتا تُقصّان إلى 23:59 و10:20). */
 const toMinutes = (value: string) => {
   const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
-  return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
+  if (!match) return NaN;
+  const hour = Number(match[1]), minute = Number(match[2]);
+  return hour > 23 || minute > 59 ? NaN : hour * 60 + minute;
 };
 const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
 const shortDay = (day: DayKey) => DAY_NAMES[DAY_KEYS.indexOf(day)].replace(/^ال/, "");
@@ -248,24 +251,45 @@ export function endIsDeliberate(course: RegulationCourse | null | undefined, day
 
 export type RegulationFit = "fits" | "off" | "unknown";
 
-/** هل يطابق الموعد (الأيام + المدة) نمطاً معتمداً لساعات المقرر؟ unknown بلا ساعات أو بلا وقت. */
+/** صفٌّ كما يراه الخادم: أيامٌ ووقت (الشعبةُ تُحكم بصفوفها كلِّها). */
+export type FitSibling = Partial<Record<DayKey, unknown>> & { fstarttime?: unknown; fendtime?: unknown };
+
+/**
+ * هل يطابق الموعد (الأيام + المدة) نمطاً معتمداً لساعات المقرر؟ unknown بلا ساعات أو بلا وقت.
+ *
+ * `siblings` (صفوفُ الشعبة نفسها الأخرى: المقرر والرمز والفصل والقسم، بلا هذا الصف) يُفعّل حكمَ الخادم بعينه
+ * (scheduleRules: scheduleLengthIssue ثم unapprovedPatternIssue): مجموعُ ساعات الشعبة بين المطلوب والسقف، وأيامُها نمطٌ
+ * في المكتبة، وطولُ الصف طولُ نمطه. الخادم هو الحَكَم: «أحد 50» وحدَه لمقررٍ بثلاث ساعات ناقصٌ (50/150)، و«اثنين·أربعاء 170»
+ * لخمس ساعات زائد (340/275) — وكان الحكمُ بلا الصفوف الأخرى يقول «fits» في الحالتين. بلا `siblings` تبقى القراءةُ القديمة
+ * (انتماءُ الصف إلى نمطٍ) لمن لا يعرف شعبته.
+ */
 export function regulationFit(
   course: RegulationCourse | null | undefined,
   days: readonly DayKey[],
   start: string,
   end: string,
+  siblings?: readonly FitSibling[],
 ): RegulationFit {
   /* ساعاتٌ لا نمطَ لها في المكتبة (تدريبٌ ميداني بتسع ساعات مثلاً) لا يُحكم عليها: كانت تُقرأ «خارج اللائحة». */
   if (!regulationHours(course) || !days.length || !patternsForHours(regulationHours(course)).length) return "unknown";
   const from = toMinutes(start), to = toMinutes(end);
   const length = to - from;
   const ordered = DAY_KEYS.filter(day => days.includes(day));
-  /* صفٌّ هو لقاءٌ من نمطٍ معتمد: الخمس ساعات (170 + 110) صفّان بطولين، والنمطُ يُبنى أحياناً صفّاً لكل يوم.
-     كانت هذه تُقرأ «خارج اللائحة»، والمكتبةُ نفسها تعتمدها. */
-  const partOfPattern = Number.isFinite(length) && patternsForHours(regulationHours(course)).some(pattern => pattern.days.length > 1
-    && (ordered.length === 1
-      ? pattern.days.some((day, index) => day === ordered[0] && pattern.minutesPerDay[index] === length)
-      : !uniform(pattern) && pattern.days.length === ordered.length && pattern.days.every(day => ordered.includes(day)) && pattern.minutesPerDay.includes(length)));
+  if (siblings) {
+    if (!Number.isFinite(from) || !Number.isFinite(to) || length <= 0) return "unknown";
+    const hours = regulationHours(course);
+    const row: FitSibling = { fstarttime: start, fendtime: end };
+    DAY_KEYS.forEach(day => { row[day] = ordered.includes(day); });
+    const reading = sectionWeeklyHours(row, siblings, hours);
+    if (reading.total > maxWeeklyMinutesFor(hours) || reading.under) return "off";
+    if (sectionDaysFitLibrary(hours, row, siblings) === false) return "off";
+    return patternLengthIssue(course, ordered, start, end) ? "off" : "fits";
+  }
+  /* صفٌّ هو لقاءٌ من نمطٍ معتمد: الخمس ساعات (170 + 110) صفّان بطولين، والنمطُ يُبنى أحياناً صفّاً لكل يوم — ليومٍ واحد.
+     وصفٌّ بيومين فأكثر له طولٌ واحدٌ على أيامه كلِّها فلا يكون جزءاً من نمطٍ بطولين (كانت «اثنين·أربعاء 170» لخمس ساعات تُقرأ سليمة). */
+  const partOfPattern = ordered.length === 1 && Number.isFinite(length)
+    && patternsForHours(regulationHours(course)).some(pattern => pattern.days.length > 1
+      && pattern.days.some((day, index) => day === ordered[0] && pattern.minutesPerDay[index] === length));
   const choice = regulationChoiceFor(course, days);
   if (!choice) return partOfPattern ? "fits" : "off";
   if (!Number.isFinite(from) || !Number.isFinite(to)) return "unknown";
@@ -371,7 +395,20 @@ export function wheelLengths(course: RegulationCourse | null | undefined, days: 
   if (!patterns.length) return null;
   const ordered = DAY_KEYS.filter(day => days.includes(day));
   const all = [...new Set(patterns.flatMap(pattern => pattern.minutesPerDay))].sort((a, b) => a - b);
-  if (ordered.length === 1) { const one = singleDayLengths(course, ordered[0]); return one.length ? one.sort((a, b) => a - b) : all; }
+  /* يومٌ واحد: تغييرُ البداية يعيد الطولَ إلى كتلة ساعات المقرر (قرار المالك: يبقى)، فلا تُعرض أطوالٌ يُبطلها ذلك
+     (كان الأحد لثلاث ساعات يعرض 50 و80 و170 فتُكتب 50 ثم تصير 170 بصمت). الكتلةُ وحدها، وبقيمةٍ واحدة لا عجلة. */
+  if (ordered.length === 1) {
+    const blocks = [...new Set(patterns.filter(pattern => pattern.days.length === 1).map(pattern => pattern.minutesPerDay[0]))].sort((a, b) => a - b);
+    if (blocks.length) return blocks;
+    const one = singleDayLengths(course, ordered[0]);
+    return one.length ? one.sort((a, b) => a - b) : all;
+  }
   if (ordered.length > 1) { const exact = patternMinutes(course, ordered); return exact ? [exact] : all; }
   return all;
+}
+
+/** القيمةُ الثابتة حين لا يصحّ للأيام المختارة إلا طولٌ واحد (فتُعرض قيمةً لا عجلة)، وإلا null. */
+export function fixedWheelLength(course: RegulationCourse | null | undefined, days: readonly DayKey[]): number | null {
+  const lengths = wheelLengths(course, days);
+  return lengths && lengths.length === 1 ? lengths[0] : null;
 }

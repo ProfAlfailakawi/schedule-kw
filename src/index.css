@@ -83,6 +83,8 @@
 @import "./styles/64-system-health.css";
 @import "./styles/65-wish-patterns.css";
 @import "./styles/66-ladder-start-hint.css";
+@import "./styles/67-chain-solve.css";
+@import "./styles/67-student-pulse-live.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after
    everything else preserves the cascade order exactly as it stands here. */

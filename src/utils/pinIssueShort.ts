@@ -24,7 +24,9 @@ function lengthWord(text: string): string {
 export function pinIssueShort(issue: Pick<PinIssue, "rule" | "text">): PinShort {
   const text = String(issue.text || "");
   switch (issue.rule) {
-    case "pattern": return { icon: "cal", short: "الأيام خارج النمط" };
+    case "pattern":
+    case "pattern-days": return { icon: "cal", short: "الأيام خارج النمط" };
+    case "lecture-length": return { icon: "clock", short: lengthWord(text) };
     case "pattern-length": return { icon: "clock", short: lengthWord(text) };
     case "course-hours": return /تزيد/.test(text) ? { icon: "scale", short: "ساعات أكثر من المقرر" } : { icon: "scale", short: "ساعات أقل من المقرر" };
     case "start-ladder": return { icon: "sunrise", short: "البداية خارج السُّلّم" };

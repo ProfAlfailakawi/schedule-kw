@@ -30,7 +30,8 @@ export async function draftAppointmentChecks(req: Parameters<typeof scheduleConf
     try {
       for (const message of await schedulePayloadIssues(row)) add(rowIssues, row.id, message);
       add(rowIssues, row.id, await scheduleLengthIssue(row, week));
-      add(rowIssues, row.id, await unapprovedPatternIssue(row, week));
+      /* نمطٌ غير معتمد تنبيهٌ لا مانع (قرار المالك: خارجُ اللائحة يُقال ويُحفظ بتأكيد). */
+      add(rowWarnings, row.id, await unapprovedPatternIssue(row, week));
       for (const conflict of await scheduleConflicts(req, row, Number(row.id), week)) add((conflict as any).soft ? rowWarnings : rowIssues, row.id, (conflict as any).message);
     } catch (error) {
       /* فحصٌ لم يكتمل لا يُقرأ سلامةً. */

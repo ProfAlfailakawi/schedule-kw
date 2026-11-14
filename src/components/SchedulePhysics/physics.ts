@@ -41,7 +41,8 @@ const timeFromMinutes = (value: number) => `${String(Math.floor(value / 60)).pad
 export function buildMoveCandidate(row: FSchedule, target: Pick<SchedulePhysicsTarget, "day" | "start">) {
   const originalDuration = Math.max(30, minutes(row.fendtime) - minutes(row.fstarttime));
   const selected = PHYSICS_DAYS.filter(day => Boolean((row as any)[day.key]));
-  const duration = selected.length === 1 && originalDuration <= 100
+  // صف بلا يوم يُوضع بالسحب كصف أحادي اليوم: يأخذ يوم الإفلات ومدة الكتلة المعتمدة.
+  const duration = selected.length <= 1 && originalDuration <= 100
     ? expectedMinutesForDay(target.day)
     : originalDuration;
   const candidate: any = {
@@ -49,13 +50,18 @@ export function buildMoveCandidate(row: FSchedule, target: Pick<SchedulePhysicsT
     fstarttime: target.start,
     fendtime: timeFromMinutes(Math.min(SCHEDULE_DAY_LAST_MINUTE, minutes(target.start) + duration)),
   };
-  if (selected.length === 1) PHYSICS_DAYS.forEach(day => { candidate[day.key] = day.key === target.day; });
+  if (selected.length <= 1) PHYSICS_DAYS.forEach(day => { candidate[day.key] = day.key === target.day; });
   return candidate as FSchedule;
 }
 
 export function isSamePlacement(row: FSchedule, sourceDay: ScheduleDayKey, target: SchedulePhysicsTarget) {
   const selected = PHYSICS_DAYS.filter(day => Boolean((row as any)[day.key]));
-  if (selected.length > 1) return row.fstarttime === target.start;
+  // صف متعدد الأيام: الإفلات على يوم خارج أيامه تحويل نمط (الفأرة تعرضه)،
+  // فلا يُعدّ «نفس الموضع» ولو تطابق وقت البدء — كما يفعل مسار لوحة المفاتيح.
+  if (!selected.length) return false;
+  // وقتٌ ناقص أو نهايةٌ قبل البداية: الصف «غير موضوع» ولو كان له يوم، فالإفلات يضعه.
+  if (!row.fstarttime || !row.fendtime || minutes(row.fendtime) <= minutes(row.fstarttime)) return false;
+  if (selected.length > 1) return selected.some(day => day.key === target.day) && row.fstarttime === target.start;
   return sourceDay === target.day && row.fstarttime === target.start;
 }
 

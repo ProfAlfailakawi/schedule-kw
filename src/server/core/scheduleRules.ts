@@ -20,6 +20,7 @@ import { patternLengthIssue, regulationEnd, sameScheduleShape } from "../../util
 import { REGULATION_EXCEPTION_CODE, regulationExceptionIssues, regulationExceptionMessage, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { placeholderInstructorIds } from "../../utils/instructorIdentity";
 import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
+import { sectionCodeKey } from "../../utils/sameSlot";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { historicalOrigin } from "../../utils/courseNature";
@@ -89,6 +90,14 @@ export async function mixedPatternNotice(courseId:number,days:RequestDayKey[],te
  * مقرّرٌ لا تُعرف ساعاتُه أو لا نمطَ لها في المكتبة لا يُحكم عليه هنا.
  */
 export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],options:{skipIfUnchanged?:boolean}={}):Promise<string|null>{
+  return (await patternVerdict(row,hypothetical,options))?.text??null;
+}
+/**
+ * حكمُ النمط بقاعدته: أيامٌ ليست نمطاً معتمداً (`pattern-days`) أو نهايةٌ تخالف نمط أيامٍ معتمدة (`lecture-length`).
+ * عند القسم لا يمنع الحفظ (قرار المالك: خارجُ اللائحة تنبيهٌ بتأكيدٍ صريح) — يصل ورقةَ الاستثناء في regulationExceptionsFor.
+ * ويبقى unapprovedPatternIssue نصَّه لمن يفحص مسوّدةً أو يثبّت طلباً.
+ */
+export async function patternVerdict(row:any,hypothetical?:FSchedule[],options:{skipIfUnchanged?:boolean}={}):Promise<{rule:"pattern-days"|"lecture-length";text:string}|null>{
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
   const own=SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as DayKey[];
   if(!own.length)return null;
@@ -103,7 +112,7 @@ export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],o
   let siblings:any[]=[];
   if(Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
     siblings=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
-      .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")
+      .filter((other:any)=>Number(other.AdCourseId)===courseId&&sectionCodeKey(other.SCode)===sectionCodeKey(row.SCode)
         &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
         &&!isSameRow(other,row));
     for(const other of siblings)for(const day of SCHEDULE_DAY_KEYS)if((other as any)[day])union.add(day as DayKey);
@@ -112,8 +121,8 @@ export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],o
   const fits=sectionDaysFitLibrary(hours,row,siblings);
   /* والطولُ أيضاً (المالك 2026-11-08): أيامٌ معتمدة بنهايةٍ تخالف نمطها تمنع، والسطرُ يقول النهاية الصحيحة.
      الحكمُ في appointmentRegulation (patternLengthIssue) — المصدرُ نفسه الذي يقرؤه النموذج والمقترح. */
-  if(fits!==false)return patternLengthIssue({CourseHours:hours},own,String(row?.fstarttime||""),String(row?.fendtime||""))||null;
-  return sectionPatternIssueText(hours,row,siblings);
+  if(fits!==false){const text=patternLengthIssue({CourseHours:hours},own,String(row?.fstarttime||""),String(row?.fendtime||""));return text?{rule:"lecture-length",text}:null;}
+  return {rule:"pattern-days",text:sectionPatternIssueText(hours,row,siblings)};
 }
 /**
  * ── مخالفاتُ اللائحة التي تُحفظ بتأكيدٍ صريح فقط (ملاحظتا المالك 10 و20) ──────────────
@@ -121,8 +130,12 @@ export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],o
  * المصدرِ الذي يقرؤه المقترحُ الدراسي أيضاً. التتالي يُقرأ على أسبوع الأستاذ في الجامعة كلها (تعارضاتُ
  * الأستاذ جامعية — قرار المالك 2026-10-29)، فيُقرأ الفصلُ كله لا القسم وحده.
  */
-export async function regulationExceptionsFor(row:any,hypothetical?:FSchedule[],options:{shapeChanged?:boolean;sequenceChanged?:boolean}={}):Promise<RegulationExceptionIssue[]>{
-  if(options.shapeChanged===false&&options.sequenceChanged===false)return [];
+export async function regulationExceptionsFor(row:any,hypothetical?:FSchedule[],options:{shapeChanged?:boolean;sequenceChanged?:boolean;existing?:any;skipPattern?:boolean}={}):Promise<RegulationExceptionIssue[]>{
+  /* النمطُ المعتمد (قرار المالك: تنبيهٌ بتأكيد لا منع): الصفُّ القائم الذي بقي في شعبته بشكله لا يُسأل عنه، وتغييرُ المقرّر أو
+     الرمز وحده لا يُسأل عنه بمخالفةٍ كانت في الصفّ نفسه (A6)؛ والإنشاءُ يُسأل دائماً. */
+  const { existing } = options;
+  const checkPattern=!options.skipPattern&&(existing?!keepsSectionShape(existing,row):options.shapeChanged!==false);
+  if(options.shapeChanged===false&&options.sequenceChanged===false&&!checkPattern)return [];
   const termId=Number(row?.AdTermId||0);
   const [week,instructors,courses]=await Promise.all([
     hypothetical?Promise.resolve(hypothetical):termId?Repository.getSchedulesByScope({termId}):Promise.resolve([] as FSchedule[]),
@@ -131,8 +144,15 @@ export async function regulationExceptionsFor(row:any,hypothetical?:FSchedule[],
   ]);
   const courseCode=new Map((courses as any[]).map(course=>[Number(course.AdCourseId),String(course.CourseName||course.CourseCode||"")]));
   const course=(courses as any[]).find(item=>Number(item.AdCourseId)===Number(row?.AdCourseId));
-  return regulationExceptionIssues({row,week:week as any,placeholders:placeholderInstructorIds(instructors as any),...options,courseHours:effectiveCourseHours(course),
+  const issues=regulationExceptionIssues({row,week:week as any,placeholders:placeholderInstructorIds(instructors as any),shapeChanged:options.shapeChanged,sequenceChanged:options.sequenceChanged,courseHours:effectiveCourseHours(course),
     nameOf:(other:any)=>courseCode.get(Number(other?.AdCourseId))||String(other?.AdCourseName||"")});
+  if(checkPattern){
+    const verdict=await patternVerdict(row,hypothetical);
+    const known=verdict&&!(verdict.rule==="lecture-length"&&issues.some(issue=>issue.rule==="lecture-length"));
+    const before=known&&existing&&sameScheduleShape(existing,row)?await patternVerdict(existing,hypothetical):null;
+    if(known&&!before)issues.unshift({rule:verdict!.rule,article:"م.7/8",text:verdict!.text});
+  }
+  return issues;
 }
 /**
  * ── تتالي الأستاذ الجديد حين تُنقل إليه مواعيدُ دفعةً («استبدال الأستاذ»، «تحويل التدريب») ──────────────
@@ -179,7 +199,8 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
     const scopeRows=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
       .filter((other:any)=>Number(other.AdCourseId)===courseId&&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
         &&!isSameRow(other,row));
-    const siblings=scopeRows.filter((other:any)=>String(other.SCode||"")===String(row.SCode||""));
+    /* الشعبةُ بمفتاحها القانوني: «901» و«0901» و«١» شعبةٌ واحدة، فلا يُلتفّ على سقف ساعاتها بكتابةٍ أخرى للرمز. */
+    const siblings=scopeRows.filter((other:any)=>sectionCodeKey(other.SCode)===sectionCodeKey(row.SCode));
     /* مصدرٌ واحد (sectionWeeklyHours): النسخة المطابقة للموعد نفسه لا تضاعف المجموع، والمواعيد المحسوبة تُسمّى. */
     const reading=sectionWeeklyHours(row,siblings,hours);
     /* شعبةٌ قائمة تتجاوز ساعاتها أصلاً (بياناتٌ قديمة) لا تُمنع من النقل ما لم يزد مجموعُها — كما في طلب الأستاذ؛
@@ -205,7 +226,7 @@ export async function sectionShapeIssue(row:any,hypothetical?:FSchedule[],option
 }
 /** الموعدُ القائم بقي في شعبته: المقرّرُ ورمزُ الشعبة كما حُفظا. من غيّر أحدهما دخل شعبةً أخرى فيُحكم نمطُها من جديد. */
 export const sameSectionIdentity=(saved:any,next:any)=>Boolean(saved&&next)
-  &&Number(saved.AdCourseId||0)===Number(next.AdCourseId||0)&&String(saved.SCode??"").trim()===String(next.SCode??"").trim();
+  &&Number(saved.AdCourseId||0)===Number(next.AdCourseId||0)&&sectionCodeKey(saved.SCode)===sectionCodeKey(next.SCode);
 /** موعدٌ قائم لم يتغيّر شكلُه (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) — وحده يتخطّى مانعَي الشعبة (A6). */
 export const keepsSectionShape=(saved:any,next:any)=>sameScheduleShape(saved,next)&&sameSectionIdentity(saved,next);
 /**

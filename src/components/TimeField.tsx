@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from "react";
+import { clockErrorText, latinClockText, parseTypedClock, type ClockTypedError } from "../utils/clockInput";
 import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME } from "../utils/scheduleTime";
 
 /**
@@ -69,44 +70,47 @@ export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_ST
   }, [value]);
   const emit = (next: string) => { emitted.current = next; onChange({ target: { value: next } }); };
 
-  /* الصفرُ الذي أضافه الحقل نفسه («3» ← «03») ليس صفراً كتبه صاحبه: «330» اختصارٌ يُقرأ 15:30، و«0330» الصريحة لا. */
-  const padded = useRef(false);
-  const handle = (raw: string) => {
-    let digits = LATIN(raw).slice(0, 4);
-    if (digits.length <= 1) padded.current = false;
-    if (digits.length === 1 && Number(digits) > 2) { digits = `0${digits}`; padded.current = true; }
-    const shown = digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
-    setText(shown);
-    if (!digits) { setBad(false); emit(""); return; }
-    if (digits.length < 4) { setBad(false); return; }
-    const clock = normalizeClock(digits, min, max) || (padded.current ? afternoonClock(digits, min, max) : "");
-    setBad(!clock);
-    if (clock) { if (clock !== `${digits.slice(0, 2)}:${digits.slice(2)}`) setText(clock); emit(clock); }
-    else {
-      const attempted = `${digits.slice(0, 2)}:${digits.slice(2)}`;
-      const hour = Number(digits.slice(0, 2)), minute = Number(digits.slice(2));
-      if (hour <= 23 && minute <= 59) {
-        if (attempted < min) onOutOfRange?.("min", attempted, min);
-        else if (attempted > max) onOutOfRange?.("max", attempted, max);
-      }
-    }
+  const [message, setMessage] = useState("");
+  const clearBad = () => { setBad(false); setMessage(""); };
+  const fail = (kind: ClockTypedError | "min" | "max", boundary = "") => { setBad(true); setMessage(clockErrorText(kind, boundary)); };
+
+  /* يقرأ النصَّ المكتوب بقاعدة clockInput الواحدة، ثم يفحص نافذة الدوام. لا يكتب شيئاً. */
+  const read = (raw: string): { clock: string; error: ClockTypedError | "min" | "max"; attempted: string } => {
+    const typed = parseTypedClock(raw);
+    if (typed.error) return { clock: "", error: typed.error, attempted: "" };
+    if (typed.clock < min) return { clock: "", error: "min", attempted: typed.clock };
+    if (typed.clock > max) return { clock: "", error: "max", attempted: typed.clock };
+    return { clock: typed.clock, error: "", attempted: typed.clock };
   };
 
-  /* ما لم يكتمل أربعَ خانات يُحسب عند الخروج من الحقل: «14» ← 14:00، و«9» ← 09:00، و«930» ← 09:30.
-     لا يُحسب أثناء الكتابة لأن «14» قد تكون أولَ «1430». كان يُهمل فيعود الحقل إلى قيمته القديمة بلا كلمة. */
-  const settle = () => {
-    const digits = LATIN(text);
-    if (!digits || digits.length === 4) { setText(value || ""); setBad(false); return; }
-    const full = digits.length <= 2 ? `${digits.padStart(2, "0")}00` : `0${digits}`;
-    const clock = normalizeClock(full, min, max) || afternoonClock(full, min, max);
-    if (clock) { setText(clock); setBad(false); if (clock !== value) emit(clock); return; }
-    setText(value || ""); setBad(false);
-    const hour = Number(full.slice(0, 2)), minute = Number(full.slice(2));
-    const attempted = `${full.slice(0, 2)}:${full.slice(2)}`;
-    if (hour <= 23 && minute <= 59) {
-      if (attempted < min) onOutOfRange?.("min", attempted, min);
-      else if (attempted > max) onOutOfRange?.("max", attempted, max);
-    }
+  /* يُعلن الخطأَ ويُبلغ المستدعي بالحدّ عند الخروج عن الدوام. */
+  const reject = (result: { error: ClockTypedError | "min" | "max"; attempted: string }) => {
+    fail(result.error, result.error === "min" ? min : result.error === "max" ? max : "");
+    if (result.error === "min") onOutOfRange?.("min", result.attempted, min);
+    else if (result.error === "max") onOutOfRange?.("max", result.attempted, max);
+  };
+
+  const handle = (raw: string) => {
+    const typed = latinClockText(raw).slice(0, 5);
+    setText(typed);
+    if (!typed) { clearBad(); emit(""); return; }
+    /* يُقرأ أثناء الكتابة ما اكتمل فقط: «HH:MM»، وأربعُ خانات، وثلاثٌ لا يكمّلها شيء («930»: 93 ليست ساعة). */
+    const complete = /^\d{1,2}:\d{2}$/.test(typed) || /^\d{4}$/.test(typed) || (/^\d{3}$/.test(typed) && Number(typed.slice(0, 2)) > 23);
+    if (!complete) { clearBad(); return; }
+    const result = read(typed);
+    if (result.clock) { clearBad(); if (result.clock !== typed) setText(result.clock); emit(result.clock); }
+    else reject(result);
+  };
+
+  /* ما لم يكتمل يُحسب عند الخروج من الحقل أو عند Enter: «14» ← 14:00، و«9» ← 09:00، و«930» ← 09:30.
+     لا يُحسب أثناء الكتابة لأن «14» قد تكون أولَ «1430». ما لا يصحّ يبقى مكتوباً مع رسالةٍ ظاهرة (لا يعود
+     الحقل إلى قيمته القديمة بلا كلمة). يُعيد true إن كان الحقل سليماً (فارغاً أو مقروءاً). */
+  const settle = (): boolean => {
+    if (!LATIN(text)) { setText(value || ""); clearBad(); return true; }
+    const result = read(text);
+    if (result.clock) { setText(result.clock); clearBad(); if (result.clock !== value) emit(result.clock); return true; }
+    reject(result);
+    return false;
   };
 
   return (
@@ -124,9 +128,13 @@ export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_ST
       value={text}
       aria-invalid={bad || rest["aria-invalid"] || undefined}
       onFocus={e => { focused.current = true; rest.onFocus?.(e); }}
+      aria-describedby={bad && message ? `${listId}-msg` : rest["aria-describedby"]}
       onBlur={e => { focused.current = false; settle(); onBlur?.(e); }}
+      /* Enter يثبّت المكتوب قبل أن يقرأ النموذجُ حالتَه (النموذج <form onSubmit>): وإن لم يصحّ لا يُرسَل. */
+      onKeyDown={e => { rest.onKeyDown?.(e); if (e.key === "Enter" && !e.defaultPrevented && !settle()) e.preventDefault(); }}
       onChange={e => handle(e.target.value)}
     />
+    {bad && message ? <small id={`${listId}-msg`} className="time-field-msg" role="alert" style={{ display: "block", color: "var(--danger, #b42318)", fontSize: "11px", lineHeight: 1.4, marginTop: 2 }}>{message}</small> : null}
     {hasList ? <datalist id={listId}>{suggestions!.map(time => <option key={time} value={time} />)}</datalist> : null}
     </>
   );

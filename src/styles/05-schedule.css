@@ -968,7 +968,7 @@ button.schedule-radar:hover{filter:brightness(.96)}
   white-space:nowrap;
 }
 
-.week-drag-handle{display:none}
+.week-drag-handle{display:none;touch-action:none}
 
 .week-event.ripple-source{opacity:.72;border-style:dashed}
 .week-event.ghost-semester-event{opacity:.4}
@@ -4808,7 +4808,7 @@ html:not(.schedule-physics-active) .rooms-slot:hover::after{
 html.schedule-physics-active .rooms-slot:hover::after{content:none}
 .rooms-paint{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .rooms-paint span{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
-.rooms-drag-handle{display:none}
+.rooms-drag-handle{display:none;touch-action:none}
 .schedule-physics-float.physics-view-rooms{min-width:min(260px,70vw)}
 
 /* Context selection and high-frequency appointment surfaces stay visually
@@ -5683,7 +5683,7 @@ html.schedule-physics-active .rooms-slot:hover::after{content:none}
   box-shadow:0 5px 16px color-mix(in srgb,var(--ink) 9%,transparent);
   z-index:60!important;
 }
-.week-strip-track .week-event .week-drag-handle{display:none}
+.week-strip-track .week-event .week-drag-handle{display:none;touch-action:none}
 .week-strip-track .week-event>.week-identity-line{
   width:100%;
   height:100%;
@@ -8635,3 +8635,19 @@ html[data-schedule-workspace="presentation"] .schedule-status{padding:0;border:0
 .publish-track-events time{flex:none;color:var(--muted);font-size:11.5px;text-align:end}
 /* من ثبّت جدوله ومعه تنبيهُ مدّةٍ لا يمنع: يراه القسم (قرار المالك) */
 .request-confirmed-soft{display:block;margin-top:2px;color:var(--warning,#b7791f);font-size:11.5px;line-height:1.6}
+
+/* ── أسبوع الأستاذ المصغّر: اسم المقرر لا يُكسر حرفاً حرفاً (U2) ─────────────────
+ * overflow-wrap:anywhere كان يقطع «التكنولوجيا» في منتصفها في الأعمدة الضيقة. الكلمة تبقى كلمة
+ * (القصّ بنقاط عند السطر الأخير)، والخط أصغر، وفي العمود الأضيق يحلّ رمز المقرر محلّ الاسم. */
+.mini-week .mini-week-chip-text b.mini-week-chip-name{overflow-wrap:break-word;word-break:normal;hyphens:manual;text-overflow:ellipsis}
+.mini-week .mini-week-chip-code{display:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 9px/1.2 var(--font-mono);color:var(--ink)}
+.mini-week-track{container-type:inline-size}
+@container (max-width:62px){
+  .mini-week .mini-week-chip-text b.mini-week-chip-name{display:none}
+  .mini-week .mini-week-chip-code{display:block}
+}
+
+/* ── شريط الحفظ اللاصق لا يغطّي ما يُركَّز عليه (U1) ──────────────────────────────
+ * الصفحة هي حاوية التمرير: هذا الهامش يجعل scrollIntoView والتنقّل بـTab يتركان العنصر فوق الشريط. */
+:root:has(.schedule-editor.is-studio){scroll-padding-bottom:168px}
+.schedule-editor.is-studio :is(.appt-step,input,select,textarea,button){scroll-margin-bottom:168px}
