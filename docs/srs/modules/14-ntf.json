@@ -2244,6 +2244,48 @@
           "tests/student-extras-live-audit.ts"
         ]
       }
+    },
+    {
+      "id": "FR-NTF-034",
+      "kind": "functional",
+      "title": {
+        "ar": "تنبيهات تطبيق iPhone (APNs)",
+        "en": "iPhone app alerts (APNs)"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقبل رمز جهاز APNs من تطبيق iPhone الأصلي لحسابٍ مسجَّل الدخول (POST /api/push/subscribe-native) بعد التحقق من أنه ستة عشرية بطول 64 إلى 200 حرفاً، وأن يحفظه اشتراكاً نقطتُه «apns:<الرمز>» ويربطه بجلسة الدخول، وأن يرسل إليه كل تنبيهٍ يصل أجهزة الحساب الأخرى مباشرةً إلى APNs عبر HTTP/2 بمفتاح من البيئة، وأن يحذف الاشتراك إذا ردّت Apple بأن الرمز غير مسجَّل. لا يمسّ هذا إرسالَ المتصفحات ولا بطاقةَ الأستاذ.",
+        "en": "The system shall accept an APNs device token from the native iPhone app for a signed-in account (POST /api/push/subscribe-native) after verifying it is 64 to 200 hexadecimal characters, shall store it as a subscription whose endpoint is \"apns:<token>\" bound to the login session, shall send it every notice the account's other devices receive directly to APNs over HTTP/2 with a key from the environment, and shall delete the subscription when Apple reports the token as unregistered. This does not change delivery to browsers or faculty cards."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "inferred": true,
+      "actors": [
+        "standard",
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "رمز ليس ستة عشرياً أو أقصر من 64 حرفاً يُرفض بـ 400.",
+          "en": "A token that is not hexadecimal or is shorter than 64 characters is rejected with 400."
+        },
+        {
+          "ar": "الاشتراك نفسه مرتين يحدّث السجل ولا يكرّره.",
+          "en": "Subscribing the same token twice updates the record rather than duplicating it."
+        },
+        {
+          "ar": "رد 410 أو BadDeviceToken من APNs يحذف الاشتراك، وأي فشل آخر لا يحذفه.",
+          "en": "A 410 or BadDeviceToken from APNs deletes the subscription; any other failure does not."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/pushRoutes.ts",
+          "src/server/apns.ts",
+          "src/components/PushCard.tsx"
+        ],
+        "tests": []
+      }
     }
   ],
   "edgeCases": [
