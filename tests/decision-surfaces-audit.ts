@@ -78,30 +78,13 @@ console.log("K2 — تخطيط الشعب: درجتان، وزرٌّ واحد، 
   check(read("src/components/Schedules.tsx").includes("FOCUS_COURSE_EVENT") && read("src/utils/actualDemandHandoff.ts").includes("export function openCourseSections"), "«اختر ما يُغلق» يبرز مواعيد المقرر على الأسبوع");
 }
 
-console.log("K2 — قرارات «تم/تجاهل» مشتركة على الخادم");
+console.log("K2 — لا قرارات «تم/تجاهل» ولا تقرير متبقٍّ: التخطيط من تقرير التسجيل وحده");
 {
-  /* المستودع في صندوق تجريبي: الكتابة تُقرأ لكل من في النطاق نفسه، ولا تتسرّب لنطاقٍ آخر. */
-  const { Repository } = await import("../src/db/repository");
-  const session = `demo_plan_triage_${Date.now()}`;
-  Repository.createDemoSandbox(session, 60_000);
-  await Repository.withDemoSandbox(session, async () => {
-    const scope = { collegeId: 1, sectionId: 1, termId: 1 };
-    const saved = await Repository.setPlanTriageDecision(scope, 42, { state: "ignored", reason: "لا قاعة", signature: "42:1:2:1:0:", at: "2026-10-28T10:00:00.000Z", byUserId: 16, byName: "د. رئيس لجنة" });
-    const read = await Repository.getPlanTriageDecisions(1, 1, 1);
-    check(saved?.id === "1:1:1:42" && read.length === 1 && read[0].byName === "د. رئيس لجنة" && read[0].reason === "لا قاعة", "القرار يُحفظ مرة لكل مقرر في النطاق ويحمل من قرّر");
-    check((await Repository.getPlanTriageDecisions(1, 2, 1)).length === 0 && (await Repository.getPlanTriageDecisions(1, 1, 2)).length === 0, "لا يتسرّب إلى قسمٍ أو فصلٍ آخر");
-    await Repository.setPlanTriageDecision(scope, 42, { state: "done", reason: "", signature: "42:1:2:1:0:", at: "2026-10-28T11:00:00.000Z", byUserId: 17, byName: "د. رئيس القسم" });
-    const again = await Repository.getPlanTriageDecisions(1, 1, 1);
-    check(again.length === 1 && again[0].state === "done" && again[0].byUserId === 17, "قرارٌ جديد يحلّ محلّ السابق، لا يتكرر");
-    await Repository.setPlanTriageDecision(scope, 42, null);
-    check((await Repository.getPlanTriageDecisions(1, 1, 1)).length === 0, "«إرجاع» يحذف القرار");
-  });
-  Repository.dropDemoSandbox(session);
   const server = readServerSource();
-  const route = server.slice(server.indexOf('app.put("/api/schedules/section-gap/decisions"'), server.indexOf('app.get("/api/schedules/section-gap", '));
-  /* القراءةُ لمن يقرأ لوحة القرار أيضاً (14: رئيس القسم والعميد)، والكتابةُ للجنة وحدها (7). */
-  check(server.includes('app.get("/api/schedules/section-gap/decisions", requireAnyPermission([7, 14])') && route.includes("requirePermission(7)") && route.includes("isScopeAllowed(req, collegeId, sectionId)"), "القراءة بالإذن 7 أو 14، والكتابة بالإذن 7 وحده، وكلاهما بنطاق الكلية والقسم");
-  check(server.includes('app.get("/api/schedules/section-gap", requireAnyPermission([7, 14])') && server.includes('app.get("/api/registration-stats", requireAnyPermission([7, 14])'),
+
+
+  check(!server.includes("/api/schedules/section-gap/decisions") && !server.includes("/api/registration-stats") && !server.includes("remaining-pdf"), "لا مسار قرارات «تم/تجاهل» ولا رفع كشف المتبقي في الخادم");
+  check(server.includes('app.get("/api/schedules/section-gap", requireAnyPermission([7, 14])'),
     "لوحة القرار لرئيس القسم تقرأ التخطيط وتاريخه: لا 403 تُبقي «جارٍ القراءة» إلى الأبد");
   check(read("src/server/actualDemandRoutes.ts").includes('app.get("/api/actual-demand", requireAnyPermission([7, 14])'), "لوحة القرار (رئيس القسم والعميد) تقرأ تخطيط الشعب للقراءة");
   check(read("src/components/DecisionBoard.tsx").includes("useSectionPlan(") && !read("src/components/DecisionBoard.tsx").includes("loadPlanDecisions("), "لوحة القرار تقرأ التخطيط الجديد نفسه، لا قرارات الرفوف");

@@ -124,7 +124,7 @@
 }
 
 /* A phone, or a narrow window: the parts wrap and tighten, nothing scrolls sideways. */
-@media (max-width:600px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:600px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .cmdk .cmdk-live-row{gap:var(--s2)}
   .ol-preview{gap:4px}
   .ol-part{min-height:24px;gap:4px;padding-inline:2px 7px}
@@ -142,3 +142,41 @@
 .share-noted strong svg{inline-size:16px;block-size:16px;color:var(--brass)}
 .share-noted ul{margin:0;padding-inline-start:18px;display:grid;gap:2px;font-size:.8rem;max-block-size:150px;overflow:auto}
 .share-noted p{margin:0;font-size:.8rem;font-weight:600}
+
+/* ── نشر الجدول: تنبيهاتٌ مطويّة بسطرٍ واحد (المالك 2026-11-14) ─────────────────── */
+.publish-flags{display:grid;gap:6px;margin-block:8px}
+.publish-flag{border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+.publish-flag>summary{display:flex;align-items:center;gap:8px;min-height:40px;padding:6px 12px;cursor:pointer;list-style:none;font-size:.86rem}
+.publish-flag>summary::-webkit-details-marker{display:none}
+.publish-flag>summary svg{inline-size:16px;block-size:16px;flex:none}
+.publish-flag>summary b{font-variant-numeric:tabular-nums}
+.publish-flag>summary span{flex:1;min-width:0;color:var(--muted)}
+.publish-flag>summary::after{content:"‹";color:var(--muted);transition:transform .15s}
+.publish-flag[open]>summary::after{transform:rotate(-90deg)}
+.publish-flag.is-regulation{border-color:color-mix(in srgb,var(--brass) 45%,var(--line));background:var(--brass-soft)}
+.publish-flag.is-regulation>summary svg{color:var(--brass)}
+.publish-flag.is-noted>summary svg{color:var(--info)}
+.publish-flag>ul{margin:0;padding:2px 12px 8px;list-style:none;display:grid;gap:4px;font-size:.8rem;max-block-size:180px;overflow:auto}
+.publish-flag>ul>li{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.publish-flag li details summary{cursor:pointer;color:var(--muted);font-size:.76rem;list-style:none}
+.publish-flag li details ul{margin:4px 0 0;padding-inline-start:16px;color:var(--muted)}
+.publish-flag>small,.publish-flag>p{display:block;margin:0;padding:0 12px 8px;font-size:.76rem;color:var(--muted)}
+.publish-flag>button{margin:0 12px 10px}
+.publish-cards-list{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.publish-cards-list li{display:flex;justify-content:space-between;gap:8px;font-size:.88rem}
+.publish-cards-list small,.publish-cards-more{color:var(--muted);font-size:.76rem}
+.publish-cards-actions{flex-direction:column;align-items:stretch}
+.publish-cards-actions .btn{justify-content:flex-start;gap:8px}
+.publish-cards-actions .btn small{margin-inline-start:auto;opacity:.75;font-weight:500}
+.publish-cards-cancel{align-self:center;background:none;border:0;color:var(--muted);padding:6px;cursor:pointer;font:inherit;font-size:.82rem}
+.publish-send-log li.is-quiet{opacity:.78}
+
+/* ── «أستاذ جديد»: نموذجٌ واحد لأدوات الجدول و«موعد» (المالك 2026-11-14) ─────────── */
+.instructor-new-rank{display:grid;gap:4px}
+.instructor-new-rank select{inline-size:100%}
+.instructor-new-rank small{color:var(--muted);font-size:.76rem}
+.instructor-new-trainee{display:flex;align-items:center;gap:8px;font-size:.86rem}
+.instructor-new-trainee small{color:var(--muted);margin-inline-start:4px}
+.dept-roster-add{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;margin-bottom:8px;border:1px dashed var(--line);border-radius:var(--r-md);background:transparent;cursor:pointer;font:inherit;font-size:.88rem}
+.dept-roster-add svg{inline-size:16px;block-size:16px}
+.dept-roster-added{margin:0 0 8px;font-size:.82rem;color:var(--muted)}

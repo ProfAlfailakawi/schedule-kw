@@ -72,7 +72,8 @@ check(inbox.includes('const ok = await now.decide(row, entry.index, "fixed", { a
   "S4 كلُّ بندٍ يُثبَّت بـ decide نفسها — زرّ «ثبّت» بمعاينته وخادمه");
 const routes = [...new Set([...inbox.matchAll(/`\/api\/instructor-requests\/\$\{row\.id\}\/([a-z-]+)`/g)].map(match => match[1]))].sort();
 /* «notified» يسجّل لحظةَ «أبلغ الأستاذ» وحدها (FR-REQ-061)، ولا يكتب في الجدول؛ والتثبيتُ الجماعيّ لا يزال بـ decide/apply. */
-check(routes.join(",") === "apply,cancel-scheduled,decide,notified,reply", `S4 لا مسارَ جديداً في الخادم (${routes.join("، ")})`);
+/* «undo-decision» (تراجع عن قرارٍ حديث، tests/inbox-undo-audit.ts) هو المسارُ الوحيد المضاف؛ والتثبيتُ الجماعيّ لا يمسّه. */
+check(routes.join(",") === "apply,cancel-scheduled,decide,notified,reply,undo-decision", `S4 لا مسارَ جديداً في الخادم للتثبيت الجماعي (${routes.join("، ")})`);
 check(/for \(const entry of list\) \{[\s\S]*?if \(!ok\) \{ stopAt\(entry\.key,[\s\S]*?return; \}/.test(inbox),
   "S4 واحداً بعد واحد، ويتوقّف عند أول تعذّر ويقول سببه");
 check(/className="inbox-bulk-sheet" role="dialog" aria-modal="true"/.test(inbox) && inbox.includes('phase: "confirm"')
@@ -83,7 +84,7 @@ check(/\{bulkReady\.length && !frozen && stateFilter !== "absent"/.test(inbox) &
 
 /* ── S5 ─────────────────────────────────────────────────────────────────── */
 /* الهاتف، ومعه صفحةُ العمل في كتاب الدوو المفتوح (55-duo-adaptive.css) بالقواعد نفسها. */
-const phone = css.slice(css.search(/@media \(max-width:760px\)(?:,screen and \(min-width:640px\) and \(max-width:1000px\) and \(min-height:520px\) and \(max-height:960px\))?\{/));
+const phone = css.slice(css.search(/@media \(max-width:760px\)(?:,screen and \(min-width:640px\) and \(max-width:720px\) and \(min-height:520px\) and \(max-height:960px\),screen and \(min-width:721px\) and \(max-width:1000px\) and \(min-height:520px\) and \(max-height:960px\) and \(orientation:landscape\))?\{/));
 check(index.includes('@import "./styles/35-inbox-studio.css";'), "S5 الورقةُ مستوردة");
 check(phone.includes(".inbox-studio>.page-heading::after{display:none}") && phone.includes(".inbox-studio>.page-heading h1{font-size:24px"),
   "S5 الهاتف: المسطرةُ الزخرفية تغيب، والعنوانُ أصغر");

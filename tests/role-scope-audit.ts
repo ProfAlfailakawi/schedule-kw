@@ -178,6 +178,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
     /* بطاقة الأستاذ لعائلة القسم: حارسٌ مركزيّ يستدعي isScopeAllowed لكل موقع. */
     "staffLinkFamilyAllowed"];
   const REVIEWED: Record<string, string> = {
+    "DELETE /api/reports/saved/:id": "يحذف استعلاماً محفوظاً: صاحبُه أو مدير النظام وحدهما (فحص المالك في المعالج نفسه)، ولا صفوف جدولٍ فيه.",
     "POST /api/schedules/apply-proposal": "يمرّ من معالجَي الحفظ نفسيهما (createScheduleHandler/updateScheduleHandler: isScopeAllowed + قفل + تعارض)، وللنقل يسأل applyProposalCore النطاقَ صراحةً",
     "GET /api/version": "رقم الإصدار — لا بيانات",
     "GET /api/university-day": "الدوام الشامل للبرنامج كله — لا بيانات",
@@ -195,6 +196,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
     "GET /api/schedules/meeting-participants": "أرقام المنتدبين والهيئة التدريسية المستبعدين من «متى نلتقي» — أرقامٌ فقط بلا مقرّرٍ ولا قاعة",
     "POST /api/schedules/meeting-slots": "نوافذ فراغٍ لأساتذةٍ يختارهم القارئ — بلا مقرّرٍ ولا قاعة",
     "GET /api/roles": "تعريفات الصفات — لا بيانات",
+    "GET /api/section-roster/ranks": "الدرجات العلمية المعرَّفة (اسمٌ وحدّا نصاب) لنموذج «أستاذ جديد» — إعدادٌ جامعي واحد بلا بيانات أشخاص ولا أقسام، بإذن ٧",
     "POST /api/schedules/pulse": "لسانٌ يُعلن رحيله عن النبضة: يحذف مدخلاً في الذاكرة يملكه الحساب نفسه — بلا بيانات (السؤالُ نفسه GET خلف isScopeAllowed)",
   };
   const routeHead = /\napp\.(get|post|put|delete|patch)\("([^"]+)"/g;
@@ -244,7 +246,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   check(/\.filter\(\(\[value, , count\]\) => value === "all" \|\| count > 0 \|\| statusFilter === value\)/.test(changes), "D الوارد: شرائح الحالة الصفرية لا تُعرض");
   check(!/\["blocking", "فيه موانع", 0\]/.test(changes) && /\["blocking", "فيه موانع", signalCounts\.blocking\]/.test(changes), "D الوارد: إشارات الانتباه تُعدّ من السطور لا صفراً مكتوباً");
   check(/more=\{statusChips\.length > 1 \|\| signalChips\.length \? \(/.test(changes), "D الوارد: لا «المزيد» حين لا شريحةَ فيه غير «الكل»");
-  check(/if \(!\(canAnnotate && annotatable\) && !notes\.length\) return null;/.test(changes), "D تقرير التغييرات: لا كتلةَ فارغةً تحت موعدٍ بلا زرٍّ ولا ملاحظة");
+  check(/if \(!\(canAnnotate && annotatable\) && !notes\.length && !canTry\) return null;/.test(changes), "D تقرير التغييرات: لا كتلةَ فارغةً تحت موعدٍ بلا زرٍّ ولا ملاحظة (ولا «جرّب بديلاً»)");
   /* المالك 2026-11-14: التغييرات تدمج «مراجعة الاعتماد» نفسها، ومفاتيحُها من approvalSpreadKeys التي تُسقط الصفري. */
   {
     const { approvalSpreadKeys } = await import("../src/utils/approvalScore");

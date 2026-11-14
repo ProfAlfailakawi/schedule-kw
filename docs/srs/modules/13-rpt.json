@@ -55,7 +55,27 @@
     "src/utils/reportInsights.ts",
     "src/utils/reportShare.ts",
     "src/utils/lensExport.ts",
-    "src/utils/morningBrief.ts"
+    "src/utils/morningBrief.ts",
+    "src/utils/professorWeekShape.ts",
+    "src/components/ReportInsightDrawers.tsx",
+    "src/styles/60-report-insight.css",
+    "src/utils/reportShareCore.ts",
+    "src/hooks/useSavedReports.ts",
+    "src/hooks/useSpeechAsk.ts",
+    "src/components/query/QueryBrief.tsx",
+    "src/components/query/QueryInsights.tsx",
+    "src/components/query/QuerySaved.tsx",
+    "src/components/query/QueryCompare.tsx",
+    "src/components/query/QueryPrintPreview.tsx",
+    "src/components/query/QueryEmptyWhy.tsx",
+    "src/server/morningBriefPush.ts",
+    "src/utils/queryWhatIf.ts",
+    "src/utils/excludedRows.ts",
+    "src/components/query/QueryWhatIf.tsx",
+    "src/components/query/QueryExcluded.tsx",
+    "src/styles/59-print-ink.css",
+    "src/components/query/QueryPrintMenu.tsx",
+    "src/components/query/PrintTiles.tsx"
   ],
   "screens": [
     {
@@ -1454,6 +1474,10 @@
         {
           "ar": "في الورقة المطبوعة، شعبة أنشأها المنسّق بيده وتغيّر رقمها عن الأصل (501 ← 515 مثلاً) ← صف «معدَّل» تُلوَّن فيه خلية رقم الشعبة وحدها بالأصفر، ولا تُلوَّن خلية رقم صفٍّ مستورد؛ والتصميم المطبوع نفسه لا يتغيّر.",
           "en": "On the printed sheet, a section the coordinator created by hand whose number changed from the original (501 to 515, for example) ← a «changed» row with only the section-number cell coloured yellow, and the number cell of an imported row is not coloured; the printed design itself does not change."
+        },
+        {
+          "ar": "مفتاح الألوان في ذيل كل صفحة من تقرير تغييرات الجدول يحمل عدد كل حالة (مضاف، محذوف، معدّل) للوثيقة، ويُخفى العدد الصفري؛ والترويسة والأعمدة كما هي.",
+          "en": "The colour key in the footer of every page of the schedule-changes report carries the count of each status (added, deleted, changed) for the document, a zero count is hidden; the header and columns are unchanged."
         }
       ],
       "evidence": {
@@ -2544,6 +2568,10 @@
         {
           "ar": "الفارغة الآن من قاعات القسم الموثّقة وانشغالها في الجامعة كلها؛ والجمعة والسبت «اليوم خارج أيام الدوام»، وخارج 08:00–20:00 «خارج ساعات الدوام».",
           "en": "Free-now uses the department's verified rooms and their university-wide bookings; Friday and Saturday read «outside working days», and outside 08:00–20:00 «outside working hours»."
+        },
+        {
+          "ar": "كل بطاقة أيقونةٌ وقيمة؛ والشرح في التلميح لا على الشاشة.",
+          "en": "Each card is an icon and a value; the explanation is in the tooltip, not on screen."
         }
       ],
       "evidence": {
@@ -2560,12 +2588,12 @@
       "id": "FR-RPT-044",
       "kind": "functional",
       "title": {
-        "ar": "تقاريري والرابط المشارَك",
-        "en": "My reports and the shared link"
+        "ar": "تقاريري: على الخادم، شخصيةً أو للقسم",
+        "en": "My reports: stored on the server, personal or for the department"
       },
       "text": {
-        "ar": "يجب أن يتيح مركز الاستعلام حفظ الاستعلام الحالي (العدسة والنطاق والمرشّحات) باسمٍ قصير في متصفّح صاحبه وفتحه بضغطة، ونسخ رابطٍ يحمل الحال نفسها في المعامل r يفتحه من يملك حساباً بنطاقه هو.",
-        "en": "The query centre shall let the reader save the current query (lens, scope and filters) under a short name in their browser and reopen it with one press, and copy a link carrying the same state in parameter r that any account opens within its own scope."
+        "ar": "يجب أن يتيح مركز الاستعلام حفظ الاستعلام الحالي (العدسة والنطاق والمرشّحات) باسمٍ قصير على الخادم، شخصياً أو مشاركاً مع من له صلاحية القسم، مع خيار «نبّهني إن تغيّر»، وفتحه بضغطة، ونسخ رابطٍ يحمل الحال نفسها في المعامل r يفتحه من يملك حساباً بنطاقه هو.",
+        "en": "The query centre shall let the reader save the current query (lens, scope and filters) under a short name on the server, personal or shared with whoever holds the department's permission, with a «notify me if it changes» option, reopen it with one press, and copy a link carrying the same state in parameter r that any account opens within its own scope."
       },
       "priority": "should",
       "status": "implemented",
@@ -2577,21 +2605,32 @@
       ],
       "acceptance": [
         {
-          "ar": "حتى 20 تقريراً محفوظاً لكل حساب تحت schedule-saved-reports-<الحساب>، والاسم حتى 60 حرفاً، وحفظ اسمٍ موجود يستبدله.",
-          "en": "Up to 20 saved reports per account under schedule-saved-reports-‹account›, names up to 60 characters, and saving an existing name replaces it."
+          "ar": "حتى 30 استعلاماً لكل حساب في المجموعة savedReports، والاسم حتى 60 حرفاً، وحفظ اسمٍ موجود يستبدله؛ ويُرحَّل ما كان محفوظاً في المتصفح مرةً واحدة.",
+          "en": "Up to 30 queries per account in the savedReports collection, names up to 60 characters, saving an existing name replaces it; whatever was saved in the browser is migrated once."
         },
         {
-          "ar": "الرابط لا يحمل صلاحية: النطاق يمرّ بتصفية الصلاحيات نفسها، ويُنزع r من شريط العنوان بعد قراءته؛ والمرشّحات الفارغة لا تُحمل، والرابط التالف يُهمل.",
-          "en": "The link carries no permission: its scope passes the same permission filter, r is removed from the address bar once read, empty filters are not carried and a damaged link is ignored."
+          "ar": "المشاركة تشترط صلاحية القارئ على القسم المحفوظ فيه (403 دونها)، والمشارَك يراه من له صلاحية ذلك القسم وحده، والحذف لصاحبه ولمدير النظام.",
+          "en": "Sharing requires the reader's permission on the saved department (403 otherwise); a shared query is visible only to holders of that department's permission; deleting is for the owner and the system administrator."
+        },
+        {
+          "ar": "ما يُراقَب يحمل نقطةً حمراء حين تتغيّر بصمة نتائجه عمّا رآه صاحبه آخر مرة (للقسم المقروء الآن).",
+          "en": "A watched query shows a red dot when its results' fingerprint differs from what the owner last saw (for the department currently loaded)."
+        },
+        {
+          "ar": "الرابط لا يحمل صلاحية، ويُنزع r من شريط العنوان بعد قراءته، والرابط التالف يُهمل.",
+          "en": "The link carries no permission, r is removed from the address bar once read, and a damaged link is ignored."
         }
       ],
       "evidence": {
         "code": [
-          "src/utils/reportShare.ts",
-          "src/components/Reports.tsx#takeSharedReport"
+          "src/utils/reportShareCore.ts",
+          "src/hooks/useSavedReports.ts",
+          "src/components/query/QuerySaved.tsx",
+          "src/server/routes/reportsRoutes.ts#/api/reports/saved"
         ],
         "tests": [
-          "tests/query-center-plus-audit.ts"
+          "tests/query-center-plus-audit.ts",
+          "tests/query-center-e2e.ts"
         ]
       }
     },
@@ -2642,8 +2681,8 @@
         "en": "Morning brief"
       },
       "text": {
-        "ar": "يجب أن يعرض مركز الاستعلام لقسمٍ مختار «موجز الصباح»: حركات مواعيد القسم في آخر 24 ساعة، وموانع الاعتماد، والملاحظات اللائحية، والتغييرات منذ آخر مراجعة للتسجيل، وحال الاعتماد، والأيام الباقية على موعد التسليم؛ مفتوحاً أوّل زيارةٍ في اليوم لكل حساب ثم مطويّاً، ويُطبع ورقةً واحدة.",
-        "en": "For a chosen department the query centre shall show a «morning brief»: moves on the department's appointments in the last 24 hours, approval blockers, regulation notes, changes since the registrar's last review, the approval state and the days left to the deadline; open on each account's first visit of the day and folded afterwards, and printable as one sheet."
+        "ar": "يجب أن يعرض مركز الاستعلام لقسمٍ مختار «موجز الصباح» شريطاً مطويّاً بأربع بطاقاتٍ بأيقونةٍ ورقم (حركات آخر 24 ساعة، موانع الاعتماد، الملاحظات اللائحية، الأيام الباقية على التسليم)، يُفتح بضغطة على حلقة الأيام وأرقام التغيير (أُضيف/حُذف/عُدّل) وحال الاعتماد وآخر الحركات، وتُطبع جُمَله ورقةً واحدة.",
+        "en": "For a chosen department the query centre shall show a «morning brief» as a collapsed strip of four icon-and-number cards (moves in the last 24 hours, approval blockers, regulation notes, days left to the deadline), opened with one press to a days ring, change numbers (added/removed/changed), the approval state and the latest moves, and printable as one sheet of sentences."
       },
       "rationale": {
         "ar": "الخادم لا يعمل بمؤقّت، فالموجز يُبنى ساعةَ يُفتح من قراءاتٍ قائمة (أثر النشاط وتقرير التغييرات) ولا يُرسل من تلقاء نفسه.",
@@ -2659,12 +2698,16 @@
       ],
       "acceptance": [
         {
-          "ar": "الحركة تدخل الموجز إن حملت كلية القسم المعروض وقسمه وفصله (فالحذف يُعدّ ولو زال الموعد)، أو — لحركةٍ قديمة بلا قسم — إن بقي موعدها في القسم، ووقعت في آخر 24 ساعة؛ وتُعرض آخر 8 حركات. وطيُّ الموجز أثناء قراءته يلغيها، وفتحه يعيدها.",
-          "en": "A move enters the brief when it carries the shown department's college, department and term (so a deletion counts even after its appointment is gone), or — for an older move without a department — when its appointment is still in the department, and it happened in the last 24 hours; the last 8 moves are listed. Folding the brief while it loads cancels the read, and reopening retries it."
+          "ar": "الحركة تدخل الموجز إن حملت كلية القسم المعروض وقسمه وفصله (فالحذف يُعدّ ولو زال الموعد)، أو — لحركةٍ قديمة بلا قسم — إن بقي موعدها في القسم، ووقعت في آخر 24 ساعة؛ وتُعرض آخر 8 حركات.",
+          "en": "A move enters the brief when it carries the shown department's college, department and term (so a deletion counts even after its appointment is gone), or — for an older move without a department — when its appointment is still in the department, and it happened in the last 24 hours; the last 8 moves are listed."
         },
         {
-          "ar": "تعذّر قراءة تقرير التغييرات (العميدان قبل الاعتماد) يُبقي سطور أثر النشاط ويقول ذلك.",
-          "en": "If the changes report cannot be read (deans before approval) the activity lines stay and the brief says so."
+          "ar": "البطاقة خضراء بلا شيء، وكهرمانية لما يستحق نظرة، وحمراء لما يمنع الاعتماد؛ وحلقة الأيام تحذّر حين يبقى 7 أيام أو أقل.",
+          "en": "A card is green for nothing, amber for what deserves a look and red for what blocks approval; the days ring warns at 7 days or fewer."
+        },
+        {
+          "ar": "يُقرأ الموجز مطويّاً حين يُفتح النطاق ولا يُفتح من تلقاء نفسه، وطيّه أثناء القراءة لا يعلّقه.",
+          "en": "The brief is read folded when the scope opens and never opens by itself; folding it while loading does not hang it."
         },
         {
           "ar": "ورقة «موجز الصباح» تُطبع بأصناف الطباعة القائمة على A4 أفقي.",
@@ -2689,8 +2732,8 @@
         "en": "Compare with an earlier version"
       },
       "text": {
-        "ar": "يجب أن تتيح عدستا عدالة الحمل ونسبة الإشغال لرئيس القسم واللجنة اختيار نسخةٍ محفوظة من جدول القسم ومقارنتها بالجدول الآن: عدد المواعيد، ومؤشر العدالة، وإشغال الأسبوع، ومحاضرات الذروة.",
-        "en": "The fairness and occupancy lenses shall let the department head and committee pick a saved version of the department's schedule and compare it with the schedule now: appointment count, fairness score, weekly occupancy and peak lectures."
+        "ar": "يجب أن تتيح عدستا عدالة الحمل ونسبة الإشغال لرئيس القسم واللجنة اختيار نسخةٍ محفوظة من جدول القسم ومقارنتها بالجدول الآن بخريطةٍ بلونين: أخضر لما زاد، أحمر لما نقص، رمادي لما بقي — في شبكة أيامٍ × ساعات — مع ثلاثة أرقام بأيقوناتها ومؤشر العدالة قبل وبعد.",
+        "en": "The fairness and occupancy lenses shall let the department head and committee pick a saved version of the department's schedule and compare it with the schedule now as a two-colour map — green for what grew, red for what shrank, grey for what stayed — on a days × hours grid, with three icon-and-number counts and the fairness score before and after."
       },
       "priority": "could",
       "status": "implemented",
@@ -2701,12 +2744,12 @@
       ],
       "acceptance": [
         {
-          "ar": "القائمة آخر 30 نسخة باسمها وتاريخها وعدد مواعيدها؛ والعميدان لا تُعرض لهما (يقرآن النهائيَّ وحده).",
-          "en": "The list is the last 30 versions with name, date and appointment count; deans are not offered it (they read final schedules only)."
+          "ar": "القائمة آخر 30 نسخة؛ والعميدان لا تُعرض لهما (يقرآن النهائيَّ وحده).",
+          "en": "The list is the last 30 versions; deans are not offered it (they read final schedules only)."
         },
         {
-          "ar": "المقارنة على جدول القسم كاملاً بلا مرشّحات، والفرق في العدالة يُكتب بإشارته (+13).",
-          "en": "The comparison uses the department's whole schedule without filters, and the fairness difference is written with its sign (+13)."
+          "ar": "موعدٌ تحرّك يظهر أحمرَ في خانته القديمة وأخضرَ في الجديدة؛ والمقارنة على جدول القسم كاملاً بلا مرشّحات.",
+          "en": "A moved appointment shows red in its old cell and green in the new one; the comparison uses the department's whole schedule without filters."
         }
       ],
       "evidence": {
@@ -2818,6 +2861,467 @@
         "code": [
           "src/server/reportStampPage.ts",
           "src/server/routes/reportsRoutes.ts"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-051",
+      "kind": "functional",
+      "title": {
+        "ar": "أطول فراغ وشكل الأسبوع في عدسة الأساتذة",
+        "en": "Longest gap and week shape in the instructors lens"
+      },
+      "text": {
+        "ar": "يجب أن تعرض عدسة «الأساتذة» بجانب كل أستاذ أطول فراغٍ بين محاضرتين في اليوم نفسه (ساعة فأكثر)، وأن يفتح زرّ «شكل الأسبوع» داخل مجموعته نافذةً ترسم لكل يوم تدريس المحاضرات في مواضعها والانتظار الطويل بينها، مع عدد الأيام وأطول فراغ. ولمن يملك صلاحية مساحة الجدول يُرسم الشكل من مواعيد الأستاذ الظاهرة في نطاقه كله (عبر كليات عائلة القسم المسموحة) مع عدد التزاماته خارج النطاق، ولغيره من صفوف العدسة نفسها.",
+        "en": "The instructors lens shall show beside each instructor the longest wait between two lectures on the same day (one hour or more), and a «week shape» button inside the group shall open a panel that draws, for each teaching day, the lectures where they fall and the long waits between them, with the day count and the longest gap. For holders of the schedule-workspace permission the shape is drawn from the instructor's appointments visible across the reader's whole scope (across the permitted colleges of the department family) with the count of commitments outside that scope; for others it is drawn from the lens rows themselves."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "committeeChair",
+        "departmentHead",
+        "viceDean"
+      ],
+      "acceptance": [
+        {
+          "ar": "فراغ ثلاث ساعات فأكثر يُلوَّن تنبيهاً، وفراغ أقل من ساعة لا يُحسب انتظاراً، ومحاضرتان متداخلتان لا تصنعان فراغاً.",
+          "en": "A gap of three hours or more is shown as a warning, a gap under one hour is not counted as a wait, and two overlapping lectures do not create a gap."
+        },
+        {
+          "ar": "من لا يملك صلاحية مساحة الجدول لا يُرسَل له طلب إلى الخادم، ويُرسم الشكل من صفوف التقرير.",
+          "en": "A reader without the schedule-workspace permission sends no server request, and the shape is drawn from the report rows."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx",
+          "src/components/ReportInsightDrawers.tsx",
+          "src/utils/professorWeekShape.ts"
+        ],
+        "tests": [
+          "tests/report-insight-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-052",
+      "kind": "functional",
+      "title": {
+        "ar": "القاعات الأكثر استخداماً وتفاصيل القاعة",
+        "en": "Most used rooms and room details"
+      },
+      "text": {
+        "ar": "يجب أن تعرض عدسة «نسبة الإشغال» تحت الشبكة أكثر ثماني قاعات استخداماً في النطاق المختار (الموقع أو عائلة القسم كلها، مع اسم الكلية في العائلة) مرتبةً بساعات الإشغال، لكلٍّ منها شريطٌ ونسبة الاستخدام التقديري = ساعات إشغالها ÷ (ساعات اليوم الرسمية × 5 أيام) وعدد مواعيدها، وأن تفتح القاعة نافذة تفاصيلها. ولمن يملك صلاحية مساحة الجدول تعرض النافذة — ونافذة «كل مواعيد القاعة» في عدسة «القاعات» — الجهات الأكثر استخداماً للقاعة والنوافذ المتاحة لكل يوم (30 دقيقة فأكثر) من مسار تفاصيل القاعة على الخادم، وحجوزات الأقسام الأخرى محسوبة بلا تفاصيل.",
+        "en": "The occupancy rate lens shall show under the grid the eight most used rooms in the chosen scope (the site or the whole department family, with the college name in the family) ranked by occupied hours, each with a bar, the estimated utilisation = its occupied hours ÷ (official day hours × 5 days) and its appointment count, and a room shall open its detail panel. For holders of the schedule-workspace permission the panel — and the «all room appointments» panel in the rooms lens — shows the departments that use the room most and the available windows per day (30 minutes or more) from the server room-detail route, with other departments' bookings counted but without detail."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "committeeChair",
+        "departmentHead",
+        "viceDean",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "النسبة لا تتجاوز 100٪، والقائمة تتبع مفتاح «الموقع / عائلة القسم» نفسه.",
+          "en": "The rate never exceeds 100%, and the list follows the same site / department family switch."
+        },
+        {
+          "ar": "من لا يملك صلاحية مساحة الجدول يرى النسبة وعدد المواعيد وحدهما، ولا يُرسَل له طلب تفاصيل القاعة.",
+          "en": "A reader without the schedule-workspace permission sees only the rate and appointment count, and no room-detail request is sent."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx",
+          "src/components/ReportInsightDrawers.tsx"
+        ],
+        "tests": [
+          "tests/report-insight-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-053",
+      "kind": "functional",
+      "title": {
+        "ar": "معاينة صفحات الطباعة",
+        "en": "Print page preview"
+      },
+      "text": {
+        "ar": "يجب أن يتيح زرّ العين بجانب الطباعة معاينةً اختيارية: عدد صفحات الورقة بأوراقٍ صغيرة مرقّمة بامتلاء كلٍّ منها، وتتميّز الصفحة الحاملة للتواقيع، مع زرّ طباعة؛ ولا يعترض الطباعة المباشرة.",
+        "en": "An eye button beside print shall offer an optional preview: the sheet's page count as small numbered pages showing how full each is, the page carrying signatures distinguished, with a print button; it shall not intercept direct printing."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الصفحات تُقرأ من الورقة المركّبة للطباعة نفسها قبل أن تُطبع.",
+          "en": "The pages are read from the very sheet composed for printing, before it prints."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/query/QueryPrintPreview.tsx"
+        ],
+        "tests": [
+          "tests/query-center-e2e.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-RPT-054",
+      "kind": "interface",
+      "title": {
+        "ar": "مسارات تقاريري",
+        "en": "My-reports routes"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم لكل مسجَّلٍ GET /api/reports/saved (ما حفظه وما شاركه زملاء قسمه) وPUT /api/reports/saved (حفظٌ أو تحديث) وDELETE /api/reports/saved/:id، بحدّ 90 طلباً في الدقيقة، وحالٍ منقّاة من مفاتيح المرشّحات المعروفة وحدها.",
+        "en": "The system shall serve every signed-in account GET /api/reports/saved (what it saved and what its department colleagues shared), PUT /api/reports/saved (save or update) and DELETE /api/reports/saved/:id, rate-limited to 90 requests a minute, with state sanitised to the known filter keys only."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "استعلامٌ بلا اسم أو بعدسةٍ غير معروفة ← 400؛ ومشاركةٌ بلا صلاحية القسم ← 403؛ وتجاوز 30 ← 409؛ وحذفُ ما ليس لك ← 403.",
+          "en": "A query without a name or with an unknown lens ← 400; sharing without the department's permission ← 403; more than 30 ← 409; deleting someone else's ← 403."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/reportsRoutes.ts#/api/reports/saved",
+          "src/server/routes/reportsRoutes.ts#/api/reports/saved/:id"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "IR-RPT-055",
+      "kind": "interface",
+      "title": {
+        "ar": "نقطة موجز الصباح بالتنبيه",
+        "en": "Morning-brief push endpoint"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يخدم POST /api/internal/morning-brief لجدولةٍ خارجية بسرٍّ في الترويسة x-brief-token يطابق MORNING_BRIEF_TOKEN، فيرسل لكل حسابٍ مسجَّلٍ للتنبيهات تنبيهاً واحداً في اليوم بسطرٍ لكل قسمٍ من أقسامه (حتى ثلاثة) فيه الموانع والأيام الباقية، وسطراً 🔔 لكل تقريرٍ محفوظ بـ«نبّهني إن تغيّر» تغيّر جدولُ قسمه منذ آخر موجز.",
+        "en": "The system shall serve POST /api/internal/morning-brief to an external scheduler with a secret in header x-brief-token matching MORNING_BRIEF_TOKEN, sending each account registered for notifications one notification a day with a line for each of its departments (up to three) holding the blockers and days left, plus a 🔔 line for each report saved with «notify me if it changes» whose department schedule changed since the last brief."
+      },
+      "rationale": {
+        "ar": "الخادم بلا مؤقّت عن قصد، فالموعد يأتي من الخارج.",
+        "en": "The server runs no timers on purpose, so the schedule comes from outside."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "system"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا المتغيّر أو بسرٍّ خاطئ أو في الديمو ← 404؛ والجمعة والسبت (توقيت الكويت) ← لا إرسال.",
+          "en": "Without the variable, with a wrong secret, or in the demo ← 404; Friday and Saturday (Kuwait time) ← nothing is sent."
+        },
+        {
+          "ar": "لكل حسابٍ مرةً في اليوم ذرّياً (pushCooldowns)؛ ولا يصل مدير النظام، ولا قسمٌ بلا جدولٍ ولا ما يستحق الذكر.",
+          "en": "Once a day per account, atomically (pushCooldowns); the system administrator, a department without a schedule and one with nothing worth saying receive none."
+        },
+        {
+          "ar": "أولُ موجزٍ بعد الحفظ يُثبّت البصمة ولا ينبّه؛ والتالي ينبّه إن اختلفت بصمةُ جدول القسم، وتُحفظ البصمة بعد أخذ حصّة اليوم.",
+          "en": "The first brief after saving records the fingerprint without notifying; the next notifies if the department schedule's fingerprint differs, and the fingerprint is stored after the day's claim."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/morningBriefPush.ts",
+          "src/server/pushRoutes.ts"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-056",
+      "kind": "functional",
+      "title": {
+        "ar": "لماذا لا نتائج؟",
+        "en": "Why no results?"
+      },
+      "text": {
+        "ar": "يجب أن تعرض الشاشة الفارغة بسبب المرشّحات كلَّ مرشّحٍ فعّال شريحةً بأيقونته وعدد المواعيد التي تظهر لو أُزيل وحده، وتُبرز أنفعها، وتُزيله بضغطة.",
+        "en": "When filters leave the screen empty it shall show each active filter as a chip with its icon and the number of appointments that would appear if it alone were removed, highlight the most useful, and remove it with one press."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "المرشّح الذي لا يكفي إزالته وحده يظهر معطّلاً بنقطة، وزرّ «مسح الكل» حين يكثر المرشّحون.",
+          "en": "A filter that is not enough alone shows disabled with a dot, and «clear all» appears when several are active."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/query/QueryEmptyWhy.tsx",
+          "src/components/Reports.tsx#applyFiltersWith"
+        ],
+        "tests": [
+          "tests/query-center-e2e.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-057",
+      "kind": "functional",
+      "title": {
+        "ar": "السؤال بالصوت وتقريب الإملاء",
+        "en": "Spoken questions and spelling tolerance"
+      },
+      "text": {
+        "ar": "يجب أن يتيح مركز الاستعلام السؤال بصوت القارئ حيث يدعم المتصفح الكلام (ميكروفونٌ داخل خانة السؤال، جملةٌ واحدة)، وأن يقرّب الاسم المكتوب بخطأ حرفٍ أو حرفين إلى أقرب أستاذٍ أو مقرر فيسأل «هل تقصد؟» ولا يختار عن القارئ.",
+        "en": "The query centre shall let the reader ask by voice where the browser supports speech (a microphone inside the question field, one sentence), and shall match a name typed with a one- or two-letter slip to the nearest instructor or course, asking «did you mean?» without choosing for the reader."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "التفريغ بخدمة الكلام في المتصفح ولا يُحفظ صوت، والعربية إملاءً؛ والأرقام الهندية وصيغة «9 : 30» تُقرأ كأرقام عادية.",
+          "en": "Transcription uses the browser's speech service and no audio is kept; Arabic dictation; Arabic-Indic digits and «9 : 30» are read as ordinary digits."
+        },
+        {
+          "ar": "كلمةٌ أقصر من ثلاثة أحرف أو بعيدةٌ عن كل اسم لا تُخمَّن، فتُقال «لم أجد».",
+          "en": "A word shorter than three letters or far from every name is not guessed, and the answer is «not found»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/hooks/useSpeechAsk.ts",
+          "src/utils/queryAsk.ts#fuzzyNames"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-058",
+      "kind": "functional",
+      "title": {
+        "ar": "طباعة موفّرة للحبر بالورقة نفسها",
+        "en": "Ink-saving print on the same sheet"
+      },
+      "text": {
+        "ar": "يجب أن يتيح مركز الاستعلام وضع «موفّر الحبر» (قطرة في معاينة الصفحات) يطبع كل الأوراق بالرمادي بلا تلوين، والورقةُ هي هي بالمليمتر: لا يتغيّر هامشٌ ولا حشوةٌ ولا حجمُ خطٍّ ولا عرضُ حدٍّ ولا ترتيبٌ ولا عددُ صفحات؛ ويبقى الاختيار في المتصفح، وبغيره تخرج الورقة كما كانت.",
+        "en": "The query centre shall offer an «ink saver» mode (a drop in the page preview) that prints every sheet in grey without colour while the sheet stays identical to the millimetre: no margin, padding, font size, border width, order or page count changes; the choice persists in the browser, and without it the sheet prints as before."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الأنماط محصورةٌ في @media print وبالسمة data-print-ink ولا تحمل إلا خصائص الرسم (لون، خلفية، فلتر)، وتُحرَس بنيوياً.",
+          "en": "The styles are confined to @media print and the data-print-ink attribute and carry only paint properties (colour, background, filter), guarded structurally."
+        },
+        {
+          "ar": "ما يحمل معنى لا يُمحى: درجات الإشغال الخمس والأشرطة وسجل المنتدبين ومضاف/محذوف/معدّل في تقرير التغييرات تبقى متمايزة بدرجات الرمادي.",
+          "en": "What carries meaning is not erased: the five occupancy levels, the bars, the visiting history and added/deleted/changed in the changes report stay distinguishable in greys."
+        },
+        {
+          "ar": "إحداثيات كل كلمةٍ في كل ورقةٍ (الأربع عشرة عدسة والتقرير الشامل) متطابقةٌ مع الوضع العادي في متصفحٍ حقيقي.",
+          "en": "The coordinates of every word on every sheet (the fourteen lenses and the comprehensive report) are identical to the normal mode in a real browser."
+        },
+        {
+          "ar": "كل أزرار الطباعة وقوائم التقارير (الشامل والتغييرات والأستاذ) بأسلوبٍ واحد: بعد اختيار التقرير تظهر بلاطتان بأيقونتين (عادية بنقاطٍ ملوّنة، وموفّر الحبر بنقاطٍ رمادية) والضغط على إحداهما يطبع؛ ومنها العدسات والإشغال والميزان وتوزيع المواد وموجز الصباح؛ وما اختير يُحفظ ويُؤشَّر عليه، ولا شيء خارج القائمة.",
+          "en": "All print buttons and report menus (comprehensive, changes, instructor) share one style: after choosing the report two icon tiles appear (normal with coloured dots, ink saver with grey dots) and pressing one prints; this covers the lenses, occupancy, balance, course distribution and the morning brief; the choice is remembered and marked, and nothing sits outside the menu."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/styles/59-print-ink.css",
+          "src/components/query/QueryPrintPreview.tsx",
+          "src/components/Reports.tsx#invokePrint",
+          "src/components/query/QueryPrintMenu.tsx",
+          "src/components/ReportChoicePanel.tsx"
+        ],
+        "tests": [
+          "tests/print-ink-audit.ts",
+          "tests/query-center-e2e.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-059",
+      "kind": "functional",
+      "title": {
+        "ar": "ما لم يُحسب",
+        "en": "What was not counted"
+      },
+      "text": {
+        "ar": "يجب أن تعرض عدسات القاعات ونسبة الإشغال والقاعات × الأوقات بجانب العدّاد شريحةً (عين مشطوبة ورقم) بالمواعيد التي لم تدخل حساب القاعات وسبب كلٍّ منها، ولا تظهر إن لم يُستبعد شيء.",
+        "en": "The rooms, occupancy and rooms-by-times lenses shall show beside the counter a chip (a struck-through eye and a number) for the appointments that did not enter the room calculation and why, and shall not appear when nothing was excluded."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الأسباب: قاعةٌ بانتظار التثبيت، قاعةٌ تحتاج مراجعة، قاعةٌ قديمةٌ غير صالحة، بلا قاعة، بلا وقتٍ صالح، بلا أيام.",
+          "en": "Reasons: room awaiting confirmation, room needing review, invalid historical room, no room, no valid time, no days."
+        },
+        {
+          "ar": "تُعرض أول 8 مواعيد مع «+n» لما بعدها.",
+          "en": "The first 8 appointments are listed with «+n» for the rest."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/excludedRows.ts",
+          "src/components/query/QueryExcluded.tsx"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-060",
+      "kind": "functional",
+      "title": {
+        "ar": "افتحه في الجدول",
+        "en": "Open it in the schedule"
+      },
+      "text": {
+        "ar": "يجب أن يتيح مركز الاستعلام لمن يملك الجدول (الشاشة 7، لا صفة الاطّلاع فقط) زرّ «افتحه في الجدول» على تفاصيل الموعد وعلى المستبعدين وعلى بطاقة «لو نقلت»، فيفتح الموعد نفسه في ورشة الجدول بقسمه وفصله، وتبقى التقارير قراءةً فقط.",
+        "en": "The query centre shall give whoever holds the schedule permission (screen 7, not a viewer role) an «open it in the schedule» button on the appointment detail, on the excluded list and on the «what if I moved» card, opening that appointment in the schedule workshop on its department and term, while reports stay read-only."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "يكتب النطاق المشترك والمفتاح schedule-open-context-id ثم ينتقل؛ ولا يظهر لصفة الاطّلاع.",
+          "en": "It writes the shared scope and the key schedule-open-context-id, then navigates; it is not shown to a viewer role."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx#openInSchedule",
+          "src/App.tsx"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-061",
+      "kind": "functional",
+      "title": {
+        "ar": "لو نقلتُ… ماذا يتعارض؟",
+        "en": "If I moved it, what clashes?"
+      },
+      "text": {
+        "ar": "يجب أن يجيب مركز الاستعلام عن سؤالٍ بصيغة قرار («لو نقلت شعبة 101 للثلاثاء 10»، «انقل 0109101 الاثنين 9:30») ببطاقةٍ بأيقونات وأرقام لكل شعبةٍ من المقرر: لا تعارض، أو قاعةٌ محجوزة، أو أستاذٌ مشغول، أو حجزٌ من خارج القسم، أو خارج ساعات الدوام؛ دون أن يغيّر شيئاً في الجدول.",
+        "en": "The query centre shall answer a decision-form question («if I moved section 101 to Tuesday 10», «move 0109101 Monday 9:30») with a card of icons and numbers for each section of the course: no clash, room booked, instructor busy, booking from outside the department, or outside working hours; without changing anything in the schedule."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الشعبة تحتفظ بمدّتها، واليوم والساعة كما قيل؛ والأستاذ والقاعة يُفحصان ضد القسم المقروء، والقاعة ضد حجوزات الجامعة (بلا أسماء من قسمٍ آخر).",
+          "en": "The section keeps its duration with the day and hour as asked; the instructor and room are checked against the department read and the room against university bookings (no names from another department)."
+        },
+        {
+          "ar": "لا مقرر بهذا الرقم ← «لا مقرر بهذا الرقم في القسم»؛ ونقلٌ بلا يومٍ أو وقتٍ لا يُعدّ سؤال قرار.",
+          "en": "No such course ← «no course with this number in the department»; a move with neither day nor time is not a decision question."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/queryWhatIf.ts",
+          "src/components/query/QueryWhatIf.tsx",
+          "src/utils/queryAsk.ts#resolveAsk"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts",
+          "tests/query-center-e2e.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-062",
+      "kind": "functional",
+      "title": {
+        "ar": "مشاركة الرابط من الهاتف",
+        "en": "Share the link from a phone"
+      },
+      "text": {
+        "ar": "يجب أن يفتح زرّ الرابط على الأجهزة اللمسية قائمة المشاركة في الجهاز (واتساب وغيره) إن كانت متاحة، وإلا ينسخ الرابط.",
+        "en": "On touch devices the link button shall open the device's share sheet (WhatsApp and others) when available, otherwise copy the link."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "إلغاء القارئ للقائمة لا يُعدّ خطأً ولا ينسخ شيئاً.",
+          "en": "The reader cancelling the sheet is neither an error nor a copy."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx#copyShareLink"
         ],
         "tests": [
           "tests/query-center-plus-audit.ts"

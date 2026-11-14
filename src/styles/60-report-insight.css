@@ -1,0 +1,88 @@
+/* ── مركز الاستعلام: أطول فراغ وشكل الأسبوع للأستاذ، والقاعات الأكثر استخداماً ──
+   إضافاتٌ على الشاشة وحدها (no-print)، بألوان الرموز نفسها في الوضعين الفاتح والداكن. */
+
+/* عدسة «الأساتذة»: عمودُ أطول فراغ قبل السهم */
+.lens-groups.has-gap>article>button{grid-template-columns:36px minmax(0,1fr) minmax(60px,140px) 44px 52px 64px 16px}
+.group-gap{display:inline-flex;align-items:center;justify-content:flex-end;gap:4px;min-width:0;color:var(--muted);font:600 var(--t-xs,12px)/1 var(--font-mono);font-style:normal;white-space:nowrap}
+.group-gap svg{width:13px;height:13px;flex:none}
+.group-gap.is-warn,.group-week-action .is-warn{color:var(--warn,#7a5208)}
+@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+  .lens-groups.has-gap>article>button{
+    grid-template-columns:36px minmax(0,1fr) auto 18px;
+    grid-template-areas:
+      "avatar name count chev"
+      "avatar bar  gap   chev";
+  }
+  .lens-groups.has-gap .group-gap{grid-area:gap}
+}
+.group-rows>.group-week-action{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2,8px) var(--s3,12px);padding:var(--s3,12px) 0;border-top:1px solid var(--line)}
+.group-week-action>button{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+.group-week-action>button:hover,.group-week-action>button:focus-visible{border-color:var(--accent);background:var(--accent-softer,var(--surface-2))}
+.group-week-action>button svg,.group-week-action>span svg{width:16px;height:16px;flex:none}
+.group-week-action>span{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+.group-week-action>span b{color:inherit;font-family:var(--font-mono)}
+
+/* النافذتان: جسمٌ تحت رأس occupancy-pick */
+.rpt-drawer-body{display:grid;gap:var(--s3,12px);padding:var(--s3,12px) var(--s4,16px) var(--s4,16px);min-width:0}
+.rpt-drawer-note{margin:0;color:var(--muted);font-size:13px}
+.rpt-meter{display:block;height:8px;min-width:0;border-radius:999px;background:var(--surface-3,color-mix(in srgb,var(--line) 60%,transparent));overflow:hidden}
+.rpt-meter>i{display:block;height:100%;border-radius:inherit;background:var(--accent)}
+
+.rpt-insight{display:grid;gap:var(--s3,12px);min-width:0}
+.rpt-insight.is-loading{gap:8px}
+.rpt-insight.is-loading>i{display:block;height:44px;border-radius:12px;background:var(--surface-2);animation:fade 1s var(--ease,ease) infinite alternate}
+.rpt-insight-error,.rpt-insight-empty{margin:0;color:var(--muted);font-size:13px}
+.rpt-insight-kpis{display:flex;flex-wrap:wrap;gap:8px}
+.rpt-insight-kpis>span{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2,var(--surface));color:var(--muted);font-size:12.5px}
+.rpt-insight-kpis>span>b{color:var(--ink);font-size:15px;font-variant-numeric:tabular-nums}
+.rpt-insight-kpis>span.is-warn>b{color:var(--warn,#7a5208)}
+.rpt-insight-kpis svg{width:16px;height:16px;flex:none;color:var(--accent)}
+.rpt-insight-block{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2,var(--surface));min-width:0}
+.rpt-insight-block>header{display:flex;align-items:center;gap:8px;font-size:14px}
+.rpt-insight-block>header svg{width:17px;height:17px;color:var(--muted)}
+.rpt-insight-usage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.rpt-insight-usage>span{display:grid;gap:2px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.rpt-insight-usage b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.rpt-insight-usage small{color:var(--muted);font-size:12px}
+.rpt-insight-windows{display:grid;gap:8px}
+.rpt-insight-windows>article{display:grid;grid-template-columns:58px minmax(0,1fr);gap:8px;align-items:start}
+.rpt-insight-windows>article>b{padding-top:6px;font-size:13px}
+.rpt-insight-windows>article>div{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.rpt-insight-windows time{display:inline-flex;align-items:center;min-height:30px;padding:4px 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font:600 12px/1 var(--font-mono);white-space:nowrap}
+.rpt-insight-privacy{display:flex;align-items:center;gap:6px;margin:0;color:var(--muted);font-size:12px}
+.rpt-insight-privacy svg{width:15px;height:15px;flex:none}
+@media (max-width:420px){.rpt-insight-usage{grid-template-columns:minmax(0,1fr)}.rpt-insight-windows>article{grid-template-columns:50px minmax(0,1fr)}}
+
+/* شكل الأسبوع — الساعة الأولى عند بداية السطر (يمين الصفحة) */
+.rpt-week-shape{display:grid;gap:6px;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2,var(--surface));min-width:0}
+.rpt-week-scale{display:flex;justify-content:space-between;margin-inline-start:52px;color:var(--muted);font:500 10px/1 var(--font-mono);font-variant-numeric:tabular-nums}
+.rpt-week-row{display:flex;align-items:center;gap:8px;min-width:0}
+.rpt-week-row>small{flex:none;width:44px;color:var(--muted);font-size:12px;font-weight:600}
+.rpt-week-track{position:relative;flex:1;min-width:0;height:24px;border-radius:8px;background:color-mix(in srgb,var(--line) 45%,transparent);overflow:hidden}
+.rpt-week-track>b{position:absolute;inset-block:3px;border-radius:5px;background:var(--accent)}
+.rpt-week-track>i{position:absolute;inset-block:0;display:grid;place-items:center;font-style:normal;color:var(--ink);background:repeating-linear-gradient(-45deg,color-mix(in srgb,var(--warn,#a06a10) 24%,transparent) 0 3px,transparent 3px 7px)}
+.rpt-week-track>i>span{padding:2px 6px;border-radius:999px;background:var(--surface);font:700 10px/1 var(--font-mono);white-space:nowrap}
+.rpt-week-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;color:var(--muted);font-size:12px}
+.rpt-week-legend>span{display:inline-flex;align-items:center;gap:6px}
+.rpt-week-legend i{display:block;width:13px;height:8px;border-radius:3px}
+.rpt-week-legend .teaching i{background:var(--accent)}
+.rpt-week-legend .waiting i{background:repeating-linear-gradient(-45deg,color-mix(in srgb,var(--warn,#a06a10) 45%,transparent) 0 2px,transparent 2px 4px);outline:1px solid var(--line)}
+
+/* نسبة الإشغال: القاعات الأكثر استخداماً */
+.rpt-top-rooms>ol{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.rpt-top-rooms button{width:100%;display:grid;grid-template-columns:18px minmax(0,1fr) minmax(60px,1.2fr) 48px auto;align-items:center;gap:10px;min-height:44px;padding:6px 10px;border:1px solid transparent;border-radius:12px;background:none;color:var(--ink);font:inherit;text-align:start;cursor:pointer}
+.rpt-top-rooms button:hover,.rpt-top-rooms button:focus-visible{border-color:var(--line);background:var(--surface-2)}
+.rpt-top-rooms button>svg{width:16px;height:16px;color:var(--muted)}
+.rpt-top-room-name{display:grid;min-width:0}
+.rpt-top-room-name bdi{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;text-align:start}
+.rpt-top-room-name small{color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rpt-top-rooms button>b{text-align:end;font-variant-numeric:tabular-nums}
+.rpt-top-room-count{color:var(--muted);font-size:12px;white-space:nowrap}
+@media (max-width:520px){
+  .rpt-top-rooms button{grid-template-columns:18px minmax(0,1fr) 44px;grid-template-areas:"icon name rate" "icon bar bar"}
+  .rpt-top-rooms button>svg{grid-area:icon}
+  .rpt-top-room-name{grid-area:name}
+  .rpt-top-rooms button>b{grid-area:rate}
+  .rpt-top-rooms button>.rpt-meter{grid-area:bar}
+  .rpt-top-room-count{display:none}
+}

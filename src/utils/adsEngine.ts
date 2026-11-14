@@ -56,7 +56,7 @@ export const AD_DAILY_REPEAT_CAP = 10;
 
 /** شروطُ الإعلان كما تُعرض للشركة وللأدمن عند الإضافة. تُفرض آلياً ما أمكن. */
 export const AD_RULES: readonly string[] = [
-  "صورةٌ فقط (PNG أو JPEG أو WebP) بمقاس الموقع تماماً وبوزنٍ لا يتجاوز ٣٠٠ كيلوبايت.",
+  "صورةٌ فقط (PNG أو JPEG أو WebP) بمقاس الموقع تماماً وبوزنٍ لا يتجاوز 300 كيلوبايت.",
   "لا سكربتات ولا تتبّع طرفٍ ثالث؛ الرابط https فقط ويُفتح بوسم «إعلان» ثابت.",
   "ممنوع: التبغ والمنوّمات والمقامرة والمحتوى غير اللائق والادعاءات الطبية والمالية المضمونة.",
   "لا يظهر الإعلان في صفحات الهوية والاستبيان والاعتماد والطباعة والتقويم.",
@@ -125,7 +125,7 @@ export function creativeProblem(slotId: string, bytes: number, info: ImageInfo |
 /** رابطُ الوجهة: https فقط، بلا بيانات دخولٍ ولا مضيفٍ محلي. يُرجع الرابط منظَّفاً أو سبب الرفض. */
 export function cleanLink(raw: unknown): { url: string; problem: string } {
   const text = String(raw ?? "").trim();
-  if (!text || text.length > 600) return { url: "", problem: "الرابط مطلوب (حتى ٦٠٠ حرفاً)." };
+  if (!text || text.length > 600) return { url: "", problem: "الرابط مطلوب (حتى 600 حرفاً)." };
   let url: URL;
   try { url = new URL(text); } catch { return { url: "", problem: "الرابط غير صالح." }; }
   if (url.protocol !== "https:") return { url: "", problem: "الرابط يجب أن يبدأ بـ https://" };

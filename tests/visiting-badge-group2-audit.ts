@@ -19,7 +19,7 @@ const reports = read("src/components/Reports.tsx");
 check(/const personChips = \(id: unknown, visiting = isVisitingInstructor\(Number\(id\)\)\) => <PersonChips visiting=\{visiting\} trainee=\{trainees\.has\(Number\(id\)\)\} \/>/.test(reports), "التقارير على الشاشة: وسما الشخص من المكوّن الواحد");
 check(/course-room-who report-instructor-with-badge[^\n]*\{personChips\(row\.AdInstructorId\)\}/.test(reports), "عدسة القاعة والمقرر: المنتدب بشارته");
 check(/<span className="report-instructor-with-badge">\{row\.name\}\{personChips\(Number\(row\.id\)\)\}<\/span>/.test(reports), "صفّ العدالة على الشاشة");
-check(/<strong className="report-instructor-with-badge">\{person\.name\}<VisitingBadge compact \/><\/strong>/.test(reports), "صفّ سجلّ المنتدبين التاريخي على الشاشة");
+check(/<strong className="report-instructor-with-badge"><span className="rib-name">\{person\.name\}<\/span><VisitingBadge compact \/><\/strong>/.test(reports), "صفّ سجلّ المنتدبين التاريخي على الشاشة");
 check(/withVisitingSuffix\(page\.group\.key, visitingIds\.has\(Number\(page\.group\.rows\[0\]\?\.AdInstructorId\)\)\)/.test(reports), "ترويسة مجموعة الأستاذ في الطباعة");
 check(/withVisitingSuffix\(page\.group\.key, true\)/.test(reports), "ترويسة مجموعة المنتدبين في الطباعة");
 check(/withVisitingSuffix\(row\.name, visitingIds\.has\(Number\(row\.id\)\)\)/.test(reports), "صفّ العدالة في الطباعة");

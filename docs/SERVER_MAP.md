@@ -424,15 +424,11 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `POST /api/share/:id/personal` | 16651 | `src/server/routes/shareRoutes.ts` |
 | `POST /api/share/:id/sent` | 16692 | `src/server/routes/shareRoutes.ts` |
 | `GET /api/share-personal` | 16704 | `src/server/routes/shareRoutes.ts` |
-| `GET /api/registration-stats` | 16739 | `src/server/routes/planningRoutes.ts` |
 | `POST /api/section-build/preview` | 16944 | `src/server/routes/planningRoutes.ts` |
 | `POST /api/section-build/apply` | 16962 | `src/server/routes/planningRoutes.ts` |
 | `POST /api/section-build/review-rows` | 17018 | `src/server/routes/planningRoutes.ts` |
 | `POST /api/section-build/undo` | 17058 | `src/server/routes/planningRoutes.ts` |
 | `GET /api/forecast/term` | 17084 | `src/server/routes/planningRoutes.ts` |
-| `PUT /api/registration-stats` | 17106 | `src/server/routes/planningRoutes.ts` |
-| `POST /api/registration-stats/remaining-pdf` | 17173 | `src/server/routes/planningRoutes.ts` |
-| `POST /api/registration-stats/remaining-cells` | 17225 | `src/server/routes/planningRoutes.ts` |
 | `GET /api/public/schedule/:token` | 17248 | `src/server/routes/publicCalendarRoutes.ts` |
 | `GET /api/public/ics/:token` | 17323 | `src/server/routes/publicCalendarRoutes.ts` |
 | `GET /api/public/ics/:token/:key` | 17380 | `src/server/routes/publicCalendarRoutes.ts` |
@@ -445,8 +441,6 @@ npx tsx tests/server-route-parity-audit.ts && npm run lint
 | `POST /api/public/survey/:token/proof-status` | 18061 | `src/server/routes/surveyRoutes.ts` |
 | `POST /api/public/survey/:token/proof` | 18186 | `src/server/routes/surveyRoutes.ts` |
 | `POST /api/public/survey/:token` | 18226 | `src/server/routes/surveyRoutes.ts` |
-| `GET /api/schedules/section-gap/decisions` | 18433 | `src/server/routes/planningRoutes.ts` |
-| `PUT /api/schedules/section-gap/decisions` | 18439 | `src/server/routes/planningRoutes.ts` |
 | `GET /api/schedules/section-gap` | 18462 | `src/server/routes/planningRoutes.ts` |
 | `GET /api/schedules/section-gap/staffing` | 18476 | `src/server/routes/planningRoutes.ts` |
 | `GET /api/schedules/openings-preview` | 18535 | `src/server/routes/planningRoutes.ts` |

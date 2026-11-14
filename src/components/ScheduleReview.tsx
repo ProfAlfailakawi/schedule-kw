@@ -542,12 +542,13 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     const slices: Array<{ key: string; tone: string; length: number; offset: number; label: string }> = [];
     const push = (key: string, toneName: string, count: number, label: string) => {
       if (!count) return;
-      const length = (count / Math.max(1, breakdown.total)) * ringLength;
+      const length = (count / Math.max(1, breakdown.scored)) * ringLength;
       slices.push({ key, tone: toneName, length, offset, label });
       offset += length;
     };
     push("clean", "clean", breakdown.clean, "سليم");
-    breakdown.segments.forEach((segment, index) => push(segment.key, segment.tone === "block" ? "block" : segment.tone === "note" ? "note" : `reg-${index % 4}`, segment.count, segment.label));
+    /* «للملاحظة» خارج اللائحة: لا شريحة لها في الحلقة (المالك 2026-11-14). */
+    breakdown.segments.filter(segment => segment.tone !== "note").forEach((segment, index) => push(segment.key, segment.tone === "block" ? "block" : segment.tone === "note" ? "note" : `reg-${index % 4}`, segment.count, segment.label));
     return slices;
   }, [breakdown, ringLength]);
 
@@ -874,14 +875,14 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
         {/* The whole term as one bar: every appointment counted once. */}
         <div className="review-spread" role="img" aria-label="توزيع المواعيد حسب الملاحظات">
           <div className="spread-bar">
-            {spreadKeys.map(key => <i key={key.tone} className={`seg-${key.tone}`} style={{ width: share(key.count) }} />)}
+            {spreadKeys.filter(key => key.tone !== "low").map(key => <i key={key.tone} className={`seg-${key.tone}`} style={{ width: share(key.count) }} />)}
           </div>
           {/* Appointments, said with their noun: «5 مواعيد تمنع» can never be
               read as «5 موانع» beside the bar's conflict count. Every tier the
               same way — blocks, needs-fix, notes, sound (approvalSpreadKeys). */}
           <div className="spread-keys">
             {spreadKeys.map(key => (
-              <span key={key.tone} className={`seg-${key.tone}`}>
+              <span key={key.tone} className={`seg-${key.tone}`} data-outside-score={key.tone === "low" || undefined} title={key.tone === "low" ? "خارج اللائحة — لا تدخل حساب الدرجة" : undefined}>
                 {key.tone === "high" ? <AlertTriangle aria-hidden="true" /> : key.tone === "medium" ? <Wrench aria-hidden="true" /> : key.tone === "low" ? <Info aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
                 <b>{key.counted}</b><small>{key.tail}</small>
               </span>
@@ -923,11 +924,11 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
         <section className="review-period-rule" aria-labelledby="review-period-title" data-open={periodOpen || undefined}>
           <button type="button" className="review-period-toggle" aria-expanded={periodOpen} aria-controls="review-period-content" onClick={() => setPeriodOpen(value => !value)} data-guide-ignore="طيّ أو فتح تفاصيل توزيع الصباحي والمسائي داخل المراجعة">
             <span><Clock3 aria-hidden="true"/><b id="review-period-title">توزيع الفترتين</b><em>قرار 1913/2016 · م.7/2</em></span>
-            {periodBalance ? <small>صباحي {periodBalance.morning}٪ · مسائي {periodBalance.evening}٪</small> : null}
+            {periodBalance ? <small>صباحي {periodBalance.morning}% · مسائي {periodBalance.evening}%</small> : null}
             <ChevronDown aria-hidden="true"/>
           </button>
           {periodOpen ? <div id="review-period-content" className="review-period-content">
-            <div className="review-period-hours"><span><b>الصباحي</b><small>08:00–14:00</small><strong>50–70٪</strong></span><i aria-hidden="true"/><span><b>المسائي</b><small>14:00–20:00</small><strong>30–50٪</strong></span></div>
+            <div className="review-period-hours"><span><b>الصباحي</b><small>08:00–14:00</small><strong>50–70%</strong></span><i aria-hidden="true"/><span><b>المسائي</b><small>14:00–20:00</small><strong>30–50%</strong></span></div>
             {periodBalance
               ? <PeriodBalanceInfographic {...periodBalance} />
               : <p>لا توجد مواعيد ضمن الفترتين حالياً.</p>}
@@ -1015,10 +1016,10 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
               </section>
               <div className="print-review-spread" role="img" aria-label="توزيع المواعيد حسب نتيجة المراجعة">
                 <div className="print-spread-bar">
-                  {spreadKeys.map(key => <i key={key.tone} className={`seg-${key.tone}`} style={{ width: share(key.count) }} />)}
+                  {spreadKeys.filter(key => key.tone !== "low").map(key => <i key={key.tone} className={`seg-${key.tone}`} style={{ width: share(key.count) }} />)}
                 </div>
                 {blockerSummary.conflicts > 0 ? <p className="print-blocker-headline">يمنع الاعتماد: {blockingSummaryPhrase(blockerSummary.conflicts, blockerSummary.rows, blockerSummary.duplicates)}</p> : null}
-                <div className="print-spread-keys">{spreadKeys.map(key => <span key={key.tone} className={`seg-${key.tone}`}>{key.counted} {key.tail}</span>)}</div>
+                <div className="print-spread-keys">{spreadKeys.map(key => <span key={key.tone} className={`seg-${key.tone}`}>{key.counted} {key.tail}{key.tone === "low" ? " · خارج الحساب" : ""}</span>)}</div>
               </div>
               <section className="print-review-findings">
                 {reviewHasFindings(groupedFindings.length, warningGroups.length, noteGroups.length) ? firstPrintPage.map(renderPrintFinding) : <div className="print-review-clear"><CheckCircle2 /><strong>{unclassifiedCourses ? "فحص غير مكتمل" : "لا توجد موانع ظاهرة"}</strong><span>{unclassifiedCourses ? `${countOf(unclassifiedCourses, AR.course)} بلا طبيعة تدريس؛ نمط المادة 7/8 غير مفحوص.` : "لا توجد موانع ظاهرة في هذا الفحص."}</span></div>}

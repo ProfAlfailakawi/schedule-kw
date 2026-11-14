@@ -78,7 +78,7 @@ check(/aria-pressed="true"[^>]*>الكل <b>4<\/b>/.test(html) && /data-campus="
 check(!/عائلة القسم/.test(html), "لا جملة «عائلة القسم — …» في العنوان");
 check(html.includes(LONG_COURSE) && html.includes(LONG_TEACHER), "اسم المقرر واسم الأستاذ كاملين في الصفحة");
 check(/dir="ltr">12:00–13:00</.test(html), "الوقت باتجاهٍ ثابت: لا ينقلب «13:00–12:00» داخل نصٍّ عربي");
-check(/<b>17<\/b> من 32 قاعة/.test(html) && html.includes("53٪") && html.includes("dna-ring"), "حلقة الإشغال ١٧/٣٢ · ٥٣٪");
+check(/<b>17<\/b> من 32 قاعة/.test(html) && html.includes("53%") && html.includes("dna-ring"), "حلقة الإشغال 17/32 · 53%");
 check(html.includes('class="occupancy-slot-code" dir="ltr">0109108<'), "رقم المقرر رقيقةٌ هادئة بسبع خانات");
 check(html.includes("بلا قاعة") && html.includes("visiting-badge"), "المحاضرة بلا قاعة تقولها، والمنتدب بشارته");
 check(!html.includes("occupancy-slot-search"), `البحث لا يظهر لأقل من ${SLOT_SEARCH_FROM} محاضرات`);
@@ -115,7 +115,7 @@ for (const selector of [".occupancy-slot-name", ".occupancy-slot-teacher", ".occ
 }
 check(/\.occupancy-slot-name\{[^}]*white-space:normal/.test(css) && /\.occupancy-slot-teacher-name\{[^}]*white-space:normal/.test(css),
   "والاسم الطويل ينزل سطراً ثانياً");
-check(/@media \(max-width:760px\)(?:,screen and \(min-width:640px\) and \(max-width:1000px\) and \(min-height:520px\) and \(max-height:960px\))?\{[^]*grid-template-areas:"time course" "time teacher" "time meta"/.test(css), "على الهاتف الصفّ مكدّس: الوقت في الطرف وما سواه تحته");
+check(/@media \(max-width:760px\)(?:,screen and \(min-width:640px\) and \(max-width:720px\) and \(min-height:520px\) and \(max-height:960px\),screen and \(min-width:721px\) and \(max-width:1000px\) and \(min-height:520px\) and \(max-height:960px\) and \(orientation:landscape\))?\{[^]*grid-template-areas:"time course" "time teacher" "time meta"/.test(css), "على الهاتف الصفّ مكدّس: الوقت في الطرف وما سواه تحته");
 check(/grid-template-areas:"time course teacher meta"/.test(css), "وعلى الحاسوب أعمدة");
 
 /* ── موصولة بالعدسة ──────────────────────────────────────────────────────── */

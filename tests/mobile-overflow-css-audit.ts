@@ -81,8 +81,10 @@ check(/\.share-sheet\.visual-minimal\{[^}]*padding-block-start:0/.test(guard),
 
 /* 3ب) درجُ مركز الذكاء: ✕ في شريط الرأس المعتم (.context-actions) لا لاصقاً وحده. */
 const intel = read("src/components/IntelligenceWorkspace.tsx");
-check(/<aside className="intel-drawer"[^>]*>\s*\{\/\*[^]*?\*\/\}\s*<div className="context-actions intel-drawer-bar">\s*<button\s+className="drawer-close"/.test(intel),
-  "✕ درج مركز الذكاء داخل شريط الرأس المعتم");
+/* درجا القاعة والأستاذ انتقلا مع بطاقتيهما إلى التقارير: ✕ في رأس الدرج نفسه، لا لاصقاً وحده. */
+const reportDrawers = read("src/components/ReportInsightDrawers.tsx");
+check(!intel.includes('className="intel-drawer"') && (reportDrawers.match(/<header>[\s\S]{0,400}?onClick=\{onClose\} aria-label="إغلاق"/g) || []).length >= 2,
+  "✕ درجي القاعة و«شكل الأسبوع» داخل رأس الدرج (التقارير)، ولا درجَ متبقٍّ في مركز الذكاء");
 check(/\.intel-drawer-bar\.drawer-close\{margin-inline-start:auto\}/.test(guard), "وفي طرفه");
 
 /* 3ج) صفحة مقترح الدراسة (تُفتح على الهاتف خارج التطبيق): حقلُ الساعة على iOS. */
@@ -124,7 +126,7 @@ check(/\.matrix-scroll,\.table-scroll,[^{]*\{position:relative\}/.test(intelCss)
   "إطاراتُ التمرير الأفقي (ومنها .matrix-scroll) كتلٌ حاوية: لا يبرز منها عنصرٌ مطلق فيوسّع الوثيقة");
 /* الكتاب المفتوح على الشاشة الداخلية: صفحتان حول كعبٍ في المنتصف، ولا يمسّ iPad. */
 const book = flat(read("src/styles/55-duo-adaptive.css"));
-check(/@mediascreenand\(min-width:640px\)and\(max-width:1000px\)and\(min-height:520px\)and\(max-height:960px\)\{/.test(book)
+check(/@mediascreenand\(min-width:640px\)and\(max-width:720px\)and\(min-height:520px\)and\(max-height:960px\),screenand\(min-width:721px\)and\(max-width:1000px\)and\(min-height:520px\)and\(max-height:960px\)and\(orientation:landscape\)\{/.test(book)
   && /\.app-shell::before\{[^}]*left:var\(--book-page\);width:var\(--book-spine\)/.test(book),
   "الشاشة الداخلية كتابٌ مفتوح: كعبٌ بعرض --book-spine في المنتصف، وiPad (768×1024) خارج الكتلة");
 
@@ -134,5 +136,55 @@ check(/@mediascreenand\(min-width:640px\)and\(max-width:1000px\)and\(min-height:
 const backdropRule = (book.match(/\[class\*="backdrop"\]:has\([^{]*\{[^}]*\}/) || [""])[0];
 check(/padding-right:calc\(var\(--book-page\)\+var\(--book-spine\)/.test(backdropRule) && !/right:calc|box-shadow/.test(backdropRule.replace(/padding-right:calc/, "")),
   "خلفية النافذة على الكتاب بعرض الشاشة كلها تحجب الفهرس، والنافذة وحدها على صفحة العمل");
+/* Duo ≠ iPad: الكتاب المفتوح للدوو وحده. iPad (عرضه الطولي ≥744 والعرضي ≥1024) يبقى على تخطيط اللوحي، فلا يقبل أيُّ استعلام
+   «كتاب» (min-height:520px مع max-height:960px) عرضاً طولياً فوق 720px ولا عرضياً فوق 1000px، ولا استعلاماً بلا screen.
+   (نافذة Split View على iPad بعرض 640–720 لا تُميَّز عن الدوو بالمقاس؛ المفصل الحقيقي وحده يفرّق.) */
+function cssFiles(dir: string): string[] {
+  return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? cssFiles(path.join(dir, e.name)) : e.name.endsWith(".css") ? [path.join(dir, e.name)] : []);
+}
+const bookQueries: { file: string; q: string }[] = [];
+for (const file of [...cssFiles("src"), ...cssFiles("public")]) {
+  const css = flat(read(file));
+  for (const m of css.matchAll(/@media([^{]*)\{/g)) {
+    for (const q of m[1].split(",")) if (/min-height:520px/.test(q) && /max-height:960px/.test(q)) bookQueries.push({ file, q });
+  }
+}
+const badBook = bookQueries.filter(({ q }) => {
+  const maxW = Number((q.match(/\(max-width:(\d+)px\)/) || [])[1]);
+  const minW = Number((q.match(/\(min-width:(\d+)px\)/) || [])[1]);
+  const landscape = /\(orientation:landscape\)/.test(q);
+  const scoped = /^screenand/.test(q);
+  const okWidth = landscape ? maxW <= 1000 && minW >= 721 : maxW <= 720 && minW >= 640;
+  return !scoped || !okWidth;
+});
+check(bookQueries.length > 200 && badBook.length === 0,
+  `Duo ≠ iPad: ${bookQueries.length} استعلام كتابٍ كلُّها screen، والطولي ≤720px والعرضي ≤1000px${badBook.length ? " — " + badBook.slice(0, 3).map((b) => b.file + " " + b.q).join(" · ") : ""}`);
+check(!/@media[^{]*\(min-width:640px\)and\(max-width:1000px\)and\(min-height:520px\)(?!and\(orientation)/.test(flat(read("src/styles/55-duo-adaptive.css"))),
+  "كتلة الكتاب في 55-duo-adaptive.css لا تقبل طولياً بعرض 721–1000 (768×920 على iPad)");
+
+/* 5) الدوو المطويّ (≈367px): عمودٌ ضمنيّ `1fr`/`auto` يتّسع لأعرض أبنائه فيقصّ إطارُ البطاقة نصفَ المحتوى. */
+const seatsCss = flat(read("src/components/seats/seats.css"));
+check(/\.seats-layout\{grid-template-columns:minmax\(0,1fr\)\}/.test(seatsCss) && /\.seats-list\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(seatsCss)
+  && /\.seats-filters\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(seatsCss),
+  "الفرق: قائمةُ الفرق وشريطُ تصنيفها عمودٌ minmax(0,1fr) فلا يُقصّ البحثُ ولا آخرُ لسان");
+check(/\.seats-stats>\*\{flex:11calc\(50%-4px\);min-inline-size:0\}/.test(seatsCss),
+  "الفرق: بطاقات الإحصاء مثنى مثنى بـflex-basis (min-inline-size:44px!important على الأزرار كان يُسقط نصف العرض)");
+const screens = flat(read("src/styles/04-screens.css"));
+check(/\.admin-head-plan\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(screens) && /\.admin-head-planthead\{display:none;?\}/.test(screens),
+  "معاينة حسابات الأقسام: بطاقةٌ لكل صفٍّ على الهاتف لا جدولُ خمسة أعمدة");
+check((read("src/components/AdminUsers.tsx").match(/<td[^>]*data-label="(القسم|الكلية|حساب القسم|اسم الدخول المقترح|الحالة)"/g) || []).length === 5,
+  "معاينة حسابات الأقسام: لكل خليةٍ تسميتها (data-label) لتظهر فوق قيمتها");
+check(/\.console-action-slot\{width:100%;flex-wrap:wrap/.test(flat(read("src/styles/07-responsive.css"))),
+  "أزرار رأس الكونسول تلتفّ على الهاتف بدل أن تُحشر في سطرٍ فيُقصّ نصُّها");
+const deadlines = flat(read("src/styles/12-deadlines.css"));
+check(/\.sd-panel\{[^}]*display:grid;grid-template-columns:minmax\(0,1fr\)/.test(deadlines) && /\.travel-policy\{grid-template-columns:minmax\(0,1fr\)\}/.test(deadlines)
+  && /\.travel-policy-exempt\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(deadlines),
+  "مواعيد التسليم وسياسة التنقل: أعمدةٌ minmax(0,1fr) فلا يبرز المحتوى عن حافة البطاقة");
+check(/\.srec-form,\.srec-result\{[^}]*grid-template-columns:minmax\(0,1fr\)/.test(flat(read("src/components/student-recovery.css"))),
+  "رمز استعادة الطالب: النموذجُ عمودٌ minmax(0,1fr)");
+check(/\.lens-groupsstrong\.report-instructor-with-badge\{display:flex!important/.test(flat(read("src/styles/07-responsive.css"))),
+  "أسماء الأساتذة في التقارير: الاسمُ يُقطع والشارةُ (منتدب) تبقى مرئية");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

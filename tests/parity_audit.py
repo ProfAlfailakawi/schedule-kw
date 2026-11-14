@@ -127,7 +127,7 @@ check('safeSystemUser' in server and 'SystemUserPassVault: _passwordVault' in se
 # كان حقلُ الرقم المدني في البحث المتقدّم معطَّلاً في النظام القديم — خاصيّةٌ
 # لا ميزة. وصار يعمل في كل العدسات. وتثبيتُ التعطيل كان سيُلزمنا بإعادة عطلٍ
 # أُصلح، فيُثبَّت عملُه.
-check('filters.civil.trim()) rows = rows.filter' in reports,'Civil filter works in every lens, including advanced search')
+check('filters.civil.trim() && !omit.has("civil")) rows = rows.filter' in reports,'Civil filter works in every lens, including advanced search')
 # «أو» بين الأيام محفوظةٌ بصيغةٍ تعمّمت على الأيام كلها بدل خمسة شروطٍ مكتوبة.
 check('chosenDays.some(day => (s as any)[day.flag])' in reports,'advanced weekday filters retain OR semantics')
 # المبنى والقاعةُ صارا يُطابَقان عبر سجلّ المباني لا بمطابقة نصٍّ حرّ، وهو

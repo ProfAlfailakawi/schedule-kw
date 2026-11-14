@@ -56,6 +56,7 @@ The owner's rule: the site must stay up and free or nearly free, and a spending 
 - **Firestore:** see *Firestore indexes* above — nearly all of the read bill was full scans.
 - **Anonymous traffic:** `src/server/anonymousGuard.ts` counts failures (sessions that do not exist, link tokens that match nothing), never successes. A campus behind one NAT address is never limited.
 - **CI minutes:** pull requests skip `tests/slow.txt`, and main runs everything. `Deploy SCHEDULE` releases only a commit whose full run on main passed.
+- **Weekly smoke test:** `.github/workflows/weekly-smoke.yml` runs every Sunday 03:17 UTC (and on demand). It builds the app, starts it inside the runner with `DATA_MODE=demo`, and `scripts/ci/weekly-smoke.mjs` walks the main screens of six demo roles in a real browser at desktop and phone width, failing on uncaught page errors, server 5xx replies, empty or crashed screens, horizontal scroll at 390 px and the old «Enter approves from any button» regression. It touches no university data, uses no secret and no Google Cloud credential, and never deploys. The repository is public, so standard runners cost nothing (the last full CI run on main showed 0 billable milliseconds). Do not store exports or logs from it as artifacts: artifacts of a public repository are public.
 - **Image:** the final stage carries the bundle, the packages it requires (`scripts/runtime-deps.mjs`), the Firestore target and the OCR language data. Artifact Registry keeps the 10 newest images.
 
 ## Academic curriculum rules
@@ -65,3 +66,14 @@ The complete approved rules are in [`CURRICULUM_SHEET_RULES.md`](CURRICULUM_SHEE
 ## Data and credentials
 
 Do not include local database snapshots or production credentials in source control or delivery archives. Configure runtime access using private environment variables or the platform's managed identity. Keep local environment files, service-account keys, vault keys, and user exports outside the project.
+
+## Morning brief notification (optional)
+
+The server has no timers (Cloud Run throttles an idle instance), so the daily brief is started from outside:
+
+1. Set `MORNING_BRIEF_TOKEN` (a long random secret) on the Cloud Run service.
+2. Create a Cloud Scheduler job, cron `30 7 * * 0-4`, time zone `Asia/Kuwait`, that sends
+   `POST https://<service>/api/internal/morning-brief` with the header `x-brief-token: <the secret>`.
+
+The call is safe to repeat: each account receives at most one notification per day, accounts with nothing worth saying receive none,
+and Friday and Saturday are skipped. Without the variable the endpoint answers 404.

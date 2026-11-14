@@ -16,7 +16,7 @@ import { courseDemandFacts } from "../utils/actualDemandSupply";
 import type { Express, Request, RequestHandler, Response } from "express";
 import { randomUUID } from "crypto";
 import { Repository } from "../db/repository";
-import type { AdCourse, AdInstructor, FSchedule, RegistrationStats } from "../types";
+import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import {
   applyChanges, driftOf, planOperations, touchedRowIds,
   type TmChange, type TmContext, type TmHall, type TmHistoryEntry, type TmRegistration, type TmScenarioRecord,
@@ -29,6 +29,7 @@ import { AR, countOf } from "../utils/arabicCount";
 import { authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 import type { RegulationExceptionIssue } from "../utils/regulationException";
 import { regulationGate } from "./core/scheduleWrites";
+import { planTargetsFor } from "./actualDemand";
 
 interface InnerResult { status: number; body: any; headers: Record<string, string>; regulation?: RegulationExceptionIssue[] }
 
@@ -118,28 +119,23 @@ function sanitizeChanges(raw: unknown): TmChange[] {
 }
 
 /**
- * ── كشفُ المتبقي المستورد للقسم في الفصل ──────────────────────────────────
- * «كل المقررات» كان يقرأ الرادار وحده، فقسمٌ استورد كشفه ولم يُشغَّل له رادار يرى
- * «0» أو «—» في كل خانة طلبة. القراءةُ هنا بقانون التخطيط نفسه (planningRoutes):
- * عمود «الذين لم يجتازوا» (notPassed) هو المتبقي، ومعه «لم يسجّلوا» و«المقاعد
- * المتبقية» من الكشف نفسه؛ وما حُفظ قديماً بعمود «الذين لم يسجلوا» يُقرأ «لم يسجّلوا».
+ * ── طلبُ التسجيل لهذا الحرم من «تخطيط الشعب» ──────────────────────────────
+ * «كل المقررات» يقرأ تقرير التسجيل (SWRDASH) وحده: لكل مقرر عدد من يحتاجه (remaining)،
+ * ومنهم الخريجون، والمقترح من التاريخ. ولا كشفَ ثانياً ولا إدخالاً يدوياً.
  */
-function registrationOf(stats: RegistrationStats | null, courseIds: Set<number>): TmRegistration | null {
-  if (!stats) return null;
-  const pick = (map: Record<string, number> | undefined) => {
+function registrationOf(planned: { students: Map<string, number>; graduates: Map<string, number>; targets: Map<number, number>; importedAt: string; reportTerm: string } | null, courseIds: Set<number>): TmRegistration | null {
+  if (!planned || !planned.students.size) return null;
+  const pick = (entries: Iterable<[string | number, number]>) => {
     const out: Record<string, number> = {};
-    for (const [key, value] of Object.entries(map || {})) if (courseIds.has(Number(key)) && Number.isFinite(Number(value))) out[key] = Math.max(0, Math.round(Number(value)));
+    for (const [key, value] of entries) if (courseIds.has(Number(key)) && Number.isFinite(Number(value))) out[String(key)] = Math.max(0, Math.round(Number(value)));
     return Object.keys(out).length ? out : null;
   };
-  const column = stats.remainingSource?.column;
-  const remaining = column === "notPassed" ? pick(stats.remaining) : null;
-  const unregistered = column === "notPassed" ? pick(stats.unregistered) : column === "unregistered" ? pick(stats.remaining) : null;
-  const vacant = column === "notPassed" ? pick(stats.vacant) : null;
-  if (!remaining && !unregistered) return null;
+  const remaining = pick(planned.students);
+  if (!remaining) return null;
   return {
-    remaining, unregistered, vacant,
-    fileName: String(stats.remainingSource?.fileName || ""), importedAt: String(stats.remainingSource?.importedAt || stats.updatedAt || ""),
-    reportTerm: String(stats.remainingSource?.reportTerm || ""),
+    remaining,
+    graduates: pick(planned.graduates), planned: pick(planned.targets),
+    fileName: "تقرير التسجيل", importedAt: planned.importedAt, reportTerm: planned.reportTerm,
   };
 }
 
@@ -202,7 +198,7 @@ export function registerTimeMachineRoutes(app: Express, deps: TimeMachineDeps): 
       Repository.getRegistrationRun(termId),
       Repository.getTerms(),
       Repository.getSections(),
-      Repository.getRegistrationStats(collegeId, sectionId, termId).catch(() => null),
+      planTargetsFor(null, collegeId, sectionId, termId),
       Repository.getColleges(),
     ]);
     const scopeIds = new Set(rows.map(row => Number(row.id)));

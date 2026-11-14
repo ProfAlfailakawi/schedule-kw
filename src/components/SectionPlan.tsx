@@ -12,9 +12,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Armchair, CalendarCheck2, CalendarPlus, Check, ChevronDown, CircleCheck, ClipboardList, Divide, Equal, EyeOff, FileUp, GraduationCap,
-  Layers, Link2, ListChecks, Minus, PencilRuler, TrendingDown, TriangleAlert, Unlink, UserPlus, UserRoundX, Users, X,
+  History, Layers, Link2, ListChecks, Minus, PencilRuler, TrendingDown, TriangleAlert, Unlink, UserPlus, UserRoundX, Users, X,
 } from "lucide-react";
 import SearchableSelect from "./SearchableSelect";
+import SectionBuild from "./SectionBuild";
 import CourseTags from "./CourseTags";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { guessDemandVariant, type DemandVariant } from "../utils/actualDemand";
@@ -35,6 +36,8 @@ export interface PlanReadingView {
 interface Preview {
   variant: DemandVariant; termLabel: string; department: string; courses: number; students: number; matched: number; unmatched: number;
   termMatches: boolean | null; departmentMatches: boolean; duplicate: boolean;
+  /** نوعٌ يناقض الآخر المحفوظ (من الأرقام). "" = لا قرينة. */
+  kindClue: string;
 }
 
 const num = (value: number) => Math.round(value).toLocaleString("ar-KW-u-nu-latn");
@@ -91,7 +94,7 @@ export function SectionPlanningBadge({ reading, open, onToggle }: { reading: Pla
   );
 }
 
-export default function SectionPlan({ collegeId, sectionId, termId, mode = "full", inPlace = false, reading: given, onReading, onClose, onOpenCourses }: {
+export default function SectionPlan({ collegeId, sectionId, termId, mode = "full", inPlace = false, reading: given, onReading, onClose, onOpenCourses, onReviewRows }: {
   collegeId: number; sectionId: number; termId: number;
   /** «full» الشاشة كاملة؛ «bar» داخل شريط الاعتماد (بإغلاق)؛ «read» لوحة القرار: قراءةٌ بلا رفعٍ ولا أفعال. */
   mode?: "full" | "bar" | "read";
@@ -102,6 +105,8 @@ export default function SectionPlan({ collegeId, sectionId, termId, mode = "full
   onReading?: (reading: PlanReadingView | null) => void;
   onClose?: () => void;
   onOpenCourses?: () => void;
+  /** «نزّل الشعب» ← «راجع وعدّل»: تُفتح الشعب المقترحة في شاشة مراجعة الاستيراد. */
+  onReviewRows?: (rows: any[], meta?: { existing: number; added: number; pending: number; existingKeys?: string[] }) => void;
 }) {
   const own = useSectionPlan(given === undefined ? collegeId : 0, sectionId, termId);
   const reading = given === undefined ? own.reading : given;
@@ -115,6 +120,7 @@ export default function SectionPlan({ collegeId, sectionId, termId, mode = "full
   const [variant, setVariant] = useState<DemandVariant>("general");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [linking, setLinking] = useState(false);
+  const [building, setBuilding] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const query = `collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`;
   const pickVariant = useRef<DemandVariant | null>(null);
@@ -154,7 +160,7 @@ export default function SectionPlan({ collegeId, sectionId, termId, mode = "full
   if (status === "denied") return null;
   const plan = reading?.plan || null;
   const has = Boolean(reading?.variants.general || reading?.variants.graduates);
-  const mismatch = preview && (preview.termMatches === false || !preview.departmentMatches);
+  const mismatch = preview && (preview.termMatches === false || !preview.departmentMatches || Boolean(preview.kindClue));
   const gradRows = plan ? plan.rows.filter(row => row.tier === "grad") : [];
   const restRows = plan ? plan.rows.filter(row => row.tier === "short" || row.tier === "surplus" || row.tier === "nocap") : [];
 
@@ -212,6 +218,7 @@ export default function SectionPlan({ collegeId, sectionId, termId, mode = "full
           </div>
           {preview.termMatches === false ? <p className="spl-flag"><TriangleAlert aria-hidden="true" /> فصلٌ غير الفصل المفتوح</p> : null}
           {!preview.departmentMatches ? <p className="spl-flag"><TriangleAlert aria-hidden="true" /> قسمٌ غير القسم المفتوح</p> : null}
+          {preview.kindClue ? <p className="spl-flag"><TriangleAlert aria-hidden="true" /> {preview.kindClue}</p> : null}
           {preview.duplicate ? <p className="spl-flag is-soft"><CircleCheck aria-hidden="true" /> الملف نفسه محفوظ</p> : null}
           <footer>
             <button type="button" className={`btn ${mismatch ? "btn-secondary" : "btn-primary"}`} disabled={busy}
@@ -231,7 +238,7 @@ export default function SectionPlan({ collegeId, sectionId, termId, mode = "full
           <button type="button" className="spl-empty" onClick={() => choose()} data-guide-ignore="يختار ملف PDF من التسجيل؛ لا يُحفظ قبل التأكيد">
             <span className="spl-empty-icons" aria-hidden="true"><Users /><GraduationCap /></span>
             <b>ارفع تقرير التسجيل</b>
-            <small>«الكل» يكفي · «الخريجون» يقدّم أهله</small>
+            <small>«الكل» يكفي · «الخريجون» يحتاج تقريراً خاصاً به</small>
           </button>
         )
       ) : null}
@@ -245,13 +252,22 @@ export default function SectionPlan({ collegeId, sectionId, termId, mode = "full
               </span>
             ) : null}
             <span role="listitem" className={`spl-stat is-open${plan.totals.open ? "" : " is-zero"}`}>
-              <CalendarPlus aria-hidden="true" /><b>{num(plan.totals.open)}</b><small>{nounFor(plan.totals.open, AR.section)} ناقصة</small>
+              <CalendarPlus aria-hidden="true" /><b>{num(plan.totals.open)}</b><small>{nounFor(plan.totals.open, AR.section)} مقترحة</small>
               {plan.totals.gradOpen ? <em><GraduationCap aria-hidden="true" />{num(plan.totals.gradOpen)} للخريجين</em> : null}
+              {plan.totals.needAll > plan.totals.open ? <em className="spl-stat-full" title="الحاجة الكاملة لو فُتح لكل الطلبة بسعة المقرر، بلا نظر إلى التاريخ"><Users aria-hidden="true" />الحاجة الكاملة {num(plan.totals.needAll)}</em> : null}
             </span>
             <span role="listitem" className={`spl-stat is-close${plan.totals.close ? "" : " is-zero"}`}>
               <TrendingDown aria-hidden="true" /><b>{num(plan.totals.close)}</b><small>{nounFor(plan.totals.close, AR.section)} فائضة</small>
             </span>
           </div>
+
+          {!read && plan.totals.open > 0 ? (
+            building
+              ? <SectionBuild collegeId={collegeId} sectionId={sectionId} termId={termId} onClose={() => setBuilding(false)} onBuilt={announceActualDemandChange} onReview={onReviewRows ? (rows, meta) => { setBuilding(false); onReviewRows(rows, meta); } : undefined} />
+              : <button type="button" className="spl-build-btn" onClick={() => setBuilding(true)} data-guide-ignore="يبني الشعب الناقصة من مقترح التخطيط بلا تعارض ويعرضها قبل أن يكتب شيئاً">
+                  <Layers aria-hidden="true" /><b>نزّل الشعب</b><small>من المقترح، والخريجون أولاً</small>
+                </button>
+          ) : null}
 
           <section className="spl-stage is-grad" aria-label="الدرجة الأولى: الخريجون">
             <h4><span className="spl-step" aria-hidden="true">1</span><GraduationCap aria-hidden="true" /> الخريجون</h4>
@@ -317,7 +333,7 @@ function Rows({ rows, limit, ...rest }: { rows: PlanRowView[]; termId: number; r
 /** سطرٌ مطويّ: الهوية، والشريط، والرقم الكبير، وزرٌّ واحد. والضغط يفتح الحساب. */
 function PlanLine({ row, termId, read, inPlace, onOpenCourses }: { row: PlanRowView; termId: number; read: boolean; inPlace: boolean; onOpenCourses?: () => void; key?: React.Key }) {
   const [open, setOpen] = useState(false);
-  const scale = Math.max(row.required, row.offered, 1);
+  const scale = Math.max(row.required, row.plan, row.offered, 1);
   const pct = (value: number) => `${Math.min(100, (Math.max(0, value) / scale) * 100)}%`;
   const big = row.tier === "grad" ? row.gradShort : row.tier === "short" ? row.gap : row.tier === "surplus" ? -row.gap : 0;
   const word = row.tier === "grad" ? "ينقص الخريجين" : row.tier === "short" ? "ينقصه" : row.tier === "surplus" ? "فائض" : "";
@@ -339,6 +355,8 @@ function PlanLine({ row, termId, read, inPlace, onOpenCourses }: { row: PlanRowV
               <span className="spl-code" dir="ltr">{row.code}</span>
               {row.track ? <span className={`spl-track is-${row.track}`}>{TRACK[row.track]}</span> : null}
               {row.capSource === "report" ? <span className="spl-captag" title="سعة الشعبة من متوسط التقرير حتى تُدخل سعة المقرر">السعة من التقرير</span> : null}
+              {row.basis === "history" ? <span className="spl-basis" title={`المقترح من تاريخ القسم: يُفتح عادةً ${row.usual}`}><History aria-hidden="true" />تاريخ</span>
+                : row.basis === "calc" && row.tier !== "nocap" ? <span className="spl-basis is-calc" title="لا تاريخ لهذا المقرر: المقترح من الطلبة ÷ السعة"><Divide aria-hidden="true" />بلا تاريخ</span> : null}
             </span>
             <span className="spl-name">{row.name}{row.target ? <CourseTags courseId={row.target.courseId} /> : null}</span>
           </span>
@@ -348,12 +366,14 @@ function PlanLine({ row, termId, read, inPlace, onOpenCourses }: { row: PlanRowV
             <span className="spl-meter">
               <span className="spl-meter-bar" aria-hidden="true">
                 {row.gradRequired ? <i className="spl-meter-bar-grad" style={{ width: pct(row.gradRequired) }} /> : null}
-                <i className="spl-meter-bar-fill" style={{ width: pct(Math.min(row.offered, row.required)) }} />
+                <i className="spl-meter-bar-fill" style={{ width: pct(Math.min(row.offered, row.plan)) }} />
                 {row.gradRequired ? <i className="spl-meter-bar-gradfill" style={{ width: pct(Math.min(row.offered, row.gradRequired)) }} /> : null}
-                {row.offered > row.required ? <i className="spl-meter-bar-over" style={{ insetInlineStart: pct(row.required), width: pct(row.offered - row.required) }} /> : null}
+                {row.offered > row.plan ? <i className="spl-meter-bar-over" style={{ insetInlineStart: pct(row.plan), width: pct(row.offered - row.plan) }} /> : null}
+                {row.required > row.plan ? <i className="spl-meter-bar-need" style={{ insetInlineStart: pct(row.required) }} title="الحاجة الكاملة" /> : null}
               </span>
               <span className="spl-meter-cap">
-                <span><b>{num(row.offered)}</b> من <b>{num(row.required)}</b></span>
+                <span><b>{num(row.offered)}</b> من <b>{num(row.plan)}</b></span>
+                {row.required !== row.plan ? <span className="spl-full" title="الحاجة الكاملة: كل من يحتاج المقرر ÷ السعة"><Users aria-hidden="true" />الحاجة {num(row.required)}</span> : null}
                 {row.graduates ? <span className={`spl-gradchip${row.gradShort ? "" : " is-ok"}`}><GraduationCap aria-hidden="true" />{num(row.graduates)}{row.gradShort ? null : <Check aria-hidden="true" />}</span> : null}
               </span>
             </span>
@@ -380,10 +400,12 @@ function PlanMath({ row }: { row: PlanRowView }) {
         <span className="spl-op"><Divide aria-hidden="true" /></span>
         <Tile icon={<Armchair />} n={row.cap} label={row.capSource === "report" ? "سعة من التقرير" : "سعة الشعبة"} tone={row.capSource === "report" ? "info" : undefined} />
         <span className="spl-op"><Equal aria-hidden="true" /></span>
-        <Tile icon={<Layers />} n={row.required} label="مطلوبة" tone="strong" />
+        <Tile icon={<Layers />} n={row.required} label="الحاجة الكاملة" tone={row.required !== row.plan ? undefined : "strong"} />
       </div>
       <div className="spl-eq is-facts">
         {row.graduates ? <Tile icon={<GraduationCap />} n={row.gradRequired} label={`للخريجين (${num(row.graduates)})`} tone="grad" /> : null}
+        {row.usual !== null ? <Tile icon={<History />} n={row.usual} label={`يُفتح عادةً (${countOf(row.historyTerms, AR.term)})`} tone="info" /> : null}
+        {row.required !== row.plan || row.usual !== null ? <Tile icon={<Layers />} n={row.plan} label="المقترحة" tone="strong" /> : null}
         <Tile icon={<CalendarCheck2 />} n={row.offered} label="مطروحة" />
         {row.gap > 0 ? <Tile icon={<CalendarPlus />} n={row.gap} label="ناقصة" tone="bad" /> : row.gap < 0 ? <Tile icon={<TrendingDown />} n={-row.gap} label="فائضة" tone="spare" /> : <Tile icon={<CircleCheck />} n={0} label="متوازن" tone="ok" />}
         {row.unseated ? <Tile icon={<UserRoundX />} n={row.unseated} label="بلا مقعد" /> : null}

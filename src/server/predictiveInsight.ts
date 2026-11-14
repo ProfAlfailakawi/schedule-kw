@@ -37,18 +37,8 @@ export async function predictiveReadingFor(args: {
     .filter(item => Number(item.AdTermId) !== termId && termChronology(item) < targetOrder)
     .sort((a, b) => termChronology(b) - termChronology(a)).slice(0, STATS_TERMS);
 
+  /* لا إحصاءاتُ كشفٍ سابق: تقرير التسجيل (SWRDASH) يخصّ الفصل الحالي وحده، فالقراءة من الرادار والجداول. */
   const stats: PredStats[] = [];
-  for (const past of recent) {
-    const remaining: Record<string, number> = {}, vacant: Record<string, number> = {};
-    let any = false;
-    for (const scope of scopes) {
-      const stat = await Repository.getRegistrationStats(scope.collegeId, scope.sectionId, Number(past.AdTermId)).catch(() => null);
-      /* العمودُ القديم («seats») لا يُخلط به، كما في الإنذار المبكر. */
-      if (!stat?.remaining || stat.remainingSource?.column !== "unregistered") continue;
-      Object.assign(remaining, stat.remaining); Object.assign(vacant, stat.vacant || {}); any = true;
-    }
-    if (any) stats.push({ termId: Number(past.AdTermId), remaining, vacant });
-  }
 
   const liveWanted: Record<string, number> = {};
   for (const course of run?.courses || []) {

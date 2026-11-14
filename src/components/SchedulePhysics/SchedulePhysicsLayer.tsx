@@ -1,4 +1,5 @@
 import CourseTags from "../CourseTags";
+import GraduateRead from "./GraduateRead";
 import VisitingBadge from "../VisitingBadge";
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -121,6 +122,7 @@ export default function SchedulePhysicsLayer({ state, overlayRef, course, instru
             {teacher ? <div className="physics-conflict-row is-teacher"><UserRound/><div><small>الأستاذ</small><strong>{withoutTeacherLabel(teacher.message) || "مرتبط بموعد آخر"}</strong></div></div> : null}
           </>;
         })()}
+        <GraduateRead graduates={decision?.graduates} />
       </div>
       {decision?.loading ? <div className="physics-reading"><i/><span>أتحقق من القاعة والأستاذ…</span></div> : null}
     </aside> : null}

@@ -30,7 +30,8 @@ export interface AskOption { label: string; patch: AskPatch; lens: AskLens }
 
 export type AskAnswer =
   | { kind: "ok"; patch: AskPatch; lens: AskLens; said: string[]; freeRooms: boolean; roomDay: number | "week" | null }
-  | { kind: "choose"; question: string; options: AskOption[]; said: string[] }
+  | { kind: "choose"; question: string; options: AskOption[]; said: string[]; fuzzy?: boolean }
+  | { kind: "whatif"; code: string; day: number | null; time: string | null }
   | { kind: "unknown"; hint: string };
 
 export interface AskContext {
@@ -80,10 +81,18 @@ export function askSubject(text: string): string {
 const ROOM_TOKEN = /([0-9a-z؀-ۿ]{1,8})\s*[\/\-‑–]\s*([0-9a-z]{1,6})/i;
 const COURSE_NUMBER = /(?:^|\D)(\d{7}|\d{3})(?:\D|$)/;
 
+/* «لو نقلت شعبة 101 للثلاثاء 10»: سؤالٌ بصيغة قرار يُجاب بالأرقام ولا يُنفَّذ (ماذا يتعارض). */
+const WHATIF = /(?:انقل|نقل|حرك|رحل)[\u0600-\u06FF]*\s*(?:مقرر|ماد[ةه]|شعب[ةه])?\s*(\d{3}|\d{7})(?!\d)/;
+
 /** يحوّل الجملة إلى جواب، من بيانات الشاشة وحدها. */
 export function resolveAsk(text: string, context: AskContext): AskAnswer {
   const raw = String(text || "").trim();
   if (!raw) return { kind: "unknown", hint: ASK_HINT };
+  const moveAsk = askNormalize(raw).match(WHATIF);
+  if (moveAsk) {
+    const rest = parseNaturalQuery(askNormalize(raw).replace(moveAsk[1], " "));
+    if (rest.day !== null || rest.time) return { kind: "whatif", code: moveAsk[1], day: rest.day, time: rest.time };
+  }
   const question = parseNaturalQuery(raw);
   const plain = askNormalize(raw);
   const patch: AskPatch = {};
@@ -158,6 +167,15 @@ export function resolveAsk(text: string, context: AskContext): AskAnswer {
     said.push(time);
   }
 
+  /* لا مطابقة تامة: يُقرَّب الاسم إن أخطأ الكاتب حرفاً («احمد سالن» ← «أحمد سالم») ويُسأل، ولا يُختار عنه. */
+  if (!nameLens && subject && subject.length >= 3 && !wantsFreeRooms && !codeFound && !roomFound) {
+    const near = [
+      ...fuzzyNames(subject, context.instructors).map(person => ({ label: person.name, patch: { ...patch, instructorId: person.id }, lens: (question.intent === "gaps" ? "week" : "instructor") as AskLens })),
+      ...fuzzyNames(subject, context.courses).map(course => ({ label: `المقرر: ${course.name}`, patch: { ...patch, courseId: course.id }, lens: (question.intent === "gaps" ? "week" : "list") as AskLens })),
+    ].slice(0, MAX_OPTIONS);
+    if (near.length) return { kind: "choose", question: subject, options: near, said, fuzzy: true };
+  }
+
   const understood = question.day !== null || Boolean(time) || roomFound || codeFound || nameLens !== null || wantsFreeRooms;
   if (!understood) return { kind: "unknown", hint: subject ? `لم أجد «${subject}» بين الأساتذة والمقررات في هذا النطاق — ${ASK_HINT.replace(/^لم أفهم السؤال — /, "")}` : ASK_HINT };
 
@@ -171,6 +189,40 @@ export function resolveAsk(text: string, context: AskContext): AskAnswer {
   /* سؤال القاعات الفارغة عن الإتاحة لا عن مواعيد أحد: لا أستاذ فيه. */
   if (wantsFreeRooms) { delete patch.instructorId; delete patch.courseId; }
   return { kind: "ok", patch, lens, said, freeRooms: wantsFreeRooms, roomDay: wantsFreeRooms ? (question.day ?? "week") : null };
+}
+
+/** المسافة بين كلمتين: كم حرفاً يُبدَّل أو يُحذف أو يُضاف ليتطابقا (سجلّ واحد بصفّين). */
+export function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(previous[j] + 1, row[j - 1] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    previous = row;
+  }
+  return previous[b.length];
+}
+
+/** كلمةٌ قريبة: خطأٌ واحد لكلمةٍ قصيرة، واثنان لطويلة؛ والقصيرة جداً لا تُقارَب (لا يُخمَّن). */
+const tokenClose = (word: string, other: string) => {
+  if (word.length < 3 || other.length < 3) return word === other;
+  return editDistance(word, other) <= (Math.max(word.length, other.length) >= 6 ? 2 : 1);
+};
+
+/** أسماءٌ قريبةٌ مما كُتب، وإن أخطأ الكاتب حرفاً أو حرفين: كل كلمةٍ مما كتب تقابل كلمةً قريبةً في الاسم. */
+export function fuzzyNames<T extends { name: string }>(subject: string, items: ReadonlyArray<T>, limit = 4): T[] {
+  const words = subject.split(" ").filter(word => word.length >= 3);
+  if (!words.length) return [];
+  const scored = items.map(item => {
+    const tokens = askSubject(item.name).split(" ").filter(Boolean);
+    const cost = words.map(word => Math.min(...tokens.map(token => (tokenClose(word, token) ? editDistance(word, token) : 99)), 99));
+    return { item, total: cost.reduce((sum, value) => sum + value, 0), ok: cost.every(value => value < 99) };
+  }).filter(entry => entry.ok);
+  return scored.sort((a, b) => a.total - b.total).slice(0, limit).map(entry => entry.item);
 }
 
 function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {

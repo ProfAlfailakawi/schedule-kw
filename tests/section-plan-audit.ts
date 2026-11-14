@@ -13,11 +13,16 @@
  *  P6  «الكل» وحده يكفي: لا درجة خريجين ولا نسبة لهم، والحساب كاملٌ لبقية الطلبة.
  *  P7  المنتدبون: ساعاتٌ بلا أستاذ − المتاح ÷ ٦، للخريجين وللجميع؛ وشعبةٌ قائمةٌ بلا أستاذٍ حقيقي تُحسب.
  *  P8  حقائق كل نسخة (AdCourseId) من سطر حرمها.
+ *  P9  التاريخ يقود: ٢١٢ بنات فُتحت ٢٦ ثم ٣٠ ← المعتاد ٢٨، والحاجة ١١٢ تحرّكه +٢ فقط (٣٠)؛ والحاجة الكاملة تبقى ظاهرة.
+ *  P10 بلا تاريخ: المقترح = الحاجة الكاملة بسعة المقرر (بلا سقف مختلق)، موسومٌ «calc».
+ *  P11 الخريجون لا ينزل المقترح عن شعبهم؛ والمقفل لا يُقترح له شيء؛ والمسقوف لا يتجاوز سقفه.
+ *  P12 مقررٌ أُعيد ترقيمه يرث شعب سلفه؛ وبلا سعة ومعه تاريخ يُقترح من التاريخ.
+ *  P13 suggestFromHistory: ±١ (و±٢ لمن فوق ٤) ولا أقل من ١.
  */
 import fs from "node:fs";
 import { extractDemandItems } from "../src/server/actualDemand";
 import { matchDemandCourses, parseDemandReport, type DemandReport } from "../src/utils/actualDemand";
-import { planCourseFacts, planStage, sectionPlan, VISITOR_HOURS, type PlanCatalogueCourse, type PlanMember, type PlanScheduleRow } from "../src/utils/sectionPlan";
+import { planCourseFacts, planStage, sectionPlan, suggestFromHistory, VISITOR_HOURS, type PlanCatalogueCourse, type PlanMember, type PlanScheduleRow } from "../src/utils/sectionPlan";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -105,6 +110,46 @@ function family(report: DemandReport, cap: (code: string, track: "boys" | "girls
   const facts = planCourseFacts(plan, fam.matches, fam.catalogue, members);
   const girls112 = fam.catalogue.find(item => item.AdSectionId === 22 && fam.matches.get("0109112")?.courseIds.includes(item.AdCourseId))!;
   check(facts[String(girls112.AdCourseId)]?.gap === -10 && facts[String(girls112.AdCourseId)]?.track === "girls", "P8 حقيقة نسخة البنات لـ١١٢ من سطر البنات", facts[String(girls112.AdCourseId)]);
+
+  /* P9 */
+  const copyOf = (code: string, sectionId: number) => fam.catalogue.find(item => item.AdSectionId === sectionId && fam.matches.get(code)?.courseIds.includes(item.AdCourseId))!.AdCourseId;
+  const past = (code: string, sectionId: number, collegeId: number, counts: number[], asId?: number) => counts.map((n, term) => ({
+    termName: `فصل سابق ${term + 1}`,
+    rows: Array.from({ length: n }, (_, i) => ({ AdCourseId: asId ?? copyOf(code, sectionId), AdCollegeId: collegeId, SCode: String(i + 1).padStart(2, "0"), AdInstructorId: 500 + i })) as PlanScheduleRow[],
+  }));
+  const merge = (...lists: Array<ReturnType<typeof past>>) => lists[0].map((term, index) => ({ termName: term.termName, rows: lists.flatMap(list => list[index].rows) }));
+  const withPast = (extra: Partial<Parameters<typeof sectionPlan>[0]>) => sectionPlan({ general, graduates, matches: fam.matches, catalogue: fam.catalogue, members, rows: fam.rows, ...extra });
+  const led = withPast({ past: merge(past("0109212", 22, 2, [26, 30]), past("0109112", 22, 2, [12, 14])) });
+  const l212 = led.rows.find(item => item.code === "0109212" && item.track === "girls")!;
+  check(l212.usual === 28 && l212.historyTerms === 2 && l212.basis === "history" && l212.plan === 30 && l212.gap === 2 && l212.required === 112 && l212.fullGap === 84,
+    "P9 ٢١٢ بنات: المعتاد ٢٨ والحاجة ١١٢ تحرّكه +٢ (٣٠) — والحاجة الكاملة ١١٢ تبقى ظاهرة", l212);
+  const l112 = led.rows.find(item => item.code === "0109112" && item.track === "girls")!;
+  check(l112.usual === 13 && l112.plan === 11 && l112.required === 3 && l112.gap === -2 && l112.tier === "surplus", "P9 ١١٢ بنات: المعتاد ١٣ والحاجة ٣ تنزله −٢ فقط (١١) — فائض ٢ لا ١٠", l112);
+  check(led.totals.needAll > led.totals.open && led.totals.open < plan.totals.open, "P9 المجموع المقترح أقل بكثير من الحاجة الكاملة، والحاجة الكاملة تُعرض", { open: led.totals.open, needAll: led.totals.needAll, without: plan.totals.open });
+
+  /* P10 */
+  check(g212.basis === "calc" && g212.usual === null && g212.plan === g212.required && g212.plan === 112 && g212.fullGap === g212.gap, "P10 بلا تاريخ: المقترح = الحاجة الكاملة ١١٢ موسومٌ «calc»", g212);
+
+  /* P11 */
+  check(led.rows.every(item => !item.cap || item.plan >= item.gradRequired), "P11 لا مقترحَ تحت شعب الخريجين في أي سطر");
+  const lock = withPast({ past: past("0109212", 22, 2, [26, 30]), offering: new Map([[copyOf("0109212", 22), { state: "closed" }]]) });
+  const k212 = lock.rows.find(item => item.code === "0109212" && item.track === "girls")!;
+  check(k212.basis === "locked" && k212.plan <= k212.offered && k212.gap <= 0, "P11 المقرر المقفل: لا يُقترح له فتح", k212);
+  const lim = withPast({ past: past("0109212", 22, 2, [26, 30]), offering: new Map([[copyOf("0109212", 22), { state: "limited", maxSections: 29 }]]) });
+  check(lim.rows.find(item => item.code === "0109212" && item.track === "girls")!.plan === 29, "P11 المقرر المسقوف (٢٩): لا يتجاوز سقفه");
+
+  /* P12 */
+  const boys105 = copyOf("0109105", 11);
+  const inherit = withPast({ past: past("0109105", 11, 1, [3, 3], 7777), ancestors: new Map([[boys105, [7777]]]) });
+  const i105 = inherit.rows.find(item => item.code === "0109105" && item.track === "boys")!;
+  check(i105.usual === 3 && i105.basis === "history", "P12 مقررٌ أُعيد ترقيمه يرث شعب سلفه (٣ و٣ ← ٣)", i105);
+  const noCapHist = withPast({ past: past("0109107", 22, 2, [4, 4]) });
+  const n107 = noCapHist.rows.find(item => item.code === "0109107" && item.track === "girls")!;
+  check(n107.tier !== "nocap" && n107.basis === "history" && n107.plan === 4 + Math.max(0, Math.min(2, n107.required - 4)), "P12 بلا سعةٍ ومعه تاريخ: يُقترح من التاريخ ولا يُسأل عن السعة", n107);
+
+  /* P13 */
+  check(suggestFromHistory(3, 10) === 4 && suggestFromHistory(4, 10) === 6 && suggestFromHistory(5, 1) === 3 && suggestFromHistory(1, 0) === 1 && suggestFromHistory(2, 1) === 1,
+    "P13 ±١ للمعتاد دون ٤، و±٢ من ٤ فأكثر، ولا أقل من ١");
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

@@ -7,16 +7,14 @@ import TermSelect from "./TermSelect";
 import SearchableSelect from "./SearchableSelect";
 import IntelligenceScopeSwitch from "./IntelligenceScopeSwitch";
 import { departmentFamily } from "../utils/sectionLabel";
-import { usePageAwake } from "../utils/pageAwake";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
-import PlanSheetPublisher from "./PlanSheetPublisher";
 import SectionPlan, { type PlanReadingView } from "./SectionPlan";
 import { WhatIfDesk } from "./TimeMachine";
 import LivingScheduleLayer from "./LivingScheduleLayer";
-import { openInScheduleEditor } from "../utils/intelligenceLink";
+import { openInScheduleEditor, takeTwinHandoff } from "../utils/intelligenceLink";
 import { safetyPointKind, safetyPointTitle, type SafetyPointKind } from "../utils/safetyNet";
 import { roleDefinition } from "../utils/academicRoles";
-import { mergeDemandReadings, mergeOperationsReadings, mergeDecisionReadings, scopedReadingList, sameIntelligenceScope, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
+import { mergeOperationsReadings, mergeDecisionReadings, scopedReadingList, sameIntelligenceScope, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
 import { DEMO_STAGE_SECTION_ID, isDemoSession } from "../utils/demoSession";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TimeField } from "./TimeField";
@@ -107,15 +105,13 @@ import type {
 } from "../types";
 import IntelligenceContextBar from "./IntelligenceContextBar";
 import { useScopedTerms } from "./useScopedTerms";
-import { AR, countOf, nounFor, oblique, studentNounsFor } from "../utils/arabicCount";
+import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { resolveScopeSelection, singleDepartmentOf } from "../utils/scopeContext";
 import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
 import { sortByName, byRoom, byArabic } from "../utils/sorting";
 import { sortTermsNewest, termIsArchive } from "../utils/termSequence";
 import { isAssignableInstructor } from "../utils/instructorStatus";
-import StudentCasesTable from "./StudentCasesTable";
-import { RegistrationJourney, journeyFromViews, viewStatuses, type StatusFilter as CaseStatusFilter } from "./StudentCaseStatus";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
 import LocationPicker, { BuildingPicker } from "./LocationPicker";
 import { roomIdentityKey } from "../utils/locationRegistry";
@@ -130,60 +126,9 @@ import { formatCompactDurationArabic, formatMinuteMetricArabic, formatUnitMetric
 
 import { setTelemetryScope, telemetryApi, telemetryBreadcrumb, telemetryError, telemetryTiming } from "../utils/clientTelemetry";
 import MiniRing, { ringFromScoreText } from "./MiniRing";
-import ApplyProposal, { postScheduleProposal, postWhatIf } from "./ApplyProposal";
 import ActionableErrorNotice from "./ActionableErrorNotice";
 import { classifyActionableError, type ActionableError } from "../utils/actionableError";
 
-/**
- * A professor's week, laid out where it actually falls.
- *
- * Every other reading of a gap in this application is a quantity — an average
- * on the dashboard, a maximum beside a name, a count in a report. A quantity
- * cannot separate the two shapes that matter most: three hours of dead air
- * before the first class, which is an early start and nothing worse, and three
- * hours wedged between two classes, which is an afternoon spent waiting on
- * campus. Both read "3س فراغ".
- *
- * So this returns position, not size: for each taught day, the blocks in the
- * order they occur and the empty stretches between them, as percentages of the
- * professor's own teaching window. Long waits are marked; short turnarounds are
- * left alone, because a thirty-minute gap is a walk between buildings.
- */
-const WAIT_THRESHOLD = 60;
-function professorWeekShape(rows: any[]) {
-  const dayKeys = Object.keys(dayLabels);
-  const spans: Array<{ day: string; start: number; end: number }> = [];
-  rows.forEach(row => {
-    const start = twinMinutes(row.fstarttime), end = twinMinutes(row.fendtime);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
-    dayKeys.forEach(day => { if (row[day]) spans.push({ day, start, end }); });
-  });
-  if (!spans.length) return null;
-  const from = Math.floor(Math.min(...spans.map(s => s.start)) / 60) * 60;
-  const to = Math.ceil(Math.max(...spans.map(s => s.end)) / 60) * 60;
-  const width = Math.max(60, to - from);
-  const pct = (value: number) => ((value - from) / width) * 100;
-  const days = dayKeys.map(day => {
-    const blocks = spans.filter(s => s.day === day).sort((a, b) => a.start - b.start);
-    const waits: Array<{ left: number; width: number; minutes: number }> = [];
-    for (let i = 1; i < blocks.length; i += 1) {
-      const minutes = blocks[i].start - blocks[i - 1].end;
-      if (minutes >= WAIT_THRESHOLD) {
-        waits.push({ left: pct(blocks[i - 1].end), width: pct(blocks[i].start) - pct(blocks[i - 1].end), minutes });
-      }
-    }
-    return {
-      day,
-      label: (dayLabels as any)[day],
-      blocks: blocks.map(b => ({ left: pct(b.start), width: pct(b.end) - pct(b.start) })),
-      waits,
-      longest: waits.reduce((most, w) => Math.max(most, w.minutes), 0),
-    };
-  }).filter(d => d.blocks.length);
-  const hours: number[] = [];
-  for (let m = from; m <= to; m += 60) hours.push(m);
-  return { from, to, days, hours };
-}
 
 type Tab = "command" | "copilot" | "twin" | "whatif" | "history";
 
@@ -230,8 +175,6 @@ type InsightScene =
   | "attention"
   | "density"
   | "spatial"
-  | "rooms"
-  | "professors"
   | "health"
   | "genome"
   /* قراءةُ الفصل القادم: اللوحةُ نفسها في رادار التسجيل، لا نسخة. */
@@ -240,11 +183,7 @@ type InsightScene =
      two cards. One reading, one card, one screen — a panel that stacks two is
      exactly the thing this strip exists to end. */
   | "approval"
-  /* ما قاله الطلاب: الطلب، والتقاطع، والنقلة التي تُزيله. */
-  | "students"
-  /* الصحيفة: نشرُ الصحائف المعتمدة للجميع (رابط وQR وPDF) لرئيس لجنة الجدول. */
-  | "sheet"
-  /* «فرصة لتحسين الجدول»: بطاقتُها هنا، وأيقونتُها في «أدوات البيانات» — ولا مكان ثالث. */
+  /* «فرصة لتحسين الجدول»: بطاقتُها هنا، وأيقونتُها في «أدوات الجدول» — ولا مكان ثالث. */
   | "improve"
   /* الطلب الفعلي: تقرير التسجيل (SWRDASH) — الرفعُ والتنبيه والعلاج في بطاقةٍ واحدة. */
   | "actualDemand"
@@ -260,7 +199,7 @@ type ApproveCard = "compare" | "drafts" | "versions" | "decisions";
    لأن فتح البطاقة لم يكن خطوةً في التاريخ. الآن كلُّ فتحٍ خطوة: ?stage=…&card=…،
    فالرجوع يعيدك إلى شبكة البطاقات، أو إلى البطاقة التي أرسلتك إلى مرحلةٍ أخرى. */
 const TAB_VALUES: Tab[] = ["command", "copilot", "twin", "whatif", "history"];
-const INSIGHT_SCENE_VALUES: InsightScene[] = ["quality", "approval", "attention", "density", "why", "spatial", "rooms", "professors", "health", "students", "genome", "sheet", "improve", "predict", "actualDemand"];
+const INSIGHT_SCENE_VALUES: InsightScene[] = ["quality", "approval", "attention", "density", "why", "spatial", "health", "genome", "improve", "predict", "actualDemand"];
 const TWIN_CARD_VALUES: TwinCard[] = ["hero", "genesis", "lab", "board", "editor", "ledger"];
 const APPROVE_CARD_VALUES: ApproveCard[] = ["compare", "drafts", "versions", "decisions"];
 /* ── أيقونةُ نقطة النسخة: ما الذي أُخذت قبله (من «شبكة الأمان» التي صارت «سجل النسخ»). ── */
@@ -330,6 +269,8 @@ interface DeckCard {
   detail: string;
   metric?: string;
   icon?: React.ReactNode;
+  /* «متقدم»: لا يظهر في شبكة المرحلة؛ بابُه مجموعةُ «متقدم» في «افهم»، ويبقى في شريط المرحلة. */
+  advanced?: boolean;
 }
 
 /**
@@ -469,7 +410,7 @@ const CardDeck = ({ cards, value, onChange, title, hint }: {
         <small>{hint}</small>
       </div>
       <div className="insight-preview-list" role="list">
-        {cards.map(card => (
+        {cards.filter(card => !card.advanced).map(card => (
           <button
             key={card.value}
             type="button"
@@ -532,19 +473,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   /* لوحة القواعد: الخادم (requirePowerAdmin) يقصر الكتابة على الإدارة الرئيسية. */
   const canEditRules = isPowerAdmin;
   /* نشرُ الصحائف للعامة: رئيس لجنة الجدول وإدارة النظام وحدهما (والخادمُ يتحقق ثانيةً). */
-  const canPublishSheets = isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair";
-  const [sheetSummary, setSheetSummary] = useState<{ published: number; total: number } | null>(null);
   /* رقمُ بطاقة «الطلب الفعلي»: يُقرأ مع النطاق، وتحدّثه اللوحةُ نفسها بعد كل رفعٍ أو ربط. */
   const [actualDemand, setActualDemand] = useState<PlanReadingView | null>(null);
-  const loadSheetSummary = useCallback(() => {
-    if (!canPublishSheets) return;
-    fetch("/api/plan-sheets").then(res => (res.ok ? res.json() : null)).then(body => {
-      if (!body?.sections) return;
-      const sheets = body.sections.flatMap((section: any) => section.sheets);
-      setSheetSummary({ published: sheets.filter((sheet: any) => sheet.published).length, total: sheets.length });
-    }).catch(() => undefined);
-  }, [canPublishSheets]);
-  useEffect(() => { loadSheetSummary(); }, [loadSheetSummary]);
   const [colleges, setColleges] = useState<AdCollege[]>([]),
     [sections, setSections] = useState<AdSection[]>([]),
     [terms, setTerms] = useState<AdTerm[]>([]),
@@ -739,17 +669,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   /* ما قاله الطلاب — والنقلة التي تُصلحه.
      Loaded with everything else, and empty is the ordinary state: a department
      that has never opened the survey sees the door and nothing more. */
-  const [demand, setDemand] = useState<any>(null);
-  const allStudentCases = Array.isArray(demand?.cases) ? demand.cases : [];
-  /* «رحلة الطلب» نفسُها التي في كشف التسجيل: السجلّ واحد، والتصفيةُ بالمحطة محليّة. */
-  const [caseJourneyFilter, setCaseJourneyFilter] = useState<CaseStatusFilter>("all");
-  const caseJourney = useMemo(() => journeyFromViews(allStudentCases), [allStudentCases]);
-  const studentCases = useMemo(() => caseJourneyFilter === "all" ? allStudentCases
-    : allStudentCases.filter((item: any) => viewStatuses(item).includes(caseJourneyFilter)), [allStudentCases, caseJourneyFilter]);
-  /* من أجاب — عددٌ واحد تقرؤه البطاقةُ ونصُّها، لا أربعُ صيغٍ مكرّرة. */
-  const answered = Number(demand?.totalRespondents || demand?.totalCases || demand?.cases?.length || demand?.respondents || 0);
-  /* كلية البنات: «طالبتان أجابتا» — القاعدة في arabicCount وحدها. */
-  const studentWords = studentNounsFor(colleges.find((college: any) => Number(college.AdCollegeId) === Number(collegeId))?.AdCollegeName);
   const [genome, setGenome] = useState<any>(null),
     [constraints, setConstraints] = useState<any[]>([]),
     [innovationMode, setInnovationMode] = useState<
@@ -931,7 +850,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     const readings = await Promise.all(members.map(async scope => ({ scope, data: await fetchJson(`${path}?${new URLSearchParams({ collegeId: String(scope.collegeId), sectionId: String(scope.sectionId), termId: String(termId) })}`) })));
     return merge(readings);
   };
-  const readDemand = (family?: IntelligenceScope[]) => readAcross("/api/schedules/demand", mergeDemandReadings, family);
   const refreshDecisionInbox = () => readAcross("/api/intelligence/open-decisions", mergeDecisionReadings);
   useEffect(() => {
     setTelemetryScope({collegeId,sectionId,termId});
@@ -989,7 +907,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     const uiStarted = performance.now();
     const serial = ++reloadSerial.current;
     setLoading(true);
-    setOverview(null); setDemand(null); setGenome(null); setOperationsReview(null); setExperienceHealth(null);
+    setOverview(null); setGenome(null); setOperationsReview(null); setExperienceHealth(null);
     setDrafts([]); setVersions([]); setDecisionInbox({manual:[],inferred:[],totalOpen:0}); setDegraded(null);
     setPartialSources([]); partialPaths.current.clear();
     setError(null);
@@ -1031,7 +949,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         { label: "النسخ", run: () => readAcross("/api/intelligence/versions", readings => scopedReadingList(readings), o.family) },
         { label: "بصمة القسم", run: () => fetchJson(`/api/intelligence/genome?${analysisQuery}`) },
         { label: "القيود", run: () => fetchJson(`/api/intelligence/constraints?${contextQuery}`) },
-        { label: "طلبات الطلاب", run: () => readDemand(o.family) },
         { label: "مراجعة التشغيل", run: () => readAcross("/api/intelligence/operations-review", mergeOperationsReadings, o.family) },
         { label: "القرارات المفتوحة", run: () => readAcross("/api/intelligence/open-decisions", mergeDecisionReadings, o.family) },
         { label: "صحة التجربة", run: () => fetchJson(`/api/intelligence/experience-health?${analysisQuery}`) },
@@ -1046,13 +963,12 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         info: classifyActionableError((settled[failedAt[0]] as PromiseRejectedResult).reason),
       } : null);
       setPartialSources(partialPaths.current.has("/api/intelligence/versions") ? ["النسخ"] : []);
-      const [d, v, g, cx, dm, ops, decisions, ux] = sources.map((_, index) => valueAt(index));
+      const [d, v, g, cx, ops, decisions, ux] = sources.map((_, index) => valueAt(index));
       setDrafts(Array.isArray(d) ? d : []);
       setOverview((current: any) => current ? {...current, draftCount: Array.isArray(d) ? d.filter((draft:any) => draft.status === "draft").length : 0} : current);
       setVersions(Array.isArray(v) ? v : []);
       setGenome(g);
       setConstraints(Array.isArray(cx) ? cx : []);
-      setDemand(dm);
       setOperationsReview(ops);
       setDecisionInbox(decisions || {manual:[],inferred:[],totalOpen:0});
       setExperienceHealth(ux);
@@ -1063,37 +979,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
       if (!painted && serial === reloadSerial.current) setLoading(false);
     }
   };
-  /**
-   * Student requests arrive from outside the app.
-   *
-   * Everything else on this screen changes because somebody in the room changed
-   * it, so reloading on the reader's own actions was enough. A survey answer is
-   * the exception: it is written by a student on their phone, and nothing here
-   * would ever hear about it — several requests were filed and the register
-   * stayed empty until the page was reloaded by hand. So the demand card, and
-   * only it, is re-read on a timer while this tab is actually being looked at.
-   *
-   * "Looked at" is pageAwake's word for it: shown AND touched in the last ten
-   * minutes. A tab merely left visible asked every ten seconds all night.
-   */
-  const pageAwake = usePageAwake();
-  useEffect(() => {
-    if (!collegeId || !sectionId || !termId || !overview || overview.analysisScope !== readingMode) return;
-    if (!pageAwake) return;
-    let alive = true;
-    const pollDemand = async () => {
-      if (document.hidden) return;
-      try {
-        const fresh = await readDemand();
-        if (alive && fresh) setDemand(fresh);
-      } catch { /* A missed poll is corrected by the next one. */ }
-    };
-    void pollDemand();
-    const timer = window.setInterval(pollDemand, 10_000);
-    document.addEventListener("visibilitychange", pollDemand);
-    return () => { alive = false; window.clearInterval(timer); document.removeEventListener("visibilitychange", pollDemand); };
-  }, [collegeId, sectionId, termId, analysisQuery, overview?.family, pageAwake]);
-
   const previousReadingMode = useRef(readingMode);
   useEffect(() => {
     if (previousReadingMode.current === readingMode) return;
@@ -1128,7 +1013,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
       setVersions([]);
       setGenome(null);
       setConstraints([]);
-      setDemand(null);
       setOperationsReview(null);
       setDecisionInbox({ manual: [], inferred: [], totalOpen: 0 });
       setExperienceHealth(null);
@@ -1402,100 +1286,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
    * two doors it has always been behind. The real schedule is untouched until
    * somebody saves a draft and publishes it.
    */
-  /* ── باب الطلاب ─────────────────────────────────────────────────────────
-     The survey could be answered but never issued — the public routes existed
-     and nothing anywhere could create their link. A door with no handle. The
-     handle belongs on the page that reads the answers, so collecting more of
-     them and reading them are one place, not two. */
-  const [surveyQr, setSurveyQr] = useState<{ id: string; svg: string } | null>(null);
-  /* The same durations the instructor and department links offer. A student
-     door was fixed at thirty days with no way to say otherwise, so a survey
-     that had to close with the add-drop week could not. */
-  const SURVEY_DAY_CHOICES = [7, 30, 90, 180];
-  const [surveyDays, setSurveyDays] = useState(30);
-  const [surveyCopied, setSurveyCopied] = useState<string | null>(null);
-  const surveyUrl = (id: string) => `${window.location.origin}/q/${id}`;
-
-  /**
-   * Close the students' door.
-   *
-   * The link could be issued and could expire on its own, but there was no way
-   * to end it early — and a survey that has to close with the add-drop week
-   * cannot wait for its own expiry. Revoking is immediate and irreversible for
-   * that link; a new one can always be issued.
-   */
-  const stopSurvey = async (id: string) => {
-    const ok = await visualConfirm({
-      title: "إيقاف رابط الاستبيان",
-      message: "يتوقف استقبال الطلبات من هذا الرابط فوراً. الحالات المرسلة تبقى محفوظة، ويبقى أصحابها قادرين على متابعة «حالة طلبي» بالرابط نفسه حتى 30 يوماً بعد نهاية الفصل. يمكنك إصدار رابط جديد متى شئت.",
-      confirmLabel: "أوقف الرابط",
-      tone: "danger",
-    });
-    if (!ok) return;
-    setBusy(true); setError(null);
-    try {
-      await fetchJson(`/api/share/${encodeURIComponent(id)}`, { method: "DELETE" });
-      setMessage("أُوقف استقبال الطلبات من هذا الرابط. متابعة «حالة طلبي» تبقى متاحة لمن أرسل حتى 30 يوماً بعد نهاية الفصل.");
-      await reload();
-    } catch (e: any) {
-      fail(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const issueSurvey = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      /* Scoped to ONE section, which is what makes the cohort unambiguous: the
-         boys' link and the girls' link are two links on two sections, and no
-         gender is ever guessed from a name. */
-      await fetchJson("/api/share", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collegeId, sectionId, termId, kind: "survey", days: surveyDays }),
-      });
-      setMessage(`صدر رابط الاستبيان لهذا القسم — صالح ${countOf(surveyDays, AR.day)}. انسخه أو اعرض رمز QR وعلّقه للطلاب.`);
-      await reload();
-    } catch (e: any) {
-      fail(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const showSurveyQr = async (id: string) => {
-    if (surveyQr?.id === id) { setSurveyQr(null); return; }
-    try {
-      // ~50KB, so it only ships when somebody actually asks for a code.
-      type QrFactory = (t: number, e: "L" | "M" | "Q" | "H") => {
-        addData(s: string): void; make(): void;
-        createSvgTag(o?: { cellSize?: number; margin?: number; scalable?: boolean }): string;
-      };
-      const factory = (await import("../utils/qrcodeGenerator")).default as unknown as QrFactory;
-      const code = factory(0, "M");
-      code.addData(surveyUrl(id));
-      code.make();
-      setSurveyQr({ id, svg: code.createSvgTag({ scalable: true, margin: 1 }) });
-    } catch { setError("تعذّر توليد رمز QR."); }
-  };
-
-  const copySurvey = async (id: string) => {
-    const url = surveyUrl(id);
-    try { await navigator.clipboard.writeText(url); }
-    catch {
-      const field = document.createElement("input");
-      field.value = url;
-      document.body.appendChild(field);
-      field.select();
-      document.execCommand("copy");
-      field.remove();
-    }
-    setSurveyCopied(id);
-    window.setTimeout(() => setSurveyCopied(current => (current === id ? null : current)), 1800);
-  };
-
   /**
    * Open a proposed section inside the trial copy — added, not saved.
    *
@@ -1571,7 +1361,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     setMessage(
       `${fix.swapWith ? "طُبِّق تبديل الموعدين" : "طُبِّقت النقلة"} داخل النسخة التجريبية فقط: «${fix.courseName}» إلى ${fix.to.dayLabel} ${scheduleClockForDisplay(fix.to.start)}` +
       `${fix.swapWith ? `، و«${fix.swapWith.courseName}» إلى ${fix.swapWith.to.dayLabel} ${scheduleClockForDisplay(fix.swapWith.to.start)}` : ""}. ` +
-      `أُعيد حساب جداول ${countOf(demand?.respondents || 0, AR.student)} مشاركاً. هذه معاينة محلية؛ لا تحفظ المسودة الأصلية ولا تنشر التغيير.`,
+      `أُعيد حساب جداول المشاركين. هذه معاينة محلية؛ لا تحفظ المسودة الأصلية ولا تنشر التغيير.`,
     );
     await evaluateScenario(applied);
   };
@@ -1805,7 +1595,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     if(!rule?.title)return;
     setBusy(true);
     try{
-      await fetchJson("/api/intelligence/open-decisions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,title:`قاعدة مقترحة: ${String(rule.title).slice(0,110)}`,detail:`مكتشفة من التاريخ بثقة ${Number(rule.confidence||0)}٪ · ${String(rule.detail||"").slice(0,220)}`,priority:Number(rule.confidence||0)>=90?"high":"medium",source:"assistant"})});
+      await fetchJson("/api/intelligence/open-decisions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,title:`قاعدة مقترحة: ${String(rule.title).slice(0,110)}`,detail:`مكتشفة من التاريخ بثقة ${Number(rule.confidence||0)}% · ${String(rule.detail||"").slice(0,220)}`,priority:Number(rule.confidence||0)>=90?"high":"medium",source:"assistant"})});
       setDecisionInbox(await refreshDecisionInbox());
       setMessage("أُضيفت القاعدة المقترحة إلى دفتر القرارات للمراجعة.");
     }catch(e:any){fail(e);}finally{setBusy(false);}
@@ -1842,40 +1632,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         toTermId: String(compareTo),
       });
       setTermCompare(await fetchJson(`/api/intelligence/compare-terms?${p}`));
-    } catch (e: any) {
-      fail(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const loadRoom = async (room: any) => {
-    setBusy(true);
-    try {
-      const p = new URLSearchParams({
-        ...(room.roomId ? { roomId: String(room.roomId) } : {}),
-        code: room.code,
-        hall: room.hall,
-        termId: String(termId),
-      });
-      setDetail({
-        type: "room",
-        data: await fetchJson(`/api/intelligence/room?${p}`),
-      });
-    } catch (e: any) {
-      fail(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const loadProfessor = async (prof: any) => {
-    setBusy(true);
-    try {
-      setDetail({
-        type: "professor",
-        data: await fetchJson(
-          `/api/intelligence/professor/${prof.id}?termId=${termId}`,
-        ),
-      });
     } catch (e: any) {
       fail(e);
     } finally {
@@ -2246,6 +2002,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     detail: string;
     metric: string;
     icon: React.ReactNode;
+    advanced?: boolean;
   }> = overview
     ? [
         {
@@ -2299,45 +2056,22 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                 detail: "راحة الانتقال بين المباني والقاعات",
                 metric: `${overview.spatialBurnout.score}/100`,
                 icon: <Building2 />,
+                advanced: true,
               },
             ]
           : []),
-        {
-          value: "rooms",
-          label: "القاعات",
-          detail: "الاستخدام والنوافذ المتاحة",
-          metric: String(overview.rooms?.length || 0),
-          icon: <Building2 />,
-        },
-        {
-          value: "professors",
-          label: "الأساتذة",
-          detail: "الحمل الأسبوعي والفراغات الطويلة",
-          metric: String(overview.professorLoads?.length || 0),
-          icon: <UsersRound />,
-        },
+        /* «القاعات» و«الأساتذة» صارتا في التقارير: نسبة الإشغال (الأكثر استخداماً ودرج القاعة)،
+           والأساتذة (أطول فراغ و«شكل الأسبوع»). */
         ...(isPowerAdmin ? [{
+          /* «تشخيص النظام» (كان «صحة البيانات»): الشذوذ المنطقي وصحة التجربة للإدارة الرئيسية. */
           value: "health" as const,
-          label: "صحة البيانات",
-          detail: "النواقص والتكرار قبل أن تصبح مشكلة",
-          metric: overview.dataHealth?.healthy
-            ? "سليمة"
-            : String(overview.dataHealth?.invalidRows || 0),
+          label: "تشخيص النظام",
+          detail: "الشذوذ، وزمن الاستجابة، وأعطال الواجهة",
+          metric: experienceHealth?.score != null ? `${experienceHealth.score}/100` : String(operationsReview?.anomalies?.length || "—"),
           icon: <CheckCircle2 />,
+          advanced: true,
         }] : []),
-        ...(demand
-          ? [
-              {
-                value: "students" as const,
-                label: "طلبات الطلاب",
-                detail: "كم شعبة نفتح، وأين نضعها",
-                metric: String(demand.totalRespondents || demand.totalCases || demand.cases?.length || demand.respondents
-                  || demand.openings?.proposals?.reduce((sum: number, item: any) => sum + item.needed, 0)
-                  || demand.repairs?.length || demand.pairs?.length || demand.prediction?.pairs?.length || 0),
-                icon: <UsersRound />,
-              },
-            ]
-          : []),
+        /* «طلبات الطلاب» انتقلت كاملةً إلى «كشف التسجيل ← تحليل الطلب». */
         ...(genome
           ? [
               {
@@ -2349,20 +2083,11 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                     ? "—"
                     : `${genome.compatibility}%`,
                 icon: <Dna />,
+                advanced: true,
               },
             ]
           : []),
-        /* البطاقةُ تظهر لمن ينشر دائماً، لا بعد أن توجد صحيفةٌ معتمدة فقط: وإلا بحث رئيسُ اللجنة عنها فلم يجدها
-           ولم يعرف أنها تنتظر اعتماد الصحيفة. */
-        ...(canPublishSheets
-          ? [{
-              value: "sheet" as const,
-              label: "الصحيفة",
-              detail: sheetSummary?.total ? "رابطٌ تفاعلي وQR وPDF للجميع" : "تظهر بعد اعتماد الصحيفة",
-              metric: sheetSummary?.total ? `${sheetSummary.published}/${sheetSummary.total}` : "—",
-              icon: <Workflow />,
-            }]
-          : []),
+        /* «الصحيفة» صارت في «أدوات الجدول ← نشر» (ScheduleTransfer) لرئيس اللجنة وإدارة النظام. */
         {
           value: "actualDemand" as const,
           label: "تخطيط الشعب",
@@ -2548,7 +2273,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   const dayBalanceReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => {
     const load = Array.isArray(overview?.dayLoad) ? [...overview.dayLoad].sort((a:any,b:any)=>Number(b.count||0)-Number(a.count||0)) : [];
     const max = Math.max(1,...load.map((item:any)=>Number(item.count||0)));
-    return load.map((item:any) => ({ title:String(item.label || item.key || "يوم"), meta:`${Math.round(Number(item.count||0)/max*100)}٪ من أعلى يوم`, value:countOf(Number(item.count||0), AR.appointment) }));
+    return load.map((item:any) => ({ title:String(item.label || item.key || "يوم"), meta:`${Math.round(Number(item.count||0)/max*100)}% من أعلى يوم`, value:countOf(Number(item.count||0), AR.appointment) }));
   }, [overview?.dayLoad]);
   const reasonForSmartAlert = (alert:any, index:number): InsightReason => {
     const title = String(alert?.title || "تنبيه ذكي");
@@ -2563,7 +2288,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     if (/فراغ/.test(title)) return { ...base, icon:<CalendarClock />, summary:"الأساتذة الذين تجاوز لديهم الفراغ 3 ساعات:", items:gaps, facts:[{label:"الأساتذة",value:String(gaps.length)},{label:"الحد",value:formatUnitMetricArabic(3,"ساعات",0)},{label:"القراءة",value:"إرشادية"}] };
     if (/متأخر|بعد 4|وقت/.test(title)) return { ...base, icon:<Clock3 />, summary:`المواعيد التي تبدأ من ${scheduleClockForDisplay("16:00")} فأكثر:`, items:late, facts:[{label:"المواعيد",value:String(late.length)},{label:"من",value:scheduleClockForDisplay("16:00")},{label:"النوع",value:"توقيت"}] };
     if (/بيانات|سجل/.test(title)) return { ...base, icon:<FileClock />, summary:"السجلات التي ينقصها شيء محدد:", items:invalid, facts:[{label:"السجلات",value:String(invalid.length)},{label:"الحالة",value:"تحتاج إكمال"}] };
-    if (/توزيع|أيام/.test(title)) return { ...base, icon:<BarChart3 />, summary:"هذا هو توزيع الحمل بين الأيام:", items:days, facts:[{label:"التفاوت",value:`${metrics?.imbalance || 0}٪`},{label:"الأيام",value:String(days.length)}] };
+    if (/توزيع|أيام/.test(title)) return { ...base, icon:<BarChart3 />, summary:"هذا هو توزيع الحمل بين الأيام:", items:days, facts:[{label:"التفاوت",value:`${metrics?.imbalance || 0}%`},{label:"الأيام",value:String(days.length)}] };
     return { ...base, icon:<AlertTriangle />, summary:"تفاصيل هذا التنبيه:", items:[{title,meta:String(alert?.detail || "لا توجد تفاصيل إضافية."),value:""}] };
   };
   const chronologicalVersions = useMemo(() => versions.filter(v => sameIntelligenceScope(sourceScope(v), ownScope)).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))), [versions, collegeId, sectionId]);
@@ -2594,6 +2319,25 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     };
     void actions[pending.kind]?.();
   }, [loading, scopeReady, collegeId, sectionId, termId]);
+  /* ── من «كشف التسجيل ← تحليل الطلب» إلى النسخة التجريبية ───────────────
+     «افتحها في النسخة التجريبية» و«معاينة التأثير» هناك تسلّمان الاقتراح نفسه؛
+     يُفتح هنا حين تصل صفوفُ النطاق نفسه، كما كان يُفتح من بطاقة «طلبات الطلاب». */
+  const twinHandoff = useRef<ReturnType<typeof takeTwinHandoff> | undefined>(undefined);
+  if (twinHandoff.current === undefined) twinHandoff.current = takeTwinHandoff();
+  useEffect(() => {
+    const handoff = twinHandoff.current;
+    if (!handoff || !collegeId || !sectionId || !termId) return;
+    if (Number(handoff.collegeId) !== Number(collegeId) || Number(handoff.sectionId) !== Number(sectionId) || Number(handoff.termId) !== Number(termId)) {
+      /* الاقتراح من قسمٍ آخر في العائلة: يُفتح النطاقُ نفسه أولاً، ثم يُفتح الاقتراح حين تصل صفوفه. */
+      setCollegeId(Number(handoff.collegeId)); setSectionId(Number(handoff.sectionId)); setTermId(Number(handoff.termId));
+      return;
+    }
+    if (loading || !rows.length) return;
+    twinHandoff.current = null;
+    if (handoff.kind === "opening") void openSectionDraft(handoff.item, handoff.extra);
+    else if (handoff.kind === "repair") void openRepair(handoff.item);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, rows.length, collegeId, sectionId, termId]);
   const handleDividerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const stage = e.currentTarget.parentElement;
@@ -2740,7 +2484,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         />
         <span className="scene-caption">
           {scene === "understand"
-            ? "جودة · تنبيهات · قاعات · أساتذة"
+            ? "صحة · انتباه · ضغط · لماذا"
             : scene === "try"
               ? "تجريبي · خارج الجدول الحقيقي"
               : "مسودات · نسخ · دفتر القرار"}
@@ -2778,7 +2522,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           >
             <Network /> النسخة التجريبية
           </button>
-          {/* «آلة الزمن» ومحاكي الشعب والاقتراحات الذكية: لسانٌ واحد هنا بدل زرٍّ في القائمة ولسانين في أدوات البيانات. */}
+          {/* «آلة الزمن» ومحاكي الشعب والاقتراحات الذكية: لسانٌ واحد هنا بدل زرٍّ في القائمة ولسانين في أدوات الجدول. */}
           <button
             type="button"
             data-guide-ignore="وجهةُ «آلة الزمن» مسجّلة في المرشد باسم page.timeMachine"
@@ -2790,7 +2534,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           </button>
           {/* Importing a timetable lives in Data Tools only. Two doors to the
               same reviewed route split attention and let one screen fall behind
-              the other; the guide points at «أدوات البيانات» for this. */}
+              the other; the guide points at «أدوات الجدول» for this. */}
         </nav>
       ) : null}
       {degraded && collegeId && sectionId && termId ? (
@@ -2843,6 +2587,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             {/* الصفرُ لا يُكتب رقماً على بطاقة القراءة (قاعدة إخفاء الفارغ). */}
             <div className="insight-preview-list" role="list">
               {insightScenes.map((item, index) => {
+                if (item.advanced) return null;
                 const selected = activeInsightKey === item.value;
                 return (
                   <button
@@ -2869,6 +2614,51 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                 );
               })}
             </div>
+            {/* ── «متقدم» ─────────────────────────────────────────────────────
+                ما يُحتاج نادراً، بالشكل نفسه، مطويٌّ تحت الشبكة: بصمة القسم، والحركة
+                المكانية، ومقارنة الفصول، ومختبر القرار المتقدم، وتشخيص النظام. */}
+            <details className="insight-advanced" open={insightScenes.some(item => item.advanced && item.value === activeInsightKey) || undefined}>
+              <summary data-guide-ignore="يفتح مجموعة «متقدم» المطويّة؛ عرضٌ لا فعل"><SlidersHorizontal aria-hidden="true" /><span>متقدم</span></summary>
+              <div className="insight-preview-list" role="list">
+              {insightScenes.map((item, index) => {
+                  if (!item.advanced) return null;
+                  const selected = activeInsightKey === item.value;
+                  return (
+                    <button
+                      type="button"
+                      key={item.value}
+                      id={`insight-tab-${item.value}`}
+                      className={`insight-preview ${selected ? "active" : ""}`}
+                      role="listitem"
+                      aria-label={`${item.label} — ${item.detail}`}
+                      title={item.detail}
+                      data-guide-ignore="بطاقة اختيار قراءة داخل مركز الذكاء: تفتح القراءة نفسها كما قبل، والوصف صار تلميحاً فقط"
+                      onClick={() => showScene(item.value)}
+                      onKeyDown={(event) => moveInsightFocus(event, index)}
+                    >
+                      <span className="insight-preview-icon" aria-hidden="true">
+                        {item.icon}
+                      </span>
+                      <span className="insight-preview-copy">
+                        <strong>{item.label}</strong>
+                        <small>{item.detail}</small>
+                      </span>
+                      {metricBadge(item.metric)}
+                    </button>
+                  );
+                })}
+                {compareTermOptions.length > 1 ? (
+                  <button type="button" className="insight-preview" role="listitem" aria-label="مقارنة الفصول — ما تغيّر بين فصل وفصل" data-guide-ignore="يفتح «مقارنة الفصول» في «السجل»؛ تنقّلٌ لا فعل" onClick={() => { setTab("history"); showApproveCard("compare"); }}>
+                    <span className="insight-preview-icon" aria-hidden="true"><ArrowLeftRight /></span>
+                    <span className="insight-preview-copy"><strong>مقارنة الفصول</strong><small>ما تغيّر بين فصل وفصل</small></span>
+                  </button>
+                ) : null}
+                <button type="button" className="insight-preview" role="listitem" aria-label="مختبر القرار المتقدم — القواعد والمحاكاة والتحسين" data-guide-ignore="يفتح «مختبر القرار» في «جرّب»؛ تنقّلٌ لا فعل" onClick={() => { setTab("twin"); showTwinCard("lab"); }}>
+                  <span className="insight-preview-icon" aria-hidden="true"><BrainCircuit /></span>
+                  <span className="insight-preview-copy"><strong>مختبر القرار المتقدم</strong><small>القواعد، ومحاكاة السياسات، والتحسين الآلي</small></span>
+                </button>
+              </div>
+            </details>
           </nav>
           {/*
             ── القراءة صفحة، لا قسم أسفل الصفحة ──────────────────────────────
@@ -3280,91 +3070,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             </Surface>
             </div>
           ) : null}
-            <div
-              className="content-stack insight-scene-panel"
-              id="insight-panel-rooms"
-              role="tabpanel"
-              aria-labelledby="insight-tab-rooms"
-              hidden={activeInsightKey !== "rooms"}
-              tabIndex={activeInsightKey === "rooms" ? 0 : -1}
-            >
-          <Surface className="room-intelligence">
-            <div className="surface-head">
-              <div>
-                <span className="surface-kicker">ذكاء القاعات</span>
-                <h2>القاعات الأكثر استخداماً</h2>
-              </div>
-              <Building2 />
-            </div>
-            <div className="intel-rank-list">
-              {overview.rooms.slice(0, 8).map((r: any) => (
-                <button key={r.key} onClick={() => loadRoom(r)}>
-                  <span className="rank-icon">
-                    <Building2 />
-                  </span>
-                  <div>
-                    <strong>
-                      {r.code} / {r.hall}
-                    </strong>
-                    <small>
-                      {countOf(r.sessions, AR.appointment)} · استخدام تقديري {r.utilization}%
-                    </small>
-                    <i>
-                      <b style={{ width: `${r.utilization}%` }} />
-                    </i>
-                  </div>
-                  <ChevronLeft />
-                </button>
-              ))}
-            </div>
-            <details className="insight-disclosure">
-              <summary>كيف وصلنا لهذه النتيجة؟</summary>
-              <p className="insight-method">الاستخدام التقديري لكل قاعة = ساعات إشغالها ÷ ساعات اليوم الرسمية (<b dir="ltr">{formatScheduleTimeRange(SCHEDULE_DAY_START_TIME, SCHEDULE_DAY_END_TIME)}</b>) على مدى أيام النطاق، والترتيب حسب عدد المواعيد.</p>
-            </details>
-          </Surface>
-            </div>
-            <div
-              className="content-stack insight-scene-panel"
-              id="insight-panel-professors"
-              role="tabpanel"
-              aria-labelledby="insight-tab-professors"
-              hidden={activeInsightKey !== "professors"}
-              tabIndex={activeInsightKey === "professors" ? 0 : -1}
-            >
-          <Surface className="professor-intelligence">
-            <div className="surface-head">
-              <div>
-                <span className="surface-kicker">حمل أعضاء هيئة التدريس</span>
-                <h2>حمل أعضاء هيئة التدريس</h2>
-                <small className="reading-college-label">{readingMode === "department" ? "حمل القسم عبر كلياته" : "حمل هذه الكلية"}</small>
-              </div>
-              <UsersRound />
-            </div>
-            <div className="professor-load-list">
-              {[...overview.professorLoads].sort((a: any, b: any) => byArabic(a.name, b.name)).map((p: any) => (
-                <button key={p.id} onClick={() => loadProfessor(p)}>
-                  <span className="prof-avatar">{p.name.trim().charAt(0)}</span>
-                  <div>
-                    <strong>{p.name}{visitingInReading(p.id) ? <> <VisitingBadge compact /></> : null}</strong>
-                    <small>
-                      {countOf(p.weeklyHours, AR.hour)} · {countOf(p.days, AR.day)}
-                    </small>
-                  </div>
-                  <span className={p.maxGap >= 180 ? "gap-warn" : ""}>
-                    {p.maxGap
-                      ? `فراغ ${formatCompactDurationArabic(p.maxGap)}`
-                      : "بلا فراغ طويل"}
-                  </span>
-                  <ChevronLeft />
-                </button>
-              ))}
-            </div>
-            <details className="insight-disclosure">
-              <summary>كيف وصلنا لهذه النتيجة؟</summary>
-              <p className="insight-method">يجمع الحمل الساعات الأسبوعية وعدد أيام الحضور لكل عضو، مع أطول فراغٍ متصل بين محاضرتين في اليوم نفسه.</p>
-            </details>
-          </Surface>
-            </div>
             {isPowerAdmin ? <div
               className="content-stack insight-scene-panel"
               id="insight-panel-health"
@@ -3376,35 +3081,15 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
           <Surface className="data-health">
             <div className="surface-head">
               <div>
-                <span className="surface-kicker">صحة البيانات</span>
-                <h2>صحة البيانات</h2>
+                <span className="surface-kicker">للإدارة الرئيسية</span>
+                <h2>تشخيص النظام</h2>
               </div>
               <CheckCircle2 />
-            </div>
-            <div className={`health-verdict ${overview.dataHealth.healthy ? "ok" : "review"}`}>
-              {overview.dataHealth.healthy ? <CheckCircle2 aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}
-              <strong>{overview.dataHealth.healthy ? "سليمة" : "تحتاج مراجعة"}</strong>
-            </div>
-            {/* Three counts, read at a glance instead of a run-on line — each
-                tile is quiet when zero and lit when it holds something. */}
-            <div className="health-tiles">
-              <article className={overview.dataHealth.invalidRows ? "hit" : ""}>
-                <b>{Number(overview.dataHealth.invalidRows).toLocaleString("ar-KW-u-nu-latn")}</b>
-                <span>ناقص</span>
-              </article>
-              <article className={overview.dataHealth.duplicates ? "hit" : ""}>
-                <b>{Number(overview.dataHealth.duplicates).toLocaleString("ar-KW-u-nu-latn")}</b>
-                <span>تكرار</span>
-              </article>
-              <article className={overview.dataHealth.unscheduledCourses ? "hit" : ""}>
-                <b>{Number(overview.dataHealth.unscheduledCourses).toLocaleString("ar-KW-u-nu-latn")}</b>
-                <span>مقرر بلا موعد</span>
-              </article>
             </div>
             <div className="health-advanced-row">
               <article className={operationsReview?.anomalies?.length ? "hit" : ""}><span>منطقياً</span><b>{Number(operationsReview?.anomalies?.length||0).toLocaleString("ar-KW-u-nu-latn")}</b><small>شذوذ محتمل</small></article>
               <article className={experienceHealth?.score<75 ? "hit" : ""}><span>تجربة القسم</span><b>{experienceHealth?.score ?? "—"}</b><small>{experienceHealth?.label || "تُقاس مع الاستخدام"}</small></article>
-              <article><span>زمن الاستجابة (المئين 95)</span><b>{experienceHealth?.p95 ? countOf(experienceHealth.p95, AR.millisecond) : "—"}</b><small>أبطأ 5٪</small></article>
+              <article><span>زمن الاستجابة (المئين 95)</span><b>{experienceHealth?.p95 ? countOf(experienceHealth.p95, AR.millisecond) : "—"}</b><small>أبطأ 5%</small></article>
               <article className={experienceHealth?.failures ? "hit" : ""}><span>أخطاء الواجهة</span><b>{experienceHealth?.failures ?? 0}</b><small>آخر 14 يوماً</small></article>
             </div>
             {operationsReview?.anomalies?.length ? <details className="insight-disclosure"><summary>الشذوذ المنطقي ({operationsReview.anomalies.length})</summary><ul className="health-anomaly-list">{operationsReview.anomalies.slice(0,6).map((item:any,index:number)=><li key={`${item.kind}-${item.rowId||index}`} className={item.severity}><strong>{item.title}</strong>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}<span>{item.detail}</span></li>)}</ul></details>:null}
@@ -3414,438 +3099,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               هذه القراءة لا تحذف ولا تصحح شيئاً تلقائياً؛ هدفها فقط كشف ما قد
               يفوت أثناء العمل السريع.
             </p>
-            <details className="insight-disclosure">
-              <summary>كيف وصلنا لهذه النتيجة؟</summary>
-              <p className="insight-method">الفحص يعدّ الصفوف الناقصة، والتكرارات (نفس المقرر والشعبة والوقت)، والمقررات بلا موعد داخل النطاق المختار — دون أي تعديل تلقائي.</p>
-            </details>
           </Surface>
             </div> : null}
-          {demand ? (
-            <div
-              className="content-stack insight-scene-panel"
-              id="insight-panel-students"
-              role="tabpanel"
-              aria-labelledby="insight-tab-students"
-              hidden={activeInsightKey !== "students"}
-              tabIndex={activeInsightKey === "students" ? 0 : -1}
-            >
-            <Surface className="demand-reading">
-              <div className="surface-head">
-                <div>
-                  <span className="surface-kicker">ما قاله الطلاب</span>
-                  <h2>كم شعبة نفتح، وأين نضعها</h2>
-                  <span className={`demand-cohort cohort-${demand.cohort || "mixed"}`}>
-                    <i aria-hidden="true" />
-                    {demand.cohortLabel || "طلبة القسم"}
-                    {demand.sectionName ? ` · ${demand.sectionName}` : ""}
-                  </span>
-                </div>
-                <UsersRound />
-              </div>
-
-              {/* ── باب الطلاب ───────────────────────────────────────────
-                  الرابط ورمزه في نفس الصفحة التي تقرأ إجاباتهم. */}
-              {termIsArchive(terms.find(row => Number(row.AdTermId) === Number(termId)), terms) ? null : <div className="demand-door">
-                {(demand.survey || []).length ? (
-                  (demand.survey || []).map((link: any) => (
-                    <article key={link.id} className="demand-door-card">
-                      <div className="demand-door-copy">
-                        <span className="surface-kicker">رابط الاستبيان</span>
-                        <strong>{link.label}</strong>{scopeLabel(link) ? <small>{scopeLabel(link)}</small> : null}
-                        <small>
-                          ينتهي {new Date(link.expiresAt).toLocaleDateString("ar-KW-u-nu-latn")} ·
-                          فُتح <Num value={link.views} /> {nounFor(link.views, AR.visit)}
-                        </small>
-                        <code dir="ltr" className="demand-door-url">{surveyUrl(link.id)}</code>
-                        <div className="demand-actions">
-                          <SecondaryButton onClick={() => copySurvey(link.id)}>
-                            <Link2 /> {surveyCopied === link.id ? "نُسخ" : "انسخ الرابط"}
-                          </SecondaryButton>
-                          <SecondaryButton onClick={() => showSurveyQr(link.id)}>
-                            <QrCode /> {surveyQr?.id === link.id ? "أخفِ الرمز" : "رمز QR"}
-                          </SecondaryButton>
-                          {surveyQr?.id === link.id ? (
-                            <GhostButton data-guide-ignore="طباعة رمز QR للرابط العام — لا تغيّر الجدول" onClick={() => { if (!showPwaPrintHelp()) window.print(); }}>
-                              <Printer /> اطبع الرمز
-                            </GhostButton>
-                          ) : null}
-                          <GhostButton
-                            className="danger-action"
-                            data-guide-ignore="إيقاف رابط عام له تأكيد صريح ولا يمسّ الجدول"
-                            onClick={() => void stopSurvey(link.id)}
-                            disabled={busy}
-                            title="إيقاف الرابط فوراً"
-                          >
-                            <Ban /> أوقف الرابط
-                          </GhostButton>
-                        </div>
-                      </div>
-                      {surveyQr?.id === link.id ? (
-                        <figure
-                          className="demand-qr"
-                          dangerouslySetInnerHTML={{ __html: surveyQr.svg }}
-                          aria-label="رمز الاستبيان"
-                        />
-                      ) : null}
-                    </article>
-                  ))
-                ) : (
-                  <article className="demand-door-card empty">
-                    <div className="demand-door-copy">
-                      <span className="surface-kicker">باب الطلاب</span>
-                      <strong>لا يوجد رابط استبيان لهذا القسم بعد</strong>
-                      <small>
-                        يبدأ الطالب باسمه ورقمه المدني وقسمه، ثم يختار نوع الحالة. تُحفظ الهوية
-                        مشفّرة ولا تظهر إلا للمسؤول المخوّل داخل هذا المركز.
-                      </small>
-                      <div className="share-days" role="group" aria-label="مدة صلاحية رابط الاستبيان">
-                        {SURVEY_DAY_CHOICES.map(choice => (
-                          <button
-                            key={choice}
-                            type="button"
-                            data-guide-ignore="اختيار مدة محلي لا يصدر الرابط بنفسه"
-                            className={surveyDays === choice ? "active" : ""}
-                            onClick={() => setSurveyDays(choice)}
-                            aria-pressed={surveyDays === choice}
-                          >
-                            {choice}
-                            <small>يوم</small>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="demand-actions">
-                        <PrimaryButton data-guide-ignore="إصدار رابط استبيان عام له صلاحية محددة ولا يعدّل الجدول" onClick={issueSurvey} disabled={busy}>
-                          <QrCode /> أصدر رابط الاستبيان · {countOf(surveyDays, AR.day)}
-                          {readingMode === "department" ? <small>{ownScope.collegeName}</small> : null}
-                        </PrimaryButton>
-                      </div>
-                    </div>
-                  </article>
-                )}
-              </div>}
-
-              {/* ── التوقّع ──────────────────────────────────────────────────
-                  فصلٌ بلا إجابات بعد يرث توقُّعاً من الفصل الذي قبله. مكتوبٌ
-                  عليه أنه توقُّع في كل مكان يظهر فيه، ويسقط فوراً عند أول إجابة
-                  حقيقية. */}
-              {!demand.respondents && demand.prediction?.courses?.length ? (
-                <div className="demand-forecast">
-                  <p className="demand-headline forecast">
-                    <Sparkles aria-hidden="true" /> {demand.prediction.headline}
-                  </p>
-                  <div className="demand-bars">
-                    {demand.prediction.courses.slice(0, 8).map((course: any) => (
-                      <article key={`${course.readingScope?.collegeId || collegeId}:${course.courseId}`}>
-                        <span className="demand-course-label" title={course.because}>
-                          <b>{course.name}<CourseTags courseId={course.courseId} /></b>{scopeLabel(course) ? <small>{scopeLabel(course)}</small> : null}
-                          <small dir="ltr">{course.code || course.courseId}</small>
-                        </span>
-                        <i><b style={{ width: `${Math.min(100, Math.max(6, Math.round((course.expected / Math.max(1, course.predictionFrom ?? demand.prediction.from)) * 100)))}%` }} /></i>
-                        <strong dir="ltr">~{course.expected}/{course.predictionFrom ?? demand.prediction.from}</strong>
-                      </article>
-                    ))}
-                  </div>
-                  {demand.prediction.pairs?.length ? (
-                    <ul className="demand-stuck">
-                      {demand.prediction.pairs.slice(0, 5).map((pair: any, index: number) => (
-                        <li key={index}>
-                          يُتوقَّع أن يحتاج «{pair.nameA}» و«{pair.nameB}» معاً
-                          نحو <b>{countOf(pair.expected, AR.student)}</b> — ضعهما في وقتين مختلفين من الآن.
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {/* من جديد ومن عائد — السؤال الذي طرحه القسم بنفسه. */}
-              {demand.turnover?.total ? (
-                <p className="demand-turnover">
-                  <UsersRound aria-hidden="true" /> {demand.turnover.headline}
-                </p>
-              ) : null}
-
-              {/* الرقم أولاً، ثم التفصيل — كبقية القراءات. */}
-              <div className="stat-tiles demand-figures">
-                <div className="stat-tone" data-tone={answered ? "accent" : "quiet"}>
-                  <StatCard
-                    icon={<UsersRound aria-hidden="true" />}
-                    value={<Num value={answered} />}
-                    label={answered ? (readingMode === "department" ? "إجابات عبر الكليات" : `${nounFor(answered, studentWords.student)} ${nounFor(answered, studentWords.answered)}`) : "لم يُجب أحدٌ بعد"}
-                    detail={demand.cohortLabel || "طلبة القسم"}
-                  />
-                </div>
-                <div className="stat-tone" data-tone="info">
-                  <StatCard icon={<BarChart3 aria-hidden="true" />} value={<Num value={demand.courses?.length || 0} />} label="مقررات مطلوبة" detail="من إجاباتهم" />
-                </div>
-                <div className="stat-tone" data-tone={demand.pairs?.length ? "warning" : "quiet"}>
-                  <StatCard icon={<ArrowLeftRight aria-hidden="true" />} value={<Num value={demand.pairs?.length || 0} />} label="لا يجوز أن تتقاطع" detail={nounFor(demand.pairs?.length || 0, AR.pair)} />
-                </div>
-                <div className="stat-tone" data-tone={demand.repairs?.length ? "success" : "quiet"}>
-                  <StatCard icon={<WandSparkles aria-hidden="true" />} value={<Num value={demand.repairs?.length || 0} />} label="نقلات جاهزة" detail="بلا أثر جانبي" />
-                </div>
-              </div>
-
-              {/* The case register — the same component the registration sheet
-                  draws (StudentCasesTable), so both screens read alike. */}
-              {readingMode === "department" ? (demand.byCollege || []).filter((entry: ScopedReading) => entry.data?.cases?.length).map((entry: ScopedReading) =>
-                <section key={`${entry.scope.collegeId}:${entry.scope.sectionId}`} className="demand-college-cases">
-                  <span className="reading-college-label">{entry.scope.collegeName}</span>
-                  <StudentCasesTable cases={entry.data.cases} sectionId={entry.scope.sectionId} print={{ scope: entry.data.sectionName, college: entry.scope.collegeName || "" }} />
-                </section>
-              ) : (
-              <>
-              {allStudentCases.some((item: any) => item.caseLevel || item.courses?.some((course: any) => course.settled !== undefined))
-                ? <RegistrationJourney totals={caseJourney} active={caseJourneyFilter} onPick={setCaseJourneyFilter} /> : null}
-              <StudentCasesTable
-                cases={studentCases}
-                total={allStudentCases.length}
-                exportName="طلبات_الطلبة.xlsx"
-                sectionId={Number(sectionId)}
-                print={{
-                  scope: [demand.sectionName, terms.find(term => Number(term.AdTermId) === Number(termId))?.AdTermName].filter(Boolean).join(" · "),
-                  college: colleges.find((college: any) => Number(college.AdCollegeId) === Number(collegeId))?.AdCollegeName || "",
-                }}
-              />
-              </>
-              )}
-
-              {/* ── الشعب ────────────────────────────────────────────────────
-                  السؤال الذي يُرسَل الاستبيان لأجله: الطلب مقابل سعة المقرر،
-                  ثم مكانٌ نظيف لكل شعبة جديدة. */}
-              {demand.openings?.proposals?.length ? (
-                <div className="demand-openings">
-                  <p className="demand-headline">{demand.openings.headline}</p>
-                  {demand.openings.proposals.map((item: any) => (
-                    <article key={`${item.readingScope?.collegeId || collegeId}:${item.courseId}`} className="opening-card">
-                      <header>
-                        <div>
-                          <b>{item.courseName}<CourseTags courseId={item.courseId} /></b>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}
-                          <span>{item.courseCode}{item.predicted ? " · توقُّع" : ""}</span>
-                        </div>
-                        <strong className="opening-need">
-                          +<Num value={item.needed} /> {nounFor(item.needed, AR.section)}
-                        </strong>
-                      </header>
-
-                      {/* الحساب ظاهرٌ كاملاً: الطلب ÷ السعة − المفتوح. */}
-                      <div className="opening-math">
-                        <span><small>طلبوه</small><b><Num value={item.demand} /></b></span>
-                        <em>÷</em>
-                        <span><small>سعة الشعبة</small><b><Num value={item.capacity} /></b></span>
-                        <em>−</em>
-                        <span><small>المفتوح</small><b><Num value={item.openSections} /></b></span>
-                        <em>=</em>
-                        <span className="opening-gap">
-                          <small>بلا مقعد</small><b><Num value={item.shortfall} /></b>
-                        </span>
-                      </div>
-
-                      {item.simulationImpact ? <p className="demand-why">
-                        بعد إضافة الشعب المقترحة وإعادة محاكاة {countOf(item.simulationImpact.respondents, AR.student)} من أصحاب الرغبات الحالية، يرتفع القادرون على بلوغ 12 وحدة بمقدار <b>{countOf(item.simulationImpact.delta12, AR.student)}</b>، وبلوغ 15 وحدة بمقدار <b>{countOf(item.simulationImpact.delta15, AR.student)}</b>. وتقل حالات تعارض المقررات في الخطط من <b>{countOf(item.simulationImpact.conflictsBefore, AR.course)}</b> إلى <b>{countOf(item.simulationImpact.conflictsAfter, AR.course)}</b>. المقاعد افتراضية؛ هذه معاينة بلا حفظ.
-                      </p> : item.predicted ? <p className="opening-note">هذا توقع من بيانات سابقة؛ لم يُخلط مع الرغبات الحالية ولم يُعرض كتحسن مؤكد.</p> : null}
-
-                      {item.placements.length ? (
-                        <div className="opening-slots">
-                          {item.placements.map((slot: any) => (
-                            <div key={slot.index} className="opening-slot">
-                              <span className="opening-slot-day">{slot.dayLabel}</span>
-                              <b dir="ltr">{formatScheduleTimeRange(slot.start, slot.end)}</b>
-                              <span className="opening-slot-room">
-                                {slot.roomCode}{slot.roomHall ? `/${slot.roomHall}` : ""}
-                              </span>
-                              <span className={`opening-slot-who${slot.instructorId ? "" : " vacant"}`}>
-                                {slot.instructorName || "بلا أستاذ"}
-                                {slot.instructorId && visitingAt(slot.instructorId, item) ? <> <VisitingBadge compact /></> : null}
-                              </span>
-                              <SecondaryButton onClick={() => openSectionDraft(item, slot)}>
-                                <Plus /> افتحها في النسخة التجريبية
-                              </SecondaryButton>
-                              {slot.instructorId ? (
-                                <ApplyProposal
-                                  compact
-                                  lines={[`شعبة ${slot.sectionCode} لـ«${item.courseName}» · ${slot.dayLabel} ${formatScheduleTimeRange(slot.start, slot.end)} · ${slot.roomCode}${slot.roomHall ? `/${slot.roomHall}` : ""} · ${withVisitingSuffix(String(slot.instructorName || ""), visitingAt(slot.instructorId, item))}`]}
-                                  why={`تخدم ${countOf(item.shortfall, AR.student)} بلا مقعدٍ اليوم.`}
-                                  preview={() => { const source = sourceScope(item); return postWhatIf({ kind: "opening", collegeId: source.collegeId, sectionId: source.sectionId, termId, courseId: item.courseId, placement: slot }); }}
-                                  run={async () => {
-                                    const source = sourceScope(item);
-                                    const result = await postScheduleProposal({
-                                      kind: "opening", collegeId: source.collegeId, sectionId: source.sectionId, termId, courseId: item.courseId, placement: slot,
-                                      origin: { kind: "intelligence", refId: `course:${item.courseId}`, note: `فتح شعبة لـ«${item.courseName}» (طلبه ${item.demand})` },
-                                    });
-                                    return { summary: `فُتحت شعبة ${result.applied[0].row.SCode} لـ«${item.courseName}» في الجدول`, amendment: Boolean(result.amendment) };
-                                  }}
-                                  onApplied={() => { void reload(); }}
-                                />
-                              ) : <small className="ap-why-not">يلزم أستاذٌ: اختره من النسخة التجريبية ثم احفظ.</small>}
-                              {slot.note ? <small className="opening-note">{slot.note}</small> : null}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="opening-note">
-                          لم أجد وقتاً يخلو من كل التعارضات — كل ساعة يستخدمها قسمك مشغولة
-                          بأستاذٍ أو قاعة، أو تتقاطع مع مقرر يحتاجه هؤلاء الطلاب أنفسهم.
-                        </p>
-                      )}
-                    </article>
-                  ))}
-                  {demand.openings.noCeiling?.length ? (
-                    <p className="opening-note">
-                      {demand.openings.noCeiling.length} من المقررات المطلوبة بلا «الحد الأعلى للطلبة» —
-                      سجّله في شاشة المقررات ليُحسب عدد الشعب.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              {!demand.openings?.proposals?.length && demand.openings?.simulationTested ? <p className="demand-headline">
-                أُعيدت محاكاة {countOf(demand.openings.simulationTested, AR.section)} لفتح شعب على رغبات المشاركين؛ لم يثبت تحسن صافٍ في بلوغ 12 أو 15 وحدة دون الإضرار بطالب آخر، لذلك لا توجد توصية مؤكدة.
-              </p> : null}
-
-              {/* ── الاقتراح ─────────────────────────────────────────────────
-                  Each card is one move that was tried against the real week and
-                  produced nothing new. Pressing it opens the lecture; nothing
-                  moves until a person saves it. */}
-              {demand.repairs?.length ? (
-                <div className="demand-repairs">
-                  <p className="demand-headline">{demand.headline}</p>
-                  {demand.repairs.map((fix: any) => (
-                    <article key={`${fix.rowId}-${fix.to.day}-${fix.to.start}`} className="demand-repair">
-                      <header>
-                        <b>{fix.swapWith ? "تبديل موعدي شعبتين" : <>{fix.courseName}<CourseTags courseId={fix.courseId} /></>}</b>
-                        <span>شعبة {fix.sectionCode}{fix.room ? ` · ${fix.room}` : ""}</span>
-                      </header>
-                      <div className="demand-move" dir="rtl">
-                        <span className="demand-from">
-                          <small>{fix.courseName} · {fix.from.dayLabel}</small>
-                          <b dir="ltr">{scheduleClockForDisplay(fix.from.start)}</b>
-                        </span>
-                        <ArrowLeftRight aria-hidden="true" />
-                        <span className="demand-to">
-                          <small>{fix.to.dayLabel}</small>
-                          <b dir="ltr">{scheduleClockForDisplay(fix.to.start)}</b>
-                        </span>
-                      </div>
-                      {fix.swapWith ? <div className="demand-move" dir="rtl">
-                        <span className="demand-from"><small>{fix.swapWith.courseName} · {fix.swapWith.from.dayLabel}</small><b dir="ltr">{scheduleClockForDisplay(fix.swapWith.from.start)}</b></span>
-                        <ArrowLeftRight aria-hidden="true" />
-                        <span className="demand-to"><small>{fix.swapWith.to.dayLabel}</small><b dir="ltr">{scheduleClockForDisplay(fix.swapWith.to.start)}</b></span>
-                      </div> : null}
-                      <p className="demand-why">
-                        بعد إعادة المحاكاة، يرتفع القادرون على بلوغ 12 وحدة من <b>{countOf((fix.simulationImpact?.before.canReach15 || 0) + (fix.simulationImpact?.before.canReach12To14 || 0), AR.student)}</b> إلى{" "}
-                        <b>{countOf((fix.simulationImpact?.after.canReach15 || 0) + (fix.simulationImpact?.after.canReach12To14 || 0), AR.student)}</b> من أصل {countOf(fix.simulationImpact?.respondents || 0, AR.student)} مشاركاً؛ وبلوغ 15 وحدة يتحسن بمقدار{" "}
-                        <b>{countOf(fix.simulationImpact?.delta15 || 0, AR.student)}</b>. وتقل تعارضات الخطط من <b>{countOf(fix.simulationImpact?.conflictsBefore || 0, AR.course)}</b> إلى <b>{countOf(fix.simulationImpact?.conflictsAfter || 0, AR.course)}</b> بتغيير {countOf(fix.simulationImpact?.scheduleChanges || 1, AR.schedule)}. المقاعد افتراضية، والنتيجة للرغبات المرسلة فقط.
-                      </p>
-                      <div className="demand-actions">
-                        <SecondaryButton onClick={() => openRepair(fix)} data-guide-ignore="معاينة نقل الجدول داخل نسخة محلية لا تحفظ التعديل">
-                          <WandSparkles /> معاينة التأثير
-                        </SecondaryButton>
-                        <ApplyProposal
-                          compact
-                          icon="check"
-                          label={fix.swapWith ? "اعتمد التبديل في الجدول" : "اعتمد النقل في الجدول"}
-                          lines={[
-                            `${fix.courseName} · شعبة ${fix.sectionCode}: من ${fix.from.dayLabel} ${scheduleClockForDisplay(fix.from.start)} إلى ${fix.to.dayLabel} ${scheduleClockForDisplay(fix.to.start)}`,
-                            ...(fix.swapWith ? [`${fix.swapWith.courseName} · شعبة ${fix.swapWith.sectionCode}: من ${fix.swapWith.from.dayLabel} ${scheduleClockForDisplay(fix.swapWith.from.start)} إلى ${fix.swapWith.to.dayLabel} ${scheduleClockForDisplay(fix.swapWith.to.start)}`] : []),
-                          ]}
-                          why={fix.simulationImpact ? `بعد إعادة المحاكاة: ${countOf(fix.simulationImpact.delta15 || 0, AR.student)} إضافي يبلغ 15 وحدة، وتعارضات الخطط من ${fix.simulationImpact.conflictsBefore || 0} إلى ${fix.simulationImpact.conflictsAfter || 0}.` : undefined}
-                          preview={() => postWhatIf({ kind: fix.swapWith ? "swap" : "move", termId, moves: [{ rowId: fix.rowId, to: fix.to }, ...(fix.swapWith ? [{ rowId: fix.swapWith.rowId, to: fix.swapWith.to }] : [])] })}
-                          run={async () => {
-                            const source = sourceScope(fix);
-                            const moves = [fix, ...(fix.swapWith ? [fix.swapWith] : [])].map((move: any, index: number) => ({
-                              rowId: index === 0 ? fix.rowId : fix.swapWith.rowId, from: move.from, to: move.to,
-                            }));
-                            const result = await postScheduleProposal({
-                              kind: fix.swapWith ? "swap" : "move", collegeId: source.collegeId, sectionId: source.sectionId, termId, moves,
-                              origin: { kind: "intelligence", refId: `row:${fix.rowId}`, note: `${fix.swapWith ? "تبديل" : "نقل"} «${fix.courseName}» لتخفيف تعارض الطلبة` },
-                            });
-                            return { summary: `${fix.swapWith ? "بُدّل موعدا" : "نُقل موعد"} «${fix.courseName}» في الجدول`, amendment: Boolean(result.amendment) };
-                          }}
-                          onApplied={() => { void reload(); }}
-                        />
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : demand.repairSimulationReady && demand.repairCandidates ? (
-                <p className="demand-headline">
-                  اختُبر <Num value={demand.repairCandidates} /> اقتراح نقل في محاكاة التسجيل، ولم تثبت نقلةٌ تحسّن بلوغ 12 أو 15 وحدة دون الإضرار بالنتيجة الحالية.
-                </p>
-              ) : demand.unsolved?.length ? (
-                <p className="demand-headline">{demand.headline}</p>
-              ) : demand.pairs?.length ? (
-                <p className="demand-headline">
-                  لا يوجد تقاطع فعلي على الطلاب في هذا الفصل — الأزواج المشتركة كلها في أوقات مختلفة.
-                </p>
-              ) : null}
-
-              {/* المقررات الأكثر طلباً — شريط بسيط، بالقاعدة إلى جانب كل رقم. */}
-              {demand.courses?.length ? (
-                <section className="demand-chart" aria-label="المقررات الأكثر طلباً">
-                  <header>
-                    <strong><BarChart3 aria-hidden="true" /> المقررات الأكثر طلباً</strong>
-                    <small>{readingMode === "department" ? `${demand.respondents} إجابات عبر الكليات` : `من ${countOf(demand.respondents, oblique(studentWords.student))}`}</small>
-                  </header>
-                  <ol className="demand-bars">
-                    {demand.courses.slice(0, 8).map((course: any, index: number) => (
-                      <li key={`${course.readingScope?.collegeId || collegeId}:${course.courseId}`}>
-                        <b className="demand-rank" aria-hidden="true">{index + 1}</b>
-                        <span className="demand-course-label">
-                          <b>{course.name}<CourseTags courseId={course.courseId} /></b>{scopeLabel(course) ? <small>{scopeLabel(course)}</small> : null}
-                          <small dir="ltr">{course.code || course.courseId}</small>
-                        </span>
-                        <i role="img" aria-label={`${course.share}%`}><b style={{ width: `${Math.max(4, course.share)}%` }} /></i>
-                        <strong dir="ltr">{course.students}/{demand.respondents} <small>{course.share}%</small></strong>
-                      </li>
-                    ))}
-                  </ol>
-                  {demand.courses.length > 8 ? <p className="demand-chart-more">و{countOf(demand.courses.length - 8, AR.course)} {nounFor(demand.courses.length - 8, AR.otherAdj)} في السجلّ أدناه.</p> : null}
-                </section>
-              ) : null}
-
-              {demand.unsolved?.length ? (
-                <details className="insight-disclosure">
-                  <summary>تقاطعات بلا حلٍّ نظيف ({demand.unsolved.length})</summary>
-                  <ul className="demand-stuck">
-                    {demand.unsolved.map((item: any, index: number) => (
-                      <li key={index}>
-                        «{item.a}» و«{item.b}» — {countOf(item.shared, AR.student)}.
-                        كل نقلة مُتاحة تُنشئ تعارضاً آخر؛ الأمر يحتاج قراراً بشرياً.
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
-
-              {demand.succession?.links?.length ? (
-                <details className="insight-disclosure">
-                  <summary>تسلسل المقررات — ما الذي يأتي بعد ماذا ({demand.succession.links.length})</summary>
-                  <p className="insight-method">{demand.succession.headline}</p>
-                  <ul className="demand-sequence">
-                    {demand.succession.links.map((link: any) => (
-                      <li key={`${link.from}-${link.to}`}>
-                        <b>{link.fromName}</b>
-                        <ArrowLeftRight aria-hidden="true" />
-                        <b>{link.toName}</b>
-                        <em dir="ltr">{link.students}/{link.base}</em>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="insight-method">
-                    مقروءة من طلابٍ أجابوا في أكثر من فصل. لا تُعرَض علاقة أقل من ثلاثة
-                    طلاب — لا لأن الرقم صغير، بل لأنه عندها يصف مسار شخصٍ بعينه.
-                    ولا يُحفظ اسم ولا رقم مدني في أي مرحلة.
-                  </p>
-                </details>
-              ) : null}
-
-              <details className="insight-disclosure">
-                <summary>كيف وصلنا إلى هذه النقلات؟</summary>
-                <p className="insight-method">فحصنا أسبوع الفصل كاملًا واخترنا النقلات التي تزيل التقاطع دون إنشاء تعارض جديد.</p>
-              </details>
-            </Surface>
-            </div>
-          ) : null}
           {genome ? (
             <div
               className="content-stack insight-scene-panel"
@@ -3995,11 +3250,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                 </span>
               </div>
             </Surface>
-            </div>
-          ) : null}
-          {canPublishSheets && activeInsightKey === "sheet" ? (
-            <div className="content-stack insight-scene-panel" id="insight-panel-sheet" role="tabpanel" aria-labelledby="insight-tab-sheet" tabIndex={0}>
-              <PlanSheetPublisher onChanged={loadSheetSummary} focusSectionId={Number(sectionId) || 0} isAdmin={isPowerAdmin} />
             </div>
           ) : null}
           {activeInsightKey === "actualDemand" && collegeId && sectionId && termId ? (
@@ -4300,13 +3550,16 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                 metric: scenario ? String(changedRows.length) : undefined },
               /* «بداية الفصل» من «مركز القرار»: مسودةُ الفصل من فصلٍ سابق، تُراجَع صفاً صفاً ثم تُنشر من «المسودات». */
               { value: "genesis", label: "بداية الفصل", detail: "مسودة الفصل من فصلٍ سابق", icon: <CalendarPlus /> },
-              { value: "lab", label: "مختبر القرار", detail: "القواعد والمحاكاة والتحسين", icon: <BrainCircuit /> },
+              { value: "lab", label: "مختبر القرار", detail: "القواعد والمحاكاة والتحسين", icon: <BrainCircuit />, advanced: true },
               ...(scenario
                 ? [
                     { value: "board", label: "لوحة التجربة", detail: "حرّك الوقت وشاهد النتيجة لحظياً", icon: <CalendarClock />,
                       metric: String(scenarioEval?.scenario?.score ?? overview?.score ?? "") },
                     { value: "ledger", label: "سجل التغييرات", detail: "ما غيّرته، موعداً موعداً", icon: <FileClock />,
                       metric: String(changedRows.length) },
+                    /* «عدّل موعداً داخل النسخة»: بلا بطاقةٍ في الشبكة (يُفتح من «تعديل السيناريو» والشعبة والنقلة)،
+                       لكنه في شريط المرحلة فيبقى «كل البطاقات» فوقه كأي بطاقة. */
+                    { value: "editor", label: "تعديل موعد", detail: "عدّل موعداً داخل النسخة", icon: <Pencil />, advanced: true },
                   ]
                 : []),
             ]}
@@ -4385,7 +3638,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                   اختبر القواعد والبدائل قبل تطبيقها على الجدول.
                 </p>
               </div>
-              <span className="innovation-suite-status">تجربة آمنة</span>
+              <span className="innovation-suite-status">النسخة التجريبية</span>
             </div>
             <div className="innovation-tabs" role="group" aria-label="أدوات مختبر القرار">
               <button
@@ -5260,7 +4513,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             title="بطاقات السجل"
             hint="كل بطاقة تفتح صفحتها وحدها — لا شيء تحت شيء."
             cards={[
-              ...(compareTermOptions.length > 1 ? [{ value: "compare", label: "مقارنة الفصول", detail: "ما تغيّر بين فصل وفصل", icon: <ArrowLeftRight /> }] : []),
+              ...(compareTermOptions.length > 1 ? [{ value: "compare", label: "مقارنة الفصول", detail: "ما تغيّر بين فصل وفصل", icon: <ArrowLeftRight />, advanced: true }] : []),
               { value: "drafts", label: "المسودات", detail: "ما لم يُنشر بعد", icon: <FileClock />,
                 metric: String(drafts.length || 0) },
               { value: "versions", label: "سجل النسخ", detail: "كل نسخة، وما يفعله استرجاعها", icon: <History /> },
@@ -5726,7 +4979,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         const PER_PAGE = 4;
         const pages: any[][] = [];
         for (let at = 0; at < chat.length; at += PER_PAGE) pages.push(chat.slice(at, at + PER_PAGE));
-        const scopeLine = [demand?.sectionName, terms.find(term => Number(term.AdTermId) === Number(termId))?.AdTermName].filter(Boolean).join(" · ");
+        const scopeLine = [overview?.context?.sectionName, terms.find(term => Number(term.AdTermId) === Number(termId))?.AdTermName].filter(Boolean).join(" · ");
         const stamp = new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "long", year: "numeric" }).format(new Date());
         return <PrintPortal><div className="print-report print-wide query-print">
           {pages.map((slice, pageIndex) => (
@@ -5756,150 +5009,6 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
         </div></PrintPortal>;
       })() : null}
 
-      {detail ? (
-        <div
-          className="intel-drawer-backdrop"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setDetail(null);
-          }}
-        >
-          {/* درجٌ فوق خلفيةٍ تحجب الصفحة: حوارٌ يُعلن ذلك، فيتنحّى الجرسُ عن ✕ في زاويته. */}
-          <aside className="intel-drawer" role="dialog" aria-modal="true" aria-label={detail.type === "room" ? "ذكاء القاعات" : "حمل الأستاذ"}>
-            {/* ✕ في شريطِ رأسٍ معتم (كدرج الموعد)، لا زرّاً لاصقاً وحده يطفو فوق البطاقات عند التمرير. */}
-            <div className="context-actions intel-drawer-bar">
-              <button
-                className="drawer-close"
-                type="button"
-                aria-label="إغلاق التفاصيل"
-                title="إغلاق التفاصيل"
-                onClick={() => setDetail(null)}
-              >
-                <X />
-              </button>
-            </div>
-            {detail.type === "room" ? (
-              <>
-                <div className="drawer-title">
-                  <span>
-                    <Building2 />
-                  </span>
-                  <div>
-                    <small>ذكاء القاعات</small>
-                    <h2>
-                      مبنى {detail.data.code} · قاعة {detail.data.hall}
-                    </h2>
-                  </div>
-                </div>
-                <div className="room-drawer-infographic">
-                  <div className="drawer-metrics room-kpis">
-                    <article><span><CalendarClock /></span><strong>{detail.data.totalAppointments}</strong><small>{nounFor(detail.data.totalAppointments, AR.appointment)} في الفصل</small></article>
-                    <article><span><Clock3 /></span><strong>{detail.data.freeWindows.length}</strong><small>{nounFor(detail.data.freeWindows.length, AR.window)} {nounFor(detail.data.freeWindows.length, AR.availableFemAdj)}</small></article>
-                  </div>
-                  <section className="room-usage-block">
-                    <header><div><small>الجهة الأبرز</small><strong>الأكثر استخدامًا</strong></div><Building2 /></header>
-                    <div className="room-usage-grid">
-                      {detail.data.departments.slice(0, 6).map((x: any, i: number) => (
-                        <article key={i}><strong>{x.name}</strong><span>{countOf(x.count, AR.meeting)}</span></article>
-                      ))}
-                    </div>
-                  </section>
-                  <section className="room-windows-block">
-                    <header><div><small>الفترات القريبة</small><strong>النوافذ المتاحة</strong></div><CalendarClock /></header>
-                    <div className="room-window-days">
-                      {Object.entries(detail.data.freeWindows.slice(0, 14).reduce((acc: Record<string, any[]>, x: any) => { (acc[x.day] ||= []).push(x); return acc; }, {})).map(([day, windows]: any) => (
-                        <article key={day}><b>{day}</b><div>{windows.map((x: any, i: number) => <span key={i} dir="ltr">{formatScheduleTimeRange(x.start, x.end)}</span>)}</div></article>
-                      ))}
-                    </div>
-                  </section>
-                  <p className="drawer-privacy room-privacy"><ShieldCheck />تُحسب الحجوزات الأخرى لمنع التعارض مع إبقاء تفاصيلها مخفية.</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="drawer-title">
-                  <span>
-                    <UsersRound />
-                  </span>
-                  <div>
-                    <small>حمل الأستاذ الكامل</small>
-                    <h2>{detail.data.instructor?.AdInstructorName}{detail.data.instructor && ((detail.data.visibleRows || []) as any[]).concat([{ AdCollegeId: collegeId, AdSectionId: sectionId }]).some((row: any) => isVisiting(detail.data.instructor.AdInstructorId, row.AdCollegeId, row.AdSectionId)) ? <> <VisitingBadge compact /></> : null}</h2>
-                  </div>
-                </div>
-                <div className="drawer-metrics">
-                  <article>
-                    <strong>{detail.data.load?.weeklyHours || 0}</strong>
-                    <span>ساعة أسبوعية</span>
-                  </article>
-                  <article>
-                    <strong>{detail.data.load?.days || 0}</strong>
-                    <span>أيام تدريس</span>
-                  </article>
-                  <article>
-                    <strong>{detail.data.externalCommitments}</strong>
-                    <span>التزام خارج نطاقك</span>
-                  </article>
-                </div>
-                {(() => {
-                  const shape = professorWeekShape(detail.data.visibleRows || []);
-                  if (!shape) return null;
-                  return (
-                    <>
-                      <h3 className="week-shape-title">شكل الأسبوع</h3>
-                      <div className="week-shape" aria-label="توزيع المواعيد والانتظار عبر الأسبوع">
-                        <div className="week-shape-scale" aria-hidden="true">
-                          {shape.hours.map(m => (
-                            <span key={m} dir="ltr">{String(Math.floor(m / 60)).padStart(2, "0")}</span>
-                          ))}
-                        </div>
-                        {shape.days.map(day => (
-                          <div className="week-shape-row" key={day.day}>
-                            <small>{day.label}</small>
-                            <div className="week-shape-track">
-                              {day.waits.map((wait, i) => (
-                                <i
-                                  key={`w${i}`}
-                                  className="week-shape-wait"
-                                  style={{ insetInlineStart: `${wait.left}%`, width: `${wait.width}%` }}
-                                  title={`انتظار ${formatCompactDurationArabic(wait.minutes)}`}
-                                >
-                                  {wait.width > 12 ? <span>{formatCompactDurationArabic(wait.minutes)}</span> : null}
-                                </i>
-                              ))}
-                              {day.blocks.map((block, i) => (
-                                <b
-                                  key={`b${i}`}
-                                  style={{ insetInlineStart: `${block.left}%`, width: `${block.width}%` }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                        <div className="week-shape-legend" aria-label="مفتاح شكل الأسبوع">
-                          <span className="teaching"><i />محاضرة</span>
-                          <span className="waiting"><i />انتظار طويل</span>
-                          <span className="idle"><i />وقت خامل</span>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-                <h3>المواعيد الظاهرة ضمن صلاحياتك</h3>
-                <div className="drawer-schedule-list">
-                  {detail.data.visibleRows.map((r: any) => (
-                    <article key={r.id} className="drawer-schedule-card">
-                      <div className="drawer-schedule-title"><strong>{r.AdCourseName}<CourseTags courseId={r.AdCourseId} /></strong><Badge tone="neutral">شعبة {r.SCode}</Badge></div>
-                      <div className="drawer-schedule-meta">
-                        <span><CalendarClock />{Object.keys(dayLabels).filter((k) => r[k]).map((k) => dayLabels[k]).join(" · ") || "—"}</span>
-                        <time dir="ltr">{formatScheduleTimeRange(r.fstarttime, r.fendtime)}</time>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </>
-            )}
-          </aside>
-        </div>
-      ) : null}
 
     </div>
   );

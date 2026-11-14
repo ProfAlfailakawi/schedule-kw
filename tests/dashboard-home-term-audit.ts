@@ -100,25 +100,15 @@ try {
   const created = await call("/api/terms", { method: "POST", body: JSON.stringify({ AdTermName: "الفصل الصيفي 2026/2027" }) });
   const summerId = Number(created.json?.AdTermId || 0);
   check(created.status === 201 && summerId > 0, "L0 فصلٌ صيفيٌّ جديد قيد الإعداد", created);
-  /* فصلُ تخطيطٍ استُورد طلبُه ولم تُبنَ شعبُه: البيتُ فارغ، والإنذارُ يقول ما ينقص. */
+  /* فصلٌ بلا مواعيد: اللوحة فارغة، والإنذار المبكر يُقرأ لنطاقه (بلا تقرير تسجيل مرفوع لا توقّع مختلق). */
   {
     const sections: any[] = (await call("/api/sections")).json || [];
-    let picked: { collegeId: number; sectionId: number; course: any } | null = null;
-    for (const section of sections.slice(0, 12)) {
-      const courses: any[] = (await call(`/api/courses?sectionId=${section.AdSectionId}`)).json || [];
-      const course = courses.find(item => Number(item.MaxStudent) > 0);
-      if (course) { picked = { collegeId: Number(section.AdCollegeId), sectionId: Number(section.AdSectionId), course }; break; }
-    }
-    check(Boolean(picked), "L0b قسمٌ بمقررٍ معروف السعة", sections.length);
-    if (picked) {
-      const demand = Number(picked.course.MaxStudent) * 2;
-      const saved = await call("/api/registration-stats", { method: "PUT", body: JSON.stringify({ collegeId: picked.collegeId, sectionId: picked.sectionId, termId: summerId,
-        remaining: { [picked.course.AdCourseId]: demand }, remainingSource: { fileName: "كشف المتبقي — اختبار.pdf", column: "unregistered" } }) });
-      const forecast = (await call(`/api/forecast/term?collegeId=${picked.collegeId}&sectionId=${picked.sectionId}&termId=${summerId}`)).json;
+    const first = sections[0];
+    if (first) {
+      const forecast = (await call(`/api/forecast/term?collegeId=${first.AdCollegeId}&sectionId=${first.AdSectionId}&termId=${summerId}`)).json;
       const home = (await call(`/api/dashboard?termId=${summerId}`)).json;
-      check(saved.status === 200 && home?.home?.empty === true && forecast?.status === "ready" && forecast.termId === summerId
-        && [...(forecast.highlights || []), ...(forecast.more || [])].some((risk: any) => risk.kind === "shortage"),
-        "L0c فصلٌ بلا مواعيد وطلبٌ مستورد: اللوحة فارغة، والإنذار المبكر يعمل ويسمّي الشعب الناقصة (فلا يُخفى معها)", { saved: saved.status, empty: home?.home?.empty, forecast: forecast?.status, highlights: forecast?.highlights });
+      check(home?.home?.empty === true && forecast?.termId === summerId && forecast?.status === "no-remaining",
+        "L0c فصلٌ بلا مواعيد: اللوحة فارغة، والإنذار المبكر يُقرأ بلا تقريرٍ مختلق", { empty: home?.home?.empty, status: forecast?.status });
     }
   }
   const admin = (await call("/api/dashboard")).json;

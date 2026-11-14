@@ -15,13 +15,16 @@ import { departmentFamily, departmentFamilyKey } from "../utils/sectionLabel";
 import { authorityCourseCode, authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 import { trackOf } from "../utils/collegeTrack";
 import { demandSupply, type SupplyCapacity } from "../utils/actualDemandSupply";
-import { planCourseFacts, sectionPlan } from "../utils/sectionPlan";
+import { planCourseFacts, sectionPlan, type PlanOffering, type PlanPastTerm } from "../utils/sectionPlan";
+import { sortTermsNewestServer, termChronologyServer } from "./core/ordering";
+import { termSeasonOf } from "../utils/termSequence";
+import { offeringStatesForTerm } from "./offeringStates";
 import type { TeachingRoom } from "./sectionPlanRoom";
 import { graduateClashes, graduateImpactOf } from "../utils/actualDemandGraduates";
 import { studentFitOf, type StudentFit } from "../utils/studentFit";
 import { capacityContextForSection } from "./core/capacityRules";
 import {
-  demandDepartmentMatches, demandStudents, demandTermMatches, matchDemandCourses, parseDemandReport,
+  demandDepartmentMatches, demandKindClue, demandStudents, demandTermMatches, matchDemandCourses, parseDemandReport,
   type DemandCatalogueCourse, type DemandLink, type DemandMatch, type DemandMember, type DemandReport, type DemandTextItem, type DemandVariant,
 } from "../utils/actualDemand";
 
@@ -97,13 +100,13 @@ export interface DemandFamilyMember extends DemandMember { collegeName: string; 
 export interface DemandFamily { key: string; name: string; members: DemandFamilyMember[] }
 
 /** عائلة القسم المفتوح كما يراها القارئ: أعضاؤها المسموحون له، ومفتاحُ قسم كلٍّ منهم (0109). */
-export async function demandFamilyFor(req: AuthenticatedRequest, collegeId: number, sectionId: number): Promise<DemandFamily> {
+export async function demandFamilyFor(req: AuthenticatedRequest | null, collegeId: number, sectionId: number): Promise<DemandFamily> {
   const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
   const own = (sections as any[]).find(row => Number(row.AdSectionId) === Number(sectionId));
   const keys = authorityDepartmentKeys(sections as any[], colleges as any[]);
   const collegeName = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
   const members = departmentFamily(sections as any[], collegeId, sectionId)
-    .filter(member => isScopeAllowed(req, member.collegeId, member.sectionId))
+    .filter(member => !req || isScopeAllowed(req, member.collegeId, member.sectionId))
     .map(member => {
       const name = collegeName.get(member.collegeId) || "";
       return { ...member, departmentKey: keys.get(member.sectionId) || "", collegeName: name, track: trackOf(name) };
@@ -126,7 +129,7 @@ export interface DemandContext {
   capacity: SupplyCapacity;
 }
 
-export async function demandContext(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number): Promise<DemandContext> {
+export async function demandContext(req: AuthenticatedRequest | null, collegeId: number, sectionId: number, termId: number): Promise<DemandContext> {
   const family = await demandFamilyFor(req, collegeId, sectionId);
   const [stored, links, courses, memberRows, capacity] = await Promise.all([
     readStoredDemand(termId, family.key),
@@ -142,6 +145,62 @@ export async function demandContext(req: AuthenticatedRequest, collegeId: number
   const matches = new Map(matchDemandCourses(codes, catalogue, family.members, links).map(match => [match.code, match] as const));
   return { family, stored, links, catalogue, matches, rows: memberRows.flat(), capacity };
 }
+
+/** ما يقود اقتراح التخطيط: الفصول المماثلة السابقة (الموسم نفسه) لعائلة القسم، وأسلاف المقررات، وحالة الطرح. */
+export interface PlanHistory { past: PlanPastTerm[]; ancestors: Map<number, number[]>; offering: Map<number, PlanOffering> }
+
+export async function planHistoryFor(context: DemandContext, termId: number): Promise<PlanHistory> {
+  const [terms, offering, transitions] = await Promise.all([
+    Repository.getTerms().catch(() => [] as any[]),
+    offeringStatesForTerm(termId).catch(() => new Map()),
+    Promise.all(context.family.members.map(member => Repository.getCourseTransitions(member.sectionId).catch(() => [] as any[]))),
+  ]);
+  const target = (terms as any[]).find(row => Number(row.AdTermId) === termId);
+  const season = termSeasonOf(target?.AdTermName);
+  const rank = termChronologyServer(target);
+  const similar = season ? sortTermsNewestServer((terms as any[]).filter(row => termChronologyServer(row) < rank && termSeasonOf(row.AdTermName) === season)) : [];
+  const past: PlanPastTerm[] = [];
+  for (const term of similar) {
+    const rows = (await Promise.all(context.family.members.map(member => Repository.getSchedulesByScope({ collegeId: member.collegeId, sectionId: member.sectionId, termId: Number(term.AdTermId) })))).flat();
+    if (rows.length) past.push({ termName: String(term.AdTermName), rows: rows as any[] });
+  }
+  const direct = new Map<number, number[]>();
+  for (const transition of (transitions as any[][]).flat()) {
+    const to = Number(transition.toCourseId || 0), from = Number(transition.fromCourseId || 0);
+    if (!to || !from || to === from || transition.kind === "removed") continue;
+    direct.set(to, [...(direct.get(to) || []), from]);
+  }
+  const ancestors = new Map<number, number[]>();
+  for (const id of direct.keys()) {
+    const seen = new Set<number>([id]), queue = [id];
+    while (queue.length) for (const from of direct.get(queue.shift()!) || []) if (!seen.has(from)) { seen.add(from); queue.push(from); }
+    seen.delete(id);
+    ancestors.set(id, [...seen]);
+  }
+  return { past, ancestors, offering: new Map([...offering].map(([id, entry]: any) => [Number(id), { state: String(entry.state), maxSections: Number(entry.maxSections) || 0 }])) };
+}
+
+/** مستهدف الشعب لكل مقرر في حرمٍ بعينه من تخطيط الشعب (يقرؤه «نزّل الشعب» وبطاقة الأستاذ والإنذار المبكر): المقترح (التاريخ أولاً) لكل مقرر في هذا الحرم، وسقفه الحاجة الكاملة، ومن عليه خريجون. */
+export async function planTargetsFor(req: AuthenticatedRequest | null, collegeId: number, sectionId: number, termId: number) {
+  const out = { targets: new Map<number, number>(), ceiling: new Map<number, number>(), gradShort: new Set<number>(), graduates: new Map<string, number>(), students: new Map<string, number>(), importedAt: "", reportTerm: "" };
+  try {
+    const context = await demandContext(req, collegeId, sectionId, termId);
+    const entry = context.stored?.variants?.general || context.stored?.variants?.graduates;
+    if (!entry) return out;
+    out.importedAt = entry.uploadedAt; out.reportTerm = entry.report.termLabel;
+    const history = await planHistoryFor(context, termId).catch(() => null);
+    for (const row of sectionPlanOf(context, null, history).rows) {
+      if (!row.target || row.target.collegeId !== collegeId || row.target.sectionId !== sectionId) continue;
+      out.targets.set(row.target.courseId, row.plan);
+      out.ceiling.set(row.target.courseId, Math.max(row.required, row.plan));
+      out.students.set(String(row.target.courseId), row.students);
+      if (row.graduates > 0) out.graduates.set(String(row.target.courseId), row.graduates);
+      if (row.gradShort > 0) out.gradShort.add(row.target.courseId);
+    }
+  } catch { /* بلا تقرير: لا مستهدف، والقسم يكتب أعداده */ }
+  return out;
+}
+
 
 /** رقم المقرر بسبع خانات واسمه من الكتالوج إن طوبق، وإلا كما طبعه التقرير. */
 function courseFace(context: DemandContext, code: string, fallbackName: string): { code: string; name: string } {
@@ -159,23 +218,24 @@ export function demandSupplyOf(context: DemandContext) {
 }
 
 /** تخطيط الشعب للعائلة في الفصل (src/utils/sectionPlan.ts): السطور بأرقام كتالوجنا وأسمائه. */
-export function sectionPlanOf(context: DemandContext, room?: TeachingRoom | null) {
+export function sectionPlanOf(context: DemandContext, room?: TeachingRoom | null, history?: PlanHistory | null) {
   const general = context.stored?.variants?.general?.report || null;
   const graduates = context.stored?.variants?.graduates?.report || null;
   const reading = sectionPlan({
     general, graduates, matches: context.matches, catalogue: context.catalogue as any, members: context.family.members, rows: context.rows,
     isTeacher: room ? id => !room.placeholders.has(Number(id)) : undefined, freeHours: room?.freeHours || 0,
+    past: history?.past, ancestors: history?.ancestors, offering: history?.offering,
   });
   /* «اختر ما يُغلق» يبحث في الجدول برمز المقرر كما خُزّن في كتالوجنا. */
   const rawCode = (courseId?: number) => String(context.catalogue.find(course => Number(course.AdCourseId) === Number(courseId))?.CourseCode || "").trim();
   return { ...reading, rows: reading.rows.map(row => ({ ...row, ...courseFace(context, row.code, row.name), report: row.code, courseCode: rawCode(row.target?.courseId) })) };
 }
 
-export function demandReading(context: DemandContext, room?: TeachingRoom | null) {
+export function demandReading(context: DemandContext, room?: TeachingRoom | null, history?: PlanHistory | null) {
   const general = context.stored?.variants?.general?.report || null;
   const graduates = context.stored?.variants?.graduates?.report || null;
   const base = general || graduates;
-  const plan = base ? sectionPlanOf(context, room) : null;
+  const plan = base ? sectionPlanOf(context, room, history) : null;
   const seenCodes = new Set<string>();
   const unmatched = [general, graduates].flatMap(report => report?.courses || [])
     .filter(course => context.matches.get(course.code)?.status === "unmatched" && !seenCodes.has(course.code) && seenCodes.add(course.code))
@@ -226,6 +286,9 @@ export function demandPreview(report: DemandReport, context: DemandContext, term
     termMatches: demandTermMatches(report.termLabel, termName),
     departmentMatches: demandDepartmentMatches(report.department, context.family.key),
     duplicate: context.stored?.variants?.[variant]?.hash === hash,
+    /* نوعٌ يناقض الآخر المحفوظ، من الأرقام لا من اسم الملف. "" = لا قرينة. */
+    kindClue: demandKindClue(report, variant, context.stored?.variants?.[variant === "graduates" ? "general" : "graduates"]?.report || null,
+      context.stored?.variants?.[variant === "graduates" ? "general" : "graduates"]?.hash || "", hash),
     warnings: report.warnings.slice(0, 6),
   };
 }
@@ -256,12 +319,45 @@ export async function appointmentDemandFor(req: AuthenticatedRequest, row: any):
     const replaces = Number(row.excludeId || row.id || 0);
     const candidate = { ...row, id: replaces || -1 };
     const impact = graduates ? graduateImpactOf({ graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces }) : null;
-    const fit = studentFitOf({ general, graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces });
+    const fit = studentFitOf({ general, graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces, withCoverage: true });
     const face = (side: StudentFit["students"]) => side ? { ...side, clashes: side.clashes.map(clash => ({ ...clash, ...courseFace(context, clash.code, clash.name) })) } : null;
     return {
       graduateImpact: impact ? { graduates: impact.graduates, pairs: impact.clashes.slice(0, 3).map(clash => `${courseFace(context, clash.a.code, clash.a.name).code} × ${courseFace(context, clash.b.code, clash.b.name).code}`) } : null,
       studentFit: fit ? { ...fit, students: face(fit.students), graduates: face(fit.graduates) } : null,
     };
+  } catch { return none; }
+}
+
+/**
+ * ── «نبض الطلبة» لعدة أوقاتٍ مرشّحة دفعةً واحدة ─────────────────────────────────────
+ * يقرأ عائلةَ القسم مرةً واحدة ثم يحكم على كل (أيام، بداية، نهاية): الخريجون أولاً، وإلا الطلبة.
+ * يغذّي ترتيبَ «اقترح لي وقتاً وقاعة» (الوقتُ الذهبي) وتلوينَ خانات «أسبوع الأستاذ». لا يرمي؛
+ * بلا تقرير أو بمقررٍ غير مطابَق يُرجع null لكلٍّ منها فلا يتغيّر شيء.
+ */
+export interface FitScore { percent: number; kind: "grad" | "stud"; blocked: number; need: number }
+export interface FitCandidate { days: readonly string[]; start: string; end: string }
+export async function fitScoresFor(req: AuthenticatedRequest, row: any, candidates: readonly FitCandidate[]): Promise<Array<FitScore | null>> {
+  const none = candidates.map(() => null);
+  try {
+    const collegeId = Number(row?.AdCollegeId || 0), sectionId = Number(row?.AdSectionId || 0), termId = Number(row?.AdTermId || 0);
+    if (!collegeId || !sectionId || !termId || !Number(row?.AdCourseId) || !candidates.length) return none;
+    const context = await demandContext(req, collegeId, sectionId, termId);
+    const general = context.stored?.variants?.general?.report || null;
+    const graduates = context.stored?.variants?.graduates?.report || null;
+    if (!general && !graduates) return none;
+    const replaces = Number(row.excludeId || row.id || 0);
+    const memo = new Map<string, FitScore | null>();
+    return candidates.map(item => {
+      const key = `${[...item.days].sort().join("+")}|${item.start}|${item.end}`;
+      if (memo.has(key)) return memo.get(key)!;
+      const candidate = { ...row, id: replaces || -1, fstarttime: item.start, fendtime: item.end,
+        ...Object.fromEntries(["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].map(day => [day, item.days.includes(day)])) };
+      const fit = studentFitOf({ general, graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces });
+      const side = fit?.graduates || fit?.students || null;
+      const score: FitScore | null = side && side.percent != null ? { percent: side.percent, kind: fit!.graduates ? "grad" : "stud", blocked: side.blocked, need: side.need } : null;
+      memo.set(key, score);
+      return score;
+    });
   } catch { return none; }
 }
 

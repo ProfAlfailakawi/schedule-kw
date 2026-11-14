@@ -343,13 +343,13 @@ var SAME_IC='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width
 function peerMark(it,t){var p=it&&it.peers;return p&&p.courses&&p.courses.length&&it.start===t?'<span class="peer-mark" data-peer-mark="1" title="'+esc(p.line)+'">'+(PEER_IC[p.relation]||"")+'</span>':""}
 function softHtml(it){var h="",p=it&&it.peers;if(it&&it.same)h+='<p class="soft-note" data-k="same" role="note">'+SAME_IC+'<span>'+SAME_TXT+'</span></p>';if(p&&p.courses&&p.courses.length)h+='<details class="soft-note" data-k="peers"><summary>'+(PEER_IC[p.relation]||"")+'<span>'+esc(p.line)+'</span></summary><ul>'+p.courses.map(function(c){return '<li>'+(PEER_IC[c.relation]||"")+'<b>'+esc(c.name)+'</b><small>'+(c.relation==="unlock"?"تفتح":"تُؤخذ معًا")+'</small></li>'}).join("")+'</ul></details>';return h?'<div class="soft-notes">'+h+'</div>':""}
 function notesHtml(it){var ns=((it&&it.notes)||[]).filter(function(n){return n.kind!=="balance"&&!(n.kind==="sections"&&it.same)});if(!ns.length)return "";
- var AN=function(n){return String(n).replace(/[0-9]/g,function(d){return "٠١٢٣٤٥٦٧٨٩".charAt(+d)})};
+ var AN=function(n){return String(n)}; /* أرقامٌ لاتينية فقط */
  var SUN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
  var MOON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
  var COPY='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg>';
  return '<div class="reg-notes" role="note">'+ns.map(function(n){
   if(n.kind==="balance"&&n.data){var m=Math.max(0,Math.min(100,+n.data.morning||0));
-   return '<div class="reg-note" data-k="balance">'+SUN+'<span class="reg-pct">'+AN(m)+'٪</span><span class="reg-bar" aria-hidden="true"><i style="width:'+m+'%"></i></span><span class="reg-pct">'+AN(100-m)+'٪</span>'+MOON+'<b>'+esc(n.article)+'</b><span>الصباح ٥٠–٧٠٪</span></div>'}
+   return '<div class="reg-note" data-k="balance">'+SUN+'<span class="reg-pct">'+AN(m)+'%</span><span class="reg-bar" aria-hidden="true"><i style="width:'+m+'%"></i></span><span class="reg-pct">'+AN(100-m)+'%</span>'+MOON+'<b>'+esc(n.article)+'</b><span>الصباح 50–70%</span></div>'}
   return '<div class="reg-note" data-k="sections">'+COPY+'<span>تكرار الشعب في الوقت نفسه</span><b>'+esc(n.article)+'</b><span>الأفضل تفريقها</span></div>'}).join("")+'</div>'}
 function verdictText(it){var n=String(it&&it.note||"");
  if(/لا يغطّيها/.test(n))return it.shapes&&it.shapes.length?"الأيام المختارة لا تغطي ساعات هذا المقرر الأسبوعية. اختر أحد الخيارات تحته.":"ساعات هذا المقرر تحتاج توزيعاً يحدّده القسم. أبقِ موعدك كما هو، أو اكتب للقسم ما تريده.";

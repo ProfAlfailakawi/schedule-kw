@@ -171,7 +171,7 @@ export function learnCourseNature(courseId: number, rows: FSchedule[]): CourseNa
     : `${countOf(meetingsPerWeek, AR.meeting)} × ${arabicNumber(meetingMinutes)}د (${countOf(hours, AR.hour)})`;
   const whereLine = buildings[0] ? ` · ${buildings[0].value}` : "";
   const whenLine = starts[0] ? ` · يبدأ ${starts[0].value}` : "";
-  const settled = dominance >= 75 ? "" : dominance ? ` (${arabicNumber(dominance)}٪ من المرات)` : "";
+  const settled = dominance >= 75 ? "" : dominance ? ` (${arabicNumber(dominance)}% من المرات)` : "";
   const summary = `${shapeLine}${dayPatterns[0] ? ` · ${dayPatterns[0].label}${settled}` : ""}${whenLine}${whereLine}`;
 
   // Everything needed to open a new section already filled in the way this

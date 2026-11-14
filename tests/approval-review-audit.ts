@@ -106,7 +106,8 @@ console.log("قاعدةٌ واحدة: الملاحظة تُرى ولا تُنق�
   const scope = Array.from({ length: 56 }, (_, i) => i + 1);
   const notesOnly = approvalScoreBreakdown(scope, [{ key: "ladder", label: "خارج سُلّم اللائحة", tone: "note", rowIds: [1, 2, 3, 4, 5] }]);
   check(notesOnly.score === 100 && notesOnly.clean === 51 && notesOnly.noted === 5, "خمس ملاحظات: الدرجة 100 والسليم 51 وللملاحظة 5");
-  check(notesOnly.formula.includes("51") && notesOnly.formula.includes("للملاحظة 5") && notesOnly.formula.includes("56"), `المعادلة تقول الملاحظات: «${notesOnly.formula}»`);
+  check(notesOnly.formula.includes("51") && notesOnly.formula.includes("5 للملاحظة خارج الحساب") && !notesOnly.formula.includes("56"), `المعادلة تقول إن الملاحظات خارج الحساب: «${notesOnly.formula}»`);
+  check(notesOnly.scored === 51 && notesOnly.total === 56, "أساس الحساب 51 لا 56: الملاحظات خارج الإجمالي");
   const keys = approvalSpreadKeys(approvalSpread(notesOnly));
   check(keys.map(key => `${key.counted} ${key.tail}`).join(" | ") === "5 مواعيد للملاحظة | 51 موعداً سليماً", "مفتاحا الشريط: «5 مواعيد للملاحظة» و«51 موعداً سليماً»");
   check(notesOnly.segments[0].projected === 100, "«لو عولجت» الملاحظة لا ترفع درجةً لم تُنقصها");
@@ -120,6 +121,28 @@ console.log("قاعدةٌ واحدة: الملاحظة تُرى ولا تُنق�
   check(girls.segments.find(segment => segment.key === "6/2")!.projected === 100, "«97 ← 100» للبند وحده — والموعد المشترك مع ملاحظةٍ يُحتسب");
   check(approvalVerdict({ checked: true, blocking: 0, readinessError: false, needsFix: 1, notes: 1, unclassified: 0 }) === "لا مانع للتوقيع · بنود للمعالجة", "المعالجة تسبق الملاحظة في العنوان");
   check(approvalVerdict({ checked: true, blocking: 1, readinessError: false, needsFix: 1, notes: 1, unclassified: 0 }) === "يوجد ما يمنع الاعتماد", "والمانع يسبقهما");
+}
+
+console.log("«للملاحظة» خارج اللائحة: لا في البسط ولا في المقام (المالك 2026-11-14)");
+{
+  /* شاشة المالك: 111 سليماً + 47 للملاحظة + 3 للمعالجة = 161 موعداً → 111 ÷ 114 = 97، لا 98. */
+  const scope = Array.from({ length: 161 }, (_, i) => i + 1);
+  const fix = [1, 2, 3], notedIds = Array.from({ length: 47 }, (_, i) => 4 + i);
+  const owner = approvalScoreBreakdown(scope, [
+    { key: "fix", label: "بند للمعالجة", tone: "regulation", rowIds: fix },
+    { key: "note", label: "ملاحظة", tone: "note", rowIds: notedIds },
+  ]);
+  check(owner.clean === 111 && owner.noted === 47 && owner.scored === 114 && owner.total === 161, "111 سليماً · 47 للملاحظة · أساس الحساب 114");
+  check(owner.score === 97, `الدرجة 97 (111 ÷ 114) لا 98 — وجدتُ ${owner.score}`);
+  check(owner.formula.includes("111") && owner.formula.includes("114") && owner.formula.includes("47 للملاحظة خارج الحساب"), `المعادلة: «${owner.formula}»`);
+  const spread = approvalSpread(owner);
+  check(spread.total === 114 && spread.low === 47, "الشريط يُقاس على 114 ومفتاح الملاحظة يبقى ظاهراً (47)");
+  check(owner.segments.find(segment => segment.key === "fix")!.projected === 100, "معالجة البند وحده تُصعّد الدرجة إلى 100");
+  const overlap = approvalScoreBreakdown(scope, [
+    { key: "fix", label: "بند للمعالجة", tone: "regulation", rowIds: [1, 2, 3] },
+    { key: "note", label: "ملاحظة", tone: "note", rowIds: [3, 4] },
+  ]);
+  check(overlap.scored === 160 && overlap.segments.find(segment => segment.key === "fix")!.projected === 100, "موعدٌ عليه بندٌ وملاحظةٌ معاً: يبقى في المقام حتى يُعالج، ثم يخرج مع الملاحظة");
 }
 
 console.log("I2/I3 — شاشة المراجعة");

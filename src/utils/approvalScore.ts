@@ -4,7 +4,10 @@
  * «81/100» كانت صحيحة الحساب لكنها صامتة: لا يعرف القارئ من أين جاءت، ولا ماذا
  * يرفعها. المعادلة هنا واحدة ومكتوبة:
  *
- *     الدرجة = المواعيد السليمة ÷ كل مواعيد النطاق × 100
+ *     الدرجة = المواعيد السليمة ÷ (السليم + ما يُنقص الدرجة) × 100
+ *
+ * و«للملاحظة» خارج اللائحة فلا تدخل الحساب لا في البسط ولا في المقام
+ * (المالك 2026-11-14): تُرى في الشريط والعنوان وتبقى خارج الإجمالي.
  *
  * و«السليم» موعدٌ لا يمسّه بندٌ أصلاً. كل موعدٍ يُعدّ مرّةً واحدة عند أول فئةٍ
  * تمسّه بترتيب الخطورة، فمجموع شرائح الحلقة + السليم = كل المواعيد.
@@ -26,9 +29,9 @@ import { AR, countOf, nounFor } from "./arabicCount";
  *   note        ملاحظةٌ لا تمنع (تنبيهٌ،
  *               خارج سُلّم اللائحة…)      ← «للملاحظة»، لا يُنقص الدرجة
  *
- * فـ«السليم» موعدٌ لا يمسّه شيء، والملاحظةُ تُرى في العنوان والشريط ولا تُنقص
- * الدرجة (قرار المالك 2026-10-30: السُّلّم تنبيهٌ لا يُنقص). والمعادلة تقول ذلك:
- * (السليم + للملاحظة) ÷ الكل × 100.
+ * فـ«السليم» موعدٌ لا يمسّه شيء، والملاحظةُ تُرى في العنوان والشريط ولا تدخل
+ * الحساب أصلاً (قرارا المالك 2026-10-30 و2026-11-14: خارج اللائحة). والمعادلة:
+ * السليم ÷ (السليم + للمعالجة) × 100.
  */
 export type ScoreTone = "block" | "regulation" | "note";
 
@@ -56,10 +59,13 @@ export interface ScoreSegment {
 }
 
 export interface ApprovalScoreBreakdown {
+  /** Every appointment in scope, notes included (shown, never scored). */
   total: number;
+  /** The scored base: clean + appointments a block/regulation holds back. Notes sit outside it. */
+  scored: number;
   /** Appointments nothing touches. */
   clean: number;
-  /** Appointments only a note touches: shown, never subtracted. */
+  /** Appointments only a note touches: shown, outside the formula altogether. */
   noted: number;
   score: number;
   segments: ScoreSegment[];
@@ -89,10 +95,15 @@ export function approvalScoreBreakdown(scopeRowIds: readonly number[], categorie
   const clean = total - touchedBy.size;
   const counted = total - heldBy.size;
   const noted = counted - clean;
-  const score = pct(counted, total);
+  const scored = total - noted;
+  const score = pct(clean, scored);
   const segments: ScoreSegment[] = ordered.map(category => {
     const ids = [...new Set(category.rowIds.map(Number))].filter(id => scope.has(id));
-    const exclusive = reduces(category.tone) ? ids.filter(id => (heldBy.get(id) || []).length === 1).length : 0;
+    const exclusiveIds = reduces(category.tone) ? ids.filter(id => (heldBy.get(id) || []).length === 1) : [];
+    const exclusive = exclusiveIds.length;
+    /* بعد المعالجة: ما لا يمسّه غيرُها يصير سليماً، وما تمسّه ملاحظةٌ أيضاً يخرج من الحساب. */
+    const becomesClean = exclusiveIds.filter(id => (touchedBy.get(id) || []).length === 1).length;
+    const projectedScored = scored - (exclusive - becomesClean);
     return {
       key: category.key,
       label: category.label,
@@ -100,24 +111,24 @@ export function approvalScoreBreakdown(scopeRowIds: readonly number[], categorie
       count: ids.filter(id => owner.get(id) === category.key).length,
       touched: ids.length,
       exclusive,
-      projected: pct(counted + exclusive, total),
+      projected: pct(clean + becomesClean, projectedScored),
       rowIds: ids,
     };
   }).filter(segment => segment.touched > 0);
   const n = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
   return {
-    total, clean, noted, score, segments,
+    total, scored, clean, noted, score, segments,
     formula: !total ? "لا مواعيد في النطاق"
-      : noted ? `(السليم ${n(clean)} + للملاحظة ${n(noted)}) ÷ الكل ${n(total)} × 100 = ${n(score)}`
-      : `السليم ${n(clean)} ÷ الكل ${n(total)} × 100 = ${n(score)}`,
+      : `السليم ${n(clean)} ÷ الكل ${n(scored)} × 100 = ${n(score)}${noted ? ` · ${n(noted)} للملاحظة خارج الحساب` : ""}`,
   };
 }
 
 /** كل موعدٍ مرّةً واحدة عند أخطر ما يمسّه: الشريط ومفاتيحه على الشاشة وعلى الورقة. */
 export interface ApprovalSpread { high: number; medium: number; low: number; clean: number; total: number }
+/* total هنا هو أساس الحساب (بلا الملاحظات): الشريط والحلقة يُقاسان عليه، و«للملاحظة» تُعرض مفتاحاً خارجه. */
 export function approvalSpread(breakdown: ApprovalScoreBreakdown): ApprovalSpread {
   const sum = (tone: ScoreTone) => breakdown.segments.filter(segment => segment.tone === tone).reduce((acc, segment) => acc + segment.count, 0);
-  return { high: sum("block"), medium: sum("regulation"), low: sum("note"), clean: breakdown.clean, total: Math.max(1, breakdown.total) };
+  return { high: sum("block"), medium: sum("regulation"), low: sum("note"), clean: breakdown.clean, total: Math.max(1, breakdown.scored) };
 }
 
 /** مفاتيح الشريط بعبارةٍ واحدة: العدد بمعدوده (countOf) ثم ما يقوله عنه. */

@@ -93,7 +93,7 @@ import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
-import { bestRegulationChoice, completeRegulation, completeSectionEnd, endIsDeliberate, patternLengthIssue, pickDay, sameScheduleShape, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, completeRegulation, completeSectionEnd, endIsDeliberate, patternLengthIssue, pickDay, sameScheduleShape, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, wheelLengths, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { spellingTwinsOf } from "../utils/courseSpellingTwins";
 import {
@@ -216,7 +216,7 @@ import { changeFormPatch, openRowNotice, takeOpenRow, type RequestedChange } fro
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
 import { ACTUAL_DEMAND_HANDOFF_EVENT, actualDemandNotice, FOCUS_COURSE_EVENT, graduateImpactNote, takeActualDemandHandoff, takeFocusedCourse } from "../utils/actualDemandHandoff";
 import { freshSectionOf, parseHoursIssue } from "../utils/hoursIssue";
-import StudentPulse from "./StudentPulse";
+import StudentPulse, { FitImpact, saveImpactOf, type BestTime, type SaveImpact } from "./StudentPulse";
 import type { StudentFit } from "../utils/studentFit";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
 import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmStart";
@@ -1014,6 +1014,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     [graduateNotice, setGraduateNotice] = useState(""),
     /* «نبض الطلبة»: من يناسبه هذا الوقت ممن يحتاجون المقرر — من الطلب الفعلي، ملاحظةٌ لا تمنع. */
     [studentFit, setStudentFit] = useState<StudentFit | null>(null),
+    /* «أفضل وقت» من أسبوع الأستاذ، وسطرُ أثر الحفظ («يناسب الخريجين 0٪ ← 94٪») لثوانٍ بعد حفظٍ ناجح. */
+    [bestTime, setBestTime] = useState<BestTime | null>(null),
+    [saveImpact, setSaveImpact] = useState<SaveImpact | null>(null),
     [graduateImpact, setGraduateImpact] = useState<{ graduates: number; pairs?: string[] } | null>(null),
     /* ما يُحفظ بتأكيدٍ صريح فقط (ملاحظتا المالك 10 و20): من فحص الخادم نفسه. */
     [regulationIssues, setRegulationIssues] = useState<RegulationExceptionIssue[]>([]),
@@ -3125,7 +3128,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     /* أثرُ الموعد السابق على الخريجين لا يبقى في محرّرٍ جديد ولا يصل ورقةَ الاستثناء. */
     setGraduateNotice("");
     graduateNoteRef.current = "";
-    setStudentFit(null); setGraduateImpact(null);
+    setStudentFit(null); setGraduateImpact(null); setBestTime(null);
     usualRoomLookup.current += 1;
     setChecking(false);
     setScheduleTouched(false);
@@ -3382,12 +3385,41 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           compact: true,
         });
         if (!leave) return;
+        clearDraft();
       } finally {
         closingEditor.current = false;
       }
     }
     back();
   };
+  /* ── مسودةٌ لا تضيع (فكرة المراجعة 2026-11-14) ───────────────────────────────────────
+     ما يُكتب في «موعد جديد» يُحفظ على هذا الجهاز لحظةً بلحظة، فإن أُغلق المتصفح أو انقطع الاتصال عُرضت عند الفتح
+     التالي شريحةٌ واحدة: «استعد». الإغلاقُ المقصود (تأكيد «أغلق دون حفظ») والحفظُ الناجح يمحوانها — فلا يبقى إلا ما ضاع. */
+  const draftKey = `schedule-appt-draft:${Number(user?.SystemUserId || 0)}`;
+  const readDraft = () => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(draftKey) || "null");
+      return saved && Number(saved.at) > Date.now() - 24 * 3600_000 && saved.form?.AdCourseId ? saved as { form: Partial<FSchedule>; courseName: string; at: number } : null;
+    } catch { return null; }
+  };
+  const clearDraft = () => { try { window.localStorage.removeItem(draftKey); } catch { /* التخزين قد يغيب */ } };
+  const [draftOffer, setDraftOffer] = useState<{ form: Partial<FSchedule>; courseName: string; at: number } | null>(null);
+  useEffect(() => { setDraftOffer(editor === "create" ? readDraft() : null); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, editId]);
+  useEffect(() => {
+    if (editor !== "create" || !editorDirty || !form.AdCourseId) return;
+    try { window.localStorage.setItem(draftKey, JSON.stringify({ form, courseName, at: Date.now() })); } catch { /* ممتلئ أو محجوب */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, editorDirty, form, courseName]);
+  const restoreDraft = () => {
+    if (!draftOffer) return;
+    setForm({ ...blank(), ...draftOffer.form });
+    setCourseName(draftOffer.courseName || courseById.get(Number(draftOffer.form.AdCourseId))?.CourseName || "");
+    sectionAutofilled.current = false;
+    setScheduleTouched(true);
+    setDraftOffer(null);
+  };
+  const dropDraft = () => { clearDraft(); setDraftOffer(null); };
   /* The Escape listener is registered once; these keep it from asking an old
      render whether an editor is open. */
   const editorRef = useRef(editor);
@@ -3708,6 +3740,29 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }));
     setSlotIdeas(null);
     setAlternatives(null);
+  };
+  /* ── «أفضل وقت» يبحث عن القاعة أيضاً (المراجعة 2026-11-14) ───────────────────────────────
+     الضغطة تضع الأيام والبداية والنهاية كخانات الأسبوع، ثم تسأل محرّك الاقتراح نفسه («اقترح قاعة») عن قاعةٍ خالية
+     في ذلك الوقت — القاعة والأستاذ والمرفق والانتقال كلها — وتضع الأولى. إن كانت القاعة المختارة خاليةً فيه بقيت،
+     وإن لم توجد قاعةٌ بقي الوقتُ وحده ويقول الفحص الحيّ ما يخصّ القاعة. لا رقمَ قاعةٍ في الزرّ ولا في سطرٍ إضافي:
+     تظهر القاعة في خطوة «أين؟» كأي اختيار. */
+  const [bestBusy, setBestBusy] = useState(false);
+  const pickBestTime = async (best: BestTime) => {
+    pickFromMiniWeek({ day: best.day as RegDayKey, days: best.days as RegDayKey[], start: best.start, end: best.end });
+    const courseId = Number(form.AdCourseId || 0);
+    setBestBusy(true);
+    try {
+      const timed: any = { ...form, fstarttime: best.start, fendtime: best.end };
+      days.forEach(day => { timed[day.key] = best.days.includes(day.key); });
+      const reply = await fetchSuggestions(suggestionBody({ ...timed, excludeId: editor === "edit" ? editId || 0 : 0, instructorRequestId: pendingHandoff.current?.requestId }, "room"));
+      const free = reply.slots.filter(slot => slot.roomId && slot.buildingId);
+      if (!free.length || (form.roomId && free.some(slot => slot.roomId === form.roomId))) return;
+      const first = free[0];
+      setForm(previous => Number(previous.AdCourseId || 0) !== courseId || previous.fstarttime !== best.start ? previous : {
+        ...previous, buildingId: first.buildingId, roomId: first.roomId, AdRoomCode: first.room, AdRoomHall: first.hall, locationStatus: "VERIFIED" as const,
+        ...(first.companionRoomId ? { companionRoomId: first.companionRoomId, companionRoomLabel: first.companionRoomLabel || "" } : {}),
+      });
+    } catch { /* بلا قاعة: يبقى الوقت وحده */ } finally { setBestBusy(false); }
   };
   /* 🔄 إسناد الأستاذ إلى شعبة «هيئة تدريسية» القائمة للمقرر نفسه بدل موعدٍ جديد:
      تعديل صفٍّ واحد عبر بوابة الحفظ نفسها (PUT)، مسجَّل، وبزرّ تراجع. */
@@ -4405,6 +4460,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const editorOverIssue = parseHoursIssue(editorVerdict.blockers[0]?.text || "");
   const editorOverHours = editorOverIssue?.kind === "over" ? ["", String(editorOverIssue.hours), String(editorOverIssue.total)] as const : null;
   const editorFreshSection = editorVerdict.blockers.map(item => freshSectionOf(item.text)).find(Boolean) || "";
+  /* موعدٌ ينتهي بعد نهاية الدوام الشامل: آخرُ بدايةٍ من سُلّم اللائحة تتّسع لمدّته بضغطة (المراجعة 2026-11-14، البند 3) —
+     «730» تُقرأ 19:30 فتنتهي 20:20؛ والإصلاح 19:00 لا أن يُترك المستخدم يحسب. */
+  const editorFitStart = (() => {
+    if (!editorVerdict.blockers.some(item => /ضمن الدوام الشامل/.test(item.text)) || !(formSpan > 0)) return "";
+    const last = mins(SCHEDULE_DAY_END_TIME), first = mins(SCHEDULE_DAY_START_TIME);
+    const fits = ladderStartsForDays(formDays as RegDayKey[]).filter(time => mins(time) >= first && mins(time) + formSpan <= last).sort();
+    return fits.length ? fits[fits.length - 1] : "";
+  })();
   const editorBlockerLine = (text: string) => {
     if (!/لشعبة جديدة: \d+/.test(text)) return text;
     const counted = /نفسها: (.+?) — لشعبة جديدة/.exec(text)?.[1];
@@ -4820,6 +4883,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         tradeoffs: [timingNote, ...decision.tradeoffs.filter(reason => reason !== timingNote)].slice(0, 3),
       };
     }
+    /* حماية الخريجين: من ردّ فحص الموعد نفسه — لا طلبَ ثانياً (src/components/SchedulePhysics/GraduateRead.tsx). */
+    if (conflictData && (conflictData.graduateImpact || conflictData.studentFit))
+      decision = { ...decision, graduates: { impact: conflictData.graduateImpact || null, fit: conflictData.studentFit || null } };
     return decision;
   };
   const addComment = async () => {
@@ -5338,6 +5404,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         }).then(response => { if (!response.ok) throw new Error("حُفظ الموعد لكن تعذّر ربطه بطلب الإرشاد. اربطه من بطاقة الطلب في كشف التسجيل."); }).catch(issue => setError(issue.message));
       }
       rememberSave(form);
+      clearDraft();
       markChanged(editor === "edit" ? editId : Number(saved?.id || 0) || null);
       // Follow the save: the list jumps to the scope the row was filed under so
       // the user always sees what they just did.
@@ -5373,6 +5440,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             : "تم إنشاء الموعد · الشعبة التالية جاهزة",
       );
       setPhysicsNotice([queuedOffline ? "بانتظار المزامنة" : "", editorTimingNote || ""].filter(Boolean).join(" · "));
+      /* أثرُ الحفظ على من يحتاجون المقرر: سطرٌ واحد لثوانٍ، لا يُمحى بفتح «الشعبة التالية» (لا يمرّ من clearEditorTransients). */
+      const impact = queuedOffline ? null : saveImpactOf(studentFit);
+      setSaveImpact(impact);
+      if (impact) window.setTimeout(() => setSaveImpact(current => current === impact ? null : current), 9000);
       sendEntryMeasure(studioMeter.current?.finish() ?? null);
       studioMeter.current = keepCreating ? createEntryMeter("create") : null;
       const guideOp = guideOperationRef.current;
@@ -7715,8 +7786,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
        predicate decides what may stop a move, the same one the refusal card
        and the classifier already use. */
     const blocking = conflicts.filter(isBlockingConflict);
-    if (!conflicts.length) return { ...local, key, loading: false };
-    return buildDecision(
+    const decision = !conflicts.length ? { ...local, key, loading: false } : buildDecision(
       key,
       local.ripple,
       null,
@@ -7725,6 +7795,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       blocking.length > 0,
       blocking[0] ? [blocking[0]?.message, blocking[0]?.detail].filter(Boolean).join(" — ") : "",
     );
+    /* حماية الخريجين: من ردّ الفحص نفسه — المسار الفوري والمسار الغني يحملانه معاً (GraduateRead). */
+    return response?.graduateImpact || response?.studentFit
+      ? { ...decision, graduates: { impact: response.graduateImpact || null, fit: response.studentFit || null } }
+      : decision;
   };
 
   /* Declared ahead of the drag layer because the drag layer reads it: while the
@@ -9717,6 +9791,22 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         {/* The editor no longer closes after a creation, so the confirmation has
             to be readable where the person is still standing. */}
         {message ? <Notice type="success">{message}</Notice> : null}
+        {saveImpact ? <FitImpact impact={saveImpact} /> : null}
+        {editor === "create" && draftOffer && !form.AdCourseId ? (() => {
+          const minutesAgo = Math.max(0, Math.round((Date.now() - draftOffer.at) / 60000));
+          const ago = minutesAgo < 1 ? "الآن" : minutesAgo < 60 ? `قبل ${minutesAgo} د` : `قبل ${Math.round(minutesAgo / 60)} س`;
+          const detail = [draftOffer.courseName || courseById.get(Number(draftOffer.form.AdCourseId))?.CourseName, draftOffer.form.SCode ? `شعبة ${draftOffer.form.SCode}` : ""].filter(Boolean).join(" · ");
+          return (
+            <div className="appt-draft" role="status" aria-label="مسودة لم تُحفظ">
+              <span className="appt-draft-mark" aria-hidden="true"><History /></span>
+              <span className="appt-draft-copy"><b>مسودة · {ago}</b><small>{detail}</small></span>
+              <button type="button" className="appt-draft-restore" onClick={restoreDraft}
+                data-guide-ignore="يعيد ما كُتب في «موعد جديد» قبل أن يُغلق دون حفظ؛ لا يحفظ شيئاً">استعد</button>
+              <button type="button" className="appt-draft-drop" aria-label="تجاهل المسودة" title="تجاهل المسودة" onClick={dropDraft}
+                data-guide-ignore="يمحو المسودة المحفوظة على هذا الجهاز؛ لا يمسّ الجدول"><X aria-hidden="true" /></button>
+            </div>
+          );
+        })() : null}
         <div className={`schedule-editor-grid appt-layout${studioWeekShown ? " has-week" : ""}`} ref={studioGridRef}
           style={{ ["--appt-week-offset" as any]: `${studioWeekOffset}px` }}>
           <Surface className="form-card smart-form appt-form">
@@ -9956,8 +10046,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                            ولو سبقها تجاوزٌ أو طولٌ قديم (كانت «اثنين · 170د» + 08:00 ← 08:30). ما لا نمطَ له يحفظ طوله. */
                         const patterned = Boolean(start && completeSectionEnd(formCourse, formDays, start, formSpan));
                         if (patterned) { setTimingOverride(false); flashAutofill(); }
-                        /* مسحُ البداية لا يحسب نهايةً من لا شيء (كانت 01:20). */
-                        setForm((p) => ({ ...p, fstarttime: start, fendtime: !start ? p.fendtime : patterned ? endForStart(p, start) : timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
+                        /* مسحُ البداية لا يحسب نهايةً من لا شيء (كانت 01:20)، ولا تُبقي نهايةً محسوبةً من بدايةٍ ذهبت:
+                           تُمسح معها إلا نهايةً كتبها صاحبها عمداً (المراجعة 2026-11-14، البند 2). */
+                        setForm((p) => ({ ...p, fstarttime: start, fendtime: !start ? (timingOverride ? p.fendtime : "") : patterned ? endForStart(p, start) : timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
                       }}
                       required
                     />
@@ -9989,6 +10080,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       minTime={SCHEDULE_DAY_START_TIME}
                       maxTime={SCHEDULE_DAY_END_TIME}
                       endLimit={SCHEDULE_CLOCK_END_TIME}
+                      lengths={wheelLengths(formCourse, formDays as RegDayKey[])}
                       onChange={(next) => {
                         setScheduleTouched(true);
                         /* العجلة تحفظ المدة: تحريك الساعة يعيد النهاية إلى النمط، وتغيير «المدة» تجاوزٌ متعمَّد.
@@ -10061,6 +10153,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً"><bdi dir="ltr">+{editorVerdict.blockers.length - 1}</bdi></button> : null}
                     {editorFreshSection ? <button type="button" className="appt-inline-alt is-fix" onClick={useFreshSection}
                       data-guide-ignore="يغيّر رقم الشعبة إلى الرقم الحرّ التالي لهذا المقرر فيزول مانع الساعات؛ لا يحفظ شيئاً"><Plus aria-hidden="true" />شعبة جديدة <bdi dir="ltr">{editorFreshSection}</bdi></button> : null}
+                    {editorFitStart ? <button type="button" className="appt-inline-alt is-fix" onClick={() => { setScheduleTouched(true); setForm(previous => ({ ...previous, fstarttime: editorFitStart, fendtime: endForStart(previous, editorFitStart) })); flashAutofill(); }}
+                      data-guide-ignore="يقدّم بداية الموعد إلى آخر بدايةٍ من سُلّم اللائحة تنتهي ضمن الدوام الشامل؛ لا يحفظ شيئاً"><Clock3 aria-hidden="true" />ابدأ <bdi dir="ltr">{editorFitStart}</bdi></button> : null}
                     {editorRegulationBlocked ? <button type="button" className="appt-inline-alt is-fix" onClick={applyApprovedPattern}
                       data-guide-ignore="يعيد الأيام والنهاية إلى النمط المعتمد لساعات المقرر؛ لا يحفظ شيئاً"><Ruler aria-hidden="true" />طبّق النمط</button> : null}
                     {editorUnderHours ? <button type="button" className="appt-inline-alt is-fix" onClick={() => {
@@ -10072,7 +10166,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     </div>
                   </div>:null}
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
-                  {studioTimeDone ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact} /> : null}
+                  {studioTimeDone ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact}
+                    best={bestTime && (bestTime.start !== String(form.fstarttime || "") || bestTime.days.join() !== formDays.join()) ? bestTime : null}
+                    bestBusy={bestBusy} currentDays={formDays} onPickBest={best => void pickBestTime(best)} /> : null}
                   <div className="appt-helpers" role="group" aria-label="مساعدات الوقت">
                     <span className="appt-helpers-label">مساعدات الوقت</span>
                     <button
@@ -10366,7 +10462,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       </strong>
                       <span>
                         {roomOwner.college ? `${roomOwner.college} · ` : ""}
-                        {roomOwner.share}٪ من حجوزاتها المسجلة لهذا القسم. يمكنك المتابعة إذا كان الحجز متفقاً عليه.
+                        {roomOwner.share}% من حجوزاتها المسجلة لهذا القسم. يمكنك المتابعة إذا كان الحجز متفقاً عليه.
                       </span>
                     </div>
                     <button type="button" data-guide-feature-id="schedule.action.move-room" onClick={() => setForm(p => ({ ...p, AdRoomCode: "", AdRoomHall: "", buildingId: undefined, roomId: undefined, locationStatus: undefined }))}>
@@ -10396,6 +10492,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       : studioTone === "block" ? countOf(studioBlockers, AR.blocker)
                         : studioTone === "checking" ? <><Loader2 aria-hidden="true" className="checks-spin" />يفحص…</>
                           : studioTone === "missing" ? (studioMissing.length >= 5 ? "ابدأ بالمقرر" : studioMissing.length > 1 ? `التالي: ${studioMissing[0]}` : `ناقص: ${studioMissing[0]}`)
+                            : studioTone === "warn" && editor === "edit" && !editorDirty ? "لم يتغيّر شيء"
                             : studioTone === "warn" ? countOf(studioNotes, AR.note)
                               : editor === "edit" && !editorDirty ? <><CheckCircle2 aria-hidden="true" />لم يتغيّر شيء</>
                                 : <><CheckCircle2 aria-hidden="true" />جاهز للحفظ</>}
@@ -10433,6 +10530,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               dockable
               autoCollapse={studioChecksOpen || timeCounterOpen}
               room={studioRoom}
+              onBestFit={setBestTime}
             />
           ) : null}
           {studioWeekShown && !studioTeacherId ? (
@@ -11145,6 +11243,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         {returnNote ? <Notice type="success">{returnNote}</Notice> : null}
         {error ? <Notice>{error}</Notice> : null}
         {message ? <Notice type="success">{message}</Notice> : null}
+        {saveImpact && editor === "index" ? <FitImpact impact={saveImpact} /> : null}
       </div> : null}
       {/* Silent intelligence: routine timing/physics feedback no longer owns
           vertical space above the timetable. The same state is kept for assistive

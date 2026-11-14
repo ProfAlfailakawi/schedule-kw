@@ -36,6 +36,7 @@ import { eligibleHallsForSection } from "./src/utils/locationRegistry";
 import { state } from "./src/server/core/state";
 import { noteScheduleMutation, scheduleLockRefusal } from "./src/server/core/approvals";
 import { passwordChangeGate } from "./src/server/accountPassword";
+import { maintenanceRefuses, VAULT_MAINTENANCE_MESSAGE } from "./src/server/vaultJobPlanner";
 import { type AuthenticatedRequest, authMiddleware, bindPublicLinkContext, DEMO_READ_ONLY_PREFIXES, getCookies, isPowerUser, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin, ROOT_ADMIN_USER_ID } from "./src/server/core/auth";
 import { API_PERFORMANCE_LIMIT, apiPerformanceSamples, asyncSafe } from "./src/server/core/http";
 import { instructorRequestDepartmentScopes, resolveRequestLink, verifyRequestSigner } from "./src/server/core/instructorRequests";
@@ -70,6 +71,7 @@ import { registerInstructorsRoutes } from "./src/server/routes/instructorsRoutes
 import { registerIntelligenceInsightRoutes } from "./src/server/routes/intelligenceInsightRoutes";
 import { registerIntelligenceRoutes } from "./src/server/routes/intelligenceRoutes";
 import { registerLocationsRoutes } from "./src/server/routes/locationsRoutes";
+import { registerDeleteImpactRoutes } from "./src/server/routes/deleteImpactRoutes";
 import { registerNotificationsRoutes } from "./src/server/routes/notificationsRoutes";
 import { registerOfferingRoutes } from "./src/server/routes/offeringRoutes";
 import { registerPdfImportRoutes } from "./src/server/routes/pdfImportRoutes";
@@ -271,6 +273,22 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
   next();
 });
 
+/* بوابةُ الصيانة: ما دامت مهمةُ خزنةٍ مفتوحة (استيراد أو تصفير أو تراجع) تُرفض الكتابةُ العادية من غير الحساب الرئيسي
+   بـ 503 والقراءةُ تمرّ، فلا يحجز غيرُه معرّفاتٍ ولا يكتب في بيانات تُستبدل. العلَمُ مخبَّأ ≤5 ثوانٍ لكل نسخة
+   (لا قراءةَ لكل طلب)، ولا أثرَ في التجريبي والملف المحلي (src/server/vaultJobPlanner.ts → maintenanceRefuses). */
+app.use("/api", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") { next(); return; }
+  const isRoot = Boolean(req.user) && Number(req.user!.SystemUserId) === ROOT_ADMIN_USER_ID;
+  if (isRoot || Repository.isDemoRequest()) { next(); return; }
+  const open = await Repository.hasOpenVaultJob();
+  if (maintenanceRefuses({ method: req.method, path: req.path, isRoot, open })) {
+    res.setHeader("Retry-After", "30");
+    res.status(503).json({ error: VAULT_MAINTENANCE_MESSAGE, code: "VAULT_MAINTENANCE" });
+    return;
+  }
+  next();
+});
+
 /* ══════════════════════════════════════════════════════════════════════════
    حارس الأدوار: نقطة واحدة، لا مئة
    ══════════════════════════════════════════════════════════════════════════
@@ -436,6 +454,7 @@ registerScheduleReviewRoutes(app);
 registerIntelligenceInsightRoutes(app);
 registerReportsRoutes(app);
 registerLocationsRoutes(app);
+registerDeleteImpactRoutes(app);
 registerScheduleToolsRoutes(app);
 registerGuideRoutes(app);
 registerIntelligenceRoutes(app);

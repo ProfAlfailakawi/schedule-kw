@@ -161,7 +161,7 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
               <ul>
                 <li className="tm-delta-better">⬆️ <b>{students.helped}</b><small>تحسّن</small></li>
                 <li className="tm-delta-worse">⬇️ <b>{students.harmed + (students.harmedOutside ? 1 : 0)}</b><small>تضرّر</small></li>
-                <li><Ico n="reach" /><b><bdi>{students.delta12 > 0 ? `+${students.delta12}` : students.delta12}</bdi></b><small>يبلغ ١٢</small></li>
+                <li><Ico n="reach" /><b><bdi>{students.delta12 > 0 ? `+${students.delta12}` : students.delta12}</bdi></b><small>يبلغ 12</small></li>
               </ul>
             ) : null}
           </div>
@@ -173,7 +173,7 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
           <>
             <input data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" className="tm-name" value={name} onChange={event => setName(event.target.value)} placeholder="اسم السيناريو" aria-label="اسم السيناريو" maxLength={80} />
             <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-secondary" onClick={() => void save()} disabled={!changes.length || Boolean(busy)}><Save aria-hidden="true" />حفظ</button>
-            {scenario ? <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-ghost" onClick={() => void share()} title="للعرض لرئيس القسم والعميد"><Eye aria-hidden="true" />{scenario.shared ? "مشارَك" : "شارك للعرض"}</button> : null}
+            {scenario ? <button data-guide-ignore="أداة محاكاة داخل آلة الزمن؛ تعمل على نسخة افتراضية ولا تكتب في الجدول" type="button" className="btn btn-ghost" onClick={() => void share()} title="للعرض لرئيس القسم"><Eye aria-hidden="true" />{scenario.shared ? "مشارَك" : "شارك للعرض"}</button> : null}
             <button data-guide-feature-id="timeMachine.action.apply" data-guide-target="timeMachine.action.apply" type="button" className="btn btn-primary" onClick={() => setConfirming(true)} disabled={!changes.length || Boolean(busy) || delta.level === "red" && delta.after.blocking > delta.before.blocking}>
               <Check aria-hidden="true" />{busy === "apply" ? "يعتمد…" : "اعتمد الكل"}
             </button>

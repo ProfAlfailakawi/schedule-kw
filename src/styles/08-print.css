@@ -565,6 +565,21 @@
   .insight-canvas:has(.demand-qr) .insight-disclosure,
   .insight-canvas:has(.demand-qr) .demand-headline,
   .insight-canvas:has(.demand-qr) .demand-actions{display:none !important}
+  /* «تحليل الطلب» في كشف التسجيل: الرمز وحده كذلك، بلا الكشف ولا الأرقام. */
+  .changes-screen:has(.demand-analysis .demand-qr) > *:not(.demand-analysis){display:none !important}
+  .demand-analysis:has(.demand-qr) > summary,
+  .demand-analysis:has(.demand-qr) .intelligence-scope-switch,
+  .demand-analysis:has(.demand-qr) .demand-forecast,
+  .demand-analysis:has(.demand-qr) .demand-turnover,
+  .demand-analysis:has(.demand-qr) .demand-openings,
+  .demand-analysis:has(.demand-qr) .demand-chart,
+  .demand-analysis:has(.demand-qr) .demand-figures,
+  .demand-analysis:has(.demand-qr) .demand-repairs,
+  .demand-analysis:has(.demand-qr) .demand-bars,
+  .demand-analysis:has(.demand-qr) .insight-disclosure,
+  .demand-analysis:has(.demand-qr) .demand-headline,
+  .demand-analysis:has(.demand-qr) .demand-actions{display:none !important}
+  .demand-analysis:has(.demand-qr){border:0 !important;box-shadow:none !important;background:transparent !important}
   .demand-door-card{border:0;background:transparent;justify-items:center;text-align:center}
   .demand-qr{width:78mm;height:78mm;border:0}
   .demand-door-url{font-size:11pt;white-space:normal;word-break:break-all}
@@ -1438,7 +1453,7 @@
     display:grid !important;
     grid-template-columns:
       19mm 12mm minmax(51mm,1fr)
-      10mm 10mm 12mm 25mm 16mm 12mm 15mm 35mm 27mm !important;
+      10mm 10mm 12mm 25mm 16mm 12mm 15mm 46mm 27mm !important;
     width:100% !important;
     min-width:0 !important;
     direction:rtl !important;
@@ -2363,6 +2378,7 @@
   }
   .authority-pdf-instructor .visiting-badge{flex:none!important;min-height:3.8mm!important;padding:0 1.2mm!important;font-size:4.7pt!important;border-radius:999px!important}
   .authority-pdf-legend .authority-pdf-key{font-weight:800!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .authority-pdf-legend .authority-pdf-key b{margin-inline-start:1.2mm!important;font-weight:900!important}
   .authority-pdf-legend .authority-pdf-key-added{background:#e8f6ed!important;border-color:#66a47b!important;color:#155d3a!important}
   .authority-pdf-legend .authority-pdf-key-deleted{background:#fbe8e8!important;border-color:#c76d6d!important;color:#8e2020!important}
   .authority-pdf-legend .authority-pdf-key-changed{background:#fff2bf!important;border-color:#d4a20c!important}
@@ -2680,29 +2696,6 @@
 /* ── طباعة تقرير تخطيط الشعب ─────────────────────────────────────────────
    منفذٌ معزول كسجل الاستعارات: لا يُطبع إلا حين يُطلب بعينه. */
 @media print{
-  #app-print-root>.section-plan-print-host,
-  body.has-print-portal>#app-print-root>.section-plan-print-host,
-  .section-plan-print-host{display:none!important}
-  html[data-print-kind="section-plan"] #app-print-root>.print-only{display:none!important}
-  html[data-print-kind="section-plan"] #app-print-root>.section-plan-print-host{display:block!important;visibility:visible!important}
-  .section-plan-print{page:wide!important;direction:rtl!important;padding:6mm 4mm!important}
-  .section-plan-print-head{display:flex!important;align-items:baseline!important;justify-content:space-between!important;gap:8mm!important;margin-bottom:4mm!important;border-bottom:1.4pt solid #1f6b5c!important;padding-bottom:2.5mm!important}
-  .section-plan-print-head h1{font-size:14pt!important;margin:0!important;color:#12463c!important}
-  .section-plan-print-head p{margin:0!important;color:#5d6966!important;font-size:9pt!important;direction:ltr!important}
-  .section-plan-print .section-plan-report-stats{display:flex!important;gap:6mm!important;margin-bottom:4mm!important}
-  .section-plan-print .section-plan-report-stats>div{border:.5pt solid #d7ddd9!important;padding:2mm 3mm!important}
-  .section-plan-print .section-plan-report-stats span{display:block!important;font-size:8pt!important;color:#5d6966!important}
-  .section-plan-print .section-plan-report-stats b{font-size:14pt!important}
-  .section-plan-print .section-plan-warning{color:#8a2a22!important;font-size:9pt!important}
-  .section-plan-print table{width:100%!important;border-collapse:collapse!important}
-  .section-plan-print thead{display:table-header-group!important}
-  .section-plan-print th,.section-plan-print td{padding:2mm 2.4mm!important;border-bottom:.5pt solid #d7ddd9!important;text-align:start!important;font-size:9pt!important}
-  .section-plan-print th{background:#f4f6f5!important;color:#4e5954!important;font-weight:800!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-  .section-plan-print tr{break-inside:avoid!important}
-  .section-plan-print .section-plan-source,.section-plan-print .section-plan-note{font-size:8.5pt!important;color:#5d6966!important;margin:0 0 3mm!important}
-  .section-plan-print tr.is-outside td{background:#fbf3df!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-  .section-plan-print .section-plan-backlog{margin-top:4mm!important;border:.5pt solid #d9c08a!important;padding:2mm 3mm!important;font-size:9pt!important}
-  .section-plan-print .section-plan-backlog ul{margin:1.5mm 0 0!important;padding-inline-start:5mm!important}
 }
 
 /* ملف الاعتماد: ورقةٌ عموديةٌ واحدة (A4) بنفس عناصر المعاينة. */

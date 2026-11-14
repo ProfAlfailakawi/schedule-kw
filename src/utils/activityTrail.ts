@@ -113,7 +113,6 @@ export const TRAIL_ROUTES: TrailRouteRule[] = [
   rule("DELETE", "/schedules/\\d+/exceptions/:id", "delete", "schedule", "استثناء أسبوع"),
   rule("POST", "/schedules/(?:replace-instructor|placeholder-action|ta-conversion)", "edit", "schedule", "أستاذ الموعد"),
   rule("POST", "/schedules/import", "add", "schedule", "استيراد الجدول"),
-  rule("PUT", "/schedules/section-gap/decisions", "edit", "schedule", "قرار تخطيط"),
   rule("POST", "/section-build/apply", "add", "schedule", "بناء الشعب"),
   rule("POST", "/section-build/review-rows", "edit", "schedule", "بناء الشعب"),
   rule("POST", "/section-build/undo", "delete", "schedule", "بناء الشعب"),
@@ -151,12 +150,11 @@ export const TRAIL_ROUTES: TrailRouteRule[] = [
   rule("PUT", "/advisor-seats/config", "edit", "advising", "مقاعد المرشد"),
   /* التسجيل */
   rule("POST", "/student-registration/:id/(?:course-state|case-state)", "register", "registration", "كشف التسجيل"),
-  rule("PUT", "/registration-stats", "register", "registration", "كشف المتبقي"),
-  rule("POST", "/registration-stats/(?:remaining-pdf|remaining-cells)", "register", "registration", "كشف المتبقي"),
   /* طلبات الأساتذة والمقترح الدراسي وتبادل القاعات */
   rule("POST", "/instructor-requests/issue", "send", "requests", "طلبات الأساتذة"),
   rule("POST", "/instructor-requests/:id/decide", "approve", "requests", "طلب أستاذ"),
   rule("POST", "/instructor-requests/:id/reopen-fixed", "edit", "requests", "طلب أستاذ"),
+  rule("POST", "/instructor-requests/:id/undo-decision", "edit", "requests", "طلب أستاذ"),
   rule("POST", "/instructor-requests/:id/apply", "edit", "requests", "طلب أستاذ"),
   rule("POST", "/instructor-requests/:id/reply", "send", "requests", "ردٌّ على أستاذ"),
   rule("POST", "/instructor-requests/exception/revoke", "edit", "requests", "استثناء أستاذ"),

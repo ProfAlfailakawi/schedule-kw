@@ -7,7 +7,7 @@
  * هذا الملف يجمع ما يخصّ المقرر الواحد: شعبُه ومقاعدُه وطلبُه، ثم الأثرُ قبل/بعد.
  *
  * ولا يخترع رقماً: السعةُ من المقرر وإلا من القاعة وإلا «غير محددة» (seatCapacity)،
- * والطلبُ من كشف المتبقي المستورد (عمادة التسجيل) وإلا من الرادار؛ وما لا يُعرف يبقى
+ * والطلبُ من تقرير التسجيل (SWRDASH) وإلا من الرادار؛ وما لا يُعرف يبقى
  * null لا صفراً. ولا كتابة هنا.
  */
 import type { AdCourse, FSchedule } from "../types";
@@ -32,13 +32,15 @@ export interface CourseSeatStat {
   unknownSections: number;
   /** من الرادار: من يريد المقرر. null = لا رادار. */
   wanted: number | null;
-  /** من كشف المتبقي المستورد: «الذين لم يجتازوا» — من ما زال يحتاج المقرر. null = لا كشف. */
+  /** من تقرير التسجيل (SWRDASH): من يحتاج المقرر من طلبة هذا الحرم. null = لا تقرير. */
   remaining: number | null;
-  /** من الكشف نفسه: «الذين لم يسجلوا». null = لا كشف. */
-  unregistered: number | null;
-  /** الطلبُ الذي تُقاس به المقاعد: المتبقي من الكشف أولاً (بيانات العمادة)، ثم «لم يسجّلوا» من الكشف، ثم الرادار. */
+  /** منهم الخريجون. null = لا تقرير خريجين. */
+  graduates: number | null;
+  /** مقترح التخطيط (التاريخ أولاً) لعدد الشعب. */
+  planned: number | null;
+  /** الطلبُ الذي تُقاس به المقاعد: تقرير التسجيل أولاً (بيانات العمادة)، ثم الرادار. */
   demand: number | null;
-  demandSource: "remaining" | "unregistered" | "radar" | null;
+  demandSource: "remaining" | "radar" | null;
   /** طلبةٌ يبقون بلا مقعد = الطلب − المقاعد. null حين لا يُعرف الطلب أو سعةُ شعبةٍ ما. */
   withoutSeat: number | null;
 }
@@ -53,12 +55,13 @@ const statOf = (courseId: number, cards: TmSectionCard[], context: TmContext): C
   /* مقررٌ لم يذكره الكشف لا يُعدّ صفراً: لا يُعرف عنه شيء (لا تخمين). */
   const read = (map: Record<string, number> | null | undefined) => (map && map[String(courseId)] !== undefined ? Math.max(0, Number(map[String(courseId)]) || 0) : null);
   const remaining = read(report?.remaining);
-  const unregistered = read(report?.unregistered);
-  const demandSource: CourseSeatStat["demandSource"] = remaining !== null ? "remaining" : unregistered !== null ? "unregistered" : wanted !== null ? "radar" : null;
-  const demand = demandSource === "remaining" ? remaining : demandSource === "unregistered" ? unregistered : wanted;
+  const graduates = read(report?.graduates);
+  const planned = read(report?.planned);
+  const demandSource: CourseSeatStat["demandSource"] = remaining !== null ? "remaining" : wanted !== null ? "radar" : null;
+  const demand = demandSource === "remaining" ? remaining : wanted;
   const unknownSections = own.length - known.length;
   return {
-    courseId, sections: own.length, seats, unknownSections, wanted, remaining, unregistered, demand, demandSource,
+    courseId, sections: own.length, seats, unknownSections, wanted, remaining, graduates, planned, demand, demandSource,
     withoutSeat: demand === null || unknownSections ? null : Math.max(0, demand - seats),
   };
 };
@@ -153,4 +156,4 @@ export const sectionSeatCapacity = (course: AdCourse | undefined, row: Partial<F
   seatCapacity(course, hallOfRow(row, context.halls || []));
 
 /** اسمُ الطلب على البطاقة والرأس: من أين جاء الرقم الذي تُقاس به المقاعد. */
-export const DEMAND_WORD: Record<NonNullable<CourseSeatStat["demandSource"]>, string> = { remaining: "المتبقي", unregistered: "لم يسجّلوا", radar: "الطلب" };
+export const DEMAND_WORD: Record<NonNullable<CourseSeatStat["demandSource"]>, string> = { remaining: "يحتاجونه", radar: "الطلب" };

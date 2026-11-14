@@ -89,7 +89,7 @@ check(DEFAULT_TERM_UNITS === 14 && Math.round(TYPICAL_TERM_UNITS) === DEFAULT_TE
 const nctx: Record<string, any> = { S: { state: null }, fmtShort: (d: string) => d, nounFor, AR: COUNT_AR };
 runInNewContext([fn("heroHeadline", "nextStepInfo"), fn("nextStepInfo", "nextStepPaint"), "this.heroHeadline=heroHeadline;this.nextStepInfo=nextStepInfo;"].join("\n"), nctx);
 const hp = (percent: number, passedUnits: number, remainingUnits: number, totalUnits: number) => nctx.heroHeadline({ percent, passedUnits, remainingUnits, totalUnits });
-check(hp(22, 36, 128, 164).includes("22٪") && hp(22, 36, 128, 164).includes("من خطتك"), "العنوان: «أنجزتَ ٢٢٪ من خطتك»");
+check(hp(22, 36, 128, 164).includes("22%") && hp(22, 36, 128, 164).includes("من خطتك"), "العنوان: «أنجزتَ 22% من خطتك»");
 check(hp(0, 0, 150, 150).includes("خطتك أمامك") && hp(100, 164, 0, 164).includes("أكملتَ"), "العنوان عند الصفر (بلا إلحاح) وعند الإكمال");
 check(hp(0, 0, 0, 0).includes("اختياراً من جديد") && !hp(0, 0, 0, 0).includes("أكملتَ"), "صحيفةٌ بلا مقررات (أُرشفت): لا «أكملتَ خطتك» بل «اختر من جديد»");
 const st = (mode: string, over: any = {}) => { nctx.S.state = { term: { id: 7 }, phase: { mode, canEditWishes: mode === "wishes", nextAt: "2026-11-06" }, profile: { progress: { passedUnits: 36, remainingUnits: 128, totalUnits: 164 }, wishes: null, ...over } }; return nctx.nextStepInfo(); };

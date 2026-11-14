@@ -1,15 +1,15 @@
 /**
  * ── 📚 كل المقررات ──
  * كل مقررات صحائف القسم — المطروح منها وغير المطروح — في لسانين: «الصحيفة الجديدة»
- * و«الصحيفة القديمة». لكل مقرر شعبُه ومقاعدُه ومتبقّيه (من كشف المتبقي المستورد للفصل،
- * وإلا من الرادار)، و«لم يسجّلوا» من الكشف نفسه، وزرّا
+ * و«الصحيفة القديمة». لكل مقرر شعبُه ومقاعدُه ومن يحتاجه (من تقرير التسجيل للفصل،
+ * وإلا من الرادار) ومنهم الخريجون والمقترح من التاريخ، وزرّا
  * «− شعبة» و«+ شعبة» يُريان الأثر فوراً: المقاعد مقابل الطلب، ومن يبقى بلا مقعد،
  * ونصابُ الأستاذ، وضغطُ القاعة. لا يُكتب شيءٌ حتى «اعتمد» صريحٍ في منضدة السيناريو.
  * المحرّك هو محرّك محاكي الشعب نفسه (src/utils/timeMachine.ts عبر courseWhatIf.ts).
  * وعلى كل مقررٍ وسمُ «وصلنا ✓ / لم نصل بعد 🔒» وسلسلةُ متطلباته (src/utils/courseReach.ts)، و«افتحه للطرح».
  */
 import React, { useMemo, useState } from "react";
-import { FileSpreadsheet, FileUp, Minus, Plus, Radar, Search, Undo2, UserRoundCheck, UserX, X } from "lucide-react";
+import { FileSpreadsheet, FileUp, GraduationCap, Layers, Minus, Plus, Radar, Search, Undo2, UserX, X } from "lucide-react";
 import { applyChanges, boardOf, tmCourseNumber, type TmChange, type TmScenarioRecord } from "../utils/timeMachine";
 import { addOneSection, courseSeatStats, DEMAND_WORD, netSectionDelta, removeOneSection, type CourseImpact, type CourseSeatStat } from "../utils/courseWhatIf";
 import { inNewSheet, inOldSheet, type SheetTag } from "../utils/sheetTag";
@@ -68,10 +68,10 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
   });
   const scoped = catalogue.filter(({ tag }) => activeSheet === "all" || (activeSheet === "new" ? inNewSheet(tag) : inOldSheet(tag)));
   const sum = (pick: (stat: CourseSeatStat) => number | null) => scoped.reduce((n, { course }) => n + Number(pick(statsAfter.get(Number(course.AdCourseId))!) || 0), 0);
-  /* إجماليُّ الطلبة من كشف المتبقي للقسم في هذا الفصل؛ والرادار بديلٌ حين لا كشف. */
+  /* إجماليُّ الطلبة من تقرير التسجيل للحرم في هذا الفصل؛ والرادار بديلٌ حين لا كشف. */
   const report = context.registration || null;
   /* الإجماليُّ من مصدرٍ واحد: الكشف إن وُجد، وإلا الرادار — لا يُجمع رقمُ كشفٍ إلى رقم رادار. */
-  const primary: CourseSeatStat["demandSource"] = report?.remaining ? "remaining" : report?.unregistered ? "unregistered" : context.demand ? "radar" : null;
+  const primary: CourseSeatStat["demandSource"] = report?.remaining ? "remaining" : context.demand ? "radar" : null;
   const fromPrimary = (pick: (stat: CourseSeatStat) => number | null) => (stat: CourseSeatStat) => (stat.demandSource === primary ? pick(stat) : 0);
   const totals = {
     courses: scoped.length,
@@ -79,7 +79,8 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
     sections: sum(stat => stat.sections),
     seats: sum(stat => stat.seats),
     demand: primary ? sum(fromPrimary(stat => stat.demand)) : null,
-    unregistered: primary === "remaining" && report?.unregistered ? sum(stat => stat.unregistered) : null,
+    graduates: primary === "remaining" && report?.graduates ? sum(stat => stat.graduates) : null,
+    planned: primary === "remaining" && report?.planned ? sum(stat => stat.planned) : null,
     withoutSeat: primary ? sum(fromPrimary(stat => stat.withoutSeat)) : null,
   };
   const demandLabel = DEMAND_WORD[primary || "remaining"];
@@ -117,8 +118,8 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
       {report ? (
         <p className="ac-source" data-ac-source="report">
           <FileSpreadsheet aria-hidden="true" />
-          <span>كشف المتبقي{report.fileName ? <> · <bdi>{report.fileName}</bdi></> : null}{importedOn ? ` · ${importedOn}` : ""}</span>
-          {totals.unregistered !== null ? <em><UserRoundCheck aria-hidden="true" />{totals.unregistered} لم يسجّلوا</em> : null}
+          <span>تقرير التسجيل{importedOn ? ` · ${importedOn}` : ""}</span>
+          {totals.graduates !== null ? <em title="الخريجون الذين يحتاجون مقررات القسم"><GraduationCap aria-hidden="true" />{countOf(totals.graduates, AR.graduate)}</em> : null}
           {context.demand ? <em><Radar aria-hidden="true" />الرادار متاح</em> : null}
         </p>
       ) : (
@@ -205,17 +206,18 @@ function CourseCard({ courseId, code, name, tag, now, after, delta, impact, none
       <div className="ac-facts">
         <span className="ac-fact" title="الشعب"><Ico n="sections" /><b>{after.sections}</b><small>{after.sections ? nounFor(after.sections, AR.section) : "غير مطروح"}</small></span>
         <span className="ac-fact" title="المقاعد ذات السعة المعروفة"><Ico n="seats" /><b>{after.seats}</b><small>{after.unknownSections ? `+ ${after.unknownSections} غير محددة` : nounFor(after.seats, AR.seat)}</small></span>
-        <span className="ac-fact" title={after.demandSource === "radar" ? "الطلب من رادار التسجيل" : after.demandSource === "unregistered" ? "من كشف عمادة التسجيل: لم يسجّلوا المقرر بعد" : "المتبقي من كشف عمادة التسجيل: من لم يجتز المقرر بعد"}><Ico n="students" /><b>{demand ?? "—"}</b><small>{demandWord}</small></span>
+        <span className="ac-fact" title={after.demandSource === "radar" ? "الطلب من رادار التسجيل" : "من تقرير التسجيل: طلبة هذا الحرم الذين يحتاجون المقرر"}><Ico n="students" /><b>{demand ?? "—"}</b><small>{demandWord}</small></span>
         <span className={`ac-fact ${after.withoutSeat ? "is-bad" : ""}`} title="طلبة بلا مقعد"><UserX aria-hidden="true" className="tm-ico tm-ico-remove" /><b>{after.withoutSeat ?? "—"}</b><small>بلا مقعد</small></span>
       </div>
       <div className="ac-bar" role="img" aria-label={`المقاعد ${after.seats}${demand !== null ? ` مقابل ${demandWord} ${demand}` : ""}`}>
         <i className="ac-bar-seats" style={{ width: `${Math.min(100, after.seats / scale * 100)}%` }} />
         {demand !== null ? <i className="ac-bar-demand" style={{ insetInlineStart: `${Math.min(100, demand / scale * 100)}%` }} /> : null}
       </div>
-      {fill !== null || (after.unregistered !== null && after.demandSource === "remaining") || (after.wanted !== null && after.demandSource !== "radar") ? (
+      {fill !== null || (after.graduates !== null && after.demandSource === "remaining") || (after.planned !== null && after.demandSource === "remaining") || (after.wanted !== null && after.demandSource !== "radar") ? (
         <div className="ac-legend">
-          {fill !== null ? <span className={fill >= 100 ? "is-ok" : "is-short"}><i className="ac-dot" aria-hidden="true" />{fill}٪ من {demandWord}</span> : null}
-          {after.unregistered !== null && after.demandSource === "remaining" ? <span title="من كشف عمادة التسجيل: لم يسجّلوا المقرر بعد"><UserRoundCheck aria-hidden="true" />{after.unregistered} لم يسجّلوا</span> : null}
+          {fill !== null ? <span className={fill >= 100 ? "is-ok" : "is-short"}><i className="ac-dot" aria-hidden="true" />{fill}% من {demandWord}</span> : null}
+          {after.graduates !== null && after.demandSource === "remaining" ? <span title="الخريجون الذين يحتاجون المقرر"><GraduationCap aria-hidden="true" />{countOf(after.graduates, AR.graduate)}</span> : null}
+          {after.planned !== null && after.demandSource === "remaining" ? <span title="مقترح التخطيط من تاريخ القسم: عدد الشعب"><Layers aria-hidden="true" />يُقترح {after.planned}</span> : null}
           {after.wanted !== null && after.demandSource !== "radar" ? <span title="الطلب من رادار التسجيل"><Radar aria-hidden="true" />{after.wanted} رادار</span> : null}
         </div>
       ) : null}

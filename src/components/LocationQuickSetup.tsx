@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Building2, ChevronDown, DoorOpen, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
 import type { AdCollege, AdSection, MasterBuilding, MasterRoom } from "../types";
 import { Badge, Field, Notice, PageTitle, PrimaryButton, SecondaryButton, Surface, visualConfirm } from "./ui";
+import { confirmDeleteWithImpact } from "./DeleteImpact";
 import { officialCollegeSitePrefix, officialSiteLabel } from "../utils/locationCollegePrefixes";
 import { byArabic, sortByName } from "../utils/sorting";
 import { AR, countOf } from "../utils/arabicCount";
@@ -20,12 +21,6 @@ async function request(url: string, init?: RequestInit) {
   return data;
 }
 const IN_USE = "location-in-use";
-/** كم موعداً يقف في القاعة/المبنى الآن وفيما بعد — يُقرأ قبل الإيقاف ليُؤكَّد على بيّنة. */
-const usageLine = (usage: { current: number; future: number }) =>
-  usage.current || usage.future
-    ? `يقف فيه الآن ${countOf(usage.current, AR.appointment)} في الفصل الحالي و${countOf(usage.future, AR.appointment)} فيما بعده؛ تبقى هذه المواعيد كما هي لكن لا يُحجز فيه جديد.`
-    : "لا مواعيد فيه في الفصل الحالي ولا فيما بعده.";
-
 export default function LocationQuickSetup({ header, demoReadOnly = false, demoSandbox = false }: { header?: React.ReactNode; demoReadOnly?: boolean; demoSandbox?: boolean }) {
   const [data, setData] = useState<SetupData>(empty);
   const [collegeId, setCollegeId] = useState(0);
@@ -131,14 +126,17 @@ export default function LocationQuickSetup({ header, demoReadOnly = false, demoS
     } catch (e: any) { setError(e?.message || "تعذر تعديل المبنى"); }
     finally { setBusy(false); }
   };
+  /* احتياطٌ إن تعذّرت الخريطة: مسارُ الاستخدام القائم يقرر ترويسة التأكيد الصريح. */
+  const usageInUse = async (query: string) => { const usage = await request(`/api/admin/location-setup/usage?${query}`); return Boolean(usage.current || usage.future); };
   const deleteBuilding = async (building: MasterBuilding) => {
     setBusy(true); setError(""); setNotice("");
     try {
-      const usage = await request(`/api/admin/location-setup/usage?buildingId=${encodeURIComponent(building.id)}`);
-      const inUse = Boolean(usage.current || usage.future);
       setBusy(false);
-      if (!(await visualConfirm({ title: `حذف المبنى ${building.officialCode}`, message: `ستتوقف قاعاته عن الاستخدام الجديد، مع الاحتفاظ بسجل المواعيد القديمة. ${usageLine(usage)}`, confirmLabel: inUse ? "أوقفه رغم المواعيد" : "حذف المبنى", tone: "danger" }))) return;
+      /* خريطة «لو حذفت؟» تعدّ المواعيد بدالة الاستخدام نفسها؛ فإن تعذّرت قُرئ مسارُ الاستخدام القائم. */
+      const decision = await confirmDeleteWithImpact({ entity: "building", id: building.id, title: `حذف المبنى ${building.officialCode}`, message: "ستتوقف قاعاته عن الاستخدام الجديد، مع الاحتفاظ بسجل المواعيد القديمة.", confirmLabel: "حذف المبنى", inUseLabel: "أوقفه رغم المواعيد" });
+      if (!decision.confirmed) return;
       setBusy(true);
+      const inUse = decision.impact ? decision.impact.requiresConfirm : await usageInUse(`buildingId=${encodeURIComponent(building.id)}`);
       const result = await request(`/api/admin/location-setup/buildings/${encodeURIComponent(building.id)}`, { method: "DELETE", headers: inUse ? { "X-Schedule-Confirm": IN_USE } : {} });
       setBuildingId(""); setEditingBuilding(null); setData(current => ({ ...current, buildings: current.buildings.filter(item => item.id !== building.id), rooms: current.rooms.filter(room => room.buildingId !== building.id) })); setNotice(`حُذف المبنى ${building.officialCode} وأُوقفت ${countOf(result.deactivatedRoomCount, AR.room)} تابعة له.`);
     } catch (e: any) { setError(e?.message || "تعذر حذف المبنى"); }
@@ -161,11 +159,11 @@ export default function LocationQuickSetup({ header, demoReadOnly = false, demoS
   const deleteRoom = async (room: MasterRoom) => {
     setBusy(true); setError(""); setNotice("");
     try {
-      const usage = await request(`/api/admin/location-setup/usage?roomId=${encodeURIComponent(room.id)}`);
-      const inUse = Boolean(usage.current || usage.future);
       setBusy(false);
-      if (!(await visualConfirm({ title: `حذف القاعة ${room.canonicalCode}`, message: `ستتوقف عن الاستخدام الجديد، مع الاحتفاظ بسجل المواعيد القديمة. ${usageLine(usage)}`, confirmLabel: inUse ? "أوقفها رغم المواعيد" : "حذف القاعة", tone: "danger" }))) return;
+      const decision = await confirmDeleteWithImpact({ entity: "room", id: room.id, title: `حذف القاعة ${room.canonicalCode}`, message: "ستتوقف عن الاستخدام الجديد، مع الاحتفاظ بسجل المواعيد القديمة.", confirmLabel: "حذف القاعة", inUseLabel: "أوقفها رغم المواعيد" });
+      if (!decision.confirmed) return;
       setBusy(true);
+      const inUse = decision.impact ? decision.impact.requiresConfirm : await usageInUse(`roomId=${encodeURIComponent(room.id)}`);
       await request(`/api/admin/location-setup/rooms/${encodeURIComponent(room.id)}`, { method: "DELETE", headers: inUse ? { "X-Schedule-Confirm": IN_USE } : {} });
       setEditingRoom(null); setData(current => ({ ...current, rooms: current.rooms.filter(item => item.id !== room.id) })); setNotice(`حُذفت القاعة ${room.canonicalCode} وحُفظ سجلها التاريخي.`);
     } catch (e: any) { setError(e?.message || "تعذر حذف القاعة"); }

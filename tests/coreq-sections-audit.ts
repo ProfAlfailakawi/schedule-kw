@@ -184,7 +184,7 @@ check(some.ranked.map(s => s.start).join() === "09:00,15:00,12:00,13:00", "أو�
 const only = deferCoreqClashes(plain, () => true);
 check(only.ranked.length === 4 && only.ranked[0].start === "12:00", "لا أوقات غيرها: تبقى مقترحة", only.ranked.map(s => s.start));
 const tools = fs.readFileSync("src/server/routes/scheduleToolsRoutes.ts", "utf8");
-check(/roomOnly \? \[\] : partnersOfCourse\(await coreqPairsOfSection\(sectionId\)/.test(tools) && tools.includes("deferCoreqClashes(orderSuggestionCandidates(candidates, roomOnly)"), "الاقتراح يقرأ الحُكم نفسه، و«اقترح قاعة» بوقتها الثابت لا يتأثر");
+check(/roomOnly \? \[\] : partnersOfCourse\(await coreqPairsOfSection\(sectionId\)/.test(tools) && tools.includes("orderSuggestionCandidates(candidates, roomOnly)") && tools.includes("deferCoreqClashes(ordered0"), "الاقتراح يقرأ الحُكم نفسه، و«اقترح قاعة» بوقتها الثابت لا يتأثر");
 check(/deferred\.has\(slot\) && slots\.some\(chosen => deferred\.has\(chosen\)\)\) break;/.test(tools), "واحدٌ منها على الأكثر");
 const hint = fs.readFileSync("src/components/SameSlotHint.tsx", "utf8");
 check(!/AdRoom|roomId|RoomCode/.test(hint), "ورقة المقرن لا تعرض قاعة");

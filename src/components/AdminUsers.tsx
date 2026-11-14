@@ -3,10 +3,11 @@ import { sortByName } from "../utils/sorting";
 import LocationQuickSetup from "./LocationQuickSetup";
 import SectionScheduleHours from "./SectionScheduleHours";
 import TeachingLoadSettings from "./TeachingLoadSettings";
+import SystemHealth from "./SystemHealth";
 import AccountInvitation from "./AccountInvitation";
 import { hasTeamCard } from "../utils/seats";
 import SeatsAdmin from "./seats/SeatsAdmin";
-import { Activity, ArchiveRestore, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, History, KeyRound, Landmark, Layers, LifeBuoy, RefreshCw, Save, ScanSearch, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
+import { Activity, ArchiveRestore, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, HeartPulse, History, KeyRound, Landmark, Layers, LifeBuoy, RefreshCw, Save, ScanSearch, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
 import {
   AddButton,
   Badge,
@@ -22,6 +23,7 @@ import {
   visualConfirm,
   useDialogDismiss,
 } from "./ui";
+import { confirmDeleteWithImpact } from "./DeleteImpact";
 import {
   AdCollege,
   AdCollegeUserAssign,
@@ -41,7 +43,7 @@ import { IMPORT_PHRASE, RESET_PHRASE, UNDO_PHRASE } from "../utils/vaultPhrases"
 /* «نسخ فصل» is administration, not day-to-day scheduling: it belongs on this
    rail beside the users, the scopes and the log. It keeps its own screen and
    its own URL — this only moves the door it is opened from. */
-export type AdminMode = "users" | "seats" | "permissions" | "scopes" | "audit" | "backup" | "copyTerm" | "roomSetup" | "sectionHours" | "teachingLoad";
+export type AdminMode = "users" | "seats" | "permissions" | "scopes" | "audit" | "backup" | "copyTerm" | "roomSetup" | "sectionHours" | "teachingLoad" | "health";
 type PageMode = "index" | "create" | "edit";
 interface SafeUser {
   SystemUserId: number;
@@ -120,6 +122,26 @@ interface ImportJob {
   current?: string;
   error?: string;
   restorePointId?: string;
+  /** خطوةٌ أخرى من المهمة جاريةٌ الآن: لم يُنفَّذ شيء ويُعاد الاستطلاع. */
+  busy?: boolean;
+}
+/* التصفير والتراجع الكامل: مهمّتان متدرجتان على شكل الاستيراد (src/server/vaultJobPlanner.ts). */
+interface OpJob {
+  id: string;
+  kind: "reset" | "undo";
+  createdAt: string;
+  updatedAt: string;
+  status: "running" | "ready" | "failed" | "abandoned";
+  phase: "safety" | "apply" | "finalizing" | "rollback";
+  totalUnits: number;
+  completedUnits: number;
+  current?: string;
+  error?: string;
+  restorePointId?: string;
+  targetAction?: string;
+  busy?: boolean;
+  /** يرجع من الإلغاء حين تبدأ مرحلةُ العودة المتدرجة إلى نقطة الأمان. */
+  rollingBack?: boolean;
 }
 interface BackupStatus {
   rootOnly: boolean;
@@ -128,6 +150,7 @@ interface BackupStatus {
   latest: RestorePoint | null;
   latestExport?: ExportJob | null;
   latestImport?: ImportJob | null;
+  latestOperation?: OpJob | null;
 }
 
 /**
@@ -227,6 +250,7 @@ export default function AdminUsers({
     [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null),
     [exportJob, setExportJob] = useState<ExportJob | null>(null),
     [importJob, setImportJob] = useState<ImportJob | null>(null),
+    [opJob, setOpJob] = useState<OpJob | null>(null),
     [importUploadPercent, setImportUploadPercent] = useState(0),
     [backupBusy, setBackupBusy] = useState<"export" | "preview" | "import" | "reset" | "undo" | null>(null),
     [backupFile, setBackupFile] = useState<File | null>(null),
@@ -253,6 +277,7 @@ export default function AdminUsers({
   }, [demoLocked]);
   const exportRunner = useRef(0);
   const importRunner = useRef(0);
+  const opRunner = useRef(0);
   const [query, setQuery] = useState(""),
     [filterUser, setFilterUser] = useState(0),
     [selectedUserId, setSelectedUserId] = useState<number | null>(null),
@@ -353,6 +378,7 @@ export default function AdminUsers({
     setBackupStatus(status);
     setExportJob(status.latestExport || null);
     setImportJob(status.latestImport || null);
+    setOpJob(status.latestOperation || null);
   };
   const driveExportJob = async (jobId: string) => {
     const runner = ++exportRunner.current;
@@ -496,6 +522,11 @@ export default function AdminUsers({
         }
         if (runner !== importRunner.current) return;
         setImportJob(job);
+        if (job.busy) {
+          setBackupMessage("خطوة جارية… أنتظر انتهاءها ثم أتابع.");
+          await new Promise(resolve => window.setTimeout(resolve, 1500));
+          continue;
+        }
         if (job.status === "failed") {
           visibleFailureRetries += 1;
           if (visibleFailureRetries > 8) break;
@@ -579,30 +610,116 @@ export default function AdminUsers({
     } catch (e: any) { setError(e.message); }
     finally { setBackupBusy(null); }
   };
-  const resetFullSystem = async (confirmed = false) => {
-    if (resetPhrase !== RESET_PHRASE) { setError(`اكتب «${RESET_PHRASE}» حرفياً للتأكيد`); return; }
-    if (!confirmed) { setBackupConfirm("reset"); return; }
-    setBackupConfirm(null); setBackupMessage(null); setError(null); setBackupBusy("reset");
+  /* متابِعُ التصفير والتراجع الكامل: خطواتٌ قصيرة بتقدّم محفوظ على الخادم، كمتابِع الاستيراد. */
+  const driveOpJob = async (jobId: string) => {
+    const runner = ++opRunner.current;
+    const kind = opJob?.id === jobId ? opJob.kind : (backupBusy === "undo" ? "undo" : "reset");
+    setBackupBusy(kind);
+    setError(null);
+    let transportRetries = 0;
+    let visibleFailureRetries = 0;
     try {
-      await api("/api/system-backup/reset", {
-        method: "POST", headers: { "Content-Type": "application/json", "X-Schedule-Confirm": "FULL-SYSTEM-RESET" },
-        body: JSON.stringify({ phrase: resetPhrase }),
-      });
-      setResetPhrase(""); await refreshBackupStatus();
-      setBackupMessage("تم تصفير بيانات العمل. حساب الإدارة الرئيسي ونقطة التراجع ما زالا محفوظين.");
+      let job = await api(`/api/system-backup/op-jobs/${encodeURIComponent(jobId)}`) as OpJob;
+      setOpJob(job);
+      while (runner === opRunner.current && job.status !== "ready" && job.status !== "abandoned") {
+        try {
+          job = await api(`/api/system-backup/op-jobs/${encodeURIComponent(jobId)}/step`, { method: "POST" }) as OpJob;
+          transportRetries = 0;
+        } catch (stepError: any) {
+          transportRetries += 1;
+          if (transportRetries > 12) throw stepError;
+          setBackupMessage(`الاتصال تعثر لحظياً — العملية محفوظة عند ${job.completedUnits}/${job.totalUnits} وسأكمل تلقائياً.`);
+          await new Promise(resolve => window.setTimeout(resolve, Math.min(5000, 400 * (2 ** (transportRetries - 1)))));
+          continue;
+        }
+        if (runner !== opRunner.current) return;
+        setOpJob(job);
+        if (job.busy) {
+          setBackupMessage("خطوة جارية… أنتظر انتهاءها ثم أتابع.");
+          await new Promise(resolve => window.setTimeout(resolve, 1500));
+          continue;
+        }
+        if (job.status === "failed") {
+          visibleFailureRetries += 1;
+          if (visibleFailureRetries > 8) break;
+          setBackupMessage(`توقفت مرحلة مؤقتاً عند ${job.completedUnits}/${job.totalUnits} — أعيدها من نفس النقطة دون إعادة ما اكتمل.`);
+          await new Promise(resolve => window.setTimeout(resolve, 900 * visibleFailureRetries));
+          continue;
+        }
+        visibleFailureRetries = 0;
+        await new Promise(resolve => window.setTimeout(resolve, 180));
+      }
+      if (runner !== opRunner.current) return;
+      if (job.status === "ready") {
+        setResetPhrase("");
+        setBackupMessage(job.kind === "reset"
+          ? "تم تصفير بيانات العمل. حساب الإدارة الرئيسي ونقطة التراجع ما زالا محفوظين."
+          : "تم التراجع الكامل بنجاح، وحُفظت الحالة التي غادرتها كنقطة إعادة آمنة.");
+        await refreshBackupStatus();
+      } else if (job.status === "abandoned") {
+        setBackupMessage(job.current || "أُلغيت العملية.");
+        if (job.error) setError(job.error);
+        await refreshBackupStatus();
+      } else if (job.status === "failed") {
+        setError(job.error || `تعذر إكمال المرحلة ${job.completedUnits + 1}/${job.totalUnits}. التقدم محفوظ ويمكن استكماله.`);
+      }
+    } catch (e: any) {
+      if (runner === opRunner.current) setError(`${e.message || "تعذر متابعة العملية"} — ما اكتمل من المراحل محفوظ.`);
+    } finally {
+      if (runner === opRunner.current) setBackupBusy(null);
+    }
+  };
+  /* إلغاءُ تصفيرٍ أو تراجعٍ لم يكتمل: يعيد الخادمُ النظامَ من نقطة الأمان إن كان قد بدأ التغيير. */
+  const abandonOp = async () => {
+    if (!opJob || !["running", "failed"].includes(opJob.status)) return;
+    if (!(await visualConfirm({
+      title: opJob.kind === "reset" ? "إلغاء التصفير" : "إلغاء التراجع",
+      message: "تتوقف هذه العملية نهائياً. إن كانت قد بدأت تغيير البيانات يعيد الخادم النظام كاملاً إلى نقطة الأمان التي حُفظت قبلها.",
+      confirmLabel: "ألغِ العملية وعُد لنقطة الأمان",
+      tone: "danger",
+      safeCancel: true,
+    }))) return;
+    opRunner.current += 1;
+    const kind = opJob.kind;
+    setError(null); setBackupMessage(null); setBackupBusy(kind);
+    try {
+      const result = await api(`/api/system-backup/op-jobs/${encodeURIComponent(opJob.id)}`, { method: "DELETE", headers: { "X-Schedule-Confirm": "FULL-SYSTEM-OP-ABANDON" } }) as OpJob & { rolledBack?: boolean };
+      if (result.rollingBack) {
+        /* العودةُ إلى نقطة الأمان مرحلةٌ متدرجة في المهمة نفسها: نتابع خطواتها بالمتابِع ذاته حتى «ملغاة». */
+        setOpJob(result);
+        setBackupMessage("بدأت العودة إلى نقطة الأمان على مراحل؛ التقدم محفوظ ويُستكمل لو أُغلقت الصفحة.");
+        await driveOpJob(result.id);
+        return;
+      }
+      await refreshBackupStatus();
+      setBackupMessage(result.rolledBack ? "أُلغيت العملية وعاد النظام إلى نقطة الأمان التي سبقتها." : "أُلغيت العملية قبل أن يتغيّر شيء.");
     } catch (e: any) { setError(e.message); }
     finally { setBackupBusy(null); }
   };
+  const startOp = async (kind: "reset" | "undo") => {
+    setBackupConfirm(null); setBackupMessage(null); setError(null); setBackupBusy(kind);
+    try {
+      const job = await api(kind === "reset" ? "/api/system-backup/reset" : "/api/system-backup/undo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Schedule-Confirm": kind === "reset" ? "FULL-SYSTEM-RESET" : "FULL-SYSTEM-UNDO" },
+        body: JSON.stringify({ phrase: kind === "reset" ? resetPhrase : UNDO_PHRASE }),
+      }) as OpJob;
+      setOpJob(job);
+      setBackupMessage("بدأت نقطة الأمان ثم العملية على مراحل؛ التقدم محفوظ ويُستكمل لو أُغلقت الصفحة.");
+      await driveOpJob(job.id);
+    } catch (e: any) { setBackupBusy(null); setError(e.message); }
+  };
+  const resetFullSystem = async (confirmed = false) => {
+    if (opJob && opJob.kind === "reset" && ["running", "failed"].includes(opJob.status)) { await driveOpJob(opJob.id); return; }
+    if (resetPhrase !== RESET_PHRASE) { setError(`اكتب «${RESET_PHRASE}» حرفياً للتأكيد`); return; }
+    if (!confirmed) { setBackupConfirm("reset"); return; }
+    await startOp("reset");
+  };
   const undoSystemOperation = async (confirmed = false) => {
+    if (opJob && opJob.kind === "undo" && ["running", "failed"].includes(opJob.status)) { await driveOpJob(opJob.id); return; }
     if (!backupStatus?.latest) { setError("لا توجد نقطة تراجع متاحة"); return; }
     if (!confirmed) { setConfirmPhrase(""); setBackupConfirm("undo"); return; }
-    setBackupConfirm(null); setBackupMessage(null); setError(null); setBackupBusy("undo");
-    try {
-      await api("/api/system-backup/undo", { method: "POST", headers: { "Content-Type": "application/json", "X-Schedule-Confirm": "FULL-SYSTEM-UNDO" }, body: JSON.stringify({ phrase: UNDO_PHRASE }) });
-      await refreshBackupStatus();
-      setBackupMessage("تم التراجع الكامل بنجاح، وحُفظت الحالة التي غادرتها كنقطة إعادة آمنة.");
-    } catch (e: any) { setError(e.message); }
-    finally { setBackupBusy(null); }
+    await startOp("undo");
   };
 
   const scopeKey = (a: AdCollegeUserAssign, index = 0) =>
@@ -613,13 +730,14 @@ export default function AdminUsers({
   const load = async () => {
     setError(null);
     try {
-      if (mode === "roomSetup" || mode === "sectionHours" || mode === "teachingLoad" || mode === "seats" || mode === "copyTerm") return;
+      if (mode === "roomSetup" || mode === "sectionHours" || mode === "teachingLoad" || mode === "seats" || mode === "copyTerm" || mode === "health") return;
       if (mode === "backup") {
         if (!rootAdmin) throw new Error("هذه الخزنة مخصصة لحساب الإدارة الرئيسي فقط");
         const status = await api("/api/system-backup/status") as BackupStatus;
         setBackupStatus(status);
         setExportJob(status.latestExport || null);
         setImportJob(status.latestImport || null);
+        setOpJob(status.latestOperation || null);
         return;
       }
       const base = await Promise.all([
@@ -701,6 +819,8 @@ export default function AdminUsers({
     exportRunner.current += 1;
     /* ومتابِعُ الاستيراد كذلك: ما حفظه الخادم يبقى، ويُستكمل حين تُفتح الخزنة ثانيةً. */
     importRunner.current += 1;
+    /* ومتابِعُ التصفير والتراجع كذلك: التقدّم محفوظ على الخادم ويُستكمل عند فتح الخزنة. */
+    opRunner.current += 1;
     setBackupBusy(null);
     setPage("index");
     setQuery("");
@@ -879,12 +999,13 @@ export default function AdminUsers({
     // is not a confirmation.
     const who = users.find(user => user.SystemUserId === id);
     if (deleteRefusal(who || null)) { setError(deleteRefusal(who || null)); return; }
-    if (!(await visualConfirm({
+    if (!(await confirmDeleteWithImpact({
+      entity: "user",
+      id,
       title: `حذف «${who?.Name || "المستخدم"}»`,
       message: "ستُحذف معه صلاحياته وارتباطه بالأقسام العلمية، ولا يمكن التراجع.",
       confirmLabel: "حذف المستخدم",
-      tone: "danger",
-    }))) return;
+    })).confirmed) return;
     try {
       await api(`/api/users/${id}`, { method: "DELETE" });
       setSelectedUserId(null);
@@ -990,6 +1111,8 @@ export default function AdminUsers({
     rootAdmin && permissions.includes(7) ? { value: "teachingLoad", label: "النصاب التدريسي", icon: <GraduationCap /> } : null,
     rootAdmin && permissions.includes(7) ? { value: "copyTerm", label: "نسخ فصل", icon: <CopyPlus /> } : null,
     rootAdmin ? { value: "backup", label: "النسخة الاحتياطية", icon: <DatabaseBackup /> } : null,
+    /* سلامة النظام: قراءةٌ فقط للحساب الرئيسي (GET /api/system-health بحارس الخزنة نفسه). */
+    rootAdmin ? { value: "health", label: "سلامة النظام", icon: <HeartPulse /> } : null,
   ].filter(Boolean) as Array<{ value: string; label: string; icon: React.ReactNode }>;
   // One header line for the whole console: the section rail plus whatever the
   // open section can create. Editor pages get the message only — switching
@@ -1011,6 +1134,12 @@ export default function AdminUsers({
   );
 
   if (mode === "seats") return <SeatsAdmin header={consoleHead()} />;
+
+  if (mode === "health") {
+    return rootAdmin
+      ? <SystemHealth header={consoleHead()} onOpenVault={() => onNavigate?.("backup")} />
+      : <div className="content-stack admin-page">{consoleHead()}<Notice>سلامة النظام متاحة للمدير الرئيسي فقط.</Notice></div>;
+  }
 
   if (mode === "roomSetup") {
     return rootAdmin
@@ -1309,7 +1438,34 @@ export default function AdminUsers({
     const exportInProgress = Boolean(exportJob && ["queued", "running", "finalizing"].includes(exportJob.status));
     const importInProgress = Boolean(importJob && importJob.status === "running");
     const importResumable = Boolean(importJob && ["running", "failed"].includes(importJob.status));
-    const vaultLocked = Boolean(backupBusy) || exportInProgress || importInProgress;
+    const opInProgress = Boolean(opJob && opJob.status === "running");
+    const opResumable = Boolean(opJob && ["running", "failed"].includes(opJob.status));
+    const vaultLocked = Boolean(backupBusy) || exportInProgress || importInProgress || importResumable || opInProgress;
+    const opPercent = opJob?.status === "ready" ? 100
+      : opJob?.totalUnits ? Math.max(0, Math.min(99, Math.round((opJob.completedUnits / opJob.totalUnits) * 100))) : 0;
+    const opStatusLabel = (job: OpJob) => job.status === "abandoned" ? (job.current || "أُلغيت العملية")
+      : job.status === "ready" ? (job.kind === "reset" ? "اكتمل التصفير" : "اكتمل التراجع")
+      : job.status === "failed" ? "توقفت مرحلة — التقدم محفوظ"
+      : job.phase === "safety" ? "نقطة أمان قبل البدء"
+      : job.phase === "rollback" ? "العودة إلى نقطة الأمان"
+      : job.phase === "apply" ? (job.kind === "reset" ? "مسح بيانات العمل" : "استعادة البيانات")
+      : "التحقق النهائي";
+    const opProgressBlock = (kind: "reset" | "undo") => opJob && opJob.kind === kind ? (
+      <div className={`vault-export-progress vault-import-progress status-${opJob.status}`}>
+        <div className="vault-export-progress-head"><span>{opStatusLabel(opJob)}</span><strong>{opPercent}%</strong></div>
+        <div className="vault-export-progress-track" aria-label={`تقدم ${kind === "reset" ? "التصفير" : "التراجع"} ${opPercent}%`}><i style={{ width: `${opPercent}%` }} /></div>
+        <div className="vault-export-progress-meta">
+          {opJob.status === "abandoned" ? null : <span><b>{opJob.completedUnits.toLocaleString("ar-KW-u-nu-latn")}</b> / {countOf(opJob.totalUnits, AR.stage)}</span>}
+        </div>
+        {opJob.current && opJob.status !== "abandoned" && opJob.status !== "ready" ? <small className="vault-export-current">{opJob.current}</small> : null}
+        {opJob.status === "failed" && opJob.error ? <p className="vault-export-error">{opJob.error}</p> : null}
+      </div>
+    ) : null;
+    const opAbandonButton = (kind: "reset" | "undo") => opResumable && opJob?.kind === kind ? (
+      <SecondaryButton type="button" className="danger-action" data-guide-ignore="إلغاء تصفير أو تراجع متوقف والعودة إلى نقطة أمانه؛ له تأكيد مستقل" disabled={Boolean(backupBusy)} title={backupBusy ? "انتظر توقف الخطوة الجارية" : undefined} onClick={() => void abandonOp()}>
+        <X aria-hidden="true" /> {kind === "reset" ? "إلغاء التصفير" : "إلغاء التراجع"}
+      </SecondaryButton>
+    ) : null;
     const exportPercent = exportJob?.status === "ready" ? 100
       : exportJob?.status === "finalizing" ? 99
       : exportJob?.totalUnits ? Math.max(2, Math.min(97, Math.round((exportJob.completedUnits / exportJob.totalUnits) * 97)))
@@ -1494,18 +1650,26 @@ export default function AdminUsers({
             <span className="vault-action-icon"><Eraser /></span>
             <div><small>03</small><h3>تصفير النظام</h3><p>يمسح بيانات العمل كاملة ويُبقي حساب الإدارة الرئيسي فقط كي لا تفقد باب التراجع.</p></div>
             <input className="vault-confirm-input" value={resetPhrase} onChange={(event) => setResetPhrase(event.target.value)} placeholder={`اكتب: ${RESET_PHRASE}`} aria-label="عبارة التأكيد" autoComplete="off" />
-            <SecondaryButton data-guide-ignore="تصفير النظام في الخزنة؛ محروسٌ بعبارةٍ مكتوبة ونقطة أمان، ولحساب الإدارة الرئيسي وحده" type="button" disabled={resetPhrase !== RESET_PHRASE || vaultLocked} onClick={() => void resetFullSystem()}>
-              <Eraser /> {backupBusy === "reset" ? "أصنع نقطة أمان ثم أصفّر…" : "تصفير"}
-            </SecondaryButton>
+            {opProgressBlock("reset")}
+            <div className="vault-inline-actions">
+              <SecondaryButton data-guide-ignore="تصفير النظام في الخزنة؛ محروسٌ بعبارةٍ مكتوبة ونقطة أمان، ولحساب الإدارة الرئيسي وحده" type="button" disabled={opResumable && opJob?.kind === "reset" ? Boolean(backupBusy) : (resetPhrase !== RESET_PHRASE || vaultLocked)} onClick={() => void resetFullSystem()}>
+                <Eraser /> {backupBusy === "reset" ? "أتابع التصفير…" : opResumable && opJob?.kind === "reset" ? "استكمال التصفير" : "تصفير"}
+              </SecondaryButton>
+              {opAbandonButton("reset")}
+            </div>
           </Surface>
 
           <Surface className="system-vault-action vault-undo">
             <span className="vault-action-icon"><ArchiveRestore /></span>
             <div><small>04</small><h3>تراجع كامل</h3><p>{point ? `آخر نقطة أمان: ${point.action}` : "لا توجد عملية مدمرة محفوظة للتراجع عنها."}</p></div>
             {point ? <div className="vault-restore-meta"><strong>{new Date(point.createdAt).toLocaleString("ar-KW-u-nu-latn")}</strong><span>{countOf(point.documentCount, AR.record)}</span></div> : null}
-            <PrimaryButton type="button" disabled={!point || vaultLocked} onClick={() => void undoSystemOperation()}>
-              <ArchiveRestore /> {backupBusy === "undo" ? "أعيد الحالة…" : "تراجع عن آخر عملية"}
-            </PrimaryButton>
+            {opProgressBlock("undo")}
+            <div className="vault-inline-actions">
+              <PrimaryButton type="button" data-guide-ignore="تراجع كامل في الخزنة؛ محروسٌ بعبارةٍ مكتوبة ونقطة أمان، ولحساب الإدارة الرئيسي وحده" disabled={opResumable && opJob?.kind === "undo" ? Boolean(backupBusy) : (!point || vaultLocked)} onClick={() => void undoSystemOperation()}>
+                <ArchiveRestore /> {backupBusy === "undo" ? "أتابع التراجع…" : opResumable && opJob?.kind === "undo" ? "استكمال التراجع" : "تراجع عن آخر عملية"}
+              </PrimaryButton>
+              {opAbandonButton("undo")}
+            </div>
           </Surface>
         </div>
 
@@ -1537,8 +1701,8 @@ export default function AdminUsers({
                 <p>{backupConfirm === "import"
                   ? `النسخة مؤرخة ${backupPreview ? new Date(backupPreview.createdAt).toLocaleString("ar-KW-u-nu-latn") : "—"}. سيُحفظ النظام الحالي كاملًا أولًا نقطةَ أمان. إن توقفت خطوةٌ يبقى التقدم محفوظاً: تستكمل من حيث توقف، أو «تلغي الاستيراد» فيعود النظام إلى نقطة الأمان.`
                   : backupConfirm === "reset"
-                    ? "سيُحفظ النظام كاملًا أولًا ثم تُمسح بيانات العمل، مع إبقاء حساب الإدارة الرئيسي وباب التراجع فقط. إذا فشلت العملية يعود النظام تلقائيًا إلى حالته السابقة."
-                    : `سيعود النظام إلى «${backupStatus?.latest?.action || "نقطة الأمان"}»، وسيحفظ الحالة الحالية كنقطة إعادة قبل التغيير.${importResumable ? " والاستيراد المتوقف يُلغى معه." : ""}`}</p>
+                    ? "سيُحفظ النظام كاملًا أولًا ثم تُمسح بيانات العمل، مع إبقاء حساب الإدارة الرئيسي وباب التراجع فقط. تجري على مراحل بنسبة تقدّم؛ إن توقفت مرحلةٌ يبقى التقدم محفوظاً: تستكمل من حيث توقفت، أو «تلغي التصفير» فيعود النظام إلى نقطة الأمان."
+                    : `سيعود النظام إلى «${backupStatus?.latest?.action || "نقطة الأمان"}»، وسيحفظ الحالة الحالية كنقطة إعادة قبل التغيير، ثم يعيد البيانات على مراحل بنسبة تقدّم يمكن استكمالها أو إلغاؤها.`}</p>
                 {backupConfirm !== "reset" ? (
                   <input
                     className="vault-confirm-input"
@@ -1608,11 +1772,11 @@ export default function AdminUsers({
               <tbody>
                 {headPlan.map(row => (
                   <tr key={planKind === "advisors" ? `${row.sectionName}:${(row.sectionIds || [row.sectionId]).join(",")}` : `${row.collegeId}:${row.sectionId}`}>
-                    <td>{row.sectionName}</td>
-                    <td>{(row.collegeNames?.length ? row.collegeNames : [row.collegeName]).filter(Boolean).map((name: string, index: number) => <span key={`${name}:${index}`} className="campus-name"><CampusChip collegeName={name} />{name}</span>)}</td>
-                    <td dir="ltr">{row.deptLogin || "—"}</td>
-                    <td dir="ltr">{row.status === "exists" ? row.existingLogin : row.proposedLogin}</td>
-                    <td>
+                    <td data-label="القسم">{row.sectionName}</td>
+                    <td data-label="الكلية">{(row.collegeNames?.length ? row.collegeNames : [row.collegeName]).filter(Boolean).map((name: string, index: number) => <span key={`${name}:${index}`} className="campus-name"><CampusChip collegeName={name} />{name}</span>)}</td>
+                    <td dir="ltr" data-label="حساب القسم">{row.deptLogin || "—"}</td>
+                    <td dir="ltr" data-label="اسم الدخول المقترح">{row.status === "exists" ? row.existingLogin : row.proposedLogin}</td>
+                    <td data-label="الحالة">
                       <Badge tone={row.status === "create" ? "info" : row.status === "review" ? "warning" : "neutral"}>{row.status === "create" ? "سيُنشأ" : row.status === "review" ? "يحتاج مراجعة" : "موجود"}</Badge>
                       {planKind === "advisors" && row.duplicateUserIds && row.duplicateUserIds.length > 1 ? <small> حسابات مكررة؛ {row.consolidationReady ? "توحيد آمن" : "توحيد يدوي"}</small> : null}
                       {row.note ? <small> {row.note}</small> : null}

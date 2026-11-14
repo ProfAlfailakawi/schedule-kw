@@ -88,7 +88,7 @@ export default function CampaignList({ data, onOpen, onNew }: { data: Payload; o
                     <span><b>{pct1(c.totals.ctr)}</b><small>نسبة النقر</small></span>
                     <span className={`ad-trend${c.weekly?.hasLastWeek ? ((c.weekly.impressionsChange ?? 0) < 0 ? " down" : " up") : ""}`}><b>{c.weekly?.hasLastWeek ? arrowOf(c.weekly.impressionsChange) : "—"}</b><small>عن الأسبوع الماضي</small></span>
                   </span>
-                  <span className="ad-spark-cell"><Sparkline values={values} label="الظهور آخر ١٤ يوماً" /></span>
+                  <span className="ad-spark-cell"><Sparkline values={values} label="الظهور آخر 14 يوماً" /></span>
                   <ChevronLeft className="ad-go" aria-hidden="true" size={18} />
                   {live ? <i className="ad-progress" style={{ inlineSize: `${progressOf(c, data.today)}%` }} aria-hidden="true" /> : null}
                 </button>

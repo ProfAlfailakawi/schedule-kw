@@ -105,6 +105,22 @@ const NOTICE_ICON = { success: Check, info: Info, warning: AlertTriangle, block:
 
 
 type ConfirmTone = "danger" | "warning" | "info";
+/**
+ * بوابةُ التأكيد: متجرٌ صغير يغيّر به محتوى الحوار (مثل خريطة «لو حذفت؟») حالةَ زرّ التأكيد بعد فتحه —
+ * تعطيلَه ريثما يُحمَّل أو حين يمنع الحذفُ، وتبديلَ نصّه، أو طلبَ إغلاق الحوار. اختياريةٌ: من لا يمرّرها لا يتغيّر عليه شيء.
+ */
+export interface ConfirmGateState { disabled: boolean; confirmLabel?: string; close?: boolean }
+export interface ConfirmGate { get(): ConfirmGateState; set(patch: Partial<ConfirmGateState>): void; subscribe(listener: () => void): () => void }
+export function createConfirmGate(initial: Partial<ConfirmGateState> = {}): ConfirmGate {
+  let state: ConfirmGateState = { disabled: false, ...initial };
+  const listeners = new Set<() => void>();
+  return {
+    get: () => state,
+    set(patch) { state = { ...state, ...patch }; listeners.forEach(listener => listener()); },
+    subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+  };
+}
+const NO_GATE: ConfirmGate = createConfirmGate();
 export function visualConfirm({
   title,
   message,
@@ -114,6 +130,7 @@ export function visualConfirm({
   compact = false,
   body,
   safeCancel = false,
+  gate,
 }: {
   title?: string;
   message: string;
@@ -121,6 +138,8 @@ export function visualConfirm({
   body?: React.ReactNode;
   /** Cancel is the recommended choice: it takes the primary look and the destructive button stays a plain warning. */
   safeCancel?: boolean;
+  /** Lets the body disable/relabel the confirm button or ask the dialog to close (see createConfirmGate). */
+  gate?: ConfirmGate;
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: ConfirmTone;
@@ -150,6 +169,9 @@ export function visualConfirm({
     };
     function ConfirmDialog() {
       const cancelRef = React.useRef<HTMLButtonElement>(null);
+      const live = gate || NO_GATE;
+      const gateState = React.useSyncExternalStore(live.subscribe, live.get, live.get);
+      React.useEffect(() => { if (gateState.close) close(false); }, [gateState.close]);
       React.useEffect(() => {
         cancelRef.current?.focus();
         const onKey = (event: KeyboardEvent) => {
@@ -229,7 +251,7 @@ export function visualConfirm({
             </div>
             <div className="schedule-confirm-actions">
               <button ref={cancelRef} type="button" className={`btn ${safeCancel ? "btn-primary" : "btn-secondary"}`} data-guide-ignore="حوار تأكيد عام لا يمثل ميزة مستقلة في المرشد" onClick={() => close(false)}>{cancelLabel}</button>
-              <button type="button" className={`btn ${safeCancel ? "so-destroy" : tone === "danger" ? "btn-danger" : "btn-primary"}`} data-guide-ignore="حوار تأكيد عام لا يمثل ميزة مستقلة في المرشد" onClick={() => close(true)}>{confirmLabel}</button>
+              <button type="button" className={`btn ${safeCancel ? "so-destroy" : tone === "danger" ? "btn-danger" : "btn-primary"}`} data-guide-ignore="حوار تأكيد عام لا يمثل ميزة مستقلة في المرشد" disabled={gateState.disabled} onClick={() => close(true)}>{gateState.confirmLabel || confirmLabel}</button>
             </div>
           </section>
         </div>

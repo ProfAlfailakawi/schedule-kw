@@ -8,7 +8,8 @@
  */
 import type { Express } from "express";
 import { appendRequestThread, THREAD_TEXT_LIMIT, negotiationState, parseOfferedSlots } from "../../utils/instructorRequestThread";
-import { RequestReservationConflict } from "../../utils/instructorRequestReservations";
+import { RequestReservationConflict, REQUEST_RACE_LOST } from "../../utils/instructorRequestReservations";
+import { classifyUndo, holdSnapshotOf, planUndoSteps, proposalsAfterUndo, undoStepsOf, type UndoOp, forHistory } from "../../utils/inboxUndo";
 import { Response } from "express";
 import { randomUUID } from "crypto";
 import { Repository, ScheduleRevisionConflict } from "../../db/repository";
@@ -63,6 +64,14 @@ async function requireCurrentInstructorRequestGeneration(request: InstructorRequ
  * موضعٌ واحدٌ لهذا التجريد عن قصد: لو تكرّر في كل مسارٍ لنسيه أحدُها يوماً،
  * وكشفُ قاعةٍ خطأٌ لا يُكتشف بالنظر إلى الشاشة.
  */
+/** لقطةُ التراجع لا تغادر الخادم (صفوفٌ كاملة)؛ يخرج منها «هل يُعرض تراجع الآن» وحده. */
+function withUndoFlag(item: InstructorRequestItem): InstructorRequestItem {
+  const history = item.decisionHistory?.some(entry => entry?.undo)
+    ? { decisionHistory: item.decisionHistory.map(entry => entry ? { ...entry, undo: undefined } : entry) } : {};
+  if (!item.decision?.state) return { ...item, ...history };
+  return { ...item, ...history, decision: { ...item.decision, undo: undefined, undoable: classifyUndo(item).ok } };
+}
+
 /** Mutation replies obey the same item-scope boundary as the inbox listing. */
 function requestForDepartment(req: AuthenticatedRequest, request: InstructorRequest) {
   const visible = (item: InstructorRequestItem) => {
@@ -75,7 +84,7 @@ function requestForDepartment(req: AuthenticatedRequest, request: InstructorRequ
     notes: allVisible ? (request as any).notes : [],
     /* وسمُ المخالفات بنطاق القارئ نفسه، كما في الوارد (scopedPinViolations). */
     pinViolations: scopedPinViolations(request, visible),
-    items: request.items.map(item => visible(item) ? item : ({
+    items: request.items.map(item => visible(item) ? withUndoFlag(item) : ({
       rowId: item.action === "delete" || item.action === "change" ? item.rowId ?? null : null,
       action: item.action === "delete" || item.action === "change" ? item.action : "keep",
       slots: [], hidden: true, decision: item.decision?.state ? { state: item.decision.state } : undefined,
@@ -131,6 +140,10 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   /* وجود instructorId يعني استثناءً شخصياً، لا إصداراً جماعياً. */
   const individualOnly = req.body?.instructorId != null;
   const reopening = req.body?.reopen === true;
+  /* من عنده بطاقةٌ سارية (قرار المالك 2026-11-14): «تكرار» = الرابطُ نفسه بالموعد الجديد (الافتراضي)،
+     «تبديل» = رابطٌ جديد يحلّ محلّ القديم والطلبُ نفسُه يبقى، و«تخطّي» = لا يُمسّ أصلاً. */
+  const cardAction: "repeat" | "replace" = req.body?.cardAction === "replace" ? "replace" : "repeat";
+  const skipSet = new Set<number>((Array.isArray(req.body?.skipInstructorIds) ? req.body.skipInstructorIds : []).map(Number).filter((id: number) => Number.isSafeInteger(id) && id > 0).slice(0, 500));
   const selectedInstructorId = individualOnly ? Number(req.body.instructorId) : 0;
   const emergencyReason = String(req.body?.reason || "").trim().slice(0, 400);
   /* «لمن؟ ← أساتذة محددون»: قائمةٌ صريحة يُصدَر لها وحدها بالموعد نفسه، بلا سبب (ليست استثناءً).
@@ -294,6 +307,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     /* غيرُ المختارين لا يُمسّ طلبُهم ولا رابطُهم ولا صفتُه. */
     if (picking && !pickedSet.has(instructorId)) continue;
     if (excluded.has(instructorId)) continue;
+    if (skipSet.has(instructorId)) continue;
     /* أستاذٌ له طلبٌ في هذا الفصل لا يُعطى ثانياً: طلبان يعنيان أن أحدهما
        سيُقرأ ويُهمل الآخر بلا أن يعرف صاحبُه. لكن طلباً مات موعدُه أو رابطُه
        لا يبقى «طلبَه» — يتبع الموعدَ الجديد (src/utils/requestReissue.ts). */
@@ -323,7 +337,9 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
       const heldLink = await Repository.getShareLink(held.linkId);
       const readable = heldLink ? await shareLinkStillReadable(heldLink) : false;
       let linkId = held.linkId;
-      if (requestLinkNeedsReplacing(heldLink, readable, Date.parse(windowClosesAt) + 86400000)) {
+      /* «تبديل»: لمن لم يُرسل طلبه بعد فقط — طلبٌ ينتظر قرار القسم لا يُستبدل رابطه (يبقى كما هو أعلاه). */
+      const forceNewLink = cardAction === "replace" && move === "extend" && !individualOnly && !onlyNoted;
+      if (forceNewLink || requestLinkNeedsReplacing(heldLink, readable, Date.parse(windowClosesAt) + 86400000)) {
         linkId = (await mintRequestLink(instructorId)).id;
         if (heldLink && !heldLink.revoked) await Repository.revokeShareLink(heldLink.id);
       }
@@ -393,6 +409,8 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   await Repository.saveFeatureDoc("linkModeLog", `${collegeId}:${sectionId}:${termId}:${Date.now()}`, {
     at: new Date().toISOString(), by: String(req.user?.Name || req.user?.UserName || ""), mode: issueMode,
     scope: `${collegeId}:${sectionId}:${termId}`, instructorIds: issued.map(row => row.instructorId), single: individualOnly, picked: picking, closesAt: windowClosesAt,
+    fresh: issued.filter(row => !row.reissued && !row.renewed).length, renewed: issued.filter(row => row.renewed).length, kept: issued.filter(row => row.reissued).length,
+    replaced: cardAction === "replace", skipped: [...skipSet].length,
   }).catch(() => undefined);
   res.json({ issued, total: issued.length, fresh: issued.filter(row => !row.reissued && !row.renewed).length, ...(picking ? { picked: true } : {}) });
 });
@@ -417,9 +435,38 @@ app.get("/api/instructor-requests/send-log", requirePermission(7), async (req: A
     return {
       at: String(row.at || ""), mode: String(row.mode || "edit"), closesAt: String(row.closesAt || ""),
       audience: row.mode === "ta" ? "ta" : row.single ? "exception" : row.picked ? "picked" : "all",
-      count: ids.length, names: ids.map(id => nameOf.get(id) || "").filter(Boolean), by: sendLogSenderFor(req.user, row.by),
+      count: ids.length, names: [...new Set(ids.map(id => nameOf.get(id) || "").filter(Boolean))], by: sendLogSenderFor(req.user, row.by),
+      fresh: Number(row.fresh || 0), renewed: Number(row.renewed || 0), kept: Number(row.kept || 0), replaced: row.replaced === true, skipped: Number(row.skipped || 0),
     };
   }));
+});
+
+/* ── من عنده بطاقةٌ سارية الآن: يُسأل المنسّق قبل الإرسال (تكرار · تبديل · تخطّي) ────────
+ * سارية = طلبٌ قائم لم تنتهِ جولتُه (ليس ثُبّت ولا استُبدل) ونافذتُه مفتوحة ورابطُه حيّ.
+ * `awaiting`: أرسل الأستاذ طلبه وينتظر القسم — لا يُمسّ بأي خيار. للقراءة فقط، بلا رقم مدني ولا رابط. */
+app.get("/api/instructor-requests/live-cards", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  const [groups, instructors] = await Promise.all([
+    Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId))),
+    Repository.getInstructors(),
+  ]);
+  const nameOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
+  const current = await currentInstructorRequestGeneration(groups.flat());
+  const cards: Array<{ instructorId: number; name: string; closesAt: string; awaiting: boolean; mode: string }> = [];
+  for (const [instructorId, request] of latestRequestByInstructor(current)) {
+    const move = reissueMove(request);
+    if (move === "fresh") continue;
+    const awaiting = move === "keep";
+    if (!awaiting && !requestWindowOpen(request)) continue;
+    const link = request.linkId ? await Repository.getShareLink(request.linkId) : null;
+    if (!link || link.revoked || !(await shareLinkStillReadable(link))) continue;
+    cards.push({ instructorId, name: nameOf.get(instructorId) || "", closesAt: String(request.window?.closesAt || ""), awaiting, mode: String(linkMode(request)) });
+  }
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ cards });
 });
 
 /* ── «لمن؟ ← أساتذة محددون»: من يمكن أن يُرسَل إليه ─────────────────────────
@@ -648,6 +695,8 @@ app.get("/api/instructor-requests", requirePermission(7), async (req: Authentica
       .map(item => requestItemScope(full, item).sectionId))];
     return {
     ...request,
+    /* لقطةُ التراجع لا تُرسل؛ يخرج علَمُ «يُعرض تراجع» وحدَه (withUndoFlag). */
+    items: request.items.map(item => (item as any).hidden ? item : withUndoFlag(item)),
     instructorName: nameOf.get(Number(request.AdInstructorId)) || `أستاذ ${request.AdInstructorId}`,
     instructorMobile: mobileOf.get(Number(request.AdInstructorId)) || "",
     requestCollegeName: collegeNameOf.get(Number(request.AdCollegeId)) || "كلية أخرى",
@@ -807,11 +856,16 @@ app.post("/api/instructor-requests/:id/decide", requirePermission(7), async (req
   const now = new Date().toISOString();
   const by = roleLabel(req.user?.Role) || "القسم";
   const items = [...(stored.items || [])];
+  /* الرفضُ يُفرج حجزَ البند؛ يُحفظ هنا ليُعاد أخذُه إن تُراجع عن الرفض (src/utils/inboxUndo.ts). */
+  const releasedHold = state === "rejected"
+    ? (await Repository.getInstructorRequestReservations(Number(stored.AdTermId))).find(entry => entry.requestId === stored.id && entry.itemId === item.itemId && !entry.heldUntil)
+    : undefined;
   items[index] = {
     ...item,
-    decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [item.decision] : [])],
+    decisionHistory: [...(item.decisionHistory || []), ...(item.decision ? [forHistory(item.decision)] : [])],
     decision: {
       state,
+      ...(state === "rejected" ? { undo: { steps: [], ...(releasedHold ? { hold: holdSnapshotOf(releasedHold) } : {}) } } : {}),
       ...(state === "rejected" ? { reasonCode: reasonCode as any } : {}),
       note: String(req.body?.note || "").trim().slice(0, 400) || undefined,
       alternatives: alternatives.length ? (alternatives as any) : undefined,
@@ -878,7 +932,7 @@ app.post("/api/instructor-requests/:id/cancel-scheduled", requirePermission(7), 
     if (!current) return null;
     const items = [...base.items];
     items[at] = { ...current,
-      decisionHistory: [...(current.decisionHistory || []), ...(current.decision ? [current.decision] : [])],
+      decisionHistory: [...(current.decisionHistory || []), ...(current.decision ? [forHistory(current.decision)] : [])],
       decision: { state: "rejected", reasonCode: "department", cancelled: true, fromSchedule: true, note, decidedBy: by, decidedAt: now } };
     return { ...base, items,
       timeline: [...(base.timeline || []), { kind: "item-rejected" as InstructorRequestEventKind, at: now, by, itemIndex: at, detail: "department" }],
@@ -1178,7 +1232,7 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   const registry = await readLocationRegistry();
   let committed: Awaited<ReturnType<typeof Repository.commitInstructorRequestPlan>>;
   try {
-    committed = await Repository.commitInstructorRequestPlan(stored, ops, scheduleIds => {
+    committed = await Repository.commitInstructorRequestPlan(stored, ops, (scheduleIds, writtenAll) => {
       const items = stored!.items.map((item, i) => {
         if (!chain.includes(i)) return item;
         /* ما كُتب فعلاً لهذا البند: صفٌّ واحد يُقال وقتُه وأيامُه (fixedAs) — والإضافةُ قد يكتبها المنسّق بوقتٍ أو
@@ -1191,7 +1245,10 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
           ...(normalizedSlots.has(i) ? { slots: normalizedSlots.get(i), after: { ...(item.after as any), time: `${normalizedSlots.get(i)![0].start} – ${normalizedSlots.get(i)![0].end}` } } : {}),
           ...(addMoved ? { slots: fixedAs!.days.map(day => ({ day, start: fixedAs!.start, end: fixedAs!.end })) as any,
             after: { ...(item.after as any), time: `${fixedAs!.start} – ${fixedAs!.end}`, days: fixedAs!.days.map(day => DAY_LETTERS[day as keyof typeof DAY_LETTERS] || day).join(" · ") } } : {}),
-          decision: { state: "fixed" as const, decidedBy: by, decidedAt: now, ...(scheduleIds.has(i) ? { scheduleId: scheduleIds.get(i) } : {}), ...(fixedAs ? { fixedAs } : {}) } };
+          decision: { state: "fixed" as const, decidedBy: by, decidedAt: now, ...(scheduleIds.has(i) ? { scheduleId: scheduleIds.get(i) } : {}), ...(fixedAs ? { fixedAs } : {}),
+            /* ما كُتب بالضبط وما أُفرج من حجز: يعيدهما «تراجع» من الوارد (src/utils/inboxUndo.ts). */
+            undo: { steps: undoStepsOf(ops as unknown as UndoOp[], writtenAll, i),
+              ...(holds.find(entry => entry.itemId === item.itemId && !entry.heldUntil) ? { hold: holdSnapshotOf(holds.find(entry => entry.itemId === item.itemId && !entry.heldUntil)) } : {}) } } };
       });
       const timeline = [...stored!.timeline, ...chain.map(itemIndex => ({ kind: "item-fixed" as const, at: now, by, itemIndex }))];
       const settled = requestFullySettled(items);
@@ -1234,6 +1291,169 @@ app.post("/api/instructor-requests/:id/apply", requirePermission(7), async (req:
   } finally {
     if (leaseRenewal) clearInterval(leaseRenewal);
     if (!preview) await Repository.releaseScheduleApplyLease(applyLock, applyHolder).catch(() => undefined);
+  }
+});
+
+/* ── «تراجع» عن قرارٍ صدر من الوارد ─────────────────────────────────────────
+ *
+ * ثبّتَ أو رفضَ بالخطأ؟ خلال مهلةٍ قصيرة (INBOX_UNDO_WINDOW_MS) يعود البندُ «بانتظار قرارك»:
+ *   • رفض: يُفتح البندُ ويُعاد حجزُه (القاعةُ نفسُها)، وإلا رُفض التراجعُ بسببه.
+ *   • ثُبّت: يُعكس ما كتبه التثبيتُ بالضبط (صفٌّ يُستردّ، أو يُزال، أو يُعاد) ويُعاد الحجزُ، كلُّه في معاملةٍ
+ *     واحدة (repository.undoInstructorRequestFix) بعد فحصٍ جافٍّ بمسار الحفظ العادي (نطاق، قفل، لائحة، تعارض).
+ * يُرفض بلا كتابة: تغيّر صفٌّ بعد التثبيت، أو فصلٌ مجمّد، أو تعارضُ حجز، أو ردٌّ من الأستاذ، أو قرارٌ بلا لقطة.
+ * لا إشعارَ للأستاذ: الخلاصةُ تُقرأ من القرار الحيّ فيختفي، ويصله في خطّه الزمني «عاد طلبك قيد المراجعة».
+ */
+app.post("/api/instructor-requests/:id/undo-decision", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const stored = await Repository.getInstructorRequest(String(req.params.id || ""));
+  if (!stored) { res.status(404).json({ error: "لا يوجد طلبٌ بهذا المعرّف" }); return; }
+  if (stored.status === "superseded") { res.status(409).json({ error: "استُبدل هذا الطلب ولا يُتراجع فيه." }); return; }
+  if (!(await requireCurrentInstructorRequestGeneration(stored, res))) return;
+  if (!requireInstructorRequestRevision(req, res, stored)) return;
+  if (await refuseIfTermFrozen(res, Number(stored.AdTermId || 0))) return;
+  const index = Number(req.body?.itemIndex);
+  const item = (stored.items || [])[index];
+  if (!Number.isInteger(index) || !item) { res.status(400).json({ error: "لا يوجد بندٌ بهذا الرقم في الطلب" }); return; }
+  const itemScope = requestItemScope(stored, item);
+  if (!isScopeAllowed(req, itemScope.collegeId, itemScope.sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  if (String(req.body?.itemId || "") !== instructorRequestItemIdentity(item)) { res.status(409).json({ error: "تغيّر ترتيب البنود. حدّث الطلب.", code: "request-item" }); return; }
+  const lock = await scheduleLockRefusal(req, itemScope.collegeId, itemScope.sectionId, Number(stored.AdTermId), { registrarLock: false });
+  if (lock) { res.status(409).json({ error: lock, code: "schedule-locked" }); return; }
+  const verdict = classifyUndo(item);
+  if (verdict.ok === false) { res.status(409).json({ error: verdict.message, code: `undo-${verdict.code}` }); return; }
+
+  const termId = Number(stored.AdTermId);
+  const now = new Date().toISOString();
+  const by = roleLabel(req.user?.Role) || "القسم";
+  const undo = item.decision!.undo!;
+  const reopened = (base: InstructorRequest): InstructorRequest => {
+    const items = [...base.items];
+    items[index] = { ...items[index], decision: undefined, chosenAlternative: undefined };
+    return { ...base, items, status: base.submittedAt ? "in-review" : base.status,
+      timeline: [...(base.timeline || []), { kind: "item-reopened" as InstructorRequestEventKind, at: now, by, itemIndex: index }] };
+  };
+  const holdRefusal = (error: unknown): string => {
+    const text = error instanceof Error ? error.message : "";
+    if (text === REQUEST_RACE_LOST) return "أُخذ وقتُ هذا البند أو قاعتُه لطلبٍ آخر بعد القرار، فلا يعود إلى الانتظار.";
+    return `تعذّر إعادة حجز البند: ${text || "تغيّر التوفّر."}`;
+  };
+  const who = String((await Repository.getInstructorById(Number(stored.AdInstructorId)))?.AdInstructorName || "");
+  const describe = `قرار على رغبة أستاذ (${who}): ` + (verdict.kind === "fixed" ? "تثبيت" : "رفض");
+
+  if (verdict.kind === "rejected") {
+    const next = reopened(stored);
+    let saved: InstructorRequest;
+    try {
+      saved = await Repository.saveInstructorRequest(next,
+        proposalsAfterUndo(next, await Repository.getInstructorRequestReservations(termId), String(item.itemId || ""), undo.hold, item.offeringRows));
+    } catch (error) {
+      if (!(error instanceof RequestReservationConflict)) throw error;
+      /* تغيّر الطلبُ بين القراءة والكتابة ليس تعارضَ حجز: يُقال له. */
+      const revision = /تغيّر الطلب/.test(error.message);
+      res.status(409).json({ error: revision ? error.message : holdRefusal(error), code: revision ? "request-revision" : "undo-hold-conflict" });
+      return;
+    }
+    res.locals.auditChanges = `تراجع عن ${describe}`;
+    res.json(requestForDepartment(req, await judgeRequestItems(saved, { forDepartment: true })));
+    return;
+  }
+
+  /* ── ثُبّت ── */
+  const applyLock = `term-${termId}`;
+  const applyHolder = randomUUID();
+  if (!(await Repository.acquireScheduleApplyLease(applyLock, applyHolder))) {
+    res.status(409).json({ error: "يجري الآن تثبيتٌ آخر في هذا الفصل. انتظر لحظة ثم أعد المحاولة.", code: "apply-busy" });
+    return;
+  }
+  try {
+    const latest = await Repository.getInstructorRequest(stored.id);
+    if (!latest || Number(latest.requestRevision || 0) !== Number(stored.requestRevision || 0)) {
+      res.status(409).json({ error: "تغيّر الطلب. حدّث الوارد.", code: "request-revision" }); return;
+    }
+    (req as any).__requestReservationOwner = stored.id;
+    const week = await Repository.getSchedulesByScope({ termId });
+    const plan = planUndoSteps(undo.steps, week);
+    if (plan.ok === false) { res.status(409).json({ error: plan.message, code: "undo-rows-changed", rowId: plan.rowId }); return; }
+
+    /* ── فحصٌ جافٌّ بمسار الحفظ العادي على الأسبوع كما سيصير ── */
+    const removedIds = new Set([...plan.remove.map(entry => Number(entry.step.rowId)), ...plan.restore.map(entry => Number(entry.step.rowId))]);
+    const origin = { kind: "instructor-request", refId: String(stored.id), note: "تراجع عن تثبيت رغبة" };
+    const restoredBodies = [
+      ...plan.restore.map(({ step, live }) => ({ rowId: Number(live.id), kind: "update" as const, body: { ...rowBodyOf(step.before), rev: live.rev, origin } })),
+      ...plan.readd.map(step => ({ rowId: Number(step.rowId), kind: "create" as const, body: { ...rowBodyOf(step.before), origin } })),
+    ];
+    const hypothetical = [...week.filter(row => !removedIds.has(Number(row.id))),
+      ...restoredBodies.map(entry => ({ ...entry.body, id: entry.rowId } as any))];
+    const gate = regulationGate(req);
+    for (const { live } of plan.remove) {
+      const refusal = await scheduleLockRefusal(req, live.AdCollegeId, live.AdSectionId, live.AdTermId);
+      if (refusal) { res.status(409).json({ error: refusal, code: "schedule-locked" }); return; }
+    }
+    for (const entry of restoredBodies) {
+      const dry = entry.kind === "update"
+        ? await runScheduleHandler(updateScheduleHandler, req, { params: { id: String(entry.rowId) }, body: entry.body, hypotheticalWeek: hypothetical, dryRun: true, regulation: true, exactRestore: true })
+        : await runScheduleHandler(createScheduleHandler, req, { body: entry.body, hypotheticalWeek: hypothetical.filter(row => Number(row.id) !== entry.rowId), dryRun: true, regulation: true, exactRestore: true });
+      if (dry.status >= 400) {
+        res.status(dry.status).json({ ...(dry.body && typeof dry.body === "object" ? dry.body : { error: "تعذّر التراجع." }), code: (dry.body as any)?.code || "undo-refused" });
+        return;
+      }
+      gate.note(dry);
+    }
+    const exception = gate.refusal();
+    if (exception) { res.status(409).json({ ...exception, code: "undo-regulation" }); return; }
+
+    const versions = new Map<string, Awaited<ReturnType<typeof captureScopeVersion>>>();
+    for (const row of [...plan.restore.map(entry => entry.live), ...plan.remove.map(entry => entry.live), ...plan.readd.map(step => step.before!)]) {
+      const key = `${row.AdCollegeId}:${row.AdSectionId}`;
+      if (!versions.has(key)) versions.set(key, await captureScopeVersion(req, Number(row.AdCollegeId), Number(row.AdSectionId), termId, "قبل التراجع عن تثبيت طلب أستاذ", "manual"));
+    }
+    const registry = await readLocationRegistry();
+    let result: Awaited<ReturnType<typeof Repository.undoInstructorRequestFix>>;
+    try {
+      result = await Repository.undoInstructorRequestFix(stored, undo.steps, written => {
+        const base = reopened(stored);
+        /* أختامُ الشعبة المختارة تتبع صفوفَها المستردّة، فلا يردّ «اعتمد» اللاحقُ بـ«تغيّرت الشعبة». */
+        const target = base.items[index];
+        if (target.offeringRowIds?.length) {
+          base.items[index] = { ...target, offeringRows: target.offeringRowIds.map(id => {
+            const row = written.find(entry => Number(entry.id) === id);
+            const prior = target.offeringRows?.find(entry => entry.id === id);
+            return { id, rev: Number(row?.rev ?? prior?.rev ?? 0), instructorId: Number(row?.AdInstructorId ?? prior?.instructorId ?? 0) };
+          }) };
+        }
+        return base;
+      }, (next, entries) => proposalsAfterUndo(next, entries, String(item.itemId || ""), undo.hold, undefined),
+      row => canonicalizeHistoricalLocationForRuntime(row, registry), placeholderInstructorIds(await Repository.getInstructors()), async (rows, finalWeek) => {
+        for (const row of rows) {
+          const issue = await scheduleLengthIssue(row, finalWeek);
+          if (issue) throw new RequestReservationConflict(issue);
+          /* لا فحصَ نمطٍ معتمد: العودةُ حرفيةٌ إلى ما كان (كاستعادة آلة الزمن)، لا موعدٌ جديد. */
+        }
+      });
+    } catch (error: any) {
+      if (error instanceof ScheduleRevisionConflict) {
+        res.status(409).json({ error: "تغيّر هذا الموعد في الجدول بعد التثبيت؛ لا يُتراجع عنه حتى لا تضيع تعديلات.", code: "undo-rows-changed" }); return;
+      }
+      if (error instanceof RequestReservationConflict) {
+        const revision = /تغيّر الطلب/.test(error.message);
+        res.status(409).json({ error: revision ? error.message : holdRefusal(error), code: revision ? "request-revision" : "undo-hold-conflict" }); return;
+      }
+      res.status(503).json({ error: error?.message || "تعذّر التراجع. لم يُحفظ أي تغيير.", code: "undo-failed" });
+      return;
+    }
+    const warnings: any[] = [];
+    for (const [key, version] of versions) {
+      const [collegeId, sectionId] = key.split(":").map(Number);
+      try {
+        await recordVersionAfter(version, before => [...before.filter(row => !removedIds.has(Number(row.id)) && !result.rows.some(written => Number(written.id) === Number(row.id))),
+          ...result.rows.filter(row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId)]);
+        await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", rows: result.rows.filter(row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId) });
+      } catch { warnings.push({ message: "تُراجع عن التثبيت؛ تعذّر تحديث سجل النسخة أو الإشعار. راجع حركة الجدول." }); }
+    }
+    res.locals.auditChanges = `تراجع عن ${describe}: أُعيد ${result.rows.length} وأُزيل ${result.removed.length} من المواعيد` + gate.auditSuffix();
+    res.locals.auditRowIds = [...result.rows.map(row => row.id), ...result.removed];
+    res.json({ ...requestForDepartment(req, await judgeRequestItems(result.request, { forDepartment: true })), warnings });
+  } finally {
+    await Repository.releaseScheduleApplyLease(applyLock, applyHolder).catch(() => undefined);
   }
 });
 

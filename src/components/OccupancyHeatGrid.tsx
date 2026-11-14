@@ -63,7 +63,7 @@ export default function OccupancyHeatGrid({ heat, pick, onPick, collegeId, label
             {day.cells.map((cell, hourIndex) => {
               const isPeak = heat.peak?.day === day.index && heat.peak?.hour === hourIndex;
               const title = cell.count
-                ? `${day.label} ${slotLabel(cell.hour)}–${slotLabel(cell.hour + 60)} · ${countOf(cell.count, AR.lecture)} · ${num(cell.rooms)} من ${countOf(heat.rooms, AR.room)} (${num(cell.rate)}٪)`
+                ? `${day.label} ${slotLabel(cell.hour)}–${slotLabel(cell.hour + 60)} · ${countOf(cell.count, AR.lecture)} · ${num(cell.rooms)} من ${countOf(heat.rooms, AR.room)} (${num(cell.rate)}%)`
                 : `${day.label} ${slotLabel(cell.hour)} · لا محاضرات`;
               return (
                 <td key={cell.hour}>
@@ -82,8 +82,8 @@ export default function OccupancyHeatGrid({ heat, pick, onPick, collegeId, label
                 </td>
               );
             })}
-            <td className="occupancy-heat-rate" title={`${day.label}: ${num(day.rate)}٪ من ساعات القاعات`}>
-              <b dir="ltr">{num(day.rate)}٪</b>
+            <td className="occupancy-heat-rate" title={`${day.label}: ${num(day.rate)}% من ساعات القاعات`}>
+              <b dir="ltr">{num(day.rate)}%</b>
             </td>
           </tr>
         ))}

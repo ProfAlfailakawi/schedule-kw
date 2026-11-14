@@ -1,7 +1,8 @@
-import React from "react";
-import { GraduationCap, Layers3, TriangleAlert, Users } from "lucide-react";
+import React, { useId, useState } from "react";
+import { ChevronDown, ChevronLeft, GraduationCap, Layers3, Loader2, Sparkles, TriangleAlert, Users } from "lucide-react";
 import type { FitSide, StudentFit } from "../utils/studentFit";
 import { AR, countOf } from "../utils/arabicCount";
+import { safeStorage } from "../utils/safeStorage";
 
 /**
  * ── «نبض الطلبة» في نموذج الموعد ─────────────────────────────────────────────
@@ -11,6 +12,7 @@ import { AR, countOf } from "../utils/arabicCount";
  */
 const R = 26;
 const C = 2 * Math.PI * R;
+const DAY_SHORT: Record<string, string> = { fsunday: "أحد", fmonday: "اثنين", ftuesday: "ثلاثاء", fwednesday: "أربعاء", fthursday: "خميس" };
 const trackWord = (track: StudentFit["track"]) => track === "boys" ? "للبنين" : track === "girls" ? "للبنات" : "";
 
 function Ring({ percent, kind }: { percent: number | null; kind: "grad" | "stud" }) {
@@ -24,7 +26,7 @@ function Ring({ percent, kind }: { percent: number | null; kind: "grad" | "stud"
       </svg>
       <span className="pulse-ring-mid">
         {kind === "grad" ? <GraduationCap /> : <Users />}
-        <b dir="ltr">{percent == null ? "—" : `${percent}٪`}</b>
+        <b dir="ltr">{percent == null ? "—" : `${percent}%`}</b>
       </span>
     </span>
   );
@@ -59,39 +61,143 @@ function Side({ side, kind }: { side: FitSide; kind: "grad" | "stud" }) {
   );
 }
 
-export default function StudentPulse({ fit, graduateImpact }: { fit: StudentFit | null; graduateImpact?: { graduates: number; pairs?: string[] } | null }) {
+/** أفضل خانةٍ حرّةٍ للأستاذ بنبض الطلبة (من «أسبوع الأستاذ»): بضغطةٍ يُوضع الموعد فيها. */
+export interface BestTime { day: string; days: string[]; start: string; end: string; percent: number; kind: "grad" | "stud" }
+
+/**
+ * أثر الحفظ بسطرٍ واحد: «يناسب الخريجين 0٪ ← 94٪» — من يجد شعبةً تناسبه في المقرر كله قبل هذا الموعد وبعده.
+ * لا يظهر إلا إن تغيّر الرقم فعلاً، وبلا طلبٍ فعلي لا شيء.
+ */
+export interface SaveImpact { kind: "grad" | "stud"; before: number; after: number }
+export const saveImpactOf = (fit: StudentFit | null): SaveImpact | null => {
+  const side = fit?.graduates?.coverage ? fit.graduates : fit?.students?.coverage ? fit.students : null;
+  const kind = fit?.graduates?.coverage ? "grad" : "stud";
+  return side?.coverage && side.coverage.after !== side.coverage.before ? { kind, before: side.coverage.before, after: side.coverage.after } : null;
+};
+export function FitImpact({ impact }: { impact: SaveImpact }) {
+  const Icon = impact.kind === "grad" ? GraduationCap : Users;
+  const rising = impact.after > impact.before;
+  return (
+    <p className={`fit-impact is-${impact.kind}${rising ? " is-up" : " is-down"}`} role="status"
+      aria-label={`يناسب ${impact.kind === "grad" ? "الخريجين" : "الطلبة"}: من ${impact.before}% إلى ${impact.after}%`}>
+      <Icon aria-hidden="true" />
+      <span>يناسب {impact.kind === "grad" ? "الخريجين" : "الطلبة"}</span>
+      <bdi dir="ltr" className="fit-impact-from">{impact.before}%</bdi>
+      <ChevronLeft aria-hidden="true" />
+      <bdi dir="ltr" className="fit-impact-to">{impact.after}%</bdi>
+    </p>
+  );
+}
+
+/** مسكّرةٌ افتراضاً؛ ومن فتحها بقيت مفتوحةً له على هذا الجهاز (طلب المالك 2026-11-14). */
+const OPEN_KEY = "schedule-pulse-open";
+
+export default function StudentPulse({ fit, graduateImpact, best, onPickBest, bestBusy = false, currentDays = [] }: {
+  fit: StudentFit | null;
+  graduateImpact?: { graduates: number; pairs?: string[] } | null;
+  /** يُعرض فقط إن كان أفضل من الوقت الحالي بفارقٍ يُعتدّ به. */
+  best?: BestTime | null;
+  onPickBest?: (best: BestTime) => void;
+  /** يبحث الآن عن قاعةٍ لذلك الوقت: الزرّ يدور ولا يُضغط ثانيةً. */
+  bestBusy?: boolean;
+  /** أيام الموعد الحالية: حين تخالف أيامَ أفضل وقتٍ تُذكر الأيام في الزرّ، وإلا قيل «08:00» وهو الوقت الحالي نفسه ظاهراً. */
+  currentDays?: readonly string[];
+}) {
+  const bodyId = useId();
+  const [open, setOpenState] = useState(() => safeStorage.get(OPEN_KEY) === "on");
+  const setOpen = (next: boolean) => { setOpenState(next); safeStorage.set(OPEN_KEY, next ? "on" : "off"); };
   if (!fit) return null;
   const grad = fit.graduates, stud = fit.students;
   if (!grad && !stud) return null;
   const sectionsChanged = fit.sections.after !== fit.sections.before;
+  const current = grad?.percent ?? stud?.percent ?? null;
+  const showBest = Boolean(best && onPickBest && current != null && best.percent >= current + 5);
+  const bestDays = best && best.days.join() !== [...currentDays].join() ? best.days.map(day => DAY_SHORT[day]).filter(Boolean).join("·") : "";
+  const chips = fitChipsOf(fit, graduateImpact);
   return (
-    <section className="student-pulse" aria-label="نبض الطلبة: من يناسبهم هذا الوقت" role="status">
+    <section className={`student-pulse ${open ? "is-open" : "is-closed"}`} aria-label="نبض الطلبة: من يناسبهم هذا الوقت" role="status">
       <header className="pulse-head">
-        <span className="pulse-mark" aria-hidden="true"><GraduationCap /></span>
-        <div className="pulse-head-copy">
-          <b>نبض الطلبة</b>
-          <small>من يناسبه هذا الوقت ممن يحتاجون المقرر {trackWord(fit.track)} · تقديرٌ من الطلب الفعلي</small>
-        </div>
-        {sectionsChanged ? (
+        <button type="button" className="pulse-toggle" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(!open)}
+          title={open ? "طيّ نبض الطلبة" : "افتح نبض الطلبة: التفصيل والمقررات التي يحجبها الوقت"}
+          data-guide-ignore="يفتح بطاقة نبض الطلبة أو يطويها؛ لا يغيّر الموعد">
+          <span className="pulse-mark" aria-hidden="true"><GraduationCap /></span>
+          <span className="pulse-head-copy">
+            <b>نبض الطلبة</b>
+            {open
+              ? <small>من يناسبه هذا الوقت ممن يحتاجون المقرر {trackWord(fit.track)} · تقديرٌ من الطلب الفعلي</small>
+              : <span className="pulse-chips">{chips.map(chip => pulseChip(chip))}</span>}
+          </span>
+          <ChevronDown className="pulse-chevron" aria-hidden="true" />
+        </button>
+        {open && sectionsChanged ? (
           <span className="pulse-sections" title="شعب المقرر في هذا المسار قبل هذا الموعد وبعده">
             <Layers3 aria-hidden="true" /><bdi dir="ltr">{fit.sections.before}</bdi><span aria-hidden="true">←</span><bdi dir="ltr">{fit.sections.after}</bdi><small>{AR.section.few}</small>
           </span>
         ) : null}
+        {showBest && best ? (
+          <button type="button" className={`pulse-best is-${best.kind}`} onClick={() => onPickBest!(best)} disabled={bestBusy} aria-busy={bestBusy}
+            title={`أفضل خانةٍ حرّةٍ للأستاذ: يناسب ${best.percent}% من ${best.kind === "grad" ? "الخريجين" : "الطلبة"}`}
+            aria-label={`ضع الموعد في أفضل وقت ${bestDays ? `${bestDays} ` : ""}${best.start}، يناسب ${best.percent}%`}
+            data-guide-ignore="يضع الأيام والبداية والنهاية في أفضل خانةٍ حرّة للأستاذ بنبض الطلبة؛ لا يحفظ شيئاً">
+            {bestBusy ? <Loader2 aria-hidden="true" className="pulse-best-spin" /> : <Sparkles aria-hidden="true" />}<span>أفضل وقت</span>{bestDays ? <small className="pulse-best-days">{bestDays}</small> : null}<bdi dir="ltr">{best.start}</bdi><b dir="ltr">{best.percent}%</b>
+          </button>
+        ) : null}
       </header>
-      {graduateImpact && graduateImpact.graduates > 0 ? (
-        <p className="pulse-alarm">
-          <TriangleAlert aria-hidden="true" />
-          <span className="pulse-alarm-copy">
-            <span>تعارضٌ لا مفرّ منه يمسّ <b>{countOf(graduateImpact.graduates, AR.graduate)}</b></span>
-            {(graduateImpact.pairs || []).map(pair => <bdi key={pair} dir="ltr" className="pulse-pair">{pair}</bdi>)}
-          </span>
-        </p>
+      {open ? (
+        <div className="pulse-body" id={bodyId}>
+          {graduateImpact && graduateImpact.graduates > 0 ? (
+            <p className="pulse-alarm">
+              <TriangleAlert aria-hidden="true" />
+              <span className="pulse-alarm-copy">
+                <span>تعارضٌ لا مفرّ منه يمسّ <b>{countOf(graduateImpact.graduates, AR.graduate)}</b></span>
+                {(graduateImpact.pairs || []).map(pair => <bdi key={pair} dir="ltr" className="pulse-pair">{pair}</bdi>)}
+              </span>
+            </p>
+          ) : null}
+          <div className="pulse-sides">
+            {grad ? <Side side={grad} kind="grad" /> : null}
+            {stud ? <Side side={stud} kind="stud" /> : null}
+          </div>
+          <small className="pulse-foot">ملاحظةٌ لا تمنع الحفظ · الأرقام بجانب المقررات: من يحجبهم الوقت عنها</small>
+        </div>
       ) : null}
-      <div className="pulse-sides">
-        {grad ? <Side side={grad} kind="grad" /> : null}
-        {stud ? <Side side={stud} kind="stud" /> : null}
-      </div>
-      <small className="pulse-foot">ملاحظةٌ لا تمنع الحفظ · الأرقام بجانب المقررات: من يحجبهم الوقت عنها</small>
     </section>
+  );
+}
+
+/** شريحةٌ واحدة من شرائح النبض (الشريط الصغير في البطاقة السريعة، والبطاقة المطويّة هنا). */
+function pulseChip(chip: FitChip) {
+  const Icon = chip.kind === "alarm" ? TriangleAlert : chip.kind === "grad" ? GraduationCap : Users;
+  return <span key={chip.key} className={`fit-chip is-${chip.kind} tone-${chip.tone}`} title={chip.title}>
+    <Icon aria-hidden="true" /><span>{chip.label}</span><b dir="ltr">{chip.value}</b>
+  </span>;
+}
+
+/**
+ * ── شريط النبض الصغير للبطاقة السريعة ─────────────────────────────────────────────────
+ * البطاقة التي تُفتح من رسم خانةٍ على اللوحة ضيّقة: لا بطاقة كاملة، بل شرائح — «الخريجون 94%» و«الطلبة 88%» —
+ * وشريحةٌ حمراء واحدة إن صنع الوقتُ تعارضاً لا مفرّ منه للخريجين. التفصيل في التلميح، فلا كلام زائداً.
+ * من ردّ فحص الموعد نفسه؛ ملاحظةٌ لا تمنع الحفظ، وبلا تقرير طلبٍ فعلي لا يظهر.
+ */
+export interface FitChip { key: string; kind: "grad" | "stud" | "alarm"; tone: "good" | "warn" | "bad"; label: string; value: string; title: string }
+export function fitChipsOf(fit: StudentFit | null | undefined, impact?: { graduates: number } | null): FitChip[] {
+  const out: FitChip[] = [];
+  const tone = (percent: number) => percent >= 85 ? "good" as const : percent >= 60 ? "warn" as const : "bad" as const;
+  if (impact && Number(impact.graduates) > 0)
+    out.push({ key: "alarm", kind: "alarm", tone: "bad", label: "لا مفرّ منه", value: String(Number(impact.graduates)), title: `تعارضٌ لا مفرّ منه يمسّ ${countOf(impact.graduates, AR.graduate)}` });
+  for (const [kind, side, who, noun] of [["grad", fit?.graduates, "الخريجون", AR.graduate], ["stud", fit?.students, "الطلبة", AR.student]] as const) {
+    if (!side || side.percent == null) continue;
+    out.push({ key: kind, kind, tone: tone(side.percent), label: who, value: `${side.percent}%`,
+      title: side.blocked ? `يناسب ${side.percent}% من ${countOf(side.need, noun)} — يحجب ${countOf(side.blocked, noun)} عن مقررٍ آخر يحتاجونه` : side.need > 1 ? `يناسب كل ${countOf(side.need, noun)} الذين يحتاجون المقرر` : "يناسب من يحتاج المقرر" });
+  }
+  return out;
+}
+export function FitStrip({ fit, graduateImpact }: { fit: StudentFit | null | undefined; graduateImpact?: { graduates: number } | null }) {
+  const chips = fitChipsOf(fit, graduateImpact);
+  if (!chips.length) return null;
+  return (
+    <div className="fit-strip" role="status" aria-label="نبض الطلبة: من يناسبهم هذا الوقت">
+      {chips.map(chip => pulseChip(chip))}
+    </div>
   );
 }

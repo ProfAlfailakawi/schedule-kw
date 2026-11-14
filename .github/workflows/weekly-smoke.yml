@@ -1,0 +1,72 @@
+name: Weekly Smoke
+
+# اختبار دخانٍ أسبوعي في متصفّحٍ حقيقي على البيئة التجريبية (بياناتٌ تجريبية فقط، بلا أسرار ولا نشر).
+# المستودع عام فدقائق التشغيل مجانية. فشلُ التشغيل المجدول يصل المالكَ بإشعار GitHub المعتاد.
+# لا يمسّ الإنتاج: لا gcloud ولا Docker ولا اعتماد؛ الخادمُ يُبنى ويعمل داخل المشغّل نفسه بـDATA_MODE=demo.
+
+on:
+  schedule:
+    # الأحد 03:17 UTC (06:17 بتوقيت الكويت): بدايةُ أسبوع العمل.
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Role journeys (demo)
+    # المستودع الجديد وحده يشغّله؛ النسخةُ القديمة من الملف تبقى خاملة.
+    if: github.repository == 'ProfAlfailakawi/schedule-kw'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # المتصفّحُ للسكربت وحده: لا يدخل package.json ولا القفل.
+      - name: Install browser for the smoke script
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+
+      - name: Production build
+        run: npm run build
+
+      # NODE_ENV=production غير مضبوط عمداً: الإنتاج يرفض إنشاء قاعدةٍ محلية جديدة (حمايةٌ من حساب مدير معروف)،
+      # وdist/server.cjs يخدم الواجهة المبنية بلا ضبطه. القاعدة هنا تجريبية تُنشأ داخل المشغّل وتزول معه.
+      - name: Start the demo server
+        env:
+          DATA_MODE: demo
+        run: |
+          node dist/server.cjs > /tmp/smoke-server.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3000/api/health > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "::error::the demo server did not become healthy"
+          tail -n 60 /tmp/smoke-server.log
+          exit 1
+
+      - name: Role journeys
+        env:
+          BASE_URL: http://localhost:3000
+        run: node scripts/ci/weekly-smoke.mjs
+
+      - name: Server log tail on failure
+        if: failure()
+        run: tail -n 80 /tmp/smoke-server.log || true

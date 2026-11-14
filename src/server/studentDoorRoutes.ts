@@ -27,6 +27,7 @@ import { validateCivilId } from "../utils/civilId";
 import { toEnglishDigits } from "../utils/digits";
 import { doorColleges, doorSpecializations, type DoorCollegeIn, type DoorSectionIn } from "../utils/studentCatalog";
 import { AR, countOf } from "../utils/arabicCount";
+import { broadcastStudentNotifySoon } from "./core/liveChannel";
 import {
   AFTER_GRADUATION_DAYS, CODE_LENGTH, CODE_MAX_FAILURES, REMEMBER_DAYS, afterCodeFailure, codeProblem, expectedGraduation,
   lockState, planProgress, profileLifetime, resetLifetime, sanitizePassed, shouldTouch, unitsOf, RESET_COOLDOWN_DAYS, TYPICAL_TERM_UNITS, DEFAULT_TERM_UNITS, peerCourseCounts,
@@ -1215,6 +1216,8 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       return { ...current, ...(remember || {}), registration: { termId: ctx.termId, at: new Date().toISOString(), answers } };
     });
     if (!saved) { fail(res, 401, "انتهت جلستك. أدخل من جديد.", "signed-out"); return; }
+    /* «يوم التسجيل الحي»: جوابٌ جديد يغيّر العدّادات، فتُوقَظ لوحةُ الرادار (نبضةٌ مجمَّعة كل ثلاث ثوانٍ، لا نبضةٌ لكل جواب). */
+    broadcastStudentNotifySoon();
 
     /* حالةٌ لكل قسمٍ يملك مقرراً تعثّر فيه: يصله الطلبُ على كشف التسجيل كأيّ طلب. */
     const cases: Array<{ sectionName: string; caseRef: string }> = [];

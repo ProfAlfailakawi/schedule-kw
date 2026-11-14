@@ -102,7 +102,7 @@ check(noted.length === 1 && blocks.every(block => noted[0].notes.some(note => bl
 const route = (await import("node:fs")).readFileSync("src/server/routes/instructorRequestsRoutes.ts", "utf8");
 const publish = (await import("node:fs")).readFileSync("src/components/SchedulePublish.tsx", "utf8");
 check(/app\.get\("\/api\/instructor-requests\/regulation-teachers", requirePermission\(7\)/.test(route) && /isScopeAllowed\(req, collegeId, sectionId\)/.test(route), "R4 المسارُ بإذن القسم ونطاقه");
-check(/regulation-teachers\?collegeId=/.test(publish) && /مخالفاتٌ للائحة/.test(publish) && /الإرسال متاح/.test(publish), "R4 الإرسالُ يُنبَّه ولا يُمنع");
+check(/regulation-teachers\?collegeId=/.test(publish) && /مخالفة للائحة في جداولهم/.test(publish) && /الإرسال متاح/.test(publish), "R4 الإرسالُ يُنبَّه ولا يُمنع");
 
 console.log("R5 وسمُ المخالفات بنطاق القارئ (طلبٌ يمتدّ على قسمين)");
 {

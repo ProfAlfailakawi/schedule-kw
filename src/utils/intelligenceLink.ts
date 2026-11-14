@@ -53,3 +53,40 @@ export function takeScheduleEditHandoff(): ScheduleEditHandoff | null {
 export function peekScheduleEditHandoff(): boolean {
   try { return Boolean(sessionStorage.getItem(SCHEDULE_OPEN_EDIT_KEY)); } catch { return false; }
 }
+
+/* ── «تحليل الطلب» (كشف التسجيل) ← النسخة التجريبية ──────────────────────────
+   شعبةٌ مقترحة أو نقلةٌ تُفتح في النسخة التجريبية: تُكتب هنا، ويقرؤها مركز
+   التحليلات مرةً واحدة فيستدعي openSectionDraft(item, extra) أو openRepair(item). */
+export const TWIN_HANDOFF_KEY = "intelligence-twin-handoff";
+
+export interface TwinHandoff {
+  kind: "opening" | "repair";
+  /** ما كان يُمرَّر أولاً: الاقتراح (opening) أو النقلة (repair). */
+  item: any;
+  /** خانةُ الشعبة (opening) وحدها. */
+  extra?: any;
+  collegeId: number;
+  sectionId: number;
+  termId: number;
+  createdAt: number;
+}
+
+/** يسلّم الاقتراح ثم يفتح محرّر النسخة التجريبية. */
+export function handOffToTwin(handoff: Omit<TwinHandoff, "createdAt">) {
+  try {
+    sessionStorage.setItem(TWIN_HANDOFF_KEY, JSON.stringify({ ...handoff, createdAt: Date.now() } satisfies TwinHandoff));
+  } catch { /* وضعٌ خاص: يُفتح المحرّر بلا الاقتراح */ }
+  openIntelligenceCard("twin", "editor");
+}
+
+/** يقرأ التسليم مرةً واحدة؛ تسليمٌ أقدم من عشر دقائق لا يُفتح. */
+export function takeTwinHandoff(): TwinHandoff | null {
+  try {
+    const raw = sessionStorage.getItem(TWIN_HANDOFF_KEY);
+    if (!raw) return null;
+    sessionStorage.removeItem(TWIN_HANDOFF_KEY);
+    const value = JSON.parse(raw) as TwinHandoff;
+    if ((value?.kind !== "opening" && value?.kind !== "repair") || !value.item || Date.now() - Number(value.createdAt || 0) > 10 * 60 * 1000) return null;
+    return value;
+  } catch { return null; }
+}

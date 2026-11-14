@@ -26,14 +26,16 @@ check(/title: withVisitingSuffix\(String\(item\.name \|\| "أستاذ"\), visiti
 check(/title:withVisitingSuffix\(String\(item\.name \|\| ""\), isVisiting\(item\.id, member\.collegeId, member\.sectionId\)\)/.test(workspace), "درج الفراغات (قراءة كلية) بقسم تلك القراءة");
 check(/\{risk\.instructorName\}\{visitingAt\(risk\.instructorId, risk\) \? <> <VisitingBadge compact \/><\/> : null\}/.test(workspace), "خطر الإرهاق المكاني");
 check(/\{proposal\.instructorName\}\{visitingAt\(proposal\.instructorId, proposal\) \? <> <VisitingBadge compact \/><\/> : null\}/.test(workspace), "اقتراح تبديل القاعات");
-check(/\{p\.name\}\{visitingInReading\(p\.id\) \? <> <VisitingBadge compact \/><\/> : null\}/.test(workspace), "قائمة حمل الأساتذة");
-check(/slot\.instructorId && visitingAt\(slot\.instructorId, item\) \? <> <VisitingBadge compact \/><\/> : null/.test(workspace), "خانة فتح الشعبة");
-check(/withVisitingSuffix\(String\(slot\.instructorName \|\| ""\), visitingAt\(slot\.instructorId, item\)\)/.test(workspace), "سطر ApplyProposal لفتح الشعبة");
+/* حملُ الأساتذة صار في التقارير (عدسة «الأساتذة»)، و«طلبات الطلاب» في «كشف التسجيل ← تحليل الطلب». */
+const reports = read("src/components/Reports.tsx"), demandAnalysis = read("src/components/DemandAnalysis.tsx");
+check(/person\.name\}<\/span><VisitingBadge compact \/>/.test(reports), "قائمة حمل الأساتذة (عدسة الأساتذة في التقارير)");
+check(/slot\.instructorId && visitingAt\(slot\.instructorId, item\) \? <> <VisitingBadge compact \/><\/> : null/.test(demandAnalysis), "خانة فتح الشعبة («تحليل الطلب»)");
+check(/withVisitingSuffix\(String\(slot\.instructorName \|\| ""\), visitingAt\(slot\.instructorId, item\)\)/.test(demandAnalysis), "سطر ApplyProposal لفتح الشعبة («تحليل الطلب»)");
 check(/withVisitingSuffix\(i\.AdInstructorName, isVisiting\(i\.AdInstructorId, collegeId, sectionId\)\)/.test(workspace), "خيارات نموذج القيد");
 check(/title=\{withVisitingSuffix\(String\(o\.professorImpact\?\.name \|\| ""\), Boolean\(o\.professorImpact\?\.visiting\)\)\}/.test(workspace), "عنوان أثر الأستاذ في الخيار");
 check(/row\.before\?\.visiting \? <> <VisitingBadge compact \/><\/> : null/.test(workspace) && /row\.after\?\.visiting \? <> <VisitingBadge compact \/><\/> : null/.test(workspace), "بطاقات المقارنة قبل/بعد");
 check(/row\.instructor && row\.visiting \? <> <VisitingBadge compact \/><\/> : null/.test(workspace), "بطاقة المقارنة (ظهر/اختفى)");
-check(/<h2>\{detail\.data\.instructor\?\.AdInstructorName\}\{.*<VisitingBadge compact \/>/.test(workspace), "عنوان درج حمل الأستاذ");
+check(/name=\{<>\{group\.name\}\{isVisitingInstructor\(Number\(group\.id\)\) \? <> <VisitingBadge compact \/><\/> : null\}<\/>\}/.test(reports), "عنوان درج «شكل الأسبوع» (عدسة الأساتذة)");
 const canvas = read("src/components/IntelligenceVersionCanvas.tsx");
 check(/AdInstructorName\}\{isVisiting\(row\.AdInstructorId, row\.AdCollegeId, row\.AdSectionId\) \? <> <VisitingBadge compact \/>/.test(canvas), "لوحة النسخ الزمنية");
 

@@ -108,11 +108,25 @@ export async function suggestForCourse(term: AdTerm, loaded: Loaded, baseline: S
   return { ...base, suggestion: best };
 }
 
-export function registerRadarSuggestionRoutes(app: Express, deps: RadarSuggestionDeps): void {
+/** ما يشاركه «يوم التسجيل الحي» (liveBoard.ts): قياسُ الأساس والاقتراحُ لمقررٍ بذاكرةِ هذا المسار نفسِها. */
+export interface RadarSuggestionShared {
+  baselineOf: (term: AdTerm, run: RegistrationRun, loaded: Loaded) => Promise<SimResult>;
+  suggestionFor: (term: AdTerm, run: RegistrationRun, loaded: Loaded, baseline: SimResult, row: RegistrationRun["courses"][number], extraKey?: string) => Promise<Omit<RadarSuggestionRow, "code" | "name" | "sectionName">>;
+}
+
+export function registerRadarSuggestionRoutes(app: Express, deps: RadarSuggestionDeps): RadarSuggestionShared {
   const ctxKey = (key: string | number): string => (deps.dataContextKey ? deps.dataContextKey(key) : String(key));
   /* لكل مقرر ذاكرتُه، ومفتاحُها يحمل آخرَ احتسابٍ ووسمَ «قديم»: أيُّ حفظٍ في الجدول يُبطلها. والنتيجةُ لا تحمل ما يخصّ القارئ. */
   const courseMemo = createTtlMemo<Omit<RadarSuggestionRow, "code" | "name" | "sectionName">>({ ttlMs: 10 * 60_000 });
   const baselineMemo = createTtlMemo<SimResult>({ ttlMs: 10 * 60_000 });
+
+  const stampOf = (termId: number, run: RegistrationRun) => `${termId}:${run.ranAt || ""}:${run.staleAt || ""}`;
+  const baselineOf: RadarSuggestionShared["baselineOf"] = (term, run, loaded) => baselineMemo.get(ctxKey(`base:${stampOf(Number(term.AdTermId), run)}`), async () => simulateRegistration({
+    ...loaded.input, students: loaded.input.students.filter(student => student.wishes),
+    offerings: buildSimulationOfferings(Number(term.AdTermId), loaded.schedules, loaded.courses).offerings, assessCapacity: true,
+  }));
+  const suggestionFor: RadarSuggestionShared["suggestionFor"] = (term, run, loaded, baseline, row, extraKey = "") =>
+    courseMemo.get(ctxKey(`${stampOf(Number(term.AdTermId), run)}:${row.courseId}${extraKey}`), () => suggestForCourse(term, loaded, baseline, row));
 
   app.get("/api/simulation/suggestions", deps.requireAuth, deps.radarReader || ((_req, _res, next) => next()), async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
@@ -151,4 +165,5 @@ export function registerRadarSuggestionRoutes(app: Express, deps: RadarSuggestio
       res.status(500).json({ error: "تعذّر بناء اقتراحات الرادار الآن. أعد المحاولة بعد قليل." });
     }
   });
+  return { baselineOf, suggestionFor };
 }

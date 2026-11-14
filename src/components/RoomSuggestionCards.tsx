@@ -1,7 +1,7 @@
 import React from "react";
 import {
   Armchair, ArrowLeftRight, Ban, Building2, CalendarDays, CalendarX2, Check, CheckCircle2, Clock3, DoorOpen, Footprints,
-  Hourglass, MapPin, MonitorPlay, Repeat2, Ruler, Star, Trash2, UserRound, UserRoundCheck, UsersRound,
+  GraduationCap, Hourglass, MapPin, MonitorPlay, Repeat2, Ruler, Star, Trash2, UserRound, UserRoundCheck, UsersRound,
 } from "lucide-react";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { AR, countOf } from "../utils/arabicCount";
@@ -18,6 +18,8 @@ export interface RoomSuggestion {
   reasons?: string[];
   companionRoomId?: string;
   companionRoomLabel?: string;
+  /** «نبض الطلبة» لهذا الوقت: نسبة من يناسبهم (الخريجون أولاً) — من الطلب الفعلي، وغائبٌ بلا تقرير. */
+  fit?: { percent: number; kind: "grad" | "stud"; blocked: number; need: number };
 }
 
 /** شعبة «هيئة تدريسية» تطابق الموعد المطلوب تطابقاً تاماً (🔄 قابلة للاستبدال — placeholderMatch). */
@@ -62,6 +64,20 @@ function factsFor(reasons: string[] = []): Fact[] {
     if (facts.length === 3) break;
   }
   return facts;
+}
+
+/**
+ * «نبض الطلبة» في سطر البطاقة: أيقونةٌ ونسبة — قبعة الخريجين نحاسية، والطلبة خضراء، وتحمرّ تحت 60٪.
+ * التفصيل في التلميح فلا تُثقل البطاقة بكلام.
+ */
+export function FitPill({ fit }: { fit: NonNullable<RoomSuggestion["fit"]> }) {
+  const tone = fit.percent >= 85 ? "good" : fit.percent >= 60 ? "warn" : "bad";
+  const who = fit.kind === "grad" ? "الخريجين" : "الطلبة";
+  const Icon = fit.kind === "grad" ? GraduationCap : UsersRound;
+  return <em className={`room-suggest-fit is-${fit.kind} tone-${tone}`}
+    title={fit.blocked ? `يناسب ${fit.percent}% من ${who} الذين يحتاجون المقرر — يحجب ${fit.blocked} عن مقررٍ آخر يحتاجونه` : `يناسب كل ${who} الذين يحتاجون المقرر`}>
+    <Icon aria-hidden="true" /><b dir="ltr">{fit.percent}%</b>
+  </em>;
 }
 
 /** رمزٌ وكلمة واحدة حين لا يبقى اقتراح — لا صمت يبدو عطلاً. */
@@ -188,6 +204,7 @@ export default function RoomSuggestionCards({
             <span className="room-suggest-card-title">
               <bdi dir="ltr" className="room-suggest-code">{slot.room}/{slot.hall}</bdi>
               {best ? <em className="room-suggest-best"><Star aria-hidden="true" />الأنسب</em> : null}
+              {slot.fit ? <FitPill fit={slot.fit} /> : null}
             </span>
             {timed ? <small className="room-suggestion-time"><Clock3 aria-hidden="true" /><time dir="ltr">{formatScheduleTimeRange(slot.start!, slot.end!)}</time></small> : null}
             <span className="room-suggest-card-facts">

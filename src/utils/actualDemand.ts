@@ -200,6 +200,26 @@ export function guessDemandVariant(fileName: string): DemandVariant {
   return /(?:^|\D)1\s*(?:ل|الى|إلى|-)\s*30(?!\d)/.test(text) || /خريج/.test(text) ? "graduates" : "general";
 }
 
+/**
+ * هل نوعُ الملف المرفوع يناقض الآخر المحفوظ؟ من الأرقام لا من اسم الملف:
+ * الخريجون جزءٌ من الكل، فمقررُهم لا يزيد عن مقرر «الكل» وإجماليُّهم أقل منه بكثير.
+ * ""= لا قرينة (لا نسخةٌ أخرى محفوظة، أو الأرقام متسقة).
+ */
+export function demandKindClue(report: DemandReport, variant: DemandVariant, other: DemandReport | null, otherHash = "", hash = ""): string {
+  if (hash && otherHash && hash === otherHash) return `هذا الملف نفسه محفوظ كتقرير «${variant === "graduates" ? "الكل" : "الخريجين"}».`;
+  if (!other) return "";
+  const mine = demandStudents(report), theirs = demandStudents(other);
+  if (variant === "graduates") {
+    const all = new Map(other.courses.map(course => [course.code, course.students.total] as const));
+    const over = report.courses.filter(course => all.has(course.code) && course.students.total > (all.get(course.code) || 0)).length;
+    if (theirs > 0 && mine >= theirs * 0.6) return "هذا يبدو تقرير «الكل» لا «الخريجين»: أرقامه بحجم تقرير الكل المحفوظ.";
+    if (report.courses.length && over / report.courses.length > 0.1) return "أرقام بعض المقررات تزيد عن تقرير «الكل» المحفوظ؛ الخريجون جزءٌ من الكل، فتأكد من النوع.";
+  } else if (theirs > 0 && mine <= theirs * 1.5) {
+    return "هذا يبدو تقرير «الخريجين» لا «الكل»: أرقامه بحجم تقرير الخريجين المحفوظ.";
+  }
+  return "";
+}
+
 /** هل فصل التقرير هو الفصل المختار؟ null = لا يُعرف (اسمٌ لا يُقرأ). */
 export function demandTermMatches(reportTerm: string, systemTermName: string): boolean | null {
   const a = parseTermName(reportTerm), b = parseTermName(systemTermName);

@@ -10,6 +10,7 @@ import { Repository } from "../../db/repository";
 import { createDeadSessionMemory, createSessionLookupBudget, isSessionIdShape } from "../anonymousGuard";
 import { isDemoLinkToken, publicLinkTokenFromPath } from "../../utils/demoLinkToken";
 import { seatIdentity } from "../seats";
+import { createGenerationWatcher } from "../identityGeneration";
 
 // Helper to parse cookies
 export function getCookies(req: Request): Record<string, string> {
@@ -98,6 +99,15 @@ function touchSession(sessionId: string, ttlMs: number): void {
   }
 }
 Repository.onIdentityChanged?.(() => authCache.clear());
+/* تعديلُ هويةٍ على نسخةٍ أخرى: عدّادٌ مشترك يُقرأ مرةً كل ~10 ثوانٍ كحدٍّ أقصى فتُمسح ذاكرةُ هذه النسخة
+   (NFR-ACC-043). لا يمرّ بالمستمعين مرتين: noteForeignIdentityChange يمسح ويرفع الجيل المحلي فقط. */
+const identitySync = createGenerationWatcher({
+  read: () => Repository.readSharedIdentityGeneration(),
+  onChanged: () => Repository.noteForeignIdentityChange(),
+});
+
+/** آخرُ فحصٍ لجيل الهويات المشترك أجرته هذه النسخة (لبطاقة «سلامة النظام»). */
+export const identityLastCheckedAt = (): number | null => identitySync.lastCheckedAt();
 
 /* جلسةٌ لا وجود لها تُسأل عنها قاعدةُ البيانات مرةً واحدة، لا مع كل طلب؛ وعنوانٌ
    يخترع معرّفاتٍ يُقرأ مجهولاً بعد حدٍّ لا يبلغه متصفّحٌ حقيقي. القاعدة كلها
@@ -118,6 +128,8 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
   if (sessionId.startsWith("demo_") && !Repository.isDemoRequest()) { next(); return; }
 
   const idleTtlMs = Repository.isDemoRequest() ? DEMO_SESSION_TTL_MS : SERVER_IDLE_SESSION_MS;
+
+  if (!Repository.isDemoRequest()) await identitySync.refreshIfDue();
 
   const cached = authCache.get(sessionId);
   if (cached && Date.now() - cached.at < AUTH_CACHE_MS) {

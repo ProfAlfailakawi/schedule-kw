@@ -405,7 +405,7 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
   padding:var(--s3) var(--s4);border-radius:var(--r-md);
   background:var(--surface-2);border:1px solid var(--line);font-size:var(--t-sm);
 }
-@media (max-width:600px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:600px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .share-step-actions{justify-content:stretch}
   .share-step-actions .btn{flex:1}
 }
@@ -510,7 +510,7 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
 .share-empty{padding:var(--s6);text-align:center;color:var(--muted);font-size:var(--t-sm)}
 .share-sheet>footer{display:flex;justify-content:flex-end;margin-top:var(--s6);padding-top:var(--s5);border-top:1px solid var(--line)}
 
-@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   /* A screen of its own on a phone — not a strip clinging to the bottom edge.
      It fills the height and covers the schedule behind it completely, so the
      publish flow reads as its own place rather than a panel that "appears
@@ -791,6 +791,8 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
 .spread-keys .seg-medium::before{background:var(--warning)}
 .spread-keys .seg-low{background:transparent}
 .spread-keys .seg-low::before{background:var(--muted-2)}
+.spread-keys [data-outside-score]{opacity:.72}
+.spread-keys [data-outside-score] small::after{content:" · خارج الحساب"}
 .spread-keys .seg-clean{background:transparent}
 .spread-keys .seg-clean::before{background:var(--success)}
 .spread-keys b{font-size:var(--t-h4);font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -872,7 +874,7 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
 .review-data-gap svg{width:14px;height:14px;flex:none}
 .review-finding-meta{display:flex;flex-wrap:wrap;gap:8px}
 .review-finding-meta span{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 11px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:700}
-.history-review-infographic{display:grid;gap:12px}.history-review-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.history-review-kpis article{display:grid;grid-template-columns:28px 1fr;align-items:center;column-gap:8px;padding:10px;border-radius:13px;background:var(--surface);border:1px solid var(--line)}.history-review-kpis svg{grid-row:1/3;width:18px;color:var(--accent)}.history-review-kpis strong{font-size:18px;line-height:1}.history-review-kpis span{font-size:12px;color:var(--muted)}.history-review-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.history-review-cards>article{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}.history-review-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent)}.history-review-icon svg{width:16px}.history-review-cards div{min-width:0;display:grid;gap:2px}.history-review-cards div strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.history-review-cards div small{font-size:12px;color:var(--muted)}.history-review-cards time{font-size:12px;font-weight:700}.history-review-cards p{grid-column:2/-1;display:flex;align-items:center;gap:5px;margin:0!important;color:var(--muted)!important;font-size:12px!important}.history-review-cards p svg{width:11px}.history-review-cards p svg:nth-of-type(2){margin-inline-start:6px}.history-review-more{color:var(--muted);text-align:center}@media (max-width:620px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.history-review-cards{grid-template-columns:1fr}.history-review-kpis{grid-template-columns:1fr 1fr 1fr}.history-review-kpis article{grid-template-columns:1fr;text-align:center;justify-items:center}.history-review-kpis svg{grid-row:auto}}
+.history-review-infographic{display:grid;gap:12px}.history-review-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.history-review-kpis article{display:grid;grid-template-columns:28px 1fr;align-items:center;column-gap:8px;padding:10px;border-radius:13px;background:var(--surface);border:1px solid var(--line)}.history-review-kpis svg{grid-row:1/3;width:18px;color:var(--accent)}.history-review-kpis strong{font-size:18px;line-height:1}.history-review-kpis span{font-size:12px;color:var(--muted)}.history-review-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.history-review-cards>article{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}.history-review-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent)}.history-review-icon svg{width:16px}.history-review-cards div{min-width:0;display:grid;gap:2px}.history-review-cards div strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.history-review-cards div small{font-size:12px;color:var(--muted)}.history-review-cards time{font-size:12px;font-weight:700}.history-review-cards p{grid-column:2/-1;display:flex;align-items:center;gap:5px;margin:0!important;color:var(--muted)!important;font-size:12px!important}.history-review-cards p svg{width:11px}.history-review-cards p svg:nth-of-type(2){margin-inline-start:6px}.history-review-more{color:var(--muted);text-align:center}@media (max-width:620px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.history-review-cards{grid-template-columns:1fr}.history-review-kpis{grid-template-columns:1fr 1fr 1fr}.history-review-kpis article{grid-template-columns:1fr;text-align:center;justify-items:center}.history-review-kpis svg{grid-row:auto}}
 /* Each conflicting section is its own card now — code, teacher, section·days and
    time read at a glance instead of as one run-on line (Note 25). */
 .review-row-card{
@@ -1126,7 +1128,7 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
 .meeting-selection-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.meeting-selection-head strong{display:flex;align-items:center;gap:7px;font-size:13px}.meeting-selection-head svg{width:17px;color:var(--accent)}.meeting-selection-head div{display:flex;gap:6px}.meeting-selection-head button{border:0;background:var(--surface-2);color:var(--muted);border-radius:9px;padding:6px 9px;font-size:12px}
 .meeting-people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:250px;overflow:auto;padding:2px}.meeting-people button{display:flex;align-items:center;gap:9px;text-align:right;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:9px;color:var(--ink)}.meeting-people button i{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--surface-2);flex:none}.meeting-people button i svg{width:13px}.meeting-people button.on{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}.meeting-people button.on i{background:var(--accent);color:#fff}.meeting-people span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 .meeting-error{padding:10px 12px;border-radius:11px;background:var(--danger-soft);color:var(--danger)!important}.meeting-results{display:grid;gap:18px;border-top:1px solid var(--line);padding-top:15px}.meeting-results section{display:grid;gap:9px}.meeting-results h3{font-size:13px}.meeting-slot{display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}.meeting-slot>span{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--surface-2);color:var(--muted)}.meeting-slot svg{width:17px}.meeting-slot div{display:flex;align-items:center;gap:10px}.meeting-slot time{font-weight:700}.meeting-slot small{color:var(--muted)}.meeting-slot.best{border-color:color-mix(in srgb,var(--success) 38%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--success) 9%,var(--surface)),var(--surface))}.meeting-slot.best>span{background:var(--success);color:#fff}.meeting-alternatives{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:230px;overflow:auto}.meeting-empty{display:grid;justify-items:center;gap:5px;padding:25px;color:var(--muted)}.meeting-empty svg{width:28px}.meeting-empty strong{color:var(--ink)}
-@media (max-width:620px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.meeting-backdrop{padding:0}.meeting-sheet{height:100vh;max-height:100vh;height:100dvh;max-height:100dvh;border-radius:0;padding:16px}.meeting-controls{grid-template-columns:1fr}.meeting-people,.meeting-alternatives{grid-template-columns:1fr}.meeting-selection-head{align-items:flex-start}.meeting-slot div{display:grid;gap:2px}}
+@media (max-width:620px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.meeting-backdrop{padding:0}.meeting-sheet{height:100vh;max-height:100vh;height:100dvh;max-height:100dvh;border-radius:0;padding:16px}.meeting-controls{grid-template-columns:1fr}.meeting-people,.meeting-alternatives{grid-template-columns:1fr}.meeting-selection-head{align-items:flex-start}.meeting-slot div{display:grid;gap:2px}}
 .transfer-note,.transfer-error{
   display:flex;align-items:center;gap:var(--s2);
   margin:0 var(--s6);padding:var(--s3) var(--s4);
@@ -1153,7 +1155,7 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
 .ttc-arrow{width:20px;height:20px;color:var(--muted)}
 .transfer-term-card>footer{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;color:var(--muted);font-size:var(--t-xs)}
 .transfer-term-card>footer b{color:var(--ink)}
-@media (max-width:620px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.transfer-term-card{margin-inline:var(--s3)}.ttc-flow{grid-template-columns:1fr}.ttc-arrow{justify-self:center;transform:rotate(-90deg)}}
+@media (max-width:620px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.transfer-term-card{margin-inline:var(--s3)}.ttc-flow{grid-template-columns:1fr}.ttc-arrow{justify-self:center;transform:rotate(-90deg)}}
 .transfer-orientation-guidance{
   display:flex;align-items:center;justify-content:center;gap:10px;
   margin:14px var(--s6) 0;padding:10px 16px;min-height:46px;
@@ -1307,7 +1309,7 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
 }
 .cmdk-foot span{display:inline-flex;align-items:center;gap:4px}
 
-@media (max-width:600px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:600px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .cmdk-backdrop{padding:6vh var(--s3) var(--s3)}
   .cmdk{max-height:80vh}
   .cmdk-foot{display:none}
@@ -1473,7 +1475,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 }
 .share-survey-shortcut>button:hover:not(:disabled){background:var(--accent-softer)}
 .share-survey-shortcut>button:disabled{opacity:.55}
-@media screen and (max-width:600px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media screen and (max-width:600px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .share-survey-shortcut{grid-template-columns:38px minmax(0,1fr);padding:var(--s3)}
   .share-survey-shortcut-icon{width:38px;height:38px}
   .share-survey-shortcut>button{grid-column:1/-1;width:100%}
@@ -1599,7 +1601,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
   white-space:nowrap;direction:ltr;unicode-bidi:isolate;
 }
 .week-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .week-when{gap:4px}
   .week-when i{max-inline-size:100%}
 }
@@ -1615,7 +1617,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .review-row-card.compact .rrc-main small{font-size:12px;color:var(--muted);line-height:1.55}
 
 /* === Publish sheet phone header: the title sits below the QR mark ========== */
-@media (max-width:600px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:600px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .share-sheet.visual-minimal>header{
     position:relative!important;
     display:block!important;
@@ -1671,7 +1673,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .schedule-time-intelligence summary{cursor:pointer;list-style:none;color:var(--warning);font-size:12px;font-weight:700}
 .schedule-time-intelligence summary::-webkit-details-marker{display:none}
 .schedule-time-intelligence details p{margin:8px 0 0;color:var(--ink-2);font-size:12px;line-height:1.75}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .schedule-time-intelligence{grid-template-columns:38px minmax(0,1fr);padding:12px}
   .schedule-time-intelligence-icon{width:38px;height:38px;border-radius:12px}
   .schedule-time-intelligence-head{align-items:flex-start}
@@ -1845,7 +1847,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .meeting-slots-days li small{color:var(--muted);font-size:12px}
 .meeting-slots-miss{margin-top:6px;border-top:1px dashed var(--line);padding-top:6px}
 .meeting-slots-miss li{color:var(--ink-2)}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .day-substitute,.meeting-slots{
     top:auto;bottom:0;inset-inline-start:0;transform:none;
     width:100%;max-height:88dvh;border-radius:var(--r-xl) var(--r-xl) 0 0;
@@ -1879,12 +1881,12 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .roster-directory .instructor-identity{display:grid;gap:2px;min-width:0}.roster-directory .instructor-identity b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--t-sm)}.roster-directory .instructor-identity small{color:var(--muted);font:500 var(--t-xs)/1 var(--font-mono)}
 .roster-row-actions{display:flex;align-items:center;gap:4px}.roster-row-actions button{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--muted);cursor:pointer}.roster-row-actions button:hover{color:var(--accent);border-color:var(--accent)}.roster-row-actions button.danger:hover{color:var(--danger);border-color:var(--danger)}.roster-row-actions svg{width:14px;height:14px}
 .roster-edit-fields{grid-column:1/-1;display:grid;grid-template-columns:minmax(180px,1fr) minmax(140px,.55fr) auto auto;gap:7px}.roster-edit-fields input{min-width:0;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);padding:8px 10px}
-@media (max-width:700px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.roster-directory>article{grid-template-columns:1fr auto}.roster-term-toggle{grid-column:1/-1;justify-self:start}.roster-edit-fields{grid-template-columns:1fr}.roster-edit-fields .btn{width:100%}}
+@media (max-width:700px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.roster-directory>article{grid-template-columns:1fr auto}.roster-term-toggle{grid-column:1/-1;justify-self:start}.roster-edit-fields{grid-template-columns:1fr}.roster-edit-fields .btn{width:100%}}
 
 .roster-local-error{margin:0 0 10px!important}
 .roster-edit-wrap{display:grid;gap:8px;min-width:0}
 
-@media (max-width:620px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.transfer-orientation-guidance{margin-inline:16px;padding-inline:12px}.transfer-orientation-guidance strong{font-size:12px}}
+@media (max-width:620px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.transfer-orientation-guidance{margin-inline:16px;padding-inline:12px}.transfer-orientation-guidance strong{font-size:12px}}
 
 /* ── معاينة استيراد PDF بحجم الصفحة ───────────────────────────────────────
    Reviewing a scanned timetable is reading a page. In the ordinary 620–880px
@@ -1907,7 +1909,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
   margin-top:var(--s3);color:var(--danger);font-size:var(--t-sm);line-height:1.6;
 }
 .transfer-row-issues-note svg{width:15px;height:15px;flex:none}
-@media (max-width:900px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:900px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .transfer-sheet.is-page-wide{width:min(880px,calc(100vw - 20px))}
   .transfer-sheet.is-page-wide .import-preview-table-wrap{overflow-x:auto}
   .transfer-sheet.is-page-wide .import-preview-table{min-width:860px}
@@ -1956,52 +1958,6 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .student-qr-tracks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .student-qr-tracks button{min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
 .student-qr-tracks button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);font-weight:700}
-/* تخطيط الشعب (SectionPlanning): جدولٌ يطوي أعمدته على الهاتف. */
-.section-plan{display:grid;gap:var(--s3)}
-.section-plan-note{margin:0;color:var(--muted);font-size:var(--t-sm);line-height:1.8}
-.section-plan-bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s3)}
-.section-plan-bar input{flex:1 1 180px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:transparent;color:var(--ink)}
-.section-plan-table{display:grid;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
-.section-plan-row{display:grid;grid-template-columns:minmax(180px,3fr) 120px minmax(110px,1fr) 110px auto;gap:var(--s2);align-items:center;padding:8px 12px;border-top:1px solid var(--line);font-size:var(--t-sm)}
-.section-plan-row.head{border-top:0;color:var(--muted);font-size:var(--t-xs);font-weight:600}
-.section-plan-row input{width:90px;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:transparent;color:var(--ink)}
-.section-plan-count{font-weight:800;font-size:18px;color:var(--ink)}
-.section-plan-left input{font-weight:800;font-size:17px;border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent-soft) 40%,transparent)}
-.section-plan-pick input{font-weight:800;font-size:17px}
-.section-plan-row.is-outside{background:color-mix(in srgb,var(--warning-soft) 45%,transparent)}
-.section-plan-why-toggle{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--line);border-radius:var(--r-full,999px);background:transparent;color:var(--muted);font:inherit;font-size:var(--t-xs);cursor:pointer}
-.section-plan-why-toggle svg{width:14px;height:14px;transition:transform .15s}
-.section-plan-why-toggle.is-open svg:last-child{transform:rotate(180deg)}
-.section-plan-why-toggle.is-warn{color:var(--warning);border-color:color-mix(in srgb,var(--warning) 45%,var(--line))}
-.section-plan-why{display:grid;gap:var(--s2);padding:10px 14px;border-top:1px dashed var(--line);background:color-mix(in srgb,var(--surface-2,var(--bg)) 60%,transparent);color:var(--muted);font-size:var(--t-sm);line-height:1.7}
-.section-plan-why dl{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);margin:0}
-.section-plan-why dl div{display:grid;gap:2px}
-.section-plan-why dt{font-size:var(--t-xs)}
-.section-plan-why dd{margin:0;color:var(--ink);font-weight:600}
-.section-plan-why p{margin:0}
-.section-plan-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s2)}
-.section-plan-summary>div{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:2px 8px;padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r-sm)}
-.section-plan-summary svg{grid-row:span 2;width:20px;height:20px;color:var(--muted)}
-.section-plan-summary span{color:var(--muted);font-size:var(--t-xs)}
-.section-plan-summary b{font-size:22px;line-height:1.2}
-.section-plan-summary small{font-size:var(--t-xs);color:var(--muted);font-weight:400}
-.section-plan-summary .is-main{border-color:var(--accent);background:color-mix(in srgb,var(--accent-soft) 50%,transparent)}
-.section-plan-summary .is-main svg{color:var(--accent)}
-.section-plan-import-text{display:grid;gap:2px;flex:1 1 220px}
-.section-plan-import-text strong{font-size:var(--t-sm)}
-.section-plan-reason{color:var(--muted);line-height:1.7}
-/* الهاتف: كل مقرر بطاقة — اسمه، ثم أربع خانات معنونة متساوية، ثم السبب. */
-@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
-  .section-plan-row.head{display:none}
-  .section-plan-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 8px;padding:12px}
-  .section-plan-course{grid-column:1/-1;order:0;font-size:var(--t-md,16px);min-inline-size:0;overflow-wrap:anywhere}
-  .section-plan-left{order:1}.section-plan-count{order:2}.section-plan-pick{order:3}
-  .section-plan-why-cell{grid-column:1/-1;order:4}
-  .section-plan-row>[data-label]{display:grid;align-content:start;gap:4px;font-size:var(--t-md,16px)}
-  .section-plan-row>[data-label]::before{content:attr(data-label);color:var(--muted);font-size:var(--t-xs);font-weight:600}
-  .section-plan-row input{width:100%;min-width:0;text-align:center}
-  .section-plan-pick{justify-items:stretch}
-}
 .section-plan-warning{display:flex;align-items:flex-start;gap:6px;margin:0;color:var(--danger);font-style:normal;font-size:var(--t-sm);line-height:1.7}
 .section-plan-warning>svg{flex:none;width:16px;height:16px;margin-top:4px}
 /* رفض الكشف: صندوقٌ أحمر في مكان الاستيراد — عنوانٌ بكلمتين، ثم مقارنة «في الكشف ≠ المختار» بأيقونات. */
@@ -2024,96 +1980,12 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 .section-plan-reject-short{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0;font-size:var(--t-sm);line-height:1.6}
 .section-plan-reject-short svg{flex:none;width:16px;height:16px;color:var(--danger)}
 .section-plan-reject-short span{color:var(--muted)}
-.section-plan-legacy{padding:12px 14px;border:1px solid color-mix(in srgb,var(--danger) 28%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--danger-soft) 45%,var(--surface))}
-.section-plan-legacy>div{min-width:0;display:grid;gap:4px}
-.section-plan-legacy strong{font-weight:700}
-.section-plan-legacy p{margin:0;color:var(--ink-soft,var(--muted))}
-.section-plan-legacy code{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:end;font-size:var(--t-xs,12px);color:var(--muted)}
-.section-plan-save{box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 28%,transparent)}
-.section-plan-report{width:min(920px,100%);max-height:calc(100dvh - 32px);overflow:auto;padding:var(--s5);border:1px solid var(--line);border-radius:var(--r-md,14px);background:var(--surface,var(--bg));color:var(--ink);display:grid;gap:var(--s4)}
-.section-plan-report>header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3)}
-.section-plan-report>header h2{margin:2px 0 0}
-.section-plan-report-actions{display:flex;align-items:center;gap:var(--s2)}
-.section-plan-report-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr));gap:var(--s3)}
-.section-plan-report-stats>div{padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-sm);display:grid;gap:4px}
-.section-plan-report-stats span{color:var(--muted);font-size:var(--t-xs)}
-.section-plan-report-stats b{font-size:24px}
-.section-plan-report-table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
-.section-plan-report-table th,.section-plan-report-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:start;vertical-align:top}
-.section-plan-report-table th{color:var(--muted);font-size:var(--t-xs);font-weight:600}
-.section-plan-report-table tfoot td{font-weight:700;border-bottom:0}
-/* كشف المتبقي: زرّ الاستيراد ومصدره، وحالة الحفظ الذاتي، ومعاينة الكشف. */
-.section-plan-import{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s3);padding:var(--s3);border:1px dashed color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:var(--r-sm);background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
-.section-plan-source{margin:0;color:var(--muted);font-size:var(--t-sm);line-height:1.7}
-.section-plan-saved{display:inline-flex;align-items:center;gap:6px;margin-inline-start:auto;color:var(--muted);font-size:var(--t-xs)}
-.section-plan-saved.is-error{color:var(--danger)}
-.section-plan-retry{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid currentColor;border-radius:var(--r-full,999px);background:transparent;color:inherit;font:inherit;cursor:pointer}
-.section-plan-retry svg{width:13px;height:13px}
-.section-plan-row input::placeholder{color:color-mix(in srgb,var(--muted-2) 75%,transparent);font-style:italic;opacity:1}
-.section-plan-pick{display:grid;gap:2px;justify-items:start}
-.section-plan-outside{color:var(--warning);font-size:var(--t-xs);font-weight:600}
-.section-plan-backlog-note{display:flex;align-items:flex-start;gap:4px;margin-top:4px;color:var(--warning);font-style:normal}
-.section-plan-backlog-note svg{flex:none;width:14px;height:14px;margin-top:4px}
-.section-plan-backlog{padding:var(--s3);border:1px solid color-mix(in srgb,var(--warning) 40%,var(--line));border-radius:var(--r-sm);background:var(--warning-soft)}
-.section-plan-backlog ul{margin:var(--s2) 0 0;padding-inline-start:1.2em;line-height:1.8;font-size:var(--t-sm)}
-.section-plan-report-table tr.is-outside td{background:color-mix(in srgb,var(--warning-soft) 60%,transparent)}
-.section-plan-import-summary{display:flex;flex-wrap:wrap;gap:var(--s2);margin:0;padding:0;list-style:none;font-size:var(--t-sm)}
-.section-plan-import-summary li{padding:4px 10px;border:1px solid var(--line);border-radius:var(--r-full,999px)}
-.section-plan-import-summary li.is-warn{border-color:color-mix(in srgb,var(--warning) 50%,var(--line));color:var(--warning)}
-.section-plan-columns{display:flex;flex-wrap:wrap;gap:var(--s2);margin:0;padding:0;border:0}
-.section-plan-columns legend{margin-bottom:var(--s2);font-size:var(--t-sm);font-weight:600}
-.section-plan-columns label{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer}
-.section-plan-columns label.is-active{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-.section-plan-columns label span{display:grid;gap:2px}
-.section-plan-columns small{color:var(--muted);font-size:var(--t-xs)}
-.section-plan-import-preview .section-plan-report-actions{justify-content:flex-start}
-/* معاينة الكشف: ما أُخذ من «لم يجتازوا»، وصفٌّ قُرئ قراءتين يُختار صحيحه. */
-.section-plan-cell-note{display:block;color:var(--muted);font-size:var(--t-xs)}
-.section-plan-cell-note.is-unread{color:var(--warning)}
-.section-plan-doubt{display:inline-flex;gap:4px;margin-inline-start:8px;vertical-align:middle}
-/* معاينة كشف المتبقي: تُشبه معاينة استيراد الجدول (بطاقات الملخص، الخلية الصفراء، الشريط الجانبي للحالة). */
-.section-plan-import-preview .import-summary-cards{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));margin-block:0}
-.section-plan-import-preview .import-summary-cards>span svg{grid-row:1 / span 2;width:22px;height:22px;color:var(--muted)}
-.section-plan-import-preview .import-summary-cards .ready svg{color:var(--success,#3f7f67)}
-.section-plan-import-preview .import-summary-cards .warn svg{color:var(--warning,#a8792a)}
-.section-plan-import-preview .import-summary-cards>span:has(svg){grid-template-columns:auto auto 1fr}
-@media (max-width:720px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.section-plan-import-preview .import-summary-cards>span:has(svg){grid-template-columns:auto auto minmax(0,1fr)}}
-.section-plan-import-table{min-width:0!important}
-.section-plan-import-table td.import-cell-course{min-width:140px}
-.section-plan-import-table td input[type="number"]{width:84px;max-width:100%;font-weight:700;text-align:center}
-.section-plan-import-table tr.is-muted td{color:var(--muted)}
-/* كل خانات المعاينة في الوسط: الأرقام والأسماء والحالة صفوفٌ متناسقة تُقرأ بنظرة. */
-.section-plan-import-table th,.section-plan-import-table td{text-align:center}
-.section-plan-import-table td.import-cell-course{text-align:center}
-.section-plan-import-table .section-plan-state{justify-content:center}
-/* السالب يُكتب «‎-6‎» من اليسار كما في الكشف، لا «6-». */
-.section-plan-signed{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
-.section-plan-import-table tr.is-foreign td{color:var(--muted);background:color-mix(in srgb,var(--line) 22%,transparent)}
-.section-plan-state{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:12px;font-weight:700;color:var(--muted)}
-.section-plan-state svg{width:14px;height:14px;flex:none}
-.section-plan-state.is-read{color:var(--success,#3f7f67)}
-.section-plan-state.is-review{color:var(--warning)}
-.section-plan-state.is-manual{color:#2f6f78}
-.section-plan-reason-chip{display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:2px 8px;border:1px solid color-mix(in srgb,var(--warning) 38%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--warning) 9%,var(--surface));color:var(--warning);font-size:12px;font-weight:700;line-height:1.4}
-.section-plan-reason-chip.is-manual{border-color:color-mix(in srgb,#2f6f78 40%,var(--line));background:color-mix(in srgb,#2f6f78 8%,var(--surface));color:#2f6f78}
-.section-plan-yellow-note{display:flex;align-items:flex-start;gap:7px;padding:8px 11px;border:1px solid color-mix(in srgb,var(--warning) 40%,var(--line));border-radius:11px;background:color-mix(in srgb,var(--warning) 8%,var(--surface));color:var(--ink);font-size:var(--t-sm);line-height:1.7}
-.section-plan-yellow-note svg{flex:none;width:16px;height:16px;margin-top:4px;color:var(--warning)}
-.section-plan-confirm{display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}
-.section-plan-confirm input{width:18px;height:18px;flex:none;accent-color:var(--accent)}
-.section-plan-missing-list{padding:8px 12px;border:1px dashed var(--line);border-radius:11px}
-.section-plan-missing-list summary{cursor:pointer;color:var(--muted);font-size:var(--t-sm);font-weight:700}
-.section-plan-missing-list ul{display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 0 0;padding:0;list-style:none;font-size:var(--t-xs);color:var(--muted)}
-.section-plan-doubt button{min-width:44px;padding:2px 10px;border:1px solid color-mix(in srgb,var(--warning) 55%,var(--line));border-radius:var(--r-full,999px);background:transparent;color:var(--ink);font:inherit;font-size:var(--t-sm);cursor:pointer}
-.section-plan-doubt button.is-active{background:var(--warning-soft);border-color:var(--warning);font-weight:700}
-.section-plan-import-preview .section-plan-warning{display:flex;align-items:flex-start;gap:6px;color:var(--warning)}
-.section-plan-import-preview .section-plan-warning svg{flex:none;width:16px;height:16px;margin-top:4px}
-@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.section-plan-saved{margin-inline-start:0}}
 
 /* أدوات الجدول عشر أيقونات في فصلٍ مفتوح: صفّان متساويان (٥ فوق و٥ تحت)
    على الشاشة الواسعة واللوحي، وعمودان متساويان (٥ صفوف كاملة) على الهاتف
    حيث لا تتّسع خمسٌ بعناوينها — لا أيقونةٌ يتيمة في سطرٍ وحده. */
 .transfer-tabs{grid-template-columns:repeat(5,minmax(0,1fr))!important}
-@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.transfer-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.transfer-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 /* فصلٌ منتهٍ: تبويبتان فقط (تصدير ونشر) — صفٌّ واحد على كل شاشة. */
 .transfer-tabs.is-ended{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 
@@ -2183,7 +2055,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
 
 /* مفاتيح شريط المراجعة على الهاتف: بطاقتان في كل صف، والرقم واسمه في سطرٍ
    واحد لا ينكسر («44 موعداً للمراجعة»)، لا كلماتٌ متناثرة على أسطر. */
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .review-sheet .spread-keys{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important;justify-content:stretch!important}
   .review-sheet .spread-keys span{display:flex!important;align-items:center;justify-content:flex-start!important;gap:6px!important;min-width:0;min-height:44px;padding:8px 10px!important;border-radius:14px;background:var(--surface)!important;border:1px solid var(--line);font-size:12.5px!important;white-space:nowrap}
   .review-sheet .spread-keys span::before{display:none}
@@ -2198,7 +2070,7 @@ html[data-rail="closed"] .sidebar:not(:hover):not(:focus-within) .rail-identity{
    its last row down into the band the fixed dock occupies. Anchor them to the
    bottom and reserve the dock plus the safe area; `--dock-h` is 0 above 900px,
    and this whole block is phone-only, so desktop is untouched. */
-@media (max-width:720px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:720px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .transfer-backdrop,.review-backdrop{
     place-items:end center;
     padding:max(var(--s3),env(safe-area-inset-top)) 0 calc(var(--dock-h) + env(safe-area-inset-bottom));

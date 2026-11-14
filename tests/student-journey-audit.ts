@@ -191,7 +191,8 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
   check(statusRoute.includes("resolveSurveyStatusToken(") && !statusRoute.includes("resolveShareToken("), "S3 /m/ يفتح بمهلة الحالة");
   const submit = between(server, "async function graduateSubmitCheck(", "/** What the students said");
   check(submit.includes("resolveShareToken(token)") && !submit.includes("resolveSurveyStatusToken"), "S3 الإرسال يبقى مغلقاً بإغلاق الرابط");
-  const workspace = read("src/components/IntelligenceWorkspace.tsx");
+  /* رابطُ الاستبيان انتقل مع «طلبات الطلاب» إلى «كشف التسجيل ← تحليل الطلب». */
+  const workspace = read("src/components/DemandAnalysis.tsx");
   check(workspace.includes("حتى 30 يوماً بعد نهاية الفصل") && !workspace.includes("سيتوقف الرابط فوراً ولن يفتح لأي طالب بعد الآن"),
     "S3 تحذير «أوقف الرابط» يقول الحقيقة: تتوقف الطلبات وتبقى المتابعة");
 }
@@ -333,7 +334,7 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
   check(demand.includes("caseRef:caseRefFor(need)"), "S13 قراءة القسم تحمل رقم الحالة");
   const workspace = read("src/components/IntelligenceWorkspace.tsx");
   const register = read("src/components/StudentCasesTable.tsx");
-  check(!/slice\(0,\s*8\)\.toUpperCase\(\)/.test(workspace + register) && workspace.includes("<StudentCasesTable")
+  check(!/slice\(0,\s*8\)\.toUpperCase\(\)/.test(workspace + register) && read("src/components/StudentRegistration.tsx").includes("<StudentCasesTable")
     && (register.match(/item\.caseRef\s*\|\|\s*"—"/g) || []).length === 2,
     "S13 الجدول والطباعة (السجلّ المشترك) يعرضان رقم الحالة، لا بادئة المعرّف");
   const derivations = [...serverSourceFiles(), "src/db/repository.ts", "src/utils/studentNeedMerge.ts", "src/components/IntelligenceWorkspace.tsx", "src/components/StudentRegistration.tsx"]
@@ -458,6 +459,16 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
   check(a === 1 && b === 1 && loads === 1, "R2 نداءان متزامنان يقرآن الفصل مرّةً واحدة");
   t = 30_000; await memo.get("k", load);
   check(loads === 1, "R2 داخل الدقيقة: من الذاكرة");
+  {
+    /* مفاتيحُ كثيرة منتهية لا تبقى في الخريطة: تُنظَّف حين تبلغ حدَّ التنظيف. */
+    let clock = 0;
+    const many = createTtlMemo<number>({ ttlMs: 1_000, now: () => clock });
+    for (let i = 0; i < 300; i++) await many.get(`k${i}`, async () => i);
+    clock = 5_000;
+    await many.get("fresh", async () => 1);
+    check(many.size() <= 2, `R2b المفاتيح المنتهية تُحذف من الذاكرة (${many.size()})`);
+  }
+
   t = 61_000; await memo.get("k", load);
   check(loads === 2, "R2 بعد الدقيقة: قراءةٌ جديدة");
   memo.invalidate(); await memo.get("k", load);

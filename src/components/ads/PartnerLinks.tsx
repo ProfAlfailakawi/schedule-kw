@@ -41,7 +41,7 @@ export default function PartnerLinks({ data, busy, onCreate, onRevoke, onCopy }:
         </label>
         <label><span>صلاحية الرابط</span>
           <select value={days} onChange={e => setDays(e.target.value)}>
-            <option value="0">بلا انتهاء</option><option value="7">٧ أيام</option><option value="14">١٤ يوماً</option><option value="30">٣٠ يوماً</option><option value="90">٩٠ يوماً</option>
+            <option value="0">بلا انتهاء</option><option value="7">7 أيام</option><option value="14">14 يوماً</option><option value="30">30 يوماً</option><option value="90">90 يوماً</option>
           </select>
         </label>
         <div className="ad-plink-seasons" role="group" aria-label="مواسم الشركة"><span>مواسمها <small>(اختياري)</small></span>
