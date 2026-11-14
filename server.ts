@@ -67,6 +67,7 @@ import { registerInstructorsRoutes } from "./src/server/routes/instructorsRoutes
 import { registerIntelligenceInsightRoutes } from "./src/server/routes/intelligenceInsightRoutes";
 import { registerIntelligenceRoutes } from "./src/server/routes/intelligenceRoutes";
 import { registerLocationsRoutes } from "./src/server/routes/locationsRoutes";
+import { registerDeleteImpactRoutes } from "./src/server/routes/deleteImpactRoutes";
 import { registerNotificationsRoutes } from "./src/server/routes/notificationsRoutes";
 import { registerOfferingRoutes } from "./src/server/routes/offeringRoutes";
 import { registerPdfImportRoutes } from "./src/server/routes/pdfImportRoutes";
@@ -431,6 +432,7 @@ registerScheduleReviewRoutes(app);
 registerIntelligenceInsightRoutes(app);
 registerReportsRoutes(app);
 registerLocationsRoutes(app);
+registerDeleteImpactRoutes(app);
 registerScheduleToolsRoutes(app);
 registerGuideRoutes(app);
 registerIntelligenceRoutes(app);

@@ -33,6 +33,7 @@ import {
   CatalogFormDrawer,
   visualConfirm,
 } from "./ui";
+import { confirmDeleteWithImpact } from "./DeleteImpact";
 
 type Mode = "index" | "create" | "edit";
 type PlanFilter = "all" | "new" | "old" | "service";
@@ -568,7 +569,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     if (submitting) return;
     const id = Number(course.AdCourseId);
     const label = `${courseNumberOf(course)} — ${course.CourseName}`;
-    if (!(await visualConfirm({ title: `حذف «${course.CourseName}»`, message: `سيُحذف المقرر ${label} من النظام. لا يُحذف إن كان مرتبطاً بصحيفة أكاديمية أو له أي موعد في الجدول في أي فصل.`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    if (!(await confirmDeleteWithImpact({ entity: "course", id: Number(course.AdCourseId), title: `حذف «${course.CourseName}»`, message: `سيُحذف المقرر ${label} من النظام. لا يُحذف إن كان مرتبطاً بصحيفة أكاديمية أو له أي موعد في الجدول في أي فصل.` })).confirmed) return;
     setSubmitting(true);
     setError(null);
     setErrorCode(null);

@@ -24,6 +24,7 @@ import { confirmedDepartmentRoomIds, invalidateLocationRegistry, readLocationReg
 import { sortTermsNewestServer, termChronologyServer } from "../core/ordering";
 import { SCHEDULE_DAY_KEYS } from "../core/scheduleRules";
 import { isScopeAllowed } from "../core/scope";
+import { locationUsage } from "../deleteImpact";
 
 type DepartmentRoomReference={building:string;hall:string};
 
@@ -35,28 +36,7 @@ const officialBuildingCollegeIds=(building:MasterBuilding,colleges:readonly any[
   return official.length?[...new Set(official)]:locationIdList(building.collegeIds);
 };
 
-/**
- * ── كم موعداً يقف في هذه القاعة/المبنى الآن وفيما بعد؟ ───────────────────────
- * «الحذف» إيقاف (FR-LOC-007)، لكنّ المواعيد القائمة تبقى تشير إلى القاعة. فيُعدّ قبل الإيقاف ما في
- * الفصل الحالي وما بعده — بالمعرّف أو بالرمز القديم في المبنى نفسه — ليُرى ويُؤكَّد، لا ليُكتشف لاحقاً.
- */
-async function locationUsage(rooms:MasterRoom[]):Promise<{current:number;future:number}>{
-  if(!rooms.length)return{current:0,future:0};
-  const terms=await Repository.getTerms();
-  const activeId=currentTermId(terms as any)||Number(sortTermsNewestServer(terms)[0]?.AdTermId||0);
-  const activeTerm=terms.find(term=>Number(term.AdTermId)===activeId);
-  const activeChronology=activeTerm?termChronologyServer(activeTerm):Number.NEGATIVE_INFINITY;
-  const laterIds=new Set(terms.filter(term=>Number(term.AdTermId)!==activeId&&termChronologyServer(term)>activeChronology).map(term=>Number(term.AdTermId)));
-  const ids=new Set(rooms.map(room=>room.id));
-  const legacy=new Set(rooms.map(room=>`${room.buildingId}|${room.canonicalCode}`));
-  const uses=(row:FSchedule)=>(row.roomId&&ids.has(String(row.roomId)))||(!row.roomId&&legacy.has(`${String(row.buildingId||"")}|${String(row.AdRoomHall||"").normalize("NFKC").trim().toUpperCase().replace(/\s+/g,"")}`));
-  let current=0,future=0;
-  for(const row of await Repository.getSchedules()){
-    if(!uses(row))continue;
-    if(Number(row.AdTermId)===activeId)current+=1;else if(laterIds.has(Number(row.AdTermId)))future+=1;
-  }
-  return{current,future};
-}
+/* عدُّ مواعيد القاعة/المبنى (الجاري وما بعده) في server/deleteImpact.ts: تقرؤه خريطةُ «لو حذفت؟» كذلك — «الحذف» إيقاف (FR-LOC-007). */
 export const LOCATION_IN_USE_CONFIRM="location-in-use";
 
 export function registerLocationsRoutes(app: Express): void {

@@ -1,0 +1,17 @@
+/* ── «لو حذفت؟» (src/components/DeleteImpact.tsx): خريطة المرتبطات داخل نافذة تأكيد الحذف ──
+   الألوانُ من رموز التصميم وحدها فتصحّ في الوضع الداكن. */
+.delete-impact{display:grid;gap:10px;margin-block-start:10px;text-align:start}
+.delete-impact-note{margin:0;color:var(--ink-2);font-size:.92rem}
+.delete-impact-title{display:flex;align-items:center;gap:6px;margin:0;font-weight:800;color:var(--ink)}
+.delete-impact-title svg,.delete-impact-warn svg,.delete-impact-blocked strong svg{inline-size:16px;block-size:16px;flex:none}
+.delete-impact-groups{display:grid;gap:8px;max-block-size:min(38vh,320px);overflow:auto;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.delete-impact-group h4{margin:0 0 4px;font-size:.84rem;font-weight:700;color:var(--ink-2)}
+.delete-impact-group ul{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.delete-impact-group li{padding:3px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-size:.9rem;font-variant-numeric:tabular-nums}
+.delete-impact-warn{display:flex;align-items:flex-start;gap:6px;margin:0;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--warning,#b7791f) 12%,var(--surface));color:var(--ink);font-size:.9rem}
+.delete-impact-blocked{display:grid;gap:8px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--danger,#c0392b) 45%,var(--line));border-radius:12px;background:color-mix(in srgb,var(--danger,#c0392b) 9%,var(--surface))}
+.delete-impact-blocked strong{display:flex;align-items:center;gap:6px;color:var(--danger,#c0392b)}
+.delete-impact-blocked ul{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.delete-impact-blocked li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--ink);font-size:.92rem}
+.delete-impact-blocked li .btn{min-block-size:44px}
+.schedule-confirm-actions .btn:disabled{opacity:.5;cursor:not-allowed}
