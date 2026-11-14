@@ -116,9 +116,12 @@ const qrSize = Number(css.match(/\.print-stamp-qr\{[^}]*height:([\d.]+)mm/)?.[1]
 check(qrSize <= 11.5, "وارتفاعه دون خانات التوقيع (١١٫٥ مم): الذيل لا يطول، فلا يسقط صفٌّ من الصفحة");
 
 /* ── التسجيل بعد الطباعة، لا قبلها ────────────────────────────────────────── */
-check((reports.match(/sendReportStamp\(printedStamp\)/g) || []).length === 3, "ثلاثة أوامر طباعة رسمية تسجّل ختمها: الشامل، والفروع، والتغييرات");
+/* مسار الطباعة واحد (invokePrint): الشامل والفروع والتغييرات تمرّ به كلها، فيُسجَّل الختم في موضعٍ واحد. */
+check((reports.match(/sendReportStamp\(printedStamp\)/g) || []).length === 1, "مسار طباعة واحد يسجّل ختم كل ورقة: الشامل، والفروع، والتغييرات");
+check(/const printReport = [\s\S]*?invokePrint\(kind,/.test(reports) && /const runPrint = [\s\S]*?invokePrint\(kind,/.test(reports) && /const printAuthorityReport = [\s\S]*?invokePrint\("authority-pdf",/.test(reports),
+  "الأوامر الثلاثة تمرّ بالمسار الواحد");
 check(!/await\s+sendReportStamp/.test(reports) && !/sendReportStamp\([^)]*\);\s*\n\s*(?:let invoked|if \(!invoked\) window\.print)/.test(reports), "ولا انتظار ولا طلب شبكة بين الضغطة وأمر الطباعة");
-for (const fn of ["const printReport = ", "const runPrint = ", "const printAuthorityReport = "]) {
+for (const fn of ["const invokePrint = "]) {
   const body = reports.slice(reports.indexOf(fn), reports.indexOf(fn) + 6000);
   const resume = body.indexOf("const resume = () => {");
   check(resume > 0 && body.indexOf("sendReportStamp(printedStamp)") > resume, `${fn.replace("const ", "").replace(" = ", "")}: الختم يُسجَّل حين تنتهي الطباعة (resume)`);

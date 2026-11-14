@@ -826,6 +826,8 @@ app.get(["/v", "/v/:code"], rateLimitReportStampPage, async (req: Request, res: 
       changed: comparison.changed.map(item => ({ ...line(item), fields: item.fields, beforePrint: item.beforePrint })),
       removed: comparison.removed.map(line),
       added: comparison.added.map(line),
+      /* نسخةُ اليوم من الوثيقة نفسها: الموقع الأول والفصل، وعدسةُ الورقة (r = حالُ الاستعلام المشترك). */
+      liveHref: `/FSchedule/MainScheduleReport?r=${encodeURIComponent(Buffer.from(JSON.stringify({ v: 1, lens: "list", c: record.sites[0]?.collegeId || 0, s: record.sites[0]?.sectionId || 0, t: record.termId }), "utf8").toString("base64url"))}`,
     }));
   } catch (error) {
     console.error("report stamp page failed", error);
@@ -853,7 +855,7 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
    * is not one. The whole filter set travels now, and the two string filters use
    * the same `includes` the screen uses rather than an exact match.
    */
-  const { termId, collegeId, sectionId, instructorId, building, hall, courseId, courseCode, civil, startTime, endTime } = req.query;
+  const { termId, collegeId, sectionId, instructorId, building, hall, courseId, courseCode, civil, startTime, endTime, instructorQuery } = req.query;
   let resolvedTermId=Number(termId||0);
   if(!resolvedTermId){const terms=await Repository.getTerms();resolvedTermId=Number(sortTermsNewestServer(terms)[0]?.AdTermId||0);}
   /* قارئ الطلب نفسه (N12): نطاقٌ من الحَكَم الواحد، والنهائيُّ وحده للعميدين —
@@ -861,10 +863,17 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
   let schedules = await readSchedulesForRequest(req, Number(collegeId||0), Number(sectionId||0), resolvedTermId);
 
   if (instructorId) schedules = schedules.filter(s => s.AdInstructorId === parseInt(instructorId as string));
-  if (building) schedules = schedules.filter(s => String(s.AdRoomCode || "").includes(String(building)));
-  if (hall) schedules = schedules.filter(s => String(s.AdRoomHall || "").includes(String(hall)));
+  /* المبنى والقاعة يصلان من الشاشة بمعرّف السجل الرسمي (building_…/room_…)، لا بنصّ
+     الرمز — والملفّ كان يبحث عن المعرّف داخل نصّ الرمز فيخرج فارغاً. فيُطابق المعرّف
+     أولاً، ويبقى النصّ لرابطٍ قديم يحمل الرمز نفسه. */
+  if (building) schedules = schedules.filter(s => String(s.buildingId || "") === String(building) || String(s.AdRoomCode || "").includes(String(building)));
+  if (hall) schedules = schedules.filter(s => String(s.roomId || "") === String(hall) || String(s.AdRoomHall || "").includes(String(hall)));
   if (courseId) schedules = schedules.filter(s => s.AdCourseId === parseInt(courseId as string));
-  if (startTime && endTime) schedules = schedules.filter(s => s.fstarttime < String(endTime) && s.fendtime > String(startTime));
+  /* بالدقائق لا بترتيب النص («9:00» بعد «10:00» نصّاً)، ونافذةٌ مقلوبة لا تُطبَّق — كالشاشة. */
+  if (startTime && endTime && timeToMinutes(String(startTime)) < timeToMinutes(String(endTime))) {
+    const from = timeToMinutes(String(startTime)), to = timeToMinutes(String(endTime));
+    schedules = schedules.filter(s => timeToMinutes(String(s.fstarttime || "")) < to && timeToMinutes(String(s.fendtime || "")) > from);
+  }
   const exportDays = [
     req.query.sun === "true" && "fsunday", req.query.mon === "true" && "fmonday",
     req.query.tue === "true" && "ftuesday", req.query.wed === "true" && "fwednesday",
@@ -895,6 +904,16 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
   // These two read through a relation, so they wait for the maps above.
   if (courseCode) schedules = schedules.filter(s => (courseById.get(s.AdCourseId)?.CourseCode || "") === String(courseCode).trim() || courseNumberOf(s) === String(courseCode).trim());
   if (civil) schedules = schedules.filter(s => String(instructorById.get(s.AdInstructorId)?.AdInstructorCivil || "").includes(String(civil).trim()));
+  /* البحث بالاسم أو بالرقم المدني من خانة الشاشة نفسها: أرقامٌ ← الرقم المدني، وإلا الاسم. */
+  if (instructorQuery) {
+    const raw = String(instructorQuery).trim().replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+    const numeric = /^\d+$/.test(raw);
+    const needle = raw.toLocaleLowerCase("ar");
+    if (raw) schedules = schedules.filter(s => {
+      const person = instructorById.get(s.AdInstructorId);
+      return numeric ? String(person?.AdInstructorCivil || "").includes(raw) : String(person?.AdInstructorName || "").toLocaleLowerCase("ar").includes(needle);
+    });
+  }
 
   schedules.sort((a, b) =>
     courseNameCollator.compare(
@@ -949,8 +968,37 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
   const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  res.setHeader("Content-Disposition", `attachment; filename=schedule_report_${reportType}.xlsx`);
+  /* اسمُ الملف يقول ما فيه: القسم (أو الكلية) والفصل وتاريخ الإخراج. */
+  const termLabel = String((await Repository.getTerms()).find(term => Number(term.AdTermId) === resolvedTermId)?.AdTermName || "");
+  const scopeLabel = String(sectionById.get(Number(sectionId || 0))?.AdSectionName || collegeById.get(Number(collegeId || 0))?.AdCollegeName || "");
+  const fileBase = [ "الجدول", scopeLabel, termLabel, new Date().toISOString().slice(0, 10) ].filter(Boolean).join(" - ").replace(/[\\/:*?"<>|]+/g, "-");
+  res.setHeader("Content-Disposition", `attachment; filename=schedule_report_${reportType}.xlsx; filename*=UTF-8''${encodeURIComponent(`${fileBase}.xlsx`)}`);
   res.send(excelBuffer);
+});
+
+/**
+ * ── نقاطُ تاريخ الجدول، للمقارنة داخل التقرير (قراءة فقط) ───────────────────
+ *
+ * النسخُ تُلتقط عند كل تعديلٍ كبير (استيراد، استرجاع، اعتماد)، وكانت تُقرأ من
+ * ورشة الجدول وحدها. هنا تُقرأ لقارئ التقرير ليقارن العدالة والإشغال «قبل» و«الآن»،
+ * بنطاقه نفسه. والعميدان يقرآن النهائيَّ وحده، والنسخُ مسوّداتٌ في الغالب: فلا تُعرض لهما.
+ */
+app.get("/api/reports/history-points", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الفصل والكلية والقسم أولاً." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  if (readsFinalSchedulesOnly(req)) { res.json({ points: [] }); return; }
+  const versions = await Repository.getScheduleVersions(collegeId, sectionId, termId, 30);
+  res.json({ points: versions.map(version => ({ id: version.id, label: version.label, createdAt: version.createdAt, source: version.source, rowCount: Number(version.rowCount ?? (version.rows || []).length) })) });
+});
+
+app.get("/api/reports/history-points/:id", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const version = await Repository.getScheduleVersionById(String(req.params.id || ""));
+  if (!version) { res.status(404).json({ error: "النسخة غير موجودة" }); return; }
+  if (!isScopeAllowed(req, Number(version.AdCollegeId), Number(version.AdSectionId)) || readsFinalSchedulesOnly(req)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  res.json({ id: version.id, label: version.label, createdAt: version.createdAt, rows: version.rows || [] });
 });
 
 app.get("/api/reports/department-balance", requirePermission(14), async (req: AuthenticatedRequest, res: Response) => {

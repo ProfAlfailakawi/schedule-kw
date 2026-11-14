@@ -2151,7 +2151,7 @@
     "/v/:code"
    ],
    "name": "bound dispatch",
-   "call": "fed220845a3a0a1d",
+   "call": "9c52702081b8045b",
    "site": "src/server/routes/reportsRoutes.ts:760",
    "regexp": "/^\\/v\\/?$|^\\/v(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -2163,9 +2163,33 @@
    ],
    "path": "/api/reports/excel/:type",
    "name": "bound dispatch",
-   "call": "04a20a38b3cb32d5",
-   "site": "src/server/routes/reportsRoutes.ts:838",
+   "call": "cb7a1c5516a4403d",
+   "site": "src/server/routes/reportsRoutes.ts:840",
    "regexp": "/^\\/api\\/reports\\/excel(?:\\/([^/]+?))\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/reports/history-points",
+   "name": "bound dispatch",
+   "call": "ee01f1fc83a1b1c2",
+   "site": "src/server/routes/reportsRoutes.ts:986",
+   "regexp": "/^\\/api\\/reports\\/history-points\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/reports/history-points/:id",
+   "name": "bound dispatch",
+   "call": "eda128e1da7967ff",
+   "site": "src/server/routes/reportsRoutes.ts:996",
+   "regexp": "/^\\/api\\/reports\\/history-points(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
   {
@@ -2176,7 +2200,7 @@
    "path": "/api/reports/department-balance",
    "name": "bound dispatch",
    "call": "35e16c0bb3271c70",
-   "site": "src/server/routes/reportsRoutes.ts:956",
+   "site": "src/server/routes/reportsRoutes.ts:1004",
    "regexp": "/^\\/api\\/reports\\/department-balance\\/?$/i",
    "end": true
   },
@@ -2188,7 +2212,7 @@
    "path": "/api/reports/room-load",
    "name": "bound dispatch",
    "call": "fc4e4ba1f6ecda24",
-   "site": "src/server/routes/reportsRoutes.ts:1038",
+   "site": "src/server/routes/reportsRoutes.ts:1086",
    "regexp": "/^\\/api\\/reports\\/room-load\\/?$/i",
    "end": true
   },

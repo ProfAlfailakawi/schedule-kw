@@ -293,3 +293,4 @@ test:pin-regulation
 test:pin-violations-note
 test:proposal-open-row
 test:changes-unified-review
+test:query-center-plus
