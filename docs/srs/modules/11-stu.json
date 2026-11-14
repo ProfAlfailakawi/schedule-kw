@@ -4209,6 +4209,92 @@
           "tests/radar-suggestions-audit.ts"
         ]
       }
+    },
+    {
+      "id": "FR-STU-070",
+      "kind": "functional",
+      "title": {
+        "ar": "رصيد المقاعد لكل مقرر وفاعليته بجانب كل شعبة",
+        "en": "Per-course seat balance and the effective balance beside each section"
+      },
+      "text": {
+        "ar": "يجب على لوحة «رصيد مقاعد المرشد» أن تتيح لمن يملك الإعداد (ولا يُردّ في الخادم، وفي فصلٍ غير مجمَّد) حقلَ رصيدٍ لكل مقررٍ له شعبٌ في الفصل، الفارغُ فيه يرث رصيد القسم، وأن تعرض بجانب كل شعبة الرصيدَ الفعليّ ومصدرَه «الشعبة» ثم «المقرر» ثم «القسم» بالترتيب نفسه الذي يحكم به الخادم، وأن تُقصّ الخانةُ بالحدّ نفسه في الخادم (200)، وأن يبقى ختمُ الإصدار وتتبّعُ المسوّدة غير المحفوظة، وألا يمسّ الحفظُ سجلّ الاستثناءات المطبَّقة، وأن تُرسم أسماءُ المقررات بوسوم المقرر.",
+        "en": "The advisor seat balance panel shall give a role that may configure it (and is not refused by the server, in an unfrozen term) a balance field for each course that has sections this term, where empty inherits the department balance, and shall show beside each section the effective balance and its source, section, then course, then department, in the same order the server applies, shall clamp the field at the server's limit (200), shall keep the revision stamp and unsaved-draft tracking, shall leave the server-owned applied-exceptions list untouched on save, and shall render course names with course tags."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "رصيد مقرر 12 وشعبة بلا رصيد خاص ← تظهر «الرصيد 12 من المقرر»؛ وبرصيد خاص للشعبة ← «من الشعبة».",
+          "en": "A course balance of 12 and a section with none of its own shows «balance 12 from the course»; with its own section balance it shows «from the section»."
+        },
+        {
+          "ar": "مقرر بلا رصيد ← «من القسم» برصيد القسم العام.",
+          "en": "A course with no balance ← «from the department» with the global balance."
+        },
+        {
+          "ar": "مرشدٌ لا يملك الإعداد ← لا يرى حقول الرصيد.",
+          "en": "An advisor who cannot configure sees no balance fields."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/AdvisorSeatsPanel.tsx",
+          "src/utils/advisorSeats.ts#quotaResolve",
+          "src/styles/61-advisor-seat-quota.css",
+          "src/server/routes/offeringRoutes.ts"
+        ],
+        "tests": [
+          "tests/advisor-seat-quota-audit.ts",
+          "tests/colleagues-advising-registration-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-071",
+      "kind": "functional",
+      "title": {
+        "ar": "التنقل بالأسهم في تبويبات الإرشاد",
+        "en": "Arrow-key navigation in advising tabs"
+      },
+      "text": {
+        "ar": "يجب على تبويبَي «كشف التسجيل» و«رادار التسجيل» أن يتبعا نمط التبويبات في WAI-ARIA: tablist وtab بتركيزٍ متنقّل (تبويبٌ واحد في ترتيب Tab)، والسهمان يتنقّلان مع اتجاه اليمين لليسار (الأيسر «التالي») وHome وEnd إلى الطرفين، والتفعيلُ يدويّ لأن التبويبين يوصلان إلى شاشتين منفصلتين: الأسهم تنقل التركيز وEnter أو المسافة تفتح الشاشة ويعود التركيز إلى التبويب النشط فيها؛ وأن تحمل الشاشتان role=tabpanel مرتبطةً بالتبويب (aria-controls وaria-labelledby)؛ وأن تتنقّل بالأسهم كذلك مجموعاتُ التبويب داخل الرادار (أقسامه ومصدر التحليل) بتفعيلٍ فوريّ لأنها تبدّل العرضَ في المكان نفسه.",
+        "en": "The «registration roster» and «registration radar» tabs shall follow the WAI-ARIA tabs pattern: a tablist of tabs with roving focus (one tab stop), arrow keys moving in right-to-left order (Left is next), Home and End to the ends, with manual activation because the tabs lead to separate screens: arrows move focus, Enter or Space opens the screen and focus returns to its active tab; both screens shall carry a tabpanel tied to the tab (aria-controls and aria-labelledby); and the tab groups inside the radar (its sections and analysis source) shall also move by arrows with immediate activation since they switch the view in place."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "advisor",
+        "departmentHead",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "سهمٌ أيسر على تبويب الكشف ← ينتقل التركيز إلى «رادار التسجيل» دون فتحه؛ وEnter يفتحه.",
+          "en": "Left arrow on the roster tab moves focus to «registration radar» without opening it; Enter opens it."
+        },
+        {
+          "ar": "Home وEnd ← أول التبويبات وآخرها.",
+          "en": "Home and End go to the first and last tab."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/RegistrationTabs.tsx",
+          "src/utils/arrowChoice.ts",
+          "src/components/RegistrationRehearsal.tsx",
+          "src/components/StudentRegistration.tsx",
+          "src/components/registration-tabs.css"
+        ],
+        "tests": [
+          "tests/advisor-seat-quota-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [
