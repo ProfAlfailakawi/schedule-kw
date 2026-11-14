@@ -2614,7 +2614,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               event.preventDefault();
               runAsk(event.currentTarget.value);
             }}
-            placeholder="اسأل: قاعات فارغة الثلاثاء 10 · جدول أحمد · 0109101 · 7/31"
+            placeholder="اسأل: قاعات فارغة الثلاثاء 10"
+            title="أمثلة: جدول أحمد · 0109101 · 7/31 · الخميس 9"
             aria-label="اسأل بالعربية"
             aria-describedby={askNote ? "query-ask-note" : undefined}
             enterKeyHint="search"
@@ -3015,7 +3016,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               <button type="button" role="listitem" data-guide-ignore="فتح مواعيد الأستاذ الأثقل؛ يغيّر العرض فقط"
                 onClick={() => applyAsk({ instructorId: insights.heaviest!.id }, "instructor", [insights.heaviest!.name], null)}>
                 <UserRound aria-hidden="true" />
-                <span><small>أثقل نصاباً</small><b>{insights.heaviest.name}</b><em>{num(insights.heaviest.hours)} ساعة معتمدة · {countOf(insights.heaviest.lectures, AR.appointment)}</em></span>
+                <span><small>أثقل نصاباً</small><b>{insights.heaviest.name}</b><em>{countOf(insights.heaviest.hours, AR.hour)} معتمدة · {countOf(insights.heaviest.lectures, AR.appointment)}</em></span>
               </button>
             ) : null}
             {insights.busiest ? (

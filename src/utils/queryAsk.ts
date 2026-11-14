@@ -40,7 +40,7 @@ export interface AskContext {
   rooms: ReadonlyArray<{ id: string; code: string; buildingId: string }>;
 }
 
-export const ASK_HINT = "لم أفهم السؤال — جرّب: «قاعات فارغة الثلاثاء 10» أو «جدول أحمد» أو «0109101» أو «7/31»";
+export const ASK_HINT = "لم أفهم السؤال — جرّب: قاعات فارغة الثلاثاء 10، أو «جدول أحمد» أو «0109101» أو «7/31»";
 const MAX_OPTIONS = 6;
 
 /** حروفٌ تتبدّل في الكتابة ولا يتغيّر بها المعنى: الهمزات والتاء المربوطة والألف المقصورة والتشكيل. */

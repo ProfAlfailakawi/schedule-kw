@@ -8,6 +8,8 @@
  *
  * لا يُرسل شيء من تلقاء نفسه: الخادم لا يعمل بمؤقّت، فالموجز يُبنى ساعةَ يُفتح.
  */
+import { AR, countOf } from "./arabicCount";
+
 export interface BriefTrailEntry { at: string; who: string; kind: string; target: string; row?: number }
 
 export interface MorningBriefInput {
@@ -41,7 +43,7 @@ export function buildMorningBrief(input: MorningBriefInput): MorningBrief {
   const lines: MorningBrief["lines"] = [];
 
   lines.push(recent.length
-    ? { tone: "info", text: `${recent.length} ${recent.length === 1 ? "حركة" : recent.length === 2 ? "حركتان" : recent.length <= 10 ? "حركات" : "حركة"} على مواعيد القسم في آخر ٢٤ ساعة، من ${new Set(recent.map(entry => entry.who)).size === 1 ? "شخص واحد" : `${new Set(recent.map(entry => entry.who)).size} أشخاص`}.` }
+    ? { tone: "info", text: `${recent.length} ${recent.length === 1 ? "حركة" : recent.length === 2 ? "حركتان" : recent.length <= 10 ? "حركات" : "حركة"} على مواعيد القسم في آخر ٢٤ ساعة، من ${new Set(recent.map(entry => entry.who)).size === 1 ? "شخص واحد" : countOf(new Set(recent.map(entry => entry.who)).size, AR.person)}.` }
     : { tone: "good", text: "لم يتحرّك شيء في مواعيد القسم منذ أمس." });
 
   if (input.blockers > 0) lines.push({ tone: "danger", text: `${input.blockers} ${input.blockers === 1 ? "مانع اعتماد" : input.blockers === 2 ? "مانعا اعتماد" : "موانع اعتماد"} قائمة (تعارض قاعة أو أستاذ أو موعد مكرّر).` });
