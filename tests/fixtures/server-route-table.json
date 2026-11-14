@@ -7412,7 +7412,7 @@
    ],
    "path": "/api/public/me/recover",
    "name": "bound dispatch",
-   "call": "ce22351b80c9c629",
+   "call": "166f6a8fb0f71ed0",
    "site": "src/server/studentDoorRoutes.ts:1416",
    "regexp": "/^\\/api\\/public\\/me\\/recover\\/?$/i",
    "end": true
