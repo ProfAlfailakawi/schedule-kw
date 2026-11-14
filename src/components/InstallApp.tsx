@@ -42,7 +42,9 @@ export default function InstallApp({ variant = "dashboard" }: { variant?: Instal
   const isIos = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone =
     typeof window !== "undefined" &&
-    (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true);
+    (window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone === true
+      /* داخل غلاف Capacitor (WKWebView) لا display-mode ولا navigator.standalone، والتطبيق مثبَّتٌ أصلاً: لا شريط «ثبّت». */
+      || Boolean((window as any).Capacitor?.isNativePlatform?.()));
 
   useEffect(() => {
     const onPrompt = (prompt: any) => setDeferred(prompt);

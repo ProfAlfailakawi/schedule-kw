@@ -19,6 +19,11 @@ import "./components/academic-decision-lab.css";
    anything before this module runs anyway, so the race is unlosable. */
 void import("./styles/deferred.css");
 
+/* ?duo-debug=1: إطار ركن الودجت ولوحة القياس للمالك على الجهاز. لا يُحمَّل بلا المعامل. */
+if (new URLSearchParams(window.location.search).get("duo-debug") === "1") {
+  void import("./utils/duoDebug").then((m) => m.mountDuoDebug());
+}
+
 /* Pinch-zoom is never blocked: it is an accessibility need, and a foldable
    opened to a big screen needs it most. Only the double-tap magnification is
    switched off, in CSS (`touch-action: manipulation` in 01-foundation.css), so a
