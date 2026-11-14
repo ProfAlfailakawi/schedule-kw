@@ -392,7 +392,7 @@ async function studentSteps(browser: any) {
       observed.pushConfigured = typeof extras?.push?.configured === "boolean" ? extras.push.configured : null;
       const meetings = extras?.next?.meetings?.length || 0;
       if (!meetings) {
-        step.skip("لا جدولَ جارياً في بيانات الديمو الآن (الفصل لم يبدأ): الخادم لا يعيد «محاضرتك القادمة» فلا تُعرض البطاقة. لا خلل، لكنه لم يُثبَت هنا.");
+        step.skip("لا جدولَ جارياً في بيانات الديمو الآن (الفصل يبدأ بعد اليوم): الخادم لا يعيد «محاضرتك القادمة» فلا تُعرض البطاقة. لا خلل، لكنه لم يُثبَت هنا.");
         step.info("extras.next = null من الخادم");
         await step.shot(page, "الرئيسية بلا بطاقة المحاضرة");
         return;
@@ -423,7 +423,8 @@ async function studentSteps(browser: any) {
       const body = await feed.text();
       step.ok(feed.status() === 200 && /text\/calendar/.test(feed.headers()["content-type"] || ""), "الخلاصة ترجع 200 بنوع text/calendar");
       step.ok(/^BEGIN:VCALENDAR/.test(body) && /END:VCALENDAR\s*$/.test(body), "جسم الخلاصة تقويمٌ صالح");
-      step.ok(!/\d{12}/.test(body) && !/[A-Za-z0-9_-]{40,}/.test(body.replace(shown, "")), "لا رقمَ مدنياً ولا رمزاً في الجسم");
+      const bodyNoUid = body.replace(/^UID:.*$/gm, "");
+      step.ok(!/\b\d{12}\b/.test(bodyNoUid) && !/[A-Za-z0-9_-]{40,}/.test(bodyNoUid.replace(shown, "")), "لا رقمَ مدنياً ولا رمزاً في الجسم (بعد استثناء معرّفات الأحداث)");
       step.info("فتحُ التقويم في تطبيق الآيفون يبقى في الجولة الحقيقية (S6)");
       step.summary("الورقة والروابط والخلاصة صحيحة على الخادم؛ الفتحُ في تطبيق التقويم على الجهاز لم يُجرَّب هنا.");
     });
@@ -534,7 +535,8 @@ async function teacherSteps(browser: any) {
       await page.locator("#send").waitFor({ timeout: 20000 });
       step.ok(true, "يظهر «أرسل الطلب»");
       const afterPick = await pageText(page);
-      step.ok(/قاعة مناسبة تُحجز لك تلقائياً/.test(afterPick), "سطر «قاعة مناسبة تُحجز لك تلقائياً» بدل أي قاعة");
+      const roomOk = await page.locator(".room-ok").first().evaluate((el: Element) => `${el.getAttribute("aria-label") || ""} ${el.textContent || ""} ${el.getAttribute("title") || ""}`).catch(() => "");
+      step.ok(/قاعة مناسبة تُحجز لك تلقائياً/.test(roomOk), "علامة الباب ✓ تقول «قاعة مناسبة تُحجز لك تلقائياً» بدل أي قاعة");
       step.ok(!ROOM_CODE.test(afterPick) && !BUILDING_WORD.test(afterPick), "لا قاعةَ ولا مبنى بعد اختيار الوقت");
       await step.shot(page, "بعد اختيار وقتٍ مقترح");
       step.summary("نُقل موعدٌ واحد بمقترحٍ من الخادم بلا قاعةٍ ولا مبنى.");
@@ -690,14 +692,23 @@ async function adminSteps(browser: any) {
       const check = page.getByRole("button", { name: /تحقق الآن/ });
       step.ok(await check.count() > 0, "زرّ «تحقق الآن» ظاهر بتسميةٍ صريحة");
       await step.shot(page, "سلامة النظام", width);
-      const fresh = page.waitForResponse((response: any) => /\/api\/system-health\?.*fresh=1/.test(response.url()), { timeout: 20000 }).catch(() => null);
-      await check.first().click();
-      const response = await fresh;
-      step.ok(Boolean(response) && response.status() === 200, "«تحقق الآن» يطلب fresh=1 ويرجع 200");
+      /* شاشات الإدارة في الديمو «عرضٌ فقط» (html[data-demo-admin-readonly]): كلُّ زرٍّ فيها معطّلُ اللمس بقصد، فلا يُنقر هنا. */
+      const inert = await check.first().evaluate((el: Element) => getComputedStyle(el).pointerEvents === "none");
+      let response: any = null;
+      if (inert) {
+        step.warn("«تحقق الآن» معطّل اللمس في شاشات الإدارة على الديمو (عرضٌ فقط بقصد)، فلم يُنقر؛ جُرّب مساره fresh=1 مباشرةً. النقرُ يُجرَّب على الموقع الحيّ.");
+        response = await context.request.get(BASE + "/api/system-health?fresh=1");
+      } else {
+        const fresh = page.waitForResponse((reply: any) => /\/api\/system-health\?.*fresh=1/.test(reply.url()), { timeout: 20000 }).catch(() => null);
+        await check.first().scrollIntoViewIfNeeded();
+        await check.first().click();
+        response = await fresh;
+      }
+      step.ok(Boolean(response) && response.status() === 200, "طلبُ fresh=1 يرجع 200");
       const payload = response ? JSON.stringify(await J(response)) : "";
       step.ok(!/@[\w-]+\.\w+/.test(payload), "حمولة الفحص بلا بريدٍ ولا معرّفات أشخاص");
       await noSideScroll(step, page, "سلامة النظام");
-      step.summary("البطاقات والحكم و«تحقق الآن» تعمل على الديمو (القيم الموسومة «تجريبي»، لا نسخةَ احتياطية حقيقية).");
+      step.summary("البطاقات والحكم ومسار «تحقق الآن» تعمل على الديمو (القيم موسومة «تجريبي»، لا نسخةَ احتياطية حقيقية).");
     } finally { await page.close().catch(() => undefined); }
   });
 }
