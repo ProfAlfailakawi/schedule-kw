@@ -32,7 +32,7 @@ const read = (p: string) => fs.readFileSync(p, "utf8");
 const server = readServerSource();
 const repo = read("src/db/repository.ts");
 const staff = read("src/components/Instructors.tsx");
-const schedule = read("src/components/Schedules.tsx");
+const schedule = read("src/components/ScheduleTransfer.tsx");
 const panel = read("src/components/TAConversionPanel.tsx");
 ok(server.includes('app.get("/api/schedules/ta-conversion"') && server.includes('app.post("/api/schedules/ta-conversion"'), "preview and commit routes exist");
 ok(server.includes('termIsFrozen(termId, terms') && server.includes('scheduleLockRefusal(req, collegeId, sectionId, termId)'), "term and approval protection");
@@ -41,7 +41,7 @@ ok(server.includes("Repository.moveSchedulesBatch(moves.map") && server.includes
 ok(server.includes('captureScopeVersion(req, collegeId, sectionId, termId, "قبل تحويل') && server.includes("recordVersionAfter(before,"), "snapshot and restore baseline");
 ok(repo.includes('AdInstructorCategory: "ta" as const') && server.includes('AdInstructorCategory === "ta"'), "TA category saved");
 ok(staff.includes("setCategory(") && staff.includes("AdInstructorCategory: category || null"), "staff category chosen and saved");
-ok(schedule.includes("<TAConversionPanel") && schedule.includes("تحويل هيئة التدريب"), "tool placed in More menu");
+ok(schedule.includes("<TAConversionPanel") && schedule.includes("تحويل هيئة التدريب"), "tool placed in schedule tools (الأساتذة group)");
 ok(panel.includes("applyWithOverwriteConfirm") && panel.includes("visualConfirm"), "safe undo and confirm");
 
 /* ── الهدف من عائلة القسم ── */
@@ -67,6 +67,8 @@ ok(panel.includes("<InstructorPicker") && panel.includes("onlyIds={preview.famil
 ok(picker.includes("onlyIds?: Iterable<number>") && picker.includes("outsideOnly(person)"), "picker can be limited to the family");
 ok(panel.includes("تعارض") && panel.includes("فوق النصاب"), "soft warnings shown");
 /* القائمة تُظهر الأستاذ الجديد فوراً: اللوحة تكتب في فصل الجدول المعروض نفسه، ثم يُعاد تحميل صفوفه. */
-ok(/<TAConversionPanel[\s\S]{0,200}termId=\{Number\(filterTerm\)\}/.test(schedule), "panel writes to the term the board shows");
-ok(/onChanged=\{\(\) => \{ void loadRows\(\);/.test(schedule) && /setResult\([^)]*\)[\s\S]{0,80}onChanged\(\);/.test(panel), "board rows reload right after converting");
+/* اللوحة صارت في «أدوات الجدول» (مجموعة الأساتذة): الأدوات تأخذ فصل الجدول المعروض نفسه، واللوحة تكتب فيه. */
+const board = read("src/components/Schedules.tsx");
+ok(/<ScheduleTransfer[\s\S]{0,300}termId=\{filterTerm\}/.test(board) && /<TAConversionPanel[\s\S]{0,120}termId=\{termId\}/.test(schedule), "panel writes to the term the board shows");
+ok(/<ScheduleTransfer[\s\S]{0,700}onChanged=\{\(\) => \{[\s\S]{0,300}loadWorkspace\(filterCollege, filterSection, filterTerm\)/.test(board) && /<TAConversionPanel[\s\S]{0,400}onChanged=\{onChanged\}/.test(schedule) && /setResult\([^)]*\)[\s\S]{0,80}onChanged\(\);/.test(panel), "board rows reload right after converting");
 console.log("TA conversion: " + checks + " checks passed");
