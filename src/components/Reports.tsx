@@ -7,7 +7,7 @@ import { flushSync } from "react-dom";
 import { isNarrowWorkspace } from "../utils/workspaceSize";
 import {
   BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
-  CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
+  CheckCircle2, Check, Droplet, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
   ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, Grid3x3, Network,
   Hash, Fingerprint, Mic, Hourglass, CalendarPlus,
 } from "lucide-react";
@@ -2952,7 +2952,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
 
       {/* ── موجز الصباح: شريطٌ بأيقوناتٍ وأرقام ── */}
       {briefScopeKey ? (
-        <QueryBrief open={briefOpen} onToggle={() => setBriefOpen(open => !open)} loading={Boolean(brief?.loading)} data={brief?.data || null} error={brief?.error} onPrint={() => printReport("morning")} label={sectionName || "القسم"} />
+        <QueryBrief open={briefOpen} onToggle={() => setBriefOpen(open => !open)} loading={Boolean(brief?.loading)} data={brief?.data || null} error={brief?.error} ink={inkSave} onPrint={on => { chooseInk(on); printReport("morning"); }} label={sectionName || "القسم"} />
       ) : null}
 
       <nav ref={lensStripRef as any} className="lens-strip no-print" role="tablist" aria-label="طريقة عرض النتائج" aria-orientation="horizontal" data-more-start={stripMore.start ? "1" : undefined} data-more-end={stripMore.end ? "1" : undefined}>
@@ -3040,32 +3040,21 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
           {!pending && (results.length || (lens === "courseLoad" && courseLoads.length) || (lens === "balance" && balance) || (lens === "occupancy" && occupancyHeat?.lectures) || (authorityReportAvailable && all.length > 0)) ? <div className="query-canvas-actions">
             {/* نسبة الإشغال تطبع النطاق المختار: عائلة القسم لها محاضراتها ولو خلا الموقع المفتوح منها. */}
             {!results.length && lens === "occupancy" && occupancyHeat?.lectures ? (
-              <button type="button" className="query-print-icon" data-guide-ignore="طباعة نسبة الإشغال؛ قراءة فقط" onClick={() => printReport("occupancy")} disabled={familyPending} aria-label="طباعة نسبة الإشغال" title="طباعة نسبة الإشغال">
-                <Printer aria-hidden="true" />
-              </button>
+              <QueryPrintMenu iconOnly ink={inkSave} disabled={familyPending} label="طباعة نسبة الإشغال" onPrint={on => { chooseInk(on); printReport("occupancy"); }} />
             ) : null}
             {/* نشرة الميزان تُطبع قبل أول موعدٍ معتمد أيضاً (N14). */}
             {!results.length && lens === "balance" && balance ? (
-              <button
-                type="button"
-                className="query-print-icon"
-                data-guide-ignore="طباعة نشرة ميزان الأقسام؛ قراءة فقط ولا تغيّر بيانات الجدول"
-                onClick={() => printReport("balance")}
-                aria-label="طباعة نشرة الميزان"
-                title="طباعة نشرة الميزان"
-              >
-                <Printer aria-hidden="true" />
-              </button>
+              <QueryPrintMenu iconOnly ink={inkSave} label="طباعة نشرة الميزان" onPrint={on => { chooseInk(on); printReport("balance"); }} />
             ) : null}
             {!results.length && (lens === "balance" ? Boolean(balance) : lens === "occupancy" ? Boolean(occupancyHeat?.lectures) : lens === "courseLoad" ? courseLoads.length > 0 : false) ? (
               <button type="button" className="query-print-icon has-label" data-guide-ignore="تنزيل ملف Excel لهذا العرض نفسه؛ قراءة فقط" onClick={() => void exportLens()} disabled={exportBusy} aria-label="تصدير Excel" title={`ملف «${REPORT_TITLES[lens]}» كما يظهر`}>
                 <FileSpreadsheet aria-hidden="true" /><span>{exportBusy ? "يُجهّز…" : "Excel"}</span>
               </button>
             ) : null}
-            {!results.length && lens === "courseLoad" && filters.sectionId && courseLoads.length ? <button type="button" className="query-print-icon" data-guide-ignore="طباعة توزيع المواد بين المواقع" onClick={() => printReport("courseLoad")} aria-label="طباعة توزيع المواد بين المواقع" title="طباعة التقرير"><Printer aria-hidden="true" /></button> : null}
+            {!results.length && lens === "courseLoad" && filters.sectionId && courseLoads.length ? <QueryPrintMenu iconOnly ink={inkSave} label="طباعة توزيع المواد بين المواقع" onPrint={on => { chooseInk(on); printReport("courseLoad"); }} /> : null}
             {results.length ? <>
               {lens === "courseLoad" ? (
-                <button type="button" className="query-print-icon has-label" data-guide-ignore="طباعة توزيع المواد بين المواقع" onClick={() => printReport("courseLoad")} disabled={!filters.sectionId || siteLoadRead?.loading || !courseLoads.length} aria-label="طباعة توزيع المواد بين المواقع" title="طباعة التقرير"><Printer aria-hidden="true" /><span>طباعة</span></button>
+                <QueryPrintMenu ink={inkSave} disabled={!filters.sectionId || siteLoadRead?.loading || !courseLoads.length} label="طباعة توزيع المواد بين المواقع" onPrint={on => { chooseInk(on); printReport("courseLoad"); }} />
               ) : lens === "instructor" ? (
                 <div className="query-report-action">
                   <SecondaryButton type="button" className="query-print-icon has-label" data-guide-ignore="اختيار نطاق طباعة تقرير الأستاذ؛ قراءة فقط" aria-label="طباعة تقرير الأستاذ" aria-haspopup="menu" aria-expanded={scopeMenu === "instructor" || undefined} onClick={() => setScopeMenu(scopeMenu === "instructor" ? null : "instructor")} disabled={branchBusy} title="اختر نطاق تقرير الأستاذ للطباعة">
@@ -3073,6 +3062,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   </SecondaryButton>
                   {scopeMenu === "instructor" ? (
                     <div className="query-scope-menu" role="menu" aria-label="نطاق تقرير الأستاذ">
+                      <button type="button" role="menuitemcheckbox" aria-checked={inkSave} className="query-ink-row" data-guide-ignore="طباعة موفّرة للحبر: نفس الورقة بالرمادي؛ اختيارٌ يبقى" onClick={toggleInk}><Droplet aria-hidden="true" />موفّر الحبر{inkSave ? <Check aria-hidden="true" /> : null}</button>
                       {filters.collegeId ? <button type="button" role="menuitem" data-guide-ignore="طباعة تقرير الأستاذ للكلية الحالية؛ قراءة فقط" onClick={() => void printInstructorScope("college", filters.collegeId)}>الكلية المحددة حالياً<small>{collegeById.get(filters.collegeId)?.AdCollegeName || "الكلية المحددة"}</small></button> : null}
                       <button type="button" role="menuitem" data-guide-ignore="طباعة تقرير الأستاذ لكل الكليات المسموحة؛ قراءة فقط" onClick={() => void printInstructorScope("all-colleges")}>الكل<small>ضمن صلاحيات حسابك</small></button>
                     </div>

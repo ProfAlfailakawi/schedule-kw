@@ -1,5 +1,6 @@
 import { AR, countOf } from "../../utils/arabicCount";
-import { Activity, CalendarClock, ChevronDown, FileWarning, Printer, ShieldAlert, Sunrise, UserRound } from "lucide-react";
+import { Activity, CalendarClock, ChevronDown, FileWarning, ShieldAlert, Sunrise, UserRound } from "lucide-react";
+import QueryPrintMenu from "./QueryPrintMenu";
 import { DnaRing } from "../dna";
 import type { MorningBrief } from "../../utils/morningBrief";
 
@@ -11,8 +12,8 @@ const n = (value: number) => Number(value || 0).toLocaleString("ar-KW-u-nu-latn"
  * أخضر لا شيء، وكهرماني يستحق نظرة، وأحمر يمنع. وبضغطةٍ تُفتح آخر الحركات وأرقام التغيير.
  * والجمل الكاملة للورقة المطبوعة وحدها.
  */
-export default function QueryBrief({ open, onToggle, loading, data, error, onPrint, label }: {
-  open: boolean; onToggle: () => void; loading: boolean; data: MorningBrief | null; error?: string; onPrint: () => void; label: string;
+export default function QueryBrief({ open, onToggle, loading, data, error, onPrint, label, ink }: {
+  open: boolean; onToggle: () => void; loading: boolean; data: MorningBrief | null; error?: string; onPrint: (ink: boolean) => void; label: string; ink: boolean;
 }) {
   const stats = data?.stats;
   const days = stats?.daysLeft ?? null;
@@ -57,7 +58,7 @@ export default function QueryBrief({ open, onToggle, loading, data, error, onPri
                 </ol>
               ) : null}
               {error ? <small className="morning-brief-note">{error}</small> : null}
-              <button type="button" className="morning-brief-print" data-guide-ignore="طباعة موجز الصباح؛ قراءة فقط" onClick={onPrint} aria-label="طباعة الموجز" title="طباعة الموجز"><Printer aria-hidden="true" /></button>
+              <QueryPrintMenu iconOnly className="morning-brief-print" ink={ink} label="طباعة الموجز" onPrint={onPrint} />
             </>
           )}
         </div>

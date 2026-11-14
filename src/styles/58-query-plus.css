@@ -245,3 +245,6 @@
 .query-print-options{display:grid;grid-auto-flow:column;gap:6px;min-width:0;width:auto}
 .query-print-options button{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;white-space:nowrap}
 .query-print-options button svg{width:16px;height:16px}
+.query-scope-menu .query-ink-row{display:flex;align-items:center;gap:6px;width:100%}
+.query-scope-menu .query-ink-row svg{width:16px;height:16px}
+.query-scope-menu .query-ink-row svg:last-child{margin-inline-start:auto}

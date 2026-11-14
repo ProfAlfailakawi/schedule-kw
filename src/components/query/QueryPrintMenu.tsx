@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
  * خياران بأيقونتين لا شرح: «عادية» و«موفّر الحبر» (الورقة نفسها بالمليمتر، رماديةً).
  * ما اختير أولاً يظهر مؤشَّراً، فيُطبع بضغطةٍ واحدة من القائمة بلا سؤالٍ آخر.
  */
-export default function QueryPrintMenu({ onPrint, disabled, ink }: { onPrint: (ink: boolean) => void; disabled?: boolean; ink: boolean }) {
+export default function QueryPrintMenu({ onPrint, disabled, ink, label = "طباعة هذا العرض", iconOnly = false, className }: { onPrint: (ink: boolean) => void; disabled?: boolean; ink: boolean; label?: string; iconOnly?: boolean; className?: string }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
@@ -22,8 +22,8 @@ export default function QueryPrintMenu({ onPrint, disabled, ink }: { onPrint: (i
   const choose = (value: boolean) => { setOpen(false); onPrint(value); };
   return (
     <span className="query-report-action query-print-menu" ref={box}>
-      <button type="button" className="query-print-icon has-label" data-guide-ignore="طباعة العرض الحالي: يسأل عادية أم موفّرة للحبر؛ قراءة فقط" aria-haspopup="menu" aria-expanded={open || undefined} disabled={disabled} aria-label="طباعة هذا العرض" title="طباعة هذا العرض" onClick={() => setOpen(value => !value)}>
-        <Printer aria-hidden="true" /><span>طباعة</span>
+      <button type="button" className={className || (iconOnly ? "query-print-icon" : "query-print-icon has-label")} data-guide-ignore="طباعة العرض الحالي: يسأل عادية أم موفّرة للحبر؛ قراءة فقط" aria-haspopup="menu" aria-expanded={open || undefined} disabled={disabled} aria-label={label} title={label} onClick={() => setOpen(value => !value)}>
+        <Printer aria-hidden="true" />{iconOnly ? null : <span>طباعة</span>}
       </button>
       {open ? (
         <div className="query-scope-menu report-choice query-print-options" role="menu" aria-label="نوع الطباعة">
