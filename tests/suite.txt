@@ -164,6 +164,7 @@ test:masari-desktop
 test:masari-travel-hint
 test:registration-sim
 test:academic-advice
+test:graduation-watch
 test:registration-flow
 test:section-opening
 test:feature-notifications
@@ -264,6 +265,7 @@ test:colleague-guard-measure
 test:actual-demand
 test:actual-demand-supply
 test:actual-demand-graduates
+test:demo-actual-demand
 test:appointment-review-1114
 test:appointment-ideas-1114
 test:appointment-ideas2-1114

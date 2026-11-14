@@ -3,7 +3,7 @@ import {
   ArrowLeftRight, BrainCircuit, CalendarClock, CheckCheck, ChevronDown,
   GitBranch, GraduationCap, Info, RefreshCw, Scale, ShieldCheck, Sparkles, Users
 } from "lucide-react";
-import type { AcademicDecisionLab, AcademicDecisionScenario } from "../utils/academicDecisionLab";
+import { graduationNeedPhrase, type AcademicDecisionLab, type AcademicDecisionScenario } from "../utils/academicDecisionLab";
 import CourseTags from "./CourseTags";
 import { AR, countOf } from "../utils/arabicCount";
 
@@ -34,6 +34,12 @@ const meter = (label: string, value: number, assessed: number, kind: "base" | "g
   </div>;
 const explain = (items: string[]) => <div className="adl-explain-body">{items.map((item, index) =>
   <p key={index}>{item}</p>)}</div>;
+
+/** «٢ خريجان متوقعان يحتاجانه»: شارةٌ بقبّعة التخرّج في صدر السطر، فمن يحتاجه خريجٌ متوقَّع يُرى قبل أي رقمٍ آخر. */
+function GraduateBadge({ count }: { count: number }) {
+  if (count < 1) return null;
+  return <span className="adl-grad-badge" data-adl-grad={count}><GraduationCap size={13} aria-hidden="true" />{graduationNeedPhrase(count)}</span>;
+}
 
 /** Six explicitly discoverable, read-only views; honest when a live calculation has no evidence. */
 export default function AcademicDecisionLabPanel({ lab, courseId, compact = false, demo, onRefresh, refreshing }: Props) {
@@ -98,10 +104,9 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
     {watched.slice(0, compact ? 3 : 6).map(w => <div className="adl-watch-item" key={w.courseId}>
       <GraduationCap size={16} aria-hidden="true" />
       <strong>{w.courseName}<CourseTags courseId={w.courseId} /></strong>
-      <small>{!w.offered ? "غير مطروح" : "مسار لاحق"}
+      <small><GraduateBadge count={w.nearGraduation} />{!w.offered ? "غير مطروح" : "مسار لاحق"}
         {w.downstream ? " · يفتح " + countOf(w.downstream, AR.course) + " لاحقة" : ""}
         {" · " + countOf(w.demand, AR.request) + " مؤهلة"}
-        {w.nearGraduation ? " · " + countOf(w.nearGraduation, AR.student) + " قرب تخرج تقديري" : ""}
       </small>
     </div>)}
     <small>تنبيه مراجعة أكاديمية فقط؛ لا يتنبأ بموعد التخرج.</small>
@@ -121,7 +126,7 @@ export default function AcademicDecisionLabPanel({ lab, courseId, compact = fals
       <div className="adl-watch-list">{liveWatch.slice(0, 6).map(w =>
         <div className="adl-watch-item" key={w.courseId}><GraduationCap size={16} aria-hidden="true" />
           <strong>{w.courseName}<CourseTags courseId={w.courseId} /></strong>
-          <small>{!w.offered ? "غير مطروح" : "مسار لاحق"}
+          <small><GraduateBadge count={w.nearGraduation} />{!w.offered ? "غير مطروح" : "مسار لاحق"}
             {" · " + countOf(w.demand, AR.request) + " مؤهلة"}
             {w.downstream ? " · يفتح " + countOf(w.downstream, AR.course) + " لاحقة" : ""}</small>
         </div>)}</div>
