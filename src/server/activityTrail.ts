@@ -186,6 +186,8 @@ const view = (entry: ActivityTrailEntry) => ({
   who: entry.who, seat: entry.seat, kind: entry.kind, area: entry.area, target: entry.target,
   ...(entry.detail ? { detail: entry.detail } : {}), ...(entry.before ? { before: entry.before } : {}), ...(entry.after ? { after: entry.after } : {}),
   ...(entry.row ? { row: entry.row } : {}),
+  /* الكلية والقسم والفصل: موجز الصباح يعدّ حركات القسم ولو حُذف موعدُها (لا يبقى في الجدول ليُطابَق). */
+  ...(entry.c ? { c: entry.c } : {}), ...(entry.s ? { s: entry.s } : {}), ...(entry.t ? { t: entry.t } : {}),
 });
 
 /** ما يُقرأ في المرة الواحدة: سطورٌ تكفي ورقةً جانبية، موزّعةٌ على المفاتيح. */

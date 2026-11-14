@@ -149,7 +149,8 @@ export function resolveAsk(text: string, context: AskContext): AskAnswer {
   }
 
   /* ── الوقت: ساعةٌ مدتها ساعة. ورقمُ مقررٍ أو رقمٌ في اسمٍ لا يُقرأ ساعة. ── */
-  const time = codeFound || numberUsedByName ? null : question.time;
+  /* الساعة تُقرأ بعد نزع رمز القاعة: «7/31 الثلاثاء 10» ساعتُها 10 لا 7، و«7/31» وحدها بلا ساعة. */
+  const time = codeFound || numberUsedByName ? null : roomMatch ? parseNaturalQuery(withoutRoom).time : question.time;
   if (time) {
     const [hour, minute] = time.split(":").map(Number);
     patch.startTime = time;

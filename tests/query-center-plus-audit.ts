@@ -51,6 +51,9 @@ const room = resolveAsk("7/31", context);
 check(room.kind === "ok" && room.patch.building === "building_7" && room.patch.hall === "room_7_31" && room.lens === "room", "«7/31» ← المبنى والقاعة من السجل الرسمي", room);
 const dash = resolveAsk("901A01-101 الأحد", context);
 check(dash.kind === "ok" && dash.patch.hall === "room_901A01_101" && dash.patch.day === 0, "«901A01-101 الأحد» ← القاعة واليوم", dash);
+const roomHour = resolveAsk("7/31 الثلاثاء 10", context);
+check(roomHour.kind === "ok" && roomHour.patch.startTime === "10:00" && roomHour.patch.hall === "room_7_31", "«7/31 الثلاثاء 10» ساعتُها 10 لا رقم المبنى", roomHour);
+check(room.kind === "ok" && !room.patch.startTime, "«7/31» وحدها بلا مرشّح ساعة", room);
 const nonsense = resolveAsk("أي كلام عشوائي", context);
 check(nonsense.kind === "unknown" && /لم أجد/.test(nonsense.hint), "جملةٌ لا تُفهم ← رسالةٌ صريحة ولا مرشّحات", nonsense);
 check(resolveAsk("", context).kind === "unknown", "سؤالٌ فارغ ← لا شيء يتغيّر");
@@ -105,6 +108,15 @@ const brief = buildMorningBrief({
   changes: { added: 1, removed: 0, changed: 2 },
 });
 check(brief.moveCount === 1 && brief.moves[0].who === "سارة", "حركات القسم في آخر ٢٤ ساعة وحدها", brief.moves);
+const withDelete = buildMorningBrief({
+  now, scopeRowIds: new Set([1]), scope: { collegeId: 1, sectionId: 2, termId: 3 },
+  trail: [
+    { at: "2026-11-15T05:30:00Z", who: "سارة", kind: "delete", target: "موعدٌ حُذف", row: 77, c: 1, s: 2, t: 3 },
+    { at: "2026-11-15T05:20:00Z", who: "منى", kind: "edit", target: "قسمٌ آخر", row: 1, c: 1, s: 9, t: 3 },
+  ],
+  kindLabel: kind => kind, approval: null, deadline: null, blockers: 0, regulationNotes: 0, changes: null,
+});
+check(withDelete.moveCount === 1 && withDelete.moves[0].target === "موعدٌ حُذف", "الحذف يُعدّ بقسمه ولو زال الموعد، وحركة قسمٍ آخر لا تُعدّ", withDelete.moves);
 check(brief.lines.some(line => line.tone === "danger" && /مانعا اعتماد/.test(line.text)) && brief.lines.some(line => line.tone === "warn" && /بقي على موعد التسليم 5 أيام/.test(line.text)), "الموانع والموعد في سطورٍ بلونها", brief.lines);
 
 /* ── حرّاس المصدر ──────────────────────────────────────────────────────── */
@@ -125,6 +137,7 @@ check(/roomPick\.roomId && row\.roomId/.test(reports) && /محجوزة لقسم�
 check(/filters\.building \|\| String\(room\.buildingId/.test(reports), "عدسة القاعات تتقيّد بمرشّح المبنى والقاعة");
 check(/printKind === "decision" \? decisionScopeText/.test(reports) && /lens === "balance" \? <small>\{balanceScopeText\}/.test(reports), "ورقة اللوحة وسطر الميزان يسمّيان ما يُعرض فعلاً");
 check(/app\.get\("\/api\/reports\/history-points"/.test(routes) && /readsFinalSchedulesOnly\(req\)\) \{ res\.json\(\{ points: \[\] \}\)/.test(routes), "نقاط تاريخ الجدول بنطاق القارئ، ولا تُعرض للعميدين");
+check(/briefLoadedKey\.current === briefScopeKey/.test(reports) && /briefLoadedKey\.current = briefScopeKey;/.test(reports), "الموجز يخزّن القراءة المكتملة وحدها، فطيُّه أثناء القراءة لا يعلّقه");
 check(/liveHref/.test(routes) && /liveHref/.test(read("src/server/reportStampPage.ts")), "صفحة الختم تفتح نسخة اليوم من التقرير");
 
 console.log(`\nquery center plus audit: ${passed} passed, ${failed} failed`);

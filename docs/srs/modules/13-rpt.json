@@ -2659,8 +2659,8 @@
       ],
       "acceptance": [
         {
-          "ar": "الحركة تدخل الموجز إن كان موعدها من مواعيد القسم المعروض ووقعت في آخر 24 ساعة، وتُعرض آخر 8 حركات.",
-          "en": "A move enters the brief when its appointment belongs to the department shown and happened in the last 24 hours; the last 8 moves are listed."
+          "ar": "الحركة تدخل الموجز إن حملت كلية القسم المعروض وقسمه وفصله (فالحذف يُعدّ ولو زال الموعد)، أو — لحركةٍ قديمة بلا قسم — إن بقي موعدها في القسم، ووقعت في آخر 24 ساعة؛ وتُعرض آخر 8 حركات. وطيُّ الموجز أثناء قراءته يلغيها، وفتحه يعيدها.",
+          "en": "A move enters the brief when it carries the shown department's college, department and term (so a deletion counts even after its appointment is gone), or — for an older move without a department — when its appointment is still in the department, and it happened in the last 24 hours; the last 8 moves are listed. Folding the brief while it loads cancels the read, and reopening retries it."
         },
         {
           "ar": "تعذّر قراءة تقرير التغييرات (العميدان قبل الاعتماد) يُبقي سطور أثر النشاط ويقول ذلك.",

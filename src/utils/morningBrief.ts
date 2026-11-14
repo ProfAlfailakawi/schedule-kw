@@ -10,12 +10,14 @@
  */
 import { AR, countOf } from "./arabicCount";
 
-export interface BriefTrailEntry { at: string; who: string; kind: string; target: string; row?: number }
+export interface BriefTrailEntry { at: string; who: string; kind: string; target: string; row?: number; c?: number; s?: number; t?: number }
 
 export interface MorningBriefInput {
   now: Date;
-  /** معرّفات مواعيد القسم المعروض: الحركةُ على غيرها لا تدخل الموجز. */
+  /** معرّفات مواعيد القسم المعروض الباقية في الجدول. */
   scopeRowIds: ReadonlySet<number>;
+  /** القسم المعروض: حركةٌ تحمل كليتها وقسمها تُعدّ به، ولو حُذف موعدُها. */
+  scope?: { collegeId: number; sectionId: number; termId: number };
   trail: ReadonlyArray<BriefTrailEntry>;
   kindLabel: (kind: string) => string;
   approval: { statusLabel: string; round: number } | null;
@@ -37,8 +39,13 @@ const DAY_MS = 86_400_000;
 
 export function buildMorningBrief(input: MorningBriefInput): MorningBrief {
   const since = new Date(input.now.getTime() - DAY_MS).toISOString();
+  const scope = input.scope;
+  /* حركةٌ تحمل قسمها تُعدّ به (فالحذف يُعدّ ولو زال الموعد)؛ وحركةٌ قديمة بلا قسم تُعدّ إن بقي موعدُها في القسم. */
+  const inScope = (entry: BriefTrailEntry) => scope && entry.c && entry.s
+    ? Number(entry.c) === scope.collegeId && Number(entry.s) === scope.sectionId && (!entry.t || Number(entry.t) === scope.termId)
+    : Boolean(entry.row && input.scopeRowIds.has(Number(entry.row)));
   const recent = input.trail
-    .filter(entry => entry.at >= since && entry.row && input.scopeRowIds.has(Number(entry.row)))
+    .filter(entry => entry.at >= since && inScope(entry))
     .sort((a, b) => b.at.localeCompare(a.at));
   const lines: MorningBrief["lines"] = [];
 

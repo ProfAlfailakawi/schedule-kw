@@ -2462,6 +2462,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const briefScopeKey = filters.collegeId && filters.sectionId && filters.termId ? `${filters.collegeId}:${filters.sectionId}:${filters.termId}` : "";
   const [briefOpen, setBriefOpen] = useState(false);
   const [brief, setBrief] = useState<{ key: string; loading: boolean; data: MorningBrief | null; error?: string } | null>(null);
+  const briefLoadedKey = useRef("");
+  const [briefTick, setBriefTick] = useState(0);
   useEffect(() => {
     if (!briefScopeKey || !scopeReadAt) return;
     const seen = briefSeenKey(scopeOwner, new Date());
@@ -2470,7 +2472,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     setBriefOpen(true);
   }, [briefScopeKey, scopeReadAt, scopeOwner]);
   useEffect(() => {
-    if (!briefOpen || !briefScopeKey || brief?.key === briefScopeKey) return;
+    /* المخزَّن قراءةٌ اكتملت وحدها: طيُّ الموجز أثناء القراءة يلغيها، وفتحُه يعيدها. */
+    if (!briefOpen || !briefScopeKey || briefLoadedKey.current === briefScopeKey) return;
     const controller = new AbortController();
     setBrief({ key: briefScopeKey, loading: true, data: null });
     const scopeQuery = `collegeId=${filters.collegeId}&sectionId=${filters.sectionId}&termId=${filters.termId}`;
@@ -2482,6 +2485,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       const data = buildMorningBrief({
         now: new Date(),
         scopeRowIds: new Set(all.map(row => Number(row.id))),
+        scope: { collegeId: Number(filters.collegeId), sectionId: Number(filters.sectionId), termId: Number(filters.termId) },
         trail: Array.isArray(trail?.entries) ? trail.entries : [],
         kindLabel: kind => (isTrailKind(kind) ? TRAIL_KIND_META[kind].label : kind),
         approval: changes ? { statusLabel: String(changes.statusLabel || ""), round: Number(changes.round || 0) }
@@ -2491,11 +2495,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         regulationNotes: Array.isArray(changes?.regulationNotices) ? changes.regulationNotices.length : Number(changes?.regulationNotices?.count || 0),
         changes: changes?.diff?.counts ? { added: Number(changes.diff.counts.added || 0), removed: Number(changes.diff.counts.removed || 0), changed: Number(changes.diff.counts.changed || 0) } : null,
       });
+      briefLoadedKey.current = briefScopeKey;
       setBrief({ key: briefScopeKey, loading: false, data, error: changes ? undefined : "تعذّرت قراءة حال الاعتماد والموانع — المعروض من أثر النشاط وحده." });
     });
     return () => controller.abort();
-  }, [briefOpen, briefScopeKey, all, printApproval]);
-  useEffect(() => { if (!liveNudge) return; setBrief(previous => previous ? { ...previous, key: "" } : previous); }, [liveNudge]);
+  }, [briefOpen, briefScopeKey, all, printApproval, briefTick]);
+  /* الجدول تغيّر: الموجز يُقرأ من جديد عند فتحه القادم (أو الآن إن كان مفتوحاً). */
+  useEffect(() => { if (!liveNudge) return; briefLoadedKey.current = ""; setBriefTick(tick => tick + 1); }, [liveNudge]);
 
   /* ── المقارنة بنسخةٍ سابقة (نقاط تاريخ الجدول) ─────────────────────────── */
   const historyLens = lens === "fairness" || lens === "occupancy";
