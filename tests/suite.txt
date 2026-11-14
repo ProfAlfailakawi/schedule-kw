@@ -314,6 +314,7 @@ test:report-insight
 test:names-one-label
 test:weekly-smoke
 test:whatif-in-changes
+test:roster-add-instructor
 test:print-ink
 test:system-health
 test:wish-patterns

@@ -170,3 +170,13 @@
 .publish-cards-actions .btn small{margin-inline-start:auto;opacity:.75;font-weight:500}
 .publish-cards-cancel{align-self:center;background:none;border:0;color:var(--muted);padding:6px;cursor:pointer;font:inherit;font-size:.82rem}
 .publish-send-log li.is-quiet{opacity:.78}
+
+/* ── «أستاذ جديد»: نموذجٌ واحد لأدوات الجدول و«موعد» (المالك 2026-11-14) ─────────── */
+.instructor-new-rank{display:grid;gap:4px}
+.instructor-new-rank select{inline-size:100%}
+.instructor-new-rank small{color:var(--muted);font-size:.76rem}
+.instructor-new-trainee{display:flex;align-items:center;gap:8px;font-size:.86rem}
+.instructor-new-trainee small{color:var(--muted);margin-inline-start:4px}
+.dept-roster-add{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;margin-bottom:8px;border:1px dashed var(--line);border-radius:var(--r-md);background:transparent;cursor:pointer;font:inherit;font-size:.88rem}
+.dept-roster-add svg{inline-size:16px;block-size:16px}
+.dept-roster-added{margin:0 0 8px;font-size:.82rem;color:var(--muted)}

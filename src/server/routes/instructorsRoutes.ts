@@ -280,6 +280,15 @@ app.post("/api/instructors", requireAnyPermission([3, 7]), async (req: Authentic
     await Repository.addDepartmentFaculty(collegeId, sectionId, Number(instructorId));
   };
 
+  /* رئيس الجدول وفريقه (صلاحية ٧) يضيفون الأستاذ الجديد بدرجته (ومنها تُحسب ساعاته) واستثنائه، داخل عائلة قسمهم وحدها
+     (قرار المالك 2026-11-14). الفحصُ قبل الإنشاء؛ والكتابةُ بعده. */
+  let rosterLoad: Record<string, unknown> | null = null;
+  if (scoped && req.body?.load && typeof req.body.load === "object") {
+    const parsed = await readRosterLoad(req.body.load, 0);
+    if ("error" in parsed) { res.status(400).json({ error: parsed.error }); return; }
+    rosterLoad = Object.keys(parsed.entry).length ? parsed.entry : null;
+  }
+
   const exists = await Repository.getInstructorByCivil(AdInstructorCivil);
   if (exists) {
     if (scoped) {
@@ -299,6 +308,8 @@ app.post("/api/instructors", requireAnyPermission([3, 7]), async (req: Authentic
     newIns = await Repository.updateInstructor(Number(newIns.AdInstructorId), AdInstructorCivil, AdInstructorName, AdInstructorMobile || "", createStatus, loadInput.load, category);
   }
   await enrol(Number(newIns.AdInstructorId));
+  if (rosterLoad) await Repository.setTeachingLoadAssignment(Number(newIns.AdInstructorId), rosterLoad, String(req.user?.Name || ""));
+  res.locals.auditChanges = `إضافة ${AdInstructorName} من ${scoped ? "سياق القسم" : "شاشة الأساتذة"}${category === "ta" ? " · مدرب" : ""}${rosterLoad ? " · بدرجته" : ""}`;
   res.status(201).json(newIns);
 });
 
@@ -383,6 +394,26 @@ async function sectionRosterIds(collegeId: number, sectionId: number): Promise<S
   return rosterMemberIds({ faculty, taught: (rows as any[]).map(row => row.AdInstructorId), delegates: visiting.instructorIds, people: people as any[] });
 }
 
+/* ── الدرجة والاستثناء من جسم الطلب: قراءةٌ واحدة لإضافة أستاذٍ جديد وتعديل عضوٍ قائم ──────────────
+ * تُرجع المدخلَ المنقّى أو الخطأ، ولا تكتب شيئاً — فالكتابةُ بعد نجاح كل الفحوص كي لا يُنشأ أستاذٌ ثم يُرفض نصابُه. */
+async function readRosterLoad(raw: unknown, id: number): Promise<{ entry: Record<string, unknown> } | { error: string }> {
+  const config = await Repository.getTeachingLoadConfig();
+  const body = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  const entry: Record<string, unknown> = {};
+  for (const key of ["rankId", "minHours", "maxHours", "extraHours", "reason", "untilTermId"]) if (body[key] !== undefined && body[key] !== null && body[key] !== "") entry[key] = body[key];
+  if (entry.rankId && !config.ranks.some(rank => rank.id === entry.rankId)) return { error: "الدرجة غير موجودة." };
+  if (!hasLoadOverride(entry as any)) { delete entry.reason; delete entry.untilTermId; }
+  const problem = teachingLoadProblem({ ranks: config.ranks, assignments: { [String(id)]: entry } });
+  return problem ? { error: problem } : { entry };
+}
+
+/* الدرجات المعرَّفة لشاشة «أستاذ جديد» في أدوات الجدول وفي «موعد»: للقراءة، بإذن القسم، بلا بيانات أشخاص. */
+app.get("/api/section-roster/ranks", requirePermission(7), async (_req: AuthenticatedRequest, res: Response) => {
+  const config = await Repository.getTeachingLoadConfig();
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ enabled: config.enabled, ranks: config.ranks.map(rank => ({ id: rank.id, name: rank.name, minHours: rank.minHours, maxHours: rank.maxHours, overtimeHours: rank.overtimeHours ?? 0 })) });
+});
+
 app.get("/api/section-roster", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
@@ -435,13 +466,9 @@ app.put("/api/section-roster/:id", requirePermission(7), async (req: Authenticat
     changes.push(`الحالة: ${status || "نشط"} · التصنيف: ${category || "أستاذ"}`);
   }
   if (body.load && typeof body.load === "object") {
-    const config = await Repository.getTeachingLoadConfig();
-    const entry: Record<string, unknown> = {};
-    for (const key of ["rankId", "minHours", "maxHours", "extraHours", "reason", "untilTermId"]) if (body.load[key] !== undefined && body.load[key] !== null && body.load[key] !== "") entry[key] = body.load[key];
-    if (entry.rankId && !config.ranks.some(rank => rank.id === entry.rankId)) { res.status(400).json({ error: "الدرجة غير موجودة." }); return; }
-    if (!hasLoadOverride(entry as any)) { delete entry.reason; delete entry.untilTermId; }
-    const problem = teachingLoadProblem({ ranks: config.ranks, assignments: { [String(id)]: entry } });
-    if (problem) { res.status(400).json({ error: problem }); return; }
+    const parsed = await readRosterLoad(body.load, id);
+    if ("error" in parsed) { res.status(400).json({ error: parsed.error }); return; }
+    const entry = parsed.entry;
     await Repository.setTeachingLoadAssignment(id, Object.keys(entry).length ? entry : null, String(req.user?.Name || ""));
     changes.push("النصاب");
   }

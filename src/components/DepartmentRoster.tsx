@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Archive, BookOpenCheck, Check, GraduationCap, Pencil, Scale, UsersRound, X } from "lucide-react";
+import { Archive, BookOpenCheck, Check, GraduationCap, Pencil, Plus, Scale, UsersRound, X } from "lucide-react";
+import NewInstructorForm from "./NewInstructorForm";
 import type { AcademicRank, TeachingLoadAssignment } from "../types";
 import { ExceptionBadge, LoadExceptionEditor } from "./LoadException";
 import { Notice, SecondaryButton, visualConfirm } from "./ui";
@@ -11,7 +12,8 @@ import "./registration-tabs.css";
  * ── «الأساتذة» في أدوات الجدول ────────────────────────────────────────────
  * قسمُ الجدول يدير أساتذته من مكانٍ واحد: TA مفصولون، والنصابُ والدرجةُ والإضافيُّ
  * والاستثناء، والتفرّغُ والتقاعد. التقاعدُ يُخرج صاحبَه من القائمة وتبقى بياناته.
- * لا رقمَ مدنيّاً ولا هاتفاً هنا: الخادمُ لا يرسلهما لهذا الباب.
+ * لا رقمَ مدنيّاً ولا هاتفاً في القائمة: الخادمُ لا يرسلهما لهذا الباب. و«أستاذ جديد» (NewInstructorForm) هو المكان الوحيد
+ * للإضافة مع الدرجة؛ ولوحة «موعد» تفتح النموذج نفسه (المالك 2026-11-14).
  */
 interface Person {
   id: number; name: string; AdInstructorStatus: "retired" | "sabbatical" | null; AdInstructorCategory: "ta" | null;
@@ -24,6 +26,8 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
   const [group, setGroup] = useState<RosterGroup>("faculty");
   const [editing, setEditing] = useState<Person | null>(null);
   const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [justAdded, setJustAdded] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const read = () => fetch(`/api/section-roster?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" })
@@ -68,6 +72,23 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
   return (
     <div className="dept-roster">
       {error ? <Notice>{error}</Notice> : null}
+      {justAdded ? <p className="dept-roster-added" role="status">أُضيف {justAdded}. الاستثناء والتفرّغ والتقاعد من بطاقته.</p> : null}
+      {adding ? (
+        <NewInstructorForm collegeId={collegeId} sectionId={sectionId}
+          onCancel={() => setAdding(false)}
+          onCreated={async created => {
+            setAdding(false);
+            setJustAdded(created.AdInstructorName);
+            /* يُفتح تبويبُه ليراه صاحبُ الطلب فور الإضافة: المدرب في «المدربون»، وغيره في «الأساتذة». */
+            setGroup(created.AdInstructorCategory === "ta" ? "ta" : "faculty");
+            await read();
+          }} />
+      ) : (
+        <button type="button" className="dept-roster-add" onClick={() => { setJustAdded(""); setAdding(true); }}
+          data-guide-ignore="يفتح نموذج أستاذ جديد داخل القسم؛ لا يحفظ حتى «أضف»">
+          <Plus aria-hidden="true" />أستاذ جديد
+        </button>
+      )}
       <div className="roster-tabs" role="tablist" aria-label="مجموعات أساتذة القسم">
         {ROSTER_GROUPS.map(entry => {
           const Icon = icons[entry.id];
