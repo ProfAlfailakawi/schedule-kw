@@ -629,7 +629,6 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   const inkRef = useRef(inkSave);
   inkRef.current = inkSave;
   const chooseInk = (on: boolean) => { inkRef.current = on; setInkSave(on); safeStorage.set("schedule-print-ink", on ? "1" : "0"); };
-  const toggleInk = () => setInkSave(previous => { const next = !previous; safeStorage.set("schedule-print-ink", next ? "1" : "0"); return next; });
   const [expandedCourseRoomIds, setExpandedCourseRoomIds] = useState<Set<number>>(() => new Set());
   const [expandedCourseLoadIds, setExpandedCourseLoadIds] = useState<Set<number>>(() => new Set());
   /* صفةُ كل قسمٍ لمن يرى النهائيَّ وحده («accepted» | «historical»)، من ترويسة
@@ -3073,7 +3072,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
               ) : (
                 <>
                   <QueryPrintMenu ink={inkSave} disabled={lens === "occupancy" && familyPending} onPrint={on => { chooseInk(on); printReport(lens); }} />
-                  <QueryPrintPreview refreshKey={`${printKind}:${results.length}:${lens}`} onPrint={() => printReport(lens)} disabled={lens === "occupancy" && familyPending} label={REPORT_TITLES[lens]} ink={inkSave} onInk={toggleInk} />
+                  <QueryPrintPreview refreshKey={`${printKind}:${results.length}:${lens}`} onPrint={on => { chooseInk(on); printReport(lens); }} disabled={lens === "occupancy" && familyPending} label={REPORT_TITLES[lens]} ink={inkSave} />
                 </>
               )}
               {/* ── تصدير Excel (N12) ────────────────────────────────────────

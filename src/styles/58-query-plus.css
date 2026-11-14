@@ -177,13 +177,6 @@
 .query-preview-pop li.is-signed .sheet{border-color:var(--accent);box-shadow:inset 0 -4px 0 var(--accent)}
 .query-preview-pop li b{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 .query-preview-actions{display:flex;justify-content:flex-end;gap:8px}
-.query-ink-toggle{inline-size:44px;block-size:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);cursor:pointer}
-.query-ink-toggle svg{inline-size:19px;block-size:19px}
-.query-ink-toggle.is-on{background:var(--accent-softer);border-color:var(--accent);color:var(--accent)}
-.query-print-icon.has-ink{position:relative}
-.query-ink-dot{position:absolute;inset-block-start:5px;inset-inline-end:5px;inline-size:8px;block-size:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--surface)}
-.query-preview-print{justify-self:end;inline-size:44px;block-size:40px;display:grid;place-items:center;border:0;border-radius:12px;background:var(--accent);color:var(--surface);cursor:pointer}
-.query-preview-print svg{inline-size:19px;block-size:19px}
 
 /* ورقة الموجز: سطورٌ وجدول آخر الحركات */
 .print-morning-report .print-morning-lines{margin:6mm 0 4mm;padding:0;list-style:none;display:grid;gap:2.2mm;font-size:11pt}

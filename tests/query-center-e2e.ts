@@ -176,20 +176,21 @@ async function main() {
     await desktop.page.locator(".query-whatif .qw-x").click();
     check((await desktop.page.locator(".query-whatif").count()) === 0, "البطاقة تُغلق");
 
-    /* ── موفّر الحبر: اختيارٌ يبقى، وأمر الطباعة يضع السمة ── */
+    /* ── موفّر الحبر: بلاطةٌ في كل قائمة طباعة، وأمر الطباعة يضع السمة، والاختيار يُحفظ ── */
     await desktop.page.locator('button[aria-label^="معاينة صفحات"]').click();
-    await desktop.page.locator('button[aria-label="موفّر الحبر"]').click();
-    check((await desktop.page.evaluate(() => localStorage.getItem("schedule-print-ink"))) === "1", "موفّر الحبر يُحفظ في المتصفح");
-    await desktop.page.locator(".query-preview-print").click();
+    await desktop.page.locator(".query-preview-actions .print-tile-ink").click();
     await desktop.page.waitForTimeout(500);
+    check((await desktop.page.evaluate(() => localStorage.getItem("schedule-print-ink"))) === "1", "موفّر الحبر يُحفظ في المتصفح");
     check((await desktop.page.evaluate(() => (window as any).__lastInk)) === "1", "أمر الطباعة وضع سمة موفّر الحبر");
     await desktop.page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
     await desktop.page.waitForTimeout(300);
     check((await desktop.page.evaluate(() => document.documentElement.dataset.printInk || "")) === "", "السمة تُرفع عند انتهاء الطباعة");
-    await desktop.page.locator('button[aria-label^="معاينة صفحات"]').click();
-    await desktop.page.locator('button[aria-label="موفّر الحبر"]').click();
-    await desktop.page.keyboard.press("Escape");
-    check((await desktop.page.evaluate(() => localStorage.getItem("schedule-print-ink"))) === "0", "وإيقافه يُحفظ أيضاً");
+    await desktop.page.locator(".query-canvas-actions .query-print-menu > button").first().click();
+    await desktop.page.locator(".print-tiles .print-tile").first().click();
+    await desktop.page.waitForTimeout(500);
+    check((await desktop.page.evaluate(() => localStorage.getItem("schedule-print-ink"))) === "0", "و«عادية» تُلغيه وتُحفظ");
+    check((await desktop.page.evaluate(() => (window as any).__lastInk)) === "", "ولا سمة حبرٍ في الطباعة العادية");
+    await desktop.page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
 
     /* ── تقاريري على الخادم ── */
     await desktop.page.locator('button[aria-label="تقاريري"]').click();
