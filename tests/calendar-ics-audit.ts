@@ -11,6 +11,7 @@ import { buildCalendar, buildReminder, calendarSubscribeLinks, CALENDAR_LINKS_CL
 import { CALENDAR_FEED_PAUSED_NOTE, calendarFeedKey, instructorFromCalendarKey, personCalendarKey } from "../src/server/calendarSecret";
 import { liveCardLinkFor } from "../src/utils/shareLinkLifetime";
 import { readServerSource } from "./helpers/serverSource.mjs";
+import { calendarFingerprint, calendarToken, calendarTokenValid } from "../src/server/studentRecovery";
 
 let checks = 0;
 function ok(condition: unknown, label: string) {
@@ -114,6 +115,45 @@ ok(validateIcs(reminder).length === 0, `valid reminder: ${validateIcs(reminder).
 ok(reminder.includes("DTSTART;VALUE=DATE:20261115") && reminder.includes("DTEND;VALUE=DATE:20261116"), "all-day reminder");
 ok(reminder.includes("SUMMARY:موعد تسجيلي — دور 2 من 3\\, ملاحظة\\; مهمة") && reminder.includes("DESCRIPTION:سطر1\\nسطر2"), "reminder escaping");
 ok(buildReminder({ title: "t", date: "2026-11-15", now }).match(/UID:[^\r]+/)?.[0] === buildReminder({ title: "t", date: "2026-11-15", now: new Date() }).match(/UID:[^\r]+/)?.[0], "reminder UID stable");
+/* التنبيهان يُقاسان من بداية اليوم الكامل (منتصف الليل): ‎-PT3H‎ كان التاسعةَ مساءَ الأمس، والوثيقةُ تقول التاسعةَ صباحاً. */
+{
+  const triggers = [...reminder.matchAll(/^TRIGGER:(-?)PT(\d+)H$/gm)].map(m => (m[1] ? -1 : 1) * Number(m[2]));
+  const wall = (hours: number) => { const at = new Date(Date.UTC(2026, 10, 15) + hours * 3_600_000); return `${at.getUTCDate()} ${String(at.getUTCHours()).padStart(2, "0")}:00`; };
+  ok(triggers.length === 2 && triggers.join() === "-15,8", `reminder alarms are -PT15H and PT8H: ${triggers.join()}`);
+  ok(wall(triggers[0]) === "14 09:00" && wall(triggers[1]) === "15 08:00", "alarms ring 9 AM the day before and 8 AM on the day");
+  ok(!reminder.includes("TRIGGER:-PT3H"), "the 9 PM alarm is gone");
+}
+
+// Masari subscription key: sealed, stable, bound to the code version.
+{
+  const key = Buffer.from("k".repeat(32)), fp = "0123456789abcdef0123456789abcdef";
+  const token = calendarToken(key, fp, "cv000001");
+  ok(token === calendarToken(key, fp, "cv000001") && /^[A-Za-z0-9_-]+$/.test(token) && token.length < 80, "subscription key is stable, url-safe and short");
+  ok(!token.includes(fp) && !Buffer.from(token, "base64url").toString("hex").includes(fp), "the fingerprint is not in the key in clear");
+  ok(calendarFingerprint(key, token) === fp && calendarTokenValid(key, token, fp, "cv000001"), "the server reads its own key back");
+  ok(!calendarTokenValid(key, token, fp, "cv000002"), "a new code version (code change or recovery) voids the old key");
+  ok(calendarFingerprint(Buffer.from("x".repeat(32)), token) === null, "another server key cannot open it");
+  const raw = Buffer.from(token, "base64url"); raw[raw.length - 1] ^= 1;
+  ok(calendarFingerprint(key, raw.toString("base64url")) === null && calendarFingerprint(key, "abc") === null, "a tampered or short key is refused");
+  ok(calendarFingerprint(key, calendarToken(key, "demo-1234", "cv")) === "demo-1234", "non-hex fingerprints round-trip too");
+  ok(calendarToken(key, "0123456789abcdef0123456789abcde0", "cv000001") !== token, "each student has a different key");
+}
+
+// Masari subscription content: «جدولي المقترح» as weekly series in Kuwait time, and an empty valid calendar before there is one.
+{
+  const name = "جدولي المقترح — مساري";
+  const proposed = buildCalendar({ name, description: "x", weeks: 15, startDate: "2027-01-31", endDate: "2027-05-13", now, lectures: [
+    { id: "m1", title: "ISL101 · أصول التربية، والفقه; مدخل", code: "ISL101", section: "501", start: "08:00", end: "09:15", days: [0, 2] },
+    { id: "m2", title: "ISL102 · فقه العبادات", code: "ISL102", section: "502", start: "11:00", end: "12:15", days: [1] },
+  ] });
+  const unfoldP = (text: string) => text.replace(/\r\n[ \t]/g, "");
+  ok(validateIcs(proposed).length === 0, `proposed timetable is valid RFC 5545: ${validateIcs(proposed).join(" | ")}`);
+  ok(/BEGIN:VTIMEZONE\r\nTZID:Asia\/Kuwait/.test(proposed) && proposed.includes("DTSTART;TZID=Asia/Kuwait:20270131T080000"), "VTIMEZONE Asia/Kuwait and local wall time");
+  ok(unfoldP(proposed).includes("RRULE:FREQ=WEEKLY;UNTIL=20270513T235959Z;BYDAY=SU,TU") && unfoldP(proposed).includes("BYDAY=MO"), "weekly RRULE until the term's last day");
+  ok(unfoldP(proposed).includes("SUMMARY:ISL101 · أصول التربية، والفقه\\; مدخل"), "escaping in the summary (the semicolon; the Arabic comma stays)");
+  const empty = buildCalendar({ name, weeks: 15, startDate: "2027-01-31", endDate: "2027-05-13", now, lectures: [] });
+  ok(validateIcs(empty).length === 0 && !empty.includes("BEGIN:VEVENT") && unfoldP(empty).includes(`X-WR-CALNAME:${name}`), "no proposed timetable yet: an empty, valid calendar with its name");
+}
 
 // Stable person key.
 const secret = "s".repeat(64);
@@ -182,8 +222,12 @@ ok(!server.includes('document.getElementById("ics").style.display = "none";'), "
 ok(!server.includes('function calendarHtml(compact){return ""}'), "teacher card: calendar line restored");
 ok(server.includes('id="subGoogle"') && server.includes('id="subOutlook"') && server.includes("links.apple"), "بطاقتي: Apple/Google/Outlook buttons");
 ok(server.includes('app.get("/api/public/cal/:token/:key"') && server.includes("calendarFeed: await stableCalendarPath(link.id"), "stable personal feed served and handed to the card");
-ok(server.includes('app.get("/api/public/ics-reminder"'), "reminder endpoint exists");
-ok(masari.includes('location.href="/api/public/ics-reminder?d="') && !/addToCalendar\([^)]*\)\{[^}]*downloadBlob/.test(masari), "مساري: reminder opens a served .ics, not a blob download");
+/* التذكيرُ بجلسة الطالب ونوعين معروفين؛ لا رابطَ عامّاً يقبل عنواناً حرّاً. */
+const door = fs.readFileSync("src/server/studentDoorRoutes.ts", "utf8");
+ok(!server.includes('app.get("/api/public/ics-reminder"') && door.includes('app.get("/api/public/me/reminder", requireDoor'), "reminder endpoint needs a Masari session");
+ok(door.includes('if (kind !== "next" && kind !== "round")') && !/req\.query\.(t|n)\b/.test(door.slice(door.indexOf('app.get("/api/public/me/reminder"'), door.indexOf("/* ── اشتراكُ «جدولي المقترح»"))), "reminder title and note are built on the server, never read from the link");
+ok(masari.includes('location.href="/api/public/me/reminder?kind="+kind') && !/addToCalendar\([^)]*\)\{[^}]*downloadBlob/.test(masari), "مساري: reminder opens a served .ics, not a blob download");
+ok(door.includes('app.get("/api/public/me/cal/:file"') && door.includes("await sendCalendar(req, res, CALENDAR_NAME, termId, lectures)"), "مساري: subscription served through the same sender as the teacher feed (ETag, 304, headers)");
 const send = server.slice(server.indexOf("async function sendCalendar"), server.indexOf('app.get("/api/public/ics/:token", '));
 ok(send.includes('"text/calendar; charset=utf-8"') && send.includes("inline;") && send.includes("ETag"), "calendar headers: text/calendar utf-8, inline, ETag");
 // Owner decision 2026-10-29: the stable feed pauses (200, empty, same name) when no live card is left.

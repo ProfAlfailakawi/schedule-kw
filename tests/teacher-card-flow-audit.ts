@@ -307,13 +307,13 @@ async function main() {
       check(!/"room"/.test(hold.text) && !labels.some(l => hold.text.includes(l)), "والحجزُ المؤقّت لا يردّ اسمَ ما حجزه", hold.json);
       await http("POST", `/api/public/request/${link}/hold`, { release: true });
       const html = await http("GET", `/r/${link}`);
-      check(html.status === 200 && html.text.includes("قاعتك يحددها القسم") && !html.text.includes("room-pick") && !labels.some(l => html.text.includes(l)),
-        "والصفحةُ نفسها: إشارةُ 🏫✓ «قاعتك يحددها القسم» ولا قاعةَ بعينها");
+      check(html.status === 200 && html.text.includes("قاعة مناسبة تُحجز لك تلقائياً") && !html.text.includes("room-pick") && !labels.some(l => html.text.includes(l)),
+        "والصفحةُ نفسها: إشارةُ (باب ✓) «قاعة مناسبة تُحجز لك تلقائياً» ولا قاعةَ بعينها");
       /* المالك 2026-10-29: ولا تلميحَ — «نفس القاعة» و«نفس المبنى» و«تغيّرت القاعة» و«المبنى». المسموحُ سببُ
-         الوقت غير المتاح «لا تتوفّر قاعة في هذا الوقت» ومختصراه، وإشارةُ «قاعتك يحددها القسم». */
+         الوقت غير المتاح «لا تتوفّر قاعة في هذا الوقت» ومختصراه، وإشارةُ «قاعة مناسبة تُحجز لك تلقائياً». */
       const shown = html.text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/<!--[\s\S]*?-->/g, "")
         .replace(/"room":\{[^}]*\}/g, "").replace(/"building":\{[^}]*\}/g, "")
-        .replace(/لا تتوفّر قاعةٌ? في هذا الوقت|لا قاعة في هذا الوقت|لا قاعة في الوقت المطلوب|قاعتك يحددها القسم/g, "");
+        .replace(/لا تتوفّر قاعةٌ? في هذا الوقت|لا تتوفّر قاعة في الوقت المطلوب|لا قاعة في هذا الوقت|لا قاعة في الوقت المطلوب|قاعة مناسبة تُحجز لك تلقائياً/g, "");
       const hints = [...shown.matchAll(/.{0,20}(قاعة|القاعة|المبنى|مبنى|🏢).{0,20}/g)].map(m => m[0]);
       check(!hints.length, "والصفحةُ بلا «القاعة» ولا «المبنى» ولا «نفس القاعة/المبنى» ولا 🏢", hints.slice(0, 3));
       const stick = await http("POST", `/api/public/request/${link}/stick`, { items: payload, itemIndex: at });

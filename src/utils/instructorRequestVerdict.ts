@@ -45,6 +45,7 @@ import { rowsForRequestSlots } from "./instructorRequestWeek";
 import { SCHEDULE_DAY_END, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START, isValidClock } from "./scheduleTime";
 import { regulationStarts } from "./regulationCandidates";
 import { roomIdentityKey } from "./locationRegistry";
+import { ROOM_TOO_SMALL_TEXT } from "./requestRoomRanking";
 import { habitualBlockMinutes, historicalOrigin, type CourseNature } from "./courseNature";
 import { lengthPatternsForHours, meetingMinutes, meetingSlots, type OwnMeeting } from "./requestMeetingLength";
 import { patternLabel, patternLengthIssue, sameScheduleShape } from "./appointmentRegulation";
@@ -72,7 +73,9 @@ export interface RequestReason {
   /** `hours`: المشكلةُ في الأيام (لا تغطّي ساعاتِ المقرّر) لا في وقت البداية، فلا يختلف الحكمُ بين الأوقات.
       `pattern`: الأيامُ ليست نمطاً معتمداً في مكتبة الأنماط — يُعرض بدلَ البدائل أزرارُ الأنماط المعتمدة.
       `ladder`: البدايةُ ليست من سُلّم البدايات في اللائحة — يمنع في كرت الأستاذ وحده، وبدائلُه من السُّلّم. */
-  code?: "hours" | "pattern" | "ladder" | "day-end" | "section-clash" | "travel";
+  code?: "hours" | "pattern" | "ladder" | "day-end" | "section-clash" | "travel" | "capacity";
+  /** تفصيلٌ للقسم وحده (مقاعدُ الشعبة مقابل سعات الخالي): يُنزع من نسخة الأستاذ. */
+  detail?: string;
 }
 
 /** موضعٌ مقترح: يومٌ وبداية، والنهايةُ محسوبة. */
@@ -165,8 +168,12 @@ export interface VerdictContext {
   cohortPairs?: Set<string>;
   /** معرّفاتُ «هيئة تدريسية» وما شابهها: لا تُحسب حجزاً مزدوجاً لشخص. */
   placeholderInstructorIds?: Iterable<number>;
-  /** القاعات المعروفة في هذا النطاق، بمفاتيح هويّتها. */
+  /** القاعات المعروفة في هذا النطاق، بمفاتيح هويّتها — ما يصلح للاختيار الآلي وحده (السعةُ تكفي أو غيرُ مسجّلة). */
   knownRoomKeys?: string[];
+  /** قاعاتٌ أسقطتها السعةُ وحدها (معروفةٌ أصغر من مقاعد الشعبة): لا تُختار أبداً، ويُقال بها «لا قاعة تتسع». */
+  undersizedRoomKeys?: string[];
+  /** تفصيلُ القسم حين لا تتّسع قاعة: يُعطى القاعاتِ الصغيرةَ الخاليةَ في الوقت نفسه. */
+  roomCapacityDetail?: (freeUndersizedKeys: string[]) => string;
   /** مفتاحُ كل قاعةٍ مسجّلة (id:…) ← مفتاحُها النصيّ (legacy:…): صفوفٌ مستوردةٌ تشغلها بالنص فقط. */
   roomAliases?: Record<string, string>;
   /** سُلّمُ البدايات الذي يدرّس به القسم فعلاً. حين يغيب لا تُقترح أوقات. */
@@ -857,11 +864,20 @@ export function judgeRequest(inbound: RequestedRow, context: VerdictContext): Re
   }
 
   /* ── القاعة ───────────────────────────────────────────────────────────── */
+  /* القاعدةُ الواحدة للسعة (requestRoomRanking): المرشّحاتُ ما يتّسع وحده؛ وما أسقطته السعةُ يُعرف ليُقال السببُ الصحيح. */
   const roomKeys = (context.knownRoomKeys || []).filter(Boolean);
-  const candidates = roomKeys.filter(key => (!context.roomSlotsEligible || context.roomSlotsEligible(key, slots)) && slots.every(slot => (!context.roomEligible || context.roomEligible(key, slot.day, slot.start, slot.end)) && roomFree(key, [slot.day], slot.start, slot.end, week.filter(row => !touched.has(row.id)), identity, context.roomAliases, context.roomCollegeId)));
-  const roomAvailable = roomKeys.length ? candidates.length > 0 : null;
+  const undersized = (context.undersizedRoomKeys || []).filter(Boolean);
+  const weekOthers = week.filter(row => !touched.has(row.id));
+  const roomUsable = (key: string) => (!context.roomSlotsEligible || context.roomSlotsEligible(key, slots)) && slots.every(slot => (!context.roomEligible || context.roomEligible(key, slot.day, slot.start, slot.end)) && roomFree(key, [slot.day], slot.start, slot.end, weekOthers, identity, context.roomAliases, context.roomCollegeId));
+  const candidates = roomKeys.filter(roomUsable);
+  const roomAvailable = roomKeys.length || undersized.length ? candidates.length > 0 : null;
   if (roomAvailable === false) {
-    reasons.push({ source: "room", text: "لا تتوفّر قاعةٌ في هذا الوقت.", blocking: true });
+    /* خلت قاعاتٌ لكنها لا تتّسع (أو لا قاعةَ في النطاق تتّسع أصلاً): الوقتُ غيرُ متاح بسبب السعة، لا «لا قاعة». */
+    const freeShort = undersized.filter(roomUsable);
+    if (freeShort.length || !roomKeys.length) {
+      const detail = context.roomCapacityDetail?.(freeShort);
+      reasons.push({ source: "room", code: "capacity", text: ROOM_TOO_SMALL_TEXT, blocking: true, ...(detail ? { detail } : {}) });
+    } else reasons.push({ source: "room", text: "لا تتوفّر قاعةٌ في هذا الوقت.", blocking: true });
   } else if (roomAvailable === null && !request.relatedRowIds?.length) {
     reasons.push({ source: "room", text: "لا يمكن حجز هذا الموعد قبل توثيق قاعة فعلية في دليل القسم.", blocking: true });
   }

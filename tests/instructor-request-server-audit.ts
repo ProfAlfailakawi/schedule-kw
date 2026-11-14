@@ -60,7 +60,8 @@ check(!server.includes('app.get("/api/public/request/:token", requireAuth'), "و
 check(server.includes("function stripForInstructor"), "تجريدُ ما لا يخصّ الأستاذ في دالّةٍ واحدة");
 /* المالك 2026-10-29 (القرار ٣: «مخفية اكيد متعمدة»): ولا «الأنسب» ولا المحجوزةُ ولا المبدَّلة —
    ومنها ما حُفظ في الطلبات قبل القرار (roomPick)، فيُنزع ولو لم يعد يُبنى. */
-check(server.includes("const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, ...rest } = item;"),
+check(server.includes("const { roomCandidates, roomOptions, offeringRows, roomPick, reservedRoom, roomSwitch, roomSeats, ...rest } = item;")
+  && server.includes("return withoutPlaceFields({"),
   "والمرشّحاتُ وتفاصيلُ قاعاتِها، و«الأنسب» والمحجوزةُ والمبدَّلة، تُنزع نزعاً لا تُستثنى بالنسيان");
 check(/after: rest\.after \? \{ \.\.\.rest\.after, room: undefined \}/.test(server),
   "و«طلب» لا تحمل قاعةً أبداً");
@@ -157,30 +158,31 @@ check(page.includes("@media print"), "وتبقى الحالةُ في الطبا�
    وكذلك تلميحاتُها (المالك 2026-10-29): «نفس القاعة» و«نفس المبنى» و«تغيّرت القاعة» و«المبنى». */
 check(!/قاعة|المبنى|مبنى|مباني|AdRoomCode|AdRoomHall|roomCandidates|sameRoom|sameBuilding/.test(page
     .replace(/مدّةُ المحاضرة/g, "")
-    .replace(/لا تتوفّر قاعة في هذا الوقت/g, "")),
+    .replace(/لا تتوفّر قاعة في هذا الوقت/g, "")
+    .replace(/قاعة مناسبة تُحجز لك تلقائياً/g, "")),
   "ولا اسمَ قاعةٍ ولا تلميحَ بقاعةٍ أو مبنى في الصفحة كلها");
 /* والصفحةُ كما تصل المتصفّح — بكل ما يُحقن فيها (إضافات الكرت، الأنماط، الرسوم، تعبئة الأيام، كرت المدرّب) —
    لا تحمل «القاعة» ولا «المبنى» ولا 🏢. المسموحُ عباراتٌ لا غنى عنها ولا تكشف شيئاً:
-   سببُ الوقت غير المتاح «لا تتوفّر قاعة في هذا الوقت» (ومختصرُه)، وإشارةُ 🏫✓ «قاعتك يحددها القسم». */
+   سببُ الوقت غير المتاح «لا تتوفّر قاعة في هذا الوقت» (ومختصرُه)، وإشارةُ (باب ✓) «قاعة مناسبة تُحجز لك تلقائياً». */
 {
   const rendered = instructorRequestPage("tok", "nonce")
     .replace(/\/\*[\s\S]*?\*\//g, "").replace(/<!--[\s\S]*?-->/g, "")
     /* قاموسُ العدّ المشترك يحمل «قاعة/مبنى» أسماءً معدودة، لا نصّاً معروضاً. */
     .replace(/"room":\{[^}]*\}/g, "").replace(/"building":\{[^}]*\}/g, "");
-  const ALLOWED = [/لا تتوفّر قاعةٌ? في هذا الوقت/g, /لا قاعة في هذا الوقت/g, /لا قاعة في الوقت المطلوب/g, /قاعتك يحددها القسم/g];
+  const ALLOWED = [/لا تتوفّر قاعةٌ? في هذا الوقت/g, /لا تتوفّر قاعة في الوقت المطلوب/g, /لا قاعة في هذا الوقت/g, /لا قاعة في الوقت المطلوب/g, /قاعة مناسبة تُحجز لك تلقائياً/g];
   const rest = ALLOWED.reduce((text, rule) => text.replace(rule, ""), rendered);
   const leaks = [...rest.matchAll(/.{0,24}(قاعة|القاعة|قاعات|المبنى|مبنى|المباني|مباني|🏢|نفس القاعة|نفس المبنى).{0,24}/g)].map(m => m[0]);
   check(!leaks.length, "الصفحةُ المرسلة كاملةً بلا «القاعة» ولا «المبنى» ولا «نفس القاعة/المبنى» ولا 🏢" + (leaks.length ? `: ${leaks.slice(0, 3).join(" | ")}` : ""));
   check(!/sameRoom|sameBuilding|تغيّرت القاعة/.test(rendered), "ولا يقرأ الكرتُ sameRoom/sameBuilding ولا يقول «تغيّرت القاعة»");
 }
 /* المالك 2026-10-29 (القرار ٣: «مخفية اكيد متعمدة»): أُلغي «الأنسب» وبديلاه (C2 في 2026-10-28).
-   الترتيبُ والحجزُ لحظةَ الإرسال باقيان في الخادم؛ والأستاذ يرى إشارةً واحدة 🏫✓ بلا اسمٍ ولا رمزٍ ولا اختيار. */
+   الترتيبُ والحجزُ لحظةَ الإرسال باقيان في الخادم؛ والأستاذ يرى إشارةً واحدة (باب ✓) بلا اسمٍ ولا رمزٍ ولا اختيار. */
 check(!/roomPick|roomOptions|reservedRoom|roomSwitch|ROOM_WHY|room-pick/.test(page),
   "ولا «الأنسب» ولا بدائلُه ولا المحجوزةُ في الصفحة ومساراتها");
-check(page.includes("function roomSignalHtml(it)") && page.includes('title="قاعتك يحددها القسم" aria-label="قاعتك يحددها القسم"')
+check(page.includes("function roomSignalHtml(it)") && page.includes('title="قاعة مناسبة تُحجز لك تلقائياً" aria-label="قاعة مناسبة تُحجز لك تلقائياً"') && !/🏫/.test(page.replace(/\/\*[\s\S]*?\*\//g, ""))
   && page.includes("it.roomOk&&(it.tone===\"ok\"||it.tone===\"warn\")") && page.includes("it.roomOk=result.roomAvailable===true")
   && page.includes("roomOk:it.roomAvailable===true"),
-  "بل إشارةٌ واحدة 🏫✓ «قاعتك يحددها القسم» تقرأ roomAvailable وحده، ولا تظهر مع مانع");
+  "بل إشارةٌ واحدة (باب ✓) «قاعة مناسبة تُحجز لك تلقائياً» تقرأ roomAvailable وحده، ولا تظهر مع وقتٍ غير متاح");
 check(page.includes("ينتهي ") && page.includes("مدّةُ المحاضرة من اللائحة"),
   "والنهايةُ تُعرض محسوبةً ولا تُسأل");
 check(page.includes('fetch("/api/public/request/"+encodeURIComponent(TOKEN)+"/check-batch"')

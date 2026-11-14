@@ -387,18 +387,19 @@ const model: SheetModel = {
 
 /* ── S4: الواجهة ─────────────────────────────────────────────────────────── */
 {
-  const work = read("src/components/IntelligenceWorkspace.tsx"), pub = read("src/components/PlanSheetPublisher.tsx"), server = readServerSource();
-  check(work.includes('"sheet"') && work.includes("canPublishSheets") && work.includes("<Workflow />") && work.includes("<PlanSheetPublisher"), "S4 بطاقة «الصحيفة» في مركز الذكاء بأيقونةٍ جديدة");
-  check(work.includes('isAdmin={isPowerAdmin}') && pub.includes('isAdmin = false') && pub.includes('{isAdmin ? <SecondaryButton onClick={() => showQr("كل الأقسام", indexUrl)}')
+  /* «الصحيفة» انتقلت من مركز الذكاء إلى «أدوات الجدول ← نشر» (ScheduleTransfer)، ويحسب الجدولُ صلاحيتها بالقاعدة نفسها. */
+  const work = read("src/components/ScheduleTransfer.tsx"), schedules = read("src/components/Schedules.tsx"), intel = read("src/components/IntelligenceWorkspace.tsx"), pub = read("src/components/PlanSheetPublisher.tsx"), server = readServerSource();
+  check(work.includes("canPublishSheets ? (") && work.includes("<BookMarked") && work.includes("<PlanSheetPublisher") && !intel.includes("<PlanSheetPublisher"), "S4 بطاقة «الصحيفة» في «نشر» بأيقونتها، ولا نسخةَ في مركز الذكاء");
+  check(work.includes('isAdmin={isAdmin}') && pub.includes('isAdmin = false') && pub.includes('{isAdmin ? <SecondaryButton onClick={() => showQr("كل الأقسام", indexUrl)}')
     && pub.includes('QR كل الأقسام</SecondaryButton> : null}'), "S4 رمز QR لكل الأقسام يظهر للآدمن فقط، لا لرؤساء لجان الجدول");
-  check(work.includes('canPublishSheets = isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair"')
+  check(schedules.includes('canPublishSheets={isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair"}')
     && pub.includes('onClick={() => publish({ planId: sheet.planId, sectionId: section.sectionId }')
     && !pub.includes('if (readOnly)'), "S4 أدوات نشر صحيفة القسم لرئيس اللجنة لم تتغير");
-  check(/canPublishSheets = isPowerAdmin \|\| roleDefinition\(\(user as any\)\?\.Role\)\.id === "committeeChair"/.test(work) && /canPublishSheets && activeInsightKey === "sheet"/.test(work), "S4 بطاقة الصحيفة تظهر لرئيس لجنة الجدول ومدير النظام، ولو لم تُنشر صحيفة بعد");
+  check(schedules.includes('canPublishSheets={isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair"}') && work.includes("canPublishSheets = false"), "S4 بطاقة الصحيفة تظهر لرئيس لجنة الجدول ومدير النظام، ولو لم تُنشر صحيفة بعد");
   const buttons = pub.match(/<(?:PrimaryButton|SecondaryButton|button)\b(?:=>|[^>])*>/g) || [];
   const undocumented = buttons.filter(tag => !/data-guide-ignore|aria-label|className="psh-link"/.test(tag) || (/psh-link/.test(tag) && !/data-guide-ignore/.test(tag)));
   check(undocumented.length === 0, "S4 كلُّ زرٍّ في لوحة النشر موثَّقٌ للمرشد أو معنون", undocumented.slice(0, 3));
-  check(!/canPublishSheets\s*&&\s*sheetSummary\?\.total/.test(work) && work.includes("تظهر بعد اعتماد الصحيفة"), "S4 البطاقةُ تظهر لمن ينشر دائماً، وتقول إنها تنتظر الاعتماد إن لم توجد صحيفةٌ معتمدة");
+  check(!/canPublishSheets\s*&&\s*sheetSummary\?\.total/.test(work) && /\{canPublishSheets \? \(\s*<section className="publish-sheet-card"/.test(work), "S4 البطاقةُ تظهر لمن ينشر دائماً، وتقول إنها تنتظر الاعتماد إن لم توجد صحيفةٌ معتمدة");
   check(work.includes("focusSectionId={Number(sectionId) || 0}") && pub.includes("psh-focus") && pub.includes("focus.deptUrl"), "S4 قسمُ نطاق القرار المختار يظهر رمزُ QR لصفحته في أعلى اللوحة");
   check(pub.includes("printPoster") && pub.includes("اطبع ملصقاً") && pub.includes("@page{size:A4"), "S4 ملصقُ QR بحجم A4 للقسم أو الصحيفة");
   check(read("src/server/planReviewRoutes.ts").includes("republishIfPublished(ctx.plan.id"), "S4 مسارُ الاعتماد يستدعي إعادة النشر");

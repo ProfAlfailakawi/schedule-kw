@@ -73,6 +73,7 @@
 @import "./styles/57-schedule-tools.css";
 @import "./styles/58-query-plus.css";
 @import "./styles/59-inbox-pilot.css";
+@import "./styles/60-report-insight.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after
    everything else preserves the cascade order exactly as it stands here. */

@@ -26,7 +26,29 @@ with conflicting physical rooms. Another professor's timetable is never returned
   Current main's 4-hour Monday/Wednesday 110+110 pattern remains supported.
 - `roomSuitability` shares advisory scores with central suggestions. Request
   candidates prefer room type, then suitability and a deterministic location sort.
-  Capacity/type mismatches remain advisory, not new save blockers.
+  Type mismatches remain advisory, not new save blockers.
+- **Seat capacity is a hard rule for every room the system picks for a request**
+  (owner, 2026-11-14). One pure rule in `src/utils/requestRoomRanking.ts`
+  (`requiredSeats`, `roomSeatFit`, `rankRequestRooms`, `pickRequestRoom`) is used
+  by the verdict, the alternatives engine (nearest times, the race-lost pair),
+  the heat map, the batch check, the draft hold, the submit reservation and the
+  room switch of a moved appointment:
+  - required seats = the section's `MaxStudent` when positive, else the regulation
+    cap (`seatCap`, Art. 8) even when it is assumed; the department sees "~" and
+    the word "assumed" next to an assumed figure;
+  - a room whose recorded capacity is below the seats is never picked;
+  - a room with no recorded capacity is picked only when no known room that fits
+    is free at that time, and is then held flagged «سعة غير مسجّلة» for the
+    department to confirm, never silently;
+  - among fitting rooms the existing preference stays (department, near, previous,
+    closest capacity, fair use), with college/department eligibility, approved
+    loans, the companion facility and room type still enforced;
+  - a time with no fitting room is not available: the member reads «لا قاعة تتسع
+    لشعبتك في هذا الوقت» (no room or building in the text), suggestions skip it,
+    and the department's verdict carries `code: "capacity"` with a `detail` line
+    (section seats against the free rooms' capacities). The inbox shows
+    «مقاعد N · سعة M» or «سعة غير مسجّلة» beside the chosen or held room.
+  Existing offered sections (`offeringRowIds`) keep their official room.
 - Approved borrowed rooms retain central day/hour eligibility, without adding a
   borrowing workflow to the professor page. Companion facilities are also checked.
 - Physical overlap blocks. Turnaround advice stays advisory. Cohort exceptions
@@ -68,6 +90,17 @@ compact displayed thread. Removed submitted additions are archived internally.
 Internal room candidates, offering revision snapshots, signature history and
 archived items are stripped from public responses; mixed-scope inbox signatures
 cannot reveal hidden signed items. Historical signature verification still works.
+
+The member never sees a room or building. `stripForInstructor` and the verdict
+responses (check, check-batch) end with `withoutPlaceFields`
+(`src/utils/teacherSafeFields.ts`), which drops every room/building field at any
+depth (`room`, `hall`, `roomId`, `buildingId`, `roomKey`, `AdRoomCode`,
+`companionRoomLabel`, `roomCandidates`, `roomOptions`, `reservedRoom`,
+`roomSwitch`, `roomSeats`, …) while keeping `roomAvailable` and reason codes.
+Reason `detail` lines and the individual exception's `grantedBy`/`reason` are
+department-only. `tests/request-room-seat-http-audit.ts` walks the card, check,
+check-batch, check-times, hold, previous and movement responses on a demo server.
+The official calendar subscription feed is unchanged.
 
 ## Verification
 

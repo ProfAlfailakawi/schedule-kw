@@ -15,7 +15,7 @@ import type { FSchedule } from "../../types";
 import { CALENDAR_FEED_PAUSED_NOTE, calendarFeedKey, instructorFromCalendarKey } from "../calendarSecret";
 import { liveCardLinkFor } from "../../utils/shareLinkLifetime";
 import { AR, countOf } from "../../utils/arabicCount";
-import { buildCalendar, buildReminder, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "../../utils/icalendar";
+import { buildCalendar, calendarSpanForTerm, type CalendarLecture, type CalendarSingle } from "../../utils/icalendar";
 import { buildSharePayload, calendarSecret, resolveShareToken, shareDayIndexes } from "../core/shareLinks";
 import { staffFamilyShareLinks } from "../core/staffCard";
 
@@ -237,20 +237,6 @@ app.get("/api/public/cal/:token/:key", async (req: Request, res: Response) => {
   await sendInstructorCalendar(req, res, person, { pauseWithoutLiveCard: true });
 });
 
-/**
- * ── تذكيرٌ ليومٍ واحد (مساري) ──────────────────────────────────────────────
- * كان يُولَّد Blob في الجهاز ويُنزَّل بـ‎a.download‎ — وسفاري آيفون يحفظه في
- * «الملفات» (أو لا يفعل شيئاً في وضع التطبيق المثبّت) ولا يفتح التقويم. ملفٌّ
- * يُخدَم من الخادم بـ‎text/calendar‎ «inline» يفتح نافذة «أضف إلى التقويم».
- * نصٌّ عامٌّ قصير (موعد دور التسجيل) — لا اسمَ ولا رقمَ في الرابط.
- */
-app.get("/api/public/ics-reminder", (req: Request, res: Response) => {
-  const date = String(req.query.d || "").slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) { res.status(400).type("text/plain; charset=utf-8").send("bad date"); return; }
-  const body = buildReminder({ title: String(req.query.t || "تذكير").slice(0, 120), date, note: String(req.query.n || "").slice(0, 300) });
-  res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-  res.setHeader("Content-Disposition", req.query.dl ? 'attachment; filename="masari.ics"' : 'inline; filename="masari.ics"');
-  res.setHeader("Cache-Control", "no-store");
-  res.send(body);
-});
+/* تذكيرُ «مساري» ليومٍ واحد كان هنا رابطاً عامّاً بلا جلسة يقبل عنواناً حرّاً؛ صار بجلسة الطالب
+   وبنوعين معروفين يبني الخادمُ نصَّهما: ‎GET /api/public/me/reminder?kind=next|round‎ (studentDoorRoutes). */
 }

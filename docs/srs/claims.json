@@ -39,7 +39,7 @@
     "src/components/ScopeAskBar.tsx", "src/utils/courseWhatIf.ts"
   ],
   "ACC": ["src/utils/sharedScope.ts"],
-  "APR": ["src/components/ScheduleSignature.tsx", "src/utils/printFindingPages.ts", "src/components/ScopeOverwriteBody.tsx", "src/utils/scopeOverwriteGroups.ts"],
+  "APR": ["src/utils/printFindingPages.ts", "src/components/ScopeOverwriteBody.tsx", "src/utils/scopeOverwriteGroups.ts"],
   "VIW": ["src/components/SendModePicker.tsx"],
   "NTF": ["src/hooks/useTeamWork.ts", "src/utils/calendarLinks.ts", "src/utils/linkOpens.ts"]
 }

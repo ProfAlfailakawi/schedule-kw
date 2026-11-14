@@ -191,7 +191,8 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
   check(statusRoute.includes("resolveSurveyStatusToken(") && !statusRoute.includes("resolveShareToken("), "S3 /m/ يفتح بمهلة الحالة");
   const submit = between(server, "async function graduateSubmitCheck(", "/** What the students said");
   check(submit.includes("resolveShareToken(token)") && !submit.includes("resolveSurveyStatusToken"), "S3 الإرسال يبقى مغلقاً بإغلاق الرابط");
-  const workspace = read("src/components/IntelligenceWorkspace.tsx");
+  /* رابطُ الاستبيان انتقل مع «طلبات الطلاب» إلى «كشف التسجيل ← تحليل الطلب». */
+  const workspace = read("src/components/DemandAnalysis.tsx");
   check(workspace.includes("حتى 30 يوماً بعد نهاية الفصل") && !workspace.includes("سيتوقف الرابط فوراً ولن يفتح لأي طالب بعد الآن"),
     "S3 تحذير «أوقف الرابط» يقول الحقيقة: تتوقف الطلبات وتبقى المتابعة");
 }
@@ -333,7 +334,7 @@ const surveyPageSource = between(server, "function studentCaseSurveyPage", "</sc
   check(demand.includes("caseRef:caseRefFor(need)"), "S13 قراءة القسم تحمل رقم الحالة");
   const workspace = read("src/components/IntelligenceWorkspace.tsx");
   const register = read("src/components/StudentCasesTable.tsx");
-  check(!/slice\(0,\s*8\)\.toUpperCase\(\)/.test(workspace + register) && workspace.includes("<StudentCasesTable")
+  check(!/slice\(0,\s*8\)\.toUpperCase\(\)/.test(workspace + register) && read("src/components/StudentRegistration.tsx").includes("<StudentCasesTable")
     && (register.match(/item\.caseRef\s*\|\|\s*"—"/g) || []).length === 2,
     "S13 الجدول والطباعة (السجلّ المشترك) يعرضان رقم الحالة، لا بادئة المعرّف");
   const derivations = [...serverSourceFiles(), "src/db/repository.ts", "src/utils/studentNeedMerge.ts", "src/components/IntelligenceWorkspace.tsx", "src/components/StudentRegistration.tsx"]

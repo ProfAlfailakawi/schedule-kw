@@ -141,7 +141,7 @@ check(/const wanted = takeOpenRow\(\);/.test(schedules) && /openEdit\(row\);[\s\
 check(/getInstructorRequestsForInstructor: async/.test(read("src/db/repository.ts")), "9: قراءةُ طلبات أستاذٍ واحدٍ بمعرّفه");
 const staff = read("src/server/routes/publicStaffRoutes.ts");
 check(/getInstructorRequestsForInstructor\(Number\(link\.AdTermId\), Number\(person\.AdInstructorId\)\)/.test(staff) && !/getInstructorRequests\(0, 0, Number\(link\.AdTermId\)\)/.test(staff), "9: «بطاقتي» لا تمسح طلبات الفصل كلّه");
-check(/const \[taDoc, termStates, offeringViews, interestDocs, taRows, dayPatterns, lengthPatterns, pinState, hintedCourses\] = await Promise\.all\(\[/.test(pub), "9: صفحةُ الطلب تقرأ ما لا يعتمد بعضُه على بعض معاً");
+check(/const \[taDoc, termStates, offeringViews, interestDocs, taRows, dayPatterns, lengthPatterns, pinState, hintedCourses, planning\] = await Promise\.all\(\[/.test(pub), "9: صفحةُ الطلب تقرأ ما لا يعتمد بعضُه على بعض معاً (ومعها إنفوجرافيك التخطيط)");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

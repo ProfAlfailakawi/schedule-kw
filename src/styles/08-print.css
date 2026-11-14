@@ -565,6 +565,21 @@
   .insight-canvas:has(.demand-qr) .insight-disclosure,
   .insight-canvas:has(.demand-qr) .demand-headline,
   .insight-canvas:has(.demand-qr) .demand-actions{display:none !important}
+  /* «تحليل الطلب» في كشف التسجيل: الرمز وحده كذلك، بلا الكشف ولا الأرقام. */
+  .changes-screen:has(.demand-analysis .demand-qr) > *:not(.demand-analysis){display:none !important}
+  .demand-analysis:has(.demand-qr) > summary,
+  .demand-analysis:has(.demand-qr) .intelligence-scope-switch,
+  .demand-analysis:has(.demand-qr) .demand-forecast,
+  .demand-analysis:has(.demand-qr) .demand-turnover,
+  .demand-analysis:has(.demand-qr) .demand-openings,
+  .demand-analysis:has(.demand-qr) .demand-chart,
+  .demand-analysis:has(.demand-qr) .demand-figures,
+  .demand-analysis:has(.demand-qr) .demand-repairs,
+  .demand-analysis:has(.demand-qr) .demand-bars,
+  .demand-analysis:has(.demand-qr) .insight-disclosure,
+  .demand-analysis:has(.demand-qr) .demand-headline,
+  .demand-analysis:has(.demand-qr) .demand-actions{display:none !important}
+  .demand-analysis:has(.demand-qr){border:0 !important;box-shadow:none !important;background:transparent !important}
   .demand-door-card{border:0;background:transparent;justify-items:center;text-align:center}
   .demand-qr{width:78mm;height:78mm;border:0}
   .demand-door-url{font-size:11pt;white-space:normal;word-break:break-all}
