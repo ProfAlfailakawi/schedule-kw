@@ -761,7 +761,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             data-guide-ignore="شارة الأساتذة بلا درجةٍ علمية، وهي تمنع التوقيع — تفتح «الأساتذة» لاستكمال الدرجات">
             <GraduationCap aria-hidden="true" />
             <b>{missingRanks.toLocaleString("ar-KW-u-nu-latn")}</b>
-            <span>بلا درجة علمية<small>تمنع التوقيع حتى تُستكمل</small></span>
+            <span>بلا درجة علمية<small>لا توقيع قبل استكمالها</small></span>
           </button>
         ) : null}
         {requiredCourseFieldsBlocksSign ? <Notice type="warning">استكمل «نوع القاعة المناسب» و«طبيعة التدريس» لكل مقرر قبل التوقيع.</Notice> : null}
