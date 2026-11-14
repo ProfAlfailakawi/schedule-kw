@@ -266,6 +266,7 @@
     "test:appointment-ideas-1114": "tsx tests/appointment-ideas-1114-audit.ts",
     "test:appointment-ideas2-1114": "tsx tests/appointment-ideas2-1114-audit.ts",
     "test:graduate-drag-1114": "tsx tests/graduate-drag-1114-audit.ts",
+    "test:quick-best-1114": "tsx tests/quick-best-1114-audit.ts",
     "test:section-plan": "tsx tests/section-plan-audit.ts",
     "test:colleagues-advising-registration": "tsx tests/colleagues-advising-registration-audit.ts",
     "test:quick-studio-family": "tsx tests/quick-studio-family-audit.ts",

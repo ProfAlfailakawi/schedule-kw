@@ -56,7 +56,7 @@ export default function GraduateRead({ graduates }: { graduates?: DecisionGradua
         <strong>{face.text}</strong>
         {face.pairs.length ? <span className="physics-grad-pairs">{face.pairs.map(pair => <bdi key={pair} dir="ltr">{pair}</bdi>)}</span> : null}
       </div>
-      {face.percent != null ? <b className="physics-grad-pct" dir="ltr" title={face.kind === "grad" ? "يناسب هذا النسبة من الخريجين الذين يحتاجون المقرر" : "يناسب هذا النسبة من الطلبة الذين يحتاجون المقرر"}>{face.percent}٪</b> : null}
+      {face.percent != null ? <b className="physics-grad-pct" dir="ltr" title={face.kind === "grad" ? "نسبة من يناسبهم هذا الموضع من الخريجين الذين يحتاجون المقرر" : "نسبة من يناسبهم هذا الموضع من الطلبة الذين يحتاجون المقرر"}>{face.percent}%</b> : null}
     </div>
   );
 }

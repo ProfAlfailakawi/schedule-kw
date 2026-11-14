@@ -93,3 +93,20 @@
 .physics-grad-pairs{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .physics-grad-pairs bdi{height:20px;padding:0 7px;display:inline-flex;align-items:center;border-radius:999px;background:var(--surface);border:1px solid color-mix(in srgb,var(--danger) 28%,var(--line));font:800 10.5px/1 var(--font-mono);color:var(--danger)}
 .decision-graduates{margin:0 0 10px}
+
+/* «أفضل وقت» وهو يبحث عن القاعة: الأيقونة تدور والزرّ لا يُضغط ثانيةً */
+.pulse-best:disabled{opacity:.72;cursor:progress}
+.pulse-best-spin{animation:pulse-spin .9s linear infinite}
+@keyframes pulse-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.pulse-best-spin{animation:none}}
+
+/* شريط النبض الصغير في البطاقة السريعة: شرائح بأيقونة وكلمة ونسبة، لا بطاقة كاملة */
+.fit-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.fit-chip{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-size:12px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+.fit-chip svg{width:13px;height:13px;flex:none}
+.fit-chip b{font-weight:800}
+.fit-chip.is-grad{background:var(--brass-soft);color:var(--brass);border-color:color-mix(in srgb,var(--brass) 30%,var(--line))}
+.fit-chip.is-stud.tone-good{background:var(--success-soft);color:var(--success);border-color:color-mix(in srgb,var(--success) 28%,var(--line))}
+.fit-chip.tone-warn{background:var(--warning-soft);color:var(--warning);border-color:color-mix(in srgb,var(--warning) 34%,var(--line))}
+.fit-chip.tone-bad,.fit-chip.is-alarm{background:var(--danger-soft);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 32%,var(--line))}
+@media print{.fit-strip{display:none}}

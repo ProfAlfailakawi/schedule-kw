@@ -1,4 +1,6 @@
 import CompanionFacilityPicker from "./CompanionFacilityPicker";
+import { FitStrip } from "./StudentPulse";
+import type { StudentFit } from "../utils/studentFit";
 import { parseHoursIssue } from "../utils/hoursIssue";
 import SearchableSelect from "./SearchableSelect";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -329,7 +331,7 @@ export default function QuickCreatePopover({
   const ready = Boolean(draft.courseId && draft.scode.trim() && draft.instructorId && draft.buildingId && (draft.roomId || draft.locationStatus === "PENDING_ROOM"));
   const digitsOk = /^\d*$/.test(toEnglishDigits(draft.scode));
   const clash = ready && digitsOk && !hasDifferentTimes ? conflictOf(draft, seed.day) : null;
-  const [liveCheck, setLiveCheck] = useState<{ key: string; checking: boolean; conflicts: any[]; validation: string[]; notices: string[]; regulation?: RegulationExceptionIssue[]; error: string }>({
+  const [liveCheck, setLiveCheck] = useState<{ key: string; checking: boolean; conflicts: any[]; validation: string[]; notices: string[]; regulation?: RegulationExceptionIssue[]; error: string; studentFit?: StudentFit | null; graduateImpact?: { graduates: number } | null }>({
     key: "", checking: false, conflicts: [], validation: [], notices: [], error: "",
   });
   const [ideas, setIdeas] = useState<SuggestionReply["slots"] | null>(null);
@@ -378,6 +380,9 @@ export default function QuickCreatePopover({
         setLiveCheck({
           key: checkKey, checking: false, conflicts, validation,
           regulation: Array.isArray(result.regulation) ? result.regulation : [],
+          /* «نبض الطلبة» من ردّ الفحص نفسه (src/components/StudentPulse.tsx#FitStrip): ملاحظةٌ لا تمنع. */
+          studentFit: result.studentFit && typeof result.studentFit === "object" ? result.studentFit as StudentFit : null,
+          graduateImpact: Number(result.graduateImpact?.graduates) > 0 ? { graduates: Number(result.graduateImpact.graduates) } : null,
           notices: [
             ...(result.patternNotice ? ["نمط الأيام المختار غير معتمد لهذا المقرر؛ راجع الأنماط المعتادة."] : []),
             ...(result.lectureNotice ? ["مدة المحاضرة تختلف عن النمط المعتاد للمقرر."] : []),
@@ -623,6 +628,7 @@ export default function QuickCreatePopover({
                   {...conflictSkipIds(liveCheck.conflicts, isBlockingConflict)} termId={termId || undefined} sectionId={sectionId || undefined} collegeId={collegeId || undefined} scode={draft.scode} dayWindow={sameSlot.dayWindow} />
               ) : null}
             </div>
+            {previewCurrent && !liveCheck.checking ? <FitStrip fit={liveCheck.studentFit} graduateImpact={liveCheck.graduateImpact} /> : null}
             {timeOpen ? (
               <div className="qc-time-wheels" id="qc-time-wheels">
                 <TimeWheels
