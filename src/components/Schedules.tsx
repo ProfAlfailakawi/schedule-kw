@@ -9937,6 +9937,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioPlaceLocked = studioTimeLocked || !studioTimeDone;
   const studioTimeSeed = [arabicDays(form), form.fstarttime && form.fendtime ? formatScheduleTimeRange(form.fstarttime, form.fendtime) : ""].filter(Boolean).join(" · ");
   const studioRoomSeed = form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : "";
+  /* انطواء حقيقي: الملخّص والجسم كلاهما مُركَّب دائماً داخل شبكتَي صفٍّ (0fr↔1fr)؛ المطويّ منهما inert فلا يُركَّز ولا يُقرأ. */
+  const studioFold = (key: string, expanded: boolean, done: boolean, body: React.ReactNode, summary: React.ReactNode) => (
+    <div className="appt-fold" data-fold={key} data-appt-step={key}>
+      <div className={`appt-fold-sum${!expanded && done ? " is-open" : ""}`} inert={expanded || !done} aria-hidden={expanded || !done}><div className="appt-fold-in">{summary}</div></div>
+      <div className={`appt-fold-body${expanded ? " is-open" : ""}`} inert={!expanded} aria-hidden={!expanded}><div className="appt-fold-in">{body}</div></div>
+    </div>
+  );
   const studioLockedStep = (key: string, num: React.ReactNode, title: string, waits: string, seed = "", ref?: React.Ref<HTMLElement>) => (
     <section className="schedule-form-section appt-step is-locked" aria-label={`${title} — ${waits}`} aria-disabled="true" data-appt-step={key} ref={ref as any}>
       <header className="appt-step-head">
@@ -10085,8 +10092,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </div>
                 </section>
                 ) : null}
-                {studioCourseLocked ? studioLockedStep("course", 1, "ماذا؟ المقرر", "يُفتح بعد اختيار الكلية والقسم والفصل") : studioCourseExpanded ? (
-                <section className="schedule-form-section appt-step" aria-label="المقرر" data-appt-step="course">
+                {studioCourseLocked ? studioLockedStep("course", 1, "ماذا؟ المقرر", "يُفتح بعد اختيار الكلية والقسم والفصل") : studioFold("course", studioCourseExpanded, studioCourseDone, (
+                <section className="schedule-form-section appt-step" aria-label="المقرر">
                   <header className="appt-step-head">
                     <span className="appt-num">1</span>
                     <div className="appt-q"><strong>ماذا؟ المقرر</strong><small>اكتب حرفين من اسمه أو رمزه</small></div>
@@ -10164,8 +10171,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </Field>
                   </div>
                 </section>
-                ) : (
-                <div className={`appt-sumrow${studioChanged?.course ? " is-changed" : ""}`} aria-label="المقرر" data-appt-step="course">
+                ), (
+                <div className={`appt-sumrow${studioChanged?.course ? " is-changed" : ""}`} aria-label={studioChanged?.course ? "المقرر — تغيّر" : "المقرر"} title={studioChanged?.course && studioOriginal ? `كان: شعبة ${String(studioOriginal.SCode || "")}` : undefined}>
                   <span className="appt-num is-done"><Check aria-hidden="true" /></span>
                   <span className="appt-kv"><span className="k">المقرر</span><span className="v">{courseName}<CourseTags courseId={form.AdCourseId} reach={formReachVerdict} /></span></span>
                   {formCourse?.CourseCode ? <span className="appt-tag is-muted" dir="ltr">{String(formCourse.CourseCode)}</span> : null}
@@ -10192,9 +10199,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       data-guide-ignore="يفتح حقول المقرر والرمز والشعبة لتغييرها؛ لا يحفظ شيئاً">تغيير</button>
                   </span>
                 </div>
-                )}
-                {studioTeacherLocked ? studioLockedStep("teacher", 2, "من؟ الأستاذ", "يُفتح بعد اختيار المقرر") : studioTeacherExpanded ? (
-                <section className="schedule-form-section appt-step" aria-label="الأستاذ" data-appt-step="teacher">
+                ))}
+                {studioTeacherLocked ? studioLockedStep("teacher", 2, "من؟ الأستاذ", "يُفتح بعد اختيار المقرر") : studioFold("teacher", studioTeacherExpanded, studioTeacherDone, (
+                <section className="schedule-form-section appt-step" aria-label="الأستاذ">
                   <header className="appt-step-head">
                     <span className="appt-num">2</span>
                     <div className="appt-q"><strong>من؟ الأستاذ</strong><small>أساتذة القسم والمنتدبون إليه</small></div>
@@ -10229,8 +10236,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <SeatQuickPick value={Number(form.AdInstructorId) || 0} vacantId={seatVacantId} trainees={seatTrainees}
                     onPick={(id) => { setForm((p) => ({ ...p, AdInstructorId: id })); setStudioTeacherOpen(false); }} />
                 </section>
-                ) : (
-                <div className={`appt-sumrow${studioChanged?.teacher ? " is-changed" : ""}`} aria-label="الأستاذ" data-appt-step="teacher">
+                ), (
+                <div className={`appt-sumrow${studioChanged?.teacher ? " is-changed" : ""}`} aria-label={studioChanged?.teacher ? "الأستاذ — تغيّر" : "الأستاذ"}>
                   <span className="appt-num is-done"><Check aria-hidden="true" /></span>
                   <span className="appt-avatar" aria-hidden="true">{studioInitial}</span>
                   <span className="appt-kv"><span className="k">الأستاذ</span><span className="v">{selectedInstructor?.AdInstructorName || ""}</span></span>
