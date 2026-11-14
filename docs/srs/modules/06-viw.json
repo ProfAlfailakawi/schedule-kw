@@ -84,8 +84,8 @@
       },
       "file": "src/components/LivingScheduleLayer.tsx",
       "note": {
-        "ar": "نظرة عامة، خريطة الضغط، الصحة والعدالة، ملخص الدقيقة، بداية الفصل، شبكة الأمان.",
-        "en": "Overview, pressure map, health and fairness, one-minute brief, start of term, safety net."
+        "ar": "الحلقات الثلاث فوق الجدول تفتح «صحة الجدول» في مركز التحليلات؛ ومشاهد «مركز القرار» صارت بطاقاتٍ هناك.",
+        "en": "The three rings above the timetable open «schedule health» in the Analytics Center; the decision-centre scenes became cards there."
       }
     },
     {
@@ -859,12 +859,12 @@
       "id": "FR-VIW-007",
       "kind": "functional",
       "title": {
-        "ar": "مشاهد الجدول الحيّ الستة",
-        "en": "The six living-schedule scenes"
+        "ar": "مشاهد الجدول الحيّ في بطاقات مركز التحليلات",
+        "en": "Living-schedule scenes in Analytics Center cards"
       },
       "text": {
-        "ar": "يجب على الطبقة الحيّة أن تعرض ست مشاهد: نظرة عامة، وخريطة الضغط، والصحة والعدالة، وملخص الدقيقة، وبداية الفصل، وشبكة الأمان، من قراءة واحدة تحمل نبض الجدول ومؤشرات الجودة والمرونة والعدالة والهشاشة والقاعات والتوبولوجيا والملخص، بحدود نطاق القارئ.",
-        "en": "The living layer shall present six scenes: overview, pressure map, health and fairness, one-minute brief, start of term and safety net, from a single reading carrying the schedule pulse and the quality, resilience, fairness, fragility, rooms, topology and brief figures, within the reader's scope."
+        "ar": "يجب أن تُعرض مشاهد الطبقة الحيّة في بطاقات مركز التحليلات: النظرة العامة والصحة والعدالة في «صحة الجدول»، وخريطة الضغط في «الضغط والكثافة»، وملخص الدقيقة في «الانتباه»، وبداية الفصل في «جرّب»، وشبكة الأمان في «سجل النسخ»، من قراءة واحدة تحمل نبض الجدول ومؤشرات الجودة والمرونة والعدالة والهشاشة والقاعات والتوبولوجيا والملخص، بحدود نطاق القارئ.",
+        "en": "The living layer's scenes shall be shown in Analytics Center cards: overview, health and fairness in «schedule health», the pressure map in «pressure and density», the one-minute brief in «attention», start of term in «try», and the safety net in «version history», from one reading carrying the schedule pulse, quality, flexibility, fairness, fragility, rooms, topology and brief indicators, within the reader's scope."
       },
       "priority": "should",
       "status": "implemented",
@@ -1901,12 +1901,12 @@
       "id": "FR-VIW-030",
       "kind": "functional",
       "title": {
-        "ar": "لوحة «بصمة القسم»",
-        "en": "The «department fingerprint» panel"
+        "ar": "بطاقة «بصمة القسم»",
+        "en": "The «department fingerprint» card"
       },
       "text": {
-        "ar": "يجب أن تعرض لوحة «بصمة القسم» (تُفتح من طبقة الجدول الحية) قرب الفصل الحالي من بصمة القسم المتراكمة عبر الفصول السابقة بدرجةٍ من 100، وإيقاع الأيام، ونافذة الذروة، والقاعات المحورية، والأستاذ الأكثر تقييداً، والانحراف التاريخي الأبرز، وقائمة الفصول السابقة، مع مبدّل نطاق التحليل (الكلية أو القسم)، قراءةً لا تغيّر شيئاً.",
-        "en": "The «department fingerprint» panel (opened from the living schedule layer) shall show how close the current term is to the department's fingerprint accumulated over previous terms as a score out of 100, the day rhythm, the peak window, the pivotal halls, the most constrained instructor, the main historical deviation and the list of earlier terms, with the analysis-scope switch (college or department), as a reading that changes nothing."
+        "ar": "يجب أن تعرض بطاقة «بصمة القسم» في «مركز التحليلات ← افهم» (حلّت محلّ اللوحة التي كانت تُفتح من طبقة الجدول) قرب الفصل الحالي من بصمة القسم المتراكمة عبر الفصول السابقة، وإيقاع الأيام، ونافذة الذروة، والقاعات المحورية، والأستاذ الأكثر تقييداً، والانحرافات التاريخية، وقائمة الفصول السابقة، مع مفتاح نطاق التحليل، قراءةً لا تغيّر شيئاً.",
+        "en": "The «department fingerprint» card in «Analytics Center → understand» (which replaced the sheet that opened from the timetable layer) shall show how close the current term is to the department's fingerprint accumulated over previous terms, the day rhythm, peak window, pivotal rooms, the most constrained instructor, historical deviations and the list of previous terms, with the analysis scope switch, as a reading that changes nothing."
       },
       "priority": "could",
       "status": "implemented",
@@ -1924,8 +1924,8 @@
           "en": "The most constrained instructor is ranked by number of enabled constraints, then by weekly meetings, and carries the «visiting» badge when applicable; the pivotal halls are the top three and the peak window the three most repeated cells."
         },
         {
-          "ar": "تُغلق بـ Esc أو بالضغط خارجها، وتذييلها «البصمة قراءة تاريخية فقط؛ لا تغيّر جدولًا ولا قاعدة بيانات.».",
-          "en": "It closes with Esc or a press outside it, and its footer says the fingerprint is a historical reading only that changes no schedule and no database."
+          "ar": "تُغلق بـ Esc أو بـ«كل البطاقات» كأي بطاقة، والرجوع في المتصفح يعيد إلى شبكة البطاقات.",
+          "en": "It closes with Esc or «all cards» like any card, and the browser Back button returns to the card grid."
         }
       ],
       "evidence": {
