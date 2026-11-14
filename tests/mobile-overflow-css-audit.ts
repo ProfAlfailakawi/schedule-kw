@@ -117,5 +117,22 @@ for (const file of sources) {
 }
 check(offenders.length === 0, `شبكاتُ auto-fit/auto-fill بحدٍّ أدنى ≥160px مكتوبةٌ min(Npx,100%)${offenders.length ? " — " + offenders.slice(0, 5).join(" · ") : ""}`);
 
+/* شبكة «القاعات × الأوقات» على الدوو المفتوح (تسجيل من الجهاز، 2026-11-14): خلايا .sr-only (position:absolute)
+   تُحسب من الصفحة إن لم يكن إطارُ التمرير نفسه كتلةً حاوية، فتبرز خارج قصّه وتوسّع الوثيقة فيصغّر iOS الصفحة. */
+const intelCss = flat(read("src/styles/06-intelligence.css"));
+check(/\.matrix-scroll,\.table-scroll,[^{]*\{position:relative\}/.test(intelCss),
+  "إطاراتُ التمرير الأفقي (ومنها .matrix-scroll) كتلٌ حاوية: لا يبرز منها عنصرٌ مطلق فيوسّع الوثيقة");
+/* الكتاب المفتوح على الشاشة الداخلية: صفحتان حول كعبٍ في المنتصف، ولا يمسّ iPad. */
+const book = flat(read("src/styles/55-duo-adaptive.css"));
+check(/@mediascreenand\(min-width:640px\)and\(max-width:1000px\)and\(min-height:520px\)and\(max-height:960px\)\{/.test(book)
+  && /\.app-shell::before\{[^}]*left:var\(--book-page\);width:var\(--book-spine\)/.test(book),
+  "الشاشة الداخلية كتابٌ مفتوح: كعبٌ بعرض --book-spine في المنتصف، وiPad (768×1024) خارج الكتلة");
+
+
+/* خلفية النافذة في الكتاب تبقى بعرض الشاشة كلها فتحجب اللمس عن الفهرس (مراجعة #490): تُوضع النافذة
+   على صفحة العمل بحشوة الخلفية، لا بتقليص الخلفية إلى نصف الشاشة وتعتيم الباقي بظلٍّ لا يحجب الضغط. */
+const backdropRule = (book.match(/\[class\*="backdrop"\]:has\([^{]*\{[^}]*\}/) || [""])[0];
+check(/padding-right:calc\(var\(--book-page\)\+var\(--book-spine\)/.test(backdropRule) && !/right:calc|box-shadow/.test(backdropRule.replace(/padding-right:calc/, "")),
+  "خلفية النافذة على الكتاب بعرض الشاشة كلها تحجب الفهرس، والنافذة وحدها على صفحة العمل");
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -177,6 +177,21 @@ export function teacherDigestMessage(events: TeacherEvent[], token: string, at =
   return { ...base, title: "📋 قرارات القسم على طلبك", body: tally };
 }
 
+/**
+ * 📝 مقترحٌ دراسيّ من القسم وصل الأستاذ (أو نسخةٌ معدّلة منه)، و📌 ثُبّت مقترحٌ وافق عليه.
+ * نصٌّ عامّ بلا مقرّرٍ ولا وقتٍ ولا قاعة: التفاصيلُ في صفحة المقترح خلف رابطه الشخصيّ.
+ */
+export function proposalSentMessage(token: string, proposalId: string, revised: boolean, at = new Date().toISOString()): PushMessage {
+  return {
+    title: revised ? "📝 نسخةٌ معدّلة من مقترح القسم" : "📝 مقترحٌ دراسيّ من القسم",
+    body: "راجعه ووافق عليه أو اطلب تعديلاً",
+    url: `${cardPath(token)}/proposal/${encodeURIComponent(String(proposalId || ""))}`, tag: "card-proposal", at,
+  };
+}
+export function proposalCommittedMessage(token: string, at = new Date().toISOString()): PushMessage {
+  return { title: "📌 ثُبّت المقترح في جدولك", body: "ما وافقتَ عليه صار في الجدول الرسمي · أضفه إلى تقويمك", url: cardPath(token), tag: "card-decisions", at };
+}
+
 /** 🎓 بابُ التدريب فُتح لمدرّب: إلى كرته الجديد، ومتى يُغلق. */
 export function taWindowMessage(token: string, closesAt: string, at = new Date().toISOString()): PushMessage {
   const date = Date.parse(closesAt);

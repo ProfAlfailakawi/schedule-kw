@@ -130,7 +130,7 @@
 .tl-save{position:sticky;inset-block-end:var(--s3);z-index:3;display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-lg);background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(8px);box-shadow:var(--shadow-md)}
 .tl-hint{color:var(--muted);font-size:var(--t-sm)}
 .tl-problem{color:var(--danger);font-size:var(--t-sm)}
-@media (max-width:900px){
+@media (max-width:900px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .tl-row{grid-template-columns:minmax(0,1fr) auto;row-gap:8px}
   .tl-row-head{display:none}
   .tl-name,.tl-load{grid-column:1/-1}

@@ -4,6 +4,7 @@ import {
   UserCheck, UserMinus, UserPlus, UsersRound, X,
 } from "lucide-react";
 import SeatLinkCard, { SeatHolderCard } from "./SeatLinkCard";
+import { visualConfirm } from "../ui";
 import { invitationHref } from "../../utils/invitationLink";
 import { memberCardModel, seatCaption, temporaryPasswordCardModel } from "../../utils/seatAccessCard";
 import { handoverSearchTokens } from "../../utils/handoverPick";
@@ -235,14 +236,14 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
     await load();
   });
   const resetMember = (member: Member) => run(async () => {
-    if (!window.confirm(`إعادة تعيين دخول ${member.name}؟ يُبطَل رابطه الحالي ويخرج من كل جهاز، ويعمل الرابط الجديد 24 ساعة.`)) return;
+    if (!(await visualConfirm({ title: `إعادة تعيين دخول ${member.name}`, message: "يُبطَل رابطه الحالي ويخرج من كل جهاز، ويعمل الرابط الجديد 24 ساعة.", confirmLabel: "إعادة التعيين", tone: "warning" }))) return;
     const result = await call<{ token: string; mobile: string; name: string }>(`/api/seats/${id}/members/${member.id}/reset`, { method: "POST" });
     showMemberLink(result.name, result.token, result.mobile, Boolean(member.civilTail), true);
     await load();
   });
   const resetHolder = () => run(async () => {
     const name = detail?.holder?.name || detail?.seat.name || "";
-    if (!window.confirm(`إعادة تعيين كلمة سرّ ${name}؟ تسقط كلمته الحالية ويخرج من كل جهاز، ويبقى أعضاء الفريق داخلين.`)) return;
+    if (!(await visualConfirm({ title: `إعادة تعيين كلمة سرّ ${name}`, message: "تسقط كلمته الحالية ويخرج من كل جهاز، ويبقى أعضاء الفريق داخلين.", confirmLabel: "إعادة التعيين", tone: "warning" }))) return;
     const result = await call<{ login: string; password: string; seatName: string; roleLabel: string }>(`/api/seats/${id}/password-reset`, { method: "POST" });
     const card = temporaryPasswordCardModel({ origin: origin(), login: result.login, password: result.password, seatName: result.seatName, roleLabel: result.roleLabel, holderName: name });
     setSheet({ kind: "link", title: name, subtitle: card.caption, url: card.url, mobile: detail?.holder?.mobile, message: card.message, note: card.note, fileStem: card.fileStem, credentials: { login: result.login, password: result.password }, temporary: true });
@@ -252,7 +253,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
   const linkExpired = (member: Member) => Boolean(member.linkExpiresAt) && Date.parse(member.linkExpiresAt!) <= Date.now();
   const showLink = (member: Member) => member.linkToken && !linkExpired(member) ? showMemberLink(member.name, member.linkToken, member.mobile, Boolean(member.civilTail)) : void reissue(member);
   const setStatus = (member: Member, status: "active" | "ended") => run(async () => {
-    if (status === "ended" && !window.confirm(`إنهاء عضوية ${member.name}؟ يُبطَل رابطه ويخرج من كل جهاز.`)) return;
+    if (status === "ended" && !(await visualConfirm({ title: `إنهاء عضوية ${member.name}`, message: "يُبطَل رابطه ويخرج من كل جهاز.", confirmLabel: "إنهاء العضوية", tone: "danger" }))) return;
     await call(`/api/seats/${id}/members/${member.id}/status`, { method: "POST", body: JSON.stringify({ status }) });
     onChanged?.(); await load();
   });

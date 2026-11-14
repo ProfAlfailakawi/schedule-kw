@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Building2, GraduationCap, Landmark, Trash2 } from "lucide-react";
 import { sortByName } from "../utils/sorting";
 import { suggestedDegreeRule } from "../utils/degreeRules";
+import { sameReferenceCode } from "../utils/academicGuards";
 import {
   AddButton,
   EmbeddedAction,
@@ -23,7 +24,11 @@ import {
 } from "./ui";
 type Mode = "index" | "create" | "edit";
 /** `embedded` means the academic console already supplies the page identity. */
-export default function Sections({ embedded = false, actionSlot = null }: { embedded?: boolean; actionSlot?: HTMLElement | null }) {
+/** `onOpenPlans`: يفتح «المقررات ← الصحائف الأكاديمية» على هذا القسم (من وحدة البيانات الأكاديمية). */
+export default function Sections({ embedded = false, actionSlot = null, onCount, onOpenPlans }: { embedded?: boolean; actionSlot?: HTMLElement | null; onCount?: (count: number) => void; onOpenPlans?: (sectionId: number) => void }) {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [initial, setInitial] = useState("");
   /* What a degree costs here. The student survey measures an uploaded
      transcript against these numbers to decide whether a graduate case is
      eligible, so they belong on a screen a registrar can read and correct —
@@ -54,6 +59,8 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
       if (!a.ok || !b.ok) throw 0;
       const data = await a.json();
       setItems(data);
+      setLoadFailed(false);
+      onCount?.(data.length);
       setRules(r?.ok ? await r.json() : []);
       setColleges(sortByName(await b.json(), (row:any)=>row.AdCollegeName));
       setSelectedId((v) =>
@@ -62,6 +69,7 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
           : data[0]?.AdSectionId || null,
       );
     } catch {
+      setLoadFailed(true);
       setError("فشل تحميل بيانات القسم العلمي");
     } finally {
       setLoading(false);
@@ -117,6 +125,7 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
       setCollegeId("");
       setCode("");
       setName("");
+      setInitial(JSON.stringify(["", "", ""]));
       setMode("create");
       setError(null);
     },
@@ -125,47 +134,79 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
       setCollegeId(String(x.AdCollegeId));
       setCode(x.AdSectionCode);
       setName(x.AdSectionName);
+      setInitial(JSON.stringify([String(x.AdCollegeId), x.AdSectionCode, x.AdSectionName]));
       setMode("edit");
       setError(null);
     };
+  const dirty = mode !== "index" && JSON.stringify([collegeId, code, name]) !== initial;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setError(null);
     if (!collegeId || !code.trim() || !name.trim()) {
       setError("الرجاء إدخال الحقول المطلوبة بالأحمر");
       return;
     }
-    const r = await fetch(
-        mode === "edit" ? `/api/sections/${editId}` : "/api/sections",
-        {
-          method: mode === "edit" ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            AdCollegeId: Number(collegeId),
-            AdSectionCode: code.trim(),
-            AdSectionName: name.trim(),
-          }),
-        },
-      ),
-      d = await r.json();
-    if (!r.ok) {
-      setError(d.error || "فشل حفظ بيانات القسم العلمي");
+    /* رمز القسم فريدٌ في كليته — عند الإنشاء والتعديل؛ والخادم يرفضه أيضاً. */
+    const clash = items.find(x => x.AdSectionId !== editId && Number(x.AdCollegeId) === Number(collegeId) && sameReferenceCode(x.AdSectionCode, code));
+    if (clash) {
+      setError(`رمز القسم «${code.trim()}» مسجّلٌ في هذه الكلية للقسم «${clash.AdSectionName}».`);
       return;
     }
-    await load();
-    back();
-  };
-  const remove = async (id: number) => {
-    if (!(await visualConfirm({ title: "حذف القسم العلمي", message: "سيُحذف سجل القسم العلمي من النظام.", confirmLabel: "حذف", tone: "danger", compact: true }))) return;
-    const r = await fetch(`/api/sections/${id}`, { method: "DELETE" }),
-      d = await r.json();
-    if (!r.ok) {
-      setError(d.error || "فشل حذف بيانات القسم العلمي");
-      return;
+    setSubmitting(true);
+    try {
+      const r = await fetch(
+          mode === "edit" ? `/api/sections/${editId}` : "/api/sections",
+          {
+            method: mode === "edit" ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              AdCollegeId: Number(collegeId),
+              AdSectionCode: code.trim(),
+              AdSectionName: name.trim(),
+            }),
+          },
+        ),
+        d = await r.json();
+      if (!r.ok) {
+        setError(d.error || "فشل حفظ بيانات القسم العلمي");
+        return;
+      }
+      await load();
+      if (d && Number(d.AdSectionId)) setSelectedId(Number(d.AdSectionId));
+      back();
+    } catch {
+      setError("تعذّر الاتصال بالخادم، تحقّق من الشبكة وحاول مرة أخرى");
+    } finally {
+      setSubmitting(false);
     }
-    setSelectedId(null);
-    await load();
   };
+  const remove = async (section: any) => {
+    if (submitting) return;
+    const id = Number(section.AdSectionId);
+    if (!(await visualConfirm({ title: `حذف «${section.AdSectionName}»`, message: `سيُحذف قسم «${section.AdSectionName}» (${section.AdSectionCode}) من النظام، ومعه سجلّ «هيئة تدريسية» الخاص به إن لم يُستعمل في أي موعد. لا يُحذف ما دامت له مقررات، أو حساباتٌ نطاقها فيه — تُسمّى لك لتعالجها أولاً.`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/sections/${id}`, { method: "DELETE" }),
+        d = await r.json();
+      if (!r.ok) {
+        setError(d.error || "فشل حذف بيانات القسم العلمي");
+        return;
+      }
+      setSelectedId(null);
+      await load();
+    } catch {
+      setError("تعذّر الاتصال بالخادم، تحقّق من الشبكة وحاول مرة أخرى");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const plansButton = (sectionId: number) => onOpenPlans ? (
+    <SecondaryButton data-guide-ignore="ينتقل إلى المقررات ويفتح الصحائف الأكاديمية لهذا القسم؛ لا يغيّر شيئاً" onClick={() => onOpenPlans(sectionId)}>
+      <GraduationCap aria-hidden="true" /> فتح الصحائف الأكاديمية
+    </SecondaryButton>
+  ) : null;
   const collegeName = (id: number) =>
     colleges.find((c) => c.AdCollegeId === id)?.AdCollegeName || "";
   const filtered = useMemo(() => {
@@ -182,8 +223,10 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
     selected =
       filtered.find((x) => x.AdSectionId === selectedId) || filtered[0] || null,
     activeId = selected?.AdSectionId ?? null;
+  /* رسالةُ قواعد التخرج تخصّ القسم الذي حُفظت له: تُمسح حين يُعرض غيره. */
+  useEffect(() => { setRuleNote(null); }, [activeId]);
   const editorDrawer = mode !== "index" ? (
-      <CatalogFormDrawer onClose={back} label={mode === "create" ? "إنشاء قسم جديد" : "تعديل بيانات القسم"}>
+      <CatalogFormDrawer onClose={back} dirty={dirty} label={mode === "create" ? "إنشاء قسم جديد" : "تعديل بيانات القسم"}>
         <PageTitle
           eyebrow="البيانات الأكاديمية"
           subtitle="القسم مرتبط بكليته"
@@ -240,7 +283,7 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
             </div>
             <FormActions
               onBack={back}
-              loading={loading}
+              loading={loading || submitting}
               submitLabel={mode === "create" ? "إنشاء القسم" : "حفظ التعديلات"}
             />
           </form>
@@ -262,7 +305,7 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
           الأقسام العلمية
         </PageTitle>
       )}
-      {error ? <Notice>{error}</Notice> : null}
+      {error && mode === "index" ? <Notice action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : undefined}>{error}</Notice> : null}
       <div className="catalog-workspace" aria-busy={loading}>
         <Surface className="catalog-master">
           <h2 className="sr-only">قائمة الأقسام العلمية</h2>
@@ -300,9 +343,9 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
             </RecordDeck>
           ) : (
             <EmptyState
-              title={query ? "لا يوجد قسم مطابق" : "لا توجد أقسام علمية بعد"}
-              detail={query ? "جرّب عبارة أخرى أو امسح البحث." : "أنشئ القسم الأول واربطه بكليته."}
-              action={query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
+              title={loadFailed ? "تعذّر تحميل الأقسام" : query ? "لا يوجد قسم مطابق" : "لا توجد أقسام علمية بعد"}
+              detail={loadFailed ? "لم تصل القائمة من الخادم؛ هذا لا يعني أنها فارغة." : query ? "جرّب عبارة أخرى أو امسح البحث." : "أنشئ القسم الأول واربطه بكليته."}
+              action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
             />
           )}
         </Surface>
@@ -332,7 +375,7 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
                 <SecondaryButton
                   data-guide-ignore="إجراء حذف حساس داخل شاشة الإدارة ويستخدم تأكيد الشاشة نفسه"
                   className="danger-action"
-                  onClick={() => remove(selected.AdSectionId)}
+                  onClick={() => remove(selected)}
                 >
                   <Trash2 /> حذف
                 </SecondaryButton>
@@ -367,11 +410,12 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
                               ))}
                             </dl>
                           ) : (
-                            <Notice type="warning">شروط تخرج هذه الصحيفة لم تُعتمد بعد — أدخلها من «المقررات ← الصحائف الأكاديمية».</Notice>
+                            <Notice type="warning" inline>شروط تخرج هذه الصحيفة لم تُعتمد بعد — أدخلها من «المقررات ← الصحائف الأكاديمية».</Notice>
                           )}
                         </div>
                       ))}
                       <p>تُعدَّل من شاشة «المقررات ← الصحائف الأكاديمية». يعرف الاستبيان صحيفة الطالب من «الوحدات المطلوبة» في صحيفة تخرجه.</p>
+                      {plansButton(Number(selected.AdSectionId))}
                     </section>
                   );
                 }
@@ -442,7 +486,7 @@ export default function Sections({ embedded = false, actionSlot = null }: { embe
                         </div>
                       ))}
                     </dl>
-                    {ruleNote ? <Notice type={ruleNote.startsWith("حُفظت") ? "success" : undefined}>{ruleNote}</Notice> : null}
+                    {ruleNote ? <Notice type={ruleNote.startsWith("حُفظت") ? "success" : undefined} action={ruleNote.includes("الصحائف الأكاديمية") ? plansButton(Number(selected.AdSectionId)) : undefined}>{ruleNote}</Notice> : null}
                   </section>
                 );
               })()}

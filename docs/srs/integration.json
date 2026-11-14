@@ -836,6 +836,15 @@
         }
       },
       {
+        "name": "RADAR_MANUAL_GAP_SECONDS",
+        "group": "limits",
+        "default": "120",
+        "effect": {
+          "ar": "الفاصل الأدنى بالثواني بين تشغيلين يدويين للرادار («حدّث الرادار»)؛ تشغيلٌ قبله يُردّ 409 too-soon، و0 يُلغي الفاصل.",
+          "en": "Minimum seconds between two manual radar runs («refresh radar»); an earlier run is refused with 409 too-soon, and 0 disables the gap."
+        }
+      },
+      {
         "name": "SCHEDULE_DEMO_ENABLED",
         "group": "platform",
         "default": {

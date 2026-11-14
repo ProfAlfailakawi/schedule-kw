@@ -68,7 +68,9 @@
     "src/components/VisitingConversionPanel.tsx",
     "src/components/InstructorPicker.tsx",
     "scripts/lib/programProvision.ts",
-    "scripts/provision-marine-diploma.ts"
+    "scripts/provision-marine-diploma.ts",
+    "src/utils/academicGuards.ts",
+    "src/utils/arrowChoice.ts"
   ],
   "screens": [
     {
@@ -2855,6 +2857,280 @@
         "tests": []
       },
       "inferred": true
+    },
+    {
+      "id": "FR-ACD-051",
+      "kind": "functional",
+      "title": {
+        "ar": "منع تكرار اسم الكلية والفصل ورمز القسم",
+        "en": "No duplicate college name, term or department code"
+      },
+      "text": {
+        "ar": "يجب أن يرفض النظام بالحالة 400 إنشاء أو تعديل كليةٍ باسمٍ مسجّلٍ لكليةٍ أخرى (بأشكال الحروف العادية ومسافةٍ واحدة) — والرمزُ المشترك مقبول لأن حرمَي الكلية الواحدة (بنين وبنات) يتشاركان رمزها — وفصلٍ باسمٍ مسجّلٍ لفصلٍ آخر (المسافات لا تُفرّق)، وتعديلَ قسمٍ إلى رمزٍ مسجّلٍ لقسمٍ آخر في الكلية نفسها، برسالةٍ تسمّي السجلّ القائم؛ ويقول النموذج الرسالة نفسها قبل الإرسال.",
+        "en": "The system shall refuse with status 400 creating or editing a college whose name is already registered for another college (normalised letters, single spaces) — a shared code is accepted, because the boys' and girls' campuses of one college share its code — a term whose name is held by another term (spacing ignored), and editing a department to a code held by another department of the same college, with a message naming the existing record; the form shall say the same before sending."
+      },
+      "rationale": {
+        "ar": "كان التكرار يُمنع عند إنشاء القسم وحده، فتولد كليتان بالاسم نفسه (ولكلٍّ حسابا عميد) وفصلان بالاسم نفسه، ويصير قسمٌ معدَّلٌ نسخةً من آخر.",
+        "en": "Duplicates were refused only when creating a department, so two colleges could share a name (each with its own dean accounts), two terms a name, and an edited department could copy another's code."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "إنشاء كلية باسم «كلية  الهندسة» وكلية «كلية الهندسة» قائمة ← 400 «اسم الكلية … مسجّلٌ من قبل» ولا تُنشأ حسابات؛ وحرمٌ ثانٍ برمز الكلية نفسه واسمٍ آخر (بنات) يُنشأ.",
+          "en": "Creating a college named «كلية  الهندسة» while «كلية الهندسة» exists ← 400 naming the existing college, and no accounts are created; a second campus with the same code and another name (girls) is created."
+        },
+        {
+          "ar": "إنشاء «الفصل الأول  2027/2028» وفصل «الفصل الأول 2027/2028» قائم ← 400 «الفصل … مسجّلٌ من قبل»؛ وحفظ الفصل نفسه باسمه لا يُرفض.",
+          "en": "Creating «الفصل الأول  2027/2028» while «الفصل الأول 2027/2028» exists ← 400; saving a term under its own name is not refused."
+        },
+        {
+          "ar": "تعديل قسمٍ إلى رمز قسمٍ آخر في كليته ← 400 تسمّي القسم القائم؛ ورمزٌ مستعملٌ في كليةٍ أخرى مقبول.",
+          "en": "Editing a department to the code of another department in its college ← 400 naming it; a code used in another college is accepted."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/academicGuards.ts#sameReferenceCode",
+          "src/server/routes/referenceRoutes.ts#duplicateCollegeProblem",
+          "src/server/routes/referenceRoutes.ts#duplicateTermProblem",
+          "src/server/routes/referenceRoutes.ts#/api/sections/:id",
+          "src/components/Colleges.tsx#submit",
+          "src/components/Terms.tsx#submit",
+          "src/components/Sections.tsx#submit"
+        ],
+        "tests": [
+          "tests/academic-console-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-052",
+      "kind": "functional",
+      "title": {
+        "ar": "حذف الكلية والقسم دون سجلاتٍ معلّقة",
+        "en": "Deleting a college or department leaves nothing dangling"
+      },
+      "text": {
+        "ar": "يجب أن يرفض النظام بالحالة 409 حذف كليةٍ أو قسمٍ ما دام حسابٌ غير محذوفٍ نطاقُه فيها (العميد والعميد المساعد وكرسيّ التسجيل للكلية، وحسابات القسم المولودة من الصحيفة)، مسمّياً أسماء الدخول ليعالجها المسؤول من «المستخدمون»، ولا يحذف تلك الحسابات تلقائياً؛ وعند حذف قسمٍ يحذف معه سجلّ «هيئة تدريسية» الذي وُلد له (رقمه المدني الاصطناعي لهذا القسم) ما لم يُستعمل في أي موعد.",
+        "en": "The system shall refuse with status 409 to delete a college or department while a non-deleted account is scoped to it (the dean, vice dean and registrar seat of a college, the accounts a department got from a sheet import), naming the logins so the administrator handles them from Users, and shall not delete those accounts by itself; deleting a department shall also delete the faculty-placeholder record created for it (its synthetic civil number) unless it is used by an appointment."
+      },
+      "rationale": {
+        "ar": "كان حذف الكلية يترك حسابات عميدٍ تدخل إلى نطاقٍ لا وجود له، وحذف القسم يترك اسم «هيئة تدريسية» بلا قسم. حذف الحسابات تلقائياً أخطر من منعه: قد تكون استُعملت.",
+        "en": "Deleting a college left dean accounts signing into a scope that no longer exists, and deleting a department left a placeholder with no department. Deleting the accounts automatically is riskier than blocking: they may have been used."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف كلية بلا أقسام وحساب «coedean» نطاقه فيها ← 409 تذكر «coedean» ولا يُحذف شيء.",
+          "en": "Deleting a college with no departments while «coedean» is scoped to it ← 409 naming «coedean», and nothing is deleted."
+        },
+        {
+          "ar": "حذف قسم بلا مقررات ولا حسابات ← يُحذف، ويُحذف سجلّ «هيئة تدريسية» الخاص به إن لم يكن له موعد، والرد يحمل placeholderRemoved.",
+          "en": "Deleting a department with no courses and no accounts ← it is deleted together with its unused faculty placeholder, and the reply carries placeholderRemoved."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/academicGuards.ts#accountsScopedTo",
+          "src/server/routes/referenceRoutes.ts#scopedAccountsProblem",
+          "src/server/routes/referenceRoutes.ts#/api/sections/:id"
+        ],
+        "tests": [
+          "tests/academic-console-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-053",
+      "kind": "functional",
+      "title": {
+        "ar": "حفظ حالة الأستاذ ونصابه عند الإنشاء وحدّ النصاب",
+        "en": "Instructor status and load saved on create, and the load bound"
+      },
+      "text": {
+        "ar": "يجب أن يحفظ النظام عند إنشاء أستاذٍ من شاشة الأساتذة (صلاحية 3 أو الإدارة) الحالة (متقاعد/متفرّغ) والنصاب المرسَلين كما يحفظهما التعديل، وأن يرفض بالحالة 400 نصاباً فوق 40 أو سالباً برسالة بدل أن يمحو النصاب المحفوظ، وأن يقبل الاسم نصّاً حتى 120 حرفاً، ولا يعيد تسمية أستاذٍ حقيقيٍّ باسم «هيئة تدريسية».",
+        "en": "When an instructor is created from the instructors screen (permission 3 or administration) the system shall save the status (retired or sabbatical) and load sent, as an edit does, shall refuse with status 400 a load above 40 or below zero with a message instead of erasing the saved load, shall accept the name as text of up to 120 characters, and shall not rename a real instructor to the faculty-placeholder name."
+      },
+      "rationale": {
+        "ar": "كان النموذج يرسل الحالة والنصاب عند الإنشاء فيُسقطهما الخادم بصمت، ونصابٌ مكتوبٌ 45 يمحو النصاب القائم دون أن يعرف أحد.",
+        "en": "The form sent status and load on create and the server silently dropped them, and a load typed as 45 erased the existing load without anyone knowing."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "إنشاء أستاذ بحالة «متقاعد» ونصاب 12 ← يظهر في تبويب «المتقاعدون» بنصاب 12.",
+          "en": "Creating an instructor as retired with load 12 ← he appears in the retired tab with load 12."
+        },
+        {
+          "ar": "تعديل بنصاب 45 ← 400 «النصاب لا يتجاوز 40 ساعة…» ويبقى النصاب المحفوظ؛ والنصاب الفارغ أو 0 يرفعه.",
+          "en": "An edit with load 45 ← 400 and the saved load stays; an empty or zero load clears it."
+        },
+        {
+          "ar": "الإضافة السريعة من الجدول (صلاحية 7 وحدها) لا تكتب حالةً ولا نصاباً.",
+          "en": "The quick add from the schedule (permission 7 alone) writes no status and no load."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/academicGuards.ts#readInstructorLoad",
+          "src/server/routes/instructorsRoutes.ts#/api/instructors",
+          "src/server/routes/instructorsRoutes.ts#/api/instructors/:id",
+          "src/components/Instructors.tsx#submit"
+        ],
+        "tests": [
+          "tests/academic-console-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-054",
+      "kind": "functional",
+      "title": {
+        "ar": "باب الصحائف الأكاديمية ورقم المقرر بسبع خانات في شاشة المقررات",
+        "en": "The academic sheets entry and the seven-digit number on the Courses screen"
+      },
+      "text": {
+        "ar": "يجب أن تحمل شاشة المقررات في رأسها زرّاً دائماً «الصحائف الأكاديمية»، وأن تحمل رسالةُ رفضٍ سببها الصحيفة (حذف مقررٍ مرتبط، أو تغيير هويةٍ مجمّدة، برمز curriculum-linked) زرَّ «فتح الصحائف الأكاديمية» لقسم المقرر، وأن يفتح زرٌّ في بطاقة قواعد التخرج في «الأقسام» الصحائفَ على القسم نفسه؛ وفتحُ الصحائف من نموذج إنشاءٍ يعيد النموذج بما كُتب فيه عند إغلاقها. وتعرض الشاشة رقم المقرر برقم الهيئة بسبع خانات (authorityCourseCode) بتسميةٍ واحدة «الرقم الأكاديمي» في القائمة والتفاصيل والنموذج، ويُبحث به.",
+        "en": "The Courses screen shall carry a permanent «academic sheets» button in its header; a refusal caused by a sheet (deleting a linked course or changing a frozen identity, code curriculum-linked) shall carry an «open academic sheets» button for the course's department, and a button in the Departments graduation-rules card shall open the sheets on that department; opening the sheets from a create form brings the form back with what was typed when they close. The screen shall show the course number as the seven-digit authority number (authorityCourseCode) under one label «academic number» in the list, the details and the form, and search by it."
+      },
+      "rationale": {
+        "ar": "كانت الرسائل وشاشة الأقسام تحيل إلى الصحائف ولا باب إليها إلا من داخل نموذج إنشاء، فيتعذّر حذف مقررٍ أُنشئ خطأً؛ وكانت الشاشة تعرض الرمز المخزَّن بتسميتين.",
+        "en": "Messages and the Departments screen pointed to the sheets while the only way in was inside a create form, so a course created by mistake could not be deleted; and the screen showed the stored code under two labels."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin",
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "حذف مقررٍ في صحيفة ← 409 بالرمز curriculum-linked، والرسالة فيها زرٌّ يفتح الصحائف على قسمه.",
+          "en": "Deleting a course in a sheet ← 409 with code curriculum-linked, and the message has a button opening the sheets on its department."
+        },
+        {
+          "ar": "مقرر «105» في قسمٍ مفتاحه 0109 ← يظهر «0109105» في البطاقة والتفاصيل، والبحث بـ«0109105» يجده.",
+          "en": "Course «105» in a department keyed 0109 ← «0109105» is shown in the card and details, and searching «0109105» finds it."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Courses.tsx#headActions",
+          "src/components/Courses.tsx#courseNumberOf",
+          "src/components/Sections.tsx#plansButton",
+          "src/components/AcademicConsole.tsx#plansFor",
+          "src/server/routes/coursesRoutes.ts#curriculum-linked"
+        ],
+        "tests": [
+          "tests/academic-console-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-055",
+      "kind": "functional",
+      "title": {
+        "ar": "سلوكٌ واحد في تبويبات البيانات الأكاديمية الخمسة",
+        "en": "One behaviour across the five academic data tabs"
+      },
+      "text": {
+        "ar": "يجب أن تحمي تبويبات البيانات الأكاديمية الحفظ والحذف من الإرسال المزدوج وانقطاع الشبكة برسالةٍ عربية، وأن تقول عند تعذّر التحميل ذلك مع زر «إعادة المحاولة» لا «لا توجد بيانات بعد»، وأن تسمّي السجلّ في كل تأكيد حذف وتقول ما يمنع حذفه، وأن تسأل قبل إغلاق نموذجٍ فيه ما لم يُحفظ بنقرةٍ خارجه أو Escape أو ✕ (خاصية dirty اختيارية في CatalogFormDrawer)، وأن يعدّ شريط التبويبات ما تعرضه القائمة ويتجدّد بعد كل إنشاءٍ وحذف، وأن تُعرض كلمات السر الأولى لحسابات كليةٍ جديدة داخل الشاشة حتى يغلقها المسؤول، وأن تقصر أدوات السعة على المدير الرئيسي كما يقصرها الخادم وتعيد القائمة بعد التطبيق لا الصفحة.",
+        "en": "The academic data tabs shall guard save and delete against double submission and dropped connections with an Arabic message, say so with a retry button when loading fails instead of «nothing yet», name the record in every delete confirmation and say what blocks deleting it, ask before closing a form with unsaved input by backdrop, Escape or the close button (optional dirty prop of CatalogFormDrawer), count in the tab rail what the list shows and refresh after every create and delete, show the initial passwords of a new college's accounts inside the screen until the administrator closes them, and limit the capacity tools to the root account as the server does, reloading the list rather than the page after applying."
+      },
+      "rationale": {
+        "ar": "كانت الكليات والأقسام بلا حارس إرسال ولا معالجة خطأ، وتأكيدات الحذف لا تسمّي شيئاً، والنموذج يُغلق بنقرةٍ فيضيع ما كُتب، والعدد يخالف القائمة، وكلمات السر في نافذة متصفح.",
+        "en": "Colleges and departments had no submit guard or error handling, delete confirmations named nothing, a click closed a form and lost input, the counts disagreed with the lists, and passwords appeared in a browser alert."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "نقرتان سريعتان على «إنشاء الكلية» ← طلبٌ واحد.",
+          "en": "Two quick clicks on create college ← one request."
+        },
+        {
+          "ar": "تعديل اسم مقرر ثم Escape ← سؤال «تجاهل التعديلات؟»، و«متابعة التحرير» يبقي النموذج بما فيه.",
+          "en": "Editing a course name then pressing Escape ← «discard changes?», and continuing keeps the form as it was."
+        },
+        {
+          "ar": "حذف أستاذ ← عدد «الأساتذة» في الشريط ينقص واحداً، ولا يعدّ سجلات «هيئة تدريسية».",
+          "en": "Deleting an instructor ← the instructors count in the rail drops by one, and placeholders are not counted."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/ui.tsx#CatalogFormDrawer",
+          "src/components/AcademicConsole.tsx#reporters",
+          "src/components/Colleges.tsx#issued",
+          "src/components/Courses.tsx#rootAdmin",
+          "src/utils/arrowChoice.ts#arrowChoice"
+        ],
+        "tests": [
+          "tests/academic-console-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-ACD-056",
+      "kind": "functional",
+      "title": {
+        "ar": "نموذج الفصل وحذفه وزمن المبنى نفسه",
+        "en": "The term form, term deletion and same-building minutes"
+      },
+      "text": {
+        "ar": "يجب أن يحفظ إنشاءُ الفصل علامة «انتهى» إن أُشّرت، وأن يتبع التقويمُ المقترح اسمَ الفصل في الإنشاء ما لم يُلمس التاريخ، وأن يفكّ حذفُ الفصل في Firestore حجزَ اسمه في autoTermClaims فيتصرّف كملف البيانات ويُنبَّه في التأكيد إن كان هو الفصل الذي تنشئه المهمة التلقائية الآن؛ وأن يقبل «داخل المبنى نفسه» صفر دقائق.",
+        "en": "Creating a term shall save the ended flag when ticked, the suggested calendar shall follow the term name while creating unless the dates were touched, deleting a term on Firestore shall release its autoTermClaims name claim so it behaves as the data file does, with a warning in the confirmation when it is the term the automatic job creates now; and the same-building time shall accept zero minutes."
+      },
+      "rationale": {
+        "ar": "كان المربّع يُعرض في الإنشاء ويُهمل، وحجزٌ باقٍ يمنع إعادة إنشاء الفصل الواجب في Firestore وحدها، والصفر يرتدّ إلى الافتراضي.",
+        "en": "The box was shown on create and ignored, a leftover claim stopped the due term from being recreated on Firestore only, and zero fell back to the default."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "تغيير الاسم المقترح إلى «الفصل الصيفي 2026/2027» قبل لمس التاريخ ← سبعة أسابيع.",
+          "en": "Changing the suggested name to the summer term before touching the dates ← seven weeks."
+        },
+        {
+          "ar": "حفظ «داخل المبنى نفسه» = 0 ← يُخزَّن 0.",
+          "en": "Saving same-building minutes = 0 ← 0 is stored."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Terms.tsx#changeName",
+          "src/db/repository.ts#deleteTerm",
+          "src/utils/academicGuards.ts#sameBuildingMinutesOf"
+        ],
+        "tests": [
+          "tests/academic-console-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

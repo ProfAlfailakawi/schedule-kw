@@ -26,6 +26,8 @@ import { filterByScope, instructorsForReader, isScopeAllowed } from "../core/sco
 import { collegeFallbackInstructorIds, placeholderInstructorIds } from "../core/smartImport";
 import { readLiveVisitingRoster, readVisitingStatus } from "../core/visiting";
 import { rosterMemberIds } from "../../utils/rosterGroups";
+import { readInstructorLoad } from "../../utils/academicGuards";
+import { cleanText, TEXT_LIMIT } from "../core/input";
 
 /**
  * ── الرقم المدني والهاتف لأهل القسم وحدهم ──────────────────────────────────
@@ -240,13 +242,22 @@ app.get("/api/instructors", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), 
  * مسبقاً لم يعد طريقاً مسدوداً: صاحبه يُضمّ إلى القسم ويُعاد كاختيار، لأن
  * «أريده عندنا» مطلبٌ مشروع لشخص موجود، لا محاولة تكرار له. */
 app.post("/api/instructors", requireAnyPermission([3, 7]), async (req: AuthenticatedRequest, res: Response) => {
-  const { AdInstructorName, AdInstructorMobile } = req.body;
+  const { AdInstructorMobile } = req.body;
+  /* الاسم نصٌّ محدود كسائر البيانات المرجعية (NFR-ACD-030): لا كائن ولا مصفوفة ولا طولٌ بلا حد. */
+  const AdInstructorName = cleanText(req.body?.AdInstructorName, TEXT_LIMIT.name);
   /* الرقم يُخزَّن بصيغته الواحدة، فيطابقه كلُّ بابٍ يبحث به (بطاقتي، التوقيع، الاستيراد). */
   const AdInstructorCivil = normalizeCivilId(req.body?.AdInstructorCivil);
-  if (!AdInstructorCivil || !String(AdInstructorName || "").trim()) {
+  if (!AdInstructorCivil || !AdInstructorName) {
     res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" });
     return;
   }
+  /* الحالة والنصاب من نموذج شاشة الأساتذة (صلاحية ٣ أو الإدارة): تُحفظ عند الإنشاء كما عند التعديل،
+     لا يُرسلها النموذج فتُسقط بصمت. الإضافة السريعة من الجدول (٧ وحدها) لا تكتبهما. */
+  const canManage = isPowerUser(req) || (req.permissions || []).map(Number).includes(3);
+  const statusRaw = req.body?.AdInstructorStatus;
+  const createStatus = canManage && (statusRaw === "retired" || statusRaw === "sabbatical") ? statusRaw : null;
+  const loadInput = canManage ? readInstructorLoad(req.body?.AdInstructorLoad) : { load: null };
+  if ("error" in loadInput) { res.status(400).json({ error: loadInput.error }); return; }
 
   // Do not let a person manually register another faculty placeholder.
   if (isFacultyPlaceholder({ AdInstructorId: 1, AdInstructorName })) {
@@ -281,14 +292,19 @@ app.post("/api/instructors", requireAnyPermission([3, 7]), async (req: Authentic
     return;
   }
 
-  const newIns = await Repository.createInstructor(AdInstructorCivil, AdInstructorName, AdInstructorMobile || "", req.body?.AdInstructorCategory === "ta" ? "ta" : null);
+  const category = req.body?.AdInstructorCategory === "ta" ? "ta" : null;
+  let newIns = await Repository.createInstructor(AdInstructorCivil, AdInstructorName, AdInstructorMobile || "", category);
+  if (createStatus || loadInput.load) {
+    newIns = await Repository.updateInstructor(Number(newIns.AdInstructorId), AdInstructorCivil, AdInstructorName, AdInstructorMobile || "", createStatus, loadInput.load, category);
+  }
   await enrol(Number(newIns.AdInstructorId));
   res.status(201).json(newIns);
 });
 
 app.put("/api/instructors/:id", requirePermission(3), async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
-  const { AdInstructorName, AdInstructorMobile } = req.body;
+  const { AdInstructorMobile } = req.body;
+  const AdInstructorName = cleanText(req.body?.AdInstructorName, TEXT_LIMIT.name);
   /* الرقم يُخزَّن بصيغته الواحدة، فيطابقه كلُّ بابٍ يبحث به (بطاقتي، التوقيع، الاستيراد). */
   const AdInstructorCivil = normalizeCivilId(req.body?.AdInstructorCivil);
   const statusRaw = req.body?.AdInstructorStatus;
@@ -296,12 +312,18 @@ app.put("/api/instructors/:id", requirePermission(3), async (req: Request, res: 
   const category = !Object.prototype.hasOwnProperty.call(req.body || {}, "AdInstructorCategory")
     ? undefined : req.body.AdInstructorCategory === "ta" ? "ta" : null;
   /* النصابُ رقمٌ موجبٌ معقول، أو لا شيء. وحدُّه الأعلى ليس تجميلاً: نصابٌ
-     مكتوبٌ خطأً بأربعة أرقام يجعل القيدَ صامتاً إلى الأبد بلا أن يعرف أحد. */
-  const loadRaw = Number(req.body?.AdInstructorLoad);
-  /* ساعاتٌ صحيحة فقط: كسرٌ يصل (8.5) يُقرَّب ولا يُخزَّن. */
-  const load = Number.isFinite(loadRaw) && loadRaw > 0 && loadRaw <= 40 ? Math.round(loadRaw) : null;
-  if (!AdInstructorCivil || !String(AdInstructorName || "").trim()) {
+     مكتوبٌ خطأً بأربعة أرقام يجعل القيدَ صامتاً إلى الأبد بلا أن يعرف أحد.
+     وما فوق الحدّ يُرفض برسالة — كان يُمحى النصاب المحفوظ بصمت. ساعاتٌ صحيحة: الكسر يُقرَّب. */
+  const loadInput = readInstructorLoad(req.body?.AdInstructorLoad);
+  if ("error" in loadInput) { res.status(400).json({ error: loadInput.error }); return; }
+  const load = loadInput.load;
+  if (!AdInstructorCivil || !AdInstructorName) {
     res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" });
+    return;
+  }
+  /* «هيئة تدريسية» اسمُ سجلٍّ ينشئه النظام للقسم: لا يُعاد تسمية أستاذٍ حقيقيٍّ به. */
+  if (isFacultyPlaceholder({ AdInstructorId: 1, AdInstructorName }) && !isFacultyPlaceholder(await Repository.getInstructorById(id))) {
+    res.status(400).json({ error: "«هيئة تدريسية» سجل افتراضي ينشئه النظام للقسم، وليس اسماً لأستاذ." });
     return;
   }
 

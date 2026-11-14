@@ -1583,8 +1583,8 @@
         "en": "Faculty card push"
       },
       "text": {
-        "ar": "يجب على النظام أن يدفع إلى بطاقة الأستاذ تنبيهاً واحداً يستبدل سابقه (ثُبّت، تعذّر، بدائل، ردّ القسم، فتح باب التدريب) يجمع قرارات القسم في آخر 10 دقائق ويعدّها («ثُبّت 3 مواعيد»)، وألا يُرسل أي تنبيه يحمل أثر قاعة في عنوانه أو نصّه، وألا يدفع إلى بطاقة موقوفة بل يمحو اشتراكاتها.",
-        "en": "The system shall push to a faculty card a single notice that replaces the previous one (fixed, rejected, alternatives, department reply, training window opened) which gathers department decisions of the last 10 minutes and counts them (\"3 appointments fixed\"), shall not send any notice carrying a room trace in its title or body, and shall not push to a stopped card but erase its subscriptions."
+        "ar": "يجب على النظام أن يدفع إلى بطاقة الأستاذ تنبيهاً واحداً يستبدل سابقه (ثُبّت، تعذّر، بدائل، ردّ القسم، مقترحٌ دراسيّ أُرسل أو ثُبّت، فتح باب التدريب) لا يتكرّر نصُّه نفسُه خلال دقيقة، يجمع قرارات القسم في آخر 10 دقائق ويعدّها («ثُبّت 3 مواعيد»)، وألا يُرسل أي تنبيه يحمل أثر قاعة في عنوانه أو نصّه، وألا يدفع إلى بطاقة موقوفة بل يمحو اشتراكاتها.",
+        "en": "The system shall push to a faculty card a single notice that replaces the previous one (fixed, rejected, alternatives, department reply, study proposal sent or committed, training window opened), never repeating the same text within a minute, which gathers department decisions of the last 10 minutes and counts them (\"3 appointments fixed\"), shall not send any notice carrying a room trace in its title or body, and shall not push to a stopped card but erase its subscriptions."
       },
       "priority": "must",
       "status": "implemented",
@@ -1607,6 +1607,14 @@
         {
           "ar": "«ذكّر من لم يرد» في النشر يدفع إلى كرت كل من لم يرد (ممن فعّل تنبيهاته فيه) «🔔 تذكير بطلب جدولك» بنص «لم يصل ردّك بعد · يُغلق <اليوم والتاريخ>» ووسم card-reminder؛ ولا يُدفع شيء في الديمو.",
           "en": "«Remind those who have not replied» in publishing pushes to each non-replier's card (where notices are enabled) «🔔 a reminder about your schedule request» with the body «your reply has not arrived yet · closes <day and date>» and the card-reminder tag; nothing is pushed in the demo."
+        },
+        {
+          "ar": "إرسالُ مقترحٍ دراسيّ (أو نسخةٍ معدّلة) يدفع إلى كرت صاحبه «📝 مقترحٌ دراسيّ من القسم» بوسم card-proposal ورابط صفحة المقترح، وتثبيتُه يدفع «📌 ثُبّت المقترح في جدولك» بوسم card-decisions؛ نصٌّ عامّ بلا مقرّرٍ ولا وقتٍ ولا قاعة، ولا يُدفع شيء في الديمو.",
+          "en": "Sending a study proposal (or a revised version) pushes «📝 a study proposal from the department» to its owner's card with the card-proposal tag and the proposal page link, and committing it pushes «📌 the proposal was fixed in your schedule» with the card-decisions tag; generic text with no course, time or room, and nothing is pushed in the demo."
+        },
+        {
+          "ar": "التنبيهُ نفسُه (العنوانُ والنصّ والرابط) إلى الكرت نفسه خلال دقيقة لا يُعاد: دفعةُ قرارٍ واحدة تصل مرّةً واحدة.",
+          "en": "The same notice (title, body and link) to the same card within one minute is not repeated: one decision batch arrives once."
         }
       ],
       "evidence": {
@@ -1614,6 +1622,8 @@
           "src/server/pushRoutes.ts",
           "src/server/pushMessages.ts",
           "src/server/pushMessages.ts#cardReminderMessage",
+          "src/server/pushMessages.ts#proposalSentMessage",
+          "src/server/pushMessages.ts#proposalCommittedMessage",
           "src/server/pushCard.ts"
         ],
         "tests": [
