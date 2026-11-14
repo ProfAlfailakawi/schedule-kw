@@ -74,7 +74,7 @@ const keyTarget = (target: EventTarget | null): PilotKeyTarget => {
 /** زرُّ الدخول بجانب مرشّحات الوارد، بعدد ما ينتظر. */
 export function InboxPilotLauncher({ count, onOpen }: { count: number; onOpen: () => void }) {
   return (
-    <button type="button" className="inbox-pilot-go" onClick={onOpen} aria-haspopup="dialog"
+    <button type="button" className="inbox-pilot-go" onClick={onOpen} aria-haspopup="dialog" data-inbox-pilot-launcher=""
       data-guide-ignore="يفتح «وضع الطيّار»: بندٌ واحد في كل مرّة بأزرار البطاقة نفسها (ثبّت/بديل/التالي) — فتحُه لا يكتب شيئاً">
       <Plane aria-hidden="true" />وضع الطيّار <b>{num(count)}</b>
     </button>
@@ -119,12 +119,16 @@ export default function InboxPilot<R extends PilotRow>({
     rootRef.current?.querySelector<HTMLElement>(".changes-extend-sheet select, .changes-extend-sheet button")?.focus();
   }, [entry?.key, sheet]);
 
-  /* يعود التركيزُ إلى ما فتح الوضع، ولا تتحرّك الصفحةُ خلفه. */
+  /* يعود التركيزُ إلى ما فتح الوضع، ولا تتحرّك الصفحةُ خلفه. يُقرأ الفاتحُ في أول رسم، قبل أن
+     ينقل أثرُ البطاقة أعلاه التركيزَ إليها؛ وإن لم يكن زرّاً قائماً عاد إلى زرّ الدخول. */
+  const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement as HTMLElement | null));
   useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = overflow; window.requestAnimationFrame(() => opener?.focus?.()); };
+    return () => { document.body.style.overflow = overflow; window.requestAnimationFrame(() => {
+      const back = opener && opener !== document.body && opener.isConnected ? opener : document.querySelector<HTMLElement>("[data-inbox-pilot-launcher]");
+      back?.focus?.();
+    }); };
   }, []);
 
   const fix = async () => {

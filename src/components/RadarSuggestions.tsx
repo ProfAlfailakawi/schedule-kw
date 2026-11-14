@@ -55,7 +55,10 @@ export default function RadarSuggestions({ termId, ranAt, collegeId = 0, section
   );
   if (!reading) return <section className="rs-panel" aria-label="الرادار يقترح الحل" aria-busy="true"><MicroLoader label="يبحث الرادار عن شعبةٍ لكل مقرر…" /></section>;
   if (!reading.ready || !reading.rows.length) return null;
-  const changed = adopted.length > 0 || Boolean(reading.stale);
+  /* اعتمادٌ من هذه اللوحة يغيّر ما بُنيت عليه بقيّةُ الاقتراحات فتُحجب حتى يُعاد الاحتساب؛ أمّا قراءةٌ
+     أقدمُ من آخر تعديلٍ في الجدول فلا تحجب الاعتماد: الحفظُ يمرّ بفاحص التعارضات واللائحة من جديد. */
+  const changed = adopted.length > 0;
+  const older = !changed && Boolean(reading.stale);
   return (
     <section className="rs-panel" aria-label="الرادار يقترح الحل">
       <header className="rs-head">
@@ -64,6 +67,7 @@ export default function RadarSuggestions({ termId, ranAt, collegeId = 0, section
           <small>شعبةٌ لكل مقرر مطلوب ولا يُطرح أو يمتلئ: وقتٌ من سُلّم القسم المعتمد، وأستاذٌ درّسه وله نصاب، وقاعةٌ خالية من نوعها — والوقت الذي يأخذه أكثرُ المنتظرين.</small></div>
       </header>
       {changed ? <p className="rs-line rs-stale" role="status"><RefreshCw aria-hidden="true" /> تغيّر الجدول بعد هذه الاقتراحات؛ تتجدّد بعد إعادة احتساب الرادار.</p> : null}
+      {older ? <p className="rs-line" role="status"><RefreshCw aria-hidden="true" /> قراءةُ الرادار أقدم من آخر تعديلٍ في الجدول؛ يُفحص الاقتراح من جديد عند اعتماده.</p> : null}
       <div className="rs-list">
         {reading.rows.map(row => <SuggestionCard key={row.courseId} row={row} termId={termId} canAdopt={canSchedule && !changed} adopted={adopted.includes(row.courseId)} canSchedule={canSchedule}
           onApplied={() => { setAdopted(list => [...list, row.courseId]); onChanged(); }} />)}
