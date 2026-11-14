@@ -1,6 +1,7 @@
 import { settleRegulationException } from "./RegulationExceptionSheet";
 import { byArabic } from "../utils/sorting";
 import AdvisorSeatsPanel from "./AdvisorSeatsPanel";
+import DemandAnalysis from "./DemandAnalysis";
 import SectionRequestsPanel from "./sectionRequests/SectionRequestsPanel";
 import AdvisingScopePicker from "./AdvisingScopePicker";
 import CampusChip, { CampusFilter } from "./CampusChip";
@@ -958,6 +959,9 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
       {termId ? <SectionRequestsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} onNavigate={onNavigate} mayCompose={mayCompose} frozen={frozen} /> : null}
 
       {Boolean(collegeId && sectionId && termId) && <details className="surface" style={{ padding: "10px 14px" }}><summary>🎟️ رصيد مقاعد المرشد <CampusChip collegeName={collegeName} /></summary><AdvisorSeatsPanel collegeId={collegeId} sectionId={sectionId} termId={termId} collegeName={collegeName} /></details>}
+
+      {/* «تحليل الطلب»: ما قاله الطلاب لمن يبني الجدول (الشاشة ٧) — مطويٌّ حتى يُفتح، ويقرأ وحده (DemandAnalysis). */}
+      {canReadDemand && Boolean(collegeId && sectionId && termId) ? <DemandAnalysis collegeId={collegeId} sectionId={sectionId} termId={termId} terms={terms} collegeName={collegeName} scopes={scopes} powerAdmin={powerAdmin} /> : null}
 
       {/* الجهةُ في العنوان دائماً، والتصفيةُ بين البنين والبنات حين تجمع قائمةُ الكليات الجهتين. */}
       <div className="campus-scope"><CampusFilter campuses={collegeCampuses} value={campusPick} onChange={setCampusPick} /></div>

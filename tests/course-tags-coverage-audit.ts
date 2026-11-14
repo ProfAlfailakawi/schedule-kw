@@ -58,6 +58,8 @@ const COURSE_EXCEPTIONS: Exception[] = [
   { file: "src/components/proposal/ProposalOps.tsx", text: `before.courseName`, reason: "سطرُ «خرج» الصغير تحت العملية — عنوانُ العملية فوقه يحمل الوسوم" },
   { file: "src/components/IntelligenceWorkspace.tsx", text: `fix.courseName`, reason: "شريحةُ «من» في حركة الإصلاح — عنوانُ البطاقة فوقها يحمل الوسوم" },
   { file: "src/components/IntelligenceWorkspace.tsx", text: `fix.swapWith.courseName`, reason: "شريحةُ «من» في التبديل — سطرٌ ضيّق داخل البطاقة" },
+  { file: "src/components/DemandAnalysis.tsx", text: `fix.courseName`, reason: "شريحةُ «من» في حركة الإصلاح («تحليل الطلب») — عنوانُ البطاقة فوقها يحمل الوسوم" },
+  { file: "src/components/DemandAnalysis.tsx", text: `fix.swapWith.courseName`, reason: "شريحةُ «من» في التبديل («تحليل الطلب») — سطرٌ ضيّق داخل البطاقة" },
   { file: "src/components/RoomSuggestionCards.tsx", text: `item.courseName || "المقرر نفسه"`, reason: "بطاقةُ قاعة: المقررُ تعليقٌ صغير تحت رقم القاعة" },
   { file: "src/components/CourseImpact.tsx", text: `data.course.name`, reason: "عقدةُ مخطط الأثر داخل صفّ المقرر الذي يحمل الوسوم (بروفة التسجيل)" },
   { file: "src/components/DuplicateCoursesPanel.tsx", text: `group.keeper.name`, reason: REPAIR },

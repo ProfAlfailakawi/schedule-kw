@@ -98,7 +98,8 @@
     "src/components/RadarSuggestions.tsx",
     "tests/radar-suggestions-audit.ts",
     "src/utils/quickDecideKeys.ts",
-    "src/utils/radarRunGap.ts"
+    "src/utils/radarRunGap.ts",
+    "src/components/DemandAnalysis.tsx"
   ],
   "screens": [
     {
@@ -152,8 +153,8 @@
       },
       "file": "src/components/StudentRegistration.tsx",
       "note": {
-        "ar": "شاشةٌ واحدةٌ للجنة والتسجيل.",
-        "en": "One screen for the committee and registration."
+        "ar": "شاشةٌ واحدةٌ للجنة والتسجيل، وفيها درج «تحليل الطلب» لمن يبني الجدول.",
+        "en": "One screen for the committee and registration, with a «demand analysis» drawer for schedule builders."
       }
     },
     {
@@ -4207,6 +4208,56 @@
         ],
         "tests": [
           "tests/radar-suggestions-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-070",
+      "kind": "functional",
+      "title": {
+        "ar": "«تحليل الطلب» في كشف التسجيل",
+        "en": "«Demand analysis» in the registration sheet"
+      },
+      "text": {
+        "ar": "يجب أن يعرض «كشف التسجيل» لمن يملك شاشة الجدول (الصلاحية 7) وحده، حين يُختار قسمٌ وفصل، درجاً مطويّاً بعنوان «تحليل الطلب» لا يقرأ شيئاً حتى يُفتح؛ فإذا فُتح قرأ GET /api/schedules/demand للقسم (أو لكل كليات القسم حين يختار القارئ «كل كليات القسم» وللقسم أكثر من كلية في نطاقه) وأعاد القراءة كل 10 ثوانٍ ما دام مفتوحاً والصفحة ظاهرة ومستعملة. ويضم الدرج: باب الطلاب (إصدار رابط استبيان بمدة 7 أو 30 أو 90 أو 180 يوماً عبر POST /api/share، ونسخه، ورمز QR وطباعته وحده، وإيقافه بتأكيد عبر DELETE /api/share/:id)، والتوقّع من الفصل السابق، والجدد والعائدين، والأرقام الأربعة (المجيبون، والمقررات المطلوبة، والأزواج التي لا يجوز تقاطعها، والنقلات الجاهزة)، و«كم شعبة نفتح» بحسابها الظاهر وخاناتها، وملاحظة المقررات بلا «الحد الأعلى للطلبة»، والنقلات والتبديلات بمعاينة أثرها واعتمادها، وأكثر 8 مقررات طلباً، والتقاطعات بلا حلٍّ نظيف، وتسلسل المقررات. ولا يكرّر الدرج سجلّ الحالات ولا «رحلة الطلب» لأن الكشف يعرضهما.",
+        "en": "The registration sheet shall show, only to holders of the schedule screen (permission 7) and once a department and term are chosen, a collapsed «demand analysis» drawer that reads nothing until opened; once open it reads GET /api/schedules/demand for the department (or for every college of the department when the reader picks «all colleges of the department» and the department spans more than one college in scope) and re-reads every 10 seconds while open and the page is visible and in use. The drawer holds: the students' door (issuing a survey link valid 7, 30, 90 or 180 days through POST /api/share, copying it, showing and printing its QR code alone, and stopping it with a confirmation through DELETE /api/share/:id), the forecast from the previous term, new versus returning students, the four figures (respondents, requested courses, pairs that must not overlap, ready moves), «how many sections to open» with its visible arithmetic and placements, the note on courses without a «maximum students» ceiling, moves and swaps with impact preview and adoption, the 8 most requested courses, overlaps without a clean fix, and the course sequence. The drawer does not repeat the case register or the request journey, which the sheet already shows."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "حسابٌ بلا الصلاحية 7 ← لا يظهر الدرج ولا يُرسَل طلب /api/schedules/demand.",
+          "en": "An account without permission 7 ← the drawer is not shown and no /api/schedules/demand request is sent."
+        },
+        {
+          "ar": "«افتحها في النسخة التجريبية» و«معاينة التأثير» ← يُكتب تسليمٌ في sessionStorage ويُفتح محرّر النسخة التجريبية في مركز التحليلات؛ لا يُحفظ شيء.",
+          "en": "«Open it in the trial copy» and «preview the impact» ← a handoff entry is written to sessionStorage and the trial-copy editor opens in the Analytics Center; nothing is saved."
+        },
+        {
+          "ar": "«اعتمد في الجدول» لشعبةٍ أو نقلة ← يمرّ عبر POST /api/schedules/what-if للمعاينة ثم POST /api/schedules/apply-proposal بسؤال اللائحة نفسه، ثم يُعاد قراءة الطلب.",
+          "en": "«Apply to the schedule» for a section or a move ← goes through POST /api/schedules/what-if for the preview then POST /api/schedules/apply-proposal with the same regulation prompt, then the demand is re-read."
+        },
+        {
+          "ar": "باب الطلاب لا يظهر لفصلٍ من الأرشيف؛ وطباعة الرمز تُخفي الكشف والأرقام فلا يبقى على الورقة إلا الرمز والرابط.",
+          "en": "The students' door is not shown for an archived term; printing the code hides the sheet and the figures so only the code and link remain on paper."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/DemandAnalysis.tsx",
+          "src/components/StudentRegistration.tsx",
+          "src/utils/intelligenceLink.ts#handOffToTwin",
+          "src/components/ApplyProposal.tsx#postScheduleProposal",
+          "src/components/ApplyProposal.tsx#postWhatIf",
+          "src/styles/08-print.css"
+        ],
+        "tests": [
+          "tests/student-registration-audit.ts"
         ]
       }
     }
