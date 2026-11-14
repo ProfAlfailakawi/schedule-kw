@@ -72,7 +72,7 @@ export function useSectionPlan(collegeId: number, sectionId: number, termId: num
 }
 
 /** شارةُ شريط الاعتماد: رقمٌ واحد — شعبُ الخريجين الناقصة إن وُجدت، وإلا كل ما يُفتح أو يُغلق. */
-export function SectionPlanBadge({ reading, open, onToggle }: { reading: PlanReadingView | null; open: boolean; onToggle: () => void }) {
+export function SectionPlanningBadge({ reading, open, onToggle }: { reading: PlanReadingView | null; open: boolean; onToggle: () => void }) {
   const plan = reading?.plan;
   const has = Boolean(reading?.variants.general || reading?.variants.graduates);
   const label = !has ? "ارفع تقرير التسجيل لتخطيط الشعب"
@@ -374,7 +374,7 @@ function PlanMath({ row }: { row: PlanRowView }) {
     return <div className="spl-math"><div className="spl-eq"><Tile icon={<Users />} n={row.students} label={nounFor(row.students, AR.student)} /><span className="spl-op"><Divide aria-hidden="true" /></span><Tile icon={<Armchair />} n={null} label="بلا سعة" tone="warn" /></div></div>;
   }
   return (
-    <div className="spl-math" role="group" aria-label={`${row.students} ÷ ${row.cap} = ${row.required} شعبة`}>
+    <div className="spl-math" role="group" aria-label={`${row.students} ÷ ${row.cap} = ${countOf(row.required, AR.section)}`}>
       <div className="spl-eq">
         <Tile icon={<Users />} n={row.students} label={nounFor(row.students, AR.student)} />
         <span className="spl-op"><Divide aria-hidden="true" /></span>
@@ -422,7 +422,7 @@ function Visitors({ graduates, all, perVisitor }: { graduates: PlanVisitors | nu
       {open ? (
         <div className="spl-visitors-math">
           {scopes.map(scope => (
-            <div key={scope.key} className="spl-eq" role="group" aria-label={`${scope.label}: ${scope.value.hours} ساعة بلا أستاذ − ${Math.min(scope.value.free, scope.value.hours)} متاحة ÷ ${perVisitor} = ${scope.value.visitors}`}>
+            <div key={scope.key} className="spl-eq" role="group" aria-label={`${scope.label}: ${countOf(scope.value.hours, AR.hour)} بلا أستاذ − ${Math.min(scope.value.free, scope.value.hours)} متاحة ÷ ${perVisitor} = ${countOf(scope.value.visitors, AR.visitor)}`}>
               <span className="spl-eq-label">{scope.icon}{scope.label}</span>
               <Tile icon={<Layers />} n={scope.value.hours} label="ساعة بلا أستاذ" />
               <span className="spl-op"><Minus aria-hidden="true" /></span>
@@ -435,7 +435,7 @@ function Visitors({ graduates, all, perVisitor }: { graduates: PlanVisitors | nu
           ))}
         </div>
       ) : null}
-      <p className="spl-assume">نفترض {num(perVisitor)} ساعات لكل منتدب</p>
+      <p className="spl-assume">نفترض {countOf(perVisitor, AR.hour)} لكل منتدب</p>
     </footer>
   );
 }

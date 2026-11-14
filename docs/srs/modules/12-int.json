@@ -1730,7 +1730,7 @@
       "evidence": {
         "code": [
           "src/components/ApprovalBar.tsx",
-          "src/components/SectionPlan.tsx#SectionPlanBadge",
+          "src/components/SectionPlan.tsx#SectionPlanningBadge",
           "src/utils/actualDemandHandoff.ts#openActualDemandFix"
         ],
         "tests": [

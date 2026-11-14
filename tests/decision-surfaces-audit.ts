@@ -74,7 +74,7 @@ console.log("K2 — تخطيط الشعب: درجتان، وزرٌّ واحد، 
   const plan = read("src/components/SectionPlan.tsx"), bar = read("src/components/ApprovalBar.tsx");
   check(plan.includes('aria-label="الدرجة الأولى: الخريجون"') && plan.includes('aria-label="الدرجة الثانية: بقية الطلبة"'), "درجتان: الخريجون ثم بقية الطلبة");
   check(plan.includes("افتح شعبة") && plan.includes("اختر ما يُغلق") && !plan.includes("تجاهل") && !/>\s*تم\s*</.test(plan), "زرٌّ واحد لكل سطر، بلا «عالج/تم/تجاهل»");
-  check(bar.includes("<SectionPlanBadge") && !bar.includes("livePlanItems") && !bar.includes("planDecisions"), "شارة «التخطيط» واحدة في الشريط، ولا رفوف قرارات");
+  check(bar.includes("<SectionPlanningBadge") && !bar.includes("livePlanItems") && !bar.includes("planDecisions"), "شارة «التخطيط» واحدة في الشريط، ولا رفوف قرارات");
   check(read("src/components/Schedules.tsx").includes("FOCUS_COURSE_EVENT") && read("src/utils/actualDemandHandoff.ts").includes("export function openCourseSections"), "«اختر ما يُغلق» يبرز مواعيد المقرر على الأسبوع");
 }
 

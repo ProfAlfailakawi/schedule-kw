@@ -25,7 +25,7 @@ import { safeStorage } from "../utils/safeStorage";
 import { Notice, PrimaryButton, SecondaryButton } from "./ui";
 import { SectionGapBadge, SectionGapPanel, useSectionGap } from "./SectionGapNote";
 import type { GapItem } from "../utils/sectionGap";
-import SectionPlan, { SectionPlanBadge, useSectionPlan } from "./SectionPlan";
+import SectionPlan, { SectionPlanningBadge, useSectionPlan } from "./SectionPlan";
 import type { PlanCourseFact } from "../utils/sectionPlan";
 import {
   APPROVAL_EVENT_LABEL, APPROVAL_STATUS_LABEL, additionsAwaitingHead, awaitsHeadSignature, blockingSummaryPhrase, deadlinePassed,
@@ -709,7 +709,7 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
             <ChevronDown aria-hidden="true" className="apb-data-chev" />
           </button>
         ) : null}
-        <SectionPlanBadge reading={plan.reading} open={planOpen} onToggle={() => setPlanOpen(open => !open)} />
+        <SectionPlanningBadge reading={plan.reading} open={planOpen} onToggle={() => setPlanOpen(open => !open)} />
         <SectionGapBadge items={gap.studentItems} kind="students" open={gapOpen} onToggle={() => setGapOpen(open => !open)} />
         {canSignNow && blockingConflicts === 0 && missingCapacity === 0 && !requiredCourseFieldsBlocksSign ? (
           <span className="apb-badge apb-ready" data-tone="success" data-guide-ignore="شارة جاهزية التوقيع — عرضٌ لا فعل">

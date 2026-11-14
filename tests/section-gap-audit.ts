@@ -43,7 +43,7 @@ check(schedules.includes("onStudentGaps={setStudentGaps}") && schedules.includes
 check((schedules.match(/\{needMark\(item\.key\)\}/g) || []).length === 3, "العلامة في مفاتيح الألوان الثلاثة: القائمة والأسبوع والقاعات");
 check(bar.includes("() => onStudentGaps?.([])"), "زوال الشريط يمحو علاماته");
 check(/slice\(0, 30\);\s*const found/.test(server) && !/slice\(0, 4\);\s*const found/.test(server), "يُفحص كل أقسام العامل ثم يُقتصر الناتج على أربعة");
-check(!bar.includes("QuickPlanSheet") && !bar.includes("showQuickCompareBadge") && bar.includes("<SectionPlanBadge") && bar.includes("<SectionGapBadge items={gap.studentItems}"), "شريط الاعتماد: شارةُ التخطيط الواحدة وشارةُ «مساري»، ولا أيقونة كشف المتبقي");
+check(!bar.includes("QuickPlanSheet") && !bar.includes("showQuickCompareBadge") && bar.includes("<SectionPlanningBadge") && bar.includes("<SectionGapBadge items={gap.studentItems}"), "شريط الاعتماد: شارةُ التخطيط الواحدة وشارةُ «مساري»، ولا أيقونة كشف المتبقي");
 
 console.log(`\nSection gap audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
