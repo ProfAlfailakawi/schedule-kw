@@ -67,6 +67,7 @@
     "src/components/VisitingBadge.tsx",
     "src/components/VisitingConversionPanel.tsx",
     "src/components/InstructorPicker.tsx",
+    "src/components/NewInstructorForm.tsx",
     "scripts/lib/programProvision.ts",
     "scripts/provision-marine-diploma.ts",
     "src/utils/academicGuards.ts",
@@ -2667,6 +2668,10 @@
           "en": "The name is trimmed to 120 characters and an empty one returns 400; status is retired, sabbatical or active; an unknown load rank returns 400; without a bound override the reason and until-term are dropped."
         },
         {
+          "ar": "«أستاذ جديد» (قرار المالك 2026-11-14): نموذجٌ واحد (NewInstructorForm) في أدوات الجدول وفي لوحة «موعد»: الاسم والرقم المدني ثم الدرجة العلمية (ومنها تُحسب ساعاته) وخيار «مدرب» (يظهر في المدربين). يرسله إلى POST /api/instructors بنطاق القسم فيُضمّ إلى دليل القسم وتُكتب درجته عبر قراءةٍ واحدة (readRosterLoad) تُفحص قبل الإنشاء: درجة غير موجودة تُردّ 400 ولا يُنشأ أستاذ ولا يُسجَّل رقمه، وبلا نطاق لا تُكتب الدرجة. الدرجات من GET /api/section-roster/ranks (إذن 7، بلا بيانات أشخاص). الاستثناء والتفرّغ والتقاعد من بطاقة العضو بعد الإضافة؛ والمتفرّغ يرجع بإزالة الحالة؛ والتحويل إلى TA عند الإضافة وحده.",
+          "en": "«New instructor» (owner decision 2026-11-14): one form (NewInstructorForm) in the schedule tools and in the appointment panel: name and civil ID, then the academic rank (hours are computed from it) and a «trainee» option (listed with the trainees). It posts to POST /api/instructors with the department scope, which enrols the person in the department directory and writes the rank through one reader (readRosterLoad) validated before creation: an unknown rank is refused with 400 and nobody is created or their civil ID registered, and without scope the rank is not written. Ranks come from GET /api/section-roster/ranks (screen 7, no personal data). Exception, sabbatical and retirement are set from the member card after adding; a sabbatical returns by removing the status; becoming a TA happens at creation only."
+        },
+        {
           "ar": "كل حفظ يُسجَّل في سجل التدقيق «تعديل بيانات … من أدوات الجدول» مع ما تغيّر (الاسم، الحالة والتصنيف، النصاب)، وإسناد النصاب يُكتب ذرياً لعضو واحد لا للإعداد كله.",
           "en": "Each save is written to the audit log as an edit from the schedule tools listing what changed (name, status and category, load), and the load assignment is written atomically for one member, not the whole configuration."
         }
@@ -2675,13 +2680,18 @@
         "code": [
           "src/server/routes/instructorsRoutes.ts#/api/section-roster",
           "src/server/routes/instructorsRoutes.ts#/api/section-roster/:id",
+          "src/server/routes/instructorsRoutes.ts#/api/section-roster/ranks",
+          "src/server/routes/instructorsRoutes.ts#readRosterLoad",
           "src/server/routes/instructorsRoutes.ts#sectionRosterIds",
           "src/utils/rosterGroups.ts#rosterMemberIds",
-          "src/components/DepartmentRoster.tsx"
+          "src/components/DepartmentRoster.tsx",
+          "src/components/NewInstructorForm.tsx",
+          "src/components/InstructorPicker.tsx"
         ],
         "tests": [
           "tests/admin-screens-r4-audit.ts",
-          "tests/roster-delegates-card-audit.ts"
+          "tests/roster-delegates-card-audit.ts",
+          "tests/roster-add-instructor-audit.ts"
         ]
       }
     },
