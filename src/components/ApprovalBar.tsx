@@ -846,11 +846,13 @@ export default function ApprovalBar({ collegeId, sectionId, termId, signatureSta
           </PrimaryButton>
         ) : null}
 
+        {/* كلُّ مانعٍ يُضاف إلى canSign في الخادم يُضاف هنا في disabled وtitle معاً، لا في الشارة وحدها:
+            نُشرت الدرجةُ الناقصة بشارةٍ وبقي هذا الزرُّ مفعّلاً (عيبٌ 2026-11-14، tests/rank-gap-sign-audit.ts تفحص الزرّ نفسه). */}
         {canSignNow ? (
           <PrimaryButton type="button" className="apb-primary" data-guide-target="approval.action.sign"
             aria-label={signatureStage === "head" ? "اعتماد وإرسال للتسجيل" : "توقيع لجنة الجدول"}
-            title={capacityBlocksSign ? "سجّل السعة لكل مقرر قبل التوقيع" : requiredCourseFieldsBlocksSign ? "استكمل بيانات نوع القاعة وطبيعة التدريس قبل التوقيع" : signatureStage === "head" ? "اعتماد وإرسال للتسجيل" : "توقيع لجنة الجدول"}
-            disabled={busy || blockingConflicts > 0 || capacityBlocksSign || requiredCourseFieldsBlocksSign}
+            title={capacityBlocksSign ? "سجّل السعة لكل مقرر قبل التوقيع" : ranksBlockSign ? "اختر الدرجة العلمية لكل أستاذ قبل التوقيع" : requiredCourseFieldsBlocksSign ? "استكمل بيانات نوع القاعة وطبيعة التدريس قبل التوقيع" : signatureStage === "head" ? "اعتماد وإرسال للتسجيل" : "توقيع لجنة الجدول"}
+            disabled={busy || blockingConflicts > 0 || capacityBlocksSign || ranksBlockSign || requiredCourseFieldsBlocksSign}
             onClick={() => void act("/api/approvals/sign")}>
             {signatureStage === "head" ? <BadgeCheck aria-hidden="true" /> : <PenLine aria-hidden="true" />}
             {busy ? "يوقّع…" : signatureStage === "head" ? "اعتماد وإرسال" : "توقيع"}
