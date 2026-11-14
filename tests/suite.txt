@@ -273,6 +273,7 @@ test:actual-demand
 test:actual-demand-supply
 test:actual-demand-graduates
 test:demo-actual-demand
+test:demo-training-seed
 test:appointment-review-1114
 test:appointment-ideas-1114
 test:appointment-seats
@@ -360,3 +361,4 @@ test:schedule-w3
 test:why-not
 test:week-replay
 test:teacher-registry
+test:account-deletion

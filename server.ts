@@ -60,6 +60,8 @@ import { registerApprovalsRoutes } from "./src/server/routes/approvalsRoutes";
 import { registerAuthRoutes } from "./src/server/routes/authRoutes";
 import { registerStaffRecoveryRoutes } from "./src/server/staffRecovery";
 import { staffRecoveryDeps } from "./src/server/staffRecoveryWiring";
+import { registerAccountDeletionRoutes } from "./src/server/accountDeletion";
+import { accountDeletionDeps } from "./src/server/accountDeletionWiring";
 import { registerStudentRecoveryRoutes } from "./src/server/studentRecovery";
 import { studentRecoveryDeps } from "./src/server/studentRecoveryWiring";
 import { registerCoursesRoutes } from "./src/server/routes/coursesRoutes";
@@ -426,6 +428,7 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
 app.use("/api", activityTrailRecorder);
 registerAuthRoutes(app);
 registerStaffRecoveryRoutes(app, staffRecoveryDeps());
+registerAccountDeletionRoutes(app, accountDeletionDeps());
 /* «رمز استعادة لطالب»: موظفُ القسم يُصدره بعد رؤية البطاقة المدنية (src/server/studentRecovery.ts). */
 registerStudentRecoveryRoutes(app, studentRecoveryDeps());
 registerDashboardRoutes(app);

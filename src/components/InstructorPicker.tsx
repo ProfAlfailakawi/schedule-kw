@@ -63,6 +63,8 @@ interface Props {
   onlyIds?: Iterable<number>;
   /** نصُّ الزر حين لا اختيار بعد. */
   emptyLabel?: string;
+  /** لا يعرض خيار «شاغر · هيئة تدريسية»: المنتقي لاختيار شخصٍ حقيقي (كإسناد شعبةٍ شاغرة). */
+  hidePlaceholder?: boolean;
 }
 
 /** قانون هوية الاسم المشترك نفسه الذي تحكم به مطابقة الاستيراد: همزات الألف،
@@ -72,7 +74,7 @@ const withoutTitles = instructorCleanName;
 /** والمسافات نفسها لا تحجب: «عبد العزيز» يجد «عبدالعزيز». */
 const spaceless = (value: string) => value.replace(/ /g, "");
 
-export default function InstructorPicker({ value, onChange, instructors, departmentIds, visitingIds, visitingRosterIds, canCreate = true, suggestedName = "", onCreated, onSelected, collegeId = 0, sectionId = 0, termId = 0, disabled, strictDepartmentOnly = false, onlyIds, emptyLabel = "اختر أستاذ المقرر" }: Props) {
+export default function InstructorPicker({ value, onChange, instructors, departmentIds, visitingIds, visitingRosterIds, canCreate = true, suggestedName = "", onCreated, onSelected, collegeId = 0, sectionId = 0, termId = 0, disabled, strictDepartmentOnly = false, onlyIds, emptyLabel = "اختر أستاذ المقرر", hidePlaceholder = false }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
@@ -202,7 +204,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
      و«شاغر · هيئة تدريسية» وحدها في أول القائمة. */
   const isTa = (person: Instructor) => trainees.has(Number(person.AdInstructorId)) || isTrainingAssistant(person as any);
   const grouped = useMemo(() => {
-    const placeholder = results.find(person => isFacultyPlaceholder(person)) || null;
+    const placeholder = hidePlaceholder ? null : results.find(person => isFacultyPlaceholder(person)) || null;
     const people = results.filter(person => !isFacultyPlaceholder(person));
     const tas = people.filter(isTa);
     const staff = people.filter(person => !isTa(person));
@@ -212,7 +214,7 @@ export default function InstructorPicker({ value, onChange, instructors, departm
       visiting: staff.filter(person => visitingSet.has(person.AdInstructorId)),
       tas,
     };
-  }, [results, visitingSet, trainees]);
+  }, [results, visitingSet, trainees, hidePlaceholder]);
   const listed = [...grouped.members, ...grouped.visiting, ...grouped.tas];
 
   useEffect(() => {

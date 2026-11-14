@@ -3426,6 +3426,8 @@ export type FeatureCollection =
   | "passwordResets"
   /* «نسيت كلمة السر؟» للموظفين (src/server/staffRecovery.ts): حارسٌ على بصمة الاسم، وتذكرةٌ لمرةٍ واحدة، وأثرٌ لمدير النظام. */
   | "staffRecovery"
+  /* طلبُ حذف الحساب من التطبيق (src/server/accountDeletion.ts): وثيقةٌ لكل حساب `u<id>`، بلا كلمة سر. */
+  | "accountDeletionRequests"
   /* طلبُ شعبة (src/utils/sectionRequests.ts): وثيقةٌ لكل طلب، معرّفُها يبدأ بفصله `${termId}:`. */
   | "sectionRequests"
   /* حارسُ الزملاء (src/server/scheduleHolds.ts): حجزٌ واحد لكل جالس يعيش دقيقتين. ومقياسُ إدخال
