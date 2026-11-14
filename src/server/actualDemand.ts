@@ -14,11 +14,14 @@ import { isScopeAllowed } from "./core/scope";
 import { departmentFamily, departmentFamilyKey } from "../utils/sectionLabel";
 import { authorityCourseCode, authorityDepartmentKeys } from "../utils/authorityAcademicCodes";
 import { trackOf } from "../utils/collegeTrack";
-import { courseDemandFacts, demandSupply, supplyView, type SupplyCapacity } from "../utils/actualDemandSupply";
+import { demandSupply, type SupplyCapacity } from "../utils/actualDemandSupply";
+import { planCourseFacts, sectionPlan } from "../utils/sectionPlan";
+import type { TeachingRoom } from "./sectionPlanRoom";
 import { graduateClashes, graduateImpactOf } from "../utils/actualDemandGraduates";
+import { studentFitOf, type StudentFit } from "../utils/studentFit";
 import { capacityContextForSection } from "./core/capacityRules";
 import {
-  demandAlerts, demandDepartmentMatches, demandStudents, demandTermMatches, matchDemandCourses, parseDemandReport,
+  demandDepartmentMatches, demandStudents, demandTermMatches, matchDemandCourses, parseDemandReport,
   type DemandCatalogueCourse, type DemandLink, type DemandMatch, type DemandMember, type DemandReport, type DemandTextItem, type DemandVariant,
 } from "../utils/actualDemand";
 
@@ -140,33 +143,12 @@ export async function demandContext(req: AuthenticatedRequest, collegeId: number
   return { family, stored, links, catalogue, matches, rows: memberRows.flat(), capacity };
 }
 
-/** عدد الشعب (رموزٌ مختلفة) لكل مقرر في صفوف الجدول. */
-export function sectionsByCourse(rows: readonly any[]): Map<number, number> {
-  const seen = new Map<number, Set<string>>();
-  for (const row of rows) {
-    const id = Number(row.AdCourseId);
-    if (!id) continue;
-    if (!seen.has(id)) seen.set(id, new Set());
-    seen.get(id)!.add(`${Number(row.AdCollegeId)}|${String(row.SCode || "").trim()}`);
-  }
-  return new Map([...seen].map(([id, set]) => [id, set.size] as const));
-}
-
 /** رقم المقرر بسبع خانات واسمه من الكتالوج إن طوبق، وإلا كما طبعه التقرير. */
 function courseFace(context: DemandContext, code: string, fallbackName: string): { code: string; name: string } {
   const id = context.matches.get(code)?.courseIds[0];
   const course = id ? context.catalogue.find(row => Number(row.AdCourseId) === id) : undefined;
   const member = course ? context.family.members.find(item => item.sectionId === Number(course.AdSectionId)) : undefined;
   return course ? { code: authorityCourseCode(course.CourseCode, member?.departmentKey) || code, name: String(course.CourseName || fallbackName) } : { code, name: fallbackName };
-}
-
-/** أين تُفتح الشعبة: نسخة المقرر في كل عضوٍ من العائلة، بكليته ومساره. */
-function targetsOf(context: DemandContext, courseIds: readonly number[]) {
-  return courseIds.map(id => {
-    const course = context.catalogue.find(row => Number(row.AdCourseId) === Number(id));
-    const member = course ? context.family.members.find(item => item.sectionId === Number(course.AdSectionId)) : undefined;
-    return member ? { courseId: Number(id), collegeId: member.collegeId, sectionId: member.sectionId, track: member.track } : null;
-  }).filter(Boolean) as Array<{ courseId: number; collegeId: number; sectionId: number; track: string }>;
 }
 
 /** العرض مقابل الطلب للعائلة في الفصل: النسبة، والقائمة بالأشد، وحقائق كل مقرر. */
@@ -176,13 +158,24 @@ export function demandSupplyOf(context: DemandContext) {
   return demandSupply({ general, graduates, matches: context.matches, catalogue: context.catalogue as any, members: context.family.members, rows: context.rows, capacity: context.capacity });
 }
 
-export function demandReading(context: DemandContext) {
+/** تخطيط الشعب للعائلة في الفصل (src/utils/sectionPlan.ts): السطور بأرقام كتالوجنا وأسمائه. */
+export function sectionPlanOf(context: DemandContext, room?: TeachingRoom | null) {
+  const general = context.stored?.variants?.general?.report || null;
+  const graduates = context.stored?.variants?.graduates?.report || null;
+  const reading = sectionPlan({
+    general, graduates, matches: context.matches, catalogue: context.catalogue as any, members: context.family.members, rows: context.rows,
+    isTeacher: room ? id => !room.placeholders.has(Number(id)) : undefined, freeHours: room?.freeHours || 0,
+  });
+  /* «اختر ما يُغلق» يبحث في الجدول برمز المقرر كما خُزّن في كتالوجنا. */
+  const rawCode = (courseId?: number) => String(context.catalogue.find(course => Number(course.AdCourseId) === Number(courseId))?.CourseCode || "").trim();
+  return { ...reading, rows: reading.rows.map(row => ({ ...row, ...courseFace(context, row.code, row.name), report: row.code, courseCode: rawCode(row.target?.courseId) })) };
+}
+
+export function demandReading(context: DemandContext, room?: TeachingRoom | null) {
   const general = context.stored?.variants?.general?.report || null;
   const graduates = context.stored?.variants?.graduates?.report || null;
   const base = general || graduates;
-  const scheduled = sectionsByCourse(context.rows);
-  const alerts = demandAlerts({ general, graduates, matches: context.matches, scheduledSections: scheduled })
-    .map(alert => ({ ...alert, ...courseFace(context, alert.code, alert.name), targets: targetsOf(context, alert.courseIds) }));
+  const plan = base ? sectionPlanOf(context, room) : null;
   const seenCodes = new Set<string>();
   const unmatched = [general, graduates].flatMap(report => report?.courses || [])
     .filter(course => context.matches.get(course.code)?.status === "unmatched" && !seenCodes.has(course.code) && seenCodes.add(course.code))
@@ -193,28 +186,20 @@ export function demandReading(context: DemandContext) {
     return entry ? { uploadedAt: entry.uploadedAt, by: entry.uploadedBy, courses: entry.report.courses.length, students: demandStudents(entry.report), termLabel: entry.report.termLabel, department: entry.report.department } : null;
   };
   const members = context.family.members;
-  const supply = base ? demandSupplyOf(context) : null;
-  const view = supply ? supplyView(supply.items) : null;
   return {
-    /* «نسبة خدمة الطلب» وقائمة المقررات بالأشد (أقصر من عشرين بنداً تُعرض؛ والمتوازن لا يُعرض). */
-    service: supply ? { ...supply.service, byTrack: supply.byTrack } : null,
-    /* لكل AdCourseId في العائلة: ما تقرؤه شارةُ المراجعة وحكمُ «حذف مقرر». */
-    facts: supply ? courseDemandFacts(supply, context.matches) : {},
+    /* تخطيط الشعب: درجتا الخريجين وبقية الطلبة، والمجاميع، والمنتدبون. */
+    plan,
+    /* لكل AdCourseId في العائلة: ما تقرؤه شارةُ المراجعة ومحرّرُ الموعد ولوحةُ القرار. */
+    facts: plan ? planCourseFacts(plan, context.matches, context.catalogue as any, members) : {},
     /* م: مقرراتُ خريجي البرنامج الواحد لا تتعارض — ما تعارض منها في كل شعبه. */
     graduateClashes: graduateClashes({ graduates: context.stored?.variants?.graduates?.report || null, matches: context.matches, members: context.family.members, rows: context.rows })
       .slice(0, 12).map(clash => ({ ...clash,
         a: { ...courseFace(context, clash.a.code, clash.a.name), courseIds: context.matches.get(clash.a.code)?.courseIds || [] },
         b: { ...courseFace(context, clash.b.code, clash.b.name), courseIds: context.matches.get(clash.b.code)?.courseIds || [] } })),
-    /* أرقام تنبيه الجدول الدراسي من البنود كلها، لا من القائمة المقصوصة؛ وsupplyTotal عددُ بنود القائمة قبل القص. */
-    alertSummary: view ? view.summary : null,
-    supplyTotal: view ? view.total : 0,
-    supply: view ? view.list
-      .map(item => ({ ...item, ...courseFace(context, item.code, item.name), report: item.code, targets: targetsOf(context, context.matches.get(item.code)?.courseIds || []) })) : [],
     family: { key: context.family.key, name: context.family.name, members: members.map(({ collegeId, sectionId, collegeName, track }) => ({ collegeId, sectionId, collegeName, track })) },
     variants: { general: variant("general"), graduates: variant("graduates") },
     history: (context.stored?.history || []).slice(0, 10),
     matched: base ? base.courses.filter(course => ["matched", "linked"].includes(context.matches.get(course.code)?.status || "")).length : 0,
-    alerts,
     unmatched,
     /* ما يُربط به المقرر غير المطابَق: مقررات العائلة بأرقامها السبعة، بلا تكرار البنين والبنات. */
     catalogue: unmatched.length ? [...new Map(context.catalogue.map(course => {
@@ -250,17 +235,34 @@ export function demandPreview(report: DemandReport, context: DemandContext, term
  * خريجي البرنامج الواحد. null بلا تقرير خريجين أو بلا أثر. لا يرمي.
  */
 export async function graduateImpactFor(req: AuthenticatedRequest, row: any): Promise<{ graduates: number; pairs: string[] } | null> {
+  return (await appointmentDemandFor(req, row)).graduateImpact;
+}
+
+/**
+ * ما يقوله الطلب الفعلي عن موعدٍ قبل حفظه — بقراءةٍ واحدة للعائلة:
+ *  • graduateImpact: التعارضات الجديدة بين مقررات خريجي البرنامج الواحد (src/utils/actualDemandGraduates.ts)؛
+ *  • studentFit: «نبض الطلبة» — كم ممن يحتاجون المقرر يناسبهم هذا الوقت (src/utils/studentFit.ts).
+ * كلاهما ملاحظةٌ لا تمنع. لا يرمي.
+ */
+export async function appointmentDemandFor(req: AuthenticatedRequest, row: any): Promise<{ graduateImpact: { graduates: number; pairs: string[] } | null; studentFit: StudentFit | null }> {
+  const none = { graduateImpact: null, studentFit: null };
   try {
     const collegeId = Number(row?.AdCollegeId || 0), sectionId = Number(row?.AdSectionId || 0), termId = Number(row?.AdTermId || 0);
-    if (!collegeId || !sectionId || !termId || !Number(row?.AdCourseId)) return null;
+    if (!collegeId || !sectionId || !termId || !Number(row?.AdCourseId)) return none;
     const context = await demandContext(req, collegeId, sectionId, termId);
+    const general = context.stored?.variants?.general?.report || null;
     const graduates = context.stored?.variants?.graduates?.report || null;
-    if (!graduates) return null;
-    const impact = graduateImpactOf({ graduates, matches: context.matches, members: context.family.members, rows: context.rows,
-      candidate: { ...row, id: Number(row.excludeId || row.id || 0) || -1 }, replaces: Number(row.excludeId || row.id || 0) });
-    if (!impact) return null;
-    return { graduates: impact.graduates, pairs: impact.clashes.slice(0, 3).map(clash => `${courseFace(context, clash.a.code, clash.a.name).code} × ${courseFace(context, clash.b.code, clash.b.name).code}`) };
-  } catch { return null; }
+    if (!general && !graduates) return none;
+    const replaces = Number(row.excludeId || row.id || 0);
+    const candidate = { ...row, id: replaces || -1 };
+    const impact = graduates ? graduateImpactOf({ graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces }) : null;
+    const fit = studentFitOf({ general, graduates, matches: context.matches, members: context.family.members, rows: context.rows, candidate, replaces });
+    const face = (side: StudentFit["students"]) => side ? { ...side, clashes: side.clashes.map(clash => ({ ...clash, ...courseFace(context, clash.code, clash.name) })) } : null;
+    return {
+      graduateImpact: impact ? { graduates: impact.graduates, pairs: impact.clashes.slice(0, 3).map(clash => `${courseFace(context, clash.a.code, clash.a.name).code} × ${courseFace(context, clash.b.code, clash.b.name).code}`) } : null,
+      studentFit: fit ? { ...fit, students: face(fit.students), graduates: face(fit.graduates) } : null,
+    };
+  } catch { return none; }
 }
 
 export { parseDemandReport };

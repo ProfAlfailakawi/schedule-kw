@@ -12,8 +12,13 @@ import { createGunzip } from "zlib";
 import { activeDataMode, Repository } from "../../db/repository";
 import { type AuthenticatedRequest, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin, ROOT_ADMIN_USER_ID } from "../core/auth";
 import { safeSystemUser } from "../core/scope";
+import { IMPORT_PHRASE, RESET_PHRASE, UNDO_PHRASE } from "../../utils/vaultPhrases";
 
 const SYSTEM_BACKUP_MAX_BYTES = 80 * 1024 * 1024;
+
+/* عباراتُ التأكيد المكتوبة: الاستيرادُ والتراجعُ يستبدلان النظام كله كما يفعل التصفير، فتلزمهما
+   عبارةٌ تُكتب حرفياً مثله (src/utils/vaultPhrases.ts — الواجهة تقرأ المصدر نفسه). */
+const headerPhrase = (req: Request) => { try { return decodeURIComponent(String(req.get("x-schedule-phrase") || "")); } catch { return ""; } };
 
 /**
  * ── فكّ الضغط يُقاس أثناءه، لا بعده ──────────────────────────────────────────
@@ -159,8 +164,8 @@ app.post("/api/system-backup/preview", requireAuth, requireRootAdmin, async (req
  * exactly one durable checkpoint. Closing the browser does not lose progress.
  */
 app.post("/api/system-backup/import-jobs", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-IMPORT") {
-    res.status(409).json({ error: "الاستيراد الكامل يحتاج تأكيداً صريحاً" });
+  if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-IMPORT" || headerPhrase(req) !== IMPORT_PHRASE) {
+    res.status(409).json({ error: `اكتب «${IMPORT_PHRASE}» للتأكيد` });
     return;
   }
   const input = await readSystemBackupBody(req);
@@ -177,13 +182,24 @@ app.post("/api/system-backup/import-jobs/:id/step", requireAuth, requireRootAdmi
   res.status(job.status === "ready" ? 200 : 202).json(job);
 });
 
+/* إلغاءُ استيرادٍ لم يكتمل: إن كان قد بدأ الاستبدال أُعيد النظامُ من نقطة أمانه؛ ثم تنفتح الخزنة لملفٍّ جديد. */
+app.delete("/api/system-backup/import-jobs/:id", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-IMPORT-ABANDON") {
+    res.status(409).json({ error: "إلغاء الاستيراد يحتاج تأكيداً صريحاً" });
+    return;
+  }
+  const job = await Repository.abandonSystemImportJob(String(req.params.id), ROOT_ADMIN_USER_ID);
+  res.locals.auditChanges = job.rolledBack ? "إلغاء استيراد متوقف والعودة إلى نقطة الأمان" : "إلغاء استيراد قبل أي تغيير";
+  res.json(job);
+});
+
 app.post("/api/system-backup/import", requireAuth, requireRootAdmin, async (_req: AuthenticatedRequest, res: Response) => {
   res.status(409).json({ error: "تم استبدال الاستيراد المباشر باستيراد متدرج قابل للاستكمال. افتح «النسخة الاحتياطية» واضغط «استيراد» من جديد." });
 });
 
 app.post("/api/system-backup/reset", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-RESET" || String(req.body?.phrase || "") !== "تصفير النظام") {
-    res.status(409).json({ error: "اكتب «تصفير النظام» للتأكيد" });
+  if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-RESET" || String(req.body?.phrase || "") !== RESET_PHRASE) {
+    res.status(409).json({ error: `اكتب «${RESET_PHRASE}» للتأكيد` });
     return;
   }
   const restorePoint = await Repository.resetSystem(req.user!.SystemUserId, ROOT_ADMIN_USER_ID);
@@ -195,8 +211,8 @@ app.post("/api/system-backup/reset", requireAuth, requireRootAdmin, async (req: 
 });
 
 app.post("/api/system-backup/undo", requireAuth, requireRootAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-UNDO") {
-    res.status(409).json({ error: "التراجع الكامل يحتاج تأكيداً صريحاً" });
+  if (req.get("x-schedule-confirm") !== "FULL-SYSTEM-UNDO" || String(req.body?.phrase || "") !== UNDO_PHRASE) {
+    res.status(409).json({ error: `اكتب «${UNDO_PHRASE}» للتأكيد` });
     return;
   }
   const result = await Repository.undoLastSystemOperation(req.user!.SystemUserId, ROOT_ADMIN_USER_ID);
@@ -209,8 +225,11 @@ app.post("/api/system-backup/undo", requireAuth, requireRootAdmin, async (req: A
 });
 
 app.get("/api/audit-logs", requireAuth, requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  /* صفحةٌ بعد صفحة: `before` طابعُ آخر سطرٍ في الصفحة السابقة، و`from`/`to` نطاقُ تاريخ. */
   const limit = Number(req.query.limit || 250);
-  res.json(await Repository.getAuditLogs(limit));
+  const text = (value: unknown) => (typeof value === "string" ? value.slice(0, 40) : undefined);
+  res.setHeader("Cache-Control", "no-store");
+  res.json(await Repository.getAuditLogs(limit, { before: text(req.query.before), beforeId: text(req.query.beforeId), from: text(req.query.from), to: text(req.query.to) }));
 });
 
 app.get("/api/admin-user-options", requireAuth, requirePowerAdmin, async (_req: Request, res: Response) => {

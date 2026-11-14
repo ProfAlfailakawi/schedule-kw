@@ -73,7 +73,8 @@ const base = { normalize: (value: string) => value, nameOf: (id: number) => name
   for (const id of lensIds) {
     check(sheet.includes(`kind === "${id}"`), `لعدسة «${id}» ورقة طباعة`);
   }
-  const titlesBlock = reports.slice(reports.indexOf("const reportTitles"), reports.indexOf("};", reports.indexOf("const reportTitles")));
+  /* عناوين النافذة في جدولٍ واحد يقرؤه مسار الطباعة الواحد (invokePrint). */
+  const titlesBlock = reports.slice(reports.indexOf("const REPORT_TITLES"), reports.indexOf("};", reports.indexOf("const REPORT_TITLES")));
   for (const id of lensIds) check(new RegExp(`\\b"?${id}"?:`).test(titlesBlock), `لعدسة «${id}» عنوان نافذة (لا «undefined»)`);
 
   const start = reports.indexOf("const printInstructorScope = async");

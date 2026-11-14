@@ -42,7 +42,7 @@ export const SESSION_WRITE_PATHS = new Set([
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /** ما يكتبه المرشد من رصيده وحده (src/utils/advisorSeats.ts). */
-export const ADVISOR_SEAT_WRITES = new Set(["/advisor-seats/add", "/advisor-seats/exception"]);
+export const ADVISOR_SEAT_WRITES = new Set(["/advisor-seats/add", "/advisor-seats/undo", "/advisor-seats/exception"]);
 
 /**
  * الصفحات العامة (بطاقة عضو الهيئة، رابط الطلب، التقويم، استمارة الطالب)

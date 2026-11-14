@@ -222,7 +222,7 @@
 /* ── الهاتف: زرّ وارد استعارة القاعات فوق شريط الأدوات لا عليه ─────────────────
    الشريط (.schedule-dock) يجلس على 70px فوق شريط التنقل، وزرّ الوارد كان على 72px
    فيغطي «موعد». يرتفع الزرّ فوق الشريط ويصير أيقونةً وعنواناً قصيراً. */
-@media screen and (max-width:768px){
+@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .hall-barter-inbox{
     bottom:calc(70px + 64px + env(safe-area-inset-bottom));
     inset-inline-start:12px;max-width:calc(100vw - 24px);
@@ -232,7 +232,7 @@
   .hall-barter-inbox-mark{width:30px;height:30px}
 }
 
-@media (max-width:760px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .checks-head{grid-template-columns:44px minmax(0,1fr) auto}
   .checks-ring{width:44px;height:44px}
   .quick-create .qc-fields>.qc-field.qc-wide:first-child{grid-column:1/-1}

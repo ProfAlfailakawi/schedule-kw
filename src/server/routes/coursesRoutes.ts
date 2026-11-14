@@ -621,10 +621,10 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   /* تصحيح الوحدات والساعات والسعة مسموحٌ لمالك المقرر حتى في الصحيفة الانتقالية؛
      الذي يبقى مجمّداً هو الرمز والاسم، لحماية الروابط والسجل التدريسي التاريخي. */
   if (belongsToFrozenCurriculum&&identityChanged) {
-    res.status(409).json({error:"هذا المقرر جزء من صحيفة انتقالية أو مؤرشفة، لذلك جُمّدت هويته الأكاديمية. أنشئ المقرر بصيغته الجديدة."});return;
+    res.status(409).json({error:"هذا المقرر جزء من صحيفة انتقالية أو مؤرشفة، لذلك جُمّدت هويته الأكاديمية. أنشئ المقرر بصيغته الجديدة ثم اربطه من «المقررات ← الصحائف الأكاديمية».",code:"curriculum-linked",sectionId:Number(currentCourse.AdSectionId)});return;
   }
   if (identityChanged && await Repository.hasSchedulesForCourse(id)) {
-    res.status(409).json({error:"هذا المقرر له سجل تدريسي تاريخي؛ لا تغيّر رقمه أو اسمه فوق التاريخ. أنشئ المقرر الجديد."});return;
+    res.status(409).json({error:"هذا المقرر له سجل تدريسي تاريخي؛ لا تغيّر رقمه أو اسمه فوق التاريخ. أنشئ المقرر الجديد ثم اربطه من «المقررات ← الصحائف الأكاديمية».",code:"curriculum-linked",sectionId:Number(currentCourse.AdSectionId)});return;
   }
   const collegeId = collegeIdInput, sectionId = sectionIdInput;
   if ((Number(currentCourse.AdSectionId)!==sectionId||Number(currentCourse.AdCollegeId)!==collegeId)&&memberPlanIds.size) {
@@ -780,7 +780,7 @@ app.delete("/api/courses/:id", requirePermission(6), async (req: AuthenticatedRe
   if (course) {
     const memberships=await Repository.getCurriculumPlanCourses(course.AdSectionId);
     if(memberships.some(row=>Number(row.AdCourseId)===id)){
-      res.status(409).json({error:"لا يمكن حذف المقرر لأنه مرتبط بصحيفة أكاديمية. أخرجه من الصحيفة أو اتركه تاريخياً بدلاً من حذفه."});return;
+      res.status(409).json({error:"لا يمكن حذف المقرر لأنه مرتبط بصحيفة أكاديمية. أخرجه من الصحيفة («المقررات ← الصحائف الأكاديمية») أو اتركه تاريخياً بدلاً من حذفه.",code:"curriculum-linked",sectionId:Number(course.AdSectionId)});return;
     }
   }
   // Legacy SQL has FSchedule -> AdCourse FK. Do not silently orphan schedule rows in Firestore.

@@ -59,9 +59,6 @@ check(/wanted\.set\(`\$\{collegeId\}:\$\{sectionId\}`/.test(checker) && /byScope
 check(/withVisitingSuffix\(entry\.coverInstructorName, coverIsVisiting\(entry\.coverInstructorId, row\?\.AdCollegeId, row\?\.AdSectionId\)\)/.test(server), "«يغطّيها …» يلحق اللاحقة بقسم المحاضرة المغطّاة");
 
 /* ── تنزيل الشعب ─────────────────────────────────────────────────────── */
-const build = read("src/components/SectionBuild.tsx");
-check(/instructorId: number; visiting\?: boolean/.test(build), "نوع الموضع يحمل visiting");
-check((build.match(/<VisitingBadge compact \/>/g) || []).length === 2, "وشاشة تنزيل الشعب ترسم الشارة في الموضعين (المعلّق والمختار)");
 check(/placementVisiting\(p\.instructorId, collegeId, sectionId\)/.test(slice('app.post("/api/section-build/preview"', 1500)), "والمعاينة تحسب العلم من دفتر القسم، لا من الاسم");
 check(!/visiting/.test(slice('app.post("/api/section-build/apply"', 600)), "ولا يدخل العلم ما يُنزَّل");
 

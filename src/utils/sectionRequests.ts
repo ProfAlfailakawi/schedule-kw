@@ -86,6 +86,8 @@ export interface SectionRequest {
   closed?: "withdrawn" | "declined";
   closedNote?: string;
   approvedAt?: string;
+  /** طلبٌ بعددٍ بلا قائمة: كم سجّل التسجيلُ منه (لا أسماءَ يُعلَّم عليها واحداً واحداً). */
+  registeredCount?: number;
   createdAt: string;
   createdBy: { userId: number; name: string; role: string };
   updatedAt: string;
@@ -105,8 +107,13 @@ export interface SectionRequestCounts {
   registered: number;
 }
 
-export function countsOf(request: Pick<SectionRequest, "students">): SectionRequestCounts {
+export function countsOf(request: Pick<SectionRequest, "students"> & Partial<Pick<SectionRequest, "count" | "approvedAt" | "registeredCount">>): SectionRequestCounts {
   const students = request.students || [];
+  /* طلبٌ بعددٍ بلا قائمة اعتُمد: المعتمَدُ عددُه كلُّه، والمسجَّلُ ما كتبه التسجيل — فلا يقول الجرسُ «سجّل 0». */
+  if (!students.length && request.approvedAt) {
+    const approved = Math.max(0, Number(request.count) || 0);
+    return { listed: 0, approved, notApproved: 0, undecided: 0, registered: Math.min(approved, Math.max(0, Number(request.registeredCount) || 0)) };
+  }
   return {
     listed: students.length,
     approved: students.filter(row => row.approved === true).length,
@@ -264,6 +271,20 @@ export function approveStudents(request: SectionRequest, approvedIds: string[], 
   return { next: withEvent(request, { kind: "approved", at, by, detail }, { students, approvedAt: at }) };
 }
 
+/**
+ * طلبٌ بعددٍ بلا قائمة: التسجيلُ يكتب كم سجّل منه (0 … العدد). الكلُّ يُكمل الطلب («سُجّلوا»)، والصفرُ تصحيحٌ لخطأ.
+ */
+export function markRegisteredCount(request: SectionRequest, registeredCount: number, by: string, at: string): Transition {
+  const closed = closedRefusal(request); if (closed) return closed;
+  if (!request.approvedAt) return refuse(409, "لم يُعتمد الطلب بعد؛ التسجيلُ بعد الاعتماد.");
+  if ((request.students || []).length) return refuse(400, "في الطلب قائمةُ طلبة؛ يُعلَّم المسجَّلون منها بأسمائهم.");
+  const n = Math.trunc(Number(registeredCount));
+  if (!Number.isFinite(n) || n < 0 || n > Number(request.count || 0)) return refuse(400, `اكتب عدداً بين 0 و${Number(request.count || 0)}.`);
+  const before = Math.max(0, Number(request.registeredCount) || 0);
+  if (n === before) return refuse(409, "العددُ مكتوبٌ كما هو.");
+  return { next: withEvent(request, { kind: "registered", at, by, detail: `${n} من ${request.count}` }, { registeredCount: n }) };
+}
+
 export function markRegistered(request: SectionRequest, ids: string[], registered: boolean, by: string, at: string): Transition {
   const closed = closedRefusal(request); if (closed) return closed;
   if (!request.approvedAt) return refuse(409, "لم يُعتمد الطلب بعد؛ التسجيلُ بعد الاعتماد.");
@@ -279,18 +300,36 @@ export function markRegistered(request: SectionRequest, ids: string[], registere
   return { next: withEvent(request, { kind: "registered", at, by, detail: registered ? `+${changed.length}` : `−${changed.length}` }, { students }) };
 }
 
+/**
+ * هل يُغلق الطلبُ بعد اعتماده؟ نعم لطلبٍ بعددٍ بلا قائمة لم يُسجَّل منه أحد: لا أسماءَ اعتُمدت فتُنزع، والطلبُ
+ * وإلا عالقٌ إلى الأبد («تم الاعتماد» بلا من يُسجَّل). ولا لطلبٍ بقائمة: اعتمادُ أسماءٍ بعينها لا يُسحب.
+ */
+export function closableAfterApproval(request: SectionRequest): boolean {
+  return !(request.students || []).length && !(Number(request.registeredCount) > 0);
+}
+
 export function withdrawRequest(request: SectionRequest, by: string, at: string): Transition {
   const closed = closedRefusal(request); if (closed) return closed;
-  if (request.approvedAt) return refuse(409, "اعتُمد الطلب؛ لا يُسحب بعد الاعتماد.");
+  if (request.approvedAt && !closableAfterApproval(request)) return refuse(409, "اعتُمد الطلب؛ لا يُسحب بعد الاعتماد.");
   return { next: withEvent(request, { kind: "withdrawn", at, by }, { closed: "withdrawn" }) };
 }
 
 export function declineRequest(request: SectionRequest, note: string, by: string, at: string): Transition {
   const closed = closedRefusal(request); if (closed) return closed;
-  if (request.approvedAt) return refuse(409, "اعتُمد الطلب؛ لا اعتذارَ بعد الاعتماد.");
+  if (request.approvedAt && !closableAfterApproval(request)) return refuse(409, "اعتُمد الطلب؛ لا اعتذارَ بعد الاعتماد.");
   const text = String(note || "").replace(/\s+/g, " ").trim().slice(0, SECTION_REQUEST_NOTE_MAX);
   if (!text) return refuse(400, "اكتب سطراً بسبب الاعتذار؛ يصل الإرشاد.");
   return { next: withEvent(request, { kind: "declined", at, by, detail: text }, { closed: "declined", closedNote: text }) };
+}
+
+/**
+ * طلبٌ مكرّر: طلبٌ مفتوحٌ (لم يُغلق ولم يُعتمد) من قسم الإرشاد نفسه للمقرر نفسه في الحرم والفصل نفسيهما.
+ * طلبان كهذين يشقّان العملَ على اللجنة ويضاعفان العدد في الجرس؛ فالثاني يُردّ ويُدلّ على الأول.
+ */
+export function openDuplicateOf(existing: ReadonlyArray<SectionRequest>, draft: Pick<SectionRequest, "termId" | "collegeId" | "fromSectionId" | "courseId">): SectionRequest | null {
+  return existing.find(row => !row.closed && !row.approvedAt
+    && Number(row.termId) === Number(draft.termId) && Number(row.collegeId) === Number(draft.collegeId)
+    && Number(row.fromSectionId) === Number(draft.fromSectionId) && Number(row.courseId) === Number(draft.courseId)) || null;
 }
 
 /* ── «الصق القائمة» ─────────────────────────────────────────────────────── */
@@ -332,20 +371,33 @@ export function parsePastedStudents(text: string): Array<{ name: string; civil: 
 export function planCapacities(
   sections: SectionRequestLink[], count: number, current: Record<string, number>, keyOf: (sectionCode: string) => string,
   removed: SectionRequestLink[] = [], max = 200,
+  /**
+   * طلباتٌ مفتوحةٌ أخرى مربوطةٌ بالشعبة نفسها: مجموعُ أنصبتها، وما كتبته كلٌّ منها آخرَ مرة. السعةُ التي كتبتها
+   * الطلباتُ مجموعُ أنصبتها كلها — طلبان من خمسين على شعبةٍ واحدة يكتبان مئة لا خمسين — وما كتبه أيٌّ منها
+   * يُعرف بأنه للطلبات لا للمسؤول.
+   */
+  others: Record<string, { shares: number; applied: number[] }> = {},
 ): { sections: SectionRequestLink[]; writes: Record<string, number | null> } {
   const writes: Record<string, number | null> = {};
+  const byRequests = (key: string, value: number, mine?: number) =>
+    !value || (mine !== undefined && value === mine) || (others[key]?.applied || []).includes(value);
   for (const gone of removed) {
     const key = keyOf(gone.sectionCode);
-    if (gone.appliedCapacity !== undefined && Number(current[key]) === gone.appliedCapacity) writes[key] = null;
+    if (gone.appliedCapacity === undefined) continue;
+    const existing = Number(current[key]) || 0;
+    if (existing && byRequests(key, existing, gone.appliedCapacity)) {
+      /* ما بقي من الطلبات الأخرى على الشعبة يبقى مكتوباً؛ وإلا تُمحى. */
+      const rest = Math.min(Number(others[key]?.shares) || 0, max);
+      writes[key] = rest > 0 ? rest : null;
+    }
   }
   const share = capacityShare(count, sections.length);
   const next = sections.map(section => {
     const key = keyOf(section.sectionCode);
     const existing = Number(current[key]) || 0;
-    const ours = section.appliedCapacity !== undefined && existing === section.appliedCapacity;
-    if (!existing || ours) {
+    if (byRequests(key, existing, section.appliedCapacity)) {
       /* الرصيدُ يقبل حتى ٢٠٠ للشعبة (normalizeQuotaConfig)؛ ما يُكتب هو ما يُقرأ غداً. */
-      const written = Math.min(share, max);
+      const written = Math.min(share + (Number(others[key]?.shares) || 0), max);
       writes[key] = written;
       return { ...section, capacity: share, appliedCapacity: written };
     }

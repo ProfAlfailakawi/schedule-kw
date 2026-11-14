@@ -26,16 +26,9 @@ def load_seed():
 data=load_seed()
 B=data['buildings'];R=data['rooms'];C=data['reviewCases']; summary=data['summary']
 passed=[]
-# «LocationRegistryAdmin» حُذف (المالك 2026-11-14: شاشةٌ لا يستوردها شيء، و«المباني والقاعات» صارت LocationQuickSetup).
-# ما كان يفحص نصَّ تلك الشاشة وحدها يُسجَّل «شاشة متقاعدة» ولا يُحكم به.
-RETIRED_ADMIN=not (ROOT/'src/components/LocationRegistryAdmin.tsx').exists() if 'ROOT' in globals() else True
-RETIRED_IDS={'13b1','13b5','13c','41','43','46','47','48','50','51','53','212','214','215'}
 def ok(name,cond):
-    if RETIRED_ADMIN and str(name).split(' ')[0] in RETIRED_IDS:
-        passed.append(f"{name} — شاشة متقاعدة"); return
     if not cond: raise AssertionError(name)
     passed.append(name)
-def _retired_text(path): return path.read_text() if path.exists() else ''
 def norm(v): return re.sub(r'\s+','',str(v or '')).upper()
 def aliases(x): return {norm(x.get('officialCode') or x.get('canonicalCode'))}|{norm(a['value']) for a in x.get('aliases',[])}
 def resolve_build(raw,college=None,section=None):
@@ -67,21 +60,23 @@ ok('13 admin backend protected', 'app.post("/api/admin/location-registry/rooms",
 room_create=server[server.index('app.post("/api/admin/location-registry/rooms"'):server.index('app.put("/api/admin/location-registry/rooms/:id"')]
 room_update=server[server.index('app.put("/api/admin/location-registry/rooms/:id"'):server.index('app.put("/api/admin/location-registry/review/:id"')]
 quick_create=server[server.index('app.post("/api/admin/location-setup/rooms"'):server.index('app.delete("/api/admin/location-setup/rooms/:id"')]
-room_admin=_retired_text(ROOT/'src/components/LocationRegistryAdmin.tsx')
+# شاشةُ «سجل المواقع» الكاملة (LocationRegistryAdmin.tsx) حُذفت: لم يكن يستوردها شيء منذ صارت
+# «إضافة مبانٍ وقاعات» الشاشةَ الوحيدة. فما كان يُفحص فيها يُفحص الآن في LocationQuickSetup أو في الخادم،
+# وما كان خاصاً بها وحدها (أدلّتها وتبويباتها وفلاترها) سقط معها.
 quick_setup=(ROOT/'src/components/LocationQuickSetup.tsx').read_text()
 ok('13a room capacity optional and validated on create', 'capacityRaw=req.body?.capacity' in room_create and 'capacity>5000' in room_create and '...(capacity===undefined?{}:{capacity})' in room_create)
 ok('13b room capacity editable and clearable', 'capacityRaw=req.body?.capacity' in room_update and 'capacity:roomCapacity??null' in room_update)
-ok('13b1 room type optional, validated, editable, and admin-manageable', 'roomType=String(req.body?.roomType||"")' in room_create and 'roomType:roomType' in room_update and 'roomType?: string' in (ROOT/'src/types.ts').read_text() and 'نوع القاعة، اختياري' in room_admin)
+ok('13b1 room type optional, validated, editable, and admin-manageable', 'roomType=String(req.body?.roomType||"")' in room_create and 'roomType:roomType' in room_update and 'roomType?: string' in (ROOT/'src/types.ts').read_text() and 'نوع القاعة (اختياري)' in quick_setup)
 ok('13b2 course room type options are scoped and persist with the course', 'app.get("/api/location-room-types", requireAnyPermission([6, 7])' in server and 'CourseRoomType' in server and 'CourseRoomType?: string' in (ROOT/'src/types.ts').read_text())
 ok('13b3 only the root admin manages the shared room type catalogue', 'app.get("/api/admin/location-room-types",requirePermission(7),requireRootAdmin' in server and 'app.post("/api/admin/location-room-types",requirePermission(7),requireRootAdmin' in server)
 ok('13b4 renaming a room type updates rooms and courses and is persisted centrally', 'app.put("/api/admin/location-room-types/:type",requirePermission(7),requireRootAdmin' in server and 'Repository.renameCourseRoomType(oldName,newName)' in server and 'Repository.setLocationRoomTypes([...types])' in server)
 room_types=(ROOT/'src/components/LocationRoomTypeManager.tsx').read_text()
 ok('13b4a only unused room types can be deleted by root admin', 'app.delete("/api/admin/location-room-types/:type",requirePermission(7),requireRootAdmin' in server and 'if(linkedRooms||linkedCourses)' in server and 'if(types.size<=1)' in server and 'method: "DELETE"' in room_types and 'location-type-delete' in room_types)
-ok('13b5 room types are managed in quick setup and feed room/course forms', 'إضافة نوع' in room_types and 'تغيير الاسم' in room_types and 'LocationRoomTypeManager' in quick_setup and 'نوع القاعة المناسب' in (ROOT/'src/components/Courses.tsx').read_text() and 'location-type-manager' not in room_admin)
+ok('13b5 room types are managed in quick setup and feed room/course forms', 'إضافة نوع' in room_types and 'تغيير الاسم' in room_types and 'LocationRoomTypeManager' in quick_setup and 'نوع القاعة المناسب' in (ROOT/'src/components/Courses.tsx').read_text())
 ok('13b6 course room type badge appears only when a type is assigned', 'course-room-type-badge' in (ROOT/'src/components/CourseRoomTypeBadge.tsx').read_text() and 'if (!value) return null' in (ROOT/'src/components/CourseRoomTypeBadge.tsx').read_text() and 'CourseRoomTypeBadge type={x.CourseRoomType}' in (ROOT/'src/components/Courses.tsx').read_text())
 ok('13b8 room type badge is shown beside tagged courses in timetable and schedule queries', 'CourseRoomTypeBadge type={roomType} compact' in (ROOT/'src/components/Schedules.tsx').read_text() and 'CourseRoomTypeBadge type={course?.CourseRoomType} compact' in (ROOT/'src/components/Reports.tsx').read_text() and 'CourseRoomTypeBadge type={pickedCourse?.CourseRoomType} compact' in (ROOT/'src/components/Reports.tsx').read_text())
 ok('13b7 demo includes a course with a room type for the badge showcase', 'demoFitCourse.CourseRoomType="مختبر حاسوب"' in (ROOT/'src/db/demoSandbox.ts').read_text())
-ok('13c capacity available in room create and edit forms', 'السعة (اختياري)' in room_admin and 'السعة الداخلية (اختياري)' in room_admin)
+ok('13c capacity available in room create and edit forms', 'عدد الطلبة في كل قاعة (اختياري)' in quick_setup and 'السعة الداخلية (اختياري)' in quick_setup)
 ok('13d quick setup applies optional capacity to batch-created rooms', 'عدد الطلبة في كل قاعة (اختياري)' in quick_setup and 'capacity: roomCapacity === "" ? undefined : Number(roomCapacity)' in quick_setup and 'capacityRaw=req.body?.capacity' in quick_create and '...(capacity===undefined?{}:{capacity})' in quick_create)
 ok('13e quick setup can edit capacity per room', 'capacity: room.capacity == null ? "" : String(room.capacity)' in quick_setup and 'capacity: roomDraft.capacity === "" ? null : Number(roomDraft.capacity)' in quick_setup)
 review_layout=(ROOT/'src/styles/05-schedule.css').read_text()
@@ -126,27 +121,23 @@ ok('37 room report filters use canonical ids', 'String(row.roomId) === matrixHal
 ok('38 smart room proposals carry canonical ids', '{ ...row, ...change, locationStatus: change.locationStatus || "VERIFIED" }' in intel)
 ok('39 operational buildings require an actually usable room', 'eligibleBuildingIds' in server and '!sectionId||eligibleBuildingIds.has(building.id)' in server and 'stale\n  // building.sectionIds relationship' in server)
 ok('40 import blocker guides user to preview (server), and the analytics centre has no second import screen', 'أكمل الحقول المطلوبة والملاحظات في جدول المعاينة أولاً.' in server and 'importErrorModal' not in intel and 'tab === "import"' not in intel)
-admin=_retired_text(ROOT/'src/components/LocationRegistryAdmin.tsx')
-ok('41 shared room is derived, never manually checked', 'shared=sectionIds.length>1' in server and 'checked={Boolean(editEntity.shared)}' not in admin and 'checked={newRoom.shared}' not in admin and 'تُصنّف تلقائيًا كمشتركة' in admin)
+ok('41 shared room is derived, never manually checked', 'shared=sectionIds.length>1' in server and 'لتصبح القاعات مشتركة تلقائيًا' in quick_setup and '.shared}' not in quick_setup)
 registry_src=(ROOT/'src/utils/locationRegistry.ts').read_text(encoding='utf-8')
 ok('42 suggestions obey the same department room scope', 'room.shared||room.sectionIds.length===0||room.sectionIds.includes(sectionId)' not in server and 'eligibleHallsForSection(registry,sectionId,borrowedRoomIds,pinnedRoomIds)' in server and 'pinnedRoomIds.has(room.id)' in registry_src and 'borrowedRoomIds.has(room.id)' in registry_src and '(room.sectionIds || []).includes(sectionId)' in registry_src)
-ok('43 admin workspace collapses secondary controls', '<details className="location-admin-guide">' in admin and 'showBuildingCreate' in admin and 'showRoomCreate' in admin)
+ok('43 room setup collapses secondary controls behind explicit add buttons', 'const [addBuilding, setAddBuilding] = useState(false)' in quick_setup and 'const [addRooms, setAddRooms] = useState(false)' in quick_setup)
 
 
 ok('44 basic education female site label is explicit', 'siteLabel: "التربية الأساسية - بنات"' in prefix_src)
 ok('45 registry ordering is natural everywhere', 'compareLocationCodes' in loc and 'merged.buildings.sort' in server and 'merged.rooms.sort' in server)
-ok('46 admin department filter requires an actual department room', 'hasDepartmentRoom' in admin and 'room.sectionIds.includes(sectionFilter)' in admin)
-ok('47 admin refresh is automatic and duplicate buttons removed', 'visibilitychange' in admin and '<RefreshCw' not in admin and 'setWorkspaceTab("migration");void previewMigration()' not in admin)
-ok('48 empty review and pending tabs removed', 'workspaceTab==="review"' not in admin and 'workspaceTab==="pending"' not in admin)
+ok('46 room setup department filter keeps rooms linked to that department', 'room.sectionIds.includes(sectionId)' in quick_setup)
+ok('47-48 the retired full registry screen is gone, so its tabs and refresh buttons cannot return', not (ROOT/'src/components/LocationRegistryAdmin.tsx').exists())
 ok('49 historical migration uses smart safe recovery without promoting PROBABLE to VERIFIED', 'RECOVERED_FROM_UNIQUE_ROOM_FINGERPRINT' in engine and 'HISTORICAL_STRONG_PROBABLE_REVIEW' in engine and 'resolveStrongHistoricalProbableRoom' in engine and 'HISTORICAL_STRONG_PROBABLE_ROOM' not in engine)
-ok('50 invalid historical garbage is classified explicitly', 'CANCELLED' in loc and 'Pure punctuation/garbage' in loc and 'Placeholder تاريخي' in admin)
+ok('50 invalid historical garbage is classified explicitly', 'CANCELLED' in loc and 'Pure punctuation/garbage' in loc)
 
 
-admin=_retired_text(ROOT/'src/components/LocationRegistryAdmin.tsx')
 picker=(ROOT/'src/components/LocationPicker.tsx').read_text()
 quick_create=(ROOT/'src/components/QuickCreatePopover.tsx').read_text()
 schedules=(ROOT/'src/components/Schedules.tsx').read_text()
-ok('51 redundant site filter removed from registry UI', 'aria-label="الموقع"' not in admin and 'كل المواقع' not in admin and 'siteFilter' not in admin)
 ok('52 department room picker merges then sorts all department rooms', 'departmentRooms=useMemo' in picker and 'compareLocationCodes(a.canonicalCode,b.canonicalCode)' in picker)
 repository_src=(ROOT/'src/db/repository.ts').read_text()
 ok('52a department history read contract is restored without reopening ordinary room writes', 'Repository.getDepartmentRooms(collegeId,sectionId)' in server and 'app.post("/api/department-rooms"' in server and 'إضافة القاعات محصورة بمدير النظام' in server)
@@ -154,7 +145,7 @@ ok('52b historical department suggestions remain hidden across schedule create/e
 ok('52c only confirmed registry identities bridge historical room strings into add/edit', 'confirmedDepartmentRoomIds' in server and 'departmentHistoryRoomIds.has(room.id)' in server and 'fromDepartmentHistory' in server)
 ok('52d pinned directory rooms are selectable and save with the same scope rule', 'getPinnedDepartmentRooms' in repository_src and 'pinnedForDepartment' in server and 'allowOutOfScopeRoom:directoryApprovedRoom' in server and 'قاعات القسم من السجل التاريخي' in picker)
 ok('52e historical use owned elsewhere stays visible but cannot bypass barter', 'historyNeedsBorrowing' in server and 'استخدام تاريخي يحتاج استعارة' in picker and 'disabled>{r.canonicalCode} · تحتاج استعارة معتمدة' in picker)
-ok('53 section selectors are Arabic-natural sorted', 'sortByName(data.sections.filter' in admin and 'sortByName(availableSections' in (ROOT/'src/components/IntelligenceContextBar.tsx').read_text())
+ok('53 section selectors are Arabic-natural sorted', 'sortByName(data.sections.filter' in quick_setup and 'sortByName(availableSections' in (ROOT/'src/components/IntelligenceContextBar.tsx').read_text())
 
 ok('54 import publish lives in the transfer screen alone (no ungated second publish in the analytics centre)', 'approveAndPublishPdf' not in intel and 'importPreview' not in intel)
 ok('55 empty query hides all print/report actions, including Authority change report', 'authorityReportAvailable && all.length > 0' in reports and '{results.length ? <>' in reports and 'تقرير تغييرات الجدول' in reports)
@@ -163,7 +154,8 @@ ok('57 late alert shows thin course name under course code', 'subtitle: courseNa
 ok('58 demand arithmetic values are centered under labels', 'justify-items:center' in (ROOT/'src/styles/06-intelligence.css').read_text())
 courses_src=(ROOT/'src/components/Courses.tsx').read_text()
 ok('59 courses type import restored for CI', 'import type { AdSection } from "../types";' in courses_src)
-ok('60 course inspector shows public code not internal id', '<b>{selected.CourseCode || "—"}</b>' in courses_src)
+# الرقمُ المعروض رقمُ الهيئة بسبع خانات (authorityCourseCode)، لا CourseCode المخزَّن ولا المعرّف الداخلي.
+ok('60 course inspector shows public code not internal id', '<b dir="ltr">{courseNumberOf(selected)}</b>' in courses_src and 'authorityCourseCode(course?.CourseCode' in courses_src)
 transfer=(ROOT/'src/components/ScheduleTransfer.tsx').read_text()
 # النشر يبقى مخفياً ومعطّلاً كما كان، ويضيف الآن شرطاً ثالثاً: أن يكون فحص
 # التعارض مع بقية أقسام الفصل قد أجاب عن هذه الصفوف بالذات. الوعد ثم الرفض بعد
@@ -408,7 +400,7 @@ ok('151 graduate civil OCR recovers spaced one-line groups then checksum-filters
 ok('152 golden state records no print button on an empty live timetable while preserving immutable baseline', 'يخفي زر/أيقونة «تقرير تغييرات الجدول» عندما يكون النطاق الحي صفر مواعيد' in golden_state)
 ok('153 graduate proof reads the dedicated civil line before the brighter timestamp band', 'graduationCivilBand' in doc_ocr and 'for(const band of [civilBand,identity])' in doc_ocr and 'timestamp one' in doc_ocr)
 ok('154 graduate civil crop isolates the civil line and tries single-line OCR before block/sparse fallback', 'image.height*.425' in doc_ocr and 'image.width*.25' in doc_ocr and 'image.height*.05' in doc_ocr and 'for(const psm of [7,6,11])' in doc_ocr)
-ok('155 Chrome on iOS receives WebKit rotate geometry through its own branch without changing Safari detection', 'IOS_CHROME_PRINT_ENGINE' in reports_src and '/CriOS/i.test' in reports_src and reports_src.count('SAFARI_PRINT_ENGINE || IOS_CHROME_PRINT_ENGINE') >= 2)
+ok('155 Chrome on iOS receives WebKit rotate geometry through its own branch without changing Safari detection', 'IOS_CHROME_PRINT_ENGINE' in reports_src and '/CriOS/i.test' in reports_src and reports_src.count('SAFARI_PRINT_ENGINE || IOS_CHROME_PRINT_ENGINE') >= 1 and 'const invokePrint = ' in reports_src)
 ok('156 multi-page scan rescues a damaged course key only from the same cell and finite selected-department catalogue', 'recoverAuthorityCourseCell' in doc_ocr and 'MULTI-PAGE COURSE-KEY GOLDEN RESCUE' in doc_ocr and 'readCell(surface,band,bands[row],KEY_DIGITS,worker,"7",3.2)' in doc_ocr and 'canonical.length===1' in doc_ocr)
 ok('157 one-page photographed PDF gets the bounded catalogue-exact course rescue, still fail-closed on ambiguity', 'const multiPageCourseKeys=optionKeys' in doc_ocr and 'OWNER MANDATE 2026-08-27' in doc_ocr and 'authorityCourseKeys.length&&(codeSpan||codeIndex>=0)' in doc_ocr and 'canonical.length===1' in doc_ocr)
 ok('158 Authority PDF endpoint constrains multi-page course repair to canonical course keys from the selected department', 'const authorityCourseKeys=courses.map' in server and 'ocrDepartmentKey' in server and '{authorityCourseKeys}' in server)
@@ -637,7 +629,6 @@ ok('210 non-basic colleges rebase shared academic department/course keys to the 
    and '`${college}${section.slice(-2)}`' in auth
    and '`${ocrDepartmentKey}${digits.slice(-3)}`' in server)
 
-location_admin=_retired_text(ROOT/'src/components/LocationRegistryAdmin.tsx')
 index_css=(ROOT/'src/index.css').read_text()
 
 ok('211 only the root administrator may create a building and the server accepts a full official code only inside the selected college prefix',
@@ -646,18 +637,12 @@ ok('211 only the root administrator may create a building and the server accepts
    and 'parseOfficialBuildingCode(manualCode||legacyCode||"",sitePrefix)' in server
    and 'كود المبنى غير صالح أو لا يتبع الموقع الرسمي' in server)
 
-ok('212 the root location UI accepts a complete official building code such as 022T01 and validates it with the same parser before submit',
-   'كود المبنى الكامل، مثال 022T01' in location_admin
-   and 'parseOfficialBuildingCode(newBuilding.officialCode,selectedNewBuildingPrefix)' in location_admin
-   and 'officialCode:e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,7)' in location_admin
-   and 'buildingNumber:parsedNewBuildingCode?.buildingNumber' in location_admin)
-
 quick_setup=(ROOT/'src/components/LocationQuickSetup.tsx').read_text()
 repository=(ROOT/'src/db/repository.ts').read_text()
 admin_users=(ROOT/'src/components/AdminUsers.tsx').read_text()
 app_source=(ROOT/'src/App.tsx').read_text()
 ok('212a the lightweight add-buildings-and-rooms icon lives inside System Administration and is root-admin-only',
-   'rootAdmin ? { value: "roomSetup", label: "إضافة مبانٍ وقاعات"' in admin_users
+   'rootAdmin && permissions.includes(7) ? { value: "roomSetup", label: "إضافة مبانٍ وقاعات"' in admin_users
    and 'case "roomSetup":' in app_source
    and 'user.IsRootAdmin && allowed.admin' in app_source
    and 'mode === "roomSetup"' in admin_users)
@@ -683,15 +668,12 @@ ok('213 the location registry phone layout overrides the late desktop important 
 
 
 
-ok('214 an official building code/prefix outranks stale metadata and room usage when filtering by college, so a boys building cannot leak into the girls list',
-   'building.officialCode?.slice(0,4)||building.sitePrefix' in location_admin
-   and 'if(officialIds.length)return [...new Set(officialIds)]' in location_admin
-   and 'Historical room links may contain stale cross-college associations' in location_admin)
+ok('214 an official building code/prefix outranks stale metadata when resolving a building college, so a boys building cannot leak into the girls list',
+   'String(building.officialCode||"").slice(0,4).toUpperCase()' in server
+   and 'return official.length?[...new Set(official)]:locationIdList(building.collegeIds)' in server)
 
-ok('215 a room created while a department filter is active inherits that college/department immediately, so it remains visible after reload',
-   'const inheritedSections=sectionFilter?[sectionFilter]:[]' in location_admin
-   and 'primarySectionIds:inheritedSections' in location_admin
-   and 'تمت إضافة القاعة وربطها بالنطاق الحالي' in location_admin)
+ok('215 rooms created while a department filter is active start linked to that department',
+   'setRoomSectionIds(sectionId ? [sectionId] : [])' in quick_setup)
 
 ok('216 the desktop building-create form is bounded by the buildings panel instead of spilling its code/button into the detail pane',
    'سجل المواقع على سطح المكتب: نموذج المبنى يعيش داخل عمود المباني نفسه' in index_css

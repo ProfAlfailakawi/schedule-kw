@@ -105,7 +105,7 @@
 .adl-trust-status>div{display:grid;gap:3px}
 .adl-trust-status strong{font-size:12px;color:var(--adl-ink)}
 .adl-trust-status small{font-size:10px;color:var(--adl-muted);line-height:1.5}
-@media(max-width:650px){.adl-features{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.adl-feature{min-height:60px;padding:8px 7px;gap:7px}.adl-feature strong{font-size:10.5px}.adl-feature small{font-size:9px}.adl-balance-grid{grid-template-columns:1fr}.adl-balance-grid .adl-impact{min-height:0}}
+@media (max-width:650px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.adl-features{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.adl-feature{min-height:60px;padding:8px 7px;gap:7px}.adl-feature strong{font-size:10.5px}.adl-feature small{font-size:9px}.adl-balance-grid{grid-template-columns:1fr}.adl-balance-grid .adl-impact{min-height:0}}
 @media(prefers-reduced-motion:reduce){.adl-feature{transition:none}}
 
 /* Live evidence is always visible above the isolated, explicitly fictional lesson. */

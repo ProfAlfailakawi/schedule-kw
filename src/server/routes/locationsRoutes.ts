@@ -11,6 +11,7 @@ import type { Express } from "express";
 import { Response } from "express";
 import { Repository } from "../../db/repository";
 import { timeToMinutes } from "../../utils/scheduleIntelligence";
+import { AR, countOf } from "../../utils/arabicCount";
 import { currentTermId } from "../../utils/termSequence";
 import type { FSchedule, MasterBuilding, MasterRoom, LocationReviewCase } from "../../types";
 import { withHistoricalAlias } from "../../utils/locationAliasHistory";
@@ -33,6 +34,30 @@ const officialBuildingCollegeIds=(building:MasterBuilding,colleges:readonly any[
   const official=prefix?colleges.filter((college:any)=>officialCollegeSitePrefix(college.AdCollegeName)===prefix).map((college:any)=>Number(college.AdCollegeId)).filter(Boolean):[];
   return official.length?[...new Set(official)]:locationIdList(building.collegeIds);
 };
+
+/**
+ * ── كم موعداً يقف في هذه القاعة/المبنى الآن وفيما بعد؟ ───────────────────────
+ * «الحذف» إيقاف (FR-LOC-007)، لكنّ المواعيد القائمة تبقى تشير إلى القاعة. فيُعدّ قبل الإيقاف ما في
+ * الفصل الحالي وما بعده — بالمعرّف أو بالرمز القديم في المبنى نفسه — ليُرى ويُؤكَّد، لا ليُكتشف لاحقاً.
+ */
+async function locationUsage(rooms:MasterRoom[]):Promise<{current:number;future:number}>{
+  if(!rooms.length)return{current:0,future:0};
+  const terms=await Repository.getTerms();
+  const activeId=currentTermId(terms as any)||Number(sortTermsNewestServer(terms)[0]?.AdTermId||0);
+  const activeTerm=terms.find(term=>Number(term.AdTermId)===activeId);
+  const activeChronology=activeTerm?termChronologyServer(activeTerm):Number.NEGATIVE_INFINITY;
+  const laterIds=new Set(terms.filter(term=>Number(term.AdTermId)!==activeId&&termChronologyServer(term)>activeChronology).map(term=>Number(term.AdTermId)));
+  const ids=new Set(rooms.map(room=>room.id));
+  const legacy=new Set(rooms.map(room=>`${room.buildingId}|${room.canonicalCode}`));
+  const uses=(row:FSchedule)=>(row.roomId&&ids.has(String(row.roomId)))||(!row.roomId&&legacy.has(`${String(row.buildingId||"")}|${String(row.AdRoomHall||"").normalize("NFKC").trim().toUpperCase().replace(/\s+/g,"")}`));
+  let current=0,future=0;
+  for(const row of await Repository.getSchedules()){
+    if(!uses(row))continue;
+    if(Number(row.AdTermId)===activeId)current+=1;else if(laterIds.has(Number(row.AdTermId)))future+=1;
+  }
+  return{current,future};
+}
+export const LOCATION_IN_USE_CONFIRM="location-in-use";
 
 export function registerLocationsRoutes(app: Express): void {
 
@@ -241,7 +266,10 @@ app.post("/api/admin/location-setup/buildings", requirePermission(7), requireRoo
   const parsed=officialCode?parseOfficialBuildingCode(officialCode,prefix):null;
   if(!parsed){res.status(400).json({error:`رقم المبنى غير صالح. مثال: ${prefix}01`});return;}
   const registry=await readLocationRegistry();
-  if(registry.buildings.some(item=>item.officialCode===parsed.officialCode)){res.status(409).json({error:"هذا المبنى موجود بالفعل."});return;}
+  const sameBuilding=registry.buildings.find(item=>item.officialCode===parsed.officialCode);
+  /* مبنى «حُذف» قبلاً موقوفٌ لا ممحوّ: يُعرض «إعادة تفعيل» بدل رفضٍ لا يُفهم. */
+  if(sameBuilding&&!sameBuilding.active){res.status(409).json({error:`المبنى ${parsed.officialCode} موجودٌ موقوفاً. أعد تفعيله بدل إضافته من جديد.`,code:"inactive-exists",id:sameBuilding.id});return;}
+  if(sameBuilding){res.status(409).json({error:"هذا المبنى موجود بالفعل."});return;}
   const now=new Date().toISOString();
   const row:MasterBuilding={id:`building_${parsed.officialCode}`,officialCode:parsed.officialCode,sitePrefix:prefix,prefix:/^[0-9]{3}[A-Z]$/.test(prefix)?prefix.slice(0,3):prefix,siteLetter:/[A-Z]$/.test(prefix)?prefix.slice(-1):"",buildingNumber:parsed.buildingNumber,siteName:college.AdCollegeName,branchName:college.AdCollegeName,description:"",active:true,aliases:[],collegeIds:[collegeId],sectionIds:sectionId?[sectionId]:[],historicalUsageCount:0,roomCount:0,confidence:"CONFIRMED",source:"ADMIN",adminVerified:true,evidence:[`إضافة من واجهة المدير الرئيسي. Prefix الموقع ${prefix} + رقم المبنى ${parsed.buildingNumber}.`],auditHistory:[{at:now,byUserId:req.user.SystemUserId,action:"CREATE"}],createdAt:now,updatedAt:now,lastVerifiedAt:now};
   await Repository.upsertLocationBuildings([row]);invalidateLocationRegistry();res.status(201).json(row);
@@ -257,8 +285,18 @@ app.put("/api/admin/location-setup/buildings/:id", requirePermission(7), require
   const row:MasterBuilding={...current,...next,updatedAt:now,lastVerifiedAt:now,auditHistory:[...(current.auditHistory||[]),{at:now,byUserId:req.user.SystemUserId,action:"UPDATE",before:{siteName:current.siteName,branchName:current.branchName,description:current.description,sectionIds:current.sectionIds,active:current.active},after:next}]};
   await Repository.upsertLocationBuildings([row]);invalidateLocationRegistry();res.json(row);
 });
+/* قبل الإيقاف: كم موعداً في الفصل الحالي وما بعده يقف في القاعة أو في قاعات المبنى. */
+app.get("/api/admin/location-setup/usage", requirePermission(7), requireRootAdmin, async (req:AuthenticatedRequest,res:Response)=>{
+  const registry=await readLocationRegistry();
+  const roomId=String(req.query.roomId||""),buildingId=String(req.query.buildingId||"");
+  const rooms=roomId?registry.rooms.filter(room=>room.id===roomId):buildingId?registry.rooms.filter(room=>room.buildingId===buildingId):[];
+  if(!rooms.length&&!(buildingId&&registry.buildings.some(item=>item.id===buildingId))){res.status(404).json({error:"الموقع غير موجود"});return;}
+  res.setHeader("Cache-Control","no-store");res.json(await locationUsage(rooms));
+});
 app.delete("/api/admin/location-setup/buildings/:id", requirePermission(7), requireRootAdmin, async (req:AuthenticatedRequest,res:Response)=>{
   const registry=await readLocationRegistry();const current=registry.buildings.find(item=>item.id===req.params.id);if(!current){res.status(404).json({error:"المبنى غير موجود"});return;}
+  const usage=await locationUsage(registry.rooms.filter(room=>room.buildingId===current.id));
+  if((usage.current||usage.future)&&req.get("x-schedule-confirm")!==LOCATION_IN_USE_CONFIRM){res.status(409).json({error:`في قاعات هذا المبنى ${countOf(usage.current,AR.appointment)} في الفصل الحالي و${countOf(usage.future,AR.appointment)} فيما بعده. أكّد الإيقاف صراحةً.`,code:LOCATION_IN_USE_CONFIRM,...usage});return;}
   const now=new Date().toISOString();
   const affectedRooms=registry.rooms.filter(room=>room.buildingId===current.id&&room.active);
   const inactiveRooms=affectedRooms.map(room=>({...room,active:false,updatedAt:now,lastVerifiedAt:now,auditHistory:[...(room.auditHistory||[]),{at:now,byUserId:req.user.SystemUserId,action:"DELETE",before:{active:room.active},after:{active:false},note:`إيقاف مع حذف المبنى ${current.officialCode}.`}]}));
@@ -280,14 +318,21 @@ app.post("/api/admin/location-setup/rooms", requirePermission(7), requireRootAdm
   const roomType=String(req.body?.roomType||"").normalize("NFKC").trim();if(roomType.length>60){res.status(400).json({error:"اسم نوع القاعة لا يتجاوز 60 حرفًا."});return;}
   const bookingPolicy=String(req.body?.bookingPolicy||"normal");
   if(!["normal","companion_only","blocked"].includes(bookingPolicy)){res.status(400).json({error:"سياسة حجز القاعة غير صالحة."});return;}
-  const existing=new Set(registry.rooms.filter(room=>room.buildingId===building.id).map(room=>room.canonicalCode));
-  if(codes.some((code:string)=>existing.has(code))){res.status(409).json({error:"يوجد رمز واحد أو أكثر مسبقًا في هذا المبنى. أزل الموجود ثم أعد الحفظ."});return;}
+  const existingRooms=registry.rooms.filter(room=>room.buildingId===building.id&&codes.includes(room.canonicalCode));
+  if(existingRooms.length){
+    const inactive=existingRooms.filter(room=>!room.active);
+    /* قاعاتٌ «حُذفت» قبلاً موقوفةٌ لا ممحوّة: تُسمّى ويُعرض إعادةُ تفعيلها. */
+    if(inactive.length===existingRooms.length){res.status(409).json({error:`موجودة موقوفة: ${inactive.map(room=>room.canonicalCode).join("، ")}. أعد تفعيلها بدل إضافتها من جديد.`,code:"inactive-exists",ids:inactive.map(room=>room.id)});return;}
+    res.status(409).json({error:`موجودة مسبقًا في هذا المبنى: ${existingRooms.map(room=>room.canonicalCode).join("، ")}. أزلها من القائمة ثم أعد الحفظ.`});return;
+  }
   const now=new Date().toISOString();
   const rows:MasterRoom[]=codes.map((code:string)=>({id:`room_${building.officialCode}_${code.replace(/[^A-Z0-9]/g,"_")}`,buildingId:building.id,buildingCode:building.officialCode,canonicalCode:code,...(capacity===undefined?{}:{capacity}),...(roomType?{roomType}:{}),bookingPolicy:bookingPolicy as MasterRoom["bookingPolicy"],active:true,aliases:[],collegeIds:officialCollegeIds,sectionIds,primarySectionIds:sectionIds,shared:sectionIds.length>1,sharedConfidence:"CONFIRMED",historicalUsageCount:0,confidence:"CONFIRMED",source:"ADMIN",adminVerified:true,evidence:[sectionIds.length>1?`إضافة من واجهة المدير الرئيسي كقاعة مشتركة بين ${sectionIds.map(id=>sections.find(section=>Number(section.AdSectionId)===id)?.AdSectionName).filter(Boolean).join("، ")}.`:"إضافة من واجهة المدير الرئيسي للقسم المحدد."],auditHistory:[{at:now,byUserId:req.user.SystemUserId,action:"CREATE"}],createdAt:now,updatedAt:now,lastVerifiedAt:now}));
   await Repository.upsertLocationRooms(rows);invalidateLocationRegistry();res.status(201).json({created:rows.length,rooms:rows});
 });
 app.delete("/api/admin/location-setup/rooms/:id", requirePermission(7), requireRootAdmin, async (req:AuthenticatedRequest,res:Response)=>{
   const registry=await readLocationRegistry();const current=registry.rooms.find(item=>item.id===req.params.id);if(!current){res.status(404).json({error:"القاعة غير موجودة"});return;}
+  const usage=await locationUsage([current]);
+  if((usage.current||usage.future)&&req.get("x-schedule-confirm")!==LOCATION_IN_USE_CONFIRM){res.status(409).json({error:`في هذه القاعة ${countOf(usage.current,AR.appointment)} في الفصل الحالي و${countOf(usage.future,AR.appointment)} فيما بعده. أكّد الإيقاف صراحةً.`,code:LOCATION_IN_USE_CONFIRM,...usage});return;}
   const now=new Date().toISOString();
   const row:MasterRoom={...current,active:false,updatedAt:now,lastVerifiedAt:now,auditHistory:[...(current.auditHistory||[]),{at:now,byUserId:req.user.SystemUserId,action:"DELETE",before:{active:current.active},after:{active:false},note:"إيقاف القاعة مع حفظ سجل الاستخدام التاريخي."}]};
   await Repository.upsertLocationRooms([row]);invalidateLocationRegistry();res.json(row);

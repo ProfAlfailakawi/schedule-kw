@@ -59,7 +59,7 @@
 .apb-surplus-stat-existing b{background:var(--surplus-ink);color:var(--surface,#fff)}
 .apb-surplus-stat-required b{border:1px solid color-mix(in srgb,var(--surplus-ink) 38%,transparent);background:color-mix(in srgb,var(--surface,#fff) 65%,transparent);color:var(--surplus-ink)}
 .apb-surplus-arrow{inline-size:16px;block-size:16px;flex:none;opacity:.72}
-@media(max-width:620px){
+@media (max-width:620px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .apb-gap-row-surplus .apb-gap-name{flex:1 1 100%}
   .apb-gap-row-surplus .apb-surplus{flex:1 1 100%;inline-size:100%;justify-content:space-between}
   .apb-gap-row-surplus .apb-gap-chev{margin-inline-start:auto}
@@ -94,7 +94,7 @@
 .apb-conflict-numbers>span{display:grid;justify-items:center;gap:4px;min-inline-size:51px}
 .apb-conflict-numbers b{display:grid;place-items:center;inline-size:42px;min-block-size:28px;border-radius:11px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);background:var(--surface,#fff);font-size:.96rem}
 .apb-conflict-numbers small{font-size:.63rem;white-space:nowrap}
-@media(max-width:620px){
+@media (max-width:620px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .apb-gap-row-conflict .apb-gap-name{flex:1 1 100%}
   .apb-gap-row-conflict .apb-conflict{inline-size:100%;flex:1 1 100%;justify-content:space-between}
   .apb-gap-row-conflict .apb-gap-chev{margin-inline-start:auto}

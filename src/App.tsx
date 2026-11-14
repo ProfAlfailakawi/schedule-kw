@@ -702,10 +702,8 @@ export default function App() {
   const [changesBadge, setChangesBadge] = useState(0);
   /* مراجعة الصحيفة متاحة لأصحاب الصلاحية؛ الشارة للمسودات المعلقة فقط. */
   const [planReviewCount, setPlanReviewCount] = useState(0);
-  /* رادار التسجيل متاح لصاحب الصلاحية حتى قبل أول احتساب. */
-  const [simulationVisible, setSimulationVisible] = useState(false);
   useEffect(() => {
-    if (!user) { setPlanReviewCount(0); setSimulationVisible(false); return; }
+    if (!user) { setPlanReviewCount(0); return; }
     if (!pageAwake) return;
     let alive = true;
     const read = () => fetch("/api/plan-review/status", { credentials: "include" })
@@ -713,12 +711,8 @@ export default function App() {
       .then(data => { if (alive) setPlanReviewCount(Array.isArray(data?.pending) ? data.pending.length : 0); })
       .catch(() => undefined);
     const refresh = () => void read();
-    const readSimulation = () => fetch("/api/simulation/summary", { credentials: "include" })
-      .then(response => (response.ok ? response.json() : null))
-      .then(data => { if (alive) setSimulationVisible(Boolean(data && (data.canRun || ((hasPerm(7) || hasPerm(14)) && !sessionRole.viewerOnly)))); })
-      .catch(() => undefined);
-    void read(); void readSimulation();
-    const onFocus = () => { void read(); void readSimulation(); };
+    void read();
+    const onFocus = () => { void read(); };
     const timer = window.setInterval(read, 30000);
     window.addEventListener("focus", onFocus);
     window.addEventListener("schedule:plan-review-updated", refresh);
@@ -1560,6 +1554,9 @@ export default function App() {
     [permissions],
   );
   const isPowerAdmin = Boolean(user?.IsAdminUser || user?.IsRootAdmin);
+  /* رادار التسجيل: بابُه في الخادم نفسُه (إدارة النظام، أو الورشة ٧، أو تقرير القسم ١٤) — يُحسب هنا من الأذونات
+     بلا تنزيل ملخّص الرادار كاملاً عند كل عودةٍ إلى اللسان. وصفاتُ العرض الصرف تقرؤه أرقاماً كما يقول المتطلّب. */
+  const simulationVisible = Boolean(user) && (isPowerAdmin || hasPerm(7) || hasPerm(14));
   /* من يجلس على الكرسي في هذه الجلسة (docs/SEATS.md)؛ غائبٌ لكرسيٍّ لم يُسجَّل شاغله. */
   const seatActor = ((user as any)?.SeatActor || null) as SeatActor | null;
   /* شارةُ السياق لحساب القسم (scopeShape): الكلية والقسم مخفيّان في الشاشات، فيُقال له أين يعمل في رأسها. */
@@ -1865,6 +1862,10 @@ export default function App() {
       case "sections":
       case "instructors":
       case "courses":
+        /* البوابة أوسع من القائمة عمداً: القائمة للإدارة وحدها (canOpenAcademicCatalog)، لكن رئيس لجنة الجدول
+           ورئيس القسم ذا القسم الواحد يصلان إلى «المقررات» وحدها (hasAcademicPerm) من روابط عملهم —
+           تصحيح الصحيفة في PlanReview ونافذة تعديل المقررات (FR-ACD-040)، و«المقررات» في شريط الاعتماد.
+           تضييقها على الإدارة يقطع تلك المسارات؛ والخادم يحرس كل كتابة بصلاحيتها ونطاقها. */
         return (isPowerAdmin || ((sessionRole.id === "committeeChair" || sessionRole.id === "departmentHead") && singleDepartmentOf(scopes, 0, false) !== null)) && hasAcademicPerm(ACADEMIC_PERM[activeView]) ? (
           <AcademicConsole
             tab={activeView}
@@ -1952,16 +1953,17 @@ export default function App() {
           unauthorized()
         );
       case "simulation":
-        /* القراءةُ بحدود النطاق في الخادم؛ والأيقونةُ لا تظهر إلا إن كانت هناك تحديثٌ أو من يشغّلها. */
-        return simulationVisible ? <><RegistrationTabs active="simulation" canRoster={(allowed.schedule || hasPerm(14)) && !sessionRole.viewerOnly} canRadar onGo={view => go(view)} /><RegistrationRehearsal onNavigate={(view) => go(view as View)} canSchedule={hasPerm(7) && !sessionRole.viewerOnly && !sessionRole.advisorOnly} /></> : unauthorized();
+        /* القراءةُ بحدود النطاق في الخادم؛ والبابُ نفسُه (٧ أو ١٤ أو إدارة النظام) هنا وهناك. */
+        return simulationVisible ? <><RegistrationTabs active="simulation" canRoster={allowed.schedule || hasPerm(14)} canRadar onGo={view => go(view)} /><RegistrationRehearsal onNavigate={(view) => go(view as View)} canSchedule={hasPerm(7) && !sessionRole.viewerOnly && !sessionRole.advisorOnly} /></> : unauthorized();
       case "planReview":
         /* الحارسُ في الخادم (النطاقُ والصفةُ والملكية)؛ هنا نخفي ما لا يعمل فقط. */
         return planReviewAccess ? <PlanReview onNavigate={hasPerm(6) ? go : undefined} /> : unauthorized();
       case "studentRegistration":
         /* الكشفُ يُقرأ من الطرفين ويُكتب من طرفين: التسجيلُ صاحبُ القرار، ومن
-           يبني الجدول يسلّم ويتابع. وصفةُ العرض الصرف لا تفتحه أصلاً — الخادمُ
-           يردّ كتابتَها، وشاشةٌ كلُّ أزرارها مردودة ضجيجٌ في القائمة. */
-        return (hasPerm(7) || hasPerm(14)) && !sessionRole.viewerOnly ? (
+           يبني الجدول يسلّم ويتابع. وصفةُ العرض الصرف (العميدان وعميد التسجيل) تقرؤه
+           كما يقول المتطلّب (FR-STU-016): أعداداً بلا اسمٍ ولا رقمٍ مدني (الخادمُ يحجبهما)،
+           و«للقراءة فقط» بلا زرٍّ واحد — الخادمُ يقول canWrite=false. */
+        return hasPerm(7) || hasPerm(14) ? (
           <>
             <RegistrationTabs active="studentRegistration" canRoster canRadar={simulationVisible} onGo={view => go(view)} />
             <StudentRegistration scopes={scopes} powerAdmin={isPowerAdmin} canReadDemand={hasPerm(7)} mayCompose={isPowerAdmin || sessionRole.id === "advisor"} onNavigate={hasPerm(7) && !sessionRole.viewerOnly ? (view) => go(view as View) : undefined} />
@@ -2091,7 +2093,7 @@ export default function App() {
         );
       case "users":
         return isPowerAdmin && hasPerm(11) ? (
-          <AdminUsers mode="users" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} demoReadOnly={Boolean(user.IsDemo)} />
+          <AdminUsers mode="users" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} currentUserId={Number(user.SystemUserId)} demoReadOnly={Boolean(user.IsDemo)} />
         ) : (
           unauthorized()
         );
@@ -2126,15 +2128,17 @@ export default function App() {
           unauthorized()
         );
       case "roomSetup":
-        return user.IsRootAdmin && allowed.admin ? (
+        /* الحارسُ نفسه في الخادم: الحساب الرئيسي مع شاشة الجدول (٧) — src/server/routes/locationsRoutes.ts. */
+        return user.IsRootAdmin && allowed.admin && hasPerm(7) ? (
           <AdminUsers mode="roomSetup" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
         ) : unauthorized();
       case "sectionHours":
-        return allowed.admin ? (
-          <AdminUsers mode="sectionHours" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin)} demoReadOnly={Boolean(user.IsDemo)} />
+        /* التعديلُ لمن يقبله الخادم (الحساب الرئيسي مع الشاشة ٧)، والقراءةُ لإدارة النظام كما السجل. */
+        return isPowerAdmin && allowed.admin ? (
+          <AdminUsers mode="sectionHours" onNavigate={adminGo} permissions={permissions} rootAdmin={Boolean(user.IsRootAdmin) && hasPerm(7)} demoReadOnly={Boolean(user.IsDemo)} />
         ) : unauthorized();
       case "teachingLoad":
-        return user.IsRootAdmin && allowed.admin ? (
+        return user.IsRootAdmin && allowed.admin && hasPerm(7) ? (
           <AdminUsers mode="teachingLoad" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
         ) : unauthorized();
       case "backup":
@@ -2624,11 +2628,11 @@ export default function App() {
                 آخِرُ حلقةٍ في السلسلة: رغباتُ الأساتذة، ثم دورةُ الاعتماد، ثم
                 تسليمُ الطلبة إلى التسجيل. وهي الشاشةُ الوحيدة التي يكتب فيها
                 الطرفان معاً، فتجاور أختيها ولا تُنفى إلى قائمةٍ أخرى. */}
-            {(allowed.schedule || hasPerm(14)) && !sessionRole.viewerOnly || simulationVisible ? (
+            {allowed.schedule || hasPerm(14) || simulationVisible ? (
               <NavSection navGroups={navGroups} onToggle={(id) => setNavGroups(current => ({ ...current, [id]: !current[id] }))}
                 id="registration" title="متابعة التسجيل" icon={<ClipboardCheck />} rail="registration"
                 className="registration-nav" holdsActive={activeView === "studentRegistration" || activeView === "simulation"}>
-                {(allowed.schedule || hasPerm(14)) && !sessionRole.viewerOnly ? <NavButton activeView={activeView} onGo={go} view="studentRegistration" icon={<ClipboardCheck />} label="كشف التسجيل" data-guide-ignore="وجهةُ تنقّل مسجّلة في المرشد باسم page.studentRegistration" /> : null}
+                {allowed.schedule || hasPerm(14) ? <NavButton activeView={activeView} onGo={go} view="studentRegistration" icon={<ClipboardCheck />} label="كشف التسجيل" data-guide-ignore="وجهةُ تنقّل مسجّلة في المرشد باسم page.studentRegistration" /> : null}
                 {simulationVisible ? <NavButton activeView={activeView} onGo={go} view="simulation" icon={<Ticket />} label="رادار التسجيل" data-guide-ignore="وجهةُ تنقّل مسجّلة في المرشد باسم page.simulation" /> : null}
               </NavSection>
             ) : null}

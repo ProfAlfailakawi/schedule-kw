@@ -353,10 +353,10 @@ const boardToken = secret.buildingDoorToken(key, building.id);
   check(!hostile.includes("<img") && !hostile.includes("onload=") && hostile.includes("&lt;img"), "R6 لا يدخل الورقةَ نصٌّ أو SVG غيرُ مأمون");
   const tools = read("src/components/RoomDoorTools.tsx");
   check(/import\("\.\.\/utils\/qrcodeGenerator"\)/.test(tools) && !/https?:\/\/[^"'`\s]*qr/i.test(tools), "R6 الرمزُ يُرسم بالمولّد المحلّي عند الطلب (كما في «مساري»)، لا بخدمةٍ خارجية");
-  /* المالك 2026-11-14: «LocationRegistryAdmin» حُذفت (لا يستوردها شيء)؛ شاشةُ «إضافة المباني والقاعات» هي LocationQuickSetup. */
+  /* شاشةُ «سجل المواقع» القديمة حُذفت؛ «إضافة مبانٍ وقاعات» هي الشاشة الوحيدة وفيها أدواتُ المبنى. */
   const admin = read("src/components/LocationQuickSetup.tsx");
-  check(!fs.existsSync("src/components/LocationRegistryAdmin.tsx") && admin.includes("<RoomDoorBuildingActions links={doorLinks}/>") && tools.includes("🖨️ ملصقات الأبواب") && tools.includes("🖥️ شاشة الممر"),
-    "R6 شاشةُ المباني والقاعات: «🖨️ ملصقات الأبواب» و«🖥️ شاشة الممر» للمبنى");
+  check(admin.includes("<RoomDoorBuildingActions links={doorLinks}/>") && admin.includes("<RoomDoorQr links={doorLinks} roomId={room.id}/>") && tools.includes("🖨️ ملصقات الأبواب") && tools.includes("🖥️ شاشة الممر"),
+    "R6 شاشةُ المباني والقاعات: «🖨️ ملصقات الأبواب» و«🖥️ شاشة الممر» للمبنى، وزرُّ QR لكل قاعة");
 }
 
 console.log(`\nRoom door audit: ${passed} passed, ${failed} failed`);

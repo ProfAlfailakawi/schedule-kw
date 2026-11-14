@@ -71,6 +71,10 @@ const ALLOW: Array<[string, string, string]> = [
   ["src/utils/inboxAsk.ts", "اللي", "كلمة توقّف في فهم السؤال"],
   ["src/utils/inboxAsk.ts", "شنو", "كلمة توقّف في فهم السؤال"],
   ["src/utils/inboxAsk.ts", "عندك", "كلمة توقّف في فهم السؤال"],
+  // كلماتُ توقّفٍ يُسقطها سؤالُ مركز الاستعلام قبل البحث عن الاسم — لا تُعرض.
+  ["src/utils/queryAsk.ts", "وين", "كلمة توقّف في فهم السؤال"],
+  ["src/utils/queryAsk.ts", "فاضي", "كلمة توقّف في فهم السؤال"],
+  ["src/utils/queryAsk.ts", "الحين", "كلمة توقّف في فهم السؤال"],
 ];
 
 const LETTERS = "ء-يٱ-ۓً-ْـ";
@@ -210,7 +214,8 @@ check(hits.length === 0, `نصوص الواجهة في src/ (${files.length} م�
       `الوارد يفهم «${example}» كلَّه ولا يُبقي نصَّ بحثٍ يُفرغ الشاشة`);
   }
 
-  const reports = fs.readFileSync("src/components/Reports.tsx", "utf8");
+  /* المثال يُعرض في خانة السؤال (Reports.tsx) وفي جملة «لم أفهم» (queryAsk.ts). */
+  const reports = fs.readFileSync("src/components/Reports.tsx", "utf8") + fs.readFileSync("src/utils/queryAsk.ts", "utf8");
   const roomExamples = [...reports.matchAll(/(?:اسأل|جرّب): (قاعات [^"<]+?)(?="|<)/g)].map(m => m[1].trim());
   check(roomExamples.length === 2, `أمثلةُ استعلام القاعات مقروءةٌ من الشاشة (${roomExamples.join(" | ")})`);
   for (const example of [...roomExamples, "قاعات فاضية الثلاثاء 10"]) {

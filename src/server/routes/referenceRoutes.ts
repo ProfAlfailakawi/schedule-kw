@@ -12,8 +12,10 @@ import { Repository } from "../../db/repository";
 import { byRoom } from "../../utils/sorting";
 import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import { visibleTermIds } from "../../utils/scopedTerms";
-import { currentTermId } from "../../utils/termSequence";
-import { ensureSectionFaculty } from "../sectionFaculty";
+import { currentTermId, sameTermName } from "../../utils/termSequence";
+import { ensureSectionFaculty, placeholderCivilFor } from "../sectionFaculty";
+import { accountsScopedTo, sameBuildingMinutesOf, sameReferenceCode, sameReferenceName } from "../../utils/academicGuards";
+import { isFacultyPlaceholder } from "../../utils/placeholderInstructor";
 import { evaluateTeachingLoad, hasLoadOverride, loadTermContext, teachingHoursByInstructor, teachingLoadProblem } from "../../utils/teachingLoad";
 import type { AdCourse, AdInstructor, AdSection } from "../../types";
 import { provisionCollegeUsers } from "../sectionUsers";
@@ -39,6 +41,27 @@ import { degreeRuleFromName, graduationCandidatesForSection, surveyPayloadCache 
 import { saveUniversityDay } from "../core/universityDay";
 
 const collegeMobilityHistoryCache=new Map<string,{expiresAt:number;history:any[]}>();
+
+/* كليةٌ أخرى بالاسم نفسه: يُسمّى السجلّ القائم بدل إنشاء نسخةٍ ثانية منه. والرمزُ وحده لا يكفي:
+   حرما الكلية الواحدة (بنين وبنات) يتشاركان رمزها عمداً، وكرسيُّ التسجيل يجمعهما بالرمز نفسه. */
+async function duplicateCollegeProblem(code:string,name:string,exceptId=0):Promise<string|null>{
+  const clash=(await Repository.getColleges()).find(row=>Number(row.AdCollegeId)!==exceptId&&sameReferenceName(row.AdCollegeName,name));
+  if(!clash)return null;
+  return `اسم الكلية «${name}» مسجّلٌ من قبل برمز «${clash.AdCollegeCode}».`;
+}
+/* فصلٌ آخر بالاسم نفسه (المسافات لا تُفرّق): الفصل الواحد لا يُسجَّل مرتين. */
+async function duplicateTermProblem(name:string,exceptId=0):Promise<string|null>{
+  const clash=(await Repository.getTerms()).find(row=>Number(row.AdTermId)!==exceptId&&sameTermName(row.AdTermName,name));
+  return clash?`الفصل «${clash.AdTermName}» مسجّلٌ من قبل.`:null;
+}
+/* حساباتٌ نطاقُها الكلية أو القسم: تبقى معلّقةً بنطاقٍ محذوف، فتُسمّى ويُمنع الحذف حتى تُعالَج.
+   لا تُحذف تلقائياً: حسابُ العميد أو كرسيّ التسجيل قد استُعمل، وحذفُه قرارٌ في «المستخدمون». */
+async function scopedAccountsProblem(target:{collegeId?:number;sectionId?:number},what:string):Promise<string|null>{
+  const [users,assigns]=await Promise.all([Repository.getUsers(),Repository.getCollegeUserAssigns()]);
+  const logins=accountsScopedTo(users as any[],assigns as any[],target);
+  if(!logins.length)return null;
+  return `لا يمكن حذف ${what}: حساباتٌ نطاقها فيه ما زالت قائمة (${logins.join("، ")}). عدّل نطاقها أو احذفها من «المستخدمون» أولاً.`;
+}
 
 /* ══ النصاب التدريسي (ميزةٌ اختيارية، يديرها المسؤول المخوّل) ══════════════════
    الإعدادُ للمدير الرئيسي وحده. والتنبيهُ للمخطّط قراءةٌ فقط: لا يمنع حفظَ موعدٍ ولا يمرّ بمساره، وما في هذه
@@ -79,6 +102,8 @@ app.post("/api/colleges", requirePermission(2), async (req: Request, res: Respon
     res.status(400).json({ error: `الرجاء إدخال رمز الكلية واسمها (الرمز حتى ${countOf(TEXT_LIMIT.code, oblique(AR.character))} والاسم حتى ${countOf(TEXT_LIMIT.name, oblique(AR.character))})` });
     return;
   }
+  const duplicate = await duplicateCollegeProblem(code, name);
+  if (duplicate) { res.status(400).json({ error: duplicate }); return; }
   const newC = await Repository.createCollege(code, name);
   /* الكلية الجديدة تولد بعميدها وعميدها المساعد (فعّالين، لكلٍّ كلمةٌ أولى عشوائية تُعاد هنا للمسؤول ويُطلب تغييرها عند أول دخول)؛ وعميد التسجيل ورئيسه نطاقهما كل الكليات فيشملانها. */
   const accounts = (req as AuthenticatedRequest).user?.IsAdminUser ? await provisionCollegeUsers(Repository, newC) : [];
@@ -103,6 +128,8 @@ app.put("/api/colleges/:id", requirePermission(2), async (req: AuthenticatedRequ
     res.status(400).json({ error: `الرجاء إدخال رمز الكلية واسمها (الرمز حتى ${countOf(TEXT_LIMIT.code, oblique(AR.character))} والاسم حتى ${countOf(TEXT_LIMIT.name, oblique(AR.character))})` });
     return;
   }
+  const duplicate = await duplicateCollegeProblem(AdCollegeCode, AdCollegeName, id);
+  if (duplicate) { res.status(400).json({ error: duplicate }); return; }
   try {
     const updated = await Repository.updateCollege(id, AdCollegeCode, AdCollegeName);
     res.json(updated);
@@ -122,6 +149,9 @@ app.delete("/api/colleges/:id", requirePermission(2), async (req: AuthenticatedR
     res.status(409).json({ error: "لا يمكن حذف الكلية لوجود أقسام علمية مرتبطة بها" });
     return;
   }
+  /* العميد والعميد المساعد وكرسيّ تسجيلها وُلدت مع الكلية (POST أعلاه). */
+  const accounts = await scopedAccountsProblem({ collegeId: id }, "الكلية");
+  if (accounts) { res.status(409).json({ error: accounts }); return; }
   await Repository.deleteCollege(id);
   res.json({ success: true });
 });
@@ -150,7 +180,7 @@ app.put("/api/colleges/:id/mobility", requirePermission(2), async (req: Authenti
   const college=await Repository.getCollegeById(collegeId);if(!college){res.status(404).json({error:"الكلية غير موجودة"});return;}
   const rawPairs=Array.isArray(req.body?.pairs)?req.body.pairs:[];const seen=new Set<string>(),pairs:any[]=[];
   for(const raw of rawPairs){const fromBuilding=normalizedBuilding(raw?.fromBuilding).slice(0,40),toBuilding=normalizedBuilding(raw?.toBuilding).slice(0,40),minutes=Math.max(1,Math.min(120,Number(raw?.minutes)||0));if(!fromBuilding||!toBuilding||fromBuilding.toLocaleLowerCase()===toBuilding.toLocaleLowerCase())continue;const key=travelPairKey(fromBuilding,toBuilding);if(seen.has(key))continue;seen.add(key);pairs.push({fromBuilding,toBuilding,minutes});}
-  const profile=await Repository.upsertCampusMobilityProfile({AdCollegeId:collegeId,defaultTravelMinutes:Math.max(1,Math.min(120,Number(req.body?.defaultTravelMinutes)||DEFAULT_TRAVEL_MINUTES)),sameBuildingMinutes:Math.max(0,Math.min(30,Number(req.body?.sameBuildingMinutes)||SAME_BUILDING_MINUTES)),pairs,updatedAt:new Date().toISOString(),updatedBy:req.user.Name});
+  const profile=await Repository.upsertCampusMobilityProfile({AdCollegeId:collegeId,defaultTravelMinutes:Math.max(1,Math.min(120,Number(req.body?.defaultTravelMinutes)||DEFAULT_TRAVEL_MINUTES)),sameBuildingMinutes:sameBuildingMinutesOf(req.body?.sameBuildingMinutes),pairs,updatedAt:new Date().toISOString(),updatedBy:req.user.Name});
   res.json(profile);
 });
 
@@ -216,7 +246,8 @@ app.put("/api/admin/section-schedule-windows",requirePermission(7),requireRootAd
   if(!withinUniversityDay(timeToMinutes(startTime),timeToMinutes(endTime))){res.status(400).json({error:`الدوام المسموح يبقى داخل الدوام الشامل (${SCHEDULE_DAY_START_TIME}–${SCHEDULE_DAY_END_TIME}).`});return;}
   const sections:AdSection[]=await Repository.getSectionsByCollege(collegeId),sectionById=new Map<number,AdSection>(sections.map((section:AdSection):[number,AdSection]=>[Number(section.AdSectionId),section]));
   if(sectionIds.some(id=>!sectionById.has(id))){res.status(400).json({error:"بعض الأقسام المختارة لا تتبع الكلية المحددة."});return;}
-  await Promise.all(sectionIds.map(id=>Repository.setSectionScheduleDayWindow(id,startTime,endTime)));
+  await Repository.setSectionScheduleDayWindows(sectionIds,startTime,endTime);
+  res.locals.auditChanges=`الدوام المسموح ${startTime}–${endTime}: ${sectionIds.map(id=>sectionById.get(id)?.AdSectionName||id).join("، ")}`;
   sectionIds.forEach(id=>sectionScheduleWindowCache.delete(dataContextCacheKey(id)));
   const selectedIds=new Set(sectionIds),terms=sortTermsNewestServer(await Repository.getTerms()),termId=Number(currentTermId(terms as any)||terms[0]?.AdTermId||0),rows=termId?await Repository.getSchedulesByScope({collegeId,termId}):[];
   const outOfWindowAppointments=rows.filter(row=>selectedIds.has(Number(row.AdSectionId))&&(!withinScheduleDay(timeToMinutes(row.fstarttime),timeToMinutes(row.fendtime),{startTime,endTime}))).length;
@@ -363,6 +394,9 @@ app.put("/api/sections/:id", requirePermission(4), async (req: AuthenticatedRequ
     res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" });
     return;
   }
+  /* رمز القسم فريدٌ في كليته عند التعديل كما عند الإنشاء. */
+  const clash = (await Repository.getSectionsByCollege(targetCollegeId)).find(row => Number(row.AdSectionId) !== id && sameReferenceCode(row.AdSectionCode, AdSectionCode));
+  if (clash) { res.status(400).json({ error: `رمز القسم «${AdSectionCode}» مسجّلٌ في هذه الكلية للقسم «${clash.AdSectionName}».` }); return; }
   try {
     const updated = await Repository.updateSection(id, targetCollegeId, AdSectionCode, AdSectionName);
     res.json(updated);
@@ -383,8 +417,21 @@ app.delete("/api/sections/:id", requirePermission(4), async (req: AuthenticatedR
     res.status(409).json({ error: "لا يمكن حذف القسم العلمي لوجود مقررات دراسية مرتبطة به" });
     return;
   }
+  /* رئيس القسم ورئيس الجدول والمرشد (حين وُلد القسم من صحيفة) نطاقهم هذا القسم. */
+  const accounts = await scopedAccountsProblem({ sectionId: id }, "القسم العلمي");
+  if (accounts) { res.status(409).json({ error: accounts }); return; }
   await Repository.deleteSection(id);
-  res.json({ success: true });
+  /* سجلُّ «هيئة تدريسية» الذي وُلد مع القسم (رقمه المدني الاصطناعي لهذا القسم وحده) يُحذف معه
+     ما لم يُستعمل في أي موعد — فلا يبقى اسمٌ بلا قسم. وسجلٌّ مستعملٌ يبقى شاهداً على تاريخه. */
+  let placeholderRemoved = false;
+  if (section) {
+    const placeholder = await Repository.getInstructorByCivil(placeholderCivilFor(Number(section.AdCollegeId), id));
+    if (placeholder && isFacultyPlaceholder(placeholder) && !(await Repository.hasSchedulesForInstructor(Number(placeholder.AdInstructorId)))) {
+      await Repository.deleteInstructor(Number(placeholder.AdInstructorId));
+      placeholderRemoved = true;
+    }
+  }
+  res.json({ success: true, placeholderRemoved });
 });
 
 // --- TERMS API ---
@@ -425,6 +472,8 @@ app.post("/api/terms", requirePermission(5), async (req: Request, res: Response)
     res.status(400).json({ error: `الرجاء إدخال اسم الفصل الدراسي (حتى ${countOf(TEXT_LIMIT.name, oblique(AR.character))})` });
     return;
   }
+  const duplicate = await duplicateTermProblem(AdTermName);
+  if (duplicate) { res.status(400).json({ error: duplicate }); return; }
   const newTerm = await Repository.createTerm(AdTermName,
     { start: req.body.AdTermStart, weeks: Number(req.body.AdTermWeeks) || 0,
       closed: typeof req.body.AdTermClosed === "boolean" ? req.body.AdTermClosed : undefined });
@@ -439,6 +488,8 @@ app.put("/api/terms/:id", requirePermission(5), async (req: Request, res: Respon
     res.status(400).json({ error: `الرجاء إدخال اسم الفصل الدراسي (حتى ${countOf(TEXT_LIMIT.name, oblique(AR.character))})` });
     return;
   }
+  const duplicate = await duplicateTermProblem(AdTermName, id);
+  if (duplicate) { res.status(400).json({ error: duplicate }); return; }
   try {
     const updated = await Repository.updateTerm(id, AdTermName,
       { start: req.body.AdTermStart, weeks: Number(req.body.AdTermWeeks) || 0,
@@ -496,7 +547,7 @@ app.put("/api/degree-rules/:sectionId", requirePermission(4), async (req: Authen
   /* A department in its transition years is measured per plan; a department
      figure saved now would be read by nobody, while the screen said it applied. */
   if((await Repository.getCurriculumPlans(sectionId)).some(plan=>plan.status!=="archived"&&!plan.virtual)){
-    res.status(409).json({error:"هذا القسم في مرحلة انتقالية: شروط التخرج تُحفظ لكل صحيفة على حدة.",code:"rules-per-plan"});return;
+    res.status(409).json({error:"هذا القسم في مرحلة انتقالية: شروط التخرج تُحفظ لكل صحيفة من «المقررات ← الصحائف الأكاديمية».",code:"rules-per-plan"});return;
   }
   const existingRule=(await Repository.getDegreeRules()).find(row=>Number(row.AdSectionId)===sectionId);
   const sectionName=String(sections.find((row:any)=>Number(row.AdSectionId)===sectionId)?.AdSectionName||"");

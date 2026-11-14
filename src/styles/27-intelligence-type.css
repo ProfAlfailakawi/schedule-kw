@@ -173,7 +173,7 @@
   .intelligence-page .insight-preview-rail .insight-preview-list>.insight-preview:last-child:nth-child(4n+1){grid-column:1/-1}
 }
 
-@media (max-width:640px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .intelligence-page{--ix-gap:var(--s3);--ix-metric:26px;--ix-metric-word:17px}
   .intelligence-page .insight-preview-list{gap:var(--s2)}
   .intelligence-page .insight-preview-list>.insight-preview{min-height:132px;padding:var(--s3) var(--s2)}
@@ -288,7 +288,7 @@
 .sm-page.sm-page .rd-facts{gap:var(--s2)}
 .sm-page.sm-page .rd-facts article{padding:var(--s3)}
 
-@media (max-width:640px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .sm-page{--ix-metric:28px;--ix-metric-sm:20px}
   .sm-page.sm-page .rd-ring b{font-size:30px}
 }

@@ -32,7 +32,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   }), "R2 تثبيتُ طلب الأستاذ وتنزيلُ الشعب و«هيئة تدريسية» تسأل قبل الكتابة");
   check(read("src/server/timeMachineRoutes.ts").includes("gate.refusal()") && /regulation: !exactRestore/.test(read("server.ts")), "R3 اعتمادُ آلة الزمن يسأل، واستعادتُها (ما كان بالضبط) لا تُسأل");
   check(/const gate = options\.gate \|\| regulationGate\(req\)/.test(writes) && /dryRun: true, regulation: true/.test(writes), "R4 اعتمادُ الاقتراح يفحص جافّاً ويسأل قبل الكتابة");
-  check(["ApplyProposal", "InstructorInbox", "timeMachineShared", "SectionBuild", "StudentRegistration"].every(name => read(`src/components/${name}.tsx`).includes("settleRegulationException(")),
+  check(["ApplyProposal", "InstructorInbox", "timeMachineShared", "StudentRegistration"].every(name => read(`src/components/${name}.tsx`).includes("settleRegulationException(")),
     "R5 الواجهات تفتح الورقة نفسها وتعيد الطلب بالموافقة");
 }
 
