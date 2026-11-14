@@ -327,3 +327,4 @@ test:system-health
 test:wish-patterns
 test:latin-digits
 test:ladder-start-hint
+test:rank-gap-sign

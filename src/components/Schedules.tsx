@@ -11640,6 +11640,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           onLockChange={setApprovalLock}
           onOpenNotes={onNavigate ? () => onNavigate("scheduleChanges") : undefined}
           onOpenCourses={onNavigate ? () => onNavigate("courses") : undefined}
+          onOpenInstructors={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab("roster"); setTransferOpen(true); } }}
           onStudentGaps={setStudentGaps}
           onPlanningGaps={setPlanningGaps}
         />

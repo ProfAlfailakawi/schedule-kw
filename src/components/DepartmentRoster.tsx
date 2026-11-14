@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Archive, BookOpenCheck, Check, GraduationCap, Pencil, Plus, Scale, UsersRound, X } from "lucide-react";
+import { AlertTriangle, Archive, BookOpenCheck, Check, GraduationCap, Pencil, Plus, Scale, UsersRound, X } from "lucide-react";
 import NewInstructorForm from "./NewInstructorForm";
 import type { AcademicRank, TeachingLoadAssignment } from "../types";
 import { ExceptionBadge, LoadExceptionEditor } from "./LoadException";
 import { Notice, SecondaryButton, visualConfirm } from "./ui";
+import { AR, countOf } from "../utils/arabicCount";
 import { ROSTER_GROUPS, rosterGroupOf, type RosterGroup } from "../utils/rosterGroups";
 import "./registration-tabs.css";
 
@@ -28,6 +29,7 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
   const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
   const [adding, setAdding] = useState(false);
   const [justAdded, setJustAdded] = useState("");
+  const [picks, setPicks] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const read = () => fetch(`/api/section-roster?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" })
@@ -46,6 +48,25 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
       setRenaming(null);
       await read();
     } catch (e: any) { setError(e.message || "تعذّر الحفظ"); } finally { setBusy(false); }
+  };
+  /* استكمالُ الدرجات: يُحفظ لكلٍّ ما اختير له وحده (PUT لكل عضو، فيُرفض غيرُ الصالح باسمه ولا يضيع الباقي). */
+  const saveRanks = async (people: Person[]) => {
+    const chosen = people.filter(person => picks[person.id]);
+    setBusy(true); setError("");
+    const failed: string[] = [];
+    for (const person of chosen) {
+      try {
+        const response = await fetch(`/api/section-roster/${person.id}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collegeId, sectionId, termId, load: { ...(person.assignment || {}), rankId: picks[person.id] } }),
+        });
+        if (!response.ok) failed.push(person.name);
+      } catch { failed.push(person.name); }
+    }
+    setPicks({});
+    await read();
+    setBusy(false);
+    if (failed.length) setError(`تعذّر حفظ ${failed.slice(0, 3).join("، ")}${failed.length > 3 ? ` و${failed.length - 3} آخرين` : ""}.`);
   };
   /* تغييرُ الحالة يبدّل ظهور الأستاذ في الاختيار، فلا يقع بلمسةٍ عابرة. */
   const confirmed = async (person: Person, title: string, message: string, label: string, body: Record<string, unknown>) => {
@@ -68,10 +89,38 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
   const editorNote = !roster.ranks.length
     ? "لم تُعرَّف درجاتٌ علمية بعد؛ يعرّفها المدير الرئيسي من «النصاب التدريسي»."
     : roster.enabled ? "" : "النصاب غير مفعّل: تُحفظ الدرجة الآن، وتُحتسب حدودها حين يفعّله المدير الرئيسي.";
+  /* الدرجةُ لازمةٌ لكل عضو (قرار المالك 2026-11-14): من بلا درجة يظهر هنا لتُستكمل دفعةً واحدة بدل بطاقةٍ بطاقة.
+     المتقاعدون خارجَ العدّ (لا يُدرّسون)، وبلا درجاتٍ معرَّفة في النصاب لا شيء يُختار. */
+  const unranked = roster.ranks.length ? roster.people.filter(person => person.AdInstructorStatus !== "retired" && !person.assignment?.rankId) : [];
   const icons = { faculty: UsersRound, ta: GraduationCap, sabbatical: BookOpenCheck, retired: Archive };
   return (
     <div className="dept-roster">
       {error ? <Notice>{error}</Notice> : null}
+      {unranked.length ? (
+        <section className="dept-roster-complete" aria-label="استكمال الدرجات العلمية">
+          <header>
+            <strong><AlertTriangle aria-hidden="true" />{countOf(unranked.length, AR.instructor)} بلا درجة علمية</strong>
+            <small>الدرجةُ لازمةٌ لكل عضو: منها تُحسب ساعاته. اخترها من النصاب ثم احفظ الكل.</small>
+          </header>
+          <ul>
+            {unranked.map(person => (
+              <li key={person.id}>
+                <b>{person.name}</b>
+                <select value={picks[person.id] || ""} aria-label={`درجة ${person.name}`} onChange={event => setPicks(current => ({ ...current, [person.id]: event.target.value }))}>
+                  <option value="" disabled>اختر الدرجة *</option>
+                  {roster.ranks.map(rank => <option key={rank.id} value={rank.id}>{rank.name}</option>)}
+                </select>
+              </li>
+            ))}
+          </ul>
+          <footer>
+            <button type="button" className="btn btn-primary" disabled={busy || !Object.values(picks).some(Boolean)} onClick={() => void saveRanks(unranked)}
+              data-guide-ignore="يحفظ الدرجة العلمية لمن اختيرت له؛ لا يغيّر جدولاً ولا يمسّ غيرهم">
+              {busy ? "يحفظ…" : unranked.some(person => picks[person.id]) ? `احفظ ${countOf(unranked.filter(person => picks[person.id]).length, AR.instructor)}` : "اختر الدرجات أولاً"}
+            </button>
+          </footer>
+        </section>
+      ) : null}
       {justAdded ? <p className="dept-roster-added" role="status">{justAdded}</p> : null}
       {adding ? (
         <NewInstructorForm inline collegeId={collegeId} sectionId={sectionId}
@@ -120,7 +169,7 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
                 <span>{person.hours} س</span>
               </header>
               <div className="dept-roster-load">
-                <span>{person.rankName || "بلا درجة"}{person.max !== null ? ` · ${person.min ?? 0}–${person.max}${person.extra ? ` +${person.extra}` : ""}` : ""}</span>
+                <span className={person.rankName ? undefined : "is-missing-rank"}>{person.rankName || "بلا درجة"}{person.max !== null ? ` · ${person.min ?? 0}–${person.max}${person.extra ? ` +${person.extra}` : ""}` : ""}</span>
                 {person.exception ? <ExceptionBadge reason={person.exception.reason as any} /> : null}
               </div>
               <div className="dept-roster-actions">
@@ -138,7 +187,7 @@ export default function DepartmentRoster({ collegeId, sectionId, termId }: { col
       ) : <p className="sd-muted">لا أحد في هذه المجموعة.</p>}
       {editing ? createPortal(
         <LoadExceptionEditor name={editing.name} ranks={roster.ranks} value={editing.assignment} terms={roster.terms} hours={editing.hours}
-          readOnly={false} busy={busy} raised error={error} note={editorNote} onApply={next => void save(editing, { load: next || {} })} onClose={() => setEditing(null)} />,
+          readOnly={false} busy={busy} raised error={error} note={editorNote} requireRank={roster.ranks.length > 0} onApply={next => void save(editing, { load: next || {} })} onClose={() => setEditing(null)} />,
         document.body,
       ) : null}
     </div>
