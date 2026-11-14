@@ -15,6 +15,7 @@ import { safeSystemUser } from "../core/scope";
 import { IMPORT_PHRASE, RESET_PHRASE, UNDO_PHRASE } from "../../utils/vaultPhrases";
 import { VaultJobConflict } from "../vaultJobPlanner";
 import { systemHealthHandler } from "../systemHealth";
+import { featureHealthHandler } from "../featureHealth";
 
 const SYSTEM_BACKUP_MAX_BYTES = 80 * 1024 * 1024;
 
@@ -265,6 +266,8 @@ app.delete("/api/system-backup/op-jobs/:id", requireAuth, requireRootAdmin, vaul
 
 /* «سلامة النظام»: لمحةٌ للقراءة فقط لحساب الإدارة الرئيسي (src/server/systemHealth.ts). */
 app.get("/api/system-health", requireAuth, requireRootAdmin, systemHealthHandler);
+/* «سلامة الميزات الجديدة»: أعدادٌ مجمَّعة للفصل الجاري، والحارسُ نفسُه (src/server/featureHealth.ts). */
+app.get("/api/system-health/features", requireAuth, requireRootAdmin, featureHealthHandler);
 
 app.get("/api/audit-logs", requireAuth, requirePowerAdmin, async (req: AuthenticatedRequest, res: Response) => {
   /* صفحةٌ بعد صفحة: `before` طابعُ آخر سطرٍ في الصفحة السابقة، و`from`/`to` نطاقُ تاريخ. */
