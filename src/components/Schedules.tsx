@@ -170,6 +170,7 @@ import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import { isTermClosed, previousYearSameTermName, sameTermName, sortTermsNewest, currentTermId, termIsArchive } from "../utils/termSequence";
 import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
+import { SeatQuickPick, VacantAssign, type SeatVerdict } from "./InstructorSeats";
 import SameSlotHint from "./SameSlotHint";
 import { conflictSkipIds } from "../utils/sameSlot";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
@@ -194,6 +195,7 @@ import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import PersonChips from "./PersonChips";
 import { useTrainees } from "../utils/trainees";
+import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
 import { onLiveSignal, onLiveState, setLiveScope, type LiveState } from "../utils/livePulse";
@@ -9694,6 +9696,38 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioMissing = missingAppointmentFields(form as any);
   /* ── «حارس الزملاء»: من يبني موعداً معك الآن يُرى، وخانتك محجوزةٌ له دقيقتين (تنبيهٌ لا منع) ── */
   const studioPlaceholderIds = useMemo(() => (instructors as any[]).filter(person => isFacultyPlaceholder(person)).map(person => Number(person.AdInstructorId)), [instructors]);
+  /* ── الشاغر وعضو التدريب داخل الموعد (مثل المقترح الدراسي) ──
+     «شاغر» وقائمة متدرّبي القسم شريحتان تحت المنتقي؛ ولموعدٍ محفوظٍ شاغر «أسند إلى…» يمرّ بمسار الإسناد القائم نفسه. */
+  const seatVacantId = useMemo(() => {
+    const dept = new Set((departmentInstructorIds as number[]).map(Number));
+    return studioPlaceholderIds.find(id => dept.has(id)) ?? studioPlaceholderIds[0] ?? 0;
+  }, [studioPlaceholderIds, departmentInstructorIds]);
+  const seatTrainees = useMemo(() => (instructors as any[])
+    .filter(person => formTrainees.has(Number(person.AdInstructorId)) && !isFacultyPlaceholder(person))
+    .map(person => ({ id: Number(person.AdInstructorId), name: String(person.AdInstructorName || "") }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ar")).slice(0, 8), [instructors, formTrainees]);
+  const [seatPick, setSeatPick] = useState(0);
+  const seatAssignRow = editor === "edit" && editorOriginalRow && studioPlaceholderIds.includes(Number(editorOriginalRow.AdInstructorId)) && !practiceMode ? editorOriginalRow : null;
+  useEffect(() => { setSeatPick(0); }, [editId, editor]);
+  const seatVerdict = useMemo<SeatVerdict | null>(() => {
+    if (!seatAssignRow || !seatPick) return null;
+    const rest = rows.filter(row => Number(row.id) !== Number(seatAssignRow.id));
+    const clash = findConflicts([{ ...seatAssignRow, AdInstructorId: seatPick } as FSchedule], rest, { placeholderInstructorIds: placeholderInstructorIds(instructorById.values()) })
+      .find(issue => issue.type === "instructor");
+    const mine = rest.filter(row => Number(row.AdInstructorId) === seatPick && Number(row.AdTermId) === Number(seatAssignRow.AdTermId));
+    const now = weeklyLoadOf(mine, courseById);
+    const after = weeklyLoadOf([...mine, seatAssignRow], courseById);
+    const limit = loadNisabOf(instructorById.get(seatPick)).nisab;
+    return { free: !clash, clashWith: clash?.message, load: { now, after, limit: Number.isFinite(Number(limit)) ? Number(limit) : null } };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seatAssignRow, seatPick, rows, instructorById, courseById]);
+  /* الإسناد: الموعد المحفوظ نفسه يُسند للأستاذ المختار — طلبٌ ذرّيٌّ واحد بتأكيدٍ وتراجع (placeholderAction «assign»). */
+  const assignVacantTo = async (row: FSchedule, teacherId: number) => {
+    if (!teacherId) return;
+    await placeholderAction(
+      { rowId: Number(row.id), room: String(row.AdRoomCode || ""), hall: String(row.AdRoomHall || ""), start: row.fstarttime, end: row.fendtime, courseId: Number(row.AdCourseId), sameCourse: true },
+      "assign", { appointment: { ...row, AdInstructorId: teacherId } as Partial<FSchedule>, done: () => { setSeatPick(0); back(); } });
+  };
   const studioHolds = useScheduleHolds({
     enabled: editor !== "index",
     termId: Number(form.AdTermId || 0),
@@ -9993,6 +10027,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   />
                   </div>
                   </Field>
+                  <SeatQuickPick value={Number(form.AdInstructorId) || 0} vacantId={seatVacantId} trainees={seatTrainees}
+                    onPick={(id) => { setForm((p) => ({ ...p, AdInstructorId: id })); setStudioTeacherOpen(false); }} />
                 </section>
                 ) : (
                 <div className="appt-sumrow" aria-label="الأستاذ" data-appt-step="teacher">
@@ -10008,6 +10044,31 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </span>
                 </div>
                 )}
+                {seatAssignRow ? (
+                  <VacantAssign
+                    picker={<InstructorPicker
+                      value={seatPick}
+                      onChange={setSeatPick}
+                      instructors={(instructors as any[]).filter(person => !isFacultyPlaceholderId(Number(person.AdInstructorId))) as any}
+                      departmentIds={departmentInstructorIds}
+                      visitingIds={visitingIds}
+                      visitingRosterIds={pickerVisitingRosterIds}
+                      canCreate={false}
+                      collegeId={Number(form.AdCollegeId) || filterCollege}
+                      sectionId={Number(form.AdSectionId) || filterSection}
+                      termId={Number(form.AdTermId) || filterTerm}
+                      strictDepartmentOnly
+                      emptyLabel="أسند إلى…"
+                    />}
+                    pickedName={instructorById.get(seatPick)?.AdInstructorName || ""}
+                    pickedVisiting={visitingIds.has(seatPick)}
+                    pickedTrainee={formTrainees.has(seatPick)}
+                    verdict={seatVerdict}
+                    busy={replaceBusy}
+                    onClear={() => setSeatPick(0)}
+                    onAssign={() => void assignVacantTo(seatAssignRow, seatPick)}
+                  />
+                ) : null}
                 {studioTimeLocked ? studioLockedStep("time", 3, "متى؟ الأيام والوقت", "يُفتح بعد اختيار الأستاذ", studioTimeSeed, studioTimeRef) : (
                 <section className="schedule-form-section appt-step is-time" aria-label="الأيام والوقت" ref={studioTimeRef} data-appt-step="time">
                   <header className="appt-step-head">

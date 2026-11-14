@@ -279,6 +279,7 @@
     "test:actual-demand-graduates": "tsx tests/actual-demand-graduates-audit.ts",
     "test:demo-actual-demand": "tsx tests/demo-actual-demand-audit.ts",
     "test:appointment-review-1114": "tsx tests/appointment-review-1114-audit.ts",
+    "test:appointment-seats": "tsx tests/appointment-seats-audit.ts",
     "test:appointment-ideas-1114": "tsx tests/appointment-ideas-1114-audit.ts",
     "test:appointment-ideas2-1114": "tsx tests/appointment-ideas2-1114-audit.ts",
     "test:graduate-drag-1114": "tsx tests/graduate-drag-1114-audit.ts",
