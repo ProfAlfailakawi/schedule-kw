@@ -34,6 +34,7 @@ import {
   taWindowMessage, teacherDigestMessage, teacherEventFor, proposalCommittedMessage, proposalSentMessage, type TeacherEvent,
 } from "./pushMessages";
 import { CARD_TOKEN_PATTERN, cardManifest } from "./pushCard";
+import { registerMorningBriefRoute } from "./morningBriefPush";
 
 export interface PushRouteDeps {
   requireAuth: RequestHandler;
@@ -356,6 +357,8 @@ export function registerPushRoutes(app: Express, deps: PushRouteDeps): PushEngin
   engine = current;
   const clockIso = () => new Date((deps.now || Date.now)()).toISOString();
   const unavailable = (res: Response) => res.status(503).json({ error: "التنبيهات غير متاحة الآن. حاول بعد قليل." });
+  /* موجز الصباح: تنادي نقطتَه جدولةٌ خارجية بسرّ (src/server/morningBriefPush.ts). */
+  registerMorningBriefRoute(app, { deliver: current.deliver, isPowerUser: deps.isPowerUser, now: deps.now });
   const saveRecord = async (subscription: NonNullable<ReturnType<typeof readPushSubscription>>, owner: Partial<PushSubscriptionRecord>, req: Request) => {
     const id = pushSubscriptionId(subscription.endpoint);
     const previous = await Repository.getPushSubscription(id);

@@ -178,6 +178,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
     /* بطاقة الأستاذ لعائلة القسم: حارسٌ مركزيّ يستدعي isScopeAllowed لكل موقع. */
     "staffLinkFamilyAllowed"];
   const REVIEWED: Record<string, string> = {
+    "DELETE /api/reports/saved/:id": "يحذف استعلاماً محفوظاً: صاحبُه أو مدير النظام وحدهما (فحص المالك في المعالج نفسه)، ولا صفوف جدولٍ فيه.",
     "POST /api/schedules/apply-proposal": "يمرّ من معالجَي الحفظ نفسيهما (createScheduleHandler/updateScheduleHandler: isScopeAllowed + قفل + تعارض)، وللنقل يسأل applyProposalCore النطاقَ صراحةً",
     "GET /api/version": "رقم الإصدار — لا بيانات",
     "GET /api/university-day": "الدوام الشامل للبرنامج كله — لا بيانات",

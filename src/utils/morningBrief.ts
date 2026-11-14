@@ -33,6 +33,19 @@ export interface MorningBrief {
   moveCount: number;
   people: number;
   lines: Array<{ tone: "good" | "warn" | "danger" | "info"; text: string }>;
+  /** الأرقام نفسها للشاشة: أيقونةٌ ورقمٌ بدل جملة (الجمل للورقة المطبوعة). */
+  stats: {
+    moves: number;
+    blockers: number;
+    notes: number;
+    added: number;
+    removed: number;
+    changed: number;
+    /** الأيام الباقية على التسليم، أو null إن لا موعد؛ سالبٌ إن مضى. */
+    daysLeft: number | null;
+    approval: string;
+    round: number;
+  };
 }
 
 const DAY_MS = 86_400_000;
@@ -72,7 +85,17 @@ export function buildMorningBrief(input: MorningBriefInput): MorningBrief {
       : { tone: days <= 7 ? "warn" : "info", text: days === 0 ? "موعد التسليم اليوم." : `بقي على موعد التسليم ${days} ${days === 1 ? "يوم" : days === 2 ? "يومان" : days <= 10 ? "أيام" : "يوماً"}${input.deadline.date ? ` (${input.deadline.date})` : ""}.` });
   }
 
+  const delta = input.changes || { added: 0, removed: 0, changed: 0 };
   return {
+    stats: {
+      moves: recent.length,
+      blockers: input.blockers,
+      notes: input.regulationNotes,
+      added: delta.added, removed: delta.removed, changed: delta.changed,
+      daysLeft: input.deadline && typeof input.deadline.daysLeft === "number" ? input.deadline.daysLeft : null,
+      approval: input.approval?.statusLabel || "",
+      round: input.approval?.round || 0,
+    },
     since,
     moves: recent.slice(0, 8).map(entry => ({ at: entry.at, who: entry.who, what: input.kindLabel(entry.kind), target: entry.target })),
     moveCount: recent.length,

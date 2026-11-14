@@ -626,6 +626,15 @@
         }
       },
       {
+        "name": "MORNING_BRIEF_TOKEN",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "سرّ جدولة موجز الصباح: تنادي جدولةٌ خارجية نقطة الموجز به؛ بدونه تُجيب النقطة 404 ولا يُرسل شيء.",
+          "en": "The morning-brief scheduler secret: an external scheduler calls the brief endpoint with it; without it the endpoint answers 404 and nothing is sent."
+        }
+      },
+      {
         "name": "GEMINI_API_KEY",
         "group": "services",
         "default": "—",

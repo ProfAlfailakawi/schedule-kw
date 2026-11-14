@@ -25,6 +25,8 @@ import { blockingConflictDetails, blockingConflicts } from "../../utils/schedule
 import { chooseCaptureBaseline } from "../../utils/changesBaseline";
 import { reviewSchedule } from "../../utils/scheduleRegulations";
 import { roleDefinition } from "../../utils/academicRoles";
+import { sanitizeReportState, type SharedReportState } from "../../utils/reportShareCore";
+import { randomBytes } from "node:crypto";
 import { withVisitingSuffix } from "../../utils/visitingText";
 import { formatScheduleTimeRange, SCHEDULE_DAY_END, SCHEDULE_DAY_START } from "../../utils/scheduleTime";
 import { authorityCourseCode, authorityDepartmentCode } from "../../utils/authorityAcademicCodes";
@@ -974,6 +976,57 @@ app.get("/api/reports/excel/:type", requireAuth, async (req: AuthenticatedReques
   const fileBase = [ "الجدول", scopeLabel, termLabel, new Date().toISOString().slice(0, 10) ].filter(Boolean).join(" - ").replace(/[\\/:*?"<>|]+/g, "-");
   res.setHeader("Content-Disposition", `attachment; filename=schedule_report_${reportType}.xlsx; filename*=UTF-8''${encodeURIComponent(`${fileBase}.xlsx`)}`);
   res.send(excelBuffer);
+});
+
+/**
+ * ── تقاريري: استعلاماتٌ محفوظة على الخادم، شخصيةٌ أو للقسم ──────────────────
+ *
+ * حالُ الاستعلام وحدها (العدسة والنطاق والمرشّحات) — لا صفوف ولا أسماء. الشخصيُّ لصاحبه،
+ * والمشارَك يراه من له صلاحيةُ قسمه؛ والرابط لا يمنح صلاحية. التعديل والحذف لصاحبه ولمدير النظام.
+ */
+interface SavedReportDoc { id: string; owner: number; ownerName: string; name: string; at: string; state: SharedReportState; shared: boolean; watch: boolean }
+const SAVED_LENSES = new Set(["list", "week", "instructor", "courseLoad", "room", "occupancy", "roomInstructor", "matrix", "time", "visiting", "visitingHistory", "fairness", "balance", "courseRoom", "decision"]);
+const SAVED_PER_USER = 30;
+const rateLimitSaved = rateLimit({ windowMs: 60_000, limit: 90, standardHeaders: true, legacyHeaders: false, message: { error: "طلباتٌ كثيرة. انتظر قليلاً." } });
+const savedView = (doc: SavedReportDoc, viewer: number) => ({ id: doc.id, name: doc.name, at: doc.at, state: doc.state, shared: doc.shared, watch: doc.watch, mine: doc.owner === viewer, ownerName: doc.owner === viewer ? "" : doc.ownerName });
+
+app.get("/api/reports/saved", rateLimitSaved, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const viewer = Number(req.user?.SystemUserId || 0);
+  const docs = await Repository.listFeatureDocs<SavedReportDoc>("savedReports");
+  const visible = docs
+    .filter(doc => doc && doc.state && (doc.owner === viewer || (doc.shared && doc.state.c && doc.state.s && isScopeAllowed(req, doc.state.c, doc.state.s))))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  res.json({ reports: visible.slice(0, 60).map(doc => savedView(doc, viewer)) });
+});
+
+app.put("/api/reports/saved", rateLimitSaved, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const viewer = Number(req.user?.SystemUserId || 0);
+  const body = req.body || {};
+  const name = String(body.name || "").trim().slice(0, 60);
+  const state = sanitizeReportState(body.state);
+  if (!name || !state || !SAVED_LENSES.has(state.lens)) { res.status(400).json({ error: "استعلامٌ ناقص." }); return; }
+  const shared = body.shared === true;
+  /* المشاركة لقسمٍ بعينه، وبصلاحيةٍ عليه: لا يُشارَك ما لا يُقرأ. */
+  if (shared && (!state.c || !state.s || !isScopeAllowed(req, state.c, state.s))) { res.status(403).json({ error: "اختر قسمك أولاً لمشاركة الاستعلام." }); return; }
+  const existingId = String(body.id || "");
+  const mine = (await Repository.listFeatureDocs<SavedReportDoc>("savedReports", `${viewer}:`)).filter(doc => doc.owner === viewer);
+  const same = mine.find(doc => doc.id === existingId) || mine.find(doc => doc.name === name);
+  if (!same && mine.length >= SAVED_PER_USER) { res.status(409).json({ error: `بلغت ${SAVED_PER_USER} استعلاماً محفوظاً. احذف قديماً.` }); return; }
+  const id = same?.id || `${viewer}:${randomBytes(5).toString("hex")}`;
+  const doc: SavedReportDoc = { id, owner: viewer, ownerName: String(req.user?.Name || "").slice(0, 80), name, at: new Date().toISOString(), state, shared, watch: body.watch === true };
+  await Repository.saveFeatureDoc("savedReports", id, doc);
+  res.json({ report: savedView(doc, viewer) });
+});
+
+app.delete("/api/reports/saved/:id", rateLimitSaved, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const viewer = Number(req.user?.SystemUserId || 0);
+  const id = String(req.params.id || "");
+  const doc = await Repository.getFeatureDoc<SavedReportDoc>("savedReports", id);
+  if (!doc) { res.status(404).json({ error: "غير موجود." }); return; }
+  if (doc.owner !== viewer && !req.user?.IsAdminUser) { res.status(403).json({ error: "ليس لك." }); return; }
+  await Repository.deleteFeatureDoc("savedReports", id);
+  res.json({ ok: true });
 });
 
 /**
