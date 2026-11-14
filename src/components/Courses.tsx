@@ -856,7 +856,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       )}
       {receipt ? <Notice type="success" onDismiss={() => setReceipt(null)}>{receipt}</Notice> : null}
       {error && mode === "index" ? (
-        <Notice action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : plansAction}>{error}</Notice>
+        <Notice action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : plansAction}>{error}</Notice>
       ) : null}
       {/* أدوات السعة للمدير الرئيسي وحده — كما يقصرها الخادم؛ وبعد التطبيق تُعاد القائمة لا الصفحة كلها. */}
       {rootAdmin ? <CapacityByMode sections={sections} onDone={() => void load()} /> : null}
@@ -917,7 +917,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             <EmptyState
               title={loadFailed ? "تعذّر تحميل المقررات" : "لا توجد مقررات مطابقة"}
               detail={loadFailed ? "لم تصل القائمة من الخادم؛ هذا لا يعني أنها فارغة." : "جرّب رقماً آخر أو امسح عبارة البحث."}
-              action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
+              action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton data-guide-ignore="يمسح نص البحث في القائمة؛ لا يكتب شيئاً" onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
             />
           )}
           {filtered.length > visibleLimit ? (

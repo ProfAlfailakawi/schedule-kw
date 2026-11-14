@@ -1493,7 +1493,7 @@ export default function AdminUsers({
             <span className="vault-action-icon"><Eraser /></span>
             <div><small>03</small><h3>تصفير النظام</h3><p>يمسح بيانات العمل كاملة ويُبقي حساب الإدارة الرئيسي فقط كي لا تفقد باب التراجع.</p></div>
             <input className="vault-confirm-input" value={resetPhrase} onChange={(event) => setResetPhrase(event.target.value)} placeholder={`اكتب: ${RESET_PHRASE}`} aria-label="عبارة التأكيد" autoComplete="off" />
-            <SecondaryButton type="button" disabled={resetPhrase !== RESET_PHRASE || vaultLocked} onClick={() => void resetFullSystem()}>
+            <SecondaryButton data-guide-ignore="تصفير النظام في الخزنة؛ محروسٌ بعبارةٍ مكتوبة ونقطة أمان، ولحساب الإدارة الرئيسي وحده" type="button" disabled={resetPhrase !== RESET_PHRASE || vaultLocked} onClick={() => void resetFullSystem()}>
               <Eraser /> {backupBusy === "reset" ? "أصنع نقطة أمان ثم أصفّر…" : "تصفير"}
             </SecondaryButton>
           </Surface>
@@ -1587,7 +1587,7 @@ export default function AdminUsers({
           <SecondaryButton type="button" disabled={headBusy || demoReadOnly} data-guide-ignore="يعرض معاينة حسابات مرشدي الأقسام الناقصة؛ لا يكتب شيئاً" onClick={() => void openHeadPlan("advisors")}>
             <GraduationCap aria-hidden="true" /> حسابات المرشدين
           </SecondaryButton>
-          <AddButton onClick={startCreateUser}>
+          <AddButton data-guide-ignore="يفتح نموذج حسابٍ جديد؛ الكتابةُ عند الحفظ ويحرسها الخادم" onClick={startCreateUser}>
             مستخدم جديد
           </AddButton>
           </>,
@@ -1807,7 +1807,7 @@ export default function AdminUsers({
                           /* مرآةُ الخادم: صلاحياتُ الحساب الرئيسي لصاحبه، ولا تنزع عن نفسك ١١ أو ١٢. */
                           const lockReason = permissionLockReason(selected, f.FormNameId, active);
                           return (
-                            <button
+                            <button data-guide-ignore="مفتاح صلاحية شاشةٍ في الشبكة؛ لا يُكتب شيءٌ قبل «حفظ الصلاحيات»"
                               type="button"
                               key={f.FormNameId}
                               className={active ? "active" : ""}
@@ -1830,9 +1830,9 @@ export default function AdminUsers({
                         })}
                       </div>
                       <div className="inspector-perm-actions">
-                        <PrimaryButton disabled={!permDirty || Boolean(selected.IsRootAccount && !rootAdmin)} onClick={() => savePermission()}>حفظ الصلاحيات</PrimaryButton>
+                        <PrimaryButton data-guide-ignore="يحفظ شبكة صلاحيات المستخدم المختار؛ يحرسه الخادم (لا ينزع المرء 11 أو 12 عن نفسه)" disabled={!permDirty || Boolean(selected.IsRootAccount && !rootAdmin)} onClick={() => savePermission()}>حفظ الصلاحيات</PrimaryButton>
                         {permDirty ? (
-                          <SecondaryButton onClick={() => setPermSelections(savedPermsOf(selected.SystemUserId))}>تراجع عن التغييرات</SecondaryButton>
+                          <SecondaryButton data-guide-ignore="يعيد الشبكة إلى آخر ما حُفظ؛ محليٌّ لا يكتب شيئاً" onClick={() => setPermSelections(savedPermsOf(selected.SystemUserId))}>تراجع عن التغييرات</SecondaryButton>
                         ) : null}
                         {permDirty ? <span className="soft-copy" role="status">تغييراتٌ لم تُحفظ</span> : null}
                       </div>
@@ -1842,7 +1842,7 @@ export default function AdminUsers({
                   )}
                 </section>
                 <div className="inspector-actions">
-                  <PrimaryButton
+                  <PrimaryButton data-guide-ignore="حفظ نطاقات المستخدم؛ حسابُ الإدارة الرئيسي لا يعدّله إلا صاحبه"
                     disabled={Boolean(selected.IsRootAccount && !rootAdmin)}
                     title={selected.IsRootAccount && !rootAdmin ? "حساب الإدارة الرئيسي لا يعدّله إلا صاحبه." : undefined}
                     onClick={() => editUser(selected)}
@@ -2040,7 +2040,7 @@ export default function AdminUsers({
           <SecondaryButton type="button" disabled={!filteredLogs.length} onClick={() => exportAudit(filteredLogs)} data-guide-ignore="تنزيل ما يظهر من السجل ملفَّ CSV؛ لا يغيّر شيئاً">
             <Download aria-hidden="true" /> تصدير CSV
           </SecondaryButton>
-          <SecondaryButton type="button" disabled={auditBusy} onClick={() => void load()}>
+          <SecondaryButton data-guide-ignore="يعيد قراءة سجل العمليات؛ لا يكتب شيئاً" type="button" disabled={auditBusy} onClick={() => void load()}>
             تحديث السجل
           </SecondaryButton>
         </>,
@@ -2049,8 +2049,8 @@ export default function AdminUsers({
       <div className="audit-range no-print" role="group" aria-label="نطاق تاريخ السجل">
         <label className="field"><span>من</span><input type="date" dir="ltr" value={auditFrom} max={auditTo || undefined} onChange={(e) => setAuditFrom(e.target.value)} /></label>
         <label className="field"><span>إلى</span><input type="date" dir="ltr" value={auditTo} min={auditFrom || undefined} onChange={(e) => setAuditTo(e.target.value)} /></label>
-        <SecondaryButton type="button" disabled={auditBusy} onClick={() => { setSelectedLogId(null); void loadAuditPage(false).catch((e: any) => setError(e.message)); }}>تطبيق</SecondaryButton>
-        {auditFrom || auditTo ? <SecondaryButton type="button" onClick={() => { setAuditFrom(""); setAuditTo(""); }}>مسح التاريخ</SecondaryButton> : null}
+        <SecondaryButton data-guide-ignore="يطبّق نطاق التاريخ على السجل؛ قراءةٌ فقط" type="button" disabled={auditBusy} onClick={() => { setSelectedLogId(null); void loadAuditPage(false).catch((e: any) => setError(e.message)); }}>تطبيق</SecondaryButton>
+        {auditFrom || auditTo ? <SecondaryButton data-guide-ignore="يمسح نطاق التاريخ في السجل؛ محليٌّ" type="button" onClick={() => { setAuditFrom(""); setAuditTo(""); }}>مسح التاريخ</SecondaryButton> : null}
       </div>
       {/* «وقت إدخال المواعيد» (src/utils/appointmentMeasure.ts): كم يأخذ الموعدُ الواحد — لحساب الإدارة الرئيسي وحده. */}
       {rootAdmin ? <AppointmentMeasureCard /> : null}
@@ -2113,7 +2113,7 @@ export default function AdminUsers({
             ))}
             {!logs.length && !auditBusy ? <p className="soft-copy">لا عمليات في هذا النطاق.</p> : null}
             {auditMore ? (
-              <SecondaryButton type="button" disabled={auditBusy} onClick={() => void loadAuditPage(true).catch((e: any) => setError(e.message))}>
+              <SecondaryButton data-guide-ignore="يحمّل صفحةً أقدم من السجل؛ قراءةٌ فقط" type="button" disabled={auditBusy} onClick={() => void loadAuditPage(true).catch((e: any) => setError(e.message))}>
                 {auditBusy ? "أحمّل…" : `تحميل ${countOf(AUDIT_PAGE, AR.record)} أقدم`}
               </SecondaryButton>
             ) : null}

@@ -282,7 +282,7 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
           الفصول الدراسية
         </PageTitle>
       )}
-      {error && mode === "index" ? <Notice action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : undefined}>{error}</Notice> : null}
+      {error && mode === "index" ? <Notice action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : undefined}>{error}</Notice> : null}
       {rootAdmin ? <StudentUnitCapSetting /> : null}
       <div className="catalog-workspace" aria-busy={loading}>
         <Surface className="catalog-master">
@@ -318,7 +318,7 @@ export default function Terms({ embedded = false, actionSlot = null, rootAdmin =
             <EmptyState
               title={loadFailed ? "تعذّر تحميل الفصول" : query ? "لا يوجد فصل مطابق" : "لا توجد فصول دراسية بعد"}
               detail={loadFailed ? "لم تصل القائمة من الخادم؛ هذا لا يعني أنها فارغة." : query ? "جرّب عبارة أخرى أو امسح البحث." : "أنشئ الفصل الأول ليظهر في الجداول والتقارير."}
-              action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
+              action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
             />
           )}
         </Surface>

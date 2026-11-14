@@ -5,6 +5,7 @@
  * تُقرأ هنا في الموضعين، فلا يقول النموذج شيئاً ويقول الخادم غيره.
  */
 import { normalizeArabicText } from "./arabicText";
+import { AR, countOf } from "./arabicCount";
 import { SAME_BUILDING_MINUTES } from "./campusTravel";
 
 /** الرمز: بلا مسافات أطراف وبلا فرق حالة الأحرف (COE و coe رمزٌ واحد). */
@@ -37,7 +38,7 @@ export function readInstructorLoad(raw: unknown): { load: number | null } | { er
   const value = Number(raw);
   if (!Number.isFinite(value) || value < 0) return { error: "النصاب رقمٌ موجب من الساعات." };
   if (value === 0) return { load: null };
-  if (value > INSTRUCTOR_LOAD_MAX) return { error: `النصاب لا يتجاوز ${INSTRUCTOR_LOAD_MAX} ساعة. اتركه فارغاً إن لم يكن له نصاب.` };
+  if (value > INSTRUCTOR_LOAD_MAX) return { error: `النصاب لا يتجاوز ${countOf(INSTRUCTOR_LOAD_MAX, AR.hour)}. اتركه فارغاً إن لم يكن له نصاب.` };
   return { load: Math.round(value) };
 }
 

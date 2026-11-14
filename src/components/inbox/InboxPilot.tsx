@@ -22,6 +22,10 @@ import {
 } from "../../utils/inboxPilot";
 import { PROPOSAL_DAY_NAMES } from "../../utils/studyProposal";
 import { num } from "../proposal/proposalFormat";
+import CourseTags from "../CourseTags";
+import PersonChips from "../PersonChips";
+import { useVisitingLookup } from "../../hooks/useVisitingLookup";
+import { isTaRequest } from "../../utils/requestParticipation";
 
 type Decide<R> = (row: R, index: number, state: "fixed" | "rejected", extra?: any) => Promise<boolean>;
 interface RejectSheetProps {
@@ -88,6 +92,7 @@ export default function InboxPilot<R extends PilotRow>({
      الأثناء يُتخطّى، لأن كلَّ خطوةٍ تسأل القراءةَ الأخيرة للوارد. */
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+  const { isVisiting } = useVisitingLookup(Number((rows[0] as any)?.AdTermId) || 0);
   const open = useCallback((entry: PilotEntry) => pilotOpen(rowsRef.current, entry), []);
   const [state, setState] = useState<PilotState>(() => startPilot(buildPilotQueue(rows, include), entry => pilotOpen(rows, entry)));
   const [sheet, setSheet] = useState(false);
@@ -241,7 +246,7 @@ export default function InboxPilot<R extends PilotRow>({
           <section className="inbox-pilot-card" ref={cardRef} tabIndex={-1} aria-labelledby="inbox-pilot-who" aria-describedby="inbox-pilot-change"
             data-readiness={judged.readiness} key={entry.key}>
             <div className="inbox-pilot-who">
-              <strong id="inbox-pilot-who">{row.instructorName}</strong>
+              <strong id="inbox-pilot-who">{row.instructorName}<PersonChips visiting={isVisiting((row as any).AdInstructorId, (row as any).AdCollegeId, (row as any).AdSectionId)} trainee={isTaRequest(row as any)} /></strong>
               <span>
                 {row.sectionName ? `قسم ${String(row.sectionName).replace(/^قسم\s+/, "")}` : null}
                 {submittedLabel(row.submittedAt) ? <small><Clock3 aria-hidden="true" />أُرسل {submittedLabel(row.submittedAt)}</small> : null}
@@ -249,7 +254,7 @@ export default function InboxPilot<R extends PilotRow>({
             </div>
             <div className="inbox-pilot-what">
               <span className="inbox-pilot-action" data-action={item.action}><ActionIcon aria-hidden="true" />{ACTION_LABEL[item.action] || item.action}</span>
-              <strong>{item.after?.courseName || item.before?.courseName || "—"}</strong>
+              <strong>{item.after?.courseName || item.before?.courseName || "—"}<CourseTags courseId={item.after?.courseId || item.before?.courseId} /></strong>
               {item.before?.sectionCode ? <small>شعبة {item.before.sectionCode}</small> : null}
             </div>
 

@@ -154,7 +154,8 @@ ok('57 late alert shows thin course name under course code', 'subtitle: courseNa
 ok('58 demand arithmetic values are centered under labels', 'justify-items:center' in (ROOT/'src/styles/06-intelligence.css').read_text())
 courses_src=(ROOT/'src/components/Courses.tsx').read_text()
 ok('59 courses type import restored for CI', 'import type { AdSection } from "../types";' in courses_src)
-ok('60 course inspector shows public code not internal id', '<b>{selected.CourseCode || "—"}</b>' in courses_src)
+# الرقمُ المعروض رقمُ الهيئة بسبع خانات (authorityCourseCode)، لا CourseCode المخزَّن ولا المعرّف الداخلي.
+ok('60 course inspector shows public code not internal id', '<b dir="ltr">{courseNumberOf(selected)}</b>' in courses_src and 'authorityCourseCode(course?.CourseCode' in courses_src)
 transfer=(ROOT/'src/components/ScheduleTransfer.tsx').read_text()
 # النشر يبقى مخفياً ومعطّلاً كما كان، ويضيف الآن شرطاً ثالثاً: أن يكون فحص
 # التعارض مع بقية أقسام الفصل قد أجاب عن هذه الصفوف بالذات. الوعد ثم الرفض بعد

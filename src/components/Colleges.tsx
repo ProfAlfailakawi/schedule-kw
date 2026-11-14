@@ -22,7 +22,7 @@ import {
 import { DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES } from "../utils/campusTravel";
 import { sortByName } from "../utils/sorting";
 import { TravelHeatMatrix } from "./VisualBits";
-import { sameBuildingMinutesOf, sameReferenceCode, sameReferenceName } from "../utils/academicGuards";
+import { sameBuildingMinutesOf, sameReferenceName } from "../utils/academicGuards";
 type Mode = "index" | "create" | "edit";
 /** `embedded` means the academic console already supplies the page identity. */
 export default function Colleges({ embedded = false, actionSlot = null, onCount }: { embedded?: boolean; actionSlot?: HTMLElement | null; onCount?: (count: number) => void }) {
@@ -122,9 +122,10 @@ export default function Colleges({ embedded = false, actionSlot = null, onCount 
       return;
     }
     /* الخادم يرفض التكرار أيضاً؛ هنا يُقال قبل الإرسال وباسم السجل القائم. */
-    const clash = items.find(x => x.AdCollegeId !== editId && (sameReferenceCode(x.AdCollegeCode, code) || sameReferenceName(x.AdCollegeName, name)));
+    /* الاسمُ وحده يُرفض مكرّراً: حرما الكلية الواحدة (بنين وبنات) يتشاركان رمزها عمداً. */
+    const clash = items.find(x => x.AdCollegeId !== editId && sameReferenceName(x.AdCollegeName, name));
     if (clash) {
-      setError(sameReferenceCode(clash.AdCollegeCode, code) ? `رمز الكلية «${code.trim()}» مسجّلٌ للكلية «${clash.AdCollegeName}».` : `اسم الكلية «${name.trim()}» مسجّلٌ من قبل برمز «${clash.AdCollegeCode}».`);
+      setError(`اسم الكلية «${name.trim()}» مسجّلٌ من قبل برمز «${clash.AdCollegeCode}».`);
       return;
     }
     setSubmitting(true);
@@ -160,7 +161,7 @@ export default function Colleges({ embedded = false, actionSlot = null, onCount 
   const remove = async (college: any) => {
     if (submitting) return;
     const id = Number(college.AdCollegeId);
-    if (!(await visualConfirm({ title: `حذف «${college.AdCollegeName}»`, message: `ستُحذف كلية «${college.AdCollegeName}» (${college.AdCollegeCode}) من النظام. لا تُحذف ما دامت لها أقسام علمية، أو حساباتٌ نطاقها فيها (العميد والعميد المساعد وكرسيّ التسجيل) — تُسمّى لك لتعالجها من «المستخدمون».`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+    if (!(await visualConfirm({ title: `حذف «${college.AdCollegeName}»`, message: `ستُحذف كلية «${college.AdCollegeName}» (${college.AdCollegeCode}) من النظام. لا تُحذف ما دامت لها أقسام علمية، أو حساباتٌ نطاقها فيها (العميد والعميد المساعد وفريق التسجيل) — تُسمّى لك لتعالجها من «المستخدمون».`, confirmLabel: "حذف", tone: "danger", compact: true }))) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -294,7 +295,7 @@ export default function Colleges({ embedded = false, actionSlot = null, onCount 
           الكليات
         </PageTitle>
       )}
-      {error && mode === "index" ? <Notice action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : undefined}>{error}</Notice> : null}
+      {error && mode === "index" ? <Notice action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : undefined}>{error}</Notice> : null}
       {issued.length ? (
         <Notice type="warning" inline onDismiss={() => setIssued([])}>
           <strong>أُنشئت حسابات الكلية.</strong> كلمات السر الأولى تظهر هنا مرّة واحدة — سلّمها لأصحابها، ويُطلب تغييرها عند أول دخول:
@@ -337,7 +338,7 @@ export default function Colleges({ embedded = false, actionSlot = null, onCount 
             <EmptyState
               title={loadFailed ? "تعذّر تحميل الكليات" : query ? "لا توجد كلية مطابقة" : "لا توجد كليات بعد"}
               detail={loadFailed ? "لم تصل القائمة من الخادم؛ هذا لا يعني أنها فارغة." : query ? "جرّب عبارة أخرى أو امسح البحث." : "أنشئ الكلية الأولى لبناء الهيكل الأكاديمي."}
-              action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
+              action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
             />
           )}
         </Surface>

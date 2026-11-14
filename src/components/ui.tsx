@@ -356,7 +356,7 @@ export function CatalogFormDrawer({ label, onClose, children, wide = false, rais
     <>
       <div className={`catalog-form-backdrop no-print ${raised ? "is-raised" : ""}`.trim()} onMouseDown={() => void guardedClose()} aria-hidden="true" />
       <aside ref={ref} className={`content-stack editor-page catalog-form-drawer no-print ${wide ? "catalog-form-drawer-wide" : ""} ${raised ? "is-raised" : ""}`.trim()} role="dialog" aria-modal="true" aria-label={label}>
-        <button type="button" className="drawer-close catalog-drawer-close" onClick={() => void guardedClose()} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
+        <button data-guide-ignore="يغلق النافذة؛ لا يكتب شيئاً" type="button" className="drawer-close catalog-drawer-close" onClick={() => void guardedClose()} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
         {children}
       </aside>
     </>
@@ -423,7 +423,7 @@ export function Field({ label, required, children, hint }: { label: React.ReactN
  * nothing to lose, so it stays live at all times; only submit is guarded,
  * which is the button that could write twice.
  */
-export function FormActions({ onBack, loading, submitDisabled, submitLabel = "موافق", backLabel = "تراجع" }: { onBack: () => void; loading?: boolean; submitDisabled?: boolean; submitLabel?: React.ReactNode; backLabel?: React.ReactNode }) { return <div className="form-actions"><PrimaryButton type="submit" disabled={loading || submitDisabled}>{submitLabel}</PrimaryButton><SecondaryButton type="button" onClick={onBack}>{backLabel}</SecondaryButton></div>; }
+export function FormActions({ onBack, loading, submitDisabled, submitLabel = "موافق", backLabel = "تراجع" }: { onBack: () => void; loading?: boolean; submitDisabled?: boolean; submitLabel?: React.ReactNode; backLabel?: React.ReactNode }) { return <div className="form-actions"><PrimaryButton data-guide-ignore="زرّا النموذج العام (حفظ/إلغاء) تُرشد إليهما شاشةُ كلِّ نموذج" type="submit" disabled={loading || submitDisabled}>{submitLabel}</PrimaryButton><SecondaryButton data-guide-ignore="زرّا النموذج العام (حفظ/إلغاء) تُرشد إليهما شاشةُ كلِّ نموذج" type="button" onClick={onBack}>{backLabel}</SecondaryButton></div>; }
 export function EmptyRow({ colSpan, label = "لا توجد بيانات مطابقة" }: { colSpan: number; label?: string }) { return <tr><td className="empty-cell" colSpan={colSpan}><span>{label}</span></td></tr>; }
 export function ListToolbar({ value, onChange, placeholder = "بحث داخل البيانات", count, children }: { value: string; onChange: (value: string) => void; placeholder?: string; count?: number; children?: React.ReactNode }) { return <div className="list-toolbar"><div className="list-search"><Search aria-hidden="true"/><input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} aria-label={placeholder}/>{value?<button type="button" onClick={()=>onChange("")} aria-label="مسح"><X/></button>:null}</div><div className="list-toolbar-side">{typeof count === "number" ? <span className="count-chip">{countOf(count, AR.record)}</span> : null}{children}</div></div>; }
 export function StatCard({ label, value, detail, icon }: { label: React.ReactNode; value: React.ReactNode; detail?: React.ReactNode; icon?: React.ReactNode }) { return <article className="stat-card"><div className="stat-icon">{icon}</div><div><strong>{value}</strong><span>{label}</span>{detail ? <small>{detail}</small> : null}</div></article>; }

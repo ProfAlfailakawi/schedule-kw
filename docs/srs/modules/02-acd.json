@@ -2862,16 +2862,16 @@
       "id": "FR-ACD-051",
       "kind": "functional",
       "title": {
-        "ar": "منع تكرار الكلية والفصل ورمز القسم",
-        "en": "No duplicate college, term or department code"
+        "ar": "منع تكرار اسم الكلية والفصل ورمز القسم",
+        "en": "No duplicate college name, term or department code"
       },
       "text": {
-        "ar": "يجب أن يرفض النظام بالحالة 400 إنشاء أو تعديل كليةٍ برمزٍ مسجّلٍ لكليةٍ أخرى (بلا فرق حالة الأحرف) أو باسمٍ مسجّلٍ (بأشكال الحروف العادية ومسافةٍ واحدة)، وفصلٍ باسمٍ مسجّلٍ لفصلٍ آخر (المسافات لا تُفرّق)، وتعديلَ قسمٍ إلى رمزٍ مسجّلٍ لقسمٍ آخر في الكلية نفسها، برسالةٍ تسمّي السجلّ القائم؛ ويقول النموذج الرسالة نفسها قبل الإرسال.",
-        "en": "The system shall refuse with status 400 creating or editing a college whose code is held by another college (case-insensitive) or whose name is already registered (normalised letters, single spaces), a term whose name is held by another term (spacing ignored), and editing a department to a code held by another department of the same college, with a message naming the existing record; the form shall say the same before sending."
+        "ar": "يجب أن يرفض النظام بالحالة 400 إنشاء أو تعديل كليةٍ باسمٍ مسجّلٍ لكليةٍ أخرى (بأشكال الحروف العادية ومسافةٍ واحدة) — والرمزُ المشترك مقبول لأن حرمَي الكلية الواحدة (بنين وبنات) يتشاركان رمزها — وفصلٍ باسمٍ مسجّلٍ لفصلٍ آخر (المسافات لا تُفرّق)، وتعديلَ قسمٍ إلى رمزٍ مسجّلٍ لقسمٍ آخر في الكلية نفسها، برسالةٍ تسمّي السجلّ القائم؛ ويقول النموذج الرسالة نفسها قبل الإرسال.",
+        "en": "The system shall refuse with status 400 creating or editing a college whose name is already registered for another college (normalised letters, single spaces) — a shared code is accepted, because the boys' and girls' campuses of one college share its code — a term whose name is held by another term (spacing ignored), and editing a department to a code held by another department of the same college, with a message naming the existing record; the form shall say the same before sending."
       },
       "rationale": {
-        "ar": "كان التكرار يُمنع عند إنشاء القسم وحده، فتولد كليتان بالرمز نفسه (ولكلٍّ حسابا عميد) وفصلان بالاسم نفسه، ويصير قسمٌ معدَّلٌ نسخةً من آخر.",
-        "en": "Duplicates were refused only when creating a department, so two colleges could share a code (each with its own dean accounts), two terms a name, and an edited department could copy another's code."
+        "ar": "كان التكرار يُمنع عند إنشاء القسم وحده، فتولد كليتان بالاسم نفسه (ولكلٍّ حسابا عميد) وفصلان بالاسم نفسه، ويصير قسمٌ معدَّلٌ نسخةً من آخر.",
+        "en": "Duplicates were refused only when creating a department, so two colleges could share a name (each with its own dean accounts), two terms a name, and an edited department could copy another's code."
       },
       "priority": "must",
       "status": "implemented",
@@ -2881,8 +2881,8 @@
       ],
       "acceptance": [
         {
-          "ar": "إنشاء كلية برمز «coe» وكلية «COE» قائمة ← 400 «رمز الكلية «coe» مسجّلٌ للكلية …» ولا تُنشأ حسابات.",
-          "en": "Creating a college with code «coe» while «COE» exists ← 400 naming the existing college, and no accounts are created."
+          "ar": "إنشاء كلية باسم «كلية  الهندسة» وكلية «كلية الهندسة» قائمة ← 400 «اسم الكلية … مسجّلٌ من قبل» ولا تُنشأ حسابات؛ وحرمٌ ثانٍ برمز الكلية نفسه واسمٍ آخر (بنات) يُنشأ.",
+          "en": "Creating a college named «كلية  الهندسة» while «كلية الهندسة» exists ← 400 naming the existing college, and no accounts are created; a second campus with the same code and another name (girls) is created."
         },
         {
           "ar": "إنشاء «الفصل الأول  2027/2028» وفصل «الفصل الأول 2027/2028» قائم ← 400 «الفصل … مسجّلٌ من قبل»؛ وحفظ الفصل نفسه باسمه لا يُرفض.",

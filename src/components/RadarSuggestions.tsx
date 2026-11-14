@@ -5,6 +5,9 @@ import { AR, countOf } from "../utils/arabicCount";
 import ApplyProposal, { ImpactCard, postScheduleProposal, postWhatIf, type ChangeImpact } from "./ApplyProposal";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { request } from "./RadarSchedule";
+import CourseTags from "./CourseTags";
+import PersonChips from "./PersonChips";
+import { useVisitingLookup } from "../hooks/useVisitingLookup";
 
 /**
  * ── «الرادار يقترح الحل وينفذه» ─────────────────────────────────────────────
@@ -79,6 +82,7 @@ export default function RadarSuggestions({ termId, ranAt, collegeId = 0, section
 
 function SuggestionCard({ row, termId, canAdopt, adopted, canSchedule, onApplied }: { key?: React.Key; row: SuggestionRow; termId: number; canAdopt: boolean; adopted: boolean; canSchedule: boolean; onApplied: () => void }) {
   const [impact, setImpact] = useState<ChangeImpact | "loading" | "failed" | null>(null);
+  const { isVisiting } = useVisitingLookup(termId);
   const s = row.suggestion;
   const body = s ? { kind: "opening", collegeId: row.collegeId, sectionId: row.sectionId, termId, courseId: row.courseId, placement: s.placement } : null;
   const measure = () => {
@@ -90,13 +94,13 @@ function SuggestionCard({ row, termId, canAdopt, adopted, canSchedule, onApplied
   return (
     <article className="rs-card" aria-label={`اقتراح «${row.name}»`}>
       <div className="rs-title">
-        <b>{row.name}</b><span dir="ltr">{row.code}</span>
+        <b>{row.name}<CourseTags courseId={row.courseId} /></b><span dir="ltr">{row.code}</span>
         <em className={`rs-kind ${row.kind}`}>{row.kind === "not-offered" ? "مطلوبٌ ولا يُطرح" : "يمتلئ"}</em>
       </div>
       <small className="rs-wait"><Users aria-hidden="true" /> {countOf(row.waiting, AR.student)} بلا مقعد فيه</small>
       {!s ? <p className="rs-line rs-none"><CircleSlash aria-hidden="true" /> لا اقتراح: {row.reasonLine || "لا وقت خالياً من التعارض يناسب الطلبة المنتظرين."}</p> : (
         <>
-          <p className="rs-slot"><CalendarPlus aria-hidden="true" /> <span>شعبة <bdi dir="ltr">{s.placement.sectionCode}</bdi> · <b>{s.placement.dayLabel}</b> <bdi dir="ltr">{formatScheduleTimeRange(s.placement.start, s.placement.end)}</bdi> · قاعة <bdi dir="ltr">{roomOf(s.placement)}</bdi> · {s.placement.instructorName}</span></p>
+          <p className="rs-slot"><CalendarPlus aria-hidden="true" /> <span>شعبة <bdi dir="ltr">{s.placement.sectionCode}</bdi> · <b>{s.placement.dayLabel}</b> <bdi dir="ltr">{formatScheduleTimeRange(s.placement.start, s.placement.end)}</bdi> · قاعة <bdi dir="ltr">{roomOf(s.placement)}</bdi> · {s.placement.instructorName}<PersonChips visiting={isVisiting(s.placement.instructorId, row.collegeId, row.sectionId)} /></span></p>
           <small className="rs-fit">يناسب وقتُها {nf(s.fits)} من {countOf(row.waiting, AR.student)} منتظرين (قيدُ الصباح أو المساء، وبلا تعارض مع مقرراتهم).</small>
           <div className="sm-impact" aria-label="من يجد مقعداً في المقرر قبل الشعبة وبعدها">
             <b><TrendingUp aria-hidden="true" /> يجدون مقعداً في المقرر</b>

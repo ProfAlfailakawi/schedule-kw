@@ -1229,7 +1229,7 @@ function NotifySheet({ entries, onNotified, onClose }: { entries: NotifyEntry[];
             </li>
           ))}
         </ol>
-        {!current ? <div className="changes-extend-actions"><PrimaryButton type="button" onClick={onClose}>إغلاق</PrimaryButton></div> : null}
+        {!current ? <div className="changes-extend-actions"><PrimaryButton data-guide-ignore="يغلق النافذة؛ لا يكتب شيئاً" type="button" onClick={onClose}>إغلاق</PrimaryButton></div> : null}
       </div>
     </div>
   );

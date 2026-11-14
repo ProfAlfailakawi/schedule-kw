@@ -42,13 +42,12 @@ import { saveUniversityDay } from "../core/universityDay";
 
 const collegeMobilityHistoryCache=new Map<string,{expiresAt:number;history:any[]}>();
 
-/* كليةٌ أخرى بالرمز نفسه أو بالاسم نفسه: يُسمّى السجلّ القائم بدل إنشاء نسخةٍ ثانية منه. */
+/* كليةٌ أخرى بالاسم نفسه: يُسمّى السجلّ القائم بدل إنشاء نسخةٍ ثانية منه. والرمزُ وحده لا يكفي:
+   حرما الكلية الواحدة (بنين وبنات) يتشاركان رمزها عمداً، وكرسيُّ التسجيل يجمعهما بالرمز نفسه. */
 async function duplicateCollegeProblem(code:string,name:string,exceptId=0):Promise<string|null>{
-  const clash=(await Repository.getColleges()).find(row=>Number(row.AdCollegeId)!==exceptId&&(sameReferenceCode(row.AdCollegeCode,code)||sameReferenceName(row.AdCollegeName,name)));
+  const clash=(await Repository.getColleges()).find(row=>Number(row.AdCollegeId)!==exceptId&&sameReferenceName(row.AdCollegeName,name));
   if(!clash)return null;
-  return sameReferenceCode(clash.AdCollegeCode,code)
-    ?`رمز الكلية «${code}» مسجّلٌ للكلية «${clash.AdCollegeName}».`
-    :`اسم الكلية «${name}» مسجّلٌ من قبل برمز «${clash.AdCollegeCode}».`;
+  return `اسم الكلية «${name}» مسجّلٌ من قبل برمز «${clash.AdCollegeCode}».`;
 }
 /* فصلٌ آخر بالاسم نفسه (المسافات لا تُفرّق): الفصل الواحد لا يُسجَّل مرتين. */
 async function duplicateTermProblem(name:string,exceptId=0):Promise<string|null>{

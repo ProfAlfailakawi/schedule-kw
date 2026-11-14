@@ -305,7 +305,7 @@ export default function Sections({ embedded = false, actionSlot = null, onCount,
           الأقسام العلمية
         </PageTitle>
       )}
-      {error && mode === "index" ? <Notice action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : undefined}>{error}</Notice> : null}
+      {error && mode === "index" ? <Notice action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : undefined}>{error}</Notice> : null}
       <div className="catalog-workspace" aria-busy={loading}>
         <Surface className="catalog-master">
           <h2 className="sr-only">قائمة الأقسام العلمية</h2>
@@ -345,7 +345,7 @@ export default function Sections({ embedded = false, actionSlot = null, onCount,
             <EmptyState
               title={loadFailed ? "تعذّر تحميل الأقسام" : query ? "لا يوجد قسم مطابق" : "لا توجد أقسام علمية بعد"}
               detail={loadFailed ? "لم تصل القائمة من الخادم؛ هذا لا يعني أنها فارغة." : query ? "جرّب عبارة أخرى أو امسح البحث." : "أنشئ القسم الأول واربطه بكليته."}
-              action={loadFailed ? <SecondaryButton onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
+              action={loadFailed ? <SecondaryButton data-guide-ignore="يعيد قراءة القائمة بعد تعذّرها؛ لا يكتب شيئاً" onClick={() => { setError(null); void load(); }}>إعادة المحاولة</SecondaryButton> : query ? <SecondaryButton onClick={() => setQuery("")}>مسح البحث</SecondaryButton> : undefined}
             />
           )}
         </Surface>
