@@ -91,7 +91,8 @@
     "scripts/guide-audit.mjs",
     "scripts/guide-behavior-tests.mjs",
     "scripts/make-scan-pdf.mjs",
-    "scripts/make-graduation-sheet-example.mjs"
+    "scripts/make-graduation-sheet-example.mjs",
+    "src/utils/vaultPhrases.ts"
   ],
   "screens": [
     {

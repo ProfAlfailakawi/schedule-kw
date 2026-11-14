@@ -68,7 +68,10 @@
     "src/utils/personCourseDefaults.ts",
     "src/components/PersonCoursesSheet.tsx",
     "src/utils/cardPreview.ts",
-    "src/utils/requestOpenRow.ts"
+    "src/utils/requestOpenRow.ts",
+    "src/components/inbox/InboxPilot.tsx",
+    "src/utils/applyBusyRetry.ts",
+    "src/utils/proposalSettlesRequest.ts"
   ],
   "screens": [
     { "name": { "ar": "بطاقة طلب الأستاذ (/r/)", "en": "Instructor request card (/r/)" }, "file": "src/server/pages/instructorRequestPage.ts", "note": { "ar": "صفحة عامة تُفتح بالرابط الشخصي: أسبوع الأستاذ، تعديل البنود، التوقيع، الحوار مع القسم، وذاكرة الفصول.", "en": "Public page opened with the personal link: the member's week, item editing, signing, dialogue with the department and term memory." } },

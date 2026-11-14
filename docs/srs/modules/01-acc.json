@@ -46,7 +46,8 @@
     "scripts/lib/defaultPassword.ts",
     "scripts/role-scope-live-audit.mjs",
     "src/server/staffRecovery.ts",
-    "src/server/staffRecoveryWiring.ts"
+    "src/server/staffRecoveryWiring.ts",
+    "src/server/userAdminGuards.ts"
   ],
   "screens": [
     { "name": { "ar": "تسجيل الدخول", "en": "Sign-in" }, "file": "src/components/Login.tsx", "note": { "ar": "اسم المستخدم وكلمة السر، ورابط الدعوة في جزء # الذي يملأ الاسم ولا يُرسل إلى الخادم، وزر الدخول التجريبي إن كان مفعّلاً.", "en": "User name and password, the invitation link fragment that pre-fills the name and is never sent to the server, and the demo entry button when enabled." } },

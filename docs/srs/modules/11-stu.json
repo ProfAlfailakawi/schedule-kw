@@ -96,7 +96,9 @@
     "src/server/radarSuggestions.ts",
     "src/utils/radarSuggestion.ts",
     "src/components/RadarSuggestions.tsx",
-    "tests/radar-suggestions-audit.ts"
+    "tests/radar-suggestions-audit.ts",
+    "src/utils/quickDecideKeys.ts",
+    "src/utils/radarRunGap.ts"
   ],
   "screens": [
     {

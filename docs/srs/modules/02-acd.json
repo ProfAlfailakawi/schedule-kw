@@ -68,7 +68,9 @@
     "src/components/VisitingConversionPanel.tsx",
     "src/components/InstructorPicker.tsx",
     "scripts/lib/programProvision.ts",
-    "scripts/provision-marine-diploma.ts"
+    "scripts/provision-marine-diploma.ts",
+    "src/utils/academicGuards.ts",
+    "src/utils/arrowChoice.ts"
   ],
   "screens": [
     {
