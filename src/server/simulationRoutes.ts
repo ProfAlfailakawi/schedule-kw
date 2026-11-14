@@ -19,6 +19,7 @@ import { predictiveReadingFor } from "./predictiveInsight";
 import { predictiveNarrow, predictiveSummaryOf } from "../utils/predictiveScope";
 import { emptyCauseTotals } from "../utils/registrationCauses";
 import { termIsFrozen, TERM_FROZEN_MESSAGE } from "../utils/termSequence";
+import { manualRunWaitSeconds, radarManualGapMs } from "../utils/radarRunGap";
 
 export interface SimulationDeps {
   requireAuth: RequestHandler;
@@ -390,20 +391,6 @@ export function radarDue(input: {
     if (Number.isFinite(staleMs) ? input.now - staleMs >= quiet && input.now - ranMs >= gap : input.now - ranMs >= gap) return true;
   }
   return input.now - ranMs >= input.everyMs;
-}
-
-/** الفاصلُ الأدنى بين تشغيلين يدويين (RADAR_MANUAL_GAP_SECONDS، الافتراضي دقيقتان). */
-export function radarManualGapMs(): number {
-  const seconds = Number(process.env.RADAR_MANUAL_GAP_SECONDS);
-  return (Number.isFinite(seconds) && seconds >= 0 ? Math.floor(seconds) : 120) * 1000;
-}
-
-/** كم ثانيةً بقيت قبل أن يُقبل تشغيلٌ يدويٌّ جديد (0 = الآن). */
-export function manualRunWaitSeconds(ranAt: string | undefined | null, now: number, gapMs: number): number {
-  const ranMs = Date.parse(String(ranAt || ""));
-  if (!Number.isFinite(ranMs) || gapMs <= 0) return 0;
-  const left = ranMs + gapMs - now;
-  return left > 0 ? Math.ceil(left / 1000) : 0;
 }
 
 export function radarAutoSettings(): { enabled: boolean; everyHours: number } {

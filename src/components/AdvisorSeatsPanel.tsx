@@ -193,6 +193,14 @@ export default function AdvisorSeatsPanel({ collegeId, sectionId, termId, colleg
               </> : null}
               <span>{s.state.remaining > 0 ? `متبقٍّ ${s.state.remaining}` : "🔴 ممتلئة"}{s.state.fairShare !== undefined ? ` · نصيبك ${s.state.fairShare}` : ""}{s.mine?.added ? ` · أضفتَ ${s.mine.added}` : ""}</span>
             </div>
+            {canConfigure && cfg ? (
+              /* رصيدٌ خاصٌّ بهذه الشعبة يغلب العامّ (الأخصُّ يغلب: الشعبة ثم المقرر ثم العام)؛ فارغٌ = العامّ. يُحفظ بزرّ «حفظ» أعلاه. */
+              <label className="of-hint">رصيد هذه الشعبة
+                <input type="number" min={0} max={max} value={cfg.bySection?.[s.key] ?? ""} placeholder={String(cfg.global)}
+                  onChange={e => { const bySection = { ...(cfg.bySection || {}) }; if (e.target.value === "") delete bySection[s.key]; else bySection[s.key] = clamp(e.target.value); editCfg({ ...cfg, bySection }); }}
+                  style={{ inlineSize: "5em", marginInlineStart: 6 }} aria-label={`رصيد الشعبة ${s.section}`} />
+              </label>
+            ) : null}
             <ColleagueWorkNotice clashes={workClashes(peers, { kind: "advisorSeats", id: String(s.courseId) })} className="of-colleague" />
             {msg[s.key] ? <div className="of-msg" data-tone={msg[s.key].tone} role="status">{msg[s.key].text}</div> : null}
             {msg[s.key]?.alternatives?.length ? <div className="of-chips">{msg[s.key].alternatives!.map(a => <span className="of-chip" key={a.key}>↪️ شعبة {a.section} · <bdi dir="ltr">{a.time}</bdi> · {countOf(a.remaining, AR.seat)}</span>)}</div> : null}

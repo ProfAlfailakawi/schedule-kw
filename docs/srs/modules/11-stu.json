@@ -1935,8 +1935,8 @@
         "en": "Section request stages and transitions"
       },
       "text": {
-        "ar": "يجب على النظام أن يشتق مرحلة طلب الشعبة دائماً من وثيقته (أُرسل، فُتحت الشعبة، تم الاعتماد، يُسجَّل، سُجّلوا، سُحب، اعتذرت اللجنة) لا من حقلٍ مخزَّن، وأن يفرض الانتقالات: لا اعتماد قبل ربط شعبة، ولا ربط ولا فك ولا سحب ولا اعتذار بعد الاعتماد، ولا تسجيل إلا لمن اعتُمد، ولا يُنزع اعتماد من سُجّل، ويكون الاعتذار بسببٍ مكتوب يصل الإرشاد.",
-        "en": "The system shall always derive a section request's stage from its document (sent, section opened, approved, registering, registered, withdrawn, declined) rather than a stored field, and shall enforce the transitions: no approval before a section is linked, no linking, unlinking, withdrawal or decline after approval, registration only for approved students, no removal of approval from a registered student, and a decline carries a written reason that reaches advising."
+        "ar": "يجب على النظام أن يشتق مرحلة طلب الشعبة دائماً من وثيقته (أُرسل، فُتحت الشعبة، تم الاعتماد، يُسجَّل، سُجّلوا، سُحب، اعتذرت اللجنة) لا من حقلٍ مخزَّن، وأن يفرض الانتقالات: لا اعتماد قبل ربط شعبة، ولا ربط ولا فك بعد الاعتماد، ولا سحب ولا اعتذار بعد الاعتماد إلا لطلبٍ بعددٍ بلا قائمة لم يُسجَّل منه أحد، ولا تسجيل إلا لمن اعتُمد، ولا يُنزع اعتماد من سُجّل، ويكون الاعتذار بسببٍ مكتوب يصل الإرشاد. والطلبُ بعددٍ بلا قائمة يكتب فيه التسجيلُ كم سُجّل منه (0 إلى العدد)، فيُعدّ معتمَدُه عددَه كلَّه ويكتمل بالعدد كلّه. وأن يرفض طلباً ثانياً مفتوحاً للمقرر نفسه من قسم الإرشاد نفسه في الحرم والفصل نفسيهما (409 duplicate-request)، وأن يسأل الشاشةُ قبل السحب وقبل «اعتمد الكل»، وأن تطوي الطلباتِ المغلقة تحت ما يحتاج عملاً وتعطّل الكتابة في فصلٍ سابق.",
+        "en": "The system shall always derive a section request's stage from its document (sent, section opened, approved, registering, registered, withdrawn, declined) rather than a stored field, and shall enforce the transitions: no approval before a section is linked, no linking or unlinking after approval, no withdrawal or decline after approval except for a count-only request (no student list) of which nobody is registered yet, registration only for approved students, no removal of approval from a registered student, and a decline carries a written reason that reaches advising. For a count-only request registration records how many were registered (0 to the count); its approved number is the whole count and it completes at the whole count. The system shall refuse a second open request for the same course from the same advising department in the same campus and term (409 duplicate-request); the screen shall confirm before a withdrawal and before «approve all», fold closed requests under those still needing work, and disable writing in a past term."
       },
       "priority": "must",
       "status": "implemented",
@@ -1957,15 +1957,25 @@
         {
           "ar": "تسجيل طالبٍ لم يُعتمد ← 409 «لا يُسجَّل إلا من اعتُمد».",
           "en": "Registering an unapproved student yields 409 stating only approved students are registered."
+        },
+        {
+          "ar": "طلبٌ بعدد 40 بلا قائمة اعتُمد ← المعتمَد 40 ويُسحب أو يُعتذر عنه؛ وبعد «سُجّل 25» ← «يُسجَّل» ولا يُسحب؛ و«سُجّل 40» ← «سُجّلوا»؛ و41 ← 400.",
+          "en": "A count-only request of 40 once approved has 40 approved and can be withdrawn or declined; after «registered 25» it is «registering» and cannot be withdrawn; «registered 40» completes it; 41 yields 400."
+        },
+        {
+          "ar": "طلبٌ ثانٍ مفتوح للمقرر نفسه من القسم نفسه ← 409 duplicate-request؛ والمغلقُ أو المعتمَد لا يمنع.",
+          "en": "A second open request for the same course from the same department yields 409 duplicate-request; a closed or approved one does not block."
         }
       ],
       "evidence": {
         "code": [
           "src/utils/sectionRequests.ts",
-          "src/server/sectionRequestsRoutes.ts"
+          "src/server/sectionRequestsRoutes.ts",
+          "src/components/sectionRequests/SectionRequestsPanel.tsx"
         ],
         "tests": [
-          "tests/section-requests-audit.ts"
+          "tests/section-requests-audit.ts",
+          "tests/advising-audit.ts"
         ]
       }
     },
@@ -1977,8 +1987,8 @@
         "en": "Distributing request capacity across sections"
       },
       "text": {
-        "ar": "يجب على النظام أن يوزّع عدد الطلب على شعبه المربوطة كلها بالتقريب إلى الأعلى (العدد ÷ عدد الشعب) ويكتب نصيب كل شعبة سعةً أساسية في رصيد مقاعد المرشد بحدٍّ أقصى 200 للشعبة، ويعيد التوزيع عند كل ربطٍ أو فك، ولا يمسّ سعةً كتبها المسؤول يدوياً.",
-        "en": "The system shall distribute the request count over all its linked sections rounding up (count ÷ number of sections) and write each section's share as base capacity in the advisor seat balance up to 200 per section, shall redistribute on every link or unlink, and shall never touch a capacity an administrator wrote by hand."
+        "ar": "يجب على النظام أن يوزّع عدد الطلب على شعبه المربوطة كلها بالتقريب إلى الأعلى (العدد ÷ عدد الشعب) ويكتب نصيب كل شعبة سعةً أساسية في رصيد مقاعد المرشد بحدٍّ أقصى 200 للشعبة، ويعيد التوزيع عند كل ربطٍ أو فك وعند السحب والاعتذار (الطلبُ المغلق لا يحجز سعة)، ويجمع أنصبة الطلبات المفتوحة المربوطة بالشعبة نفسها، ولا يمسّ سعةً كتبها المسؤول يدوياً.",
+        "en": "The system shall distribute the request count over all its linked sections rounding up (count ÷ number of sections) and write each section's share as base capacity in the advisor seat balance up to 200 per section, shall redistribute on every link or unlink and on withdrawal or decline (a closed request holds no capacity), shall sum the shares of open requests linked to the same section, and shall never touch a capacity an administrator wrote by hand."
       },
       "priority": "should",
       "status": "implemented",
@@ -1997,6 +2007,10 @@
         {
           "ar": "فك شعبة كتبها الطلب ← تُمحى سعتها من الرصيد.",
           "en": "Unlinking a section the request wrote removes its capacity from the balance."
+        },
+        {
+          "ar": "طلبان من 50 على الشعبة نفسها ← تُكتب 100؛ وسحبُ أحدهما ← تبقى 50؛ وسحبُ الوحيد ← تُمحى.",
+          "en": "Two requests of 50 on the same section write 100; withdrawing one leaves 50; withdrawing the only one removes it."
         }
       ],
       "evidence": {
@@ -2006,7 +2020,8 @@
           "src/utils/advisorSeats.ts"
         ],
         "tests": [
-          "tests/section-requests-audit.ts"
+          "tests/section-requests-audit.ts",
+          "tests/advising-audit.ts"
         ]
       }
     },
@@ -2062,8 +2077,8 @@
         "en": "Advisor seat balance"
       },
       "text": {
-        "ar": "يجب على النظام أن يحسب لكل شعبة سقفاً صلباً = أقل من (السعة الأساسية + الرصيد) وسعة القاعة، وأن يضيف المرشد مقاعد (1 إلى 50) ذرّياً كلّها أو لا شيء، فلا يتجاوز مرشدان معاً السقف، وأن يقسم الرصيد بالتساوي عند التوزيع العادل، وأن يقترح شعباً بديلة عند الامتلاء، وأن يتيح طلب استثناء للمسؤول (حتى 50 مقعداً وملاحظة 300 حرف).",
-        "en": "The system shall compute for each section a hard cap = the lesser of (base capacity + balance) and the hall capacity, shall let an advisor add seats (1 to 50) atomically, all or nothing, so two advisors acting together cannot exceed the cap, shall split the balance evenly under fair split, shall suggest alternative sections when full, and shall allow an exception request to the administrator (up to 50 seats and a 300-character note)."
+        "ar": "يجب على النظام أن يحسب لكل شعبة سقفاً صلباً = أقل من (السعة الأساسية + الرصيد) وسعة القاعة، وأن يضيف المرشد مقاعد (1 إلى 50) ذرّياً كلّها أو لا شيء، فلا يتجاوز مرشدان معاً السقف، وأن يقسم الرصيد بالتساوي عند التوزيع العادل، وأن يقترح شعباً بديلة عند الامتلاء، وأن يتيح طلب استثناء للمسؤول (حتى 50 مقعداً وملاحظة 300 حرف) لا يتكرّر معلّقاً للشعبة نفسها من المرشد نفسه، ويبتّ فيه المسؤول (صاحبُ صلاحية الجدول بصفةٍ تكتب) موافقةً ترفع رصيد تلك الشعبة بعدده أو اعتذاراً. وأن يتيح للمرشد التراجعَ عن آخر إضافةٍ له هو في الشعبة (لا عن إضافة زميل) مدقَّقاً، وأن يردّ كلَّ كتابةٍ في الرصيد في فصلٍ سابق، وأن يكون حدُّ خانات الإعداد 200 في الشاشة كما في الخادم، وألا تُرسم أزرارُ كتابةٍ لصفةٍ يردّها الخادم.",
+        "en": "The system shall compute for each section a hard cap = the lesser of (base capacity + balance) and the hall capacity, shall let an advisor add seats (1 to 50) atomically, all or nothing, so two advisors acting together cannot exceed the cap, shall split the balance evenly under fair split, shall suggest alternative sections when full, and shall allow an exception request to the administrator (up to 50 seats and a 300-character note) that cannot be pending twice for the same section from the same advisor, decided by the administrator (a writing role holding the schedule permission) either approving, which raises that section's balance by its count, or declining. It shall let an advisor undo their own last addition in a section (never a colleague's), audited, shall refuse every balance write in a past term, shall cap configuration inputs at 200 on screen as on the server, and shall not draw write buttons for a role the server refuses."
       },
       "priority": "must",
       "status": "implemented",
@@ -2084,17 +2099,31 @@
         {
           "ar": "ختم rev لا يطابق عدد الإضافات ← 409 stale-write.",
           "en": "A rev not matching the number of additions yields 409 stale-write."
+        },
+        {
+          "ar": "مرشدٌ أضاف 3 ثم زميلُه 1 ثم هو 1 ← تراجعُه يمحو إضافته الأخيرة (1) وحدها؛ ومن لم يُضف ← 409.",
+          "en": "An advisor adds 3, a colleague 1, then the advisor 1: their undo removes only their last addition (1); one who added nothing gets 409."
+        },
+        {
+          "ar": "طلبُ استثناءٍ ثانٍ معلّق للشعبة نفسها من المرشد نفسه ← 409 duplicate-exception؛ وموافقةُ المسؤول ← رصيدُ الشعبة يزيد بعدد الطلب.",
+          "en": "A second pending exception for the same section from the same advisor yields 409 duplicate-exception; the administrator's approval raises that section's balance by the requested count."
+        },
+        {
+          "ar": "إضافةٌ أو تراجعٌ أو استثناءٌ أو إعدادٌ في فصلٍ سابق ← 409 term-frozen.",
+          "en": "An addition, undo, exception or configuration in a past term yields 409 term-frozen."
         }
       ],
       "evidence": {
         "code": [
           "src/utils/advisorSeats.ts",
           "src/server/routes/offeringRoutes.ts",
-          "src/components/AdvisorSeatsPanel.tsx"
+          "src/components/AdvisorSeatsPanel.tsx",
+          "src/server/roleGuard.ts"
         ],
         "tests": [
           "tests/section-requests-audit.ts",
-          "tests/colleagues-advising-registration-audit.ts"
+          "tests/colleagues-advising-registration-audit.ts",
+          "tests/advising-audit.ts"
         ]
       }
     },
@@ -2247,8 +2276,8 @@
         "en": "Running and refreshing the radar"
       },
       "text": {
-        "ar": "يجب على النظام أن يقصر تشغيل الرادار على إدارة النظام بقفلٍ في العملية وقفلٍ في قاعدة البيانات بين الخوادم، وأن يحدّثه تلقائياً كل 24 ساعة (RADAR_AUTO_HOURS) أثناء الرغبات وبعدها حتى إغلاق الطلبات ومرةً بعد إغلاق الرغبات، ويفحص كل 5 دقائق، ويوقفه RADAR_AUTO=false ولا يعمل في التجربة، وأن يُظهر للأقسام مقرراتها بأعداد لا أسماء، وأن يخزّن لكل طالب تذكرةً بلا اسم ولا رقم مدني.",
-        "en": "The system shall restrict running the radar to system administration with an in-process lock and a database lock across servers, shall refresh it automatically every 24 hours (RADAR_AUTO_HOURS) during and after wishes until requests close and once after wishes close, checking every 5 minutes, stoppable with RADAR_AUTO=false and inactive in the demonstration, shall show departments their own courses as counts not names, and shall store for each student a ticket with no name or civil ID."
+        "ar": "يجب على النظام أن يقصر تشغيل الرادار على إدارة النظام بقفلٍ في العملية وقفلٍ في قاعدة البيانات بين الخوادم، وأن يحدّثه تلقائياً كل 24 ساعة (RADAR_AUTO_HOURS) أثناء الرغبات وبعدها حتى إغلاق الطلبات ومرةً بعد إغلاق الرغبات، ويفحص كل 5 دقائق، ويوقفه RADAR_AUTO=false ولا يعمل في التجربة، وأن يُظهر للأقسام مقرراتها بأعداد لا أسماء، وأن يخزّن لكل طالب تذكرةً بلا اسم ولا رقم مدني. وأن تعرض الشاشةُ لمن يملك التشغيل زرَّ «حدّث الرادار»، ويردّ الخادمُ تشغيلاً يدوياً قبل انقضاء فاصلٍ أدنى بعد آخر تشغيل (RADAR_MANUAL_GAP_SECONDS، الافتراضي 120 ثانية) بـ409 too-soon، وأن تقول الشاشةُ صراحةً حين يتوقف التحديث التلقائي، وتعرض نوافذ التسجيل المقدّرة (كم طالباً في كل جولة) في الشاشة وفي التقرير، ويُصدَّر التقريرُ بالمصدر المختار (الرغبات الفعلية أو التوقعات)، ويُبحث في المقررات بلا حساسيةٍ لحالة الأحرف. وأن تُحرس مساراتُ الشاشة (الملخّص والأسباب و«هل سجلت؟») بالباب نفسه: إدارة النظام أو الورشة (7) أو تقرير القسم (14)، ويُنسب كلُّ مقرّرٍ في الملخّص إلى مالكه في الكتالوج.",
+        "en": "The system shall restrict running the radar to system administration with an in-process lock and a database lock across servers, shall refresh it automatically every 24 hours (RADAR_AUTO_HOURS) during and after wishes until requests close and once after wishes close, checking every 5 minutes, stoppable with RADAR_AUTO=false and inactive in the demonstration, shall show departments their own courses as counts not names, and shall store for each student a ticket with no name or civil ID. The screen shall offer «refresh the radar» to those who may run it, and the server shall refuse a manual run before a minimum gap after the last run (RADAR_MANUAL_GAP_SECONDS, default 120 seconds) with 409 too-soon; the screen shall say plainly when automatic refresh is off, show the estimated registration windows (students per round) on screen and in the report, export the selected scenario (actual wishes or projection), and search courses case-insensitively. The screen's endpoints (summary, causes and «did you register?») shall be guarded by the same door: system administration, the workshop (7) or the department report (14); each course in the summary is attributed to its catalogue owner."
       },
       "priority": "must",
       "status": "implemented",
@@ -2270,17 +2299,27 @@
         {
           "ar": "تذكرة runId لا يطابق الملخّص تُهمل.",
           "en": "A ticket whose runId does not match the summary is ignored."
+        },
+        {
+          "ar": "تشغيلٌ بعد 30 ثانية من آخر تشغيل ← 409 too-soon وretryAfterSeconds = 90؛ وRADAR_MANUAL_GAP_SECONDS=0 يُلغي الفاصل.",
+          "en": "A run 30 seconds after the last one yields 409 too-soon with retryAfterSeconds = 90; RADAR_MANUAL_GAP_SECONDS=0 removes the gap."
+        },
+        {
+          "ar": "حسابٌ بلا 7 ولا 14 يطلب /api/simulation/summary ← 403.",
+          "en": "An account with neither 7 nor 14 requesting /api/simulation/summary gets 403."
         }
       ],
       "evidence": {
         "code": [
           "src/server/simulationRoutes.ts",
           "src/server/simulationData.ts",
-          "src/components/RegistrationRehearsal.tsx"
+          "src/components/RegistrationRehearsal.tsx",
+          "src/utils/radarRunGap.ts"
         ],
         "tests": [
           "tests/registration-flow-audit.ts",
-          "tests/rehearsal-audit.ts"
+          "tests/rehearsal-audit.ts",
+          "tests/advising-audit.ts"
         ]
       }
     },
@@ -2417,8 +2456,8 @@
         "en": "Registration and radar tabs and the phase line"
       },
       "text": {
-        "ar": "يجب على النظام أن يجمع «كشف التسجيل» و«رادار يوم التسجيل» بتبويبين أعلى الشاشة لمن يملك الاثنين معاً (ومن يملك أحدهما لا يرى الشريط)، وأن يقول شريطُ المرحلة قبل التسجيل «أرقامٌ فقط» ويُظهر أسماء المتعثرين للأقسام المالكة بعد بدء الجولة فقط، ويحمل زرَّ رمز QR لرابط /me الدائم، ويضيّق منتقي الكلية والقسم ما يراه القارئ داخل نطاقه ولا يوسّعه.",
-        "en": "The system shall join «registration sheet» and «registration-day radar» in two tabs atop the screen for someone holding both (someone holding one sees no bar), shall have the phase line say «numbers only» before registration and show the names of stuck students to the owning departments only once a round starts, shall carry a QR code button for the permanent /me link, and shall let the college and department picker narrow what the reader sees inside their scope, never widen it."
+        "ar": "يجب على النظام أن يجمع «كشف التسجيل» و«رادار التسجيل» بتبويبين أعلى الشاشة لمن يملك الاثنين معاً (ومن يملك أحدهما لا يرى الشريط)، بالأسماء نفسها في مجموعة «الإرشاد» في القائمة وفي عنوان كل شاشة (وعنوانُ المجموعة «الإرشاد» فوقهما)، وأن يُظهر المجموعةَ لمن يملك الورشة (7) أو تقرير القسم (14) أو إدارة النظام — ومنهم صفاتُ العرض الصرف تقرأ بلا كتابة — محسوبةً من الأذونات بلا تنزيل ملخّص الرادار، وأن يقول شريطُ المرحلة قبل التسجيل «أرقامٌ فقط» ويُظهر أسماء المتعثرين للأقسام المالكة بعد بدء الجولة فقط، ويحمل زرَّ رمز QR لرابط /me الدائم، ويضيّق منتقي الكلية والقسم ما يراه القارئ داخل نطاقه ولا يوسّعه.",
+        "en": "The system shall join «registration sheet» and «registration radar» in two tabs atop the screen for someone holding both (someone holding one sees no bar), with the same names in the «Advising» menu group and in each screen's title (the group name «Advising» above both), shall show the group to holders of the workshop (7), the department report (14) or system administration — view-only roles included, reading without writing — computed from permissions without downloading the radar summary, shall have the phase line say «numbers only» before registration and show the names of stuck students to the owning departments only once a round starts, shall carry a QR code button for the permanent /me link, and shall let the college and department picker narrow what the reader sees inside their scope, never widen it."
       },
       "priority": "should",
       "status": "implemented",
@@ -2440,6 +2479,10 @@
         {
           "ar": "?collegeId&sectionId خارج النطاق لا يوسّع النتائج.",
           "en": "?collegeId&sectionId outside scope does not widen results."
+        },
+        {
+          "ar": "عميدٌ بإذن 14 ← يرى مجموعة «الإرشاد» ويفتح كشف التسجيل «للقراءة فقط» بلا اسمٍ ولا رقمٍ مدني.",
+          "en": "A dean holding 14 sees the «Advising» group and opens the registration sheet «read only» without names or civil IDs."
         }
       ],
       "evidence": {
@@ -2448,11 +2491,13 @@
           "src/components/MasariQrButton.tsx",
           "src/components/AdvisingScopePicker.tsx",
           "src/server/simulationRoutes.ts",
-          "src/utils/termStudentPhases.ts"
+          "src/utils/termStudentPhases.ts",
+          "src/App.tsx"
         ],
         "tests": [
           "tests/registration-flow-audit.ts",
-          "tests/rehearsal-audit.ts"
+          "tests/rehearsal-audit.ts",
+          "tests/advising-audit.ts"
         ]
       }
     },
@@ -3969,6 +4014,95 @@
         "tests": []
       },
       "inferred": true
+    },
+    {
+      "id": "FR-STU-066",
+      "kind": "functional",
+      "title": {
+        "ar": "اختصارات القرار السريع وورقة السبب لا تكتب ما لم يُقصد",
+        "en": "Quick-decision shortcuts and the reason sheet never write what was not meant"
+      },
+      "text": {
+        "ar": "يجب على نافذة «قرار سريع» ألا تقرأ Enter ولا R ولا المسافة حين يكون التركيز على زرٍّ أو رابطٍ أو حقلٍ أو عنصرٍ بدور زر، ولا ضغطةً من داخل نافذةٍ أخرى (ولا Escape)، وألا تقرأ أيَّ اختصارٍ ما دامت ورقةُ السبب مفتوحةً فوقها، وأن تقول خطأَ القرار داخلها. ويجب على ورقة السبب ألا تُغلق إلا بعد حفظٍ ناجح فيبقى السببُ والسطرُ عند الرفض والخطأُ مكتوبٌ فيها، وأن يُغلقها Escape، ويبدأ التركيز على السبب ويبقى داخلها. ويجب على الكشف ألا يرسم ردّاً متأخراً لقسمٍ أو فصلٍ سابق تحت المختار الآن، وأن يقول القراءةَ المردودة بسببها (جدولٌ لم يوقَّع) لا «لا طلبات بعد»، وأن تعدّ محطاتُ الرحلة والمرشّحاتُ طلبةً بوحدةٍ واحدة، ولا يُعدّ مقرّرٌ ألغاه الطالبُ منتظراً.",
+        "en": "The «quick decision» window shall not read Enter, R or Space when focus is on a button, link, field or element with a button role, nor a key press from inside another dialog (not even Escape), nor any shortcut while the reason sheet is open over it, and shall show a decision's error inside itself. The reason sheet shall close only after a successful save, keeping the reason and the line on refusal with the error written in it, shall close on Escape, and shall start focus on the reason and keep it inside. The sheet shall not paint a late response for a previous department or term under the current one, shall state a refused read by its cause (an unsigned schedule) rather than «no requests yet», shall count journey stations and filters in one unit, students, and shall not count a course the student dropped as awaiting."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "registrarStaff",
+        "collegeRegistrar"
+      ],
+      "acceptance": [
+        {
+          "ar": "التركيزُ على «تخطّ» وEnter ← لا يُرسل قرار موافقة.",
+          "en": "Focus on «skip» and Enter ← no approval is sent."
+        },
+        {
+          "ar": "ورقة السبب مفتوحة فوق القرار السريع وEnter ← لا يُقرأ في القرار السريع.",
+          "en": "With the reason sheet open over quick decision, Enter is not read by quick decision."
+        },
+        {
+          "ar": "رفضٌ يردّه الخادم ← الورقةُ تبقى بالسبب والسطر والخطأ.",
+          "en": "A refusal rejected by the server ← the sheet stays with the reason, the line and the error."
+        },
+        {
+          "ar": "طالبٌ بمقرّرين ينتظران اللجنة ← يُعدّ 1 في «بانتظار اللجنة».",
+          "en": "A student with two courses awaiting the committee counts 1 in «awaiting the committee»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/quickDecideKeys.ts",
+          "src/components/StudentRegistration.tsx",
+          "src/components/StudentCaseStatus.tsx"
+        ],
+        "tests": [
+          "tests/advising-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-067",
+      "kind": "functional",
+      "title": {
+        "ar": "الشعبة المفتوحة لطلبٍ لم يُوافَق عليه",
+        "en": "A section opened for a request that was then not approved"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يُبقي رابط الشعبة التي فتحتها «موافقة + فتح شعبة» (scheduleId وsectionCode) على قرار المقرّر حين يُكتب بعده قرارٌ آخر (سُجّل، رُدّ، لم توافق اللجنة)، وأن يعرض على الخانة حين يصير القرارُ «لم توافق اللجنة» أو «رُدّ» أن الشعبة فُتحت لهذا الطلب، مع زرٍّ صريح يسأل قبل حذفها لمن يملك صلاحية الجدول، ولا يحذفها بصمت. والحذفُ (POST /api/student-registration/:id/close-opened-section) يُقبل لطلبٍ في النطاق وفي فصلٍ غير مجمَّد، وعلى صفٍّ مرجعُه need:<الطلب>:course:<المقرر> وحده، بمسار حذف الجدول المعتاد (النطاق والقفل ولقطة الإصدار والتدقيق)، ثم يُمحى الرابطُ من القرار ويبقى القرار.",
+        "en": "The system shall keep the link of the section opened by «approve + open section» (scheduleId and sectionCode) on the course decision when a later decision is written (registered, rejected, committee-rejected), shall show on the cell, once the decision becomes «committee-rejected» or «rejected», that the section was opened for this request, with an explicit button that confirms before removing it for holders of the schedule permission, and shall never remove it silently. Removal (POST /api/student-registration/:id/close-opened-section) is accepted for an in-scope request in a non-frozen term, only on a row whose origin reference is need:<request>:course:<course>, through the usual schedule deletion path (scope, lock, version snapshot, audit), after which the link is cleared from the decision and the decision itself stays."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "موافقة + فتح شعبة ثم «سُجّل» ← scheduleId وsectionCode باقيان على القرار.",
+          "en": "Approve + open section then «registered» ← scheduleId and sectionCode remain on the decision."
+        },
+        {
+          "ar": "حذفٌ والقرار ما زال «بانتظار التسجيل» ← 409؛ وصفٌّ مرجعُه غير هذا الطلب ← 409.",
+          "en": "Removal while the decision is still «awaiting registration» yields 409; a row whose reference is another request yields 409."
+        },
+        {
+          "ar": "حذفٌ بلا صلاحية الجدول ← 403 no-schedule-permission.",
+          "en": "Removal without the schedule permission yields 403 no-schedule-permission."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/db/repository.ts",
+          "src/server/routes/studentRegistrationRoutes.ts",
+          "src/components/StudentRegistration.tsx"
+        ],
+        "tests": [
+          "tests/advising-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

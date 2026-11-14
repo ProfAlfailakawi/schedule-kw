@@ -175,7 +175,7 @@
 }
 /* الطلباتُ المغلقة مطويّةٌ تحت ما يحتاج عملاً. */
 .srq-done{margin-block-start:10px}
-.srq-done>summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;padding:8px 2px;font-weight:700}
+.srq-done>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;padding:8px 2px;font-weight:700}
 .srq-done>summary small{color:var(--muted);font-weight:500}
 .srq-done>.srq-list{margin-block-start:8px}
 /* طلبٌ بعددٍ بلا قائمة: التسجيلُ يكتب كم سُجّل منه. */
