@@ -166,5 +166,17 @@ const base = () => ({ countOf, nounFor, AR, esc, ic: (n: string) => `<i data-i="
   check(/أنت أول من أرسل رغباته في قسمك/.test(STUDENT_HOME_SCRIPT) && !/أنت واحدٌ من/.test(STUDENT_HOME_SCRIPT), "U8 «أنت أول من أرسل» حين يكون واحداً");
 }
 
+/* ── U9 401 غيرُ «انتهت جلستك» يُعرض في مكانه: رمزٌ حاليٌّ خطأ في «غيّر رمزي» لا يُبتلع صامتاً ── */
+{
+  const { STUDENT_MAP_SCRIPT } = await import("../src/server/studentMapUi");
+  const begin = STUDENT_HOME_SCRIPT.indexOf("function signedOut(");
+  const signedOut = runInNewContext("(" + STUDENT_HOME_SCRIPT.slice(begin, STUDENT_HOME_SCRIPT.indexOf("}", begin) + 1) + ")", {});
+  check(signedOut({ status: 401, d: { code: "signed-out" } }) === true && signedOut({ status: 401, d: { code: "bad-code" } }) === false
+    && signedOut({ status: 401, d: { code: "locked" } }) === false && signedOut({ status: 500, d: {} }) === false, "U9 signedOut يميّز انتهاء الجلسة وحده");
+  const codeHandler = STUDENT_HOME_SCRIPT.slice(STUDENT_HOME_SCRIPT.indexOf('api("POST","/api/public/me/code"'), STUDENT_HOME_SCRIPT.indexOf("function sheetForget("));
+  check(/if\(!signedOut\(r\)\)showErr\("kerr"/.test(codeHandler), "U9 «الرمز الحالي غير صحيح» والقفل يظهران في ورقة تغيير الرمز");
+  check(!/r\.status!==401\)/.test(STUDENT_HOME_SCRIPT.replace(/function failed\(r\)\{[^}]*\}/, "")) && !/r\.status!==401\)/.test(String(STUDENT_MAP_SCRIPT || "")), "U9 لا يُبتلع أيُّ 401 غيرُ انتهاء الجلسة في الصفحة أو الخريطة");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

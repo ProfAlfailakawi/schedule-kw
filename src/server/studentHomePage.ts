@@ -604,6 +604,8 @@ ${TRAVEL_HINT_SCRIPT}
 var API_TIMEOUT_MS=15000,API_WRITE_DEADLINE_MS=30000;
 /* القراءةُ تُلغى بعد مهلتها. الكتابةُ لا تُلغى (إلغاؤها في المتصفح لا يوقف معالجَها في الخادم): بعد ٣٠ ثانيةً تُعاد الشاشةُ للطالب بنتيجةٍ «غير معروفة»
    تقول له أن يتحقق قبل أن يعيد، ويبقى الطلبُ الأصلي يعمل ونتيجتُه المتأخرة تُهمَل. */
+/* 401 «انتهت جلستك» تعالجه api() وحدها؛ وأيُّ 401 غيرُه (رمزٌ خطأ، قفل) يُعرض في مكانه. */
+function signedOut(r){return!!r&&r.status===401&&!!r.d&&r.d.code==="signed-out"}
 function api(method,url,body){
   var isRead=method==="GET",ctl=isRead&&typeof AbortController==="function"?new AbortController():null,timedOut=false,timer=0,deadline=0,done=false;
   if(ctl)timer=setTimeout(function(){timedOut=true;ctl.abort()},API_TIMEOUT_MS);
@@ -852,16 +854,16 @@ function setupPassed(){var d=S.draft,load=function(){
     if(!S.state.profile.setupDone||S.draft.fromStart){d.step=S.plans&&S.plans.length>1?2:1;viewSetup()}else{S.draft=null;setView("home")}});
   document.getElementById("sv").addEventListener("click",function(){var b=this,label=b.textContent;b.disabled=true;b.textContent="يحفظ…";d.passed=Object.keys(set).map(Number);
     api("PUT","/api/public/me/profile",{sectionId:d.sectionId,curriculumPlanId:d.planId,passedCourseIds:Object.keys(set).map(Number),transfer:transfer,equivalentCourseIds:transfer?Object.keys(eq).filter(function(k){return set[k]}).map(Number):[]}).then(function(r){
-      if(!r.ok){b.disabled=false;b.textContent=label;if(r.status!==401)toast(r.d.error||"تعذّر الحفظ",true);return}
+      if(!r.ok){b.disabled=false;b.textContent=label;if(!signedOut(r))toast(r.d.error||"تعذّر الحفظ",true);return}
       dockEl.innerHTML="";S.state.profile=r.d;S.draft=null;S.offered=null;
       /* أولُ إعداد: سطرُ «مقترحات فقط» كان فوق الحفظ، فالحفظُ إقرارُه — لا شاشةَ «فهمت» بعده. */
       if(first){var k=masariAckKey();S.state.profile.masariAck=k;api("POST","/api/public/me/ack",{key:k})}
       S.firstRun=false;toast("تم حفظ ملفّك");setView("home")})});
   paint()};
-  if(S.plans&&S.plans.length&&S.draft.sectionId)load();else api("GET","/api/public/me/plan?sectionId="+d.sectionId).then(function(r){if(!r.ok){if(r.status!==401)toast(r.d.error||"تعذّر التحميل",true);return}S.plans=r.d.plans;if(!d.planId&&S.plans.length===1)d.planId=S.plans[0].id;load()})}
+  if(S.plans&&S.plans.length&&S.draft.sectionId)load();else api("GET","/api/public/me/plan?sectionId="+d.sectionId).then(function(r){if(!r.ok){if(!signedOut(r))toast(r.d.error||"تعذّر التحميل",true);return}S.plans=r.d.plans;if(!d.planId&&S.plans.length===1)d.planId=S.plans[0].id;load()})}
 /* صحيفةٌ أُرشفت أو قسمٌ بلا مقررات: الطالبُ يعيد اختيار صحيفته بزرٍّ واحد (وصحيفةٌ وحيدةٌ صالحة تُختار له). */
 function rePickPlan(){var d=startDraft();d.planId="";d.fromStart=true;S.plans=null;
-  api("GET","/api/public/me/plan?sectionId="+d.sectionId).then(function(r){if(!r.ok){if(r.status!==401)toast(r.d.error||"تعذّر التحميل",true);return}
+  api("GET","/api/public/me/plan?sectionId="+d.sectionId).then(function(r){if(!r.ok){if(!signedOut(r))toast(r.d.error||"تعذّر التحميل",true);return}
     S.plans=r.d.plans||[];var usable=S.plans.filter(function(p){return p.courses&&p.courses.length});
     if(!usable.length){d.step=1;toast("لا صحيفة بمقرراتٍ في تخصصك الآن — اختر تخصصك أو راجع قسمك",true)}else if(usable.length===1){d.planId=usable[0].id;d.step=3}else d.step=2;setView("setup")})}
 
@@ -1182,7 +1184,7 @@ function saveWishCourses(ids,opt){opt=opt||{};var w=curWishes(),cur=w?w.courseId
   if(w&&!drop.length&&!added.length){toast("هذه رغباتك نفسها");return}
   function go(){var b=opt.btn;if(b)b.disabled=true;
     api("PUT","/api/public/me/wishes",{targetUnits:fitUnits(w?w.targetUnits:opt.units),courseIds:next,constraints:w?w.constraints:{}}).then(function(r){if(b)b.disabled=false;
-      if(!r.ok){if(r.status!==401)toast(r.d.error||"تعذّر الحفظ",true);return}closeSheet();wishesSaved(r.d.wishes,opt.done||(added.length?"أُضيف إلى رغباتي "+countOf(added.length,AR.course):"حُفظت رغباتي"))})}
+      if(!r.ok){if(!signedOut(r))toast(r.d.error||"تعذّر الحفظ",true);return}closeSheet();wishesSaved(r.d.wishes,opt.done||(added.length?"أُضيف إلى رغباتي "+countOf(added.length,AR.course):"حُفظت رغباتي"))})}
   if(!drop.length)return go();
   var names=drop.map(wishName).filter(Boolean);
   sheet('<h3>'+ic("heart")+' تغيير رغباتي</h3><p class="lead">سيُزال من رغباتك '+(names.length?'«'+names.slice(0,3).map(esc).join("»، «")+'»'+(names.length>3?' و'+countOf(names.length-3,AR.course)+' أخرى':''):countOf(drop.length,AR.course))+(added.length?'، ويُضاف '+countOf(added.length,AR.course):'')+'.</p><button class="btn" id="wsok">نعم، احفظ</button><button class="btn alt" id="wsno">تراجع</button>');
@@ -1423,7 +1425,7 @@ function renderWishes(){nextStepPaint();var host=document.getElementById("wishes
     prev.hidden=step===0;next.innerHTML=step<2?'التالي '+ic("fwd"):ic("check")+' '+(s.profile.wishes?"حدّث رغباتي":"أرسل رغباتي");showErr("werr","")}
   go(step);
   next.addEventListener("click",function(){if(step<2)return go(step+1);var b=next;b.disabled=true;
-    api("PUT","/api/public/me/wishes",state).then(function(r){b.disabled=false;if(!r.ok){if(r.status!==401)showErr("werr",r.d.error||"تعذّر الحفظ");return}
+    api("PUT","/api/public/me/wishes",state).then(function(r){b.disabled=false;if(!r.ok){if(!signedOut(r))showErr("werr",r.d.error||"تعذّر الحفظ");return}
       wishesSaved(r.d.wishes,"وصلت رغباتك")})});
   prev.addEventListener("click",function(){go(step-1)});
   /* السحبُ يقلّب البطاقات، إلا على مسطرة الوحدات (سحبُها يغيّر الرقم). */
@@ -1450,7 +1452,7 @@ function sheetCode(){sheet('<h3>تغيير الرمز</h3><div class="field" id=
   wireOtp("o3",function(v){c=v;sync()});wireEye("keye",document.getElementById("kbox"));
   document.getElementById("kc").addEventListener("click",closeSheet);
   ks.addEventListener("click",function(){if(b!==c)return;ks.disabled=true;var keep=!!(S.state&&S.state.session&&S.state.session.remember);
-    api("POST","/api/public/me/code",{oldCode:a,newCode:b,remember:keep}).then(function(r){ks.disabled=false;if(!r.ok){if(r.status!==401)showErr("kerr",r.d.error||"تعذّر التغيير");return}closeSheet();toast("تم تغيير الرمز")})})}
+    api("POST","/api/public/me/code",{oldCode:a,newCode:b,remember:keep}).then(function(r){ks.disabled=false;if(!r.ok){if(!signedOut(r))showErr("kerr",r.d.error||"تعذّر التغيير");return}closeSheet();toast("تم تغيير الرمز")})})}
 function sheetForget(){sheet('<h3>حذف ملفّي</h3><p class="lead">يُحذف ملفّك نهائياً: قسمك ومقرراتك المنجزة ورغباتك. لا رجعة فيه، ويمكنك إنشاء ملفٍّ جديد بعده.</p>'+otp("f1","رمزك للتأكيد")+errBox("ferr")+'<button class="btn danger" id="fs" disabled>احذف ملفّي نهائياً</button><button class="btn alt" id="fc">تراجع</button>');
   var a="",fs=document.getElementById("fs");wireOtp("f1",function(v){a=v;fs.disabled=v.length!==6});document.getElementById("fc").addEventListener("click",closeSheet);
   fs.addEventListener("click",function(){fs.disabled=true;api("POST","/api/public/me/forget",{code:a}).then(function(r){fs.disabled=false;if(!r.ok){showErr("ferr",r.d.error||"تعذّر الحذف");return}closeSheet();S.state.signedIn=false;S.state.profile=null;S.civil="";S.draft=null;toast("حُذف ملفّك");setView("gate")})})}

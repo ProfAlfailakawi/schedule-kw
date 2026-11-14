@@ -579,7 +579,7 @@ function kmFlush(){if(!KM.pending||!KM.x)return;var p=S.state&&S.state.profile;i
   try{fetch("/api/public/me/profile",{method:"PUT",keepalive:true,credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(kmBody(p))})}catch(e){}}
 function kmSave(){var p=S.state.profile;if(!p||!p.sectionId||KM.saving){if(KM.saving)kmSaveSoon();return}KM.saving=true;KM.pending=false;
   api("PUT","/api/public/me/profile",kmBody(p)).then(function(r){KM.saving=false;
-    if(!r.ok){if(r.status!==401)toast(r.d.error||"تعذّر حفظ إنجازك",true);return}
+    if(!r.ok){if(!signedOut(r))toast(r.d.error||"تعذّر حفظ إنجازك",true);return}
     if(!KM.pending){S.state.profile=r.d;KM.unsaved=false}toast("حُفظ إنجازك")})}
 function kmConfetti(col,l){if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion:reduce)").matches){toast("أكملتَ المستوى "+kmLvName(l)+" 🎉");return}
   var box=document.createElement("div");box.className="km-conf";box.setAttribute("aria-hidden","true");
