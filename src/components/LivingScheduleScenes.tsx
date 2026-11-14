@@ -112,9 +112,12 @@ export function ContextPicker({
 export function PulseScene({
   living,
   onGo,
+  hideTiles = false,
 }: {
   living: any;
   onGo: (scene: LivingScene) => void;
+  /** داخل بطاقة الصحة تجاورها حلقاتُ «الصحة والعدالة»: لا تُكرَّر الأرقام. */
+  hideTiles?: boolean;
 }) {
   return (
     <div className="pulse-scene">
@@ -158,7 +161,7 @@ export function PulseScene({
           </article>
         ))}
       </div>
-      <div className="pulse-health">
+      {hideTiles ? null : <div className="pulse-health">
         <article>
           <small>الجودة</small>
           <b>{living.health?.quality}</b>
@@ -175,7 +178,7 @@ export function PulseScene({
           <small>قراءة صحة الجدول</small>
           <strong>{living.health?.descriptor}</strong>
         </article>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -517,7 +520,8 @@ export function HealthScene({ living, visitingFor }: { living: any; visitingFor?
  * most if it broke. So each of those is now a figure with its number set as a
  * number, and the prose is reduced to what a figure cannot say.
  */
-export function BriefScene({ brief }: { brief: any }) {
+/** uniqueOnly: داخل «الانتباه» — ما تغيّر، وابدأ من هنا، وأكبر مخاطرة؛ فالحلقاتُ والقضايا تقولها البطاقةُ نفسها. */
+export function BriefScene({ brief, uniqueOnly = false }: { brief: any; uniqueOnly?: boolean }) {
   if (!brief) {
     return (
       <div className="brief-scene brief-empty">
@@ -538,8 +542,8 @@ export function BriefScene({ brief }: { brief: any }) {
   const tone = (value: number) => (value >= 85 ? "good" : value >= 70 ? "warn" : "bad");
 
   return (
-    <div className="brief-scene">
-      <header className="brief-hero">
+    <div className={`brief-scene${uniqueOnly ? " brief-unique" : ""}`}>
+      {uniqueOnly ? null : <header className="brief-hero">
         <div className="brief-hero-copy">
           <small>ملخص الدقيقة</small>
           <h3>{brief.title}</h3>
@@ -561,9 +565,9 @@ export function BriefScene({ brief }: { brief: any }) {
             ))}
           </div>
         ) : null}
-      </header>
+      </header>}
 
-      {issues.length ? (
+      {!uniqueOnly && issues.length ? (
         <section className="brief-block">
           <h4>ما يحتاج قرارك</h4>
           <ol className="brief-issues">

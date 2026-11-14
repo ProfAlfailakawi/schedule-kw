@@ -66,16 +66,25 @@ const between = (text: string, from: string, to: string) => {
   const scenes = read("src/components/LivingScheduleScenes.tsx");
   check(/const power = Boolean\(user\?\.IsAdminUser \|\| user\?\.IsRootAdmin\);/.test(living) && !/const power = Boolean\(user\?\.SystemUserId\)/.test(living),
     "L1 «الإدارة الرئيسية» بقاعدة الخادم (isPowerUser) لا بمجرد تسجيل الدخول");
-  const nav = between(living, "const sceneItems", "];");
-  check(["why", "copilot", "meeting", "genesis", "pulse", "topology", "health", "brief"].every(id => nav.includes(`id: "${id}"`)),
-    "L2 مشاهد «لماذا» و«المساعد» و«المحضر» في شريط المشاهد");
-  check(/\.\.\.\(power \? \[\{ id: "safety" as Scene/.test(nav), "L3 شبكة الأمان في الشريط للإدارة الرئيسية وحدها");
-  check(/if \(\(next === "safety" \|\| next === "memory"\) && !power\) return;/.test(living) && /scene === "memory" && power/.test(living) && /scene === "safety" && power/.test(living),
+  /* «مركز القرار» صار بطاقاتٍ في «مركز الذكاء»: كل مشهدٍ في بطاقته. */
+  const iw = read("src/components/IntelligenceWorkspace.tsx");
+  check(["why", "copilot", "meeting", "genesis", "topology", "brief", "memory"].every(id => iw.includes(`embeddedScenes={["${id}"]}`)) && iw.includes('embeddedScenes={["pulse", "health"]}'),
+    "L2 مشاهد «لماذا» و«المساعد» و«المحضر» وبقية المشاهد في بطاقاتها بمركز الذكاء");
+  check(/const point = isPowerAdmin \? safetyPoints\.get\(String\(v\.id\)\) : null;/.test(iw) && /if \(approveCard !== "versions" \|\| !isPowerAdmin/.test(iw), "L3 شبكة الأمان (في «سجل النسخ») بأثرها واسترجاعها للإدارة الرئيسية وحدها");
+  check(/if \(next === "memory" && !power\) return;/.test(living) && /shows\("memory"\) && power/.test(living) && /ledgerTab === "memory" && isPowerAdmin/.test(iw) && /isPowerAdmin \? \[\{ value: "memory"/.test(iw),
     "L4 الذاكرة والشبكة لا تُفتحان ولا تُقرآن لغير الإدارة الرئيسية");
   check(/onRemember=\{power \? \(\) => open\("memory"\) : undefined\}/.test(living) && /onRemember\?: \(\) => void;/.test(scenes) && /\{onRemember \? <button onClick=\{onRemember\}>افتح الذاكرة<\/button> : null\}/.test(scenes),
     "L5 «ذاكرة القرار» تُفتح من «لماذا» لمن يملكها، ويُقرأ التحذير لغيره بلا زر");
   check(!/savePlan|خطة إنقاذ/.test(living), "L6 لا دالة «خطة إنقاذ» لا تُستدعى");
-  check(/const sceneHead = scene === "memory"/.test(living), "L7 عنوان اللوحة لمشهد الذاكرة حاضر رغم غيابه عن الشريط");
+  check(/scene === "memory" && embeddedScenes\?\.includes\("why"\)/.test(living) && living.includes("العودة إلى «لماذا»"), "L7 «ذاكرة القرار» المفتوحة من «لماذا» تعود إليه في البطاقة نفسها");
+  /* مراجعة PR #488 */
+  check(/useEffect\(\(\) => \{\s*if \(scene === "memory" && power\) void loadMemory\(\);/.test(living),
+    "L8 لسانُ «ذاكرة القرار» في «دفتر القرار» يقرأ الذاكرة حين يُعرض (لا يمرّ بـopen)");
+  const genesisMutations = ["saveGenesisRow", "deleteGenesisRow", "deleteAllGenesisRows"].map(name => between(living, `const ${name} = async`, "finally {"));
+  check(genesisMutations.every(body => body.includes("onDraftsChanged?.();")) && living.includes('onClick={() => { onDraftsChanged?.(); onNavigate?.("drafts"); }}'),
+    "L9 تعديلُ صفوف مسودة «بداية الفصل» وحذفُها يعيدان قراءة «المسودات» قبل «فتح» و«انشرها من المسودات»");
+  check(/published\.undoVersions\.map\(/.test(iw) && /for \(const point of points\)/.test(iw) && iw.includes("undoPublishPoints(publishUndo.points"),
+    "L10 «تراجع عن النشر» يسترجع كلَّ نسخ ما قبل النشر (نشرٌ عبر عدة مواقع)، لا أولاها فقط");
 }
 
 /* ── P ── */

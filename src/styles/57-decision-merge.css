@@ -1,0 +1,90 @@
+/* ==========================================================================
+   «مركز القرار» داخل «مركز الذكاء»
+   أدواتُ النافذة القديمة (النظرة العامة، الصحة والعدالة، ملخص الدقيقة، خريطة
+   الضغط، لماذا، مساعد السياق، بداية الفصل، المحضر، الذاكرة) تُعرض الآن داخل
+   بطاقاتها، بالأسلوب نفسه، بلا نافذةٍ ولا شريطِ مشاهد.
+   ========================================================================== */
+
+.living-embedded{
+  display:grid;gap:var(--s4);min-width:0;
+  margin-block-start:var(--s4);
+}
+.living-embedded>.living-panel-body{padding:0;max-width:none;width:100%}
+.living-embedded-back{
+  justify-self:start;display:inline-flex;align-items:center;gap:var(--s2);
+  min-height:40px;padding:0 var(--s4);
+  border:1px solid var(--line);border-radius:var(--r-full,999px);
+  background:var(--surface);color:var(--ink);font-size:var(--t-sm);font-weight:600;cursor:pointer;
+}
+.living-embedded-back svg{width:16px;height:16px}
+.living-embedded-loading{
+  display:flex;align-items:center;gap:var(--s3);
+  padding:var(--s5);border:1px dashed var(--line);border-radius:var(--r-lg,18px);
+  color:var(--muted);
+}
+
+/* الحلقاتُ الثلاث فوق الجدول: زرٌّ واحد إلى بطاقة الصحة. */
+button.living-health-open{
+  font:inherit;color:inherit;cursor:pointer;
+  border:1px solid transparent;border-radius:var(--r-lg,18px);
+  background:transparent;padding:4px 6px;
+  transition:border-color .16s var(--ease),background .16s var(--ease);
+}
+button.living-health-open:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line));background:var(--accent-softer,var(--surface-2))}
+button.living-health-open:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* مفتاحا العرض: «الضغط والكثافة» و«اسأل». */
+.density-view-switch,.ask-tools-switch{
+  display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;
+  margin-block-end:var(--s3);
+}
+.ask-tools-switch .surface-kicker{margin:0}
+
+/* «القرار الأهم الآن» داخل غرفة قرار اللجنة. */
+.war-problem{margin-block-end:var(--s4)}
+.war-problem button{margin-block-start:var(--s3)}
+
+/* «تراجع عن النشر» فوق المسودات بعد النشر مباشرة. */
+.publish-undo-banner{
+  display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;
+  padding:var(--s3) var(--s4);margin-block-end:var(--s4);
+  border:1px solid color-mix(in srgb,var(--accent) 34%,var(--line));
+  border-radius:var(--r-lg,18px);background:var(--accent-softer,var(--surface-2));
+}
+.publish-undo-banner>svg{width:20px;height:20px;color:var(--accent);flex:none}
+.publish-undo-banner>span{flex:1;min-width:0;display:grid;gap:2px}
+.publish-undo-banner small{color:var(--muted)}
+
+/* سجلُّ النسخ بنقاط الأمان: أيقونةُ النوع مكانَ النقطة. */
+.timeline-versions .version-kind{
+  width:30px;height:30px;display:grid;place-items:center;flex:none;
+  border-radius:999px;background:var(--surface-2);color:var(--muted);
+}
+.timeline-versions .version-kind svg{width:15px;height:15px}
+.timeline-versions .kind-publish .version-kind{background:var(--accent-soft);color:var(--accent)}
+.timeline-versions .kind-undo .version-kind,.timeline-versions .kind-restore .version-kind{background:color-mix(in srgb,var(--warning,#b7791f) 16%,transparent);color:var(--warning,#b7791f)}
+.timeline-versions .safety-impact{margin:4px 0 0;font-size:var(--t-xs);color:var(--ink)}
+.timeline-versions .safety-impact[data-same]{color:var(--muted)}
+
+/* دفترُ القرار: ثلاثة ألسنة. */
+.decision-ledger{display:grid;gap:var(--s4)}
+.decision-ledger-tabs{display:flex}
+.decision-ledger-inbox .decision-inbox-mini{box-shadow:none;border:0;padding:0}
+
+/* البصمة: الأستاذ الأكثر تقييداً وشرائحُ الفصول. */
+.genome-extra{display:grid;gap:var(--s3);margin-block:var(--s4)}
+.genome-constrained{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-lg,18px)}
+.genome-constrained>svg{width:20px;height:20px;color:var(--accent);flex:none}
+.genome-constrained>span{display:grid;gap:2px;min-width:0}
+.genome-constrained small{color:var(--muted)}
+.genome-history{display:flex;gap:var(--s2);flex-wrap:wrap}
+.genome-history span{display:grid;gap:2px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.genome-history small{color:var(--muted);font-size:var(--t-xs)}
+
+/* «الانتباه»: ما تغيّر، ابدأ من هنا، أكبر مخاطرة — بلا رأس الملخص. */
+.brief-scene.brief-unique{gap:var(--s3)}
+
+@media (max-width:640px){
+  .publish-undo-banner>button{width:100%}
+  .density-view-switch .segmented,.ask-tools-switch .segmented{width:100%}
+}

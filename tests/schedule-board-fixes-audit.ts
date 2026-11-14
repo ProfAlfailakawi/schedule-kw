@@ -122,7 +122,7 @@ check(DECISION_1913_LABEL === "قرار 1913/2016", "DECISION_1913_LABEL = «ق�
   check(/if \(practiceModeRef\.current\) \{[\s\S]{0,400}setRows\(current => current\.map[\s\S]{0,400}return;\s*\}\s*setSaving\(true\);/.test(roomMove), "نقل القاعات يُحاكى محلياً أثناء التجربة قبل أي كتابة");
   check(schedules.includes("{practiceMode ? null : <WipeScheduleButton"), "مسح الجدول يغيب أثناء التجربة");
   check((schedules.match(/!showMobileReadOnlyGate\(\) && !refuseInPractice\(\)\) setTransferOpen\(true\)/g) || []).length >= 3, "أدوات البيانات لا تُفتح أثناء التجربة (الشريط والحالة الفارغة والمرشد)");
-  check(schedules.includes("!refuseInPractice()) setGenesisFromEmpty(true)") && schedules.includes("if (!refuseInPractice()) setTaConversionOpen(true)"), "بداية الفصل وتحويل هيئة التدريب يُمنعان أثناء التجربة");
+  check(schedules.includes('!refuseInPractice()) openIntelligenceCard("twin", "genesis")') && schedules.includes("if (!refuseInPractice()) setTaConversionOpen(true)"), "بداية الفصل وتحويل هيئة التدريب يُمنعان أثناء التجربة");
   check(schedules.includes("workspaceToolsOpen && !practiceMode && mode === \"schedule\""), "سوق استعارة القاعات يغيب أثناء التجربة");
   check(/if \(refuseInPractice\(\)\) return;\s*setInbox\(current => current\.filter/.test(schedules), "حسم رسالة الأستاذ يُمنع أثناء التجربة");
 }

@@ -5,7 +5,7 @@
 
 /* ── نسبة الإشغال: الشبكةُ تُمرَّر أفقياً على الهاتف بدل أن تنحشر الخانةُ في 15px ── */
 .occupancy-heat-scroll{max-inline-size:100%}
-@media (max-width:760px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .occupancy-heat-scroll{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
   .occupancy-heat,.occupancy-heat.is-compact{width:auto;min-width:100%;inline-size:700px;border-spacing:2px}
   .occupancy-heat .occupancy-heat-day-col,.occupancy-heat.is-compact .occupancy-heat-day-col{width:64px}
@@ -29,7 +29,7 @@
   .of-chip::after{content:"";position:absolute;inset-block:-8px;inset-inline:0}
 }
 /* استعارة القاعات على الهاتف: الموافقة والرفض وطلب الاستعارة والبحث والتصفية والإغلاق 44px. */
-@media (max-width:760px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .hall-barter-actions .btn,
   .hall-barter-opportunity-grid>article>.btn,
   .hall-barter-search,
@@ -37,7 +37,7 @@
   .hall-barter-screen-close{width:44px;height:44px}
 }
 /* الجدول الدراسي على الهاتف: أزرار أدوات الجدول (مكتبة الأنماط وغيرها) 38px، وأزرار فرز الخطة 30px. */
-@media (max-width:760px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .schedule-tool-actions .btn,
   .plan-triage-act{min-height:44px}
 }
@@ -67,7 +67,7 @@
 }
 
 /* ── اسمُ المقرر/الصحيفة في صفوف الاستعلام: سطران على الهاتف بدل قصٍّ بنقاط ── */
-@media (max-width:760px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
   .lens-main strong{
     white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
     overflow-wrap:anywhere;line-height:1.35;
