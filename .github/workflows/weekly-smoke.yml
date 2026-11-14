@@ -47,10 +47,11 @@ jobs:
       - name: Production build
         run: npm run build
 
+      # NODE_ENV=production غير مضبوط عمداً: الإنتاج يرفض إنشاء قاعدةٍ محلية جديدة (حمايةٌ من حساب مدير معروف)،
+      # وdist/server.cjs يخدم الواجهة المبنية بلا ضبطه. القاعدة هنا تجريبية تُنشأ داخل المشغّل وتزول معه.
       - name: Start the demo server
         env:
           DATA_MODE: demo
-          NODE_ENV: production
         run: |
           node dist/server.cjs > /tmp/smoke-server.log 2>&1 &
           for attempt in $(seq 1 60); do
