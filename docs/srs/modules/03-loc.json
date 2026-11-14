@@ -9,7 +9,7 @@
     "en": "The module keeps the official registry of buildings and halls on which every schedule appointment is built, and decides who may book which hall. It lets a department borrow a free window of another department's hall on the same campus, with the host's approval and for one term only. It publishes a public door page for each hall showing its state now (free, busy or starting soon) and a corridor board for each building, with a printable QR sticker. It also covers occupancy figures, the companion facility of a hall and the travel policy between campuses."
   },
   "actors": ["rootAdmin", "admin", "departmentHead", "committeeChair", "registrarHead", "visitor", "student", "instructor", "system"],
-  "sources": [
+  "sources": ["src/styles/60-admin-panels.css", "src/utils/roomCapacityGaps.ts", "src/components/LocationCapacityGaps.tsx", 
     "src/server/routes/locationsRoutes.ts",
     "src/server/routes/hallBarterRoutes.ts",
     "src/server/core/locations.ts",
@@ -748,6 +748,44 @@
         { "ar": "إضافة مبنى رمزه موجودٌ موقوفاً ← «إعادة تفعيل» ثم PUT بـactive=true.", "en": "Adding a building whose code exists inactive ← «reactivate» then PUT with active=true." }
       ],
       "evidence": { "code": ["src/server/routes/locationsRoutes.ts", "src/components/LocationQuickSetup.tsx", "src/components/RoomDoorTools.tsx"], "tests": ["tests/admin-station-audit.ts", "tests/location-registry-audit.py"] }
+    },
+    {
+      "id": "FR-LOC-036",
+      "kind": "functional",
+      "title": {
+        "ar": "قاعات بلا سعة: حلقة اكتمال وإدخال سعة لكل قاعة",
+        "en": "Rooms without capacity: a completeness ring and per-room capacity entry"
+      },
+      "text": {
+        "ar": "يجب أن يعرض أعلى شاشة «إضافة المباني والقاعات» لوحةً بنسبة القاعات الفعّالة المعتمدة التي لها سعة، وعدد ما ينقص، وبطاقةً لكل قاعة بلا سعة (الرمز، المبنى، النوع) بحقل رقم وزر حفظ، مع تصفية بالمبنى والنوع وبحث برمز القاعة. يحسب الخادم الأرقام في GET ‎/api/admin/location-setup/capacity-gaps لحساب الإدارة الرئيسي وحده (بلا دخول 401، وغيره 403)، ولا تُحسب القاعة الموقوفة ولا غير المعتمدة، وصفر قاعات يعني بلا نسبة، ولا تظهر ١٠٠٪ وفي القاعات نقص. يمرّ الحفظ بمسار تعديل القاعة القائم (PUT ‎/api/admin/location-registry/rooms/:id) بسجلّ تدقيقه وتحقّقه، والواجهة تقبل عدداً صحيحاً من 1 إلى 2000. الحفظ متفائل: تغيب البطاقة وتتقدم الحلقة فوراً، ويعيدها رفض الخادم بسببه. Enter يحفظ وينقل التركيز إلى القاعة التالية.",
+        "en": "The top of the «Add buildings and rooms» screen shall show a panel with the share of active, confirmed rooms that have a capacity, the count still missing, and a card per room without capacity (code, building, type) with a number field and a save button, plus building and type filters and a room-code search. The server computes the figures at GET /api/admin/location-setup/capacity-gaps for the main administrator account only (401 signed out, 403 otherwise); inactive and unconfirmed rooms are not counted, zero rooms means no percentage, and 100% never shows while rooms are missing. Saving goes through the existing room-update path (PUT /api/admin/location-registry/rooms/:id) with its audit trail and validation, and the UI accepts a whole number from 1 to 2000. Saving is optimistic: the card leaves and the ring advances at once, and a server refusal brings it back with its reason. Enter saves and moves focus to the next room."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin"
+      ],
+      "acceptance": [
+        {
+          "ar": "18 قاعة منها 8 بلا سعة ← الحلقة 56٪ والعدّاد «8 قاعات»؛ حفظ 40 في إحداها ← 61٪ وتغيب بطاقتها.",
+          "en": "18 rooms, 8 without capacity ← the ring reads 56% and the counter shows 8 rooms; saving 40 in one ← 61% and its card leaves."
+        },
+        {
+          "ar": "سعة 0 أو 2.5 أو 2001 ← رسالة سببٍ تحت الحقل ولا حفظ.",
+          "en": "A capacity of 0, 2.5 or 2001 ← a reason under the field and no save."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/LocationCapacityGaps.tsx",
+          "src/utils/roomCapacityGaps.ts",
+          "src/server/routes/locationsRoutes.ts",
+          "src/styles/60-admin-panels.css"
+        ],
+        "tests": [
+          "tests/room-capacity-gaps-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [
