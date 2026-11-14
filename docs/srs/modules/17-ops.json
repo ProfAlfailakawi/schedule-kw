@@ -69,6 +69,7 @@
     "tests/slow.txt",
     "tests/known-failures.txt",
     "docs/DELIVERY_OPERATIONS.md",
+    "docs/ACCEPTANCE_ROUND.md",
     "docs/SAFE_DEPLOYMENT.md",
     "docs/SERVER_MAP.md",
     "docs/DEMO_GUIDE.md",
@@ -76,6 +77,8 @@
     "scripts/consistent-badges-screens.ts",
     "scripts/course-reach-screens.ts",
     "scripts/course-tags-coverage-screens.ts",
+    "scripts/acceptance-rehearsal.ts",
+    "scripts/lib/acceptanceRehearsal.ts",
     "scripts/owner-1028-screens.ts",
     "scripts/prepublish-reach-screens.ts",
     "scripts/publish-pick-teachers-screens.ts",
@@ -98,7 +101,11 @@
     "src/server/systemHealth.ts",
     "src/utils/systemHealth.ts",
     "src/components/SystemHealth.tsx",
-    "src/components/HealthGlance.tsx"
+    "src/components/HealthGlance.tsx",
+    "src/server/featureHealth.ts",
+    "src/utils/featureHealth.ts",
+    "src/utils/featureHealthView.ts",
+    "src/components/FeatureHealth.tsx"
   ],
   "screens": [
     {
@@ -2817,6 +2824,48 @@
       }
     },
     {
+      "id": "FR-OPS-059",
+      "kind": "functional",
+      "title": {
+        "ar": "جولة القبول: وثيقة بشرية من عشر دقائق وبروفةٌ آلية على الديمو",
+        "en": "Acceptance round: a ten-minute human checklist and an automated demo rehearsal"
+      },
+      "text": {
+        "ar": "يجب أن تحمل docs/ACCEPTANCE_ROUND.md جولةً بشرية قصيرة تُجرى على الموقع الحيّ بأجهزة حقيقية، مرتّبةً بالأدوار (الطالب، استعادة الرمز، الأستاذ، القسم، المسؤول)، لكل خطوةٍ معرّفٌ وما يُفعل وما يجب أن يُرى وما يُفعل إن لم يحدث ومن يُبلَّغ، مع قسمٍ لما بعد فشل خطوة وجدولِ نتيجةٍ يُملأ. ويجب أن يشغّل الأمر npm run rehearsal:acceptance (scripts/acceptance-rehearsal.ts) الخطواتِ نفسها آلياً: يُقلع خادمَ ديمو محلياً خاصاً به (DATA_MODE=demo) على منفذٍ حرٍّ يختاره النظام، ويرفض العمل داخل بيئة إنتاج سحابية، ويتحقق أن الخادم ديمو معزول قبل أن يبدأ، ولا يتصل بأي عنوانٍ غيره ولا يرسل رسالةً حقيقية، ويُطفئه عند الانتهاء. يمرّ بمتصفح Chromium بعرض 390x844 (وبعرض 1280x900 للشاشات الإدارية) ويسجّل كل خطوةٍ نجاحاً أو ملاحظةً أو فشلاً أو «يحتاج بيانات أو جهازاً حقيقياً»؛ فما لا يثبته الديمو (تسليم تنبيهٍ حقيقي، الآيفون وSafari، إصدار رمز الاستعادة لطالبٍ حقيقي عبر المخزنين، الرقم المدني الحقيقي) يُسجَّل تخطّياً ولا يُسجَّل نجاحاً أبداً. ويكتب تقريراً RTL مكتفياً بنفسه (report.html بصوره وحلقة ملخّص وبطاقةٍ لكل خطوة وأخطاء الكونسول والصفحة والطلبات المرفوضة) وملخّصاً JSON في مجلدٍ مُتجاهَلٍ في git، ويخرج برمزٍ غير صفري إن فشلت خطوةٌ يستطيع الديمو إثباتَها. والنموذج والتلخيص والتقرير واتساقُ معرّفات الخطوات بين الوثيقة والسكربت في scripts/lib/acceptanceRehearsal.ts ويفحصها tests/acceptance-rehearsal-audit.ts بلا خادمٍ ولا متصفح.",
+        "en": "docs/ACCEPTANCE_ROUND.md shall hold a short human round run on the live site with real devices, grouped by role (student, code recovery, teacher, department, admin); each step has an id, what to do, what should be seen, what to do if it does not happen and whom to tell, with a section for what to do after a failed step and a result table to fill in. The command npm run rehearsal:acceptance (scripts/acceptance-rehearsal.ts) shall run the same steps automatically: it starts its own private local demo server (DATA_MODE=demo) on a free port chosen by the system, refuses to run inside a cloud production environment, verifies the server is an isolated demo before it begins, connects to no other address, sends no real message, and shuts the server down at the end. It drives Chromium at 390x844 (and 1280x900 for the admin screens) and records every step as pass, note, fail or «needs real data or a real device»; whatever the demo cannot prove (real push delivery, iPhone and Safari, issuing a recovery code to a real student across the two stores, a real civil number) is recorded as skipped and never as a pass. It writes a self-contained RTL report (report.html with embedded screenshots, a summary ring, a card per step, and the console, page and rejected-request errors seen) and a JSON summary into a git-ignored folder, and exits non-zero if a step the demo can prove fails. The model, summary, report and the consistency of step ids between the document and the script live in scripts/lib/acceptanceRehearsal.ts and are checked by tests/acceptance-rehearsal-audit.ts with no server and no browser."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "كل معرّفٍ في الوثيقة موجودٌ في السكربت والعكس، وما كان يدوياً يُسجَّل تخطّياً لا run.",
+          "en": "Every id in the document exists in the script and vice versa, and a manual step is recorded as skipped, never run."
+        },
+        {
+          "ar": "فشلُ خطوةٍ يثبتها الديمو ← رمز خروجٍ غير صفري؛ والملاحظةُ والتخطّي لا يُسقطان الأمر.",
+          "en": "A failed demo-provable step gives a non-zero exit code; a note or a skip does not."
+        },
+        {
+          "ar": "التقرير بلا موارد خارجية، ونصوص الأخطاء فيه مهرَّبة، وأرقامه لاتينية.",
+          "en": "The report has no external resources, its error texts are escaped and its digits are Latin."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "scripts/acceptance-rehearsal.ts",
+          "scripts/lib/acceptanceRehearsal.ts",
+          "docs/ACCEPTANCE_ROUND.md"
+        ],
+        "tests": [
+          "tests/acceptance-rehearsal-audit.ts"
+        ]
+      }
+    },
+    {
       "id": "NFR-OPS-040",
       "kind": "nonfunctional",
       "title": {
@@ -2850,6 +2899,115 @@
         ],
         "tests": [
           "tests/system-health-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-050",
+      "kind": "functional",
+      "title": {
+        "ar": "سلامة الميزات الجديدة: ست بطاقاتٍ في سلامة النظام",
+        "en": "New-features health: six tiles inside system health"
+      },
+      "text": {
+        "ar": "يجب أن تعرض لوحة «سلامة النظام» للحساب الرئيسي وحده بطاقةً مضغوطةً بعنوان «سلامة الميزات الجديدة» فيها ست بطاقاتٍ صغيرة بأعدادٍ مجمَّعة للفصل الجاري: تنبيهات الهاتف (ملفاتٌ مفعّلة، ورسائلُ أُرسلت لكل نوع، وأجهزةٌ أُزيلت لانتهائها، ومفاتيحُ الإرسال — وبلا مفاتيح تظهر «غير مفعّل: لا مفاتيح إرسال» خاملةً)، وشارك مرشدك (أُنشئت وصالحةٌ الآن وفُتحت)، ورموزُ استعادة الأقسام (أُصدرت واستُعملت وانتهت أو أُلغيت)، والقاعاتُ المعتمدة الفعّالة بلا سعة (العدد والنسبة)، وبطاقاتُ الأساتذة (فُتحت وأُرسلت وسُوّيت عبر كل ما يراه الحساب)، ومساري (ملفاتٌ وملفاتٌ لها رغباتٌ في الفصل). تُرسم بحلقةٍ وأشرطةٍ ورقمٍ كبير وكلمةٍ قصيرة؛ وتتلوّن «انتبه» عند الحاجة فقط (تذكيرٌ كان يجب أن يُرسل اليوم ولم يُرسل، رمزُ استعادةٍ ينتهي خلال ست ساعاتٍ دون استعمال، أكثر من 30% قاعاتٍ بلا سعة). الأصفارُ تسميّاتٌ خافتةٌ خاملة لا أزرارٌ معطّلة، ولا بياناتٍ بعد تُعرض «لا بيانات بعد». فيها زرُّ «تحديث» بهدفٍ 44 بكسل وحالةٌ حيّة مسموعة، وفشلُ مصدرٍ يُظهر بطاقتَه وحدها «تعذّرت القراءة» مع إعادة محاولة. اتجاهُ القاعات بلا سعة لا يُعرض لعدم وجود تاريخٍ محفوظ له.",
+        "en": "The system-health panel shall show, to the root account only, one compact «new-features health» card with six small tiles of aggregate counts for the current term: phone push (profiles enabled, messages sent per kind, devices removed as expired, whether send keys exist — without keys an inert «not enabled: no send keys» shows), advisor share (created, valid now, opened), department recovery codes (issued, used, expired or voided), active confirmed rooms without capacity (count and percent), teacher cards (opened, sent, settled across everything the account sees) and Masari (profiles, and profiles with wishes this term). Each is drawn as a ring, bars, one big number and a short word; the attention tint appears only when needed (a reminder that should have gone out today did not, a recovery code expires within six hours unused, more than 30% of rooms lack capacity). Zeros are dim inert labels, never disabled buttons, and no data shows «no data yet». A «refresh» control has a 44px target and an audible live status; a failing source shows only its own tile as unreadable with a retry. The rooms-without-capacity trend is not shown because no history is stored for it."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "بلا مفاتيح إرسالٍ تظهر «غير مفعّل: لا مفاتيح إرسال» بلا زرٍّ معطّل.",
+          "en": "Without send keys the inert not-enabled line shows, with no disabled button."
+        },
+        {
+          "ar": "مصدرٌ يفشل ← بطاقتُه وحدها «تعذّرت القراءة» والبقيةُ سليمة.",
+          "en": "A failing source leaves only its own tile unreadable."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/featureHealth.ts",
+          "src/utils/featureHealth.ts",
+          "src/utils/featureHealthView.ts",
+          "src/components/FeatureHealth.tsx",
+          "src/server/routes/adminRoutes.ts"
+        ],
+        "tests": [
+          "tests/feature-health-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-051",
+      "kind": "functional",
+      "title": {
+        "ar": "عدّاداتٌ مجمَّعة بلا هوية لسلامة الميزات",
+        "en": "Identity-free aggregate counters for feature health"
+      },
+      "text": {
+        "ar": "يجب أن تزيد صفحةُ مرشد الطالب العامة عدّاداً مجمَّعاً لكل يومٍ (opens) على ملف صاحب الرابط عند كل فتحةٍ صالحة، وأن يزيد إنشاءُ الرابط عدّاداً مماثلاً (made)، وأن يزيد مسحُ جهازٍ انتهى اشتراكُه (410/404) عدّاد أجهزةٍ أُزيلت لكل يوم، وكلُّها أرقامٌ بمفتاح اليوم فقط (آخر 120 يوماً) بلا زائرٍ ولا عنوانٍ ولا ترويسةٍ ولا رابط، وتُمحى مع الملف كما اليوم، ولا تعرضها صفحةُ المرشد نفسها، وفشلُ الكتابة لا يُفسد الصفحة، والفتحةُ المرفوضة لا تُعدّ.",
+        "en": "The public advisor page shall increment a per-day aggregate counter (opens) on the link owner's profile for each valid open, link creation shall increment a similar counter (made), and removing a device whose subscription expired (410/404) shall increment a per-day removed-devices counter; all are numbers keyed by day only (last 120 days) with no visitor, address, header or link, are erased with the profile as today, are never shown by the advisor page itself, a failed write never breaks the page, and a refused open is not counted."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "ثلاثُ فتحاتٍ صالحة ← عدّاد اليوم 3 ولا شيءَ غيرُ أرقامٍ في المخزَّن.",
+          "en": "Three valid opens make the day counter 3 and store nothing but numbers."
+        },
+        {
+          "ar": "حذفُ الملف يمحو العدّادات معه.",
+          "en": "Deleting the profile erases the counters with it."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/studentExtras.ts",
+          "src/utils/featureHealth.ts",
+          "src/types.ts"
+        ],
+        "tests": [
+          "tests/feature-health-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "NFR-OPS-052",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "سلامة الميزات: للحساب الرئيسي وحده وأعدادٌ فقط وقراءةٌ خفيفة مخبّأة",
+        "en": "Feature health: root only, counts only, lean cached read"
+      },
+      "text": {
+        "ar": "يجب أن يكون GET ‎/api/system-health/features‎ بحارس «سلامة النظام» نفسه (requireAuth ثم requireRootAdmin) وللقراءة فقط، وأن تحوي حمولتُه أعداداً وعلاماتٍ منطقيةً فقط بلا أيّ اسمٍ أو رقمٍ مدنيٍّ أو بصمةٍ أو رمزٍ أو اشتراكٍ أو نصِّ رسالةٍ أو نصِّ خطأ، وأن يُحسب كلُّ بطاقةٍ في try/catch خاصٍّ بها، وأن تُقرأ ملفاتُ الطلبة مرةً واحدةً لكل طلب، وأن تُخبَّأ الاستجابةُ دقيقةً بمفتاحٍ يحمل عالَم الجلسة التجريبية مع تجاوزٍ يدويٍّ لا يتكرر أسرع من كل 3 ثوانٍ، وأن تعمل على البيانات التجريبية بأصفارٍ لا أخطاء.",
+        "en": "GET ‎/api/system-health/features‎ shall use the system-health guard (requireAuth then requireRootAdmin) and be read-only; its payload shall hold counts and booleans only, with no name, civil number, fingerprint, token, subscription, message text or error text; each tile shall run in its own try/catch; student profiles shall be read once per request; the response shall be cached for one minute under a key carrying the demo-session world, with a manual bypass no faster than every 3 seconds; and it shall work on demo data with zeros rather than errors."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["rootAdmin"],
+      "acceptance": [
+        {
+          "ar": "401 بلا دخول و403 لغير الحساب الرئيسي.",
+          "en": "401 when signed out and 403 for any other account."
+        },
+        {
+          "ar": "لا مفتاحَ هويةٍ ولا قيمةَ هويةٍ في أيّ موضعٍ من الـJSON.",
+          "en": "No identity key or value anywhere in the JSON."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/featureHealth.ts",
+          "src/utils/featureHealth.ts",
+          "src/utils/featureHealthView.ts",
+          "src/components/FeatureHealth.tsx",
+          "src/server/routes/adminRoutes.ts"
+        ],
+        "tests": [
+          "tests/feature-health-audit.ts"
         ]
       }
     }
