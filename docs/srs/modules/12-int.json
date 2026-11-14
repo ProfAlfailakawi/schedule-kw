@@ -47,8 +47,6 @@
     "src/server/actualDemand.ts",
     "src/server/actualDemandRoutes.ts",
     "src/utils/actualDemand*.ts",
-    "src/components/ActualDemandPanel.tsx",
-    "src/components/ActualDemandAlert.tsx",
     "src/components/DemandBadge.tsx",
     "src/styles/54-actual-demand.css"
   ],
@@ -1508,19 +1506,41 @@
     {
       "id": "FR-INT-070",
       "kind": "functional",
-      "title": { "ar": "حفظ الطلب الفعلي لعائلة القسم مع سجلّ الرفع", "en": "Storing actual demand per department family with an upload history" },
+      "title": {
+        "ar": "حفظ الطلب الفعلي لعائلة القسم مع سجلّ الرفع",
+        "en": "Storing actual demand per department family with an upload history"
+      },
       "text": {
         "ar": "يجب أن يُحفظ التقرير لكل فصل وعائلة قسم (بنين وبنات في كل كلياتها) بنسختيه «عام» و«خريجون»، بعد معاينةٍ تعرض القسم والفصل والأعداد وما طوبق، وأن يُرفض الحفظ بلا تأكيد صريح إن خالف القسمُ أو الفصلُ في الملف المفتوحَ، وأن يُسجَّل لكل رفع من رفعه ومتى وبصمة الملف (SHA-256) في سجلّ الرفع وسجلّ التدقيق، بصلاحية تعديل الجدول للقسم نفسها.",
         "en": "The report shall be stored per term and department family (boys and girls across its colleges) in both its «general» and «graduates» variants, after a preview showing the department, the term, the counts and what matched; saving shall be refused without explicit confirmation when the file's department or term differs from the one open; every upload records who, when and the file fingerprint (SHA-256) in the upload history and the audit log, with the same permission as editing the department schedule."
       },
       "priority": "must",
       "status": "implemented",
-      "actors": ["departmentHead", "committeeChair", "standard"],
-      "acceptance": [
-        { "ar": "المعاينة لا تحفظ شيئاً؛ والحفظ يُرجع النسخة وسجلّ رفعٍ ببصمة من 64 خانة.", "en": "The preview stores nothing; saving returns the variant and an upload history entry with a 64-character fingerprint." },
-        { "ar": "ملفٌ لفصلٍ غير المفتوح يُردّ بـ409 ما لم يُرسل التأكيد.", "en": "A file for another term is answered with 409 unless confirmation is sent." }
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "standard"
       ],
-      "evidence": { "code": ["src/server/actualDemand.ts#storeDemandVariant", "src/server/actualDemandRoutes.ts", "src/components/ActualDemandPanel.tsx"], "tests": ["tests/actual-demand-audit.ts"] },
+      "acceptance": [
+        {
+          "ar": "المعاينة لا تحفظ شيئاً؛ والحفظ يُرجع النسخة وسجلّ رفعٍ ببصمة من 64 خانة.",
+          "en": "The preview stores nothing; saving returns the variant and an upload history entry with a 64-character fingerprint."
+        },
+        {
+          "ar": "ملفٌ لفصلٍ غير المفتوح يُردّ بـ409 ما لم يُرسل التأكيد.",
+          "en": "A file for another term is answered with 409 unless confirmation is sent."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/actualDemand.ts#storeDemandVariant",
+          "src/server/actualDemandRoutes.ts",
+          "src/components/SectionPlan.tsx"
+        ],
+        "tests": [
+          "tests/actual-demand-audit.ts"
+        ]
+      },
       "inferred": false
     },
     {
@@ -1580,19 +1600,38 @@
     {
       "id": "FR-INT-074",
       "kind": "functional",
-      "title": {"ar": "نسبة خدمة الطلب", "en": "Demand service rate"},
+      "title": {
+        "ar": "أرقام تخطيط الشعب في مركز التحليلات",
+        "en": "Section-planning figures in the analytics center"
+      },
       "text": {
-        "ar": "يجب أن يعرض النظام رقماً واحداً كبيراً للجدول: «نسبة خدمة الطلب» = مجموع min(الطلب، المقاعد) ÷ مجموع الطلب على المقررات المطابَقة لكل مسار، وتحته نسبة الخريجين (الهدف 100%) ونسبة كل مسار، ثم قائمة قصيرة مرتبة بالأشد (خريجون بلا مقعد، ثم عجز، ثم نقل، ثم فائض) تُفتح كل منها بنقرة على توزيعها بين المسارين، ولكل بند «عالج»؛ وتُحدَّث القراءة مع تغيّر الجدول، وبطاقة «الطلب الفعلي» في مركز التحليلات تحمل النسبة.",
-        "en": "The system shall show one large number for the schedule: «demand service rate» = sum of min(demand, seats) ÷ sum of demand over matched courses per track, with the graduates' rate beneath it (target 100%) and each track's rate, then a short list sorted by severity (graduates without a seat, then shortage, then move, then surplus), each opening with one tap on its split between the tracks, each with «fix»; the reading is refreshed as the schedule changes, and the «actual demand» card in the Analytics Center carries the rate."
+        "ar": "يجب أن تحمل بطاقة «تخطيط الشعب» في مركز التحليلات نسبة الخريجين الذين لهم مقعد إن رُفع تقريرهم، وإلا عدد الشعب الناقصة، وأن تفتح الشاشة نفسها التي في أدوات البيانات.",
+        "en": "The 'Section planning' card in the analytics center shall carry the share of graduates seated when their report is uploaded, otherwise the number of sections short, and open the same screen as in the data tools."
       },
       "priority": "must",
       "status": "implemented",
-      "actors": ["departmentHead", "committeeChair", "standard"],
-      "acceptance": [
-        {"ar": "غير المطابَق و«لا يخص القسم» خارج النسبة والقائمة.", "en": "Unmatched courses and those marked «not this department» stay out of the rate and the list."},
-        {"ar": "«عالج» على عجزٍ أو نقلٍ يفتح محرّر موعد جديد في كلية المسار العاجز؛ والفائض يُعرض بلا زر.", "en": "«Fix» on a shortage or a move opens a new-appointment editor in the short track's college; a surplus is shown without a button."}
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "standard"
       ],
-      "evidence": { "code": ["src/components/ActualDemandPanel.tsx", "src/components/IntelligenceWorkspace.tsx", "src/utils/actualDemandSupply.ts#demandSupply"], "tests": ["tests/actual-demand-supply-audit.ts", "tests/actual-demand-audit.ts"] },
+      "acceptance": [
+        {
+          "ar": "بلا تقرير تقول البطاقة «ارفع».",
+          "en": "Without a report the card says 'Upload'."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/IntelligenceWorkspace.tsx",
+          "src/components/SectionPlan.tsx",
+          "src/utils/sectionPlan.ts#sectionPlan"
+        ],
+        "tests": [
+          "tests/section-plan-audit.ts",
+          "tests/actual-demand-audit.ts"
+        ]
+      },
       "inferred": false
     },
     {
@@ -1668,12 +1707,12 @@
       "id": "FR-INT-079",
       "kind": "functional",
       "title": {
-        "ar": "تنبيه الطلب الفعلي داخل الجدول الدراسي",
-        "en": "Actual-demand alert inside the study schedule"
+        "ar": "شارة التخطيط الواحدة في الجدول الدراسي",
+        "en": "The single planning badge on the schedule"
       },
       "text": {
-        "ar": "يجب أن يعرض شريط الاعتماد في «الجدول الدراسي»، بجانب شارة التخطيط وبأسلوبها، شارةً كهرمانية للطلب الفعلي: أيقونة وعدد المقررات المطلوبة بلا شعبة في عائلة القسم وأيقونة مقعد بعدد المقاعد الناقصة، فإذا ضُغطت فُتحت في مكان قائمة التخطيط نفسه قائمةٌ فيها ثلاثة أرقام (بلا شعبة، نقص المقاعد، خريجون بلا مقعد) وتوزيعها على البنين والبنات، ثم المقررات العاجزة بالأشد ولكلٍّ «عالج» يفتح محرّر موعدٍ جديد في كلية المسار الأعجز دون انتقالٍ أو إعادة تحميل؛ ولا تظهر الشارة بلا تقرير مرفوع ولا حين خُدم كل طالب، ولا تمنع التوقيع، ولا تُطبع.",
-        "en": "The approval bar of the «study schedule» shall show, beside the planning badge and in its style, an amber actual-demand badge: an icon with the number of demanded courses that have no section in the department family, and a seat icon with the number of missing seats; tapping it opens, where the planning list opens, a list with three numbers (no section, missing seats, graduates without a seat) and their split between boys and girls, then the short courses by severity, each with «fix» opening a new-appointment editor in the shortest track's college without navigation or reload. The badge is absent without an uploaded report and when every student is served; it never blocks signing and is not printed."
+        "ar": "يجب أن يعرض شريط الاعتماد في «الجدول الدراسي» شارةً واحدة «التخطيط» بقبعة خريجين بعدد شعبهم الناقصة إن وُجدت، وعدد ما يُفتح وما يُغلق؛ تفتح شاشة تخطيط الشعب في مكانها، و«افتح شعبة» و«اختر ما يُغلق» يعملان في الجدول بلا انتقال؛ ولا تظهر حين يتوازن كل مقرر.",
+        "en": "The approval bar on the schedule shall show one 'Planning' badge with a graduate cap and the number of graduate sections short when any, and the numbers to open and to close; it opens the section-planning screen in place, where 'Open a section' and 'Choose what to close' act on the schedule without navigating; it is hidden when every course is balanced."
       },
       "priority": "must",
       "status": "implemented",
@@ -1684,31 +1723,19 @@
       ],
       "acceptance": [
         {
-          "ar": "مقررٌ له شعبٌ للبنين فقط: لا يُعدّ «بلا شعبة» للعائلة، ويظهر في توزيع البنات بلا شعبة وبنقص مقاعده.",
-          "en": "A course with boys' sections only is not counted as «no section» for the family, and appears in the girls' split as having no section with its missing seats."
-        },
-        {
-          "ar": "بلا تقرير أو بلا عجز: لا شارة ولا قائمة.",
-          "en": "Without a report or without a shortage: no badge and no list."
-        },
-        {
-          "ar": "45 مقرراً بلا شعبة: القائمة المرسلة 40 بنداً، والشارة تقول 45 لأن الخادم يحسب الملخّص من البنود كلها.",
-          "en": "45 courses without a section: the list sent holds 40 items, and the badge says 45 because the server computes the summary from all items."
-        },
-        {
-          "ar": "رفعُ تقرير أو ربطُ مقرر من أدوات البيانات يُحدّث الشارة في الجدول الدراسي بلا إعادة تحميل.",
-          "en": "Uploading a report or matching a course from the data tools refreshes the badge in the study schedule without a reload."
+          "ar": "لا شارة «الطلب الفعلي» ولا أيقونة كشف المتبقي بجانبها.",
+          "en": "No separate 'actual demand' badge nor a remaining-report icon beside it."
         }
       ],
       "evidence": {
         "code": [
-          "src/components/ActualDemandAlert.tsx",
           "src/components/ApprovalBar.tsx",
-          "src/utils/actualDemandSupply.ts#demandAlertSummary", "src/utils/actualDemandSupply.ts#supplyView", "src/server/actualDemand.ts#demandReading",
+          "src/components/SectionPlan.tsx#SectionPlanBadge",
           "src/utils/actualDemandHandoff.ts#openActualDemandFix"
         ],
         "tests": [
-          "tests/actual-demand-supply-audit.ts"
+          "tests/section-gap-audit.ts",
+          "tests/decision-surfaces-audit.ts"
         ]
       },
       "inferred": false
@@ -1717,12 +1744,12 @@
       "id": "FR-INT-080",
       "kind": "functional",
       "title": {
-        "ar": "الطلب الفعلي في أدوات البيانات",
-        "en": "Actual demand in the data tools"
+        "ar": "تخطيط الشعب في أدوات البيانات",
+        "en": "Section planning in the data tools"
       },
       "text": {
-        "ar": "يجب أن تحمل «أدوات البيانات» في الجدول الدراسي لساناً «الطلب الفعلي» بجانب أدوات الاستيراد، يعرض اللوحةَ نفسها التي في مركز التحليلات مقصورةً على البيانات: رفع تقرير التسجيل ومعاينته قبل الحفظ، وحال النسختين (عام وخريجون)، ونسبة خدمة الطلب، وربط المقررات غير المطابَقة مفتوحاً؛ وقائمة العلاج مكانها الجدول ومركز التحليلات. ولا يظهر اللسان في فصلٍ منتهٍ.",
-        "en": "The «data tools» of the study schedule shall carry an «actual demand» tab beside the import tools, showing the same panel as the Analytics Center limited to data: uploading the registrar report with its preview before saving, the state of both variants (general and graduates), the demand service rate, and the matching of unmatched courses opened; the fix list lives in the schedule and the Analytics Center. The tab is absent for an ended term."
+        "ar": "يجب أن تحمل «أدوات البيانات» لساناً واحداً «تخطيط الشعب» يعرض الشاشة نفسها: رفع تقرير التسجيل (الكل والخريجون) ومعاينته قبل الحفظ، والدرجتان، والمنتدبون، وربط المقررات غير المطابَقة.",
+        "en": "The data tools shall carry one 'Section planning' tab showing the same screen: uploading the registrar report (all and graduates) with a preview before saving, the two stages, visiting instructors, and linking unmatched courses."
       },
       "priority": "should",
       "status": "implemented",
@@ -1733,14 +1760,14 @@
       ],
       "acceptance": [
         {
-          "ar": "الرفع والربط من اللسان يكتبان عبر نقاط النهاية نفسها (/api/actual-demand/upload و/api/actual-demand/link) ولا منطق مكرراً.",
-          "en": "Uploading and matching from the tab write through the same endpoints (/api/actual-demand/upload and /api/actual-demand/link) with no duplicated logic."
+          "ar": "لا لسان «الطلب الفعلي» منفصل.",
+          "en": "No separate 'actual demand' tab."
         }
       ],
       "evidence": {
         "code": [
           "src/components/ScheduleTransfer.tsx",
-          "src/components/ActualDemandPanel.tsx"
+          "src/components/SectionPlan.tsx"
         ],
         "tests": [
           "tests/actual-demand-audit.ts"

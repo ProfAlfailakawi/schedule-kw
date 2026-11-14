@@ -259,6 +259,7 @@ test:colleague-guard-measure
 test:actual-demand
 test:actual-demand-supply
 test:actual-demand-graduates
+test:section-plan
 test:colleagues-advising-registration
 test:quick-studio-family
 test:lecture-stick-own

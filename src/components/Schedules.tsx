@@ -187,7 +187,6 @@ import {
   type ScheduleViewDraft,
 } from "../utils/scheduleViews";
 import ScheduleTransfer from "./ScheduleTransfer";
-import { FOCUS_COURSE_EVENT } from "../utils/planTriage";
 import SearchableSelect from "./SearchableSelect";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import CourseTags from "./CourseTags";
@@ -215,7 +214,7 @@ import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { handoffNotice, takeHandoff, type RequestHandoff } from "../utils/requestHandoff";
 import { changeFormPatch, openRowNotice, takeOpenRow, type RequestedChange } from "../utils/requestOpenRow";
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
-import { ACTUAL_DEMAND_HANDOFF_EVENT, actualDemandNotice, graduateImpactNote, takeActualDemandHandoff } from "../utils/actualDemandHandoff";
+import { ACTUAL_DEMAND_HANDOFF_EVENT, actualDemandNotice, FOCUS_COURSE_EVENT, graduateImpactNote, takeActualDemandHandoff, takeFocusedCourse } from "../utils/actualDemandHandoff";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
 import { claimWarmStart, scheduleWorkspaceUrl, warmStart } from "../utils/warmStart";
 import { historicalDurationMinutes, pickHistoricalDayModel, type HistoricalTimeModel } from "../utils/advancedIntelligence";
@@ -2254,7 +2253,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (navigator.onLine && offlineQueueCount()) void up();
     return () => { window.removeEventListener("offline", down); window.removeEventListener("online", up); };
   }, []);
-  /* K2: «عالج» in the planning list brings the course's appointments to the
+  /* «اختر ما يُغلق» in section planning brings the course's appointments to the
      surface through the quick search the week already has — no second filter. */
   useEffect(() => {
     const focusCourse = (event: Event) => {
@@ -2264,6 +2263,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setQuickSearch(code);
     };
     window.addEventListener(FOCUS_COURSE_EVENT, focusCourse);
+    /* «اختر ما يُغلق» من خارج الجدول: الرمز ينتظر في الجلسة ويُقرأ مرةً هنا. */
+    const waiting = takeFocusedCourse();
+    if (waiting) { setViewMode("week"); setQuickSearch(waiting); }
     return () => window.removeEventListener(FOCUS_COURSE_EVENT, focusCourse);
   }, []);
   /*

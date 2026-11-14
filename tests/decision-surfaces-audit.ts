@@ -11,10 +11,8 @@ import { analyseAcademicAdvice, type AcademicPlanView } from "../src/utils/acade
 import { teachingHoursByInstructor } from "../src/utils/teachingLoad";
 import { effectiveCourseHours } from "../src/utils/scheduleRegulations";
 import { classifyActionableError } from "../src/utils/actionableError";
-import { planItemTier, triagePlanItems, planItemSignature, type PlanDecision } from "../src/utils/planTriage";
 import { canSeeDecisionBoard, decisionBoardScope } from "../src/utils/decisionBoardScope";
 import ActionableErrorNotice from "../src/components/ActionableErrorNotice";
-import type { GapItem } from "../src/utils/sectionGap";
 import type { AdCourse, FSchedule, StudentProfile } from "../src/types";
 import { readServerSource } from "./helpers/serverSource.mjs";
 
@@ -71,28 +69,13 @@ console.log("K1 — مختبر القرار: قمعٌ صادق لكل أداة")
   check(read("src/components/AcademicAdvicePanel.tsx").includes("open={open}") && !read("src/components/AcademicAdvicePanel.tsx").includes("defaultOpen={demo}"), "بطاقة «فرصة لتحسين الجدول» تُفتح فعلاً (defaultOpen ليس خاصية details)");
 }
 
-console.log("K2 — التخطيط: ثلاثة رفوف وقرارات بأسبابها");
+console.log("K2 — تخطيط الشعب: درجتان، وزرٌّ واحد، ولا «تم/تجاهل»");
 {
-  const item = (id: number, code: string, existing: number, required: number, extra = required - existing, more: Partial<GapItem> = {}): GapItem =>
-    ({ id, code, name: `مقرر ${id}`, existing, required, extra, basis: "plan", demand: 10, ...more });
-  check(planItemTier(item(1, "A", 0, 1)).tier === "urgent", "لا شعبة مطروحة ← ⛔ عاجل");
-  check(planItemTier(item(2, "B", 1, 3)).tier === "urgent", "ينقص شعبتان ← ⛔ عاجل");
-  check(planItemTier(item(3, "C", 1, 2)).tier === "important", "ينقص شعبة ← ⚠️ مهم");
-  check(planItemTier(item(4, "D", 2, 2, 0, { conflict: { openingRequired: 3, reportRequired: 1 } })).tier === "important", "تقديران متعارضان ← ⚠️ مهم");
-  check(planItemTier(item(5, "E", 3, 1, 0, { surplus: 2 })).tier === "opportunity", "فائض ← 💡 فرصة");
-  const items = [item(1, "A", 0, 1), item(3, "C", 1, 2), item(6, "C", 1, 3), item(5, "E", 3, 1, 0, { surplus: 2 })];
-  const fresh = triagePlanItems(items);
-  check(fresh.duplicates === 1 && fresh.live.length === 3, "الرمز نفسه بمعرّفين: بندٌ واحد، والمكرر يُعدّ");
-  check(fresh.live[0].tier === "urgent" && fresh.live[fresh.live.length - 1].tier === "opportunity", "الترتيب: عاجل ثم مهم ثم فرصة");
-  const decisions: Record<string, PlanDecision> = { "1": { state: "ignored", reason: "لا قاعة", at: "", signature: planItemSignature(items[0]) } };
-  const after = triagePlanItems(items, decisions);
-  check(after.counts.total === 2 && after.handled.length === 1, "العدّ حيّ: المتجاهَل بسببه يخرج من الشارة");
-  const changed = triagePlanItems([item(1, "A", 0, 2), ...items.slice(1)], decisions);
-  check(changed.counts.urgent === 2 && changed.handled.length === 0, "تغيّر الأرقام يُعيد البند — القرار مشدود إلى ما قُرّر عليه");
-  const view = read("src/components/PlanTriageView.tsx");
-  check(view.includes("عالج") && view.includes("تجاهل") && view.includes("السبب (مطلوب)"), "لكل بند «عالج» و«تم» و«تجاهل» بسببٍ مطلوب");
-  check(read("src/components/ApprovalBar.tsx").includes("<SectionGapBadge items={livePlanItems}"), "شارة «التخطيط» تعدّ المفتوح فقط");
-  check(read("src/components/Schedules.tsx").includes("FOCUS_COURSE_EVENT"), "«عالج» يبرز مواعيد المقرر على الأسبوع");
+  const plan = read("src/components/SectionPlan.tsx"), bar = read("src/components/ApprovalBar.tsx");
+  check(plan.includes('aria-label="الدرجة الأولى: الخريجون"') && plan.includes('aria-label="الدرجة الثانية: بقية الطلبة"'), "درجتان: الخريجون ثم بقية الطلبة");
+  check(plan.includes("افتح شعبة") && plan.includes("اختر ما يُغلق") && !plan.includes("تجاهل") && !/>\s*تم\s*</.test(plan), "زرٌّ واحد لكل سطر، بلا «عالج/تم/تجاهل»");
+  check(bar.includes("<SectionPlanBadge") && !bar.includes("livePlanItems") && !bar.includes("planDecisions"), "شارة «التخطيط» واحدة في الشريط، ولا رفوف قرارات");
+  check(read("src/components/Schedules.tsx").includes("FOCUS_COURSE_EVENT") && read("src/utils/actualDemandHandoff.ts").includes("export function openCourseSections"), "«اختر ما يُغلق» يبرز مواعيد المقرر على الأسبوع");
 }
 
 console.log("K2 — قرارات «تم/تجاهل» مشتركة على الخادم");
@@ -120,19 +103,8 @@ console.log("K2 — قرارات «تم/تجاهل» مشتركة على الخ�
   check(server.includes('app.get("/api/schedules/section-gap/decisions", requireAnyPermission([7, 14])') && route.includes("requirePermission(7)") && route.includes("isScopeAllowed(req, collegeId, sectionId)"), "القراءة بالإذن 7 أو 14، والكتابة بالإذن 7 وحده، وكلاهما بنطاق الكلية والقسم");
   check(server.includes('app.get("/api/schedules/section-gap", requireAnyPermission([7, 14])') && server.includes('app.get("/api/registration-stats", requireAnyPermission([7, 14])'),
     "لوحة القرار لرئيس القسم تقرأ التخطيط وتاريخه: لا 403 تُبقي «جارٍ القراءة» إلى الأبد");
-  const gapHook = read("src/components/SectionGapNote.tsx"), board = read("src/components/DecisionBoard.tsx");
-  check(gapHook.includes("setFailure({ scope, status: response.status })") && gapHook.includes("failed,"), "قراءةُ التخطيط المرفوضة تُحفظ خطأً لا انتظاراً");
-  check(board.includes("gap.failed") && board.includes("onRetry") && board.includes("أعد المحاولة"), "لوحة القرار تُنهي الانتظار بخطأٍ وإعادة");
-  check(route.includes("التجاهل يحتاج سبباً مكتوباً") && route.includes("byName: String(req.user?.Name"), "الخادم يرفض تجاهلاً بلا سبب، ويكتب اسم صاحب القرار ووقته من الجلسة لا من الطلب");
-  const triageSource = read("src/utils/planTriage.ts");
-  check(triageSource.includes("/api/schedules/section-gap/decisions") && triageSource.includes("plan-triage-pending:") && triageSource.includes('if (error?.status) throw error;'), "localStorage احتياطٌ للانقطاع فقط: يُصفّ ما لم يصل ويُرسل عند العودة، والرفض لا يُصفّ");
-  const bar = read("src/components/ApprovalBar.tsx");
-  check(bar.includes("loadPlanDecisions(triageScope)") && bar.includes('window.addEventListener("online", online)') && !bar.includes("writePlanDecisions(triageScope"), "الشريط يقرأ القرارات المشتركة ويُفرغ الطابور عند عودة الاتصال");
-  const { decisionInitials } = await import("../src/components/PlanTriageView");
-  check(decisionInitials("د. أحمد الفيلكاوي") === "أف" && decisionInitials("") === "؟", "الأحرف الأولى لصورة صاحب القرار");
-  const view = read("src/components/PlanTriageView.tsx");
-  check(view.includes("<DecidedBy decision={entry.decision} />") && view.includes("dateTime={decision.at}"), "البند المُعالَج يعرض من قرّر ومتى");
-  check(read("src/components/DecisionBoard.tsx").includes("loadPlanDecisions("), "لوحة القرار تقرأ القرارات المشتركة نفسها");
+  check(read("src/server/actualDemandRoutes.ts").includes('app.get("/api/actual-demand", requireAnyPermission([7, 14])'), "لوحة القرار (رئيس القسم والعميد) تقرأ تخطيط الشعب للقراءة");
+  check(read("src/components/DecisionBoard.tsx").includes("useSectionPlan(") && !read("src/components/DecisionBoard.tsx").includes("loadPlanDecisions("), "لوحة القرار تقرأ التخطيط الجديد نفسه، لا قرارات الرفوف");
 }
 
 console.log("K3 — مركز الذكاء: قراءةٌ فاشلة لا تُسقط الصفحة");
@@ -174,7 +146,7 @@ console.log("K5 — لوحة القرار للقراءة بحسب الصفة");
   const admin = decisionBoardScope({ roleId: "standard", isPowerAdmin: true, scopes: [] }, { collegeId: 2, sectionId: 0, sections });
   check(admin.kind === "college" && admin.sectionIds.join() === "3", "المدير: الكلية المختارة");
   const board = read("src/components/DecisionBoard.tsx");
-  check(board.includes("readOnly") && board.includes("canSchedule={false}") && !board.includes("onDecide"), "اللوحة لا تكتب: لا تم/تجاهل ولا فتح شعبة بضغطة");
+  check(board.includes('mode="read"') && board.includes("canSchedule={false}") && !board.includes("onDecide"), "اللوحة لا تكتب: لا تم/تجاهل ولا فتح شعبة بضغطة");
   check(reports.includes('{ id: "decision", label: "لوحة القرار"') && reports.includes('dean:           ["balance", "list", "week", "decision"'), "العدسة في الاستعلامات، وللعميد بعد ميزان الأقسام والجداول");
 }
 
