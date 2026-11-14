@@ -25,7 +25,6 @@ import { hasRegisteredCapacity } from "../../utils/roomCapacityGaps";
 import { type AuthenticatedRequest, requirePermission, requireRootAdmin } from "../core/auth";
 import { invalidateLocationRegistry, readLocationRegistry } from "../core/locations";
 
-const BASE = "/api/admin/location-setup/capacity-import";
 const TOKEN_TTL_MS = 30 * 60_000;
 const KEY_LABEL = "capacity-import-v1";
 
@@ -113,14 +112,14 @@ export function registerCapacityImportRoutes(app: Express): void {
   };
   const uploadedName = (req: Request) => { try { return decodeURIComponent(String(req.get("x-file-name") || "")); } catch { return String(req.get("x-file-name") || ""); } };
 
-  app.get(`${BASE}/template`, ...guard, (_req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/location-setup/capacity-import/template", ...guard, (_req: AuthenticatedRequest, res: Response) => {
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename=capacity-template.xlsx; filename*=UTF-8''${encodeURIComponent("نموذج-السعات.xlsx")}`);
     res.setHeader("Cache-Control", "no-store");
     res.send(buildCapacityTemplate());
   });
 
-  app.post(`${BASE}/preview`, limiter, ...guard, express.raw({ type: () => true, limit: CAPACITY_IMPORT_MAX_BYTES }), tooLarge, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/admin/location-setup/capacity-import/preview", limiter, ...guard, express.raw({ type: () => true, limit: CAPACITY_IMPORT_MAX_BYTES }), tooLarge, async (req: AuthenticatedRequest, res: Response) => {
     const body = req.body;
     if (!Buffer.isBuffer(body) || !body.length) { res.status(400).json({ error: "لم يصل ملف." }); return; }
     if (body.length > CAPACITY_IMPORT_MAX_BYTES) { res.status(413).json({ error: `الملف أكبر من ${CAPACITY_IMPORT_MAX_BYTES / 1024 / 1024} ميغابايت.` }); return; }
@@ -139,7 +138,7 @@ export function registerCapacityImportRoutes(app: Express): void {
     });
   });
 
-  app.post(`${BASE}/apply`, limiter, ...guard, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/admin/location-setup/capacity-import/apply", limiter, ...guard, async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user!.SystemUserId;
     const items: CapacityPlanItem[] = Array.isArray(req.body?.items) ? req.body.items.map((item: any) => ({
       roomId: String(item?.roomId || ""), kind: item?.kind === "change" ? "change" : "set", old: item?.old == null ? null : Number(item.old), value: Number(item?.value),
@@ -202,7 +201,7 @@ export function registerCapacityImportRoutes(app: Express): void {
     } finally { inFlight.delete(lockKey); }
   });
 
-  app.post(`${BASE}/undo`, limiter, ...guard, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/api/admin/location-setup/capacity-import/undo", limiter, ...guard, async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user!.SystemUserId;
     const batchId = String(req.body?.batchId || "");
     if (!/^cap-[A-Za-z0-9]{1,24}$/.test(batchId)) { res.status(400).json({ error: "دفعةٌ غير معروفة." }); return; }
@@ -253,7 +252,7 @@ export function registerCapacityImportRoutes(app: Express): void {
     } finally { inFlight.delete(lockKey); }
   });
 
-  app.get(`${BASE}/last`, ...guard, async (_req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/admin/location-setup/capacity-import/last", ...guard, async (_req: AuthenticatedRequest, res: Response) => {
     const registry = await readLocationRegistry();
     const batches = new Map<string, { at: string; rooms: MasterRoom[] }>();
     for (const room of registry.rooms) for (const entry of room.auditHistory || []) {
