@@ -18,6 +18,20 @@ const LATIN = (value: string) => value
   .replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
   .replace(/\D/g, "");
 
+/**
+ * ── «ساعةٌ تفهمك» (فكرة المراجعة 2026-11-14) ───────────────────────────────────────
+ * الدوام يبدأ 08:00، فساعةٌ مختصرة بين 1 و7 («2»، «130»، «7») لا تُقصد صباحاً: تُقرأ عصراً
+ * (14:00، 13:30، 19:00) متى وقعت في الدوام. يُطبَّق على الاختصار وحده — «0730» بأربع خانات
+ * وبصفرٍ صريح تبقى كما كُتبت فتُرفض بسببها.
+ */
+export function afternoonClock(digits: string, min = SCHEDULE_DAY_START_TIME, max = SCHEDULE_DAY_END_TIME): string {
+  if (!/^\d{4}$/.test(digits)) return "";
+  const hour = Number(digits.slice(0, 2)), minute = Number(digits.slice(2));
+  if (hour < 1 || hour > 7 || minute > 59) return "";
+  const clock = `${String(hour + 12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  return clock >= min && clock <= max ? clock : "";
+}
+
 export function normalizeClock(raw: string, min = SCHEDULE_DAY_START_TIME, max = SCHEDULE_DAY_END_TIME): string {
   let digits = LATIN(raw);
   if (digits.length === 3) digits = `0${digits}`;
@@ -45,18 +59,26 @@ export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_ST
   const [text, setText] = useState(value || "");
   const [bad, setBad] = useState(false);
   const focused = useRef(false);
-  useEffect(() => { if (!focused.current) { setText(value || ""); setBad(false); } }, [value]);
+  /* آخرُ قيمةٍ أبلغ بها الحقلُ نفسُه: ما خالفها جاء من خارجه (إدخالٌ متتابع يُفرغ البداية، اقتراحٌ، عجلة)
+     فيُعرض فوراً ولو كان المؤشر في الحقل. كان الحقل المركَّز يُبقي «09:00» القديمة بعد «الشعبة التالية جاهزة»
+     فلا تُكتب الساعة الجديدة (المراجعة 2026-11-14، البند 1). */
+  const emitted = useRef(value || "");
+  useEffect(() => {
+    if (!focused.current || (value || "") !== emitted.current) { setText(value || ""); setBad(false); }
+    emitted.current = value || "";
+  }, [value]);
+  const emit = (next: string) => { emitted.current = next; onChange({ target: { value: next } }); };
 
   const handle = (raw: string) => {
     let digits = LATIN(raw).slice(0, 4);
     if (digits.length === 1 && Number(digits) > 2) digits = `0${digits}`;
     const shown = digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
     setText(shown);
-    if (!digits) { setBad(false); onChange({ target: { value: "" } }); return; }
+    if (!digits) { setBad(false); emit(""); return; }
     if (digits.length < 4) { setBad(false); return; }
     const clock = normalizeClock(digits, min, max);
     setBad(!clock);
-    if (clock) onChange({ target: { value: clock } });
+    if (clock) emit(clock);
     else {
       const attempted = `${digits.slice(0, 2)}:${digits.slice(2)}`;
       const hour = Number(digits.slice(0, 2)), minute = Number(digits.slice(2));
@@ -73,8 +95,8 @@ export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_ST
     const digits = LATIN(text);
     if (!digits || digits.length === 4) { setText(value || ""); setBad(false); return; }
     const full = digits.length <= 2 ? `${digits.padStart(2, "0")}00` : `0${digits}`;
-    const clock = normalizeClock(full, min, max);
-    if (clock) { setText(clock); setBad(false); if (clock !== value) onChange({ target: { value: clock } }); return; }
+    const clock = normalizeClock(full, min, max) || afternoonClock(full, min, max);
+    if (clock) { setText(clock); setBad(false); if (clock !== value) emit(clock); return; }
     setText(value || ""); setBad(false);
     const hour = Number(full.slice(0, 2)), minute = Number(full.slice(2));
     const attempted = `${full.slice(0, 2)}:${full.slice(2)}`;

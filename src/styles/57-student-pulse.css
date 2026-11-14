@@ -1,0 +1,90 @@
+/* ── «نبض الطلبة» داخل «متى؟» (src/components/StudentPulse.tsx) ─────────────────────────
+   بطاقةٌ هادئة بحلقتين: الخريجون ذهبيةٌ أولاً، والطلبة خضراء. سطرُ إنذارٍ أحمر حين يصنع الوقتُ
+   تعارضاً لا مفرّ منه للخريجين. كلُّ الألوان من رموز النظام فتعمل في الوضعين. */
+.student-pulse{position:relative;display:grid;gap:12px;padding:14px 16px 12px;border:1px solid color-mix(in srgb,var(--brass) 26%,var(--line));border-radius:18px;
+  background:
+    radial-gradient(120% 140% at 100% 0%,color-mix(in srgb,var(--brass) 9%,transparent) 0%,transparent 55%),
+    radial-gradient(120% 140% at 0% 100%,color-mix(in srgb,var(--accent) 7%,transparent) 0%,transparent 55%),
+    var(--surface);
+  box-shadow:var(--shadow-xs);animation:pulse-in .32s var(--ease-out,ease-out) both}
+@keyframes pulse-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.pulse-head{display:flex;align-items:center;gap:10px}
+.pulse-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:var(--brass-soft);color:var(--brass);flex:none}
+.pulse-mark svg{width:18px;height:18px}
+.pulse-head-copy{display:grid;min-width:0;flex:1}
+.pulse-head-copy b{font-size:15px;font-weight:800;line-height:1.3}
+.pulse-head-copy small{color:var(--muted);font-size:12px;line-height:1.45}
+.pulse-sections{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:999px;background:var(--accent-softer);color:var(--accent-strong);font-size:12.5px;font-weight:800;white-space:nowrap;flex:none;font-variant-numeric:tabular-nums}
+.pulse-sections svg{width:14px;height:14px}
+.pulse-sections small{font-weight:600;opacity:.8}
+.pulse-alarm{display:flex;align-items:flex-start;gap:8px;margin:0;padding:9px 12px;border-radius:12px;background:var(--danger-soft);color:var(--danger);font-size:13px;font-weight:600;line-height:1.5}
+.pulse-alarm svg{width:17px;height:17px;flex:none;margin-top:1px}
+.pulse-alarm b{font-weight:800}
+.pulse-alarm-copy{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.pulse-pair{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:var(--surface);border:1px solid color-mix(in srgb,var(--danger) 30%,var(--line));font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums}
+.pulse-sides{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.pulse-side{display:flex;align-items:center;gap:12px;min-width:0;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--surface-2) 70%,transparent);border:1px solid var(--line)}
+.pulse-side.is-grad{border-color:color-mix(in srgb,var(--brass) 30%,var(--line));background:color-mix(in srgb,var(--brass) 6%,var(--surface))}
+.pulse-side-copy{display:grid;gap:3px;min-width:0;flex:1}
+.pulse-side-title{font-size:12px;font-weight:800;color:var(--muted);letter-spacing:0}
+.pulse-side.is-grad .pulse-side-title{color:var(--brass)}
+.pulse-side-copy strong{font-size:14px;font-weight:700;line-height:1.4;color:var(--ink)}
+.pulse-side-copy strong bdi{font-weight:800;font-variant-numeric:tabular-nums}
+.pulse-muted{color:var(--muted);font-size:12px}
+.pulse-clashes{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+.pulse-clash{display:inline-flex;align-items:center;gap:5px;max-width:100%;height:24px;padding:0 4px 0 8px;border-radius:999px;background:var(--surface);border:1px solid color-mix(in srgb,var(--warning) 35%,var(--line));font-size:11.5px;font-weight:700;color:var(--ink-2);overflow:hidden}
+.pulse-clash bdi{font-variant-numeric:tabular-nums}
+.pulse-clash small{min-width:0;max-width:16ch;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--muted);font-weight:600}
+.pulse-clash em{font-style:normal;min-width:20px;height:18px;padding:0 6px;border-radius:999px;display:inline-grid;place-items:center;background:var(--warning-soft);color:var(--warning);font-weight:800}
+.pulse-foot{color:var(--muted);font-size:11.5px}
+
+/* الحلقة: تمتلئ عكس عقارب الساعة كما يُقرأ السطر العربي */
+.pulse-ring{position:relative;width:64px;height:64px;flex:none}
+.pulse-ring svg{width:100%;height:100%;transform:rotate(-90deg) scaleY(-1)}
+.pulse-ring circle{fill:none;stroke-width:6}
+.pulse-ring-track{stroke:color-mix(in srgb,var(--line-strong) 60%,transparent)}
+.pulse-ring-fill{stroke-linecap:round;transition:stroke-dasharray .5s var(--ease-out,ease-out)}
+.pulse-ring.is-grad .pulse-ring-fill{stroke:var(--brass)}
+.pulse-ring.is-stud .pulse-ring-fill{stroke:var(--accent)}
+.pulse-ring.tone-bad .pulse-ring-fill{stroke:var(--danger)}
+.pulse-ring.tone-warn.is-stud .pulse-ring-fill{stroke:var(--warning)}
+.pulse-ring.tone-idle .pulse-ring-fill{stroke:var(--line-strong)}
+.pulse-ring-mid{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:0;line-height:1}
+.pulse-ring-mid svg{width:14px;height:14px;transform:none;color:var(--muted)}
+.pulse-ring.is-grad .pulse-ring-mid svg{color:var(--brass)}
+.pulse-ring-mid b{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:2px}
+.pulse-ring.tone-bad .pulse-ring-mid b{color:var(--danger)}
+
+@media (max-width:700px){
+  .student-pulse{padding:12px}
+  .pulse-head{flex-wrap:wrap}
+  .pulse-sides{grid-template-columns:minmax(0,1fr)}
+  .pulse-ring{width:56px;height:56px}
+}
+@media (prefers-reduced-motion:reduce){.student-pulse{animation:none}.pulse-ring-fill{transition:none}}
+@media print{.student-pulse{display:none}}
+
+/* ── شريط الحفظ (المراجعة 2026-11-14، البند 6): الملخّص لا يُقصّ ─────────────────────
+   كان سطراً يُمرَّر داخل 280px فلا يُرى إلا المقرر. الآن يلتفّ: إن اتسع الشريط بقي سطراً واحداً،
+   وإلا صار الملخّص صفّاً كاملاً فوق الحالة والزرّين، وتلتفّ شرائحه بلا قصّ. */
+@media (min-width:701px){
+  .schedule-editor.is-studio .save-preview.appt-bar{flex-wrap:wrap;row-gap:10px}
+  .schedule-editor.is-studio .appt-sum{flex:1 1 560px;flex-wrap:nowrap;overflow:hidden;mask-image:none;-webkit-mask-image:none}
+  /* الشرائح الخمس تُرى معاً دائماً: تنكمش بـ«…» بدل أن تختفي وراء حافةٍ تُمرَّر (الاسم كاملاً في التلميح). */
+  .schedule-editor.is-studio .appt-sum>.appt-chip{flex:0 1 auto;min-width:72px}
+  /* الأيام والوقت والقاعة قصيرةٌ ولا تُفهم مقصوصة: تبقى كاملة، وينكمش الاسمان الطويلان وحدهما. */
+  .schedule-editor.is-studio .appt-sum>.appt-chip:nth-child(n+3){flex:none}
+  .schedule-editor.is-studio .appt-bar .form-actions{margin-inline-start:auto}
+}
+
+/* ── الهاتف (البند 11): هدفُ لمسٍ كامل لزرّ العجلة، والعجلة فوق الشريطين ── */
+@media (pointer:coarse),(max-width:700px){
+  .schedule-editor.is-studio .schedule-time-counter-toggle{inline-size:40px;block-size:40px;inset-inline-end:3px}
+  .schedule-editor.is-studio .field .schedule-time-control:has(.schedule-time-counter-toggle) input.time-field{padding-inline:12px 46px!important}
+  .schedule-editor.is-studio .schedule-time-counter-toggle svg{inline-size:18px;block-size:18px}
+}
+/* على الهاتف تُخلي ورقةُ «أسبوع الأستاذ» مكانها ما دامت العجلة مفتوحة: كانت تغطّي نصفها. */
+@media (max-width:639px){
+  html:has(.time-counter-pop) .schedule-editor.is-studio .mini-week.is-sheet{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease,visibility 0s linear .15s}
+}
+.schedule-editor.is-studio .time-counter-pop{scroll-margin-bottom:calc(var(--appt-bar-h,76px) + 20px);scroll-margin-top:72px}
