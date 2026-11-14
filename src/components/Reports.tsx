@@ -2585,13 +2585,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           {error}
           {/* A failure with no way forward is a dead end; one press retries the
               read that failed rather than making the reader reload the page. */}
-          <button type="button" className="notice-retry" onClick={refreshNow}>
+          <button type="button" className="notice-retry" data-guide-ignore="إعادة قراءة النطاق بعد خطأ؛ قراءة فقط" onClick={refreshNow}>
             إعادة المحاولة
           </button>
         </Notice>
       ) : null}
       {liveNudge ? (
-        <button type="button" className="query-live-nudge no-print" onClick={refreshNow}>
+        <button type="button" className="query-live-nudge no-print" data-guide-ignore="تحديث التقرير بعد تغيّر الجدول؛ قراءة فقط" onClick={refreshNow}>
           <span className="query-live-dot" aria-hidden="true" />
           تغيّر الجدول بعد فتح هذا التقرير — اضغط للتحديث
         </button>
@@ -2620,7 +2620,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             enterKeyHint="search"
           />
           {ask ? (
-            <button type="button" onClick={() => { setAsk(""); setAskNote(null); setAskChoices(null); setAskFailed(false); resetFilters(); }} aria-label="مسح السؤال" title="مسح">
+            <button type="button" data-guide-ignore="مسح السؤال والمرشحات الإضافية؛ يغيّر العرض فقط" onClick={() => { setAsk(""); setAskNote(null); setAskChoices(null); setAskFailed(false); resetFilters(); }} aria-label="مسح السؤال" title="مسح">
               <X />
             </button>
           ) : null}
@@ -2750,7 +2750,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               ) : timeWindowState(filters.startTime, filters.endTime) === "inverted" ? (
                 <small className="query-period-hint is-warn" role="alert">
                   البداية بعد النهاية، فلم تُطبَّق الفترة.{" "}
-                  <button type="button" onClick={() => setFilters(prev => ({ ...prev, startTime: prev.endTime, endTime: prev.startTime }))}>بدّل الوقتين</button>
+                  <button type="button" data-guide-ignore="تبديل بداية الفترة ونهايتها في المرشح؛ يغيّر العرض فقط" onClick={() => setFilters(prev => ({ ...prev, startTime: prev.endTime, endTime: prev.startTime }))}>بدّل الوقتين</button>
                 </small>
               ) : null}
             </div>
@@ -2795,8 +2795,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           ) : (
             <form className="query-saved-form" onSubmit={event => { event.preventDefault(); if (!saveName.trim()) return; setSavedReports(saveReport(scopeOwner, saveName, currentShareState())); setShareNote(`حُفظ «${saveName.trim()}» في تقاريرك.`); setSaveName(null); }}>
               <input autoFocus value={saveName} onChange={event => setSaveName(event.target.value)} placeholder="اسمٌ قصير: قاعات مبنى 7 صباحاً" aria-label="اسم الاستعلام المحفوظ" maxLength={60} onKeyDown={event => { if (event.key === "Escape") setSaveName(null); }} />
-              <button type="submit" disabled={!saveName.trim()}>حفظ</button>
-              <button type="button" onClick={() => setSaveName(null)}>إلغاء</button>
+              <button type="submit" data-guide-ignore="حفظ الاستعلام في هذا المتصفح فقط" disabled={!saveName.trim()}>حفظ</button>
+              <button type="button" data-guide-ignore="إلغاء حفظ الاستعلام" onClick={() => setSaveName(null)}>إلغاء</button>
             </form>
           )}
           <button type="button" className="query-saved-action" data-guide-ignore="نسخ رابط الاستعلام الحالي؛ لا يمنح صلاحية" onClick={() => void copyShareLink()}><Link2 aria-hidden="true" />انسخ الرابط</button>
@@ -3389,7 +3389,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                       <p className="occupancy-pick-external">
                         <b>محجوزة لقسمك</b>
                         {chips.length
-                          ? <span>مواعيدها مخفية بالمرشحات الحالية.{" "}<button type="button" className="notice-retry" onClick={() => { resetFilters(); }}>امسح المرشحات لتراها</button></span>
+                          ? <span>مواعيدها مخفية بالمرشحات الحالية.{" "}<button type="button" className="notice-retry" data-guide-ignore="مسح المرشحات الإضافية؛ يغيّر العرض فقط" onClick={() => { resetFilters(); }}>امسح المرشحات لتراها</button></span>
                           : <span>القاعة مشغولة بمواعيد من نطاقك في هذا الوقت.</span>}
                       </p>
                     );
