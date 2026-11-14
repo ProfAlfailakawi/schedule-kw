@@ -92,7 +92,11 @@
     "tests/masari-*.ts",
     "tests/section-requests-audit.ts",
     "tests/term-student-phases-audit.ts",
-    "tests/academic-advice-audit.ts"
+    "tests/academic-advice-audit.ts",
+    "src/server/radarSuggestions.ts",
+    "src/utils/radarSuggestion.ts",
+    "src/components/RadarSuggestions.tsx",
+    "tests/radar-suggestions-audit.ts"
   ],
   "screens": [
     {
@@ -3969,6 +3973,106 @@
         "tests": []
       },
       "inferred": true
+    },
+    {
+      "id": "FR-STU-066",
+      "kind": "functional",
+      "title": {
+        "ar": "الرادار يقترح شعبةً لكل مقررٍ يحتاج قراراً",
+        "en": "The radar suggests a section for every course that needs a decision"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يقدّم لأي مستخدم مسجّل GET /api/simulation/suggestions بلا ذاكرة متصفح، لفصل الباب وحده وبحدود نطاقه (المدير يرى الكل، وغيره أقسامَه، ومنتقي الكلية والقسم يضيّق ولا يوسّع): لكل مقرر «مطلوبٍ ولا يُطرح» أو «يمتلئ» في آخر احتساب للرادار، وبحدٍّ أقصى 8 مقررات الأثقل أولاً، شعبةً مقترحة (اليوم والوقت، والقاعة، والأستاذ، ورقم الشعبة) يبنيها محرّك فتح الشعب نفسه من سُلّم القسم المقصوص على سُلّم اللائحة ومدّتها، وأستاذٍ درّس المقرر وله نصابٌ متاح، وقاعةٍ موثّقة درّس فيها القسم تتّسع للشعبة ومن نوع القاعة التي دُرّس فيها المقرر ولا تحجبها سياسة الحجز، ووقتٍ بلا تعارض مع أسبوع الفصل والدفعة؛ وأن يختار من أوقات المحرّك الخالية الوقتَ الذي يستطيعه أكثرُ الطلبة المنتظرين (من لم يجد مقعداً لامتلاء الشعب أو لغيابها) بحسب قيدهم «لا صباح» أو «لا مساء» وبلا تقاطعٍ مع ما وجدوا له مقعداً، ثم يقيس بالمحاكاة أفضلَ ثلاثة ويعيد أكثرها مقاعد في المقرر مع العددين قبل وبعد؛ وأن يعيد بدل الاقتراح سبباً واحداً في سطر حين لا يوجد اقتراحٌ صالح؛ وألا يكتب شيئاً ولا يعيد اسم طالب أو معرّفه.",
+        "en": "The system shall offer any signed-in user GET /api/simulation/suggestions without browser caching, for the door term only and within the reader's scope (the administrator sees everything, others their departments, and the college and department picker narrows and never widens): for each course «requested but not offered» or «filling» in the latest radar run, at most 8 courses heaviest first, a suggested section (day and time, room, instructor and section number) built by the same section-opening engine from the department ladder clipped to the regulation ladder and lengths, an instructor who taught the course and has spare load, a verified room the department has taught in that fits the section, is of the room type the course was taught in and is not blocked by its booking policy, and a time free of clashes with the term week and the cohort; it shall choose among the engine's free times the one the most waiting students (those left without a seat because sections are full or absent) can take given their «no morning» or «no afternoon» constraint and without clashing with the courses they were seated in, then simulate the best three and return the one seating the most students in the course with the before and after counts; when no valid suggestion exists it shall return one reason in one line instead; it shall write nothing and return no student name or identifier."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "departmentHead",
+        "committeeChair",
+        "dean",
+        "registrarHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقررٌ ينتظره ثلاثةٌ بقيد «لا صباح» وواحدٌ مشغولٌ بعد الظهر كلَّ يوم ← الوقت المقترح بعد الظهر ويناسب 3 من 4.",
+          "en": "A course awaited by three students with «no morning» and one busy every afternoon ← the suggested time is in the afternoon and fits 3 of 4."
+        },
+        {
+          "ar": "لا أستاذ درّس المقرر بنصابٍ متاح ← «لا أستاذ درّس هذا المقرر وله نصابٌ متاح.» ولا اقتراح؛ ولا قاعة تتّسع ← «لا قاعة خالية من النوع المناسب تتّسع للشعبة.»؛ وكل الأوقات الخالية لا تناسب المنتظرين ← «لا وقت خالياً من التعارض يناسب الطلبة المنتظرين.».",
+          "en": "No instructor who taught the course with spare load ← «no instructor who taught this course has spare load» and no suggestion; no room that fits ← «no free room of the right type fits the section»; every free time unsuitable for the waiting students ← «no clash-free time suits the waiting students»."
+        },
+        {
+          "ar": "قاعةٌ يشغلها قسمٌ آخر الأحد 08:00 ← لا يُقترح الأحد 08:00 فيها.",
+          "en": "A room taken by another department on Sunday 08:00 ← Sunday 08:00 in it is not suggested."
+        },
+        {
+          "ar": "طلبٌ بفصلٍ سابق مجمَّد في termId ← ready=false بلا اقتراحات.",
+          "en": "A request naming a past frozen term in termId ← ready=false with no suggestions."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/radarSuggestions.ts#registerRadarSuggestionRoutes",
+          "src/server/radarSuggestions.ts#suggestForCourse",
+          "src/utils/radarSuggestion.ts#radarCandidates",
+          "src/utils/radarSuggestion.ts#waitingStudentsFor",
+          "src/utils/radarSuggestion.ts#roomsOfRightType",
+          "src/utils/sectionOpening.ts#readSectionOpenings",
+          "src/server/simulationRoutes.ts"
+        ],
+        "tests": [
+          "tests/radar-suggestions-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-STU-067",
+      "kind": "functional",
+      "title": {
+        "ar": "أثر الاقتراح واعتماده من الرادار",
+        "en": "Suggestion effect and adoption from the radar"
+      },
+      "text": {
+        "ar": "يجب على شاشة «رادار يوم التسجيل» أن تعرض تحت بطاقات الجاهزية، في «الرغبات الفعلية» لفصل الباب وحين يوجد ما يحتاج قراراً، لوحة «الرادار يقترح الحل» ببطاقةٍ لكل مقرر: نوعه («مطلوبٌ ولا يُطرح» أو «يمتلئ») وعدد من بلا مقعد، والشعبة المقترحة، وكم منتظراً يناسبه وقتها، و«يجدون مقعداً في المقرر» قبل وبعد؛ وأن يقيس زر «ماذا يتغيّر للطلبة؟» الأثر عبر POST /api/schedules/what-if بنوع opening فيعرض «أقل من 12 وحدة» و«يبلغون 12 فأكثر» قبل ← بعد مع بطاقة الأثر؛ وأن يظهر «اعتمد الشعبة» لمن يكتب الجدول في نطاقه وحده (صلاحية الجدول وليس للقراءة فقط) فيمرّ عبر POST /api/schedules/apply-proposal بمصدر radar بكل فحوص الحفظ اليدوي (التعارض، وبوابة اللائحة، والنطاق والصلاحية، وتجميد الفصل، ودورة الاعتماد)، ويرى غيره الاقتراح للاطّلاع مع سطر «يعتمدها من يحرّر جدول قسم …»؛ وأن يعيد قراءة الرادار بعد الاعتماد ويعلن أن الجدول تغيّر ويخفي اعتماد بقية الاقتراحات حتى يُعاد الاحتساب؛ وأن يقول سبب غياب الاقتراح في سطر؛ وأن تعمل بعرض 390px بطاقةً واحدة بعرض الشاشة.",
+        "en": "The «registration day radar» screen shall show below the readiness tiles, in «actual wishes» for the door term and when something needs a decision, a «the radar suggests the fix» panel with one card per course: its kind («requested but not offered» or «filling») and how many have no seat, the suggested section, how many waiting students its time suits, and «find a seat in the course» before and after; a «what changes for students?» button shall measure the effect through POST /api/schedules/what-if with kind opening and show «below 12 units» and «reaching 12 or more» before ← after with the impact card; «adopt the section» shall appear only to someone who can write the schedule in that scope (schedule permission and not view-only) and go through POST /api/schedules/apply-proposal with origin radar under every check of a manual save (conflicts, the regulation gate, scope and permission, term freeze and the approval cycle), while others see the suggestion read-only with a line naming the department whose schedule editor can adopt it; after adopting it shall re-read the radar, announce that the schedule changed and hide adoption of the remaining suggestions until the radar is recomputed; it shall state the reason for a missing suggestion in one line; and it shall work at 390 px width with one full-width card."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "dean",
+        "registrarHead",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "قارئٌ بلا صلاحية كتابة الجدول ← يرى الاقتراح وسطر من يعتمده، ولا زر «اعتمد الشعبة».",
+          "en": "A reader without schedule write permission ← sees the suggestion and the line naming who adopts it, with no «adopt the section» button."
+        },
+        {
+          "ar": "اعتماد شعبةٍ يتعارض موعدها بعد بناء الاقتراح ← يردّ مسار الحفظ بالتعارض ولا يُكتب شيء.",
+          "en": "Adopting a section whose time clashes after the suggestion was built ← the save path refuses with the conflict and nothing is written."
+        },
+        {
+          "ar": "بعد اعتماد شعبة ← «تغيّر الجدول بعد هذه الاقتراحات؛ تتجدّد بعد إعادة احتساب الرادار.» وتختفي أزرار الاعتماد الأخرى.",
+          "en": "After adopting a section ← «the schedule changed after these suggestions; they renew after the radar is recomputed» and the other adopt buttons disappear."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/RadarSuggestions.tsx",
+          "src/components/RegistrationRehearsal.tsx",
+          "src/components/ApplyProposal.tsx#postScheduleProposal",
+          "src/components/ApplyProposal.tsx#postWhatIf",
+          "src/styles/19-beauty-admin-registration.css"
+        ],
+        "tests": [
+          "tests/radar-suggestions-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [
