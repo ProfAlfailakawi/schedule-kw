@@ -18,31 +18,64 @@ const check = (ok: boolean, label: string, extra?: unknown) => { if (!ok) failed
 
 const ARABIC_DIGIT = /[٠-٩۰-۹٪٫٬]/;
 /** كودُ تحويلٍ من الهندية إلى اللاتينية: يحمل مجموعةَ الأرقام الهندية لأنه يقرؤها لا ينتجها. */
-const NORMALIZER = /٠١٢٣٤٥٦٧٨٩|۰۱۲۳۴۵۶۷۸۹|\[\\?d?٠-٩|٠-٩|۰-۹|\[0٠\]|0x0660|0x06f0|0x06F0|ARABIC_DIGITS|ARABIC_INDIC|EASTERN_INDIC|\\u0660|DIG=|\[[^\]]*[٫٬][^\]]*\]|\/[٫٬]\/[gimsuy]*/;
-/** ما يُنتج أرقاماً هندية من لاتينية: يُرفض ولو حمل مجموعةَ الأرقام. */
-const PRODUCER = /["'`](?:٠١٢٣٤٥٦٧٨٩|۰۱۲۳۴۵۶۷۸۹)["'`]\s*(?:\.charAt\(|\.at\(|\[)/;
+const NORMALIZER_SPANS = /٠١٢٣٤٥٦٧٨٩|۰۱۲۳۴۵۶۷۸۹|\[\\?d?٠-٩|٠-٩|۰-۹|\[0٠\]|\[[^\]]*[٫٬][^\]]*\]|\/[٫٬]\/[gimsuy]*|["']?[٠-٩۰-۹]["']?\s*:\s*["']?\d["']?/g;
+/** سطرٌ بعد حذف مواضع كود التحويل منه: ما بقي من أرقامٍ هندية فهو نصٌّ يظهر للمستخدم. */
+const withoutNormalizers = (line: string) => line.replace(NORMALIZER_SPANS, "");
+const DIGIT_LITERAL = "[\"'`](?:٠١٢٣٤٥٦٧٨٩|۰۱۲۳۴۵۶۷۸۹)[\"'`]";
+/** ما يُنتج أرقاماً هندية من لاتينية (الفحصُ على الملف كلِّه لا سطراً سطراً). */
+const PRODUCERS: RegExp[] = [
+  new RegExp(DIGIT_LITERAL + "\\s*(?:\\.charAt\\(|\\.at\\(|\\.split\\(|\\.slice\\(|\\.substr|\\[)"),
+  new RegExp("\\.\\.\\." + DIGIT_LITERAL),
+  new RegExp("Array\\.from\\(\\s*" + DIGIT_LITERAL),
+  /nu-arab/,
+];
 const ALLOW = /latin-digits:\s*allow\s+\S/;
 /** تنسيقٌ مرتبط بلغةٍ عربية بلا -u-nu-latn (المقارنةُ والترتيبُ لا تُخرج أرقاماً فلا تدخل هنا). */
-const ARABIC_LOCALE_FORMAT = /(?:Intl\.(?:NumberFormat|DateTimeFormat|RelativeTimeFormat)|toLocale(?:Date|Time)?String)\(\s*["'`]ar(?:-[A-Z]{2})?["'`]/;
+const ARABIC_LOCALE_FORMAT = /(?:Intl\.(?:NumberFormat|DateTimeFormat|RelativeTimeFormat)|toLocale(?:Date|Time)?String)\(\s*["'`]ar(?:-[A-Z]{2})?["'`]/g;
 /** تنسيقٌ بلا لغةٍ صريحة: يتبع لغةَ المتصفح (وقد تكون عربيةً فتخرج هندية). */
 const DEFAULT_LOCALE_FORMAT = /toLocale(?:Date|Time)?String\(\s*(?:undefined\s*[,)]|\))|Intl\.(?:NumberFormat|DateTimeFormat)\(\s*(?:undefined\s*[,)]|\))/;
 
+/** يحذف التعليقات مع احترام النصوص: «//» داخل نصٍّ ليست تعليقاً. */
 function stripComments(source: string): string {
-  const noBlock = source.replace(/\/\*[\s\S]*?\*\//g, match => match.replace(/[^\n]/g, ""));
-  return noBlock.split("\n").map(line => line.replace(/(?<![:"'`])\/\/.*$/, "")).join("\n");
+  let out = "", i = 0, quote = "";
+  while (i < source.length) {
+    const ch = source[i], next = source[i + 1];
+    /* داخل «`» (صفحاتٌ كاملة تُكتب قالباً) تعليقاتُ CSS/JS فيها تعليقاتٌ أيضاً؛ داخل ' و" لا. */
+    if (quote && quote !== "`") {
+      out += ch;
+      if (ch === "\\") { out += next ?? ""; i += 2; continue; }
+      if (ch === quote || ch === "\n") quote = "";
+      i++; continue;
+    }
+    if (ch === "/" && next === "*") { const end = source.indexOf("*/", i + 2); const stop = end < 0 ? source.length : end + 2; out += source.slice(i, stop).replace(/[^\n]/g, ""); i = stop; continue; }
+    if (ch === "/" && next === "/" && source[i - 1] !== ":") { while (i < source.length && source[i] !== "\n") i++; continue; }
+    if (quote === "`") { out += ch; if (ch === "\\") { out += next ?? ""; i += 2; continue; } if (ch === "`") quote = ""; i++; continue; }
+    if (ch === '"' || ch === "'" || ch === "`") quote = ch;
+    out += ch; i++;
+  }
+  return out;
 }
 
 export function scanText(source: string): Array<{ line: number; kind: string; text: string }> {
-  const raw = source.split("\n"), code = stripComments(source).split("\n"), found: Array<{ line: number; kind: string; text: string }> = [];
+  const raw = source.split("\n"), clean = stripComments(source), code = clean.split("\n"), found: Array<{ line: number; kind: string; text: string }> = [];
+  const allowed = (line: number) => ALLOW.test(raw[line - 1] || "");
+  const add = (line: number, kind: string) => { if (!allowed(line) && !found.some(hit => hit.line === line && hit.kind === kind)) found.push({ line, kind, text: (raw[line - 1] || "").trim().slice(0, 140) }); };
+  const lineOf = (index: number) => clean.slice(0, index).split("\n").length;
+  for (const pattern of PRODUCERS) { const hit = pattern.exec(clean); if (hit) add(lineOf(hit.index), "producer"); }
+  /* متغيّرٌ يحمل مجموعةَ الأرقام ثم يُفهرَس به أو يُفكَّك: إنتاجٌ ولو بُعد التعريف. */
+  for (const def of clean.matchAll(new RegExp("(?:const|let|var)\\s+(\\w+)\\s*(?::[^=]+)?=\\s*" + DIGIT_LITERAL, "g"))) {
+    const use = new RegExp("\\b" + def[1] + "\\s*(?:\\[|\\.charAt\\(|\\.at\\(|\\.split\\(|\\.map\\()|\\.\\.\\." + def[1] + "\\b|Array\\.from\\(\\s*" + def[1] + "\\b").exec(clean.slice((def.index ?? 0) + def[0].length));
+    if (use) add(lineOf((def.index ?? 0) + def[0].length + use.index), "producer");
+  }
+  for (const hit of clean.matchAll(ARABIC_LOCALE_FORMAT)) {
+    const call = clean.slice(hit.index, (hit.index ?? 0) + 200).split(/\)\s*[;,.]|\)\s*\n/)[0];
+    if (!/nu-latn/.test(call)) add(lineOf(hit.index ?? 0), "locale");
+  }
   code.forEach((line, index) => {
-    const original = raw[index] || "";
-    if (ALLOW.test(original)) return;
-    if (PRODUCER.test(line)) { found.push({ line: index + 1, kind: "producer", text: original.trim().slice(0, 140) }); return; }
-    if (ARABIC_LOCALE_FORMAT.test(line) && !/nu-latn/.test(line)) found.push({ line: index + 1, kind: "locale", text: original.trim().slice(0, 140) });
-    if (DEFAULT_LOCALE_FORMAT.test(line)) found.push({ line: index + 1, kind: "default-locale", text: original.trim().slice(0, 140) });
-    if (ARABIC_DIGIT.test(line) && !NORMALIZER.test(line)) found.push({ line: index + 1, kind: "digits", text: original.trim().slice(0, 140) });
+    if (DEFAULT_LOCALE_FORMAT.test(line)) add(index + 1, "default-locale");
+    if (ARABIC_DIGIT.test(withoutNormalizers(line))) add(index + 1, "digits");
   });
-  return found;
+  return found.sort((a, b) => a.line - b.line);
 }
 
 /* ── ضوابط الحارس نفسه: يلتقط الخلل ويُسقط ما يجب إسقاطه ─────────────────────────────── */
@@ -57,6 +90,13 @@ check(scanText("d.toLocaleDateString()").some(hit => hit.kind === "default-local
 check(scanText("const x = \"٣\"; // latin-digits: allow مثالٌ في دليل المستخدم").length === 0, "C9 الاستثناءُ المكتوب بسببه مسموح");
 check(scanText("var x = '٫'").length === 1, "C10 الفاصلةُ العربية خارج كود التحويل تُلتقط");
 check(scanText(".replace(/٫/g, \".\")").length === 0 && scanText("s.replace(/[:٫.]/g, \":\")").length === 0 && scanText(".replace(/[٠-٩۰-۹]/g, d => ARABIC_DIGITS[d] || d)").length === 0, "C11 تحويلُ الفاصلة العربية وخريطةُ الهندية إلى اللاتينية مسموحان");
+
+check(scanText("const D = \"٠١٢٣٤٥٦٧٨٩\"; const f = n => String(n).split(\"\").map(c => D[+c]).join(\"\");").some(hit => hit.kind === "producer"), "C12 متغيّرٌ يحمل الأرقام الهندية ويُفهرَس به يُلتقط");
+check(scanText("const a = [...\"٠١٢٣٤٥٦٧٨٩\"];").some(hit => hit.kind === "producer") && scanText("new Intl.NumberFormat('ar', { numberingSystem: 'x' }); f('ar-u-nu-arab')").some(hit => hit.kind === "producer"), "C13 الانتشارُ و nu-arab يُلتقطان");
+check(scanText("x.replace(/٫/g, '.') + ' ٣ أيام'").some(hit => hit.kind === "digits"), "C14 كودُ التحويل في السطر لا يُعفي نصاً هندياً بجانبه");
+check(scanText("const f = new Intl.NumberFormat(\n  \"ar-KW\",\n  { a: 1 });").some(hit => hit.kind === "locale"), "C15 استدعاءٌ متعدّد الأسطر بلا -u-nu-latn يُلتقط");
+check(scanText("const u = \"http://x\"; const t = \"٣ أيام\";").some(hit => hit.kind === "digits"), "C16 «//» داخل نصٍّ لا تُخفي ما بعدها");
+check(scanText("const D = \"٠١٢٣٤٥٦٧٨٩\"; const i = D.indexOf(c);").length === 0, "C17 البحثُ في مجموعة الأرقام (indexOf) مسموح");
 
 /* ── المستودع نفسه ──────────────────────────────────────────────────────────── */
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "fonts", "generated"]);

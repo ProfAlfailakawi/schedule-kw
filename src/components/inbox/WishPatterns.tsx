@@ -6,7 +6,7 @@
  * تُظلَّل فيها الخانةُ التي تكرّرت. للمنسّق وحده: لا يصل منها شيءٌ إلى الأستاذ، ولا تكتب في الجدول.
  * البياناتُ من GET /api/instructor-requests/history-hints (server/wishHints.ts).
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, CalendarSearch, ChevronDown, Cloud, History, Moon, Sun, X } from "lucide-react";
 import CourseTags from "../CourseTags";
@@ -152,7 +152,16 @@ function Sheet({ hints, name, anchor, visiting, trainee, onClose }: {
   } as CSSProperties) : undefined;
   return createPortal(
     <div className="wish-layer no-print" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="wish-sheet" data-place={place} role="dialog" aria-modal="true" aria-label={`توقّع رغبات ${name}`} style={style}>
+      <section className="wish-sheet" data-place={place} role="dialog" aria-modal="true" aria-label={`توقّع رغبات ${name}`} style={style}
+        onKeyDown={(event: ReactKeyboardEvent<HTMLElement>) => {
+          /* aria-modal يعني ألّا يخرج التركيز: Tab يدور داخل الورقة. */
+          if (event.key !== "Tab") return;
+          const items = [...event.currentTarget.querySelectorAll<HTMLElement>("button:not([disabled]),a[href],[tabindex]:not([tabindex=\"-1\"])")];
+          if (!items.length) return;
+          const first = items[0], last = items[items.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }}>
         <header>
           <History aria-hidden="true" />
           <strong>{name}<PersonChips visiting={visiting} trainee={trainee} /></strong>

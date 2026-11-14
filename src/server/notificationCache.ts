@@ -52,6 +52,8 @@ export function studentQueueAggregate(
  * والقراءةُ الفاشلة لا تُحفظ. و`invalidate` يمحو ما حُفظ وما هو قيد القراءة:
  * فقراءةٌ بدأت قبل الكتابة لا تُحفظ بعدها.
  */
+/** حجمُ الخريطة الذي يبدأ عنده حذفُ المنتهي من ذاكرة المفاتيح. */
+export const MEMO_PRUNE_AT = 256;
 export function createTtlMemo<T>(options: { ttlMs?: number; now?: () => number } = {}) {
   const ttlMs = Math.max(1, options.ttlMs ?? 60_000);
   const clock = options.now || Date.now;
@@ -61,6 +63,8 @@ export function createTtlMemo<T>(options: { ttlMs?: number; now?: () => number }
     get(key: string, load: () => Promise<T>): Promise<T> {
       const seen = entries.get(key);
       if (seen && clock() - seen.at < ttlMs) return seen.value;
+      /* مفاتيحُ لكل مستخدمٍ ونطاقٍ وفصل: المنتهي الناجح كان يبقى حتى إعادة التشغيل؛ يُنظَّف حين تكبر الخريطة. */
+      if (entries.size >= MEMO_PRUNE_AT) for (const [oldKey, old] of entries) if (clock() - old.at >= ttlMs) entries.delete(oldKey);
       const born = generation;
       const value = load();
       entries.set(key, { at: clock(), value });

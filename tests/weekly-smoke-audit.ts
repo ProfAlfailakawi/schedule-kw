@@ -37,7 +37,11 @@ const paths = [...new Set([...script.matchAll(/"(\/(?:Home|Ad\w+|FSchedule|Syste
 check(paths.length >= 12 && paths.every(path => app.includes(`"${path}"`)), `W4 كلُّ مسارٍ (${paths.length}) مسجّلٌ في App.tsx`);
 check(script.includes("قرار سريع") && script.includes("keyboard.press(\"Enter\")") && script.includes("course-state") === false && script.includes("/api/student-registration"), "W4 انحدارُ Enter في «قرار سريع» باقٍ");
 check(script.includes("width: 390") && script.includes("state.overflow > 1"), "W4 فحصُ التمرير الأفقي على عرض الهاتف باقٍ");
-check(/response\.status\(\) >= 500 && response\.url\(\)\.includes\("\/api\/"\)/.test(script) && script.includes("pageerror"), "W4 ردُّ 5xx وأخطاءُ الصفحة تُسقط التشغيل");
+check(/status >= 500 && url\.includes\("\/api\/"\)/.test(script) && script.includes("pageerror"), "W4 ردُّ 5xx وأخطاءُ الصفحة تُسقط التشغيل");
+check(/status >= 400 && status !== 429 && \(url\.includes\("\/api\/"\) \|\| url\.includes\("\/assets\/"\)\)/.test(script), "W4 رفضٌ 4xx على مسار /api/ أو ملف /assets/ (ملفٌّ مفقود، مسارٌ مغلق على دور) يُسقط التشغيل لا يمرّ صامتاً");
+check(/const BENIGN_CONSOLE = \[\/Failed to load resource: the server responded with a status of 429\/\];/.test(script), "W4 المسموح من console.error هو تحديدُ المعدّل 429 وحده");
+check(script.includes("let watching = false;") && script.includes("watching = true;") && script.includes("if (!watching) return;"), "W4 المراقبةُ تبدأ بعد الدخول التجريبي (فحصُ الجلسة قبله يردّ 401 عمداً)");
+check((script.match(/await switchRole\(/g) || []).length >= 2 && script.includes("phoneRole") && !/await post\("\/api\/demo\/role"/.test(script.replace(/async function switchRole[\s\S]*?\n}\n/, "")), "W4 كلُّ تبديل دورٍ يُفحص ردُّه، فلا يُختبر الهاتفُ بدورٍ خطأ");
 check(script.includes('process.exit(failures.length ? 1 : 0)'), "W4 الفشلُ يُخرج رمزاً غير صفري");
 check(!/password|SESSION_SECRET|serviceAccount|GEMINI|admin123/i.test(script) && !workflow.includes("admin123"), "W5 لا أسرار ولا كلماتِ سرٍّ في السكربت وسير العمل");
 check(read("docs/DELIVERY_OPERATIONS.md").includes("Weekly smoke test"), "W5 موثَّقٌ في docs/DELIVERY_OPERATIONS.md");

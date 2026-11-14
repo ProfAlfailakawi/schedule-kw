@@ -36,8 +36,15 @@ export const JOURNEYS = {
 /** شاشاتٌ تُفحص على عرض الهاتف. */
 export const PHONE_SCREENS = ["/Home/Index", "/FSchedule/InstructorRequests", "/FSchedule/StudentRegistration", "/FSchedule/Rehearsal"];
 
-/** رسائلُ console.error موثَّقةٌ بأنها لا تدل على خلل (طلباتٌ مرفوضة مقصودة تُسجّلها Chromium). */
-const BENIGN_CONSOLE = [/Failed to load resource: the server responded with a status of (401|403|404|409|429)/];
+/**
+ * رسائلُ console.error موثَّقةٌ بأنها لا تدل على خلل: تحديدُ المعدّل (429) عند الدخول وتبديل الدور وحده.
+ * 401/403/404/409 ليست منها: ملفٌّ مفقود (404) أو مسارٌ يُغلق على دورٍ (403) يجب أن يُسقط التشغيل، لا أن يمرّ صامتاً.
+ */
+const BENIGN_CONSOLE = [/Failed to load resource: the server responded with a status of 429/];
+/** تحديثُ الرادار التلقائي يردّ 409 («يُحدَّث الآن» أو «قبل قليل») بتصميمٍ تبتلعه الواجهة؛ هذا المسارُ وحده وبـ409 وحده. */
+const isRadarBusy = (status, url) => status === 409 && url.includes("/api/simulation/run");
+/** قبل الدخول التجريبي يردّ الخادم 401 على فحص الجلسة عمداً؛ تُراقَب الردودُ والأخطاءُ بعده وحده. */
+let watching = false;
 const CRASH_TEXT = /حدث خطأ غير متوقع|Something went wrong|Application error|Unexpected Application Error/;
 
 /* SMOKE_ONLY=enter (أو journeys,phone) لتشغيل جزءٍ منه عند التشخيص؛ الافتراضي كلُّها. */
@@ -61,13 +68,18 @@ const page = await context.newPage();
 let current = "login";
 page.on("pageerror", error => note(`[${current}] خطأ غير ملتقَط في الصفحة: ${String(error).slice(0, 200)}`));
 page.on("console", message => {
-  if (message.type() !== "error") return;
+  if (!watching || message.type() !== "error") return;
   const text = message.text();
   if (BENIGN_CONSOLE.some(pattern => pattern.test(text))) return;
+  if (/status of 409/.test(text) && isRadarBusy(409, message.location().url || "")) return;
   note(`[${current}] console.error: ${text.slice(0, 200)}`);
 });
 page.on("response", response => {
-  if (response.status() >= 500 && response.url().includes("/api/")) note(`[${current}] ردّ خادمٍ ${response.status()} من ${response.request().method()} ${response.url().replace(BASE, "")}`);
+  if (!watching) return;
+  const status = response.status(), url = response.url();
+  if (isRadarBusy(status, url)) return;
+  if (status >= 500 && url.includes("/api/")) note(`[${current}] ردّ خادمٍ ${status} من ${response.request().method()} ${url.replace(BASE, "")}`);
+  else if (status >= 400 && status !== 429 && (url.includes("/api/") || url.includes("/assets/"))) note(`[${current}] رُدّ ${status} على ${response.request().method()} ${url.replace(BASE, "")}`);
 });
 
 async function post(path, body) {
@@ -102,23 +114,26 @@ console.log(`اختبار الدخان على ${BASE}`);
 await page.goto(`${BASE}/`, { waitUntil: "networkidle", timeout: 60_000 });
 const start = await post("/api/auth/demo", {});
 if (start.status !== 200) { note(`تعذّر الدخول التجريبي: ${start.status} ${start.text}`); }
+watching = true;
+
+/** تبديلُ الدور يُفحص ردُّه دائماً: فشلُه يعني أن ما بعده يُختبر بدورٍ خطأ (نجاحٌ كاذب). */
+async function switchRole(role) {
+  const result = await post("/api/demo/role", { role });
+  if (result.status !== 200) note(`تعذّر التبديل إلى دور ${role}: ${result.status} ${result.text}`);
+  return result.status === 200;
+}
 
 for (const [role, screens] of only.has("journeys") ? Object.entries(JOURNEYS) : []) {
-  if (role !== "demo") {
-    const switched = await post("/api/demo/role", { role });
-    if (switched.status !== 200) { note(`تعذّر التبديل إلى دور ${role}: ${switched.status} ${switched.text}`); continue; }
-  } else {
-    await post("/api/demo/role", { role: "admin" });
-  }
+  if (!(await switchRole(role === "demo" ? "admin" : role))) continue;
   let seen = 0;
   for (const screen of screens) { const state = await visit(screen, role); if (state) seen++; }
   ok(`${role}: ${seen} من ${screens.length} شاشة فُتحت`);
 }
 
 /* الهاتف: بلا تمريرٍ أفقي. */
-await post("/api/demo/role", { role: "committeeChair" });
+const phoneRole = await switchRole("committeeChair");
 await page.setViewportSize({ width: 390, height: 844 });
-for (const screen of only.has("phone") ? PHONE_SCREENS : []) {
+for (const screen of only.has("phone") && phoneRole ? PHONE_SCREENS : []) {
   const state = await visit(screen, "phone");
   if (state && state.overflow > 1) note(`[phone ${screen}] تمريرٌ أفقي بمقدار ${state.overflow}px على عرض 390`);
 }
