@@ -186,12 +186,12 @@
   #root .intel-context .intel-context-fields>.field,
   #root .query-primary-filters>.field{grid-template-columns:minmax(0,1fr)}
 
-  /* النوافذ المركزية (خلفيةٌ ثابتة تحمل النافذة ابنةً مباشرة): تُفتح على صفحة العمل،
-     والفهرس خلفها معتمٌ بظلّ الخلفية نفسها، فلا تعبر نافذةٌ الكعب. */
+  /* النوافذ المركزية (خلفيةٌ ثابتة تحمل النافذة ابنةً مباشرة): الخلفية تبقى بعرض الشاشة كلها
+     تعتّم الكتاب وتحجب اللمس عن الفهرس، وحشوتُها اليمنى بعرض الفهرس والكعب تضع النافذة
+     في وسط صفحة العمل، فلا تعبر نافذةٌ الكعب ولا يُضغط شيءٌ تحتها. */
   [class*="backdrop"]:has(> [role="dialog"],> [aria-modal="true"]),
   [class*="scrim"]:has(> [role="dialog"],> [aria-modal="true"]){
-    left:0;right:calc(var(--book-page) + var(--book-spine));
-    box-shadow:calc(var(--book-page) + var(--book-spine)) 0 0 0 color-mix(in srgb,var(--nav,#0e1413) 45%,transparent);
+    padding-left:var(--s4);padding-right:calc(var(--book-page) + var(--book-spine) + var(--s4));
   }
   /* والجرس والمرشد لا يلمعان فوق تعتيم الفهرس ما دامت نافذةٌ مفتوحة. */
   html:has([class*="backdrop"]>[aria-modal="true"],.schedule-context,.intel-drawer,.catalog-form-drawer,.trail-sheet) :is(.notify-bell,.smart-guide-fab){z-index:1}
