@@ -2378,6 +2378,7 @@
   }
   .authority-pdf-instructor .visiting-badge{flex:none!important;min-height:3.8mm!important;padding:0 1.2mm!important;font-size:4.7pt!important;border-radius:999px!important}
   .authority-pdf-legend .authority-pdf-key{font-weight:800!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .authority-pdf-legend .authority-pdf-key b{margin-inline-start:1.2mm!important;font-weight:900!important}
   .authority-pdf-legend .authority-pdf-key-added{background:#e8f6ed!important;border-color:#66a47b!important;color:#155d3a!important}
   .authority-pdf-legend .authority-pdf-key-deleted{background:#fbe8e8!important;border-color:#c76d6d!important;color:#8e2020!important}
   .authority-pdf-legend .authority-pdf-key-changed{background:#fff2bf!important;border-color:#d4a20c!important}

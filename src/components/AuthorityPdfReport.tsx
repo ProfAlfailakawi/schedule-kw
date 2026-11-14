@@ -211,9 +211,9 @@ export default function AuthorityPdfReport({
               ) : null}
               <div className="print-comprehensive-legend-stack">
                 <div className="print-comprehensive-legend authority-pdf-legend">
-                  <span className="authority-pdf-key authority-pdf-key-added">مضاف</span>
-                  <span className="authority-pdf-key authority-pdf-key-deleted">محذوف</span>
-                  <span className="authority-pdf-key authority-pdf-key-changed">معدّل</span>
+                  <span className="authority-pdf-key authority-pdf-key-added">مضاف{report.counts.added ? <b> {report.counts.added.toLocaleString("en-US")}</b> : null}</span>
+                  <span className="authority-pdf-key authority-pdf-key-deleted">محذوف{report.counts.deleted ? <b> {report.counts.deleted.toLocaleString("en-US")}</b> : null}</span>
+                  <span className="authority-pdf-key authority-pdf-key-changed">معدّل{report.counts.changed ? <b> {report.counts.changed.toLocaleString("en-US")}</b> : null}</span>
                 </div>
                 <div className="print-comprehensive-page-number"><bdi dir="ltr">{pageOffset + pageIndex + 1} / {pageTotal ?? pages.length}</bdi></div>
               </div>
