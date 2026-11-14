@@ -244,6 +244,7 @@ test:review-1105
 test:holds-patterns-r4
 test:one-line-appointment
 test:same-slot
+test:slot-guard-emulator
 test:plan-peers
 test:teacher-card-peers
 test:coreq-sections
