@@ -56,6 +56,8 @@ import { ProposalLauncherBar, ProposalStrip, type OpenWorkspace } from "./propos
 import { proposalApi, type StaffProposalView } from "./proposal/proposalApi";
 const StudyProposalWorkspace = React.lazy(() => import("./proposal/StudyProposalWorkspace"));
 import InboxPilot, { InboxPilotLauncher } from "./inbox/InboxPilot";
+import CardPulse from "./inbox/CardPulse";
+import { pulseStageOf, type PulseStage } from "../utils/cardPulse";
 import TermFrozenRibbon, { TermFrozenContext, useFrozenScreen, useTermFrozen } from "./TermFrozenRibbon";
 import { useScopedTerms } from "./useScopedTerms";
 import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBar";
@@ -66,7 +68,7 @@ import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { reachAboutCard } from "../utils/reachInstructor";
 import { inboxInstructorChoices, isPlaceholderInboxRow } from "../utils/instructorIdentity";
 import { proposalLauncherChoices } from "../utils/instructorPickerChoices";
-import { isTaRequest, notOpened, notParticipated, openedNotAnswered } from "../utils/requestParticipation";
+import { isTaRequest, notParticipated } from "../utils/requestParticipation";
 import { putHandoff } from "../utils/requestHandoff";
 import { putOpenRow, requestedChangeOf } from "../utils/requestOpenRow";
 import { currentTermId } from "../utils/termSequence";
@@ -1337,7 +1339,9 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   /* ── المرشّحات ──────────────────────────────────────────────────────────
      أربعةُ أسئلةٍ يسألها المنسّق فعلاً: ما الذي ينتظرني؟ أيُّ نوع؟ ما الجاهزُ
      منه؟ وفي أيّ قسم؟ وكلٌّ منها زرٌّ واحد، لا قائمةٌ منسدلة. */
-  const [stateFilter, setStateFilter] = useState<"pending" | "fixed" | "rejected" | "all" | "confirmed-unchanged" | "absent">("pending");
+  const [stateFilter, setStateFilter] = useState<"pending" | "fixed" | "rejected" | "all" | "confirmed-unchanged" | "absent" | "done">("pending");
+  /* «لم يشاركوا» بقسميه: لم يفتحوا · فتحوا ولم يرسلوا — يختارهما شريطُ «نبض الكروت». */
+  const [absentKind, setAbsentKind] = useState<"all" | "unopened" | "opened">("all");
   const [actionFilter, setActionFilter] = useState<"all" | "change" | "add" | "delete">("all");
   const [verdictFilter, setVerdictFilter] = useState<"all" | "clear" | "exception" | "conflict">("all");
   const [deptFilter, setDeptFilter] = useState(0);
@@ -1590,8 +1594,6 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
      جلبَ جديداً، ولا تعريفاً للتعارض بين أستاذين. بنودُ «أبقِ» و«احذف» لا
      تُعدّ لأنها ليست موعداً مطلوباً. */
   const heat = useMemo(() => buildInboxHeat(rows || [], day => Boolean(INBOX_DAY_NAMES[day as keyof typeof INBOX_DAY_NAMES])), [rows]);
-  /* «فتحوا ولم يجيبوا» و«لم يفتحوا» يقرآن صفةَ الرابط نفسها: رابطُ العرض فقط لا ينتظر جواباً (D2). */
-  const openedQuiet = openedNotAnswered(rows || []).length;
 
   /* الأساتذةُ الذين في الوارد فعلاً، مرتّبون أبجدياً بحسب الاسم — كقائمة الأستاذ في
      «الجدول الدراسي». */
@@ -1627,6 +1629,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     const state = item.decision?.state;
     if (stateFilter === "pending" && state) return false;
     if (stateFilter === "fixed" && state !== "fixed") return false;
+    if (stateFilter === "done" && !state) return false;
     if (stateFilter === "rejected" && state !== "rejected") return false;
     if (actionFilter !== "all" && item.action !== actionFilter) return false;
     if (verdictFilter !== "all" && (item.verdict || "clear") !== verdictFilter) return false;
@@ -1671,7 +1674,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
   const changed = stateFilter === "confirmed-unchanged" ? [] : visible.filter(row => (!deptFilter || Number(row.AdSectionId) === deptFilter)
     && (!taOnly || isTaRequest(row))
     && (row.changedCount > 0
-      ? (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item, row))
+      ? (row.items || []).some(item => item.action !== "keep" && !(item as any).hidden && itemFilter(item, row)) && (stateFilter !== "done" || pulseStageOf(row) === "complete")
       /* ملاحظةٌ عامة بلا بنودٍ مغيَّرة: تُقرأ بطاقةً، لا تُدفن في «الجدول كما هو». */
       : Boolean(row.note || row.pinViolations) && row.status !== "sent" && requestInCampus(row as any, campusFilter)));
   const changedGroups = useMemo(() => {
@@ -1683,8 +1686,19 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
     return [...groups.entries()].sort(([a], [b]) => byArabic(a, b));
   }, [changed]);
   const unchanged = visible.filter(row => row.status !== "sent" && row.changedCount === 0 && !row.note && !row.pinViolations && !isUnchangedConfirmed(row));
-  const silent = notOpened<InboxRequest>(visible);
-  const absentRows: InboxRequest[] = notParticipated<InboxRequest>(visible).filter(row => requestInCampus(row as any, campusFilter));
+  const absentRows: InboxRequest[] = notParticipated<InboxRequest>(visible).filter(row => requestInCampus(row as any, campusFilter))
+    .filter(row => absentKind === "all" || (absentKind === "opened") === Boolean(row.linkOpenedAt));
+  /* «نبض الكروت»: بطاقاتُ ما يُعرض (البحثُ والقسمُ والموقعُ و«🎓 تدريب») — فتطابق الأعدادُ ما تُظهره كلُّ مرحلةٍ حين تُلمس. */
+  const pulseRows = useMemo(() => visible.filter(row => !isPlaceholderInboxRow(row) && (!deptFilter || Number(row.AdSectionId) === deptFilter)
+    && requestInCampus(row as any, campusFilter) && (!taOnly || isTaRequest(row))), [visible, deptFilter, campusFilter, taOnly]);
+  const pulseActive: PulseStage | null = stateFilter === "absent" ? (absentKind === "opened" ? "opened" : absentKind === "unopened" ? "unopened" : null)
+    : stateFilter === "confirmed-unchanged" ? "sent" : stateFilter === "pending" ? "awaiting" : stateFilter === "done" ? "complete" : null;
+  const pickPulse = (stage: PulseStage | null) => {
+    setActionFilter("all"); setVerdictFilter("all");
+    if (!stage) { setAbsentKind("all"); setStateFilter("pending"); return; }
+    setAbsentKind(stage === "unopened" || stage === "opened" ? stage : "all");
+    setStateFilter(stage === "unopened" || stage === "opened" ? "absent" : stage === "sent" ? "confirmed-unchanged" : stage === "awaiting" ? "pending" : "done");
+  };
 
   /**
    * التثبيت.
@@ -2061,25 +2075,11 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
         <>
           {/* لمحةٌ بصرية: حلقة الإجابة وتفصيلها، وخريطة «تكدّس الطلبات». المقامُ
               هو الطلباتُ المُرسلة في هذا النطاق، لا كلُّ الأساتذة. */}
+          {/* «نبض الكروت»: أين وصل كلُّ أستاذٍ في بطاقته — يحلّ محلّ حلقة «أجاب» وسطرِ «لم يفتحوا» القديمين (أرقامُهما فيه). */}
+          <CardPulse rows={pulseRows as any} termId={termId} active={pulseActive} onPick={pickPulse} onReminded={() => void load()} isExcluded={row => rowVisiting(row as any)} />
+
           {totals ? (
-            <div className="inbox-glance">
-              <section className="glance-card glance-ring" role="status" aria-label="تغطية الإجابة">
-                <div className="glance-ring-top">
-                  <MiniRing value={Number(totals.sent || 0) > 0 ? Math.round((Number(totals.answered || 0) / Number(totals.sent || 1)) * 100) : null} size={60} decorative className="glance-ring-dial">{num(Number(totals.answered || 0))}</MiniRing>
-                  <div className="glance-ring-text">
-                    <b>أجاب: {num(Number(totals.answered || 0))} من {num(Number(totals.sent || 0))}</b>
-                    <span>من الطلبات المُرسلة في هذا النطاق</span>
-                  </div>
-                </div>
-                {/* الفعلُ يطابق عددَه: «1 لم يفتح»، «2 لم يفتحا»، «3 لم يفتحوا». */}
-                <div className="glance-legend">
-                  {openedQuiet ? <div data-tone="opened"><MailOpen aria-hidden="true" /><b>{num(openedQuiet)}</b><span>{nounFor(openedQuiet, AR.openedQuietVerb)}</span></div> : null}
-                  {totals.unopened ? <div data-tone="unopened"><MailQuestion aria-hidden="true" /><b>{num(Number(totals.unopened))}</b><span>{nounFor(Number(totals.unopened), AR.openedLinkVerb)}</span></div> : null}
-                  {totals.settled ? <div data-tone="settled"><ShieldCheck aria-hidden="true" /><b>{num(Number(totals.settled))}</b><span>انتهى</span></div> : null}
-                  {totals?.changed ? <div><Replace aria-hidden="true" /><b>{num(Number(totals.changed))}</b><span>{nounFor(Number(totals.changed), AR.askedChangeVerb)}</span></div> : null}
-                  {totals?.unchanged ? <div data-tone="unchanged"><Equal aria-hidden="true" /><b>{num(Number(totals.unchanged))}</b><span>بلا تغيير</span></div> : null}
-                </div>
-              </section>
+            <div className="inbox-glance is-solo">
               {heat.times.length ? (
                 /* على الهاتف تنطوي الخريطة خلف رأسها (زرٌّ صغير) فيصل أولُ طلبٍ إلى أعلى الشاشة؛
                    وعلى الحاسوب واللوحيّ تبقى مفتوحةً كاملةً ولا يظهر الزرّ. */
@@ -2135,31 +2135,6 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
             </div>
           ) : null}
 
-          {silent.length ? (
-            <div className="request-silent">
-              <MailQuestion aria-hidden="true" />
-              <span>{countOf(silent.length, AR.instructor)} {nounFor(silent.length, AR.openedLinkVerb)} الرابط بعد</span>
-              <div className="request-silent-links">
-                {silent.slice(0, 12).map(row => {
-                  const reach = reachAboutCard(
-                    { AdInstructorName: row.instructorName, AdInstructorMobile: row.instructorMobile },
-                    `${location.origin}/r/${row.linkId}`,
-                    "reminder",
-                  );
-                  return reach.href ? (
-                    <a key={row.id} href={reach.href} target="_blank" rel="noreferrer noopener" className="request-remind">
-                      <Send aria-hidden="true" /> {row.instructorName}<PersonChips visiting={rowVisiting(row)} trainee={isTaRequest(row)} />
-                    </a>
-                  ) : (
-                    <span key={row.id} className="request-remind" data-blocked="true" title={reach.blocked || ""}>
-                      <Link2 aria-hidden="true" /> {row.instructorName}<PersonChips visiting={rowVisiting(row)} trainee={isTaRequest(row)} />
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-
           {unchanged.length ? (
             <button
               type="button"
@@ -2208,6 +2183,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               { value: "rejected", label: "رُفض", count: counts.rejected, tone: "bad" },
               { value: "all", label: "الكل", count: counts.all },
               { value: "absent", label: "لم يشاركوا", count: counts.absent, tone: "warn" },
+              ...(stateFilter === "done" ? [{ value: "done", label: "مكتمل", count: pulseRows.filter(row => pulseStageOf(row) === "complete").length, tone: "ok" as const }] : []),
             ];
             const actionOptions: FilterOption[] = [
               { value: "all", label: "الكل" },
@@ -2240,7 +2216,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
           <div className="request-filters" role="toolbar" aria-label="تصفية الوارد">
             <span className="request-filters-mark" aria-hidden="true"><SlidersHorizontal /></span>
             <FilterGroup label="الموقع" value={String(campusFilter)} onChange={value => pickCampus(Number(value) || 0)} options={campusChoices} />
-            <FilterGroup label="الحالة" value={stateFilter === "confirmed-unchanged" ? "all" : stateFilter} onChange={value => setStateFilter(value as any)} options={stateOptions} />
+            <FilterGroup label="الحالة" value={stateFilter === "confirmed-unchanged" ? "all" : stateFilter} onChange={value => { setAbsentKind("all"); setStateFilter(value as any); }} options={stateOptions} />
             {counts.confirmedUnchanged ? (
               <button
                 type="button"
@@ -2270,7 +2246,7 @@ export default function InstructorInbox({ scopes, powerAdmin = false, onNavigate
               ) : null}
             </details>
             {filtered ? (
-              <button type="button" className="request-filters-reset" data-guide-ignore="إعادة المرشّحات — عرضٌ لا فعل" onClick={() => { setStateFilter("pending"); setActionFilter("all"); setVerdictFilter("all"); setDeptFilter(0); }}>
+              <button type="button" className="request-filters-reset" data-guide-ignore="إعادة المرشّحات — عرضٌ لا فعل" onClick={() => { setStateFilter("pending"); setAbsentKind("all"); setActionFilter("all"); setVerdictFilter("all"); setDeptFilter(0); }}>
                 <X aria-hidden="true" /> إعادة
               </button>
             ) : null}
