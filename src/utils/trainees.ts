@@ -30,7 +30,6 @@ async function load(key: string, collegeId: number, sectionId: number, termId: n
       const data = response.ok ? await response.json().catch(() => ({})) : {};
       const ids: ReadonlySet<number> = new Set((Array.isArray(data?.ids) ? data.ids : []).map(Number).filter(Boolean));
       cache.set(key, ids);
-      peopleCache.set(key, (Array.isArray(data?.people) ? data.people : []).map((row: any) => ({ id: Number(row?.id) || 0, name: String(row?.name || "") })).filter((row: TraineePerson) => row.id));
       readAt.set(key, Date.now());
       listeners.get(key)?.forEach(listener => listener(ids));
       return ids;
@@ -66,6 +65,19 @@ export function useIsTrainee(instructorId: unknown, collegeId: unknown, sectionI
 /** المتدرّبون بأسمائهم (الاسمُ للعرض في شريحة «عضو تدريب»)؛ فارغةٌ حتى تصل أو بلا نطاق. */
 export function useTraineePeople(collegeId: unknown, sectionId: unknown, termId: unknown): ReadonlyArray<TraineePerson> {
   const ids = useTrainees(collegeId, sectionId, termId);
-  const key = keyOf(Number(collegeId) || 0, Number(sectionId) || 0, Number(termId) || 0);
-  return useMemo(() => (peopleCache.get(key) || []).filter(person => ids.has(person.id)).sort((a, b) => a.name.localeCompare(b.name, "ar")), [ids, key]);
+  const c = Number(collegeId) || 0, sec = Number(sectionId) || 0, t = Number(termId) || 0;
+  const key = keyOf(c, sec, t);
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!c || !sec || !t || peopleCache.has(key)) return;
+    let live = true;
+    fetch(`/api/ta-trainee-names?collegeId=${c}&sectionId=${sec}&termId=${t}`, { credentials: "include" })
+      .then(response => (response.ok ? response.json() : {}) as Promise<any>)
+      .then(data => {
+        peopleCache.set(key, (Array.isArray(data?.people) ? data.people : []).map((row: any) => ({ id: Number(row?.id) || 0, name: String(row?.name || "") })).filter((row: TraineePerson) => row.id));
+        if (live) bump(n => n + 1);
+      }).catch(() => undefined);
+    return () => { live = false; };
+  }, [key, c, sec, t, ids]);
+  return useMemo(() => (peopleCache.get(key) || []).filter(person => ids.has(person.id)).sort((a, b) => a.name.localeCompare(b.name, "ar")), [ids, key, peopleCache.get(key)]);
 }
