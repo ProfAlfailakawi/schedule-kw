@@ -119,6 +119,7 @@ export function approvalScoreBreakdown(scopeRowIds: readonly number[], categorie
   return {
     total, scored, clean, noted, score, segments,
     formula: !total ? "لا مواعيد في النطاق"
+      : !scored ? `لا مواعيد تُحسب · ${n(noted)} للملاحظة خارج الحساب`
       : `السليم ${n(clean)} ÷ الكل ${n(scored)} × 100 = ${n(score)}${noted ? ` · ${n(noted)} للملاحظة خارج الحساب` : ""}`,
   };
 }

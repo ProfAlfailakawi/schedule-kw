@@ -37,7 +37,7 @@ const print = (r: any) => JSON.stringify([r.id, r.linkId, r.linkMode, r.status, 
 function staticChecks() {
   const publish = fs.readFileSync("src/components/SchedulePublish.tsx", "utf8");
   const picker = fs.readFileSync("src/components/PublishRecipientPicker.tsx", "utf8");
-  check(/guardSend\(picking \? sendPicked : create\)/.test(publish), "P5 الإرسالُ المحدد يمرّ بورقة «لم نصل بعد» (guardSend) قبل أن يُرسل");
+  check(/await guardSend\(sendPicked\)/.test(publish) && /picking \? startPicked\(\)/.test(publish), "P5 الإرسالُ المحدد يمرّ بورقة «لم نصل بعد» (guardSend) قبل أن يُرسل");
   check(publish.includes("...(instructorIds ? { instructorIds } : {})"), "P5 القائمةُ تُرسل ولو فارغة — فيرفضها الخادم ولا تصير «للجميع»");
   check(/disabled=\{[^}]*\(picking && !pickedPeople\.length\)/.test(publish), "P5 زرُّ الإرسال معطّلٌ حتى يُختار أحد");
   check(publish.includes('if (!ids.length) { setError("اختر أستاذاً واحداً على الأقل."); return; }'), "P5 ولا يُرسل بلا اختيار وإن نُقر");

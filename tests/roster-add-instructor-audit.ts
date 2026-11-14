@@ -92,6 +92,15 @@ async function main() {
   const retry = await A("POST", "/api/instructors", { AdInstructorCivil: civil3, AdInstructorName: "بعد الرفض", collegeId: 1, sectionId: 1 });
   check(retry.status === 201, "A4 والرقمُ لم يُسجَّل بالرفض: يُقبل بعد التصحيح", retry.json);
 
+  /* A4b رقمٌ مدني لأستاذٍ موجود (المراجِع المستقل): يُضمّ ويُكتب له الدرجةُ إن لم تكن له درجة، ولا تُستبدل قائمة؛ والردُّ يقول ما طُبّق */
+  const again = await A("POST", "/api/instructors", { AdInstructorCivil: civil3, AdInstructorName: "بعد الرفض", collegeId: 1, sectionId: 1, load: { rankId: rank.id } });
+  check(again.status === 200 && again.json.existing === true && again.json.loadApplied === true, "A4b إعادةُ المحاولة برقمٍ موجود بلا درجة: تُكتب الدرجةُ ويقول الردُّ ذلك", again.json);
+  const rosterAfter = (await roster()).find(p => p.id === retry.json.AdInstructorId);
+  check(rosterAfter?.rankName === rank.name, "A4b والدرجةُ تظهر في «الأساتذة»", rosterAfter);
+  const third = await A("POST", "/api/instructors", { AdInstructorCivil: civil3, AdInstructorName: "بعد الرفض", collegeId: 1, sectionId: 1, load: { rankId: rank.id }, AdInstructorCategory: "ta" });
+  check(third.status === 200 && third.json.existing === true && third.json.loadApplied === false, "A4b ودرجةٌ قائمة لا تُستبدل، والردُّ يقول إنها لم تُطبَّق", third.json);
+  check((await roster()).find(p => p.id === retry.json.AdInstructorId)?.AdInstructorCategory !== "ta", "A4b و«مدرب» لا يُطبَّق على سجلٍّ قائم");
+
   /* A5 */
   const civil4 = civilNext();
   const loose = await A("POST", "/api/instructors", { AdInstructorCivil: civil4, AdInstructorName: "بلا نطاق", load: { rankId: rank.id } });

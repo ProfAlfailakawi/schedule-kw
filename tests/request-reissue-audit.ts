@@ -67,8 +67,12 @@ check(issue.includes("const move = reissueMove(held);") && issue.includes('if (h
   "ولا يكتفي بوجود الطلب: يقرّر بحالته");
 check(issue.includes('if (held && (move === "extend" || ((onlyNoted || individualOnly || pickedEditReopen) && move === "keep")))') && issue.includes("window: individualOnly ? held.window : { opensAt: startsLater ? opensAt : held.window?.opensAt || opensAt, closesAt: windowClosesAt }"),
   "والطلبُ القائم يأخذ الموعدَ الجديد");
-check(issue.includes("requestLinkNeedsReplacing(heldLink, readable,") && issue.includes("await Repository.revokeShareLink(heldLink.id)"),
+/* الإبطالُ بعد حفظ الطلب بالرابط الجديد لا قبله (مراجعة مستقلة 2026-11-14): فشلُ الحفظ لا يترك الطلب مشيراً إلى رابطٍ ميت. */
+check(issue.includes("requestLinkNeedsReplacing(heldLink, readable,") && issue.includes("supersededLinkId = heldLink.id") && issue.includes("await Repository.revokeShareLink(supersededLinkId)"),
   "ورابطُه الميت يُستبدل ويُوقف القديم");
+check(issue.indexOf("await Repository.saveInstructorRequest({\n        ...held,\n        linkId,") > -1
+  && issue.indexOf("await Repository.revokeShareLink(supersededLinkId)") > issue.indexOf("await Repository.saveInstructorRequest({\n        ...held,\n        linkId,"),
+  "ويُوقَف القديمُ بعد حفظ الطلب بالجديد، لا قبله");
 check(issue.includes("fresh: issued.filter(row => !row.reissued && !row.renewed).length"),
   "والعدُّ يفرّق الجديدَ عن المجدَّد");
 

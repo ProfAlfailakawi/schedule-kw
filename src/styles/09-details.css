@@ -792,7 +792,8 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
 .spread-keys .seg-low{background:transparent}
 .spread-keys .seg-low::before{background:var(--muted-2)}
 .spread-keys [data-outside-score]{opacity:.72}
-.spread-keys [data-outside-score] small::after{content:" · خارج الحساب"}
+.spread-keys [data-outside-score]{flex-wrap:wrap;row-gap:0}
+.spread-keys [data-outside-score] small::after{content:"خارج الحساب";display:block;font-size:.72em;opacity:.85}
 .spread-keys .seg-clean{background:transparent}
 .spread-keys .seg-clean::before{background:var(--success)}
 .spread-keys b{font-size:var(--t-h4);font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -1011,11 +1012,13 @@ button.disabled,.disabled{opacity:.45;pointer-events:none}
 .instructor-new{
   display:grid;gap:var(--s2);padding:var(--s4);
   border-top:1px solid var(--line);background:var(--surface-2);
-  max-height:min(52vh,340px);overflow-y:auto;
+  max-height:min(60vh,440px);overflow-y:auto;
 }
+/* في صفحةٍ (أدوات الجدول) لا نافذةٍ منسدلة: لا سقفَ يقصّ الأزرار (المالك 2026-11-14). */
+.instructor-new--inline{max-height:none;overflow:visible;border:1px solid var(--line);border-radius:var(--r-md)}
 .instructor-new strong{font-size:var(--t-sm);font-weight:600}
-.instructor-new input{
-  min-height:38px;padding:0 var(--s3);
+.instructor-new input:not([type=checkbox]),.instructor-new select{
+  min-height:38px;inline-size:100%;box-sizing:border-box;padding:0 var(--s3);
   border:1px solid var(--line);border-radius:var(--r-xs);
   background:var(--surface);color:var(--ink);font-size:var(--t-sm);
 }
