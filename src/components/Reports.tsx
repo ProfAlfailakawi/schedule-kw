@@ -7,7 +7,7 @@ import { flushSync } from "react-dom";
 import { isNarrowWorkspace } from "../utils/workspaceSize";
 import {
   BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
-  CheckCircle2, Check, Droplet, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
+  CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
   ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, Grid3x3, Network,
   Hash, Fingerprint, Mic, Hourglass, CalendarPlus,
 } from "lucide-react";
@@ -22,6 +22,7 @@ import QuerySaved from "./query/QuerySaved";
 import QueryCompare, { type HistoryPoint } from "./query/QueryCompare";
 import QueryPrintPreview from "./query/QueryPrintPreview";
 import QueryPrintMenu from "./query/QueryPrintMenu";
+import PrintTiles from "./query/PrintTiles";
 import QueryEmptyWhy, { type EmptyWhyItem } from "./query/QueryEmptyWhy";
 import QueryWhatIf, { type WhatIfRow } from "./query/QueryWhatIf";
 import QueryExcluded from "./query/QueryExcluded";
@@ -623,6 +624,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   const [all, setAll] = useState<FSchedule[]>([]);
   const [siteLoadRead, setSiteLoadRead] = useState<{ termId: number; rows: FSchedule[]; denied: string[]; loading: boolean } | null>(null);
   /* الطباعة الموفّرة للحبر: اختيارٌ يبقى (لكل متصفح)، ويقرؤه أمرُ الطباعة لحظتَه (المرجع لا الحال: الأمر متزامنٌ في اللمسة). */
+  const [instructorScope, setInstructorScope] = useState<"college" | "all-colleges">("college");
   const [inkSave, setInkSave] = useState(() => safeStorage.get("schedule-print-ink") === "1");
   const inkRef = useRef(inkSave);
   inkRef.current = inkSave;
@@ -3062,9 +3064,9 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   </SecondaryButton>
                   {scopeMenu === "instructor" ? (
                     <div className="query-scope-menu" role="menu" aria-label="نطاق تقرير الأستاذ">
-                      <button type="button" role="menuitemcheckbox" aria-checked={inkSave} className="query-ink-row" data-guide-ignore="طباعة موفّرة للحبر: نفس الورقة بالرمادي؛ اختيارٌ يبقى" onClick={toggleInk}><Droplet aria-hidden="true" />موفّر الحبر{inkSave ? <Check aria-hidden="true" /> : null}</button>
-                      {filters.collegeId ? <button type="button" role="menuitem" data-guide-ignore="طباعة تقرير الأستاذ للكلية الحالية؛ قراءة فقط" onClick={() => void printInstructorScope("college", filters.collegeId)}>الكلية المحددة حالياً<small>{collegeById.get(filters.collegeId)?.AdCollegeName || "الكلية المحددة"}</small></button> : null}
-                      <button type="button" role="menuitem" data-guide-ignore="طباعة تقرير الأستاذ لكل الكليات المسموحة؛ قراءة فقط" onClick={() => void printInstructorScope("all-colleges")}>الكل<small>ضمن صلاحيات حسابك</small></button>
+                      {filters.collegeId ? <button type="button" role="menuitemradio" aria-checked={(instructorScope === "college" && Boolean(filters.collegeId)) || undefined} data-guide-ignore="اختيار نطاق تقرير الأستاذ: الكلية الحالية؛ لا يطبع" onClick={() => setInstructorScope("college")}>الكلية المحددة حالياً<small>{collegeById.get(filters.collegeId)?.AdCollegeName || "الكلية المحددة"}</small></button> : null}
+                      <button type="button" role="menuitemradio" aria-checked={instructorScope === "all-colleges" || !filters.collegeId} data-guide-ignore="اختيار نطاق تقرير الأستاذ: كل الكليات المسموحة؛ لا يطبع" onClick={() => setInstructorScope("all-colleges")}>الكل<small>ضمن صلاحيات حسابك</small></button>
+                      <PrintTiles ink={inkSave} onPick={on => { chooseInk(on); void printInstructorScope(instructorScope === "college" && filters.collegeId ? "college" : "all-colleges", filters.collegeId); }} />
                     </div>
                   ) : null}
                 </div>
@@ -3102,7 +3104,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   <Table2 aria-hidden="true" />{branchBusy ? "يجمع الفروع…" : appendixBusy ? "يجهّز الملحق…" : "التقرير الشامل"}
                 </SecondaryButton>
                 {scopeMenu === "comprehensive" ? (
-                  <ReportChoicePanel title="التقرير الشامل" choices={comprehensiveList} active={activeChoice(comprehensiveList, comprehensiveChoiceId)} onChoose={setComprehensiveChoiceId} onPrint={printComprehensiveChoice} onInk={chooseInk} />
+                  <ReportChoicePanel title="التقرير الشامل" choices={comprehensiveList} active={activeChoice(comprehensiveList, comprehensiveChoiceId)} onChoose={setComprehensiveChoiceId} onPrint={printComprehensiveChoice} onInk={chooseInk} ink={inkSave} />
                 ) : null}
               </div>
             </> : null}
@@ -3112,7 +3114,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   <ClipboardList aria-hidden="true" />{authorityReportBusy ? "يجهّز التقرير…" : "تقرير تغييرات الجدول"}
                 </SecondaryButton>
                 {scopeMenu === "authority" ? (
-                  <ReportChoicePanel title="تقرير تغييرات الجدول" choices={authorityList} active={activeChoice(authorityList, authorityChoiceId)} onChoose={setAuthorityChoiceId} onPrint={printAuthorityChoice} onInk={chooseInk} />
+                  <ReportChoicePanel title="تقرير تغييرات الجدول" choices={authorityList} active={activeChoice(authorityList, authorityChoiceId)} onChoose={setAuthorityChoiceId} onPrint={printAuthorityChoice} onInk={chooseInk} ink={inkSave} />
                 ) : null}
               </div>
             ) : null}

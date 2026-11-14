@@ -91,8 +91,10 @@ async function main() {
       check(!dirty && desktop.issues.length === before, `عدسة «${tabs[i]}» تُفتح نظيفة`, desktop.issues.slice(before));
       const print = desktop.page.locator(".query-canvas-actions button.query-print-icon, .query-canvas-actions .query-report-action > button.query-print-icon").first();
       if (!(await print.count())) continue;
-      if (tabs[i] === "الأساتذة") { await print.click(); await desktop.page.locator(".query-scope-menu [role=menuitem]").first().click(); await desktop.page.waitForTimeout(2500); }
-      else { await print.click(); await desktop.page.waitForTimeout(600); }
+      /* زرّ الطباعة يسأل: بلاطةُ «عادية» تطبع (والأستاذ يختار نطاقه أولاً بالافتراضي). */
+      await print.click();
+      await desktop.page.locator(".print-tiles .print-tile").first().click();
+      await desktop.page.waitForTimeout(tabs[i] === "الأساتذة" ? 2500 : 600);
       /* أولُ رسمٍ بعد الطباعة يسبق استقرار الخطوط فتختلف إحداثياته قليلاً عن اللاحق: يُرمى، والمقارنةُ بين رسمين مستقرّين. */
       await desktop.page.pdf({ preferCSSPageSize: true, printBackground: true });
       const pdf: Buffer = await desktop.page.pdf({ preferCSSPageSize: true, printBackground: true });

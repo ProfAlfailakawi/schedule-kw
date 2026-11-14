@@ -21,10 +21,3 @@
 @media screen and (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .query-scope-menu.report-choice{width:auto;scroll-margin-block:88px 104px}
 }
-
-/* طباعةٌ عادية وبجانبها موفّر الحبر */
-.report-choice-actions{display:flex;gap:6px}
-.report-choice-actions .report-choice-print{flex:1 1 0;justify-content:center}
-.query-scope-menu.report-choice .report-choice-print.report-choice-ink{background:var(--surface-2,#eef2f1);color:var(--accent-ink,#155d3a);border:1px solid var(--border,#d7dfdc)}
-.query-scope-menu.report-choice .report-choice-print.report-choice-ink:hover,
-.query-scope-menu.report-choice .report-choice-print.report-choice-ink:focus-visible{background:var(--accent-soft)}

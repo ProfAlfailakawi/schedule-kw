@@ -1,4 +1,5 @@
-import { Droplet, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
+import PrintTiles from "./PrintTiles";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -26,10 +27,7 @@ export default function QueryPrintMenu({ onPrint, disabled, ink, label = "طبا
         <Printer aria-hidden="true" />{iconOnly ? null : <span>طباعة</span>}
       </button>
       {open ? (
-        <div className="query-scope-menu report-choice query-print-options" role="menu" aria-label="نوع الطباعة">
-          <button type="button" role="menuitem" autoFocus={!ink} data-guide-ignore="طباعة عادية بالألوان؛ قراءة فقط" onClick={() => choose(false)}><Printer aria-hidden="true" />عادية</button>
-          <button type="button" role="menuitem" autoFocus={ink} data-guide-ignore="طباعة موفّرة للحبر: الورقة نفسها بالرمادي؛ قراءة فقط" onClick={() => choose(true)}><Droplet aria-hidden="true" />موفّر الحبر</button>
-        </div>
+        <div className="query-scope-menu report-choice query-print-options" role="menu" aria-label="نوع الطباعة"><PrintTiles ink={ink} autoFocus onPick={choose} /></div>
       ) : null}
     </span>
   );

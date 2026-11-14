@@ -241,10 +241,18 @@
 .query-excluded-pop li button svg{inline-size:16px;block-size:16px}
 .query-excluded-more{color:var(--muted);text-align:center}
 
-/* ── قائمة الطباعة: خياران بأيقونتين ── */
-.query-print-options{display:grid;grid-auto-flow:column;gap:6px;min-width:0;width:auto}
-.query-print-options button{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;white-space:nowrap}
-.query-print-options button svg{width:16px;height:16px}
-.query-scope-menu .query-ink-row{display:flex;align-items:center;gap:6px;width:100%}
-.query-scope-menu .query-ink-row svg{width:16px;height:16px}
-.query-scope-menu .query-ink-row svg:last-child{margin-inline-start:auto}
+/* ── بلاطتا الطباعة: عادية / موفّر الحبر ── */
+.print-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:2px}
+.print-tile{display:grid;justify-items:center;align-content:center;gap:7px;min-width:104px;padding:14px 12px 11px;border:1px solid var(--border,#d7dfdc);border-radius:14px;background:var(--surface,#fff);color:var(--ink,#18211f);font-weight:700;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.print-tile svg{width:22px;height:22px;color:var(--accent,#1f6b4e)}
+.print-tile span{font-size:.82rem}
+.print-tile:hover,.print-tile:focus-visible{border-color:var(--accent,#1f6b4e);background:var(--accent-soft,#eef5f1);transform:translateY(-1px)}
+.print-tile[data-last]{border-color:var(--accent,#1f6b4e);box-shadow:inset 0 0 0 1px var(--accent,#1f6b4e)}
+.print-tile-dots{display:flex;gap:4px}
+.print-tile-dots b{width:9px;height:9px;border-radius:50%;background:#2f9e6e}
+.print-tile-dots b:nth-child(2){background:#d9a21b}
+.print-tile-dots b:nth-child(3){background:#c24a4a}
+.print-tile-ink .print-tile-dots b{background:#8a8f8d}
+.print-tile-ink .print-tile-dots b:nth-child(2){background:#5d6361}
+.print-tile-ink .print-tile-dots b:nth-child(3){background:#2e3231}
+.query-print-options{display:block;padding:8px;width:auto}

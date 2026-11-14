@@ -74,7 +74,8 @@
     "src/components/query/QueryWhatIf.tsx",
     "src/components/query/QueryExcluded.tsx",
     "src/styles/59-print-ink.css",
-    "src/components/query/QueryPrintMenu.tsx"
+    "src/components/query/QueryPrintMenu.tsx",
+    "src/components/query/PrintTiles.tsx"
   ],
   "screens": [
     {
@@ -3164,8 +3165,8 @@
           "en": "The coordinates of every word on every sheet (the fourteen lenses and the comprehensive report) are identical to the normal mode in a real browser."
         },
         {
-          "ar": "كل أزرار الطباعة في مركز الاستعلام بأسلوبٍ واحد: تسأل حين تُضغط (عادية أو موفّر الحبر بأيقونتين)، ومنها العدسات والإشغال والميزان وتوزيع المواد وموجز الصباح، وقوائم التقرير الشامل وتقرير التغييرات وتقرير الأستاذ فيها خيار موفّر الحبر؛ وما اختير يُحفظ.",
-          "en": "All print buttons in the query centre share one style: they ask when pressed (normal or ink saver, two icons), including the lenses, occupancy, balance, course distribution and the morning brief; the comprehensive, schedule-changes and instructor report menus carry an ink-saver option; the choice is remembered."
+          "ar": "كل أزرار الطباعة وقوائم التقارير (الشامل والتغييرات والأستاذ) بأسلوبٍ واحد: بعد اختيار التقرير تظهر بلاطتان بأيقونتين (عادية بنقاطٍ ملوّنة، وموفّر الحبر بنقاطٍ رمادية) والضغط على إحداهما يطبع؛ ومنها العدسات والإشغال والميزان وتوزيع المواد وموجز الصباح؛ وما اختير يُحفظ ويُؤشَّر عليه، ولا شيء خارج القائمة.",
+          "en": "All print buttons and report menus (comprehensive, changes, instructor) share one style: after choosing the report two icon tiles appear (normal with coloured dots, ink saver with grey dots) and pressing one prints; this covers the lenses, occupancy, balance, course distribution and the morning brief; the choice is remembered and marked, and nothing sits outside the menu."
         }
       ],
       "evidence": {
