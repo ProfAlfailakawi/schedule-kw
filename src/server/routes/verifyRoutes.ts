@@ -14,7 +14,7 @@ import { normalizeCivilId, validateCivilId } from "../../utils/civilId";
 import { signatureVerifyPage } from "../signatureVerifyPage";
 import { isDemoLinkToken } from "../../utils/demoLinkToken";
 import { publicPageNonce } from "../core/publicPages";
-import { publicAttemptReserve } from "../core/shareLinks";
+import { verifyAttempts } from "../verifyAttempts";
 import { surveyFingerprint } from "../core/studentIdentity";
 
 /**
@@ -53,10 +53,23 @@ app.post("/api/public/verify", rateLimitVerifySignature, async (req: Request, re
     res.status(400).json({ error: "الرمز ستّة أحرف وأرقام. اتركه فارغاً إن لم تتذكّره: يكفي رقمك المدني." });
     return;
   }
-  const attempt = publicAttemptReserve("verify-signature", req.ip || "unknown");
-  if (!attempt) { res.status(429).json({ error: "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة." }); return; }
+  /* رابطُ تجربةٍ يربط البحثَ بصندوقه، كما تفعل روابطُ الأبواب العامة الأخرى. */
+  const hint = String(req.body?.hint || "");
+  const sandbox = isDemoLinkToken(hint) ? Repository.demoSandboxForLinkToken(hint) : "";
+  const inSandbox = <T,>(work: () => Promise<T>) => new Promise<T | "error">(resolve => {
+    const run = () => work().then(resolve, () => resolve("error"));
+    if (!sandbox || !Repository.runDemoSandbox(sandbox, () => { void run(); })) void run();
+  });
+  /* الحجبُ لكل رقمٍ مدنيّ (بصمتُه) لا لكل عنوان: شبكةُ الجامعة عنوانٌ واحد، وعشرُ أخطاءٍ فيها لا تحجب الجميع
+     (src/server/verifyAttempts.ts). البصمةُ لا تُخزَّن ولا تعود في جواب. */
+  const fingerprint = await inSandbox(() => surveyFingerprint(civil));
+  if (fingerprint === "error") { res.status(500).json({ error: "تعذّر التحقّق الآن. أعد المحاولة بعد قليل." }); return; }
+  const attempt = verifyAttempts.reserve(fingerprint, req.ip || "unknown");
+  if ("blocked" in attempt) {
+    res.status(429).json({ error: attempt.blocked === "target" ? "محاولات كثيرة على هذا الرقم. انتظر قليلاً ثم أعد المحاولة." : "محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة." });
+    return;
+  }
   const lookup = async () => {
-    const fingerprint = await surveyFingerprint(civil);
     const found = (await Repository.getInstructorRequestsBySignatureFingerprint(fingerprint))
       .filter(row => row.signature && row.signature.fingerprint === fingerprint)
       .sort((a, b) => Date.parse(String(b.signature?.at || "")) - Date.parse(String(a.signature?.at || "")))
@@ -82,13 +95,7 @@ app.post("/api/public/verify", rateLimitVerifySignature, async (req: Request, re
     if (hit > 0) signatures.unshift(...signatures.splice(hit, 1));
     return { count: signatures.length, codeGiven: Boolean(code), matchedCode: hit >= 0 ? code : null, signatures };
   };
-  /* رابطُ تجربةٍ يربط البحثَ بصندوقه، كما تفعل روابطُ الأبواب العامة الأخرى. */
-  const hint = String(req.body?.hint || "");
-  const sandbox = isDemoLinkToken(hint) ? Repository.demoSandboxForLinkToken(hint) : "";
-  const result = await new Promise<Awaited<ReturnType<typeof lookup>> | "error">(resolve => {
-    const run = () => lookup().then(resolve, () => resolve("error"));
-    if (!sandbox || !Repository.runDemoSandbox(sandbox, () => { void run(); })) void run();
-  });
+  const result = await inSandbox(lookup);
   if (result === "error") { res.status(500).json({ error: "تعذّر التحقّق الآن. أعد المحاولة بعد قليل." }); return; }
   /* الجوابُ واحدٌ لرقمٍ لا توقيعَ باسمه ولرقمٍ لا يخصّ أحداً. */
   if (!result) { res.status(404).json({ error: "لا يوجد توقيعٌ مسجَّل بهذا الرقم المدني." }); return; }
