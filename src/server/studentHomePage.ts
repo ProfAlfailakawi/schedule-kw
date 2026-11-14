@@ -3,6 +3,7 @@ import { CRITICAL_COURSES_SCRIPT } from "../utils/criticalCourses";
 import { TRAVEL_HINT_SCRIPT } from "../utils/campusTravelHint";
 import { MASARI_ACK_CSS, MASARI_ACK_JS, MASARI_ACK_TEXT } from "./masariDisclaimer";
 import { STUDENT_RECOVERY_CSS, STUDENT_RECOVERY_SCRIPT } from "./studentRecoveryScript";
+import { STUDENT_EXTRAS_CSS, STUDENT_EXTRAS_SCRIPT } from "./studentExtrasScript";
 import { PUBLIC_FONT_FACES } from "./publicKit";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "./publicTheme";
 import { STUDENT_MAP_CSS, STUDENT_MAP_SCRIPT } from "./studentMapUi";
@@ -944,7 +945,7 @@ function viewHome(){
   var nmb=document.getElementById("nmb");if(nmb)nmb.addEventListener("click",sheetName);
   document.getElementById("del").addEventListener("click",sheetForget);
   var icsB=document.getElementById("icsNext");if(icsB)icsB.addEventListener("click",function(){addToCalendar("next")});
-  recoveryHomeHook();
+  recoveryHomeHook();extrasHook();
   laterMO=null;S.homeReady=false;renderWishes();laterUpdate();
   loadNotices();loadCases();loadCaseRequest();loadTicket();loadReport();loadPlan();
   var ready=function(){if(S.homeReady)return;S.homeReady=true;laterUpdate()};
@@ -1459,6 +1460,7 @@ function sheetForget(){sheet('<h3>حذف ملفّي</h3><p class="lead">يُحذ
 
 ${MASARI_ACK_JS}
 ${STUDENT_RECOVERY_SCRIPT}
+${STUDENT_EXTRAS_SCRIPT}
 function render(){
   closeSheet();window.scrollTo(0,0);var oldNav=topEl.querySelector("nav.tabs");if(oldNav)oldNav.remove();if(S.view!=="setup")dockEl.innerHTML="";
   var appEl=document.querySelector(".app");if(appEl)appEl.setAttribute("data-view",S.view);
@@ -1494,7 +1496,7 @@ export function studentHomePage(nonce: string, track: "boys" | "girls" | "" = ""
 <link rel="icon" href="/schedule-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/schedule-icon-192.png">
 <link rel="manifest" href="/me.webmanifest">
-<style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}${STUDENT_HOME_CSS}${MASARI_ACK_CSS}${STUDENT_RECOVERY_CSS}</style>
+<style>/* SCHEDULE_PUBLIC_PLEX_ARABIC */${PUBLIC_FONT_FACES}${STUDENT_HOME_CSS}${MASARI_ACK_CSS}${STUDENT_RECOVERY_CSS}${STUDENT_EXTRAS_CSS}</style>
 </head>
 <body>
 ${SPRITE}

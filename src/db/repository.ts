@@ -7083,6 +7083,20 @@ export const Repository = {
     return [...(db.studentProfiles || [])].slice(0, limit);
   },
   /**
+   * ملفاتُ من فعّل تنبيهات «مساري» (`pushOn`): استعلامٌ بالمساواة على حقلٍ مفرد يكفيه الفهرسُ التلقائي، صفحةً بعد صفحة
+   * (`after` = بصمةُ آخر ملفٍّ في الصفحة السابقة) فيقرأ المُرسِلُ المجدولُ دفعةً محدودة لا الجامعةَ كلَّها.
+   */
+  listPushStudentProfiles: async (after = "", limit = 200): Promise<StudentProfile[]> => {
+    const size = Math.max(1, Math.min(500, Math.floor(limit) || 200));
+    if (firestoreDb && !demoSandboxContext.getStore()) {
+      let query: FirebaseFirestore.Query = firestoreDb.collection("studentProfiles").where("pushOn", "==", true).orderBy(FieldPath.documentId()).limit(size);
+      if (after) query = query.startAfter(after);
+      return (await query.get()).docs.map(doc => doc.data() as StudentProfile);
+    }
+    return (db.studentProfiles || []).filter(profile => profile.pushOn === true && String(profile.id) > after)
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).slice(0, size);
+  },
+  /**
    * ملفاتُ قسمٍ واحد، بالحقول التي يقرؤها عدّادُ الرغبات وحدها (القسم والكلية والرغبات): استعلامٌ
    * بالمساواة على حقلٍ واحد يكفيه الفهرسُ التلقائي، ولا تُقرأ ملفاتُ الأقسام الأخرى في الكلية.
    */
