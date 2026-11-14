@@ -261,7 +261,7 @@ function ScheduleFields({ ws, locked }: { ws: Workspace; locked?: boolean }) {
       </div>
       <div className="sp-two">
         <Field label="بداية الوقت" required>
-          <TimeField value={draft.start} min={from} max={until} dir="ltr" suggestions={ladderStartsForDays(draft.days as DayKey[], timeToMinutes(from), timeToMinutes(until))}
+          <TimeField value={draft.start} min={from} max={until} dir="ltr" suggestions={ladderStartsForDays(draft.days as DayKey[], timeToMinutes(from), timeToMinutes(until), draft.start && draft.end ? Math.max(0, timeToMinutes(draft.end) - timeToMinutes(draft.start)) : 0)}
             onChange={e => ws.patchDraft({ start: e.target.value })} aria-invalid={invalidTime || undefined} />
           <LadderStartHint days={draft.days as DayKey[]} start={draft.start}
             length={draft.start && draft.end ? timeToMinutes(draft.end) - timeToMinutes(draft.start) : 0}

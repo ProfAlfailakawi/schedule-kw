@@ -81,7 +81,12 @@ const verdict = appointmentVerdict({
   form: { AdCourseId: 9, AdInstructorId: 2, fmonday: true, fstarttime: "08:00", fendtime: "08:30", buildingId: "b", locationStatus: "PENDING_ROOM" },
   validationIssues: [wrong], conflicts: [], regulation: "off", regulationNote: wrong,
 });
-check(!verdict.canSave && verdict.blockers.length === 1 && verdict.blockers[0].id === "regulation", "N3 الحكمُ في النموذج: النهاية المخالفة مانعٌ واحد (لا يتكرر سطر الخادم)", verdict.blockers.map(item => item.text));
+check(!verdict.canSave && verdict.blockers.length === 1 && verdict.blockers[0].id === "issue-0" && !verdict.notes.some(item => item.id === "regulation"), "N3 نصُّ الخادم المانع يبقى مانعاً كما قاله ولا يتكرر تنبيهُ النموذج بجانبه", verdict.blockers.map(item => item.id));
+const warned = appointmentVerdict({
+  form: { AdCourseId: 9, AdInstructorId: 2, fmonday: true, fstarttime: "08:00", fendtime: "08:30", buildingId: "b", locationStatus: "PENDING_ROOM" },
+  validationIssues: [], conflicts: [], regulation: "off", regulationNote: wrong,
+});
+check(warned.canSave && !warned.blockers.length && warned.notes.some(item => item.id === "regulation" && item.text === wrong), "N3 قرار المالك: الخروج عن النمط تنبيهٌ ⚠️ لا يمنع الحفظ (ويُؤكَّد استثناءً عند الحفظ)", warned.notes);
 
 /* N5 + N6 — الخادم في وضع العرض (في الذاكرة؛ لا بيانات حقيقية) */
 await initDatabase();

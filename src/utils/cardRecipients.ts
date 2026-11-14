@@ -119,7 +119,7 @@ export function buildTeacherTracks(input: {
       const known = REQUEST_EVENT[String(event.kind)];
       if (!known) continue;
       /* «فُتح له طلب التعديل» يكرّر سطرَ الإرسال من السجلّ حين يقع معه؛ يبقى حين يكون استثناءً أو إعادةَ فتح. */
-      if (event.kind === "link-created" && !event.detail && input.sends.some(send => (send.instructorIds || []).map(Number).includes(id)
+      if (event.kind === "link-created" && (!event.detail || event.detail === "أُعيد الإرسال بالرابط نفسه") && input.sends.some(send => (send.instructorIds || []).map(Number).includes(id)
         && Math.abs(Date.parse(String(send.at || "")) - Date.parse(String(event.at))) < 120000)) continue;
       const count = event.kind === "submitted" ? Number(event.detail) : NaN;
       const text = event.kind === "submitted" ? (count === 0 ? "أرسل جدوله دون تعديل" : Number.isFinite(count) && count > 0 ? `أرسل طلبه (${countOf(count, AR.edit)})` : known[1])

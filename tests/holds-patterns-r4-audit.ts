@@ -7,6 +7,7 @@ import { completeRegulation, pickDay, regulationEnd, regulationFit } from "../sr
 import { departmentHoursNote, withinUniversityDay } from "../src/utils/scheduleTime";
 import { isSpecializationCourse, sameCourseSectionClash } from "../src/utils/scheduleRegulations";
 import { normalizeClock } from "../src/components/TimeField";
+import { parseTypedClock } from "../src/utils/clockInput";
 import { holdMatchesDraft } from "../src/components/RequestHoldSheet";
 import { appointmentVerdict } from "../src/utils/appointmentVerdict";
 
@@ -41,7 +42,8 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
   const labMove = pickDay(lab3, ["fwednesday"], "fmonday", true, 170);
   check(join(labMove.days) === "fmonday+fwednesday" && labMove.alternatives.length > 0, "19 ضغط يوم لا يحذف يوم الكتلة، والشرائح تعرض البديل", labMove);
   check(regulationFit(theory3, ["fsunday"], "08:00", "08:50") === "fits", "19 لقاءٌ من نمطٍ معتمد في صفٍّ مستقل ليس «خارج اللائحة»");
-  check(regulationFit(theory5, ["fmonday", "fwednesday"], "08:00", "10:50") === "fits", "19 نمط الخمس ساعات (170+110) معتمد في المكتبة فلا يُعلَّم");
+  check(regulationFit(theory5, ["fmonday"], "08:00", "10:50") === "fits" && regulationFit(theory5, ["fwednesday"], "08:00", "09:50") === "fits", "19 نمط الخمس ساعات (170+110) معتمد في المكتبة: كل لقاءٍ صفّاً فلا يُعلَّم");
+  check(regulationFit(theory5, ["fmonday", "fwednesday"], "08:00", "10:50") === "off", "19 صفٌّ واحد بيومين لخمس ساعات يتجاوز (340/275) كما يقول الخادم (تدقيق 2026-11-14)");
   check(regulationFit(theory3, ["fsunday"], "08:00", "09:00") === "off", "19 طولٌ خارج المكتبة ما زال يُنبَّه إليه");
   const editor = read("src/components/Schedules.tsx");
   check(/const library = completeSectionEnd\(course, daysOfRow\(row as any\), start, span\)/.test(editor) && /pickDay\(formCourse, formDays, day, checked, formSpan\)/.test(editor) && /minutes: formSpan, keepDays/.test(editor), "19 المحرر يكمل النهاية ويبقي الطول القائم لمسار اختيار الأيام");
@@ -53,7 +55,8 @@ const lab3 = { CourseHours: 3, CourseTeachingMode: "practical" };
 {
   check(normalizeClock("1400") === "14:00" && normalizeClock("0900") === "09:00", "15 الصيغة الكاملة");
   const field = read("src/components/TimeField.tsx");
-  check(/digits\.length <= 2 \? `\$\{digits\.padStart\(2, "0"\)\}00` : `0\$\{digits\}`/.test(field) && /settle\(\); onBlur/.test(field), "15 «14» تُحسب 14:00 عند الخروج من الحقل، و«930» 09:30");
+  check(/parseTypedClock\(raw\)/.test(field) && /settle\(\); onBlur/.test(field), "15 «14» تُحسب 14:00 عند الخروج من الحقل، و«930» 09:30 (القاعدة في clockInput)");
+  check(parseTypedClock("14").clock === "14:00" && parseTypedClock("930").clock === "09:30" && parseTypedClock("9").clock === "09:00", "15 «14» «930» «9» بقاعدة الساعة الواحدة");
 }
 
 /* ── 20: تجاوز نهاية الدوام تنبيه ── */

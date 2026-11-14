@@ -46,6 +46,7 @@ export interface AppointmentVerdict {
 
 export interface VerdictForm {
   AdCourseId?: unknown;
+  SCode?: unknown;
   AdInstructorId?: unknown;
   buildingId?: unknown;
   roomId?: unknown;
@@ -65,9 +66,12 @@ export interface VerdictInput {
   checking?: boolean;
   /** المقرر يتطلب مرفقاً مرافقاً (استوديو…). */
   companionRequired?: boolean;
-  /** هل يطابق الموعد نمطاً معتمداً؟ off → مانعٌ واحد (المالك 2026-11-08). */
+  /** هل يطابق الموعد نمطاً معتمداً؟ off → تنبيهٌ ⚠️ لا يمنع الحفظ، ويُحفظ بتأكيد استثناءٍ صريح (المالك: الأيام/المدة خارج اللائحة استثناءٌ لا مانع). */
   regulation?: "fits" | "off" | "unknown";
   regulationNote?: string;
+  /** ما قاله الخادم (regulationIssues: السُّلّم، وقت الشعبة، التتالي…): تُعرض ملاحظاتٍ في بطاقة الوقت ولا تمنع.
+      بها يتساوى عددُ الشريط وما تعدّه اللوحة. */
+  regulationIssues?: ReadonlyArray<{ rule?: string; text: string }>;
   /** ملاحظات لا تمنع الحفظ من مصادر أخرى (مراجعة اللائحة، السجل التاريخي). */
   notes?: ReadonlyArray<{ kind: CheckKind; text: string; detail?: string }>;
 }
@@ -150,25 +154,49 @@ export function relevantIssues(issues: readonly string[], form: VerdictForm, com
  * كانت الحلقة تقول «جاهز» بعد اختيار المقرر وحده، والأستاذ والأيام والقاعة فارغة.
  * فلا تُقال «جاهز» قبل أن تخلو هذه القائمة؛ يقرؤها شريط الحفظ ولوحة الفحص معاً.
  */
+export type SaveGap = "course" | "section" | "instructor" | "days" | "time" | "building" | "room";
+
+/**
+ * ما يشترطه حفظُ المحرر فعلاً (save() في Schedules): المقرر، والشعبة، والأستاذ، والوقت، والمبنى بمعرّفه،
+ * والقاعةُ بمعرّفها أو «بانتظار القاعة». رمزُ القاعة والمبنى نصّاً (يعرضهما المنتقي) لا يكفيان: كان النموذج يقول
+ * «جاهز» ثم يفشل الحفظ بـ«الحقول المطلوبة بالأحمر» ولا شيء أحمر. يستعمله save() نفسُه ليتفقا.
+ * الشعبةُ لا تُشترط إلا حين يحملها النموذج (`SCode` حاضرٌ في الكائن).
+ */
+export function appointmentSaveGaps(form: VerdictForm): SaveGap[] {
+  const gaps: SaveGap[] = [];
+  if (!filled(form.AdCourseId)) gaps.push("course");
+  if ("SCode" in (form as object) && !filled(form.SCode)) gaps.push("section");
+  if (!filled(form.AdInstructorId)) gaps.push("instructor");
+  if (!anyDay(form)) gaps.push("days");
+  if (!filled(form.fstarttime) || !filled(form.fendtime)) gaps.push("time");
+  if (!filled(form.buildingId)) gaps.push("building");
+  if (!filled(form.roomId) && form.locationStatus !== "PENDING_ROOM") gaps.push("room");
+  return gaps;
+}
+
+const GAP_LABEL: Record<SaveGap, string> = {
+  course: "المقرر", section: "الشعبة", instructor: "الأستاذ", days: "الأيام", time: "الوقت", building: "القاعة", room: "القاعة",
+};
+
 export function missingAppointmentFields(form: VerdictForm): string[] {
   const out: string[] = [];
-  if (!filled(form.AdCourseId)) out.push("المقرر");
-  if (!filled(form.AdInstructorId)) out.push("الأستاذ");
-  if (!anyDay(form)) out.push("الأيام");
-  if (!filled(form.fstarttime) || !filled(form.fendtime)) out.push("الوقت");
-  if (!chosenFields(form).room) out.push("القاعة");
+  for (const gap of appointmentSaveGaps(form)) { const label = GAP_LABEL[gap]; if (!out.includes(label)) out.push(label); }
   return out;
 }
 
+const all0 = (map: Map<CheckKind, VerdictDetail[]>) => [...map.values()].flat();
 const conflictText = (conflict: any) => String(conflict?.message || "تعارض").trim();
 
 export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
   const { form, companionRequired = false } = input;
   const chosen = chosenFields(form, companionRequired);
-  /* النهايةُ المخالفة للنمط يقولها النموذجُ نفسه سطراً واحداً (ومعه «طبّق النمط»)؛ فلا يتكرر سطرُ الخادم بالمعنى نفسه. */
-  const regulationBlocks = input.regulation === "off" && chosen.time;
-  const issues = relevantIssues(input.validationIssues, form, companionRequired)
-    .filter(text => !(regulationBlocks && /لا توافق النمط المعتمد/.test(text)));
+  /* الأيامُ أو المدةُ خارج النمط المعتمد: تنبيهٌ ⚠️ في المحرر واستثناءٌ يُؤكَّد عند الحفظ (لا مانع). وما بقي مانعاً من الخادم
+     (نصُّه في validationIssues) يُعرض مانعاً كما قاله، فلا يُكرَّر تنبيهُ النموذج بجانبه. */
+  const regulationWarns = input.regulation === "off" && chosen.time;
+  const issues = relevantIssues(input.validationIssues, form, companionRequired);
+  /* النمطُ صار يصل من الخادم في `regulation` (pattern-days / lecture-length) لا في validationIssues: كلاهما يُسكت تنبيهَ النموذج المكرَّر. */
+  const serverSaysPattern = issues.some(text => /لا توافق النمط المعتمد|ليست نمطاً معتمداً|ليس نمطاً معتمداً|النمط غير معتمد/.test(text))
+    || (input.regulationIssues || []).some(issue => issue?.rule === "pattern-days" || issue?.rule === "lecture-length");
   const conflicts = relevantConflicts(input.conflicts, form, companionRequired);
   const byKind = new Map<CheckKind, VerdictDetail[]>(ORDER.map(kind => [kind, []]));
   issues.forEach((text, index) => byKind.get(issueKind(text))!.push({ id: `issue-${index}`, text, blocks: true }));
@@ -177,7 +205,8 @@ export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
     text: conflict?.holdRequestId ? `${conflictText(conflict)} · محجوز لطلب ${conflict?.holdInstructorName || "أستاذ"} — يُسأل عنه عند الحفظ` : conflictText(conflict),
     detail: String(conflict?.detail || "").replace(/\s+/g, " ").trim() || undefined,
     /* حجزُ طلب أستاذٍ ينتظر القسم ليس مانعاً هنا: الحفظ يسأل عنه سؤالاً واحداً (overrideRequestHolds). */
-    blocks: isBlockingConflict(conflict) && !conflict?.holdRequestId,
+    /* تعارضٌ قائمٌ في الصف المحفوظ قبل هذا التعديل (preexisting) يُقال بهدوء ولا يمنع إعادة حفظه (A6). */
+    blocks: isBlockingConflict(conflict) && !conflict?.holdRequestId && !conflict?.preexisting,
     conflict,
   }));
   /* حجزٌ واحد يتعارض فيه الأستاذ والقاعة معاً يُسمّى باسم الأستاذ (scheduleIntelligence) — فكانت «القاعة: سليم»
@@ -198,10 +227,17 @@ export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
     if (!chosen[note.kind] && note.kind !== "time") return;
     byKind.get(note.kind)!.push({ id: `note-${index}`, text: note.text, detail: note.detail, blocks: false });
   });
-  /* قرار المالك 2026-11-08: نهايةٌ أو أيامٌ تخالف النمط المعتمد لساعات المقرّر تمنع الحفظ (كان تنبيهاً). */
-  if (regulationBlocks) {
-    byKind.get("time")!.push({ id: "regulation", text: input.regulationNote || "النهاية لا توافق النمط المعتمد لساعات المقرر.", blocks: true });
+  if (regulationWarns && !serverSaysPattern) {
+    byKind.get("time")!.push({ id: "regulation", text: input.regulationNote || "النهاية لا توافق النمط المعتمد لساعات المقرر.", blocks: false });
   }
+  /* ما قاله الخادم من استثناءات اللائحة: ملاحظاتٌ لا تمنع، بلا تكرار لنصٍّ مذكور. */
+  const seenText = new Set(all0(byKind).map(item => item.text));
+  (input.regulationIssues || []).forEach((issue, index) => {
+    const text = String(issue?.text || "").trim();
+    if (!text || seenText.has(text) || !chosen.time) return;
+    seenText.add(text);
+    byKind.get("time")!.push({ id: `regexc-${issue.rule || index}-${index}`, text, blocks: false });
+  });
   const checks: VerdictCheck[] = ORDER
     .filter(kind => kind !== "facility" || companionRequired)
     .map(kind => {
@@ -229,4 +265,31 @@ export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
     okCount: checks.filter(check => check.state === "ok").length,
     canSave: !input.checking && !blockers.length,
   };
+}
+
+export interface RegulationNote { rule?: string; text: string; article?: string }
+
+/**
+ * ملاحظاتُ اللائحة التي قالها الخادم (regulationIssues) ملاحظاتٍ في الحكم نفسه، لمن لم يمرّرها إلى appointmentVerdict:
+ * تُضاف إلى بطاقة «الوقت» (لا تمنع)، وتُحدَّث القوائمُ والعدّادات والحالة معاً، فيتساوى ما يعدّه الشريطُ وما تسرده اللوحة.
+ * ما كان نصُّه مذكوراً في الحكم لا يتكرر. تُرجع الحكمَ نفسَه إن لم يضف شيئاً.
+ */
+export function withRegulationNotes(verdict: AppointmentVerdict, notes: readonly RegulationNote[] | undefined | null): AppointmentVerdict {
+  const fresh: VerdictDetail[] = [];
+  const seen = new Set(verdict.checks.flatMap(check => check.details.map(detail => detail.text)));
+  (notes || []).forEach((note, index) => {
+    const text = String(note?.text || "").trim();
+    if (!text || seen.has(text)) return;
+    seen.add(text);
+    fresh.push({ id: `regnote-${note.rule || index}-${index}`, text, detail: note.article ? `(${note.article})` : undefined, blocks: false });
+  });
+  if (!fresh.length) return verdict;
+  const checks = verdict.checks.map(check => {
+    if (check.kind !== "time") return check;
+    const state: CheckState = check.state === "block" ? "block" : "warn";
+    return { ...check, details: [...check.details, ...fresh], state, word: state === "block" ? "تعارض" : "تنبيه" };
+  });
+  const notesAll = [...verdict.notes, ...fresh];
+  const state: AppointmentVerdict["state"] = verdict.state === "ready" || verdict.state === "empty" ? "notes" : verdict.state;
+  return { ...verdict, checks, notes: notesAll, state, okCount: checks.filter(check => check.state === "ok").length };
 }

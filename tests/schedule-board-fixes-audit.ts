@@ -115,7 +115,7 @@ check(DECISION_1913_LABEL === "قرار 1913/2016", "DECISION_1913_LABEL = «ق�
     ["const addComment = async", "إضافة تعليق"],
     ["const resolveComment = async", "حسم تعليق"],
     ["const createQuick = async", "الإضافة السريعة"],
-    ["const moveSchedule = async", "النقل بالتأكيد"],
+    /* moveSchedule حُذفت (S14): شيفرة ميتة تكتب PUT بلا rev؛ النقل الحيّ هو commitMove وله مساره التجريبي المحلي. */
   ];
   guarded.forEach(([head, label]) => check(bodyOf(schedules, head, 700).includes("if (refuseInPractice()) return;"), `${label}: يُمنع أثناء التجربة بعبارة واضحة`));
   const roomMove = bodyOf(schedules, "const commitRoomMove = async", 6000);
