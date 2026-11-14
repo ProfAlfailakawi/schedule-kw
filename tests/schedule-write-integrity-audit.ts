@@ -182,6 +182,23 @@ try {
     check(gone.status === 404, "D4 حذفُ ما لا وجودَ له 404 لا نجاح", [gone.status, gone.body]);
   }
 
+  /* ═══ 8b. خارجُ النمط المعتمد: تنبيهٌ بتأكيدٍ صريح لا منع ═══ */
+  {
+    const odd = { fsunday: true, fmonday: true, ftuesday: true, fwednesday: false, fthursday: false };
+    const rooms = await freeRooms(odd, "15:00", "15:50");
+    const teachers = idle("15:00", "15:50");
+    const body = mk(940, { ...odd, fstarttime: "15:00", fendtime: "15:50", AdCourseId: course3[2], AdInstructorId: teachers[4].AdInstructorId, ...roomBody(rooms[rooms.length - 1]) });
+    const first = await call("POST", "/api/schedules", body);
+    const rules = (first.body?.regulation || []).map((issue: any) => issue.rule);
+    check(first.status === 409 && first.body?.code === "regulation-exception" && (rules.includes("pattern-days") || rules.includes("lecture-length")),
+      "X1 أيامٌ خارج النمط المعتمد: 409 regulation-exception (لا منع صريح 400)", [first.status, first.body?.code, rules]);
+    const confirmed = await call("POST", "/api/schedules", { ...body, regulationException: true });
+    check(confirmed.status === 201, "X2 وبالتأكيد الصريح يُحفظ", [confirmed.status, confirmed.body]);
+    const verdict = await call("POST", "/api/schedules/check-conflicts", { ...body, SCode: "941" });
+    check(!(verdict.body?.validationIssues || []).some((text: string) => /نمط/.test(text)) && (verdict.body?.regulation || []).length > 0,
+      "X3 فحصُ الحفظ يقول النمطَ في regulation لا في validationIssues", [verdict.body?.validationIssues, verdict.body?.regulation]);
+  }
+
   /* ═══ 9. استبدال الأستاذ: بديلٌ غير موجود ═══ */
   {
     const rows = await board();

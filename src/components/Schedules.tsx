@@ -4,6 +4,7 @@ import WipeScheduleButton from "./WipeScheduleButton";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
 import { arabicMatchKey } from "../utils/arabicText";
 import { trapFocusRef } from "../hooks/useFocusTrap";
+import { buildBusyIndex, indexedBlockers } from "./SchedulePhysics/blockerIndex";
 import TermSelect from "./TermSelect";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { isPhoneDevice } from "../utils/workspaceSize";
@@ -94,7 +95,7 @@ import TeacherMiniWeek, { MiniWeekToggle, forgetMiniWeekRows, useMiniWeekEnabled
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
-import { appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
+import { appointmentSaveGaps, appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
 import { bestRegulationChoice, completeRegulation, completeSectionEnd, endIsDeliberate, patternLengthIssue, pickDay, sameScheduleShape, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, wheelLengths, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { spellingTwinsOf } from "../utils/courseSpellingTwins";
@@ -173,7 +174,7 @@ import { isTermClosed, previousYearSameTermName, sameTermName, sortTermsNewest, 
 import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
 import SameSlotHint from "./SameSlotHint";
-import { conflictSkipIds } from "../utils/sameSlot";
+import { conflictSkipIds, sectionCodeKey } from "../utils/sameSlot";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
 import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
 import { TimeCounterPopover } from "./TimeCounter";
@@ -219,6 +220,7 @@ import { changeFormPatch, openRowNotice, takeOpenRow, type RequestedChange } fro
 import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHandoff } from "../utils/sectionRequestHandoff";
 import { ACTUAL_DEMAND_HANDOFF_EVENT, actualDemandNotice, FOCUS_COURSE_EVENT, graduateImpactNote, takeActualDemandHandoff, takeFocusedCourse } from "../utils/actualDemandHandoff";
 import { freshSectionOf, parseHoursIssue } from "../utils/hoursIssue";
+import ChainSolveSheet from "./ChainSolveSheet";
 import StudentPulse, { FitImpact, saveImpactOf, type BestTime, type SaveImpact } from "./StudentPulse";
 import type { StudentFit } from "../utils/studentFit";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
@@ -3153,6 +3155,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const pendingHandoff = useRef<RequestHandoff | null>(null);
   /** صورةُ النموذج لحظة فتحه: ما خالفها لم يُحفظ بعد (انظر requestClose). */
   const editorSnapshot = useRef<string | null>(null);
+  const editBaseline = useRef<FSchedule | null>(null);
   /* أيامٌ بُذرت من خانة مرسومة (لم تُختر نمطاً) تُكمل حين يُعرف المقرر. */
   const daysSeeded = useRef(false);
   const timingCourseKey = useRef(0);
@@ -3295,7 +3298,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setEditId(null);
       setEditor("create");
     },
-    openEdit = (row: FSchedule, savedRow?: FSchedule) => {
+    openEdit = (row: FSchedule) => {
       if (showMobileReadOnlyGate() || lockRefusesEdit()) return;
       /* التعديل يحمّل هذا الموعد وحده، بلا أثرٍ من موعد سابق. */
       clearEditorTransients();
@@ -3315,6 +3318,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setForm(values);
       /* الأصل لمقياس «تغيّر شيء» هو الموعد المحفوظ لا ما فُتح به النموذج: بديلٌ مقترح
          يُفتح معبّأً فيكون النموذج مختلفاً عن المحفوظ فيُضيء الحفظ ويُسأل عند الإغلاق. */
+      /* الأصل يمرّ بمرجعٍ من openEditAlternative وحده (يُستهلك هنا): توقيع openEdit يبقى موعداً واحداً. */
+      const savedRow = editBaseline.current;
+      editBaseline.current = null;
       if (savedRow) {
         const { id: _sid, AdCourseName: _sname, ...savedValues } = savedRow as any;
         if (!String(savedValues.SCode || "").trim()) savedValues.SCode = values.SCode;
@@ -3662,7 +3668,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         ? { ...merged, ...registry }
         : { ...merged, buildingId: undefined, roomId: undefined, locationStatus: undefined };
     }
-    openEdit({ ...row, ...merged, id: row.id } as FSchedule, row);
+    editBaseline.current = row;
+    openEdit({ ...row, ...merged, id: row.id } as FSchedule);
   };
   const openBorrow = async () => {
     studioMark("borrow");
@@ -3836,6 +3843,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* ── «سبقك زميل ⏱️» ──────────────────────────────────────────────────────────
      الخادم يعيد 409 برمز slot-taken حين يأخذ كاتبٌ آخر القاعة أو الأستاذ بين الفحص والكتابة. النموذج يبقى كما هو،
      ويُقال ما أُخذ ومتى، ويُعرض بديلان جاهزان من محرّك الاقتراح نفسه — لا خطأ عامٌّ ولا بدء من الصفر. */
+  /* «حلّ بسلسلة»: ورقة تقترح نقل مواعيد أخرى تُخلي المكان للمسوّدة (src/utils/chainSolve). */
+  const [chainOpen, setChainOpen] = useState(false);
   const [slotTaken, setSlotTaken] = useState<{ what: string; when: string; options: any[]; loading: boolean } | null>(null);
   const handleSlotTaken = async (failure: any, attempted: Partial<FSchedule>) => {
     const issues: any[] = Array.isArray(failure?.issues) ? failure.issues : [];
@@ -3864,10 +3873,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (!free.length || (form.roomId && free.some(slot => slot.roomId === form.roomId))) return;
       const first = free[0];
       /* بين الضغطة والرد قد يختار المستخدم قاعةً أو أستاذاً أو يغيّر الأيام: لا نكتب فوق اختياره. */
-      setForm(previous => Number(previous.AdCourseId || 0) !== courseId || previous.fstarttime !== best.start
-        || Number(previous.AdInstructorId || 0) !== clickInstructor
+      setForm(previous => Number(previous.AdInstructorId || 0) !== clickInstructor
         || String(previous.roomId || "") !== clickRoom || String(previous.AdRoomCode || "") !== clickCode || String(previous.AdRoomHall || "") !== clickHall
-        || days.map(day => (previous as any)[day.key] ? "1" : "0").join("") !== bestDaysKey ? previous : {
+        || days.map(day => (previous as any)[day.key] ? "1" : "0").join("") !== bestDaysKey
+        || Number(previous.AdCourseId || 0) !== courseId || previous.fstarttime !== best.start ? previous : {
         ...previous, buildingId: first.buildingId, roomId: first.roomId, AdRoomCode: first.room, AdRoomHall: first.hall, locationStatus: "VERIFIED" as const,
         ...(first.companionRoomId ? { companionRoomId: first.companionRoomId, companionRoomLabel: first.companionRoomLabel || "" } : {}),
       });
@@ -4386,7 +4395,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* الشريحةُ المضيئة تقول ما في النموذج فعلاً: يومٌ منفرد بطولٍ آخر ليس «اثنين · 170د» (كانت تضيء والنهاية 08:30). */
   const formRegulationSpan = form.fstarttime && form.fendtime ? mins(String(form.fendtime)) - mins(String(form.fstarttime)) : 0;
   const formRegulationChoice = useMemo(() => regulationChoiceFor(formCourse, formDays, formRegulationSpan), [formCourse, formDays.join("+"), formRegulationSpan]);
-  const formRegulationFit = regulationFit(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || ""));
+  /* شقيقاتُ الشعبة نفسها (المقرر + رقمها القانوني) غير الصفّ المُحرَّر: حكمُ النمط يراها كما يراها الخادم. */
+  const formSiblings = useMemo(() => {
+    const code = sectionCodeKey(form.SCode);
+    if (!formCourse || !code) return [] as FSchedule[];
+    return formScopeRows.rows.filter(row => Number(row.AdCourseId) === Number(form.AdCourseId) && sectionCodeKey(row.SCode) === code && Number(row.id) !== Number(editId || 0));
+  }, [formScopeRows.rows, form.AdCourseId, form.SCode, editId, formCourse]);
+  const formRegulationFit = regulationFit(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || ""), formSiblings as any);
   const formRegulationChips = useMemo(() => {
     const pool = [...(formRegulationChoice ? [formRegulationChoice] : []), ...regulationAlternatives,
       ...(formDays.length ? regulationChoicesForDay(formCourse, formDays[0]) : [])];
@@ -4561,6 +4576,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
        القاعدةُ نفسُها التي يتخطّى بها الخادم (sameScheduleShape ← unchangedShape). */
     regulation: editor === "edit" && sameScheduleShape((editorOriginalRow || formScopeRows.rows.find(row => Number(row.id) === Number(editId))) as any, form as any) ? "unknown" : formRegulationFit,
     /* سطرٌ واحد يقول النهاية الصحيحة (المالك 2026-11-08)، ومعه «طبّق النمط» في شريط الموانع. */
+    regulationIssues,
     regulationNote: patternLengthIssue(formCourse, formDays, String(form.fstarttime || ""), String(form.fendtime || "")) || "أيام الموعد أو مدته ليست نمطاً معتمداً لساعات المقرر.",
     notes: [
       ...editorSupplementalCards.map(card => ({ kind: "time" as const, text: String(card.title || ""), detail: String(card.detail || "") || undefined })),
@@ -4572,7 +4588,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      • النهاية تخالف النمط ← «طبّق النمط» (الأيام والنهاية من المكتبة).
      • الشعبة نفسها أخذت ساعاتها والموعدُ وحده يتّسع ← الخادم يقول الرقم الحرّ التالي، فيُعرض «شعبة جديدة N»
        وسطرٌ قصير يقول السبب. من قصد الإضافة إلى الشعبة القائمة يبقى المنعُ (القاعدة)، و«بديل» يقترح غيره. */
-  const editorRegulationBlocked = editorVerdict.blockers.some(item => item.id === "regulation") && regulationHours(formCourse) > 0;
+  const editorRegulationBlocked = editorVerdict.notes.some(item => item.id === "regulation") && regulationHours(formCourse) > 0;
   /* الأرقامُ من قارئٍ واحد (src/utils/hoursIssue.ts) يفهم «ساعة واحدة» و«ساعتان» و«12 ساعة»، لا من تعبيرٍ منسوخ. */
   const editorUnderIssue = editorVerdict.blockers.map(item => parseHoursIssue(item.text)).find(issue => issue?.kind === "under");
   const editorUnderHours = editorUnderIssue?.kind === "under" ? ["", String(editorUnderIssue.got), String(editorUnderIssue.need)] as const : null;
@@ -4584,7 +4600,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const editorFitStart = (() => {
     if (!editorVerdict.blockers.some(item => /ضمن الدوام الشامل/.test(item.text)) || !(formSpan > 0)) return "";
     const last = mins(SCHEDULE_DAY_END_TIME), first = mins(SCHEDULE_DAY_START_TIME);
-    const fits = ladderStartsForDays(formDays as RegDayKey[]).filter(time => mins(time) >= first && mins(time) + formSpan <= last).sort();
+    const fits = ladderStartsForDays(formDays as RegDayKey[], undefined, undefined, formSpan).filter(time => mins(time) >= first && mins(time) + formSpan <= last).sort();
     return fits.length ? fits[fits.length - 1] : "";
   })();
   const editorBlockerLine = (text: string) => {
@@ -4888,30 +4904,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return candidate;
   };
 
+  /* فهرس الانشغال يُبنى مرةً لكل تغيّر في الصفوف: السؤال «هل تتعارض هذه الخانة؟» يمسح صفوف الأستاذ والقاعة وحدهما
+     لا الجدول كلَّه (SchedulePhysics/blockerIndex). الحكم مطابقٌ للمسح الكامل القديم، يثبته اختبار. */
+  const busyIndex = useMemo(() => buildBusyIndex(rows, row => {
+    const identity = roomIdentity(row.AdRoomCode, row.AdRoomHall);
+    return identity.buildingKey || identity.hallKey ? identity.key : "";
+  }, mins), [rows]);
   const localPhysicsBlockers = useCallback((source: FSchedule, probe: FSchedule) => {
-    const samePlacement = (a: FSchedule, b: FSchedule) =>
-      a.fstarttime === b.fstarttime && a.fendtime === b.fendtime &&
-      days.every(day => Boolean((a as any)[day.key]) === Boolean((b as any)[day.key]));
-    const combinedDelivery = (a: FSchedule, b: FSchedule) =>
-      a.AdCourseId === b.AdCourseId && String(a.SCode) !== String(b.SCode) &&
-      Boolean(a.AdInstructorId) && a.AdInstructorId === b.AdInstructorId &&
-      sameRoom(a, b) && samePlacement(a, b);
-    const blockers: Array<{ type: "instructor" | "room"; severity: "high"; message: string; detail: string }> = [];
-    for (const other of rows) {
-      if (other.id === source.id || other.AdTermId !== probe.AdTermId || combinedDelivery(probe, other)) continue;
-      const sharesDay = days.some(day => Boolean((probe as any)[day.key]) && Boolean((other as any)[day.key]));
-      const overlaps = mins(probe.fstarttime) < mins(other.fendtime) && mins(other.fstarttime) < mins(probe.fendtime);
-      if (!sharesDay || !overlaps) continue;
-      const detail = `${other.AdCourseName || courseById.get(other.AdCourseId)?.CourseName || "موعد آخر"} · ${formatScheduleTimeRange(other.fstarttime, other.fendtime)}`;
-      if (probe.AdInstructorId && probe.AdInstructorId === other.AdInstructorId) {
-        blockers.push({ type: "instructor", severity: "high", message: "الأستاذ مرتبط بموعد آخر", detail });
-      }
-      if ((probe.AdRoomCode || probe.AdRoomHall) && sameRoom(probe, other)) {
-        blockers.push({ type: "room", severity: "high", message: "القاعة محجوزة في هذا الوقت", detail });
-      }
-    }
-    return blockers;
-  }, [rows, courseById]);
+    const identity = (probe.AdRoomCode || probe.AdRoomHall) ? roomIdentity(probe.AdRoomCode, probe.AdRoomHall) : null;
+    const probeRoomKey = identity && (identity.buildingKey || identity.hallKey) ? identity.key : "";
+    return indexedBlockers(busyIndex, source, probe, probeRoomKey, mins, other =>
+      `${other.AdCourseName || courseById.get(other.AdCourseId)?.CourseName || "موعد آخر"} · ${formatScheduleTimeRange(other.fstarttime, other.fendtime)}`);
+  }, [busyIndex, courseById]);
 
   const evaluatePhysicsTarget = async (
     row: FSchedule,
@@ -5365,18 +5369,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       if (registry) { form = { ...form, ...registry } as typeof form; setForm(current => ({ ...current, ...registry })); }
       else { setError("القاعة المكتوبة غير مسجّلة في سجل المباني؛ اخترها من قائمة القاعات."); return; }
     }
-    if (
-      !form.AdCollegeId ||
-      !form.AdSectionId ||
-      !form.AdTermId ||
-      !form.AdCourseId ||
-      !form.SCode ||
-      !form.AdInstructorId ||
-      !form.fstarttime ||
-      !form.fendtime ||
-      !form.buildingId ||
-      (!form.roomId && form.locationStatus !== "PENDING_ROOM")
-    ) {
+    /* الحكم الواحد appointmentSaveGaps: الشريط وزرّ الحفظ وsave() يتفقون على ما ينقص فعلاً. */
+    const gaps = appointmentSaveGaps(form as any);
+    if (!form.AdCollegeId || !form.AdSectionId || !form.AdTermId || (gaps.length && !(gaps.length === 1 && gaps[0] === "days"))) {
       setError("الرجاء إدخال الحقول المطلوبة بالأحمر");
       return;
     }
@@ -8227,12 +8222,14 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * pointer actually arrives, and the server remains the only thing that can
    * block a save.
    */
+  const dragFieldIdle = physics.state.phase === "idle" || physics.state.phase === "armed";
   const dragField = useMemo(() => {
     const blocked = new Map<string, string>();
     const tier = new Map<string, "free" | "room" | "blocked">();
     const suggestions: Array<{ day: DayKey; start: string; score: number; roomKey?: string }> = [];
     const carried = physics.state.row;
-    if (!carried || physics.state.phase === "idle") return { blocked, tier, suggestions };
+    // «armed» ضغطةٌ لم تصر سحباً (نقرةٌ تفتح الموعد غالباً): لا نحسب الحقل لها، بل حين يبدأ السحب فعلاً.
+    if (!carried || dragFieldIdle) return { blocked, tier, suggestions };
 
     const instructorRows = rows.filter(item =>
       item.id !== carried.id && Boolean(carried.AdInstructorId) && item.AdInstructorId === carried.AdInstructorId);
@@ -8324,7 +8321,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     }
     suggestions.sort((a, b) => b.score - a.score);
     return { blocked, tier, suggestions: suggestions.slice(0, 3) };
-  }, [physics.state.row, physics.state.phase, rows, viewMode, timeSlots, gridWindow, localPhysicsBlockers]);
+  }, [physics.state.row, dragFieldIdle, rows, viewMode, timeSlots, gridWindow, localPhysicsBlockers]);
   const dragSuggestions = dragField.suggestions;
   const suggestionRank = useMemo(() => {
     const map = new Map<string, number>();
@@ -9792,7 +9789,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioScopeMissing = !Number(form.AdCollegeId || 0) || !Number(form.AdSectionId || 0) || !Number(form.AdTermId || 0);
   const studioScopeExpanded = studioScopeMissing || studioScopeOpen;
   const studioTermName = String(terms.find(term => Number(term.AdTermId) === Number(form.AdTermId))?.AdTermName || "");
-  const studioBlockers = editorVerdict.blockers.length, studioNotes = Math.max(editorVerdict.notes.length, regulationIssues.length);
+  const studioBlockers = editorVerdict.blockers.length, studioNotes = editorVerdict.notes.length;
   const studioTone = approvalLock ? "locked" : studioBlockers ? "block" : checking ? "checking" : studioMissing.length ? "missing" : studioNotes ? "warn" : "ok";
   const studioDuration = form.fstarttime && form.fendtime ? Math.max(0, mins(String(form.fendtime)) - mins(String(form.fstarttime))) : 0;
   const studioEndByPattern = Boolean(form.fendtime) && !timingOverride && regulationHours(formCourse) > 0 && formRegulationFit !== "off";
@@ -9823,7 +9820,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     </section>
   );
   /* حين يُجاب سؤالٌ في «موعد جديد» ينطوي، ويُسلَّم المؤشر للسؤال التالي — بلا قفزٍ عند الفتح. */
-  const studioDoneNow = { scope: !studioScopeMissing, course: studioCourseDone, teacher: studioTeacherDone };
+  const studioDoneNow = { scope: !studioScopeMissing, course: studioCourseDone, teacher: studioTeacherDone, time: studioTimeDone };
   const studioDonePrev = useRef(studioDoneNow);
   const studioDoneKey = `${editor}|${editId || 0}`;
   const studioDoneOpenedKey = useRef(studioDoneKey);
@@ -9832,18 +9829,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     studioDonePrev.current = studioDoneNow;
     if (studioDoneOpenedKey.current !== studioDoneKey) { studioDoneOpenedKey.current = studioDoneKey; return; }
     if (editor !== "create") return;
-    const next = !prev.scope && studioDoneNow.scope ? "course" : !prev.course && studioDoneNow.course ? "teacher" : !prev.teacher && studioDoneNow.teacher ? "time" : "";
+    const next = !prev.scope && studioDoneNow.scope ? "course" : !prev.course && studioDoneNow.course ? "teacher" : !prev.teacher && studioDoneNow.teacher ? "time" : !prev.time && studioDoneNow.time ? "place" : "";
     if (!next) return;
     window.requestAnimationFrame(() => {
       const step = document.querySelector<HTMLElement>(`.schedule-editor.is-studio [data-appt-step="${next}"]`);
       if (!step) return;
       const reduce = Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-      step.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+      /* «أين؟» كانت تُرسم خلف شريط الحفظ اللاصق بلا تمرير: تُنزَل إلى منتصف الشاشة (و scroll-padding-bottom في CSS يحفظ لها مكاناً فوق الشريط). */
+      step.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: next === "place" ? "center" : "nearest" });
+      if (next === "place") return;
       const target = step.querySelector<HTMLElement>(next === "course" ? 'button[aria-label="المقرر الدراسي"]' : next === "teacher" ? ".instructor-trigger" : ".day-pills input");
       target?.focus({ preventScroll: true });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studioDoneKey, studioDoneNow.scope, studioDoneNow.course, studioDoneNow.teacher]);
+  }, [studioDoneKey, studioDoneNow.scope, studioDoneNow.course, studioDoneNow.teacher, studioDoneNow.time]);
   useEffect(() => { studioMeter.current?.blocked(editorVerdict.blockers.length > 0); }, [editorVerdict.blockers.length > 0]);
   const studioChip = (done: boolean, changed?: boolean) => `appt-chip${done ? "" : " is-missing"}${changed ? " is-changed" : ""}`;
   const studioInitial = String(selectedInstructor?.AdInstructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
@@ -10149,7 +10148,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           min={SCHEDULE_DAY_START_TIME}
           max={SCHEDULE_DAY_END_TIME}
                       value={form.fstarttime}
-                      suggestions={ladderStartsForDays(formDays as RegDayKey[])}
+                      suggestions={ladderStartsForDays(formDays as RegDayKey[], undefined, undefined, formSpan)}
                       onOutOfRange={(limit) => {
                         const boundary = limit === "max" ? SCHEDULE_DAY_END_TIME : SCHEDULE_DAY_START_TIME;
                         setStartTimeLimitNotice(`${limit === "max" ? "ينتهي الدوام" : "يبدأ الدوام"} عند ${scheduleClockForDisplay(boundary)}.`);
@@ -10272,7 +10271,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
                   {studioTimeDone ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact}
                     best={bestTime && (bestTime.start !== String(form.fstarttime || "") || bestTime.days.join() !== formDays.join()) ? bestTime : null}
-                    bestBusy={bestBusy} currentDays={formDays} onPickBest={best => void pickBestTime(best)} /> : null}
+                    bestBusy={bestBusy} currentDays={formDays} onPickBest={best => void pickBestTime(best)} loading={checking} showEmpty /> : null}
                   <div className="appt-helpers" role="group" aria-label="مساعدات الوقت">
                     <span className="appt-helpers-label">مساعدات الوقت</span>
                     <button
@@ -10662,6 +10661,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             lockedReason={approvalLock}
             alternativeBusy={altBusy}
             onAlternative={() => goToAlternatives()}
+            onChainSolve={() => setChainOpen(true)}
             onApplyPattern={patternOverridden ? applyApprovedPattern : undefined}
             onOpenReach={formReachNote ? () => void formReach.setOpen(Number(form.AdCourseId || 0), true) : undefined}
             reachBusy={Boolean(formReach.busy)}
@@ -10687,7 +10687,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <ClipboardCheck />
                     <span><strong>موانع اللائحة</strong><small>{DECISION_1913_LABEL}</small></span>
                   </span>
-                  <em className="decision-regulation-count">{countOf(editorRegulation.length, AR.approvalBlocker)}</em>
                 </summary>
                 <div className="decision-accordion-body">
                   <section className="decision-section decision-section--regulation" role="status" aria-label={`ملاحظات اللائحة · ${DECISION_1913_LABEL}`}>
@@ -10765,6 +10764,36 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               </div>
             ) : null}
           </AppointmentChecksPanel>
+          {chainOpen ? (
+            <ChainSolveSheet
+              open={chainOpen}
+              onClose={() => setChainOpen(false)}
+              input={{
+                draft: {
+                  courseId: Number(form.AdCourseId || 0) || undefined,
+                  courseName,
+                  courseCode: String(formCourse?.CourseCode || ""),
+                  sectionCode: String(form.SCode || ""),
+                  instructorId: Number(form.AdInstructorId || 0) || undefined,
+                  room: { buildingId: form.buildingId, roomId: form.roomId, code: String(form.AdRoomCode || ""), hall: String(form.AdRoomHall || "") },
+                  days: formDays as any,
+                  start: String(form.fstarttime || ""),
+                  end: String(form.fendtime || ""),
+                  editId: editor === "edit" ? Number(editId || 0) || undefined : undefined,
+                },
+                rows: [...new Map([...rows, ...formScopeRows.rows].filter(row => Number(row.AdTermId) === Number(form.AdTermId)).map(row => [Number(row.id), row] as const)).values()],
+                conflicts,
+                scope: { collegeId: Number(form.AdCollegeId || 0), sectionId: Number(form.AdSectionId || 0), termId: Number(form.AdTermId || 0) },
+                frozen: termFrozen,
+                approvalLocked: Boolean(approvalLock),
+                holds: studioHolds.holds.map((hold: any) => ({ days: hold.days, start: hold.start, end: hold.end, roomCode: hold.roomCode, roomHall: hold.roomHall, instructorId: hold.instructorId, editId: hold.editId })),
+                placeholderInstructorIds: studioPlaceholderIds,
+                courseHours: repairCourseHours,
+              }}
+              onApplied={() => { forgetSuggestions(); checkCache.current.clear(); lastCheckFormKey.current = ""; void loadRows({ silent: true }).catch(() => undefined); }}
+              onUndone={() => { forgetSuggestions(); checkCache.current.clear(); lastCheckFormKey.current = ""; void loadRows({ silent: true }).catch(() => undefined); }}
+            />
+          ) : null}
           </div>
         </div>
       </div>

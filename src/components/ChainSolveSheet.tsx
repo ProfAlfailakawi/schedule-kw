@@ -5,6 +5,7 @@ import {
   TriangleAlert, Undo2, UserRound, X, type LucideIcon,
 } from "lucide-react";
 import { useDialogDismiss } from "./ui";
+import { trapFocusRef } from "../hooks/useFocusTrap";
 import { settleRegulationException } from "./RegulationExceptionSheet";
 import {
   CHAIN_MAX_MOVES, CHAIN_REASON, chainImpactLine, solveChain,
@@ -313,14 +314,8 @@ export default function ChainSolveSheet({ open, onClose, input, onApplied, onUnd
     const id = window.requestAnimationFrame(() => (primaryRef.current || panel?.querySelector<HTMLElement>(FOCUSABLE))?.focus());
     return () => window.cancelAnimationFrame(id);
   }, [open, phase]);
-  const onKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (event.key !== "Tab") return;
-    const items = [...(panelRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) || [])].filter(el => el.offsetParent !== null || el === document.activeElement);
-    if (!items.length) { event.preventDefault(); return; }
-    const first = items[0], last = items[items.length - 1];
-    if (event.shiftKey && (document.activeElement === first || !panelRef.current?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && (document.activeElement === last || !panelRef.current?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
-  }, []);
+  /* الحبس والعودة بالمرجع المشترك (useFocusTrap): مرجعٌ ثابتٌ كي لا يُعاد تركيبه في كل رسم. */
+  const panelRefCallback = useCallback((element: HTMLDivElement | null) => { panelRef.current = element; return trapFocusRef(element); }, []);
 
   const apply = async () => {
     if (!solution?.ok || phase === "applying") return;
@@ -363,9 +358,9 @@ export default function ChainSolveSheet({ open, onClose, input, onApplied, onUnd
 
   if (!open || typeof document === "undefined") return null;
   return createPortal(
-    <div className="chain-layer" onKeyDown={onKeyDown}>
+    <div className="chain-layer">
       <div className="chain-backdrop" onClick={() => { if (phase !== "applying" && phase !== "undoing") onClose(); }} aria-hidden="true" />
-      <div className="chain-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={panelRef} dir="rtl">
+      <div className="chain-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={panelRefCallback} dir="rtl">
         <span className="chain-grip" aria-hidden="true" />
         <ChainSolveView phase={phase} solution={solution} impact={impact} impactBusy={impactBusy} draftLabel={draftLabel} error={error} titleId={titleId} primaryRef={primaryRef}
           onApply={() => void apply()} onCancel={onClose} onClose={onClose} onUndo={() => void undo()}

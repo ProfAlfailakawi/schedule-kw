@@ -8635,3 +8635,19 @@ html[data-schedule-workspace="presentation"] .schedule-status{padding:0;border:0
 .publish-track-events time{flex:none;color:var(--muted);font-size:11.5px;text-align:end}
 /* من ثبّت جدوله ومعه تنبيهُ مدّةٍ لا يمنع: يراه القسم (قرار المالك) */
 .request-confirmed-soft{display:block;margin-top:2px;color:var(--warning,#b7791f);font-size:11.5px;line-height:1.6}
+
+/* ── أسبوع الأستاذ المصغّر: اسم المقرر لا يُكسر حرفاً حرفاً (U2) ─────────────────
+ * overflow-wrap:anywhere كان يقطع «التكنولوجيا» في منتصفها في الأعمدة الضيقة. الكلمة تبقى كلمة
+ * (القصّ بنقاط عند السطر الأخير)، والخط أصغر، وفي العمود الأضيق يحلّ رمز المقرر محلّ الاسم. */
+.mini-week .mini-week-chip-text b.mini-week-chip-name{overflow-wrap:break-word;word-break:normal;hyphens:manual;text-overflow:ellipsis}
+.mini-week .mini-week-chip-code{display:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 9px/1.2 var(--font-mono);color:var(--ink)}
+.mini-week-track{container-type:inline-size}
+@container (max-width:62px){
+  .mini-week .mini-week-chip-text b.mini-week-chip-name{display:none}
+  .mini-week .mini-week-chip-code{display:block}
+}
+
+/* ── شريط الحفظ اللاصق لا يغطّي ما يُركَّز عليه (U1) ──────────────────────────────
+ * الصفحة هي حاوية التمرير: هذا الهامش يجعل scrollIntoView والتنقّل بـTab يتركان العنصر فوق الشريط. */
+:root:has(.schedule-editor.is-studio){scroll-padding-bottom:168px}
+.schedule-editor.is-studio :is(.appt-step,input,select,textarea,button){scroll-margin-bottom:168px}

@@ -163,7 +163,8 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   const payloadIssues=await schedulePayloadIssues(req.body);
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   /* ساعاتُ المقرّر والنمطُ المعتمد لكل من يُنشئ موعداً (المالك 2026-10-30) — الحكمُ الواحد sectionShapeIssue. */
-  {const shapeIssue=await sectionShapeIssue(req.body,(req as any).__hypotheticalWeek,{skipPattern:Boolean((req as any).__exactRestore)});
+  /* هنا ساعاتُ الشعبة وحدها تمنع؛ النمطُ المعتمد ونهايتُه تنبيهٌ بتأكيدٍ صريح (regulationExceptionsFor). */
+  {const shapeIssue=await sectionShapeIssue(req.body,(req as any).__hypotheticalWeek,{skipPattern:true});
   if(shapeIssue){res.status(400).json({error:shapeIssue,issues:[{type:"validation",severity:"high",message:shapeIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
@@ -200,7 +201,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   if(blockingSave.length){res.status(409).json({error:blockingSave[0].message||"يوجد تعارض يمنع الحفظ",issues:blockingSave});return;}
   /* مخالفةُ لائحةٍ لا تمنع: لا تُحفظ إلا بتأكيدٍ صريح من القسم (ملاحظتا المالك 10 و20). المساراتُ الداخلية
      (اعتمادُ طلب أستاذ، المقترح، آلة الزمن…) حكمت قبل أن تصل هنا، وكرتُ الأستاذ يمنع بنفسه. */
-  const createException=skipsRegulation(req)?[]:await regulationExceptionsFor(canonicalBody,(req as any).__hypotheticalWeek);
+  const createException=skipsRegulation(req)?[]:await regulationExceptionsFor(canonicalBody,(req as any).__hypotheticalWeek,{skipPattern:Boolean((req as any).__exactRestore)});
   res.locals.regulationException=createException;
   if(regulationRefused(req,createException)){res.status(409).json(regulationExceptionRefusal(createException));return;}
 
@@ -338,7 +339,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) يبقى كما هو؛ ومن غيّر شيئاً منها فبنمطٍ معتمد. */
   /* وتغييرُ المقرّر أو الرمز وحده لا يُمنع بمخالفةٍ كانت قائمةً في الصفّ نفسه (editShapeIssue). */
-  {const shapeIssue=await editShapeIssue(existing,{...req.body,id},(req as any).__hypotheticalWeek,{skipPattern:Boolean((req as any).__exactRestore)});
+  {const shapeIssue=await editShapeIssue(existing,{...req.body,id},(req as any).__hypotheticalWeek,{skipPattern:true});
   if(shapeIssue){res.status(400).json({error:shapeIssue,issues:[{type:"validation",severity:"high",message:shapeIssue}]});return;}}
 
   const collegeId = parseInt(AdCollegeId), sectionId = parseInt(AdSectionId), termId = parseInt(AdTermId), courseId = parseInt(AdCourseId), instructorId = parseInt(AdInstructorId);
@@ -383,7 +384,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
      وتغييرُ الأستاذ وحده يُسأل عن تتاليه. */
   const keptShape=sameScheduleShape(existing as any,req.body);
   const editException=skipsRegulation(req)?[]:await regulationExceptionsFor({...canonicalBody,id},(req as any).__hypotheticalWeek,{
-    shapeChanged:!keptShape,sequenceChanged:!keptShape||Number(existing.AdInstructorId||0)!==instructorId});
+    shapeChanged:!keptShape,sequenceChanged:!keptShape||Number(existing.AdInstructorId||0)!==instructorId,existing,skipPattern:Boolean((req as any).__exactRestore)});
   res.locals.regulationException=editException;
   if(regulationRefused(req,editException)){res.status(409).json(regulationExceptionRefusal(editException));return;}
 

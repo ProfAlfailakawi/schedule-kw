@@ -10,6 +10,7 @@ import { REGULATION_EXCEPTION_CODE, REGULATION_EXCEPTION_FLAG, type RegulationEx
  */
 const RULE_ICON: Record<RegulationExceptionRule, typeof Clock3> = {
   "lecture-length": Clock3,
+  "pattern-days": CalendarClock,
   "start-ladder": Clock3,
   "fixed-start": CalendarClock,
   "consecutive-long": Layers,

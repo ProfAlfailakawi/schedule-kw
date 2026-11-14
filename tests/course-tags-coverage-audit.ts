@@ -47,7 +47,7 @@ const COURSE_EXCEPTIONS: Exception[] = [
   { file: "src/components/StudentRegistration.tsx", text: `current.course.name`, reason: STUDENT },
   { file: "src/components/SectionSimulator.tsx", text: `impact.card.courseCode`, reason: SENTENCE },
   { file: "src/components/TAPhasePanel.tsx", text: `row.courseName`, reason: PILL },
-  { file: "src/components/StudentPulse.tsx", text: `clash.name`, reason: "مقررٌ من تقرير الطلب الفعلي داخل شريحة «نبض الطلبة» الصغيرة (رقمه بجانبه) — الشريحةُ عدٌّ لا بطاقةُ مقرر" },
+  { file: "src/components/ChainSolveSheet.tsx", text: `step.courseCode`, reason: PILL },
   { file: "src/components/Schedules.tsx", text: "courseName || \"المقرر\"", reason: "شريحةُ ملخّص الموعد في شريط الحفظ — الوسومُ في سطر «المقرر» فوقها في النموذج نفسه" },
   { file: "src/components/Schedules.tsx", text: `guideGhostDiff.before.AdCourseName || "المقرر المحدد"`, reason: "معاينةُ الجولة الإرشادية (لا تحفظ) — عنوانٌ مؤقت" },
   { file: "src/components/Schedules.tsx", text: `clash.current.AdCourseName || courseById.get(clash.current.AdCourseId)?.CourseName || "الموعد"`, reason: "نافذةُ تعارض الحفظ: نسختان للموعد نفسه جنباً إلى جنب — الفرقُ في الوقت والقاعة لا في المقرر" },

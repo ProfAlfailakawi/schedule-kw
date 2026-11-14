@@ -5,6 +5,8 @@ import {
 } from "lucide-react";
 import { withRegulationNotes, type AppointmentVerdict, type CheckKind, type RegulationNote, type VerdictCheck, type VerdictDetail } from "../utils/appointmentVerdict";
 import { isReachNote } from "../utils/courseReach";
+import { chainOffered } from "../utils/chainSolve";
+import { ChainSolveButton } from "./ChainSolveSheet";
 
 /**
  * ── «فحص موانع الحفظ» إنفوجرافيكاً ─────────────────────────────────────────
@@ -75,7 +77,7 @@ function shownDetails(check: VerdictCheck): VerdictDetail[] {
 }
 
 export default function AppointmentChecksPanel({
-  verdict: verdictIn, regulationNotes, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, onOpenReach, reachBusy = false, missing = [], saveLabel = "موافق", children,
+  verdict: verdictIn, regulationNotes, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, onOpenReach, onChainSolve, reachBusy = false, missing = [], saveLabel = "موافق", children,
 }: {
   verdict: AppointmentVerdict;
   /** ما قاله الخادم من استثناءات اللائحة (regulationIssues): تُسرد ملاحظاتٍ في بطاقة «الوقت» وتُعدّ مع الملاحظات، فيطابق
@@ -84,6 +86,8 @@ export default function AppointmentChecksPanel({
   checking: boolean;
   /** «بديل» بجانب المانع: يطلب بديلاً آمناً من محرّك الاقتراح الواحد. */
   onAlternative?: (check: VerdictCheck, detail: VerdictDetail) => void;
+  /** «حلّ بسلسلة» بعد «بديل»: يظهر لمانع أستاذٍ أو قاعةٍ من تعارض مواعيد (chainOffered). */
+  onChainSolve?: () => void;
   alternativeBusy?: boolean;
   /** بطاقة التعارض التفصيلية (خط زمني) حين يُفتح البند. */
   renderConflict?: (detail: VerdictDetail) => React.ReactNode;
@@ -159,6 +163,7 @@ export default function AppointmentChecksPanel({
                 {detail.blocks && onAlternative && !(onApplyPattern && isPatternDetail(detail.text)) ? <button type="button" className="checks-alt" disabled={alternativeBusy}
                   data-guide-ignore="يطلب بديلاً آمناً لهذا المانع من محرك الاقتراح الموحد؛ لا يحفظ شيئاً"
                   onClick={() => onAlternative(check, detail)}><WandSparkles aria-hidden="true" />{alternativeBusy ? "…" : "بديل"}</button> : null}
+                {onChainSolve && chainOffered({ blockers: [detail] }) ? <ChainSolveButton onClick={onChainSolve} /> : null}
               </li>)}
             </ul>
           </details> : <div className="checks-tile-row" aria-label={`${check.label}: ${check.word}`}>{tile}</div>}

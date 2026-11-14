@@ -138,7 +138,7 @@ const flags = (on: readonly string[]) => Object.fromEntries(DAYS.map(day => [day
   const kept = judgeRequest({ rowId: 2, action: "change", AdCourseId: 30, days: ["ftuesday"], start: "10:00", slots: [{ day: "ftuesday", start: "10:00", end: "11:20" }] } as any, context([mk(1, 30, ["fthursday"]), tue], 3));
   check(!kept.reasons.some(reason => reason.code === "pattern"), "٦-و وموعدٌ قائم لم يتغيّر شكلُه لا يُرفض بنمط شعبته القديم", kept.reasons);
   const verdictSrc = read("src/utils/instructorRequestVerdict.ts"), inboxRoute = read("src/server/routes/instructorRequestsRoutes.ts");
-  check(/sectionDaysFitLibrary\(courseHours, row, \[\.\.\.siblings/.test(verdictSrc) && /unapprovedPatternIssue\(row, week, \{ skipIfUnchanged: true \}\)/.test(inboxRoute)
+  check(/sectionDaysFitLibrary\(courseHours, row, \[\.\.\.siblings/.test(verdictSrc) && /regulation: true/.test(inboxRoute) && /patternVerdict\(row,hypothetical\)/.test(read("src/server/core/scheduleRules.ts"))
     && /fits=sectionDaysFitLibrary\(hours,row,siblings\)/.test(read("src/server/core/scheduleRules.ts")), "٦-ز الإرسالُ والتثبيتُ يقرآن الحَكَمَ نفسه (sectionDaysFitLibrary)");
 }
 
@@ -192,20 +192,24 @@ try {
       check(Number(made?.id) > 0, "١-ح أُنشئت شعبة «أحد + ثلاثاء 80د»", made);
       const drag = await call("POST", "/api/schedules/move-batch", { strict: false, moves: [{ id: made.id, rev: made.rev, fields: { ...flags(["fsunday", "fthursday"]), ...time } }] });
       const after = (await board()).find(row => Number(row.id) === Number(made.id));
-      check(drag.status === 400 && drag.body?.code === "section-shape" && /ليست نمطاً معتمداً/.test(String(drag.body?.error || "")) && after?.ftuesday === true && after?.fthursday === false,
-        "١-ط سحبُ الثلاثاء إلى الخميس يُرفض ولا يُكتب «أحد + خميس»", drag);
+      /* قرار المالك: خارجُ النمط المعتمد تنبيهٌ بتأكيدٍ صريح لا منع — يعود 409 regulation-exception ولا يُكتب شيء قبل التأكيد. */
+      check(drag.status === 409 && drag.body?.code === "regulation-exception" && (drag.body?.regulation || []).some((issue: any) => issue.rule === "pattern-days" && /ليست نمطاً معتمداً/.test(issue.text)) && after?.ftuesday === true && after?.fthursday === false,
+        "١-ط سحبُ الثلاثاء إلى الخميس يُسأل عنه (استثناءٌ لائحي pattern-days) ولا يُكتب قبل التأكيد", drag);
       const flagged = await call("POST", "/api/schedules/move-batch", { strict: false, regulationException: true, moves: [{ id: made.id, rev: made.rev, fields: { ...flags(["fsunday", "fthursday"]), ...time } }] });
-      check(flagged.status === 400, "١-ي والمانعُ لا يُستثنى منه بموافقة الاستثناء", flagged);
-      const short = await call("POST", "/api/schedules/move-batch", { strict: false, moves: [{ id: made.id, rev: made.rev, fields: { ...flags(["fsunday"]), ...time } }] });
+      check(flagged.status === 200, "١-ي وبالتأكيد الصريح يُنقل (ثم يعود لنمطٍ معتمد لمتابعة الفحوص)", flagged);
+      const currentRev = async () => (await board()).find(row => Number(row.id) === Number(made.id))?.rev;
+      const back = await call("POST", "/api/schedules/move-batch", { strict: false, moves: [{ id: made.id, rev: await currentRev(), fields: { ...flags(["fsunday", "ftuesday"]), ...time } }] });
+      check(back.status === 200, "١-ي٢ والعودةُ إلى نمطٍ معتمد لا تُسأل عن شيء", back);
+      const short = await call("POST", "/api/schedules/move-batch", { strict: false, moves: [{ id: made.id, rev: await currentRev(), fields: { ...flags(["fsunday"]), ...time } }] });
       check(short.status === 400 && /أقل من ساعات المقرر/.test(String(short.body?.error || "")), "١-ك ونقلٌ ينقص ساعاتِ المقرّر يُرفض", short);
-      const valid = await call("POST", "/api/schedules/move-batch", { strict: false, moves: [{ id: made.id, rev: made.rev, fields: { ...flags(["fmonday", "fwednesday"]), ...time } }] });
+      const valid = await call("POST", "/api/schedules/move-batch", { strict: false, moves: [{ id: made.id, rev: await currentRev(), fields: { ...flags(["fmonday", "fwednesday"]), ...time } }] });
       const moved = (await board()).find(row => Number(row.id) === Number(made.id));
       check(valid.status === 200 && moved?.fmonday === true && moved?.fwednesday === true && moved?.fsunday === false, "١-ل والنقلُ إلى نمطٍ معتمد آخر («اثنين + أربعاء») يمرّ", valid);
       /* تغييرُ رمز الشعبة وحده: يدخل الموعدُ شعبةً قائمة فتزيد ساعاتُها. */
       const other = (await call("POST", "/api/schedules", { ...scope, ...flags(["fsunday", "ftuesday"]), ...time, AdCourseId: fresh.AdCourseId, SCode: "962", AdInstructorId: placeholder.AdInstructorId, ...place(room) })).body;
       check(Number(other?.id) > 0, "١-م شعبةٌ ثانية للمقرّر نفسه", other);
       const merged = await call("PUT", `/api/schedules/${moved.id}`, { ...moved, SCode: "962" });
-      check(merged.status === 400 && /الساعات المعتمدة|ليست نمطاً معتمداً/.test(String(merged.body?.error || "")), "١-ن تعديلُ رمز الشعبة وحده يُعاد حكمُه (كان يمرّ لأن الشكل لم يتغيّر)", merged);
+      check((merged.status === 400 && /الساعات المعتمدة/.test(String(merged.body?.error || ""))) || (merged.status === 409 && merged.body?.code === "regulation-exception" && /ليست نمطاً معتمداً/.test(String(merged.body?.error || ""))), "١-ن تعديلُ رمز الشعبة وحده يُعاد حكمُه (كان يمرّ لأن الشكل لم يتغيّر)", merged);
       /* وموعدٌ قديم بمدّةٍ خارج المكتبة (75د في بيانات التجربة) يُغيَّر رمزُ شعبته ولا يُرفض. */
       const span = (row: any) => Number(row.fendtime.slice(0, 2)) * 60 + Number(row.fendtime.slice(3)) - Number(row.fstarttime.slice(0, 2)) * 60 - Number(row.fstarttime.slice(3));
       /* (صفٌّ يتعارض أستاذُه مع غيره بعد تغيير الرمز يُردّ بالتعارض لا بالنمط — يُجرَّب غيرُه.) */

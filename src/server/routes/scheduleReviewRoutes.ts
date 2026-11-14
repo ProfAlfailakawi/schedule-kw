@@ -28,7 +28,7 @@ import { capacityContextForSection } from "../core/capacityRules";
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { scheduleConflicts, scheduleConflictsForEdit } from "../core/scheduleConflicts";
 import { makeSlotGuard, SlotTakenError } from "../core/slotGuard";
-import { describeScheduleChange, hoursNotice, keepsSectionShape, mixedPatternNotice, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, sectionShapeIssue, unapprovedPatternIssue } from "../core/scheduleRules";
+import { describeScheduleChange, hoursNotice, keepsSectionShape, mixedPatternNotice, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, sectionShapeIssue } from "../core/scheduleRules";
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { companionBookingFor } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed, legacyFDetail } from "../core/scope";
@@ -53,22 +53,9 @@ async function checkLengthIssue(row:any):Promise<string|null>{
     const existing=await Repository.getScheduleById(editedId);
     if(keepsSectionShape(existing,row))return null;
     /* تغييرُ المقرّر أو الرمز وحده: مخالفةٌ كانت قائمةً في الصفّ نفسه لا تُقال مانعاً (editShapeIssue). */
-    if(existing&&sameScheduleShape(existing as any,row)&&await sectionShapeIssue(existing))return null;
+    if(existing&&sameScheduleShape(existing as any,row)&&await sectionShapeIssue(existing,undefined,{skipPattern:true}))return null;
   }
   return scheduleLengthIssue({...row,id:Number(row.excludeId||row.id||0)});
-}
-
-/** مانعُ «النمط غير المعتمد» كما تقرؤه بوابتا الإنشاء والتعديل حرفاً: الشكلُ الذي لم يتغيّر لا يُرفض (A6). */
-async function checkPatternIssue(row:any):Promise<string|null>{
-  if(!Number(row.AdCourseId||0))return null;
-  const editedId=Number(row.excludeId||0);
-  if(editedId){
-    const existing=await Repository.getScheduleById(editedId);
-    if(keepsSectionShape(existing,row))return null;
-    /* تغييرُ المقرّر أو الرمز وحده: مخالفةٌ كانت قائمةً في الصفّ نفسه لا تُقال مانعاً (editShapeIssue). */
-    if(existing&&sameScheduleShape(existing as any,row)&&await sectionShapeIssue(existing))return null;
-  }
-  return unapprovedPatternIssue({...row,id:Number(row.excludeId||row.id||0)});
 }
 
 /** موانع المكان (القاعة الرسمية + المرفق المرافق) كما تقرؤها بوابة الحفظ. */
@@ -267,6 +254,16 @@ export async function reviewReadinessReading(req: AuthenticatedRequest, collegeI
   return {blockers,warnings,blockingConflicts:conflictList.length,blockingRows:touchedRowIds.length,blockingDuplicates:doubleEntryCount(conflictList),checkedRows:scopeRows.length,termRows:termRows.length,...(family?{family}:{})};
 }
 
+/* النطاقُ أولاً في فحص الحفظ: الفحصُ يقرأ الفصل كله ويقول ساعاتِ موعدِ من في الجهة الأخرى، فلا يُجاب إلا من يملك قسمَ هذا الصفّ
+   (وقسمَ الصفّ المعدَّل `excludeId` — معرّفٌ مزوَّر لا يفتح جدولَ قسمٍ آخر). وصفٌّ بلا كلية وقسم لا يُحكم عليه لغير المدير. */
+function checkScopeAllowed(req:AuthenticatedRequest,res:Response,row:any):boolean{
+  if(req.user?.IsAdminUser)return true;
+  const college=Number(row?.AdCollegeId||0),section=Number(row?.AdSectionId||0);
+  if(!college||!section){res.json({conflicts:[],validationIssues:[]});return false;}
+  if(!isScopeAllowed(req,college,section)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return false;}
+  return true;
+}
+
 export function registerScheduleReviewRoutes(app: Express): void {
 
 /* ── فحصٌ واحد، بخطوات متوازية ─────────────────────────────────────────────
@@ -274,20 +271,13 @@ export function registerScheduleReviewRoutes(app: Express): void {
    تعارض) وكلٌّ منها يقرأ القاعدة بنفسه، فيطول «جاري الفحص». لا تعتمد أيٌّ منها
    على الأخرى، فتُطلق معاً، والنتيجة نفسها التي تحكم بها بوابة الحفظ. */
 app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{};
-  /* النطاقُ أولاً: الفحصُ يقرأ الفصل كله ويقول ساعاتِ موعدِ من في الجهة الأخرى، فلا يُجاب إلا من يملك قسمَ هذا الموعد.
-     وصفٌّ بلا كلية وقسم لا يُحكم عليه لغير المدير (لا نطاقَ يُقاس عليه، ولا يُسرَّب شيءٌ بغيره). */
-  const scopeCollege=Number(row.AdCollegeId||0),scopeSection=Number(row.AdSectionId||0);
-  if(!req.user?.IsAdminUser){
-    if(!scopeCollege||!scopeSection){res.json({conflicts:[],validationIssues:[]});return;}
-    if(!isScopeAllowed(req,scopeCollege,scopeSection)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
-  }
-  /* وكلُّ قراءةٍ داخل الفحص (الصفُّ والمقرر) تُجرى مرةً واحدة: عشرُ دوال تسأل الوثيقة نفسها. */
+  if(!checkScopeAllowed(req,res,row))return;
   await Repository.withReadMemo(async()=>{
   const savedRow=Number(row.excludeId||0)?await Repository.getScheduleById(Number(row.excludeId)).catch(()=>null):null;
-  if(savedRow&&!req.user?.IsAdminUser&&!isScopeAllowed(req,Number(savedRow.AdCollegeId),Number(savedRow.AdSectionId))){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  if(savedRow&&!checkScopeAllowed(req,res,savedRow))return;
   const keptTime=Boolean(savedRow)&&savedRow!.fstarttime===row.fstarttime&&savedRow!.fendtime===row.fendtime;
   const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
-  const [patternNotice,lectureNotice,departmentHours,payloadIssues,lengthIssue,placeIssues,conflicts,patternIssue,demand]=await Promise.all([
+  const [patternNotice,lectureNotice,departmentHours,payloadIssues,lengthIssue,placeIssues,conflicts,demand]=await Promise.all([
     mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null),
     scheduleLengthNotice(row).catch(()=>null),
     hoursNotice(row).catch(()=>""),
@@ -296,17 +286,15 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
     checkLengthIssue(row),
     checkLocationIssues(row),
     savedRow?scheduleConflictsForEdit(req,row,savedRow,Number(row.excludeId||0)):scheduleConflicts(req,row,Number(row.excludeId||0)),
-    checkPatternIssue(row).catch(()=>null),
     /* الطلب الفعلي: أثرُ الموعد على الخريجين و«نبض الطلبة» يُقالان قبل الحفظ ولا يمنعانه. */
     appointmentDemandFor(req,row),
   ]);
   const {graduateImpact,studentFit}=demand;
   /* ما يحتاج تأكيداً صريحاً عند الحفظ يُقال قبله (ملاحظتا المالك 10 و20): البطاقةُ لا تقول «جاهز للحفظ» وفيه مخالفة. */
   const regulation=await regulationExceptionsFor({...row,id:Number(row.excludeId||row.id||0)},undefined,savedRow&&sameScheduleShape(savedRow as any,row)
-    ?{shapeChanged:false,sequenceChanged:Number(savedRow.AdInstructorId||0)!==Number(row.AdInstructorId||0)}:{}).catch(()=>[]);
+    ?{shapeChanged:false,sequenceChanged:Number(savedRow.AdInstructorId||0)!==Number(row.AdInstructorId||0),existing:savedRow}:{existing:savedRow||undefined}).catch(()=>[]);
   const validationIssues=[...payloadIssues];
   if(lengthIssue)validationIssues.push(lengthIssue);
-  if(patternIssue)validationIssues.push(patternIssue);
   validationIssues.push(...placeIssues);
   res.json({conflicts,validationIssues,...(regulation.length?{regulation}:{}),...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{}),...(departmentHours?{departmentHoursNotice:departmentHours}:{}),...(graduateImpact?{graduateImpact}:{}),...(studentFit?{studentFit}:{})});
   }); });
@@ -471,7 +459,7 @@ app.post("/api/schedules/move-batch", requirePermission(7), async (req: Authenti
   };
   for (const [index, candidate] of candidates.entries()) {
     if (keepsSectionShape(originals[index], candidate.row)) continue;
-    const shapeIssue = await sectionShapeIssue(candidate.row, await weekAfterMove(Number(candidate.row.AdTermId)));
+    const shapeIssue = await sectionShapeIssue(candidate.row, await weekAfterMove(Number(candidate.row.AdTermId)), { skipPattern: true });
     if (shapeIssue) { res.status(400).json({ error: `لم يُنقل: ${shapeIssue}`, code: "section-shape", issues: [{ type: "validation", severity: "high", message: shapeIssue }] }); return; }
   }
   /* النقلُ بالسحب حفظٌ كأي حفظ (ملاحظتا المالك 10 و20): ما يخالف اللائحة ولا يمنع يُسأل عنه صراحةً قبل الكتابة.
@@ -480,7 +468,7 @@ app.post("/api/schedules/move-batch", requirePermission(7), async (req: Authenti
   {
     for (const [index, candidate] of candidates.entries()) {
       if (sameScheduleShape(originals[index] as any, candidate.row as any)) continue;
-      for (const issue of await regulationExceptionsFor(candidate.row, await weekAfterMove(Number(candidate.row.AdTermId)))) {
+      for (const issue of await regulationExceptionsFor(candidate.row, await weekAfterMove(Number(candidate.row.AdTermId)), { existing: originals[index] })) {
         if (!exceptions.some(item => item.rule === issue.rule && item.text === issue.text)) exceptions.push(issue);
       }
     }

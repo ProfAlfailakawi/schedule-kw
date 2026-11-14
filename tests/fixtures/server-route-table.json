@@ -1836,8 +1836,8 @@
    ],
    "path": "/api/schedules/check-conflicts",
    "name": "bound dispatch",
-   "call": "931f51cbb0a51e62",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:275",
+   "call": "6a072595a4d928ba",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:273",
    "regexp": "/^\\/api\\/schedules\\/check-conflicts\\/?$/i",
    "end": true
   },
@@ -1872,7 +1872,7 @@
    ],
    "path": "/api/schedules/move-batch",
    "name": "bound dispatch",
-   "call": "71da2ceac1d77b7d",
+   "call": "042f6ef28205a943",
    "site": "src/server/routes/scheduleReviewRoutes.ts:397",
    "regexp": "/^\\/api\\/schedules\\/move-batch\\/?$/i",
    "end": true
@@ -2665,7 +2665,7 @@
    ],
    "path": "/api/schedules/replace-instructor",
    "name": "bound dispatch",
-   "call": "2d0befbee5c79903",
+   "call": "ef45fda45e9aaee4",
    "site": "src/server/routes/scheduleToolsRoutes.ts:235",
    "regexp": "/^\\/api\\/schedules\\/replace-instructor\\/?$/i",
    "end": true
@@ -2678,7 +2678,7 @@
    "path": "/api/schedules/replace-instructor/history",
    "name": "bound dispatch",
    "call": "c2779a71c0a15d69",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:292",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:303",
    "regexp": "/^\\/api\\/schedules\\/replace-instructor\\/history\\/?$/i",
    "end": true
   },
@@ -2690,7 +2690,7 @@
    "path": "/api/courses/nature",
    "name": "bound dispatch",
    "call": "1840e9b49ef3491e",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:309",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:320",
    "regexp": "/^\\/api\\/courses\\/nature\\/?$/i",
    "end": true
   },
@@ -2702,7 +2702,7 @@
    "path": "/api/rooms/owner",
    "name": "bound dispatch",
    "call": "a6ab620a64860fae",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:333",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:344",
    "regexp": "/^\\/api\\/rooms\\/owner\\/?$/i",
    "end": true
   },
@@ -2714,7 +2714,7 @@
    "path": "/api/schedules/suggest-slots",
    "name": "bound dispatch",
    "call": "76b376f47976867a",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:358",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:369",
    "regexp": "/^\\/api\\/schedules\\/suggest-slots\\/?$/i",
    "end": true
   },
@@ -2726,7 +2726,7 @@
    "path": "/api/schedules/fit-grid",
    "name": "bound dispatch",
    "call": "c0d07e9441c9e18e",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:569",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:580",
    "regexp": "/^\\/api\\/schedules\\/fit-grid\\/?$/i",
    "end": true
   },
@@ -2738,7 +2738,7 @@
    "path": "/api/schedules/placeholder-action",
    "name": "bound dispatch",
    "call": "19f0bbf652f5c8ee",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:587",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:598",
    "regexp": "/^\\/api\\/schedules\\/placeholder-action\\/?$/i",
    "end": true
   },
@@ -2750,7 +2750,7 @@
    "path": "/api/schedules/meeting-participants",
    "name": "bound dispatch",
    "call": "ad7491a8e23ae7b2",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:705",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:716",
    "regexp": "/^\\/api\\/schedules\\/meeting-participants\\/?$/i",
    "end": true
   },
@@ -2762,7 +2762,7 @@
    "path": "/api/schedules/meeting-slots",
    "name": "bound dispatch",
    "call": "b4f01033c69826b6",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:722",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:733",
    "regexp": "/^\\/api\\/schedules\\/meeting-slots\\/?$/i",
    "end": true
   },
@@ -5333,7 +5333,7 @@
    ],
    "path": "/api/instructor-requests/:id/apply",
    "name": "bound dispatch",
-   "call": "4c08b40d9ed30a85",
+   "call": "5eaa9b453f86e98f",
    "site": "src/server/routes/instructorRequestsRoutes.ts:994",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/apply\\/?$/i",
    "end": true
@@ -5346,7 +5346,7 @@
    "path": "/api/instructor-requests/:id/undo-decision",
    "name": "bound dispatch",
    "call": "c4776a6bcf84247f",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1316",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1314",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/undo-decision\\/?$/i",
    "end": true
   },
@@ -5358,7 +5358,7 @@
    "path": "/api/instructor-requests/:id/reply",
    "name": "bound dispatch",
    "call": "052daaf01a8ee463",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1476",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1474",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/reply\\/?$/i",
    "end": true
   },
@@ -5370,7 +5370,7 @@
    "path": "/api/instructor-requests/:id/notified",
    "name": "bound dispatch",
    "call": "2a0ce3d6010d1bf1",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1522",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1520",
    "regexp": "/^\\/api\\/instructor-requests(?:\\/([^/]+?))\\/notified\\/?$/i",
    "end": true
   },
@@ -5382,7 +5382,7 @@
    "path": "/api/instructor-requests/remind-pending",
    "name": "bound dispatch",
    "call": "2027e027e25b2b81",
-   "site": "src/server/routes/instructorRequestsRoutes.ts:1541",
+   "site": "src/server/routes/instructorRequestsRoutes.ts:1539",
    "regexp": "/^\\/api\\/instructor-requests\\/remind-pending\\/?$/i",
    "end": true
   },
