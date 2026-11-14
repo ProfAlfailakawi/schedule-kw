@@ -29,7 +29,7 @@ import TeacherMiniWeek, { MiniWeekToggle, useMiniWeekEnabled, type MiniPick } fr
 import PersonChips from "./PersonChips";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
-import { bestRegulationChoice, completeSectionEnd, patternLengthIssue, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, type RegulationChoice } from "../utils/appointmentRegulation";
+import { bestRegulationChoice, completeSectionEnd, patternLengthIssue, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, wheelLengths, type RegulationChoice } from "../utils/appointmentRegulation";
 import { ladderStartsForDays } from "../utils/scheduleRegulations";
 import type { RegulationExceptionIssue } from "../utils/regulationException";
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
@@ -626,6 +626,7 @@ export default function QuickCreatePopover({
             {timeOpen ? (
               <div className="qc-time-wheels" id="qc-time-wheels">
                 <TimeWheels
+                  lengths={wheelLengths(selectedCourse, chosenDays)}
                   endLimit={SCHEDULE_CLOCK_END_TIME}
                   start={draft.start}
                   end={draft.end}

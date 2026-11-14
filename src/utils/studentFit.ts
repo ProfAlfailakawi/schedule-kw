@@ -114,3 +114,17 @@ export function studentFitOf(input: {
   if (!students && !graduates) return null;
   return { track, sections: { before, after }, students, graduates };
 }
+
+/**
+ * «الوقت الذهبي للطلبة»: ما يخدم الخريجين ثم الطلبة أكثر يتقدّم على غيره، وداخل كل فئةٍ يبقى الترتيبُ كما هو
+ * (الفراغ والتنقّل والتشتّت). ثلاث فئات لا نسبةٌ دقيقة — 85٪ فأكثر، ثم 60٪، ثم الباقي — فلا يقلب فرقُ نقطةٍ ترتيباً حسناً؛
+ * وما لا نسبة له (بلا تقرير) يقع في الوسط فلا يتقدّم ولا يتأخر. الفرزُ مستقرٌّ، ولا يمسّ ما بعد `limit`.
+ */
+export const FIT_BANDS = { good: 85, ok: 60 } as const;
+export const fitBand = (percent: number | null | undefined): 0 | 1 | 2 =>
+  percent == null ? 1 : percent >= FIT_BANDS.good ? 0 : percent >= FIT_BANDS.ok ? 1 : 2;
+export function rankByFitBand<T>(items: readonly T[], percentOf: (item: T) => number | null | undefined, limit = items.length): T[] {
+  const head = items.slice(0, limit).map((item, index) => ({ item, index, band: fitBand(percentOf(item)) }));
+  head.sort((a, b) => a.band - b.band || a.index - b.index);
+  return [...head.map(entry => entry.item), ...items.slice(limit)];
+}

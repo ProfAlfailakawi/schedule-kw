@@ -94,6 +94,7 @@ export function TimeWheels({
   minTime = SCHEDULE_DAY_START_TIME,
   maxTime = SCHEDULE_DAY_END_TIME,
   endLimit,
+  lengths,
 }: {
   start: string;
   end: string;
@@ -103,6 +104,8 @@ export function TimeWheels({
   maxTime?: string;
   /** أقصى نهاية، حين تجوز بعد نهاية الدوام (تنبيه لا منع). */
   endLimit?: string;
+  /** مددُ المكتبة لهذا المقرر وأيامه؛ بلا قيمةٍ تبقى القائمة الافتراضية. */
+  lengths?: readonly number[] | null;
 }) {
   const from = minutesOf(start);
   const span = Math.max(30, minutesOf(end) - from);
@@ -115,7 +118,7 @@ export function TimeWheels({
   const minuteSteps = useMemo(() => Array.from({ length: 12 }, (_, i) => i * 5), []);
   /* The lengths the regulation actually gives: 50 minutes on Sun/Tue/Thu and 80
      on Mon/Wed, plus the longer blocks a lab or a seminar uses. */
-  const spans = [50, 80, 100, 120, 150, 180];
+  const spans = lengths && lengths.length ? [...lengths] : [50, 80, 100, 120, 150, 180];
 
   const setStart = (minutes: number) => {
     const clamped = Math.min(Math.max(minutes, minimum), maximum - 30);
@@ -175,6 +178,7 @@ export function TimeCounterPopover({
   minTime,
   maxTime,
   endLimit,
+  lengths,
 }: {
   anchor: HTMLElement | null;
   start: string;
@@ -185,6 +189,7 @@ export function TimeCounterPopover({
   minTime?: string;
   maxTime?: string;
   endLimit?: string;
+  lengths?: readonly number[] | null;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [box, setBox] = useState<{ left: number; top: number } | null>(null);
@@ -231,7 +236,7 @@ export function TimeCounterPopover({
       style={box ? { left: box.left, top: box.top } : { left: -9999, top: -9999 }}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <TimeWheels start={start} end={end} onChange={onChange} preferredDuration={preferredDuration} minTime={minTime} maxTime={maxTime} endLimit={endLimit} />
+      <TimeWheels start={start} end={end} onChange={onChange} preferredDuration={preferredDuration} minTime={minTime} maxTime={maxTime} endLimit={endLimit} lengths={lengths} />
     </div>
   );
 }

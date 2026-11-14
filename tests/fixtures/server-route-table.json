@@ -2488,7 +2488,7 @@
    "path": "/api/schedules/coreq-pairs",
    "name": "bound dispatch",
    "call": "94bf5acc329232b6",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:140",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:142",
    "regexp": "/^\\/api\\/schedules\\/coreq-pairs\\/?$/i",
    "end": true
   },
@@ -2500,7 +2500,7 @@
    "path": "/api/schedules/ta-conversion",
    "name": "bound dispatch",
    "call": "bb1fcb46f7b9248b",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:147",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:149",
    "regexp": "/^\\/api\\/schedules\\/ta-conversion\\/?$/i",
    "end": true
   },
@@ -2512,7 +2512,7 @@
    "path": "/api/schedules/ta-conversion",
    "name": "bound dispatch",
    "call": "6e27c331028e0f36",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:164",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:166",
    "regexp": "/^\\/api\\/schedules\\/ta-conversion\\/?$/i",
    "end": true
   },
@@ -2524,7 +2524,7 @@
    "path": "/api/schedules/replace-instructor",
    "name": "bound dispatch",
    "call": "2d0befbee5c79903",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:233",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:235",
    "regexp": "/^\\/api\\/schedules\\/replace-instructor\\/?$/i",
    "end": true
   },
@@ -2536,7 +2536,7 @@
    "path": "/api/schedules/replace-instructor/history",
    "name": "bound dispatch",
    "call": "c2779a71c0a15d69",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:290",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:292",
    "regexp": "/^\\/api\\/schedules\\/replace-instructor\\/history\\/?$/i",
    "end": true
   },
@@ -2548,7 +2548,7 @@
    "path": "/api/courses/nature",
    "name": "bound dispatch",
    "call": "1840e9b49ef3491e",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:307",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:309",
    "regexp": "/^\\/api\\/courses\\/nature\\/?$/i",
    "end": true
   },
@@ -2560,7 +2560,7 @@
    "path": "/api/rooms/owner",
    "name": "bound dispatch",
    "call": "a6ab620a64860fae",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:331",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:333",
    "regexp": "/^\\/api\\/rooms\\/owner\\/?$/i",
    "end": true
   },
@@ -2571,9 +2571,21 @@
    ],
    "path": "/api/schedules/suggest-slots",
    "name": "bound dispatch",
-   "call": "fa5a020e65920b30",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:356",
+   "call": "76b376f47976867a",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:358",
    "regexp": "/^\\/api\\/schedules\\/suggest-slots\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/schedules/fit-grid",
+   "name": "bound dispatch",
+   "call": "c0d07e9441c9e18e",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:569",
+   "regexp": "/^\\/api\\/schedules\\/fit-grid\\/?$/i",
    "end": true
   },
   {
@@ -2584,7 +2596,7 @@
    "path": "/api/schedules/placeholder-action",
    "name": "bound dispatch",
    "call": "19f0bbf652f5c8ee",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:558",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:587",
    "regexp": "/^\\/api\\/schedules\\/placeholder-action\\/?$/i",
    "end": true
   },
@@ -2596,7 +2608,7 @@
    "path": "/api/schedules/meeting-participants",
    "name": "bound dispatch",
    "call": "ad7491a8e23ae7b2",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:676",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:705",
    "regexp": "/^\\/api\\/schedules\\/meeting-participants\\/?$/i",
    "end": true
   },
@@ -2608,7 +2620,7 @@
    "path": "/api/schedules/meeting-slots",
    "name": "bound dispatch",
    "call": "b4f01033c69826b6",
-   "site": "src/server/routes/scheduleToolsRoutes.ts:693",
+   "site": "src/server/routes/scheduleToolsRoutes.ts:722",
    "regexp": "/^\\/api\\/schedules\\/meeting-slots\\/?$/i",
    "end": true
   },

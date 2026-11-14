@@ -1,0 +1,40 @@
+/* ── ثلاث أفكار في «موعد» (المراجعة 2026-11-14): الوقت الذهبي، نبض الطلبة على الأسبوع، مسودةٌ لا تضيع ──
+   كلُّها صغيرة: أيقونةٌ ونسبة أو شريحةٌ واحدة، وكلُّ الألوان من رموز النظام فتعمل في الوضعين. */
+
+/* الوقت الذهبي: شريحة النسبة في سطر بطاقة الاقتراح */
+.room-suggest-fit{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-style:normal;font-size:11.5px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}
+.room-suggest-fit svg{width:13px;height:13px;flex:none}
+.room-suggest-fit.is-grad{background:var(--brass-soft);color:var(--brass);border-color:color-mix(in srgb,var(--brass) 30%,var(--line))}
+.room-suggest-fit.is-stud.tone-good{background:var(--success-soft);color:var(--success);border-color:color-mix(in srgb,var(--success) 28%,var(--line))}
+.room-suggest-fit.tone-warn{background:var(--warning-soft);color:var(--warning);border-color:color-mix(in srgb,var(--warning) 32%,var(--line))}
+.room-suggest-fit.tone-bad{background:var(--danger-soft);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 32%,var(--line))}
+
+/* نبض الطلبة على أسبوع الأستاذ: لونٌ هادئ للخانة ونسبةٌ حين تتسع */
+.mini-week-target.has-fit.fit-good{border-color:color-mix(in srgb,var(--success) 62%,var(--line));background:color-mix(in srgb,var(--success) 11%,transparent);color:var(--success)}
+.mini-week-target.has-fit.fit-warn{border-color:color-mix(in srgb,var(--warning) 62%,var(--line));background:color-mix(in srgb,var(--warning) 12%,transparent);color:var(--warning)}
+.mini-week-target.has-fit.fit-bad{border-color:color-mix(in srgb,var(--danger) 58%,var(--line));background:color-mix(in srgb,var(--danger) 10%,transparent);color:var(--danger)}
+.mini-week-target-fit{font-style:normal;font:800 10px/1 var(--font-mono);font-variant-numeric:tabular-nums;opacity:.9}
+@container (max-width:56px){.mini-week-target-fit{display:none}}
+.mini-week-legend-fit{display:inline-flex;align-items:center;gap:5px}
+.mini-week-legend-fit svg{width:13px;height:13px;color:var(--brass)}
+.mini-week-legend-fit i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.mini-week-legend-fit i.is-good{background:var(--success)}
+.mini-week-legend-fit i.is-warn{background:var(--warning)}
+.mini-week-legend-fit i.is-bad{background:var(--danger)}
+
+/* مسودة لا تضيع: شريحةٌ واحدة تحت العنوان، وتغيب فور اختيار مقرر */
+.appt-draft{display:flex;align-items:center;gap:10px;max-width:520px;min-height:48px;padding:6px 8px 6px 12px;border:1px solid color-mix(in srgb,var(--brass) 30%,var(--line));border-radius:16px;background:linear-gradient(90deg,var(--brass-soft),var(--surface));box-shadow:var(--shadow-xs);animation:pulse-in .28s var(--ease-out,ease-out) both}
+.appt-draft-mark{width:32px;height:32px;display:grid;place-items:center;border-radius:11px;background:var(--surface);color:var(--brass);flex:none}
+.appt-draft-mark svg{width:17px;height:17px}
+.appt-draft-copy{display:grid;min-width:0;flex:1;line-height:1.35}
+.appt-draft-copy b{font-size:13.5px;font-weight:800}
+.appt-draft-copy small{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.appt-draft-restore{height:34px;padding:0 16px;border:1px solid var(--accent);border-radius:999px;background:var(--accent);color:var(--accent-contrast,#fff);font:inherit;font-size:13px;font-weight:800;cursor:pointer;flex:none}
+.appt-draft-restore:hover{filter:brightness(1.06)}
+.appt-draft-restore:focus-visible,.appt-draft-drop:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.appt-draft-drop{width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer;flex:none}
+.appt-draft-drop:hover{background:var(--surface-2);color:var(--ink-2)}
+.appt-draft-drop svg{width:16px;height:16px}
+@media (max-width:700px){.appt-draft{max-width:none}}
+@media (prefers-reduced-motion:reduce){.appt-draft{animation:none}}
+@media print{.appt-draft{display:none}}
