@@ -339,7 +339,7 @@ export function readDepartmentMemory(
     for (const [day, count] of perDay) {
       if (!fairShare || count < fairShare * 1.35) continue;
       found.push({
-        text: `${dayLabel(day)} يحمل ${countOf(count, oblique(AR.lecture))} من ${countOf(totalMeetings, oblique(AR.lecture))} — أثقل من نصيبه بنحو ${Math.round((count / fairShare - 1) * 100)}٪ عبر ${countOf(termCount, oblique(AR.term))}.`,
+        text: `${dayLabel(day)} يحمل ${countOf(count, oblique(AR.lecture))} من ${countOf(totalMeetings, oblique(AR.lecture))} — أثقل من نصيبه بنحو ${Math.round((count / fairShare - 1) * 100)}% عبر ${countOf(termCount, oblique(AR.term))}.`,
         strength: Math.min(100, Math.round((count / fairShare) * 60)), terms: termCount, surprising: true,
       });
     }

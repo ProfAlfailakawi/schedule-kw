@@ -2030,6 +2030,47 @@
           "tests/accessibility-audit.ts"
         ]
       }
+    },
+    {
+      "id": "NFR-NFR-044",
+      "kind": "nonfunctional",
+      "title": {
+        "ar": "الأرقام لاتينية (0-9) فقط",
+        "en": "Latin digits (0-9) only"
+      },
+      "text": {
+        "ar": "يجب ألا يظهر في أي شاشة أو صفحة عامة أو تقرير أو ملف مصدَّر رقمٌ هندي (٠-٩) ولا علامة «٪» ولا الفاصلتان العربيتان (٫ ٬)؛ فتُكتب الأعدادُ والنسبُ والتواريخ بأرقامٍ لاتينية. ويُنسَّق كلُّ عددٍ أو تاريخٍ بلغةٍ عربية صريحة بـ‎ar-KW-u-nu-latn‎ (لأن ar-KW وحدها تُخرج في المتصفح أرقاماً هندية)، ولا يُترك التنسيقُ بلا لغةٍ فيتبع لغةَ المتصفح. ويبقى مسموحاً كودُ التحويل الذي يقرأ ما يكتبه المستخدمُ بالأرقام الهندية ويحوّله إلى لاتينية.",
+        "en": "No screen, public page, report or exported file shall show Arabic-Indic digits, the Arabic percent sign or the two Arabic decimal and thousands separators; numbers, percentages and dates are written in Latin digits (0-9). Every number or date formatted for an Arabic locale uses ar-KW-u-nu-latn (the browser renders plain ar-KW with Arabic-Indic digits), and formatting is never left without a locale so that it does not follow the browser's language. Conversion code that reads what a user types in Arabic-Indic digits and turns it into Latin digits remains allowed."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "rootAdmin",
+        "admin",
+        "departmentHead",
+        "instructor",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "نصٌّ مكتوبٌ بأرقامٍ هندية في الكود (مثل «آخر ٧ أيام») أو علامةُ «٪» تُسقط tests/latin-digits-audit.ts.",
+          "en": "Code text written in Arabic-Indic digits (for example a label such as 'last 7 days' typed with them) or the Arabic percent sign fails tests/latin-digits-audit.ts."
+        },
+        {
+          "ar": "toLocaleDateString(\"ar-KW\") بلا ‎-u-nu-latn‎ أو تنسيقٌ بلا لغةٍ يُسقط الاختبار نفسه؛ ودالّةٌ تحوّل الأرقام اللاتينية إلى هندية تُسقطه ولو حملت مجموعةَ الأرقام.",
+          "en": "toLocaleDateString with plain ar-KW (no -u-nu-latn) or formatting without a locale fails the same test; and a function that turns Latin digits into Arabic-Indic ones fails it even when it carries the digit set."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/digits.ts",
+          "src/utils/arabicCount.ts"
+        ],
+        "tests": [
+          "tests/latin-digits-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [

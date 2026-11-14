@@ -77,7 +77,11 @@
     "src/utils/applyBusyRetry.ts",
     "src/utils/proposalSettlesRequest.ts",
     "src/utils/inboxUndo.ts",
-    "src/utils/requestsAsk.ts"
+    "src/utils/requestsAsk.ts",
+    "src/utils/wishPatterns.ts",
+    "src/server/wishHints.ts",
+    "src/components/inbox/WishPatterns.tsx",
+    "src/styles/65-wish-patterns.css"
   ],
   "screens": [
     { "name": { "ar": "بطاقة طلب الأستاذ (/r/)", "en": "Instructor request card (/r/)" }, "file": "src/server/pages/instructorRequestPage.ts", "note": { "ar": "صفحة عامة تُفتح بالرابط الشخصي: أسبوع الأستاذ، تعديل البنود، التوقيع، الحوار مع القسم، وذاكرة الفصول.", "en": "Public page opened with the personal link: the member's week, item editing, signing, dialogue with the department and term memory." } },
@@ -325,11 +329,12 @@
       "acceptance": [
         { "ar": "instructorIds فارغة أو أكثر من 300 تُردّ بـ400، ومعرّف ليس في جدول العائلة يُردّ بـ404 ولا يُكتب شيء.", "en": "Empty or more than 300 instructorIds are refused with 400, and an identifier not in the family's schedule is refused with 404 with nothing written." },
         { "ar": "الإرسال المحدد لا يغيّر الموعد العام ولا طلبات غير المختارين، وإرسال «الملاحظات فقط» يشترط صفة طلب تعديل ويُردّ بـ409 إن لم تكن ملاحظات.", "en": "A selected send does not change the shared deadline or the requests of unselected members, and a notes-only send requires edit mode and is refused with 409 when there are no notes." },
-        { "ar": "GET send-log يعيد الجمهور all أو picked أو exception أو ta ولا يتجاوز 200 سطر.", "en": "GET send-log returns audience all, picked, exception or ta and never more than 200 lines." }
+        { "ar": "GET send-log يعيد الجمهور all أو picked أو exception أو ta ولا يتجاوز 200 سطر، ويحمل كل سطر ما حدث (fresh جديد · renewed جُدّد أو بُدّل · kept ينتظر القسم · skipped تُخطّي) وأسماءه بلا تكرار.", "en": "GET send-log returns audience all, picked, exception or ta and never more than 200 lines, each line carrying what happened (fresh new · renewed renewed or replaced · kept awaiting the department · skipped skipped) and its names without duplicates." },
+        { "ar": "قبل أي إرسال لبطاقة الأستاذ (للجميع أو لمختارين، عرضاً أو تعديلاً) يقرأ العميل GET live-cards (بإذن القسم ونطاقه، بلا رقم مدني ولا رابط)؛ فإن وُجد من عنده بطاقة سارية سُئل المنسّق مرة واحدة: تكرار (الرابط نفسه بالموعد الجديد، الافتراضي) أو تبديل (cardAction=replace: رابط جديد يُبطل القديم والطلب نفسه يبقى) أو تخطّي (skipInstructorIds: لا يُمسّ)، ومن أرسل طلبه وينتظر القسم لا يمسّه أي خيار.", "en": "Before any faculty-card send (to everyone or a selection, view or edit) the client reads GET live-cards (department permission and scope, no civil ID or link); if anyone holds a live card the coordinator is asked once: repeat (same link with the new deadline, the default), replace (cardAction=replace: a new link that revokes the old one while the request stays) or skip (skipInstructorIds: untouched), and a member who submitted and awaits the department is untouched by every choice." }
       ],
       "evidence": {
-        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/components/PublishRecipientPicker.tsx", "src/utils/requestNotedScope.ts", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/send-log"],
-        "tests": ["tests/publish-pick-teachers-audit.ts", "tests/publish-requests-audit.ts"]
+        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/components/PublishRecipientPicker.tsx", "src/components/PublishSendLog.tsx", "src/utils/requestNotedScope.ts", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/send-log", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/live-cards"],
+        "tests": ["tests/publish-pick-teachers-audit.ts", "tests/publish-requests-audit.ts", "tests/publish-live-cards-audit.ts"]
       }
     },
     {
@@ -1610,6 +1615,24 @@
         {"ar": "جملةٌ لا يُفهم منها شيءٌ تقول ذلك ولا تُغيّر أيَّ مرشّحٍ قائم.", "en": "A sentence of which nothing is understood says so and changes no existing filter."}
       ],
       "evidence": {"code": ["src/utils/requestsAsk.ts", "src/components/InstructorInbox.tsx"], "tests": ["tests/inbox-undo-audit.ts"]}
+    },
+    {
+      "id": "FR-REQ-070",
+      "kind": "functional",
+      "title": {"ar": "توقّع الرغبات قبل النشر: ما طلب الأساتذةُ تغييرَه في الفصول السابقة", "en": "Wish prediction before publishing: what instructors asked to change in past terms"},
+      "text": {
+        "ar": "يجب أن تعرض قائمةُ النشر في «لجنة الجدول» لكل أستاذٍ شريحةً صغيرة بعدّادٍ وحده، غائبةً حين لا نمطَ متكرراً، وبلمسها شبكةٌ مصغّرة (الأحد–الخميس × صباح/ظهر/مساء) تُظلَّل فيها الخانةُ المتكررة بنسبة «فصولٍ من فصولٍ مرصودة»، وتحتها سطرٌ لكل مقرر (من موعدٍ إلى موعد) وزرُّ «افتح الموعد» الذي ينقل إلى الموعد في إدارة الجدول بنقل الوارد نفسه (putOpenRow). المصدرُ طلباتُ آخر أربعة فصولٍ سابقة لقسمه (حالتُها مُرسَلة أو قيد المراجعة أو مُثبَّتة، وبغير رابط العرض)، والبنودُ التي طُلب فيها تعديلٌ أو حذفٌ أو إضافةٌ فقط، لا «أبقِه». تُقرأ الفترةُ بحدود الوارد (صباحٌ قبل 12:00، ظهرٌ حتى 15:00، مساءٌ بعدها) لموعده الأصلي («يتركه») وللموعد المطلوب («يطلبه»). والنمطُ المتكرر خانةٌ تتكرر في فصلين مختلفين على الأقل (WISH_MIN_TERMS)، وللأستاذ حتى ثلاثة أنماط. شريطٌ مطويٌّ اختياري فوق القائمة بخريطة حرارة القسم أعداداً فقط. للمنسّق وحده: لا يصل منه شيءٌ إلى الأستاذ ولا يكتب في الجدول. ويقرؤه GET /api/instructor-requests/history-hints بإذن القسم (7) ونطاقه، للقراءة فقط، بسقف أربعة فصول و200 أستاذ وذاكرةٍ قصيرة بسياق الجلسة التجريبية.",
+        "en": "In the schedule-committee publish list each instructor shall get a small chip showing only a count (absent when there is no recurring pattern); tapping it opens a mini grid (Sunday-Thursday x morning/noon/evening) shading recurring cells with a «terms of observed terms» fraction, one line per course (from slot to slot) and an «open appointment» button that jumps to the appointment in schedule management through the inbox's own handoff (putOpenRow). The source is the requests of the last four past terms of the department (submitted, in-review or settled, excluding view-only links), counting only items asking for change, delete or add, never keep. The period uses the inbox boundaries (morning before 12:00, noon until 15:00, evening after) for the original appointment (away) and the requested one (to). A recurring pattern is a cell repeated in at least two different terms (WISH_MIN_TERMS); up to three per instructor. An optional collapsed strip above the list shows the department heat grid as counts only. Coordinator-only: nothing reaches the instructor and nothing is written to the schedule. Served by GET /api/instructor-requests/history-hints under the department permission (7) and scope, read-only, capped at four terms and 200 instructors with a short cache keyed by the demo-session context."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["departmentHead", "committeeChair"],
+      "acceptance": [
+        {"ar": "أستاذٌ طلب تعديلَ موعدٍ صباحيّ في فصلين مختلفين تظهر له شريحةٌ بعدّاد، وخانتُه مظلّلةٌ بنسبة ٢/٢؛ وطلبان في فصلٍ واحد لا يصنعان نمطاً.", "en": "An instructor who asked to change a morning appointment in two different terms gets a count chip with the cell shaded 2/2; two asks in one term make no pattern."},
+        {"ar": "بنودُ «أبقِه» وطلباتُ العرض فقط وغيرُ المُرسَلة لا تدخل، ولا يُرسل شيءٌ إلى الأستاذ.", "en": "Keep items, view-only and unsent requests are excluded, and nothing is sent to the instructor."},
+        {"ar": "المسارُ يرفض من لا إذنَ له أو خارج نطاقه بـ403.", "en": "The route refuses callers without permission or outside scope with 403."}
+      ],
+      "evidence": {"code": ["src/utils/wishPatterns.ts", "src/server/wishHints.ts", "src/components/inbox/WishPatterns.tsx", "src/styles/65-wish-patterns.css"], "tests": ["tests/wish-patterns-audit.ts"]}
     }
   ],
   "edgeCases": [

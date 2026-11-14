@@ -18,7 +18,7 @@ import type { VacancyItem } from "./ProposalWeekGrid";
 import { minutesCompact, num, timeRange, vacancyTally } from "./proposalFormat";
 
 const FIT: Record<VacancyFit | "checking", { text: string; Icon: React.ComponentType<any> }> = {
-  ready: { text: "متوافقة 100٪", Icon: CheckCircle2 },
+  ready: { text: "متوافقة 100%", Icon: CheckCircle2 },
   review: { text: "للمراجعة", Icon: Sparkles },
   blocked: { text: "مانع", Icon: AlertTriangle },
   clash: { text: "تتداخل", Icon: Clock3 },

@@ -238,7 +238,7 @@ export default function SectionPlan({ collegeId, sectionId, termId, mode = "full
           <button type="button" className="spl-empty" onClick={() => choose()} data-guide-ignore="يختار ملف PDF من التسجيل؛ لا يُحفظ قبل التأكيد">
             <span className="spl-empty-icons" aria-hidden="true"><Users /><GraduationCap /></span>
             <b>ارفع تقرير التسجيل</b>
-            <small>«الكل» يكفي · «الخريجون» يقدّم أهله</small>
+            <small>«الكل» يكفي · «الخريجون» يحتاج تقريراً خاصاً به</small>
           </button>
         )
       ) : null}

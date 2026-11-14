@@ -72,8 +72,8 @@ export default function OccupancySlotPanel({ day, range, rate, busyRooms, totalR
       <div className="occupancy-slot query-detail-panel no-print" role="dialog" aria-modal="true" aria-label={`محاضرات ${day}`}>
         <header className="occupancy-slot-head">
           <DnaRing value={rate} max={100} size={64} stroke={6} tone={rate >= 85 ? "danger" : rate >= 60 ? "amber" : "accent"}
-            label={`${num(rate)}٪`} sublabel={busyRooms != null ? <span dir="ltr">{num(busyRooms)}/{num(totalRooms)}</span> : null}
-            ariaLabel={`إشغال القاعات ${num(rate)}٪`} className="occupancy-slot-ring" />
+            label={`${num(rate)}%`} sublabel={busyRooms != null ? <span dir="ltr">{num(busyRooms)}/{num(totalRooms)}</span> : null}
+            ariaLabel={`إشغال القاعات ${num(rate)}%`} className="occupancy-slot-ring" />
           <div className="occupancy-slot-title">
             <small>{range ? day : "اليوم كله"}{campusLine ? <> · <span className="occupancy-slot-scope" title={groups[0]?.rows[0]?.campusName}>{campusLine}</span></> : null}</small>
             {range ? <strong dir="ltr">{range}</strong> : <strong>{day}</strong>}

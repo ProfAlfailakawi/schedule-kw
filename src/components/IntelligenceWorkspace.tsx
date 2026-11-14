@@ -1595,7 +1595,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     if(!rule?.title)return;
     setBusy(true);
     try{
-      await fetchJson("/api/intelligence/open-decisions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,title:`قاعدة مقترحة: ${String(rule.title).slice(0,110)}`,detail:`مكتشفة من التاريخ بثقة ${Number(rule.confidence||0)}٪ · ${String(rule.detail||"").slice(0,220)}`,priority:Number(rule.confidence||0)>=90?"high":"medium",source:"assistant"})});
+      await fetchJson("/api/intelligence/open-decisions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({collegeId,sectionId,termId,title:`قاعدة مقترحة: ${String(rule.title).slice(0,110)}`,detail:`مكتشفة من التاريخ بثقة ${Number(rule.confidence||0)}% · ${String(rule.detail||"").slice(0,220)}`,priority:Number(rule.confidence||0)>=90?"high":"medium",source:"assistant"})});
       setDecisionInbox(await refreshDecisionInbox());
       setMessage("أُضيفت القاعدة المقترحة إلى دفتر القرارات للمراجعة.");
     }catch(e:any){fail(e);}finally{setBusy(false);}
@@ -2273,7 +2273,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   const dayBalanceReasonItems = useMemo<NonNullable<InsightReason["items"]>>(() => {
     const load = Array.isArray(overview?.dayLoad) ? [...overview.dayLoad].sort((a:any,b:any)=>Number(b.count||0)-Number(a.count||0)) : [];
     const max = Math.max(1,...load.map((item:any)=>Number(item.count||0)));
-    return load.map((item:any) => ({ title:String(item.label || item.key || "يوم"), meta:`${Math.round(Number(item.count||0)/max*100)}٪ من أعلى يوم`, value:countOf(Number(item.count||0), AR.appointment) }));
+    return load.map((item:any) => ({ title:String(item.label || item.key || "يوم"), meta:`${Math.round(Number(item.count||0)/max*100)}% من أعلى يوم`, value:countOf(Number(item.count||0), AR.appointment) }));
   }, [overview?.dayLoad]);
   const reasonForSmartAlert = (alert:any, index:number): InsightReason => {
     const title = String(alert?.title || "تنبيه ذكي");
@@ -2288,7 +2288,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     if (/فراغ/.test(title)) return { ...base, icon:<CalendarClock />, summary:"الأساتذة الذين تجاوز لديهم الفراغ 3 ساعات:", items:gaps, facts:[{label:"الأساتذة",value:String(gaps.length)},{label:"الحد",value:formatUnitMetricArabic(3,"ساعات",0)},{label:"القراءة",value:"إرشادية"}] };
     if (/متأخر|بعد 4|وقت/.test(title)) return { ...base, icon:<Clock3 />, summary:`المواعيد التي تبدأ من ${scheduleClockForDisplay("16:00")} فأكثر:`, items:late, facts:[{label:"المواعيد",value:String(late.length)},{label:"من",value:scheduleClockForDisplay("16:00")},{label:"النوع",value:"توقيت"}] };
     if (/بيانات|سجل/.test(title)) return { ...base, icon:<FileClock />, summary:"السجلات التي ينقصها شيء محدد:", items:invalid, facts:[{label:"السجلات",value:String(invalid.length)},{label:"الحالة",value:"تحتاج إكمال"}] };
-    if (/توزيع|أيام/.test(title)) return { ...base, icon:<BarChart3 />, summary:"هذا هو توزيع الحمل بين الأيام:", items:days, facts:[{label:"التفاوت",value:`${metrics?.imbalance || 0}٪`},{label:"الأيام",value:String(days.length)}] };
+    if (/توزيع|أيام/.test(title)) return { ...base, icon:<BarChart3 />, summary:"هذا هو توزيع الحمل بين الأيام:", items:days, facts:[{label:"التفاوت",value:`${metrics?.imbalance || 0}%`},{label:"الأيام",value:String(days.length)}] };
     return { ...base, icon:<AlertTriangle />, summary:"تفاصيل هذا التنبيه:", items:[{title,meta:String(alert?.detail || "لا توجد تفاصيل إضافية."),value:""}] };
   };
   const chronologicalVersions = useMemo(() => versions.filter(v => sameIntelligenceScope(sourceScope(v), ownScope)).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))), [versions, collegeId, sectionId]);
@@ -3089,7 +3089,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             <div className="health-advanced-row">
               <article className={operationsReview?.anomalies?.length ? "hit" : ""}><span>منطقياً</span><b>{Number(operationsReview?.anomalies?.length||0).toLocaleString("ar-KW-u-nu-latn")}</b><small>شذوذ محتمل</small></article>
               <article className={experienceHealth?.score<75 ? "hit" : ""}><span>تجربة القسم</span><b>{experienceHealth?.score ?? "—"}</b><small>{experienceHealth?.label || "تُقاس مع الاستخدام"}</small></article>
-              <article><span>زمن الاستجابة (المئين 95)</span><b>{experienceHealth?.p95 ? countOf(experienceHealth.p95, AR.millisecond) : "—"}</b><small>أبطأ 5٪</small></article>
+              <article><span>زمن الاستجابة (المئين 95)</span><b>{experienceHealth?.p95 ? countOf(experienceHealth.p95, AR.millisecond) : "—"}</b><small>أبطأ 5%</small></article>
               <article className={experienceHealth?.failures ? "hit" : ""}><span>أخطاء الواجهة</span><b>{experienceHealth?.failures ?? 0}</b><small>آخر 14 يوماً</small></article>
             </div>
             {operationsReview?.anomalies?.length ? <details className="insight-disclosure"><summary>الشذوذ المنطقي ({operationsReview.anomalies.length})</summary><ul className="health-anomaly-list">{operationsReview.anomalies.slice(0,6).map((item:any,index:number)=><li key={`${item.kind}-${item.rowId||index}`} className={item.severity}><strong>{item.title}</strong>{scopeLabel(item) ? <small>{scopeLabel(item)}</small> : null}<span>{item.detail}</span></li>)}</ul></details>:null}

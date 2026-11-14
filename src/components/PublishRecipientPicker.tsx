@@ -59,7 +59,7 @@ export function AudiencePicker({ value, onChange }: { value: Audience; onChange:
   );
 }
 
-export default function PublishRecipientPicker({ collegeId, sectionId, termId, onChange, visitingOf, traineeOf, perPersonCourses = false, stateOf, onPreview }: {
+export default function PublishRecipientPicker({ collegeId, sectionId, termId, onChange, visitingOf, traineeOf, perPersonCourses = false, stateOf, onPreview, hintOf }: {
   collegeId: number; sectionId: number; termId: number;
   onChange: (people: PickedPerson[]) => void;
   visitingOf: (id: number) => boolean;
@@ -70,6 +70,8 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
   stateOf?: (ids: number[]) => FollowUpState | undefined;
   /** 👁️ معاينةُ بطاقته كما يراها — لا يُصدَر شيء. */
   onPreview?: (person: PickedPerson) => void;
+  /** «توقّع الرغبات»: شريحةٌ صغيرة على سطر الأستاذ (للمنسّق وحده). */
+  hintOf?: (person: PickedPerson) => ReactNode;
 }) {
   const [rows, setRows] = useState<Recipient[] | null>(null);
   const [error, setError] = useState("");
@@ -162,6 +164,7 @@ export default function PublishRecipientPicker({ collegeId, sectionId, termId, o
               </button>
               <span className="publish-pick-tools">
                 {/* خاناتٌ ثابتة (حالة · معاينة · مقررات): تصطفّ الأسطرُ عموداً واحداً وإن غاب بعضُها. */}
+                {hintOf ? hintOf(person) : null}
                 {state ? <span className="publish-state" role="img" aria-label={FOLLOW_ICON[state].label} title={FOLLOW_ICON[state].label}>{FOLLOW_ICON[state].icon}</span> : <span className="publish-state" aria-hidden="true" />}
                 {onPreview ? (
                   <button type="button" className="ta-mini" title="معاينة بطاقته" aria-label={`معاينة بطاقة ${person.name}`}

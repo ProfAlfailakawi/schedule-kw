@@ -3337,7 +3337,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
               {roomLoad ? (
                 <div className="occupancy-legend" aria-hidden="true">
                   <i data-level="0" /><i data-level="1" /><i data-level="3" /><i data-level="5" />
-                  <span>{num(roomLoad.totalRate)}٪</span>
+                  <span>{num(roomLoad.totalRate)}%</span>
                 </div>
               ) : null}
             </div>
@@ -3383,7 +3383,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                             : { room: room.name, roomId: room.roomId, point: cell.point })}
                       />
                     ))}
-                    <b className="occupancy-rate">{num(room.rate)}٪</b>
+                    <b className="occupancy-rate">{num(room.rate)}%</b>
                   </div>
                 ))}
               </div></div>
@@ -3536,7 +3536,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                   <header className="occupancy-heat-summary">
                     <span><b>{num(occupancyHeat.lectures)}</b> {nounFor(occupancyHeat.lectures, AR.lecture)}</span>
                     <span><b>{num(occupancyHeat.rooms)}</b> {nounFor(occupancyHeat.rooms, AR.room)}</span>
-                    <span className="is-rate"><b>{num(occupancyHeat.rate)}٪</b> إشغال الأسبوع</span>
+                    <span className="is-rate"><b>{num(occupancyHeat.rate)}%</b> إشغال الأسبوع</span>
                     {occupancyHeat.peak ? (
                       <span className="is-peak">الذروة {occupancyHeat.days[occupancyHeat.peak.day].label} <b dir="ltr">{scheduleClockForDisplay(clock(occupancyHeat.hours[occupancyHeat.peak.hour]))}</b> · {countOf(occupancyHeat.peak.count, AR.lecture)}</span>
                     ) : null}
@@ -3551,7 +3551,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                         <header className="occupancy-heat-summary">
                           <strong>{site.label}</strong>
                           <span><b>{num(site.heat.lectures)}</b> {nounFor(site.heat.lectures, AR.lecture)}</span>
-                          <span className="is-rate"><b>{num(site.heat.rate)}٪</b></span>
+                          <span className="is-rate"><b>{num(site.heat.rate)}%</b></span>
                         </header>
                         <OccupancyHeatGrid heat={site.heat} compact collegeId={site.collegeId} pick={occupancyPick?.collegeId === site.collegeId ? occupancyPick : null} onPick={setOccupancyPick} label={`نسبة الإشغال — ${site.label}`} />
                       </section>
@@ -3572,7 +3572,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                             <Building2 aria-hidden="true" />
                             <span className="rpt-top-room-name"><bdi dir="ltr">{room.name}</bdi>{site ? <small>{site}</small> : null}</span>
                             <span className="rpt-meter" aria-hidden="true"><i style={{ width: `${room.utilization}%` }} /></span>
-                            <b>{num(room.utilization)}٪</b>
+                            <b>{num(room.utilization)}%</b>
                             <small className="rpt-top-room-count">{countOf(room.sessions, AR.appointment)}</small>
                           </>
                         );
@@ -3582,7 +3582,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
                               type="button"
                               data-guide-ignore="يفتح تفاصيل القاعة للقراءة فقط"
                               aria-haspopup="dialog"
-                              aria-label={`${room.name}: استخدام تقديري ${room.utilization}٪`}
+                              aria-label={`${room.name}: استخدام تقديري ${room.utilization}%`}
                               onClick={() => setRoomInsightFor({ name: room.name, roomId: room.roomId, code: room.code, hall: room.hall, utilization: room.utilization, sessions: room.sessions, site: site || collegeName || undefined })}
                             >
                               {body}
@@ -4479,10 +4479,10 @@ function BalancePanel({ balance, sort, onSort, num, approvals, focusSectionId = 
                 <td data-label="صباحي" data-cell="metric">
                   {/* Morning against evening as one bar, rather than two numbers
                       to subtract in your head. */}
-                  <span className="balance-split" title={`صباحي ${item.morningPct}٪ · مسائي ${item.eveningPct}٪`}>
+                  <span className="balance-split" title={`صباحي ${item.morningPct}% · مسائي ${item.eveningPct}%`}>
                     <i style={{ width: `${item.morningPct}%` }} />
                   </span>
-                  <b>{num(item.morningPct)}٪</b>
+                  <b>{num(item.morningPct)}%</b>
                 </td>
                 <td data-label="العدالة" data-cell="metric">
                   <DnaRing className="balance-ring" value={Number(item.fairness)} size={34} stroke={3}
@@ -5352,7 +5352,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
               <div className="print-query-summaryline">
                 <span><b>{heat.lectures}</b> {nounFor(heat.lectures, AR.lecture)}</span>
                 <span><b>{heat.rooms}</b> {nounFor(heat.rooms, AR.room)}</span>
-                <span><b>{heat.rate}</b>٪ إشغال الأسبوع</span>
+                <span><b>{heat.rate}</b>% إشغال الأسبوع</span>
                 {heat.peak ? <span>الذروة {heat.days[heat.peak.day].label} <bdi dir="ltr">{scheduleClockForDisplay(clock(heat.hours[heat.peak.hour]))}</bdi> · <b>{heat.peak.count}</b> {nounFor(heat.peak.count, AR.lecture)}</span> : null}
               </div>
               <table className="print-occupancy-table print-occupancy-heat">
@@ -5406,7 +5406,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
                 <PrintLetterhead title={titles[kind]} scope={scope} college={collegeName} footer={false} />
                 <div className="print-query-summaryline">
                   <span><b>{roomLoad.rooms.length}</b> {nounFor(roomLoad.rooms.length, AR.room)}</span>
-                  <span><b>{roomLoad.totalRate}</b>٪ متوسط الإشغال</span>
+                  <span><b>{roomLoad.totalRate}</b>% متوسط الإشغال</span>
                   <span>المربع الداكن = إشغال أعلى</span>
                 </div>
                 <table className="print-occupancy-table">

@@ -138,6 +138,10 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   /* وجود instructorId يعني استثناءً شخصياً، لا إصداراً جماعياً. */
   const individualOnly = req.body?.instructorId != null;
   const reopening = req.body?.reopen === true;
+  /* من عنده بطاقةٌ سارية (قرار المالك 2026-11-14): «تكرار» = الرابطُ نفسه بالموعد الجديد (الافتراضي)،
+     «تبديل» = رابطٌ جديد يحلّ محلّ القديم والطلبُ نفسُه يبقى، و«تخطّي» = لا يُمسّ أصلاً. */
+  const cardAction: "repeat" | "replace" = req.body?.cardAction === "replace" ? "replace" : "repeat";
+  const skipSet = new Set<number>((Array.isArray(req.body?.skipInstructorIds) ? req.body.skipInstructorIds : []).map(Number).filter((id: number) => Number.isSafeInteger(id) && id > 0).slice(0, 500));
   const selectedInstructorId = individualOnly ? Number(req.body.instructorId) : 0;
   const emergencyReason = String(req.body?.reason || "").trim().slice(0, 400);
   /* «لمن؟ ← أساتذة محددون»: قائمةٌ صريحة يُصدَر لها وحدها بالموعد نفسه، بلا سبب (ليست استثناءً).
@@ -301,6 +305,7 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
     /* غيرُ المختارين لا يُمسّ طلبُهم ولا رابطُهم ولا صفتُه. */
     if (picking && !pickedSet.has(instructorId)) continue;
     if (excluded.has(instructorId)) continue;
+    if (skipSet.has(instructorId)) continue;
     /* أستاذٌ له طلبٌ في هذا الفصل لا يُعطى ثانياً: طلبان يعنيان أن أحدهما
        سيُقرأ ويُهمل الآخر بلا أن يعرف صاحبُه. لكن طلباً مات موعدُه أو رابطُه
        لا يبقى «طلبَه» — يتبع الموعدَ الجديد (src/utils/requestReissue.ts). */
@@ -330,7 +335,9 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
       const heldLink = await Repository.getShareLink(held.linkId);
       const readable = heldLink ? await shareLinkStillReadable(heldLink) : false;
       let linkId = held.linkId;
-      if (requestLinkNeedsReplacing(heldLink, readable, Date.parse(windowClosesAt) + 86400000)) {
+      /* «تبديل»: لمن لم يُرسل طلبه بعد فقط — طلبٌ ينتظر قرار القسم لا يُستبدل رابطه (يبقى كما هو أعلاه). */
+      const forceNewLink = cardAction === "replace" && move === "extend" && !individualOnly && !onlyNoted;
+      if (forceNewLink || requestLinkNeedsReplacing(heldLink, readable, Date.parse(windowClosesAt) + 86400000)) {
         linkId = (await mintRequestLink(instructorId)).id;
         if (heldLink && !heldLink.revoked) await Repository.revokeShareLink(heldLink.id);
       }
@@ -400,6 +407,8 @@ app.post("/api/instructor-requests/issue", requirePermission(7), async (req: Aut
   await Repository.saveFeatureDoc("linkModeLog", `${collegeId}:${sectionId}:${termId}:${Date.now()}`, {
     at: new Date().toISOString(), by: String(req.user?.Name || req.user?.UserName || ""), mode: issueMode,
     scope: `${collegeId}:${sectionId}:${termId}`, instructorIds: issued.map(row => row.instructorId), single: individualOnly, picked: picking, closesAt: windowClosesAt,
+    fresh: issued.filter(row => !row.reissued && !row.renewed).length, renewed: issued.filter(row => row.renewed).length, kept: issued.filter(row => row.reissued).length,
+    replaced: cardAction === "replace", skipped: [...skipSet].length,
   }).catch(() => undefined);
   res.json({ issued, total: issued.length, fresh: issued.filter(row => !row.reissued && !row.renewed).length, ...(picking ? { picked: true } : {}) });
 });
@@ -424,9 +433,38 @@ app.get("/api/instructor-requests/send-log", requirePermission(7), async (req: A
     return {
       at: String(row.at || ""), mode: String(row.mode || "edit"), closesAt: String(row.closesAt || ""),
       audience: row.mode === "ta" ? "ta" : row.single ? "exception" : row.picked ? "picked" : "all",
-      count: ids.length, names: ids.map(id => nameOf.get(id) || "").filter(Boolean), by: sendLogSenderFor(req.user, row.by),
+      count: ids.length, names: [...new Set(ids.map(id => nameOf.get(id) || "").filter(Boolean))], by: sendLogSenderFor(req.user, row.by),
+      fresh: Number(row.fresh || 0), renewed: Number(row.renewed || 0), kept: Number(row.kept || 0), replaced: row.replaced === true, skipped: Number(row.skipped || 0),
     };
   }));
+});
+
+/* ── من عنده بطاقةٌ سارية الآن: يُسأل المنسّق قبل الإرسال (تكرار · تبديل · تخطّي) ────────
+ * سارية = طلبٌ قائم لم تنتهِ جولتُه (ليس ثُبّت ولا استُبدل) ونافذتُه مفتوحة ورابطُه حيّ.
+ * `awaiting`: أرسل الأستاذ طلبه وينتظر القسم — لا يُمسّ بأي خيار. للقراءة فقط، بلا رقم مدني ولا رابط. */
+app.get("/api/instructor-requests/live-cards", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "هذا القسم خارج نطاقك." }); return; }
+  const family = await staffFamilyScopes(collegeId, sectionId);
+  const [groups, instructors] = await Promise.all([
+    Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId))),
+    Repository.getInstructors(),
+  ]);
+  const nameOf = new Map((instructors as any[]).map(row => [Number(row.AdInstructorId), String(row.AdInstructorName || "")]));
+  const current = await currentInstructorRequestGeneration(groups.flat());
+  const cards: Array<{ instructorId: number; name: string; closesAt: string; awaiting: boolean; mode: string }> = [];
+  for (const [instructorId, request] of latestRequestByInstructor(current)) {
+    const move = reissueMove(request);
+    if (move === "fresh") continue;
+    const awaiting = move === "keep";
+    if (!awaiting && !requestWindowOpen(request)) continue;
+    const link = request.linkId ? await Repository.getShareLink(request.linkId) : null;
+    if (!link || link.revoked || !(await shareLinkStillReadable(link))) continue;
+    cards.push({ instructorId, name: nameOf.get(instructorId) || "", closesAt: String(request.window?.closesAt || ""), awaiting, mode: String(linkMode(request)) });
+  }
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ cards });
 });
 
 /* ── «لمن؟ ← أساتذة محددون»: من يمكن أن يُرسَل إليه ─────────────────────────

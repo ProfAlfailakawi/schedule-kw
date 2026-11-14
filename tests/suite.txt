@@ -30,6 +30,7 @@ test:mobile-overflow-css
 test:accessibility
 test:ta-phase-flow
 test:publish-pick-teachers
+test:publish-live-cards
 test:staff-global
 test:instructor-status
 test:request-cross-college
@@ -311,5 +312,9 @@ test:delete-impact
 test:inbox-undo
 test:report-insight
 test:names-one-label
+test:weekly-smoke
 test:whatif-in-changes
 test:print-ink
+test:system-health
+test:wish-patterns
+test:latin-digits
