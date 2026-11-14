@@ -1029,6 +1029,8 @@ export interface RegistrationOutcomeShard {
   shard: number;
   students: number;
   byCourse: Record<string, { registered: number; stuck: number; full: number; prereq: number; conflict: number; other: number }>;
+  /** آخرُ جوابٍ دخل هذه الشظية (يقرؤه «يوم التسجيل الحي» ليقول متى حُدّثت الأرقام). غائبٌ في شظايا ما قبل الإضافة. */
+  updatedAt?: string;
 }
 
 /** تذكرةُ طالبٍ من رادار تسجيل فصلٍ بعينه. وثيقةٌ لكل طالب: `{termId}_{fingerprint}`. */

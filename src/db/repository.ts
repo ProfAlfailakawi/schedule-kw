@@ -7436,7 +7436,7 @@ export const Repository = {
         const byCourse: Record<string, any> = {};
         for (const [courseId, row] of delta) byCourse[String(courseId)] = Object.fromEntries(Object.entries(row).map(([k, v]) => [k, FieldValue.increment(v)]));
         transaction.set(profileRef, { ...next, id: fingerprint, fingerprint });
-        transaction.set(shardRef, { id, termId, shard, students: FieldValue.increment(students), byCourse }, { merge: true });
+        transaction.set(shardRef, { id, termId, shard, students: FieldValue.increment(students), byCourse, updatedAt: new Date().toISOString() }, { merge: true });
         return next;
       });
     }
@@ -7450,6 +7450,7 @@ export const Repository = {
     let doc = db.registrationOutcomes.find(row => row.id === id);
     if (!doc) { doc = { id, termId, shard, students: 0, byCourse: {} }; db.registrationOutcomes.push(doc); }
     doc.students += students;
+    doc.updatedAt = new Date().toISOString();
     for (const [courseId, row] of delta) {
       const target = doc.byCourse[String(courseId)] || (doc.byCourse[String(courseId)] = { registered: 0, stuck: 0, full: 0, prereq: 0, conflict: 0, other: 0 });
       for (const key of Object.keys(row) as Array<keyof typeof row>) target[key] += row[key];

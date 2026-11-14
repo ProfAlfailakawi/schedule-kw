@@ -1,0 +1,35 @@
+/* ══ 62 · يوم التسجيل الحي (LiveRegistrationBoard) — رموزٌ فقط ══ */
+.lb-toggle{display:flex}
+.lb-toggle .btn{min-block-size:44px}
+.lb-board{margin-block:12px}
+.lb-board.lb-live{border-color:var(--accent)}
+.lb-board .rs-head{grid-template-columns:auto 1fr auto}
+.lb-tools{display:flex;flex-wrap:wrap;gap:8px}
+.lb-tools .btn{min-block-size:44px}
+.lb-asof{margin:0;font-weight:700;font-size:.88rem;line-height:1.7}
+.lb-asof.stale{color:var(--warning,#8a5a00)}
+.lb-sources{display:grid;gap:4px;margin:0;padding:0;list-style:none;font-size:.78rem;color:var(--muted)}
+.lb-sources li{display:flex;flex-wrap:wrap;gap:2px 8px}
+.lb-sources .stale span{color:var(--warning,#8a5a00)}
+.lb-sources .absent{opacity:.75}
+.lb-counts{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+.lb-chip{display:inline-flex;align-items:center;gap:5px;min-block-size:32px;padding:2px 12px;border-radius:99px;font-size:.82rem;font-weight:700;background:var(--surface-2,#f7f6f2);border:1px solid var(--line)}
+.lb-chip svg{inline-size:15px;block-size:15px}
+.lb-chip.full{background:var(--danger-soft,#f8e3df);color:var(--danger,#a33)}
+.lb-chip.filling{background:var(--warning-soft,#fbefd8);color:var(--warning,#8a5a00)}
+.lb-chip.open{background:var(--success-soft,#e1f1e6);color:var(--success,#1d6b3a)}
+.lb-list{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.lb-card{display:grid;gap:6px;padding:12px;border:1px solid var(--line);border-inline-start-width:5px;border-radius:16px;background:var(--surface-2,#f7f6f2);min-inline-size:0}
+.lb-card.full{border-inline-start-color:var(--danger,#a33)}
+.lb-card.filling{border-inline-start-color:var(--warning,#8a5a00)}
+.lb-card.open{border-inline-start-color:var(--success,#1d6b3a)}
+.lb-state{margin-inline-start:auto;padding:1px 10px;border-radius:99px;font-style:normal;font-size:.76rem;font-weight:700;background:var(--surface,#fff);border:1px solid var(--line)}
+.lb-state.full{background:var(--danger-soft,#f8e3df);color:var(--danger,#a33)}
+.lb-state.filling{background:var(--warning-soft,#fbefd8);color:var(--warning,#8a5a00)}
+.lb-state.open{background:var(--success-soft,#e1f1e6);color:var(--success,#1d6b3a)}
+.lb-bar{block-size:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.lb-bar i{display:block;block-size:100%;border-radius:99px;background:var(--success,#1d6b3a)}
+.lb-card.filling .lb-bar i{background:var(--warning,#8a5a00)}
+.lb-card.full .lb-bar i{background:var(--danger,#a33)}
+@media (min-width:900px){.lb-list{grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))}}
+@media (max-width:480px){.lb-board .rs-head{grid-template-columns:auto 1fr}.lb-tools{grid-column:1 / -1}.lb-tools .btn{flex:1 1 140px}}

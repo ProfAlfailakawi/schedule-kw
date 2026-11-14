@@ -27,6 +27,7 @@ import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { orderRadarCourses } from "../utils/registrationSim";
 import RadarSchedule, { request } from "./RadarSchedule";
 import RadarSuggestions from "./RadarSuggestions";
+import LiveRegistrationBoard from "./LiveRegistrationBoard";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import AdvisingScopePicker, { useAdvisingScopeCatalog } from "./AdvisingScopePicker";
 import { byArabic } from "../utils/sorting";
@@ -43,7 +44,7 @@ interface Summary {
   /** فصلٌ سابق: يُعرض للاطّلاع فقط (الخادم يقرّر، ويردّ 409 على أي كتابة). */
   frozen?: boolean;
   auto?: { enabled: boolean; everyHours: number };
-  phase?: { mode: string; label: string; line: string; namesVisible: boolean };
+  phase?: { key?: string; mode: string; label: string; line: string; namesVisible: boolean };
   run: { ranAt: string; ranBy: string; students: number; population: number; withoutRules: number; defaulted: number; rounds: number; windows: number[]; scoped: boolean; stale?: boolean;
     capacity?: { canReach15: number; canReach12To14: number; below12: number; graduatingBelow12: number; unknown: number } | null;
     projected?: { students: number; capacity: { canReach15: number; canReach12To14: number; below12: number; graduatingBelow12: number; unknown: number } } | null;
@@ -253,6 +254,7 @@ export default function RegistrationRehearsal({ onNavigate, canSchedule = false 
           {onNavigate && data.phase.namesVisible ? <div className="sm-links"><button type="button" onClick={() => onNavigate("studentRegistration")} data-guide-ignore="انتقالٌ إلى كشف التسجيل من شاشةٍ مسجّلة في المرشد باسم page.simulation">كشف التسجيل</button></div> : null}
         </div>
       ) : null}
+      {data?.term && !frozen ? <LiveRegistrationBoard termId={data.term.id} collegeId={scopePick.collegeId} sectionId={scopePick.sectionId} canSchedule={canSchedule} frozen={frozen} roundActive={data.phase?.key === "round"} onChanged={() => void load()} /> : null}
       {!data && !error ? <MicroLoader /> : !data?.term ? <EmptyState title="لا فصلَ للرادار" detail="تظهر حين يكون للفصل القادم تواريخُ طلبة." /> : !r ? (
         <EmptyState
           title={data.auto?.enabled === false ? "لم يُحتسب الرادار بعد" : "جارٍ إعداد الرادار تلقائياً"}
