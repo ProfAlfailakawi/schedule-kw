@@ -12,6 +12,8 @@
   "sources": [
     "src/utils/teacherSafeFields.ts",
     "src/server/teacherCardLogic.ts",
+    "src/server/teacherWeekFacts.ts",
+    "src/server/verifyAttempts.ts",
     "src/utils/pinIssueShort.ts",
     "src/utils/teacherPlanFacts.ts",
     "src/server/routes/instructorRequestsRoutes.ts",
@@ -1571,6 +1573,239 @@
         { "ar": "GET /api/public/request/:token وcheck وcheck-batch وcheck-times وhold وprevious وmovement بلا أيّ حقلٍ من roomCandidates أو roomOptions أو reservedRoom أو roomSwitch أو roomSeats أو roomId أو buildingId أو room أو hall أو AdRoomCode، وindividualException بلا grantedBy ولا reason.", "en": "GET /api/public/request/:token and check, check-batch, check-times, hold, previous and movement carry none of roomCandidates, roomOptions, reservedRoom, roomSwitch, roomSeats, roomId, buildingId, room, hall or AdRoomCode, and individualException has no grantedBy or reason." }
       ],
       "evidence": { "code": ["src/utils/requestRoomRanking.ts#rankRequestRooms", "src/utils/requestRoomRanking.ts#pickRequestRoom", "src/utils/instructorRequestVerdict.ts#judgeRequest", "src/utils/instructorRequestReservations.ts#claimProposal", "src/utils/teacherSafeFields.ts#withoutPlaceFields", "src/server/routes/publicRequestRoutes.ts#stripForInstructor", "src/components/InstructorInbox.tsx#RoomSeatsBadge"], "tests": ["tests/request-room-seat-rule-audit.ts", "tests/request-room-seat-http-audit.ts", "tests/request-room-capacity-audit.ts"] }
+    },
+    {
+      "id": "FR-REQ-068",
+      "kind": "functional",
+      "title": {
+        "ar": "مقرّرٌ غير مطروح لا يدخل طلب الأستاذ من «أعد الطلب نفسه» أو المسودة",
+        "en": "A course not offered this term never enters the request via replay or a restored draft"
+      },
+      "text": {
+        "ar": "يجب أن يتجاوز «أعد الطلب نفسه» والمسودةُ المستعادة كلَّ مقرّرٍ غير مطروح هذا الفصل ويقولا السببَ في سطرٍ واحد، وأن يحمل خطأُ الإرسال بسبب مقرّرٍ غير مطروح رقمَ البند المخالف (itemIndex) ليبرزه الكرت.",
+        "en": "Replay and a restored draft shall skip any course not offered this term and say why in one line, and a submit error caused by such a course shall carry the failing item's itemIndex so the card highlights it."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "POST /api/public/request/:token بمقرّرٍ غير مطروح يعيد 400 ومعه itemIndex.",
+          "en": "POST /api/public/request/:token with a non-offered course returns 400 with itemIndex."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/requestReplayScript.ts#planReplay",
+          "src/server/teacherCardLogic.ts#tcCourseClosed",
+          "src/server/routes/publicRequestRoutes.ts"
+        ],
+        "tests": [
+          "tests/teacher-card-r6-audit.ts",
+          "tests/teacher-card-r6-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-REQ-069",
+      "kind": "functional",
+      "title": {
+        "ar": "سطرُ «للاطلاع» تحت الموعد يطابق الحالة",
+        "en": "The read-only line under an appointment matches the state"
+      },
+      "text": {
+        "ar": "يجب أن يقول سطرُ القراءة تحت كل موعد: «رابط للعرض فقط» لرابط العرض، وعبارةَ مرحلة التدريب لها، و«اكتمل طلبك» لما اكتمل قبل الموعد، والنصَّ «انتهت مدّة الطلبات» لانقضاء المهلة وحده.",
+        "en": "The read-only line under each appointment shall say «view-only link» for a view link, the training phase's own wording for it, «your request is complete» for one settled before the deadline, and «requests period ended» only once the window has closed."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابطٌ للعرض والمهلةُ مفتوحة لا يعرض «انتهت مدّة الطلبات».",
+          "en": "A view link with an open window never shows «requests period ended»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/teacherCardLogic.ts#tcRowReadOnly"
+        ],
+        "tests": [
+          "tests/teacher-card-r6-audit.ts",
+          "tests/teacher-card-r6-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-REQ-070",
+      "kind": "functional",
+      "title": {
+        "ar": "حجبُ التحقّق من التوقيع لكل رقمٍ مدنيّ لا لكل عنوان",
+        "en": "Signature verification lockout is per civil ID, not per address"
+      },
+      "text": {
+        "ar": "يجب أن تُحجب محاولاتُ «تحقّق من توقيعك» الفاشلة بعد عشرٍ لكل رقمٍ مدنيّ (ببصمته، لا يُخزَّن الرقمُ ولا تعود البصمة) وحده، مع سقفٍ أوسع لكل عنوان (120) لمن يمسح أرقاماً كثيرة؛ فلا تحجب شبكةُ الجامعة الجميعَ بعشر أخطاء. العدّادُ في ذاكرة النسخة.",
+        "en": "Failed signature-verification attempts shall lock out after ten per civil ID (by fingerprint; the number is never stored nor the fingerprint returned) only, with a much looser per-address ceiling (120) for scanning; a campus network is not blocked by ten misses. Counters are per server instance."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "عشرُ أخطاءٍ على رقمٍ واحد تعيد 429 له، ورقمٌ آخر من العنوان نفسه يعيد 404.",
+          "en": "Ten misses on one ID return 429 for it while another ID from the same address returns 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/verifyAttempts.ts#createVerifyAttemptGuard",
+          "src/server/routes/verifyRoutes.ts"
+        ],
+        "tests": [
+          "tests/teacher-card-r6-audit.ts",
+          "tests/teacher-card-r6-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-REQ-071",
+      "kind": "functional",
+      "title": {
+        "ar": "اشتراكُ تقويم الأستاذ مربوطٌ ببطاقته الحيّة",
+        "en": "The teacher calendar feed is bound to the member's live card"
+      },
+      "text": {
+        "ar": "يجب ألا يعرض /api/public/cal/:token/:key الجدولَ إلا والرمزُ بطاقةٌ حيّة لهذا الأستاذ (رابطه الشخصي أو رابط طلبه أو بطاقة قسمٍ يدرّس فيه)، والمفتاحُ مشتقٌّ من الرمز ورقم الأستاذ فيبطله تجديدُ الرابط أو إيقافُه؛ رمزٌ موقوف يُجاب بتقويمٍ صالحٍ فارغ، ومفتاحٌ مزوَّر أو رمزُ زميل 404، والمفاتيحُ القديمة تبقى ما دام رابطُها حيّاً.",
+        "en": "/api/public/cal/:token/:key shall serve the timetable only while the path token is a live card of that member (personal link, request link, or a department card where they teach); the key derives from the token and member id so renewing or revoking the link invalidates it; a revoked token gets a valid empty calendar, a forged key or a colleague's token 404, and legacy keys keep working while their link is live."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابطٌ حيّ: VEVENT؛ رابطٌ أُوقف: تقويمٌ فارغ؛ رمزُ زميل أو مفتاحٌ مزوَّر: 404.",
+          "en": "Live link: VEVENT; revoked link: empty calendar; colleague token or forged key: 404."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/calendarSecret.ts#personCalendarKey",
+          "src/server/routes/publicCalendarRoutes.ts#holdsLiveCardLink"
+        ],
+        "tests": [
+          "tests/teacher-card-r6-audit.ts",
+          "tests/teacher-card-r6-flow-audit.ts",
+          "tests/calendar-ics-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-REQ-072",
+      "kind": "functional",
+      "title": {
+        "ar": "شعبتان لمقرّرٍ واحد بالوقت نفسه: تنبيهٌ لا منع في الكرت",
+        "en": "Two sections of one course at the same time: a warning, never a block, in the card"
+      },
+      "text": {
+        "ar": "يجب أن يعرض كرتُ الأستاذ سطراً قصيراً مصوَّراً عند شعبتين لمقرّرٍ واحد بالوقت نفسه ويتابع، فلا يمنع الإرسالَ ولا يطلب استثناءً ولا يصير عنوانَ الحكم (قرار المالك النهائي 2026-11-14).",
+        "en": "The member card shall show a short visual line for two sections of one course at the same time and let the member continue; it never blocks submission, asks for an exception, or becomes the verdict headline (final owner decision 2026-11-14)."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "الحكمُ kind=clear وsendable=true مع سببٍ section-clash غير مانع.",
+          "en": "The verdict is kind=clear and sendable=true with a non-blocking section-clash reason."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/instructorRequestVerdict.ts#softSectionClash"
+        ],
+        "tests": [
+          "tests/teacher-card-r6-audit.ts",
+          "tests/teacher-card-peers-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-REQ-073",
+      "kind": "functional",
+      "title": {
+        "ar": "«محاضرتك القادمة» في كرت الأستاذ",
+        "en": "«Your next lecture» on the member card"
+      },
+      "text": {
+        "ar": "يجب أن يعرض الكرتُ أعلاه محاضرته القادمة من جدوله الرسمي في الفصل الجاري (بتوقيت الكويت، الأحدُ أولُ الأسبوع، الجمعةُ والسبتُ بلا محاضرات): «بعد 40 دقيقة · المقرر · شعبة 02» بعدّادٍ حيّ، أو «غداً 08:00»، ويمرّر الضغطُ إلى موعدها؛ بلا قاعةٍ ولا مبنى، ويختفي إن لم يكن الفصلُ جارياً أو لا محاضرةَ تالية.",
+        "en": "The card shall show at the top the member's next lecture from their official schedule of the current term (Kuwait time, Sunday-first week, Friday and Saturday without lectures): «in 40 minutes · course · section 02» with a live countdown, or «tomorrow 08:00»; tapping scrolls to the meeting; no room or building; hidden when the term is not running or no later lecture exists."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "ساعةٌ ثابتة الأحد 07:20 والمحاضرة 08:00 تعطي «بعد 40 دقيقة»؛ ومساءَ الخميس «الأحد 08:00».",
+          "en": "With a fixed clock Sunday 07:20 and a lecture at 08:00 gives «in 40 minutes»; Thursday evening gives «Sunday 08:00»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/teacherCardLogic.ts#tcNextLecture",
+          "src/server/teacherCardExtras.ts#tcNextHtml",
+          "src/server/teacherWeekFacts.ts#teacherWeekFacts"
+        ],
+        "tests": [
+          "tests/teacher-card-r6-audit.ts",
+          "tests/teacher-card-r6-flow-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-REQ-074",
+      "kind": "functional",
+      "title": {
+        "ar": "«أسبوعي الصحي» في كرت الأستاذ",
+        "en": "«My healthy week» on the member card"
+      },
+      "text": {
+        "ar": "يجب أن يعرض الكرتُ من جدوله الرسمي وحده إنفوجرافيك: أيامَ الحضور (4 من 5)، وأطولَ فراغٍ في اليوم، وأكثفَ يوم، والتنقّلَ بين الحرمين لمحاضرتين متتاليتين بدقائق سياسة التنقّل وقاعدة shortTravelGap نفسها (بلا دقائق مخترَعة)، وجملةً واحدة إن برز شيءٌ («جدولك مضغوط يوم الأحد: 5 ساعات بلا فراغ»)؛ بلا قاعةٍ ولا مبنى، ويختفي بلا جدولٍ رسمي.",
+        "en": "The card shall show, from the official schedule only, an infographic: attendance days (4 of 5), the longest in-day gap, the busiest day, campus travel for back-to-back lectures using the travel policy's minutes and the same shortTravelGap rule (no invented minutes), and one sentence when something stands out («your Sunday is packed: 5 hours without a break»); no room or building; hidden without an official schedule."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "instructor"
+      ],
+      "acceptance": [
+        {
+          "ar": "أحدٌ بأربع محاضراتٍ متتالية يعطي الجملة «جدولك مضغوط يوم الأحد: 5 ساعات بلا فراغ».",
+          "en": "A Sunday with four back-to-back lectures yields the packed-Sunday sentence."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/teacherCardLogic.ts#tcWeekHealth",
+          "src/server/teacherCardExtras.ts#tcWeekHtml",
+          "src/utils/campusTravelHint.ts#shortTravelGap"
+        ],
+        "tests": [
+          "tests/teacher-card-r6-audit.ts",
+          "tests/teacher-card-r6-flow-audit.ts"
+        ]
+      }
     }
   ],
   "edgeCases": [

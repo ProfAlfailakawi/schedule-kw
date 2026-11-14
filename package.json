@@ -53,6 +53,8 @@
     "test:teacher-card-2": "tsx tests/teacher-card-polish-2-audit.ts",
     "test:teacher-card-r4": "tsx tests/teacher-card-r4-audit.ts",
     "test:teacher-card-r5": "tsx tests/teacher-card-r5-audit.ts",
+    "test:teacher-card-r6": "tsx tests/teacher-card-r6-audit.ts",
+    "test:teacher-card-r6-flow": "tsx tests/teacher-card-r6-flow-audit.ts",
     "test:inbox-proposal-pickers-r2": "tsx tests/inbox-proposal-pickers-r2-audit.ts",
     "test:teacher-card-hours-patterns": "tsx tests/teacher-card-hours-patterns-audit.ts",
     "test:teacher-card-logic": "tsx tests/teacher-card-logic-audit.ts",
