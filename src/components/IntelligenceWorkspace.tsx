@@ -2406,6 +2406,14 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     }, 0);
   }, [tab, openCard]);
   useEffect(() => () => { if (navTimer.current != null) window.clearTimeout(navTimer.current); }, []);
+  /* رابطٌ يفتح على بطاقة (الحلقات فوق الجدول، «بداية الفصل» من الفصل الفارغ): تصل البطاقةُ إلى أعلى الشاشة. */
+  const arrivedLifted = useRef(false);
+  useEffect(() => {
+    if (arrivedLifted.current || !overview || !openCard) return;
+    arrivedLifted.current = true;
+    liftToTop(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Boolean(overview)]);
   /* الدرجُ ونافذةُ الشرح خطوةٌ خاصة في التاريخ: تُضاف عند الفتح (بالرابط نفسه)، والرجوعُ
      يُسقطها فيُغلق الطبقة وحدها. والإغلاقُ من الواجهة (✕ أو Escape) يُسقط خطوتها بنفسه،
      فلا تبقى خطوةٌ ميتة ولا يُمسح «التقدّم» في المتصفح. */
@@ -4722,7 +4730,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                       </h3>
                       <p>
                         {warRoom.issue
-                          ? `${countOf(warRoom.issue.conflictCount, AR.position)} بحاجة إلى تحقق · ${warRoom.issue.professorName || ""} · ${warRoom.issue.room || ""}`
+                          ? `${countOf(warRoom.issue.conflictCount, AR.position)} بحاجة إلى تحقق · ${warRoom.issue.professorName || ""} · ${(() => { const issueRow = rows.find((r) => r.id === warRoom.issue.rowId); return issueRow?.AdRoomCode ? `${issueRow.AdRoomCode}/${issueRow.AdRoomHall || ""}` : ""; })()}`
                           : "لا يوجد مانع زمني واضح؛ حافظ على الوضع الحالي وراجع نقطة الهشاشة فقط."}
                       </p>
                       {warRoom.issue ? (
