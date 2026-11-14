@@ -283,7 +283,7 @@ check(ui.includes('"x-page-sizes": files.map(file => file.size).join(",")') && u
   && fs.readFileSync("src/utils/documentOcr.ts", "utf8").includes("return readReportScan(input.map(part=>({buffer:part,mime:reportImageMime(part,\"\")})),false,blanks,firstTemplate);"),
   "صور صفحات الكشف (حتى أربع) تُقرأ في طلبٍ واحد: أعمدتها معاً، وإنقاذ العمود الفائت في كل صورة");
 const transfer = fs.readFileSync("src/components/ScheduleTransfer.tsx", "utf8");
-check(transfer.includes("const termEnded = termIsArchive(") && (transfer.match(/\{termEnded \? null : \(/g) || []).length === 4 && transfer.includes('if (termEnded && tab !== "export" && tab !== "publish") setTab("export")'),
+check(transfer.includes("const termEnded = termIsArchive(") && (transfer.match(/\{termEnded \? null : \(/g) || []).length === 3 && /* مجموعتا التخطيط والأساتذة، و«استيراد» (المالك 2026-11-14) */  transfer.includes('if (termEnded && tab !== "export" && tab !== "publish") setTab("export")'),
   "الفصل المنتهي: لا استيراد ولا تخطيط شعب ولا استبدال ولا منتدبون — تصدير ونشر فقط");
 check(fs.readFileSync("src/styles/09-details.css", "utf8").includes(".section-plan-row>[data-label]::before{content:attr(data-label)"), "الهاتف: كل مقرر بطاقة بخاناتٍ معنونة");
 

@@ -290,3 +290,4 @@ test:instructor-requests-owner-notes
 test:pin-regulation
 test:pin-violations-note
 test:proposal-open-row
+test:schedule-tools-groups
