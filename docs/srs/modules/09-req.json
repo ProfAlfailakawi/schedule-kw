@@ -1444,10 +1444,9 @@
         { "ar": "قراءةُ التخطيط لمقرّرات الأستاذ وحدها، أرقاماً مجمَّعة (المخطَّط، القائم، المتوقَّع) بلا هوية طالب، وتُحفظ خمس دقائق لكل طلب.", "en": "The planning read covers only the member's own courses, as aggregate numbers (planned, existing, expected) without student identities, cached five minutes per request." }
       ],
       "evidence": { "code": ["src/utils/pinIssueShort.ts", "src/utils/teacherPlanFacts.ts", "src/server/routes/publicRequestRoutes.ts#teacherPlanningFor", "src/server/teacherCardLogic.ts#tcPinGroups"], "tests": ["tests/teacher-card-r5-audit.ts"] }
-    }
-,
+    },
     {
-      "id": "FR-REQ-060",
+      "id": "FR-REQ-061",
       "kind": "functional",
       "title": { "ar": "القاعةُ التي يختارها النظام لطلب الأستاذ تتّسع لشعبته، ولا يرى الأستاذ قاعةً ولا مبنى", "en": "The room the system picks for a member's request fits the section, and the member never sees a room or building" },
       "text": {
