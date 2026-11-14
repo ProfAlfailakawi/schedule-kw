@@ -21,6 +21,7 @@ import { generateSyntheticCivilId, normalizeCivilId } from "../utils/civilId";
 import { verificationCode } from "../utils/approvalWorkflow";
 import { endForRequest, type RequestDayKey } from "../utils/instructorRequestVerdict";
 import { snapshotOf, specOfSnapshot } from "../utils/studyProposal";
+import { pastTermIds } from "../utils/wishPatterns";
 import { requestsCloseAtFromDate, termLinkExpiresAt } from "../utils/shareLinkLifetime";
 import type {
   AdCourse, FSchedule, InstructorRequest, InstructorRequestEvent, InstructorRequestItem, InstructorRequestSlot, StudentNeed,
@@ -52,6 +53,67 @@ const START_CHOICES = ["08:00", "09:30", "11:00", "12:30", "14:00", "15:30", "10
  */
 export async function seedDemoOtherDepartmentStories(deps: PreviousTermSeedDeps, termId: number): Promise<void> {
   await seedTermStories(deps, termId, "now", DEMO_OTHER_DEPARTMENT_SCOPES);
+}
+
+/**
+ * تاريخُ رغباتٍ في الفصول السابقة لقسم القصة (تكنولوجيا التعليم): ثلاثةُ أساتذة طلبوا في ثلاثة فصولٍ سابقة النمطَ
+ * نفسَه، فتظهر في «نشر ← بطاقة الأستاذ» شارةُ «توقّع الرغبات» (src/components/inbox/WishPatterns.tsx) بنمطٍ متكرّر.
+ * بيئةٌ تجريبية فحسب، ولا يُكتب شيءٌ خارجها. الطلباتُ «ثُبّتت» (settled) فتُحسب في النمط.
+ */
+export async function seedDemoWishHistory(deps: PreviousTermSeedDeps, currentTermId: number, scope: { collegeId: number; sectionId: number }): Promise<void> {
+  if (!Repository.isDemoRequest()) return;
+  const [terms, courses, instructors, colleges] = await Promise.all([Repository.getTerms(), Repository.getCourses(), Repository.getInstructors(), Repository.getColleges()]);
+  const pastIds = pastTermIds(terms as any[], currentTermId, 3);
+  if (!pastIds.length) return;
+  const courseById = new Map((courses as AdCourse[]).map(row => [Number(row.AdCourseId), row] as const));
+  const collegeNameById = new Map(colleges.map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
+  /* ما يطلبه كلُّ أستاذ في كل فصل: الأيامُ والبداية نفسُها، فتتكرّر خانةُ «إلى» (يوم + فترة). */
+  const asks: Array<{ days: RequestDayKey[]; start: string }> = [
+    { days: ["fsunday", "ftuesday"], start: "14:00" },
+    { days: ["fmonday", "fwednesday"], start: "09:30" },
+    { days: ["fsunday", "ftuesday"], start: "11:00" },
+  ];
+  const rowsByTerm = new Map<number, FSchedule[]>();
+  for (const termId of pastIds) {
+    const rows = (await Repository.getSchedulesByScope({ termId })) as FSchedule[];
+    rowsByTerm.set(termId, rows.filter(row => Number(row.AdCollegeId) === scope.collegeId && Number(row.AdSectionId) === scope.sectionId));
+  }
+  /* الأساتذةُ الذين لهم موعدٌ في كل الفصول المختارة (وإلا لا يتكرّر شيء). */
+  const common = [...new Set((rowsByTerm.get(pastIds[0]) || []).map(row => Number(row.AdInstructorId)).filter(Boolean))]
+    .filter(id => pastIds.every(termId => (rowsByTerm.get(termId) || []).some(row => Number(row.AdInstructorId) === id)))
+    .slice(0, asks.length);
+  for (const [index, instructorId] of common.entries()) {
+    const person = (instructors as any[]).find(row => Number(row.AdInstructorId) === instructorId);
+    if (!person) continue;
+    const ask = asks[index];
+    for (const [order, termId] of pastIds.entries()) {
+      const own = (rowsByTerm.get(termId) || []).filter(row => Number(row.AdInstructorId) === instructorId);
+      if (!own.length) continue;
+      const days = ask.days, end = endForRequest(days, ask.start);
+      const at = new Date(Date.now() - (170 + order * 160 + index) * 86_400_000).toISOString();
+      const link = await Repository.createShareLink({
+        AdCollegeId: scope.collegeId, AdSectionId: scope.sectionId, AdTermId: termId, SystemUserId: 16, userName: "د. رئيس لجنة جدول تكنولوجيا التعليم",
+        kind: "request", AdInstructorId: instructorId, label: `طلب جدول — ${instructorId}`, expiresAt: at, showInstructors: false,
+      } as any);
+      const target = 0;
+      const items: InstructorRequestItem[] = own.map(row => deps.requestItemFromRow(row, courseById.get(Number(row.AdCourseId))?.CourseName || String(row.AdCourseName || ""), collegeNameById))
+        .map((item, position) => position !== target ? item : {
+          ...item, action: "change" as const,
+          after: { ...item.before!, room: undefined, days: days.map(day => deps.dayLetters[day]).join(" · "), time: `${ask.start} – ${end}` },
+          slots: days.map(day => ({ day, start: ask.start, end })), verdict: "clear" as const,
+          decision: { state: "fixed" as const, decidedBy: "رئيس لجنة الجدول", decidedAt: at, scheduleId: Number(own[target].id) },
+        });
+      const created = await Repository.createInstructorRequest({
+        AdCollegeId: scope.collegeId, AdSectionId: scope.sectionId, AdTermId: termId, AdInstructorId: instructorId, linkId: link.id,
+        window: { opensAt: at, closesAt: at }, source: "draft", status: "sent", items,
+        timeline: [{ kind: "link-created", at, by: "القسم" }],
+      });
+      await Repository.saveInstructorRequest({
+        ...created, status: "settled", submittedAt: at, items,
+        timeline: [...created.timeline, { kind: "submitted", at, detail: "1" }, { kind: "item-fixed", at, by: "رئيس لجنة الجدول", itemIndex: target }, { kind: "settled", at, by: "رئيس لجنة الجدول" }],
+      } as InstructorRequest);
+    }
+  }
 }
 
 /** نهايةُ موعدٍ يبدأ عند `start` بمدة المحاضرة القائمة نفسها. */

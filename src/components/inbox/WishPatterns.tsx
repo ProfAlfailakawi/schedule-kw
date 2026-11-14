@@ -20,7 +20,10 @@ import type { WishHintsReply, WishHintLine } from "../../server/wishHints";
 
 type HintPerson = WishHintsReply["instructors"][number];
 
-const digits = (value: number) => value.toLocaleString("ar-EG");
+/* أرقامُ التطبيق لاتينية (ar-KW-u-nu-latn) في كل شاشاته؛ الهندية هنا كانت نشازاً بجوار «4 شعب». */
+/** الارتفاعُ الذي تحتاجه ورقةُ التوقّع كاملةً بشبكتها وأسطرها (تقريبٌ بالبكسل). */
+const WISH_SHEET_ROOM = 340;
+const digits = (value: number) => value.toLocaleString("ar-KW-u-nu-latn");
 const PERIOD_ICON: Record<AskPeriod, typeof Sun> = { morning: Sun, noon: Cloud, evening: Moon };
 const PERIOD_LABEL: Record<AskPeriod, string> = { morning: "صباحاً", noon: "ظهراً", evening: "مساءً" };
 const DAY_SHORT: Record<AskDay, string> = { fsunday: "أحد", fmonday: "اثنين", ftuesday: "ثلاثاء", fwednesday: "أربعاء", fthursday: "خميس" };
@@ -140,10 +143,16 @@ function Sheet({ hints, name, anchor, visiting, trainee, onClose }: {
   useDialogDismiss(true, onClose);
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { closeRef.current?.focus(); }, []);
-  const style = anchor ? ({ "--wish-top": `${Math.round(anchor.bottom + 6)}px`, "--wish-end": `${Math.max(8, Math.round(window.innerWidth - anchor.right))}px` } as CSSProperties) : undefined;
+  /* تحت الشريحة إن اتّسع المكان (نحو 340px)، وإلا فوقها إن كان أوسع؛ فلا يُضغط الجدولُ والأسطرُ تحت حافّة الشاشة. */
+  const below = anchor ? window.innerHeight - anchor.bottom - 18 : 0, above = anchor ? anchor.top - 18 : 0;
+  const place: "below" | "above" = anchor && below < WISH_SHEET_ROOM && above > below ? "above" : "below";
+  const style = anchor ? ({
+    ...(place === "above" ? { "--wish-bottom": `${Math.round(window.innerHeight - anchor.top + 6)}px` } : { "--wish-top": `${Math.round(anchor.bottom + 6)}px` }),
+    "--wish-end": `${Math.max(8, Math.round(window.innerWidth - anchor.right))}px`,
+  } as CSSProperties) : undefined;
   return createPortal(
     <div className="wish-layer no-print" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="wish-sheet" role="dialog" aria-modal="true" aria-label={`توقّع رغبات ${name}`} style={style}>
+      <section className="wish-sheet" data-place={place} role="dialog" aria-modal="true" aria-label={`توقّع رغبات ${name}`} style={style}>
         <header>
           <History aria-hidden="true" />
           <strong>{name}<PersonChips visiting={visiting} trainee={trainee} /></strong>

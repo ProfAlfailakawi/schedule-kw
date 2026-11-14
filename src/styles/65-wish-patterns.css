@@ -15,7 +15,8 @@
 .wish-chip:focus-visible,.wish-open:focus-visible,.wish-close:focus-visible,.wish-summary>button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .wish-chip svg{inline-size:16px;block-size:16px}
 
-.wish-layer{position:fixed;inset:0;z-index:80;background:color-mix(in srgb,#0b1210 38%,transparent)}
+/* فوق نافذة النشر (.share-backdrop = 500): كانت 80 فتُفتح الورقةُ خلفها ولا تُرى. */
+.wish-layer{position:fixed;inset:0;z-index:520;background:color-mix(in srgb,#0b1210 38%,transparent)}
 .wish-sheet{
   position:fixed;inset-block-start:var(--wish-top,20vh);inset-inline-end:var(--wish-end,16px);
   inline-size:min(360px,calc(100vw - 16px));max-block-size:calc(100vh - var(--wish-top,20vh) - 12px);overflow:auto;
@@ -23,6 +24,8 @@
   background:var(--canvas,var(--surface));border:1px solid var(--line);box-shadow:var(--shadow-lg);
   animation:wish-in .16s ease-out;
 }
+/* فوق الشريحة حين لا يتّسع المكان تحتها (انظر Sheet في WishPatterns.tsx). */
+.wish-sheet[data-place="above"]{inset-block-start:auto;inset-block-end:var(--wish-bottom,16px);max-block-size:calc(100vh - var(--wish-bottom,16px) - 12px)}
 .wish-sheet>header{display:flex;align-items:center;gap:8px;min-inline-size:0}
 .wish-sheet>header>svg{flex:none;inline-size:18px;block-size:18px;color:var(--accent)}
 .wish-sheet>header strong{flex:1;min-inline-size:0;font-size:.95rem;overflow-wrap:anywhere}

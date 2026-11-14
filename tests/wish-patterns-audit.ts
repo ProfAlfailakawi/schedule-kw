@@ -104,5 +104,25 @@ check(!/wishHints|wishPatterns|history-hints/.test(publicSources), "W7 لا شي
 check(/putOpenRow\(/.test(component) && /\/FSchedule\/Index/.test(component), "W7 «افتح الموعد» بنقل الوارد نفسه (putOpenRow)");
 check(/CourseTags/.test(component) && /PersonChips/.test(component), "W7 وسومُ المقرر والشخص");
 
+{
+  /* الورقةُ فوق نافذة النشر (.share-backdrop z-index:500)، وإلا فُتحت خلفها فلا تُرى؛ والأرقامُ لاتينية كبقية الشاشات. */
+  const css = fs.readFileSync("src/styles/65-wish-patterns.css", "utf8");
+  const publish = fs.readFileSync("src/styles/09-details.css", "utf8");
+  const publishZ = Number(publish.match(/\.share-backdrop\{[^}]*z-index:(\d+)/)?.[1] || 0);
+  const wishZ = Number(css.match(/\.wish-layer\{[^}]*z-index:(\d+)/)?.[1] || 0);
+  check(publishZ > 0 && wishZ > publishZ, `W9 طبقةُ ورقة التوقّع (${wishZ}) فوق نافذة النشر (${publishZ})`);
+  const component = fs.readFileSync("src/components/inbox/WishPatterns.tsx", "utf8");
+  check(component.includes('toLocaleString("ar-KW-u-nu-latn")') && !component.includes('"ar-EG"'), "W9 الأرقامُ لاتينية كبقية الشاشات");
+}
+
+{
+  /* بذرةُ التاريخ التجريبي: بيئةٌ تجريبية فحسب، لقسم القصة، وتُستدعى بعد بقية البذور. */
+  const seed = fs.readFileSync("src/server/demoPreviousTermSeed.ts", "utf8");
+  const auth = fs.readFileSync("src/server/routes/authRoutes.ts", "utf8");
+  const body = seed.slice(seed.indexOf("export async function seedDemoWishHistory"), seed.indexOf("/** نهايةُ موعدٍ يبدأ عند"));
+  check(body.includes("if (!Repository.isDemoRequest()) return;") && body.includes("status: \"settled\""), "W10 بذرةُ تاريخ الرغبات للبيئة التجريبية وحدها، بطلباتٍ مثبَّتة");
+  check(auth.includes('run("wish history", () => seedDemoWishHistory(') && auth.indexOf('run("wish history"') > auth.indexOf('run("other departments"'), "W10 تُستدعى بعد بذور الأقسام الأخرى");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

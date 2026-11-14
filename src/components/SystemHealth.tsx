@@ -31,8 +31,8 @@ function cardText(card: HealthCard): { big: string; unit?: string; small?: strin
     case "vault:stale": return { big: `${n}٪`, small: "قفلٌ عالق" };
     case "vault:failed": return { big: "متوقفة", small: KIND_WORD[String(card.detail).split(":")[0]] };
     case "vault:failedTouched": return { big: "فشلت", small: "بعد لمس البيانات" };
-    case "gate:open": return { big: "مفتوحة" };
-    case "gate:closed": return { big: "مغلقة", small: "الكتابة موقوفة" };
+    case "gate:open": return { big: "الكتابة متاحة" };
+    case "gate:closed": return { big: "الكتابة موقوفة", small: "صيانة نسخٍ احتياطي" };
     case "identity:unreadable": return { big: "تعذّرت القراءة" };
     case "identity:local": return { big: "محلية" };
     case "identity:checked": return { ...counted!, small: "منذ آخر فحص" };

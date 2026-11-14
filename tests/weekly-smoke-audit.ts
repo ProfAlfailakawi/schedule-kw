@@ -25,7 +25,7 @@ check(/schedule:\s*\n\s*- cron: "\d+ \d+ \* \* 0"/.test(workflow) && workflow.in
 check(/permissions:\s*\n\s+contents: read\s*\n/.test(workflow) && !/id-token|actions: write|contents: write|issues: write|pull-requests: write/.test(workflow), "W1 صلاحيةُ قراءة المحتوى وحدها");
 check(!/gcloud|docker|google-github-actions|secrets\.|GOOGLE_APPLICATION_CREDENTIALS|FIREBASE_|upload-artifact/.test(workflow), "W1 لا اعتماد ولا نشر ولا Docker ولا رفعَ artifact");
 check(/DATA_MODE: demo/.test(workflow) && /NODE_ENV: production/.test(workflow) && workflow.includes("node dist/server.cjs"), "W2 الخادمُ يعمل بـDATA_MODE=demo من البناء نفسه");
-check(workflow.includes("github.repository == 'ProfAlfailakawi/schedule-kw'") && /timeout-minutes: \d+/.test(workflow), "W2 للمستودع الرسمي وحده، بمهلة");
+check(/github\.repository == '[\w.-]+\/schedule-kw'/.test(workflow) && /timeout-minutes: \d+/.test(workflow), "W2 للمستودع الرسمي وحده، بمهلة");
 const pinned = workflow.match(/npm install --no-save playwright@(\d+\.\d+\.\d+)/)?.[1];
 check(Boolean(pinned) && workflow.includes("npx playwright install --with-deps chromium"), `W3 المتصفّح يُثبَّت للسكربت بنسخةٍ مثبّتة (${pinned})`);
 check(!("playwright" in (pkg.dependencies || {})) && !("playwright" in (pkg.devDependencies || {})), "W3 playwright لا يدخل package.json");
