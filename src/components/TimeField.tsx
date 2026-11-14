@@ -69,16 +69,19 @@ export function TimeField({ value, onChange, onOutOfRange, min = SCHEDULE_DAY_ST
   }, [value]);
   const emit = (next: string) => { emitted.current = next; onChange({ target: { value: next } }); };
 
+  /* الصفرُ الذي أضافه الحقل نفسه («3» ← «03») ليس صفراً كتبه صاحبه: «330» اختصارٌ يُقرأ 15:30، و«0330» الصريحة لا. */
+  const padded = useRef(false);
   const handle = (raw: string) => {
     let digits = LATIN(raw).slice(0, 4);
-    if (digits.length === 1 && Number(digits) > 2) digits = `0${digits}`;
+    if (digits.length <= 1) padded.current = false;
+    if (digits.length === 1 && Number(digits) > 2) { digits = `0${digits}`; padded.current = true; }
     const shown = digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
     setText(shown);
     if (!digits) { setBad(false); emit(""); return; }
     if (digits.length < 4) { setBad(false); return; }
-    const clock = normalizeClock(digits, min, max);
+    const clock = normalizeClock(digits, min, max) || (padded.current ? afternoonClock(digits, min, max) : "");
     setBad(!clock);
-    if (clock) emit(clock);
+    if (clock) { if (clock !== `${digits.slice(0, 2)}:${digits.slice(2)}`) setText(clock); emit(clock); }
     else {
       const attempted = `${digits.slice(0, 2)}:${digits.slice(2)}`;
       const hour = Number(digits.slice(0, 2)), minute = Number(digits.slice(2));
