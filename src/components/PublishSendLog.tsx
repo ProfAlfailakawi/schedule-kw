@@ -9,11 +9,17 @@ import { History } from "lucide-react";
 import { LINK_MODES } from "../utils/linkMode";
 import { AR, countOf } from "../utils/arabicCount";
 
-interface SendLogEntry { at: string; mode: string; closesAt: string; audience: "all" | "picked" | "exception" | "ta"; count: number; names: string[]; by?: string }
+interface SendLogEntry { at: string; mode: string; closesAt: string; audience: "all" | "picked" | "exception" | "ta"; count: number; names: string[]; by?: string; fresh?: number; renewed?: number; kept?: number; replaced?: boolean; skipped?: number }
 
 const AUDIENCE: Record<SendLogEntry["audience"], string> = { all: "الكل", picked: "أساتذة محددون", exception: "استثناء", ta: "مرحلة التدريب" };
 const when = (value: string) => new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kuwait" }).format(new Date(value));
-const NAMES_SHOWN = 4;
+const NAMES_SHOWN = 3;
+/* ما حدث لأصحاب البطاقات في هذا الإرسال، بكلماتٍ قليلة: جديد · جُدّد · بُدّل · تُخطّي. */
+const outcomeOf = (row: SendLogEntry) => [
+  row.fresh ? `${row.fresh.toLocaleString("ar-KW-u-nu-latn")} جديد` : "",
+  row.renewed ? `${row.renewed.toLocaleString("ar-KW-u-nu-latn")} ${row.replaced ? "بُدّل رابطهم" : "جُدّد"}` : "",
+  row.skipped ? `${row.skipped.toLocaleString("ar-KW-u-nu-latn")} تُخطّي` : "",
+].filter(Boolean).join(" · ");
 
 export default function PublishSendLog({ collegeId, sectionId, termId, active, stamp }: {
   collegeId: number; sectionId: number; termId: number; active: boolean; stamp: number;
@@ -43,7 +49,7 @@ export default function PublishSendLog({ collegeId, sectionId, termId, active, s
               <span className="publish-send-log-mode" title={mode?.label} aria-hidden="true">{mode?.icon}</span>
               <div>
                 <b>{row.audience === "all" ? `الكل · ${countOf(row.count, AR.instructor)}` : `${AUDIENCE[row.audience]} · ${shown || countOf(row.count, AR.instructor)}${rest > 0 ? ` · و${countOf(rest, AR.instructor)}` : ""}`}</b>
-                <small>{[row.by ? `أرسله ${row.by}` : "", mode?.label, row.mode !== "view" && row.closesAt ? `حتى ${when(row.closesAt)}` : ""].filter(Boolean).join(" · ")}</small>
+                <small>{[outcomeOf(row), row.by ? `أرسله ${row.by}` : "", mode?.label, row.mode !== "view" && row.closesAt ? `حتى ${when(row.closesAt)}` : ""].filter(Boolean).join(" · ")}</small>
               </div>
               <time dateTime={row.at}>{when(row.at)}</time>
             </li>

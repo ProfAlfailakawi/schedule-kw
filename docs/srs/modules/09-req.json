@@ -329,11 +329,12 @@
       "acceptance": [
         { "ar": "instructorIds فارغة أو أكثر من 300 تُردّ بـ400، ومعرّف ليس في جدول العائلة يُردّ بـ404 ولا يُكتب شيء.", "en": "Empty or more than 300 instructorIds are refused with 400, and an identifier not in the family's schedule is refused with 404 with nothing written." },
         { "ar": "الإرسال المحدد لا يغيّر الموعد العام ولا طلبات غير المختارين، وإرسال «الملاحظات فقط» يشترط صفة طلب تعديل ويُردّ بـ409 إن لم تكن ملاحظات.", "en": "A selected send does not change the shared deadline or the requests of unselected members, and a notes-only send requires edit mode and is refused with 409 when there are no notes." },
-        { "ar": "GET send-log يعيد الجمهور all أو picked أو exception أو ta ولا يتجاوز 200 سطر.", "en": "GET send-log returns audience all, picked, exception or ta and never more than 200 lines." }
+        { "ar": "GET send-log يعيد الجمهور all أو picked أو exception أو ta ولا يتجاوز 200 سطر، ويحمل كل سطر ما حدث (fresh جديد · renewed جُدّد أو بُدّل · kept ينتظر القسم · skipped تُخطّي) وأسماءه بلا تكرار.", "en": "GET send-log returns audience all, picked, exception or ta and never more than 200 lines, each line carrying what happened (fresh new · renewed renewed or replaced · kept awaiting the department · skipped skipped) and its names without duplicates." },
+        { "ar": "قبل أي إرسال لبطاقة الأستاذ (للجميع أو لمختارين، عرضاً أو تعديلاً) يقرأ العميل GET live-cards (بإذن القسم ونطاقه، بلا رقم مدني ولا رابط)؛ فإن وُجد من عنده بطاقة سارية سُئل المنسّق مرة واحدة: تكرار (الرابط نفسه بالموعد الجديد، الافتراضي) أو تبديل (cardAction=replace: رابط جديد يُبطل القديم والطلب نفسه يبقى) أو تخطّي (skipInstructorIds: لا يُمسّ)، ومن أرسل طلبه وينتظر القسم لا يمسّه أي خيار.", "en": "Before any faculty-card send (to everyone or a selection, view or edit) the client reads GET live-cards (department permission and scope, no civil ID or link); if anyone holds a live card the coordinator is asked once: repeat (same link with the new deadline, the default), replace (cardAction=replace: a new link that revokes the old one while the request stays) or skip (skipInstructorIds: untouched), and a member who submitted and awaits the department is untouched by every choice." }
       ],
       "evidence": {
-        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/components/PublishRecipientPicker.tsx", "src/utils/requestNotedScope.ts", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/send-log"],
-        "tests": ["tests/publish-pick-teachers-audit.ts", "tests/publish-requests-audit.ts"]
+        "code": ["src/server/routes/instructorRequestsRoutes.ts", "src/components/PublishRecipientPicker.tsx", "src/components/PublishSendLog.tsx", "src/utils/requestNotedScope.ts", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/send-log", "src/server/routes/instructorRequestsRoutes.ts#/api/instructor-requests/live-cards"],
+        "tests": ["tests/publish-pick-teachers-audit.ts", "tests/publish-requests-audit.ts", "tests/publish-live-cards-audit.ts"]
       }
     },
     {

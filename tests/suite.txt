@@ -30,6 +30,7 @@ test:mobile-overflow-css
 test:accessibility
 test:ta-phase-flow
 test:publish-pick-teachers
+test:publish-live-cards
 test:staff-global
 test:instructor-status
 test:request-cross-college

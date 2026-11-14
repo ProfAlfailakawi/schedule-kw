@@ -2868,8 +2868,8 @@
           "en": "One card for every finding type, as a bar folded by default: title, article, status, counts and campus tags, the projected score when fixing raises it, and «fix»; opening it shows «explain» and the instructors' names one row each (with their section count), and opening a name shows their appointments beneath (course · section · campus tag · day · time), paged by 8 with a search; «graduate course clashes» is a bar with its count that opens to its pairs; «open all / fold all»; nothing is remembered between openings, and the printed sheet prints everything expanded; «fix» highlights the item's loaded appointments on the week board (a 20-second glow) and closes the sheet, and is disabled when they all belong to another campus."
         },
         {
-          "ar": "قاعدةٌ واحدة للعنوان والمفاتيح والدرجة على الشاشة والورقة: المانع «يوجد ما يمنع الاعتماد» و«مواعيد تمنع»، وبند المعالجة «لا مانع للتوقيع · بنود للمعالجة» و«مواعيد للمعالجة» ويُنقص الدرجة، والملاحظة (خارج سُلّم اللائحة، الشعبة مسجّلة مرتين) «لا مانع للتوقيع · ملاحظات» و«مواعيد للملاحظة» ولا تُنقص الدرجة، و«سليم» ما لا يمسّه شيء؛ والمعادلة «(السليم + للملاحظة) ÷ الكل × 100».",
-          "en": "One rule for the title, keys and score on screen and paper: a blocker gives «something blocks approval» and «appointments that block», a needs-fix item «no bar to signing · items to fix» and «appointments to fix» and lowers the score, a note (off the regulation ladder, a section recorded twice) «no bar to signing · notes» and «appointments to note» without lowering it, and «sound» is what nothing touches; the formula reads «(sound + to note) ÷ all × 100»."
+          "ar": "قاعدةٌ واحدة للعنوان والمفاتيح والدرجة على الشاشة والورقة: المانع «يوجد ما يمنع الاعتماد» و«مواعيد تمنع»، وبند المعالجة «لا مانع للتوقيع · بنود للمعالجة» و«مواعيد للمعالجة» ويُنقص الدرجة، والملاحظة (خارج سُلّم اللائحة، الشعبة مسجّلة مرتين) «لا مانع للتوقيع · ملاحظات» و«مواعيد للملاحظة» ولا تُنقص الدرجة، و«سليم» ما لا يمسّه شيء؛ والملاحظة خارج اللائحة فلا تدخل الحساب لا في البسط ولا في المقام (قرار المالك 2026-11-14): المعادلة «السليم ÷ (السليم + للمعالجة) × 100»، وتبقى «مواعيد للملاحظة» ظاهرةً في الشريط والعنوان بعبارة «خارج الحساب» بلا شريحة في الحلقة.",
+          "en": "One rule for the title, keys and score on screen and paper: a blocker gives «something blocks approval» and «appointments that block», a needs-fix item «no bar to signing · items to fix» and «appointments to fix» and lowers the score, a note (off the regulation ladder, a section recorded twice) «no bar to signing · notes» and «appointments to note» without lowering it, and «sound» is what nothing touches; a note is outside the regulation so it enters the score neither in the numerator nor the denominator (owner decision 2026-11-14): the formula reads «sound ÷ (sound + to fix) × 100», and «appointments to note» stays visible in the bar and title marked «outside the score» with no slice in the ring."
         },
         {
           "ar": "«توزيع الفترتين» (قرار 1913/2016 · م.7/2): الصباحي 08:00–14:00 بنسبة 50–70٪ والمسائي 14:00–20:00 بنسبة 30–50٪، والرسم يظهر بعد الحد الأدنى من المواعيد وإلا تُذكر القراءة نصاً.",
@@ -2973,8 +2973,8 @@
       ],
       "acceptance": [
         {
-          "ar": "الدرجة = (السليم + للملاحظة) ÷ الكل × 100، فلا تتغير بها؛ والعنوانُ بلا مانعٍ ولا معالجة «لا مانع للتوقيع · ملاحظات».",
-          "en": "Score = (clean + noted) ÷ all × 100, unchanged by them; with no blocker or treatment item the title reads «no obstacle to signing · notes»."
+          "ar": "الدرجة = السليم ÷ (السليم + للمعالجة) × 100، فلا تدخل الملاحظة فيها لا بسطاً ولا مقاماً (خارج اللائحة)؛ والعنوانُ بلا مانعٍ ولا معالجة «لا مانع للتوقيع · ملاحظات».",
+          "en": "Score = clean ÷ (clean + to fix) × 100, with notes entering neither numerator nor denominator (outside the regulation); with no blocker or treatment item the title reads «no obstacle to signing · notes»."
         },
         {
           "ar": "الورقة المطبوعة (A4 أفقية) تضيفها بطاقاتٍ بعد غيرها بلا تغيير في التصميم.",
