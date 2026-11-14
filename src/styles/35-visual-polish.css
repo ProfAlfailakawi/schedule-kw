@@ -58,7 +58,7 @@
   /* على خطّ الشريط العائم نفسه وفي الزاوية: كل العائمات في شريطٍ واحد أسفل الشاشة. */
   .hall-barter-inbox:not(.hall-barter-inbox-decision){inset-block-end:calc(12px + env(safe-area-inset-bottom));inset-inline-start:16px}
 }
-@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media screen and (max-width:768px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   /* الهاتف: بجوار شريط «موعد/بحث» فوق شريط التنقل، لا فوقه بطابقٍ كامل. */
   .hall-barter-inbox:not(.hall-barter-inbox-decision){inline-size:46px;block-size:46px;inset-block-end:calc(66px + env(safe-area-inset-bottom));inset-inline-start:12px}
   .hall-barter-inbox:not(.hall-barter-inbox-decision) .hall-barter-inbox-mark{inline-size:36px;block-size:36px}
@@ -102,7 +102,7 @@
 .teaching-load{grid-template-columns:minmax(0,1fr)}
 .teaching-load>*{min-inline-size:0}
 .tl-members select,.tl-members input{min-inline-size:0;inline-size:100%}
-@media (max-width:900px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:900px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   /* كل عضو بطاقة: الاسمُ، ثم الدرجةُ وزرُّ الاستثناء، ثم مقياسُ العبء. لا خاناتِ أرقامٍ في الصف (الاستثناءُ في محرّره). */
   .tl-row{grid-template-columns:minmax(0,1fr) auto}
   .tl-name,.tl-load{grid-column:1/-1}
@@ -138,7 +138,7 @@
 /* وضع التحرير يأخذ عرض بلاطتين ويصفّ الحقل والزرّين. */
 .location-type-row:has(input){grid-column:span 2;justify-items:stretch;align-content:start;text-align:start}
 .location-type-row:has(input) input{inline-size:100%;min-inline-size:0}
-@media (max-width:600px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){.location-type-list{grid-template-columns:repeat(2,minmax(0,1fr))}.location-type-row{max-width:none}}
+@media (max-width:600px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){.location-type-list{grid-template-columns:repeat(2,minmax(0,1fr))}.location-type-row{max-width:none}}
 
 /* ── أوقات الدوام: شريطُ يوم (٦ص–١٠م) يرسم النطاق المختار، وشريطٌ مصغّر لكل قسم. */
 .day-band{display:flex;align-items:center;gap:12px;margin-block:4px 2px}
@@ -180,14 +180,14 @@
 .hall-barter-tile{position:relative}
 .hall-barter-tile-badge{position:absolute;inset-block-start:6px;inset-inline-end:8px;min-inline-size:18px;block-size:18px;padding:0 5px;box-sizing:border-box;
   display:grid;place-items:center;border-radius:999px;background:#b4781d;color:#fff;font:700 11px/1 var(--font-ui);font-style:normal}
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .schedule-tools-toggle.is-close ~ .btn{flex:1 1 calc(33.333% - 6px);max-inline-size:calc(33.333% - 6px);min-block-size:80px;font-size:.76rem}
 }
 @media (prefers-reduced-motion:reduce){.schedule-tools-toggle.is-close ~ .btn{transition:none}}
 
 /* ── مركز القرار (اللوحة الحية): شريط المشاهد يُمرَّر أفقياً على الجوال، وكانت آخر أيقونة تُقصّ
    بحدّ حاد. صار طرفه يتلاشى ليقول «هناك المزيد»، ويلتقط المشهد عند التمرير. */
-@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .living-scene-nav{scroll-snap-type:x proximity;scrollbar-width:none;
     -webkit-mask-image:linear-gradient(to left,transparent 0,#000 34px);mask-image:linear-gradient(to left,transparent 0,#000 34px)}
   .living-scene-nav::-webkit-scrollbar{display:none}
@@ -273,7 +273,7 @@
 
 /* ── نافذة «العرض العريض» على الهاتف: الخطوات الثلاث بلاطاتٌ متجاورة بأيقونةٍ في الوسط
    بدل ثلاث بطاقاتٍ مكدّسة أيقونتها في زاوية واسمها في الزاوية الأخرى. */
-@media (max-width:640px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:640px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .mobile-desktop-gate-steps{grid-template-columns:repeat(3,minmax(0,1fr))}
   .mobile-desktop-gate-steps span{justify-items:center;text-align:center;padding:10px 6px}
   .mobile-desktop-gate-steps svg{inline-size:20px;block-size:20px}
@@ -285,7 +285,7 @@
 /* ── قائمة المواعيد على الهاتف: حين تزاحمت شارتا «التالية» و«استوديو إنتاج» العنوانَ في سطرٍ
    لا يلتفّ، انكمش الاسم حتى انكسرت الكلمة نفسها («تكنولوجي / ا التعليم»). صار السطر يلتفّ:
    الاسم يحتفظ بكلماته كاملة، والشارات تنزل تحته. */
-@media (max-width:760px),screen and (min-width:640px) and (max-width:1000px) and (min-height:520px) and (max-height:960px){
+@media (max-width:760px),screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px),screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .schedule-agenda .agenda-title-row{flex-wrap:wrap}
   .schedule-agenda .agenda-title-row>strong{flex:1 1 10em;min-width:min(10em,100%);overflow-wrap:break-word;word-break:normal}
 }
