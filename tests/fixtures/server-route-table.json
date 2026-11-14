@@ -1802,7 +1802,7 @@
    ],
    "path": "/api/schedules/check-conflicts",
    "name": "bound dispatch",
-   "call": "b249733030280b0f",
+   "call": "931f51cbb0a51e62",
    "site": "src/server/routes/scheduleReviewRoutes.ts:275",
    "regexp": "/^\\/api\\/schedules\\/check-conflicts\\/?$/i",
    "end": true
@@ -1815,7 +1815,7 @@
    "path": "/api/schedules/review-readiness",
    "name": "bound dispatch",
    "call": "a10fb02d73dbe095",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:314",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:315",
    "regexp": "/^\\/api\\/schedules\\/review-readiness\\/?$/i",
    "end": true
   },
@@ -1827,7 +1827,7 @@
    "path": "/api/schedules/outside-clashes",
    "name": "bound dispatch",
    "call": "660366a03abedb9a",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:345",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:346",
    "regexp": "/^\\/api\\/schedules\\/outside-clashes\\/?$/i",
    "end": true
   },
@@ -1839,7 +1839,7 @@
    "path": "/api/schedules/move-batch",
    "name": "bound dispatch",
    "call": "71da2ceac1d77b7d",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:396",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:397",
    "regexp": "/^\\/api\\/schedules\\/move-batch\\/?$/i",
    "end": true
   },

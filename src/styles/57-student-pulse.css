@@ -22,7 +22,7 @@
 .pulse-alarm b{font-weight:800}
 .pulse-alarm-copy{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
 .pulse-pair{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:var(--surface);border:1px solid color-mix(in srgb,var(--danger) 30%,var(--line));font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums}
-.pulse-sides{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.pulse-sides{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:10px}
 .pulse-side{display:flex;align-items:center;gap:12px;min-width:0;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--surface-2) 70%,transparent);border:1px solid var(--line)}
 .pulse-side.is-grad{border-color:color-mix(in srgb,var(--brass) 30%,var(--line));background:color-mix(in srgb,var(--brass) 6%,var(--surface))}
 .pulse-side-copy{display:grid;gap:3px;min-width:0;flex:1}

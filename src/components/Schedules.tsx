@@ -9674,6 +9674,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           type="button"
           className="drawer-close schedule-editor-close no-print"
           onClick={() => void requestClose()}
+          data-guide-ignore="يغلق محرّر الموعد، ويسأل قبل الإغلاق إن كان فيه ما لم يُحفظ؛ لا يحفظ شيئاً"
           aria-label="إغلاق بدون حفظ"
           title="إغلاق بدون حفظ (Esc)"
         >
