@@ -54,12 +54,21 @@ export const DEFAULT_QUOTA = 0;
 export const sectionKey = (termId: number, courseId: number, section: string | number) =>
   `${Number(termId)}:${Number(courseId)}:${String(section).trim()}`;
 
+/** مصدرُ الرصيد المنطبق: الشعبة (الأخصّ) ثم المقرر ثم العامّ (القسم) ثم الافتراضي حين لا إعداد. */
+export type QuotaSource = "section" | "course" | "global" | "default";
+
+/** الرصيدُ المنطبق ومن أين جاء: الترتيبُ نفسه الذي يحكم به الخادم. */
+export function quotaResolve(config: SeatQuotaConfig | null | undefined, courseId: number, key: string): { quota: number; source: QuotaSource } {
+  if (!config) return { quota: DEFAULT_QUOTA, source: "default" };
+  const usable = (value: unknown) => value !== undefined && value !== null && Number.isFinite(Number(value));
+  const own = config.bySection?.[key], course = config.byCourse?.[String(Number(courseId))];
+  const [value, source]: [unknown, QuotaSource] = usable(own) ? [own, "section"] : usable(course) ? [course, "course"] : usable(config.global) ? [config.global, "global"] : [DEFAULT_QUOTA, "default"];
+  return { quota: Math.max(0, Math.trunc(Number(value ?? DEFAULT_QUOTA))), source };
+}
+
 /** الرصيدُ الإضافي المنطبق: الشعبة ثم المقرر ثم العام. */
 export function quotaFor(config: SeatQuotaConfig | null | undefined, courseId: number, key: string): number {
-  if (!config) return DEFAULT_QUOTA;
-  const pick = [config.bySection?.[key], config.byCourse?.[String(Number(courseId))], config.global]
-    .find(value => value !== undefined && value !== null && Number.isFinite(Number(value)));
-  return Math.max(0, Math.trunc(Number(pick ?? DEFAULT_QUOTA)));
+  return quotaResolve(config, courseId, key).quota;
 }
 
 export interface SeatState {
