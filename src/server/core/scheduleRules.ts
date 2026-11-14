@@ -20,6 +20,7 @@ import { patternLengthIssue, regulationEnd, sameScheduleShape } from "../../util
 import { REGULATION_EXCEPTION_CODE, regulationExceptionIssues, regulationExceptionMessage, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { placeholderInstructorIds } from "../../utils/instructorIdentity";
 import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
+import { sectionCodeKey } from "../../utils/sameSlot";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { historicalOrigin } from "../../utils/courseNature";
@@ -103,7 +104,7 @@ export async function unapprovedPatternIssue(row:any,hypothetical?:FSchedule[],o
   let siblings:any[]=[];
   if(Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
     siblings=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
-      .filter((other:any)=>Number(other.AdCourseId)===courseId&&String(other.SCode||"")===String(row.SCode||"")
+      .filter((other:any)=>Number(other.AdCourseId)===courseId&&sectionCodeKey(other.SCode)===sectionCodeKey(row.SCode)
         &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
         &&!isSameRow(other,row));
     for(const other of siblings)for(const day of SCHEDULE_DAY_KEYS)if((other as any)[day])union.add(day as DayKey);
@@ -179,7 +180,8 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
     const scopeRows=(hypothetical || await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)}))
       .filter((other:any)=>Number(other.AdCourseId)===courseId&&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
         &&!isSameRow(other,row));
-    const siblings=scopeRows.filter((other:any)=>String(other.SCode||"")===String(row.SCode||""));
+    /* الشعبةُ بمفتاحها القانوني: «901» و«0901» و«١» شعبةٌ واحدة، فلا يُلتفّ على سقف ساعاتها بكتابةٍ أخرى للرمز. */
+    const siblings=scopeRows.filter((other:any)=>sectionCodeKey(other.SCode)===sectionCodeKey(row.SCode));
     /* مصدرٌ واحد (sectionWeeklyHours): النسخة المطابقة للموعد نفسه لا تضاعف المجموع، والمواعيد المحسوبة تُسمّى. */
     const reading=sectionWeeklyHours(row,siblings,hours);
     /* شعبةٌ قائمة تتجاوز ساعاتها أصلاً (بياناتٌ قديمة) لا تُمنع من النقل ما لم يزد مجموعُها — كما في طلب الأستاذ؛
@@ -205,7 +207,7 @@ export async function sectionShapeIssue(row:any,hypothetical?:FSchedule[],option
 }
 /** الموعدُ القائم بقي في شعبته: المقرّرُ ورمزُ الشعبة كما حُفظا. من غيّر أحدهما دخل شعبةً أخرى فيُحكم نمطُها من جديد. */
 export const sameSectionIdentity=(saved:any,next:any)=>Boolean(saved&&next)
-  &&Number(saved.AdCourseId||0)===Number(next.AdCourseId||0)&&String(saved.SCode??"").trim()===String(next.SCode??"").trim();
+  &&Number(saved.AdCourseId||0)===Number(next.AdCourseId||0)&&sectionCodeKey(saved.SCode)===sectionCodeKey(next.SCode);
 /** موعدٌ قائم لم يتغيّر شكلُه (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) — وحده يتخطّى مانعَي الشعبة (A6). */
 export const keepsSectionShape=(saved:any,next:any)=>sameScheduleShape(saved,next)&&sameSectionIdentity(saved,next);
 /**

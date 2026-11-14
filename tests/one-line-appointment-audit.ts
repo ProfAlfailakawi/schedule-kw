@@ -8,7 +8,7 @@
  * (openCreate) بما فُهم، وفحوصُ المحرر الحيّة تعمل كما تعمل لكل إدخال.
  *
  * أولاً القراءةُ الخالصة (src/utils/oneLineAppointment.ts) بحالاتٍ كثيرة: الأرقام
- * العربية والفارسية، حروف الأيام، قاعدة «1–6 بعد الظهر»، اللواحق، المدى، الالتباس،
+ * العربية والفارسية، حروف الأيام، قاعدة «1–7 بعد الظهر»، اللواحق، المدى، الالتباس،
  * وما لم يُفهم. ثم القاعةُ من السجل الرسمي، ثم الربطُ في اللوحة والمحرر.
  */
 import fs from "node:fs";
@@ -95,10 +95,10 @@ const MW = "fmonday+fwednesday", STT = "fsunday+ftuesday+fthursday";
 
   /* الوقت */
   check(line("2").seed.start === "14:00" && line("1:30").seed.start === "13:30" && line("6").seed.start === "18:00" && line("12").seed.start === "12:00",
-    "T1 قاعدة الظهر: 1–6 بلا لاحقة بعد الظهر (2→14:00، 6→18:00) و12 ظهراً");
+    "T1 قاعدة الظهر: 1–7 بلا لاحقة بعد الظهر (2→14:00، 6→18:00) و12 ظهراً");
   const seven = line("7");
-  check(!seven.seed.start && seven.unknown.includes("7") && line("7", { courses, instructors }).seed.start === "07:00",
-    "T2 «7» = 07:00، وهو قبل يوم القسم فلا يُملأ ويُقال «لم يُفهم»؛ وبلا نافذةٍ يُقبل", seven);
+  check(seven.seed.start === "19:00" && !seven.unknown.length && line("7", { courses, instructors }).seed.start === "19:00" && line("07").seed.start === undefined,
+    "T2 «7» = 19:00 (قرار 2026-11-14: الساعات 1–7 عصراً في كل الشاشات)، والصفر الصريح «07» يبقى صباحاً فيُرفض", seven);
   check(line("7م").seed.start === "19:00" && line("11ص").seed.start === "11:00" && line("12م").seed.start === "12:00"
     && line("٢ م").seed.start === "14:00" && line("2pm").seed.start === "14:00" && line("2:30pm").seed.start === "14:30",
     "T3 اللواحق «ص»/«م» (ملتصقةً ومنفصلة) وam/pm تفرض الفترة");

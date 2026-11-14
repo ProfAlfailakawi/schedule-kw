@@ -1,5 +1,5 @@
 import React, { useId, useState } from "react";
-import { ChevronDown, ChevronLeft, GraduationCap, Layers3, Loader2, Sparkles, TriangleAlert, Users } from "lucide-react";
+import { ChevronDown, ChevronLeft, CircleSlash, GraduationCap, Layers3, Loader2, Sparkles, TriangleAlert, Users } from "lucide-react";
 import type { FitSide, StudentFit } from "../utils/studentFit";
 import { AR, countOf } from "../utils/arabicCount";
 import { safeStorage } from "../utils/safeStorage";
@@ -32,6 +32,18 @@ function Ring({ percent, kind }: { percent: number | null; kind: "grad" | "stud"
   );
 }
 
+/** شريطٌ رفيع: من يناسبهم (أخضر/ذهبي) مقابل من يحجبهم الوقت (أحمر) من كل من يحتاجون المقرر. */
+export function FitBar({ side, kind }: { side: FitSide; kind: "grad" | "stud" }) {
+  const need = Math.max(0, side.need), blocked = Math.min(need, Math.max(0, side.blocked)), fit = Math.min(need - blocked, Math.max(0, side.fit));
+  if (side.percent == null || need <= 0) return null;
+  return (
+    <span className={`pulse-bar is-${kind}`} role="img" aria-label={`يناسب ${fit} ويحجب ${blocked} من ${need}`}>
+      <i className="is-fit" style={{ width: `${(fit / need) * 100}%` }} />
+      {blocked ? <i className="is-clash" style={{ width: `${(blocked / need) * 100}%` }} /> : null}
+    </span>
+  );
+}
+
 function Side({ side, kind }: { side: FitSide; kind: "grad" | "stud" }) {
   const noun = kind === "grad" ? AR.graduate : AR.student;
   const title = kind === "grad" ? "الخريجون" : "الطلبة";
@@ -44,18 +56,19 @@ function Side({ side, kind }: { side: FitSide; kind: "grad" | "stud" }) {
           {side.percent == null
             ? <>يحتاجه {countOf(side.need, noun)}</>
             : side.blocked
-              ? <>يناسب <bdi dir="ltr">{side.fit}</bdi> من {countOf(side.need, noun)}</>
-              : <>يناسب كل من يحتاجه · {countOf(side.need, noun)}</>}
+              ? <>يناسب <bdi dir="ltr">{side.fit}</bdi> من <bdi dir="ltr">{side.need}</bdi></>
+              : <>يناسب الجميع · <bdi dir="ltr">{side.need}</bdi></>}
         </strong>
+        <FitBar side={side} kind={kind} />
         {side.clashes.length ? (
-          <span className="pulse-clashes">
+          <span className="pulse-clashes" aria-label="مقرراتٌ يحجبهم الوقت عنها">
             {side.clashes.map(clash => (
               <span key={clash.code} className="pulse-clash" title={`${clash.name} — كل شعبه في هذا الوقت`}>
-                <bdi dir="ltr">{clash.code}</bdi><small>{clash.name}</small><em dir="ltr">{clash.students}</em>
+                <bdi dir="ltr">{clash.code}</bdi><em dir="ltr">{clash.students}</em>
               </span>
             ))}
           </span>
-        ) : side.percent == null ? <small className="pulse-muted">لا تفصيل برامج في التقرير</small> : <small className="pulse-muted">لا يحجبهم عن مقررٍ آخر يحتاجونه</small>}
+        ) : side.percent == null ? <small className="pulse-muted">لا بيانات</small> : null}
       </div>
     </div>
   );
@@ -92,8 +105,12 @@ export function FitImpact({ impact }: { impact: SaveImpact }) {
 /** مسكّرةٌ افتراضاً؛ ومن فتحها بقيت مفتوحةً له على هذا الجهاز (طلب المالك 2026-11-14). */
 const OPEN_KEY = "schedule-pulse-open";
 
-export default function StudentPulse({ fit, graduateImpact, best, onPickBest, bestBusy = false, currentDays = [] }: {
+export default function StudentPulse({ fit, graduateImpact, best, onPickBest, bestBusy = false, currentDays = [], loading = false, showEmpty = false }: {
   fit: StudentFit | null;
+  /** يقرأ الآن: هيكلٌ عظميٌّ هادئ بدل الفراغ (اختياري). */
+  loading?: boolean;
+  /** بلا بيانات (لا تقرير طلبٍ فعلي): بطاقةٌ صادقة «لا بيانات» بدل الإخفاء (اختياري؛ الأصل: لا شيء). */
+  showEmpty?: boolean;
   graduateImpact?: { graduates: number; pairs?: string[] } | null;
   /** يُعرض فقط إن كان أفضل من الوقت الحالي بفارقٍ يُعتدّ به. */
   best?: BestTime | null;
@@ -106,16 +123,18 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest, be
   const bodyId = useId();
   const [open, setOpenState] = useState(() => safeStorage.get(OPEN_KEY) === "on");
   const setOpen = (next: boolean) => { setOpenState(next); safeStorage.set(OPEN_KEY, next ? "on" : "off"); };
-  if (!fit) return null;
+  if (!fit && loading) return <PulseSkeleton />;
+  if (!fit) return showEmpty ? <PulseEmpty /> : null;
   const grad = fit.graduates, stud = fit.students;
-  if (!grad && !stud) return null;
+  if (!grad && !stud) return showEmpty ? <PulseEmpty /> : null;
+  const noData = (!grad || grad.percent == null) && (!stud || stud.percent == null);
   const sectionsChanged = fit.sections.after !== fit.sections.before;
   const current = grad?.percent ?? stud?.percent ?? null;
   const showBest = Boolean(best && onPickBest && current != null && best.percent >= current + 5);
   const bestDays = best && best.days.join() !== [...currentDays].join() ? best.days.map(day => DAY_SHORT[day]).filter(Boolean).join("·") : "";
   const chips = fitChipsOf(fit, graduateImpact);
   return (
-    <section className={`student-pulse ${open ? "is-open" : "is-closed"}`} aria-label="نبض الطلبة: من يناسبهم هذا الوقت" role="status">
+    <section className={`student-pulse ${open ? "is-open" : "is-closed"}${noData ? " is-nodata" : ""}`} aria-label="نبض الطلبة: من يناسبهم هذا الوقت" role="status">
       <header className="pulse-head">
         <button type="button" className="pulse-toggle" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(!open)}
           title={open ? "طيّ نبض الطلبة" : "افتح نبض الطلبة: التفصيل والمقررات التي يحجبها الوقت"}
@@ -124,7 +143,7 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest, be
           <span className="pulse-head-copy">
             <b>نبض الطلبة</b>
             {open
-              ? <small>من يناسبه هذا الوقت ممن يحتاجون المقرر {trackWord(fit.track)} · تقديرٌ من الطلب الفعلي</small>
+              ? <small>من يناسبه هذا الوقت {trackWord(fit.track)} · تقدير</small>
               : <span className="pulse-chips">{chips.map(chip => pulseChip(chip))}</span>}
           </span>
           <ChevronDown className="pulse-chevron" aria-hidden="true" />
@@ -146,10 +165,11 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest, be
       {open ? (
         <div className="pulse-body" id={bodyId}>
           {graduateImpact && graduateImpact.graduates > 0 ? (
-            <p className="pulse-alarm">
+            <p className="pulse-alarm pulse-hero" role="alert">
               <TriangleAlert aria-hidden="true" />
               <span className="pulse-alarm-copy">
-                <span>تعارضٌ لا مفرّ منه يمسّ <b>{countOf(graduateImpact.graduates, AR.graduate)}</b></span>
+                <span className="pulse-hero-line">يمسّ <b>{countOf(graduateImpact.graduates, AR.graduate)}</b></span>
+                <small>تعارضٌ لا مفرّ منه</small>
                 {(graduateImpact.pairs || []).map(pair => <bdi key={pair} dir="ltr" className="pulse-pair">{pair}</bdi>)}
               </span>
             </p>
@@ -158,9 +178,34 @@ export default function StudentPulse({ fit, graduateImpact, best, onPickBest, be
             {grad ? <Side side={grad} kind="grad" /> : null}
             {stud ? <Side side={stud} kind="stud" /> : null}
           </div>
-          <small className="pulse-foot">ملاحظةٌ لا تمنع الحفظ · الأرقام بجانب المقررات: من يحجبهم الوقت عنها</small>
+          <small className="pulse-foot">{noData ? "لا بيانات كافية لتقدير الطلبة" : "ملاحظةٌ لا تمنع الحفظ · الرقم بجانب المقرر: من يحجبهم"}</small>
         </div>
       ) : null}
+    </section>
+  );
+}
+
+/** هيكلٌ عظميٌّ هادئ: رأسٌ وحلقتان بلا أرقام مخترعة. */
+function PulseSkeleton() {
+  return (
+    <section className="student-pulse is-loading" aria-busy="true" aria-label="نبض الطلبة: يقرأ الآن" role="status">
+      <header className="pulse-head"><span className="pulse-mark pulse-skel" /><span className="pulse-skel pulse-skel-line" /></header>
+      <div className="pulse-sides">
+        {[0, 1].map(i => <div key={i} className="pulse-side"><span className="pulse-skel pulse-skel-ring" /><span className="pulse-side-copy"><span className="pulse-skel pulse-skel-line" /><span className="pulse-skel pulse-skel-bar" /></span></div>)}
+      </div>
+    </section>
+  );
+}
+
+/** لا تقرير طلبٍ فعلي لهذا المقرر: تقولها البطاقة صادقةً بكلمتين. */
+function PulseEmpty() {
+  return (
+    <section className="student-pulse is-empty" role="status" aria-label="نبض الطلبة: لا بيانات">
+      <header className="pulse-head">
+        <span className="pulse-mark" aria-hidden="true"><GraduationCap /></span>
+        <span className="pulse-head-copy"><b>نبض الطلبة</b></span>
+        <span className="pulse-nodata"><CircleSlash aria-hidden="true" />لا بيانات</span>
+      </header>
     </section>
   );
 }

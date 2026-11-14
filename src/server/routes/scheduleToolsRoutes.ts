@@ -242,6 +242,8 @@ app.post("/api/schedules/replace-instructor", requirePermission(7), async (req: 
   if (!fromId || !termId || !collegeId || !sectionId) { res.status(400).json({ error: "حدد الأستاذ والفصل." }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   if (fromId === toId) { res.status(400).json({ error: "اختر أستاذاً بديلاً مختلفاً." }); return; }
+  /* البديلُ يجب أن يكون أستاذاً موجوداً — كما يشترطه حفظُ الموعد نفسه: رقمٌ لا صاحبَ له كان يُقبل فتبقى المواعيدُ تشير إلى لا أحد. */
+  if (toId && !(await Repository.getInstructorById(toId))) { res.status(400).json({ error: "الأستاذ البديل غير موجود." }); return; }
   if (commit) {
     /* استبدالُ أستاذٍ تعديلٌ جزئي، فالموعد لا يمنعه. لكنه تعديلٌ على كل حال،
        فلا يمرّ وجدولُ القسم بين يدي التسجيل. */
@@ -281,7 +283,16 @@ app.post("/api/schedules/replace-instructor", requirePermission(7), async (req: 
   const fromName = instructors.find(i => Number(i.AdInstructorId) === fromId)?.AdInstructorName || `أستاذ ${fromId}`;
   const toName = toId ? (instructors.find(i => Number(i.AdInstructorId) === toId)?.AdInstructorName || `أستاذ ${toId}`) : "بلا أستاذ";
   const undoVersion = await captureScopeVersion(req, collegeId, sectionId, termId, `قبل استبدال الأستاذ: ${fromName} ← ${toName}`, "manual");
-  for (const row of rows) await Repository.updateSchedule(row.id, { AdInstructorId: toId || 0 } as any);
+  /* الكتابةُ كلُّها أو لا شيء: دفعةٌ واحدة تُفحص فيها المراجعاتُ وحجوزُ الطلبات ونوافذُ الاستعارة قبل أي كتابة
+     (كانت حلقةَ updateSchedule منفصلة: حجزٌ في منتصفها يترك الاستبدال نصفَ منفَّذ). */
+  try {
+    if (rows.length) await Repository.moveSchedulesBatch(rows.map(row => ({ id: Number(row.id), expectedRev: Number(row.rev || 0), fields: { AdInstructorId: toId || 0 } as any })));
+  } catch (error: any) {
+    if (error instanceof RequestHoldConflict) { res.status(409).json({ ...await requestHoldRefusal([error.holdRequestId], [error.holdItemId]), applied: false }); return; }
+    if (error instanceof ScheduleRevisionConflict) { res.status(409).json({ error: "تغيّر أحد المواعيد أثناء الاستبدال؛ لم يُحفظ شيء. أعد المعاينة.", conflict: "revision", applied: false }); return; }
+    if (error instanceof RequestReservationConflict) { res.status(409).json({ error: error.message, code: error.code, applied: false }); return; }
+    throw error;
+  }
   const replacedIds = new Set(rows.map((row: any) => Number(row.id)));
   await recordVersionAfter(undoVersion, before => before.map(row => replacedIds.has(Number(row.id)) ? { ...row, AdInstructorId: toId || 0 } : row));
   if (rows.length) await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "edit" });

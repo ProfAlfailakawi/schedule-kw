@@ -145,6 +145,17 @@ export interface DayPatternAdvice {
   note: string;
 }
 
+function libraryAcceptsLength(days: readonly DayKey[], length: number): boolean {
+  if (!(length > 0)) return false;
+  const set = new Set(days);
+  return PATTERN_LIBRARY.some(pattern => {
+    if (pattern.days.length === 1) return set.size === 1 && pattern.minutesPerDay[0] === length;
+    /* لقاءٌ واحدٌ من نمطٍ متعدّد الأيام يُبنى صفّاً صفّاً (الأربعاء 110 من الخمس ساعات). */
+    if (set.size === 1) return pattern.days.some((day, index) => set.has(day) && pattern.minutesPerDay[index] === length);
+    return pattern.days.length === set.size && pattern.days.every(day => set.has(day)) && pattern.minutesPerDay.every(minutes => minutes === length);
+  });
+}
+
 /**
  * What a set of days implies for a lecture that starts at `start`.
  *
@@ -153,6 +164,9 @@ export interface DayPatternAdvice {
  */
 export function adviseDayPattern(days: DayKey[], start: string, currentEnd: string): DayPatternAdvice | null {
   if (!days.length || !start) return null;
+  /* ما هو في مكتبة الأنماط (قرار 1913/2016) لا ملاحظةَ عليه: الأحد·الثلاثاء 80، والاثنين·الأربعاء 110، والكتلة 170… كلّها معتمدة.
+     المقارنةُ بأيامٍ وطولٍ فقط (لا ساعات المقرر هنا): ما وافق نمطاً لأيّ ساعات يُسكت عنه. */
+  if (currentEnd && libraryAcceptsLength(days, toMinutes(currentEnd) - toMinutes(start))) return null;
   const short = days.filter(day => SHORT_LECTURE_DAYS.includes(day)).length;
   const long = days.filter(day => LONG_LECTURE_DAYS.includes(day)).length;
   if (short && long) {
@@ -373,11 +387,13 @@ export function ladderStepForDays(days: Iterable<DayKey>): number {
  * 8:00 ثم كل ساعةٍ ونصف (9:30، 11:00، 12:30، 14:00…). بين `from` و`to` (بالدقائق، شاملةً `from`).
  * أيامٌ مختلطة أو بلا أيام: [] — لا سُلّمَ واحداً لها، والمنتقي يبقى حرّاً.
  */
-export function ladderStartsForDays(days: Iterable<DayKey>, from = 8 * 60, to = EVENING_END): string[] {
+export function ladderStartsForDays(days: Iterable<DayKey>, from = 8 * 60, to = EVENING_END, length = 0): string[] {
   const step = ladderStepForDays(days);
   if (!step) return [];
   const out: string[] = [];
-  for (let minute = 8 * 60; minute < to; minute += step) if (minute >= from) out.push(clock(minute));
+  /* `length` (دقائق اللقاء): بدايةٌ ينتهي لقاؤها بعد نهاية يوم الجامعة لا تُعرض — يرفضها الخادم. الأحد·الثلاثاء 80 ← آخرها 18:00،
+     وكتلة 170 ← 16:00. بلا طولٍ تبقى القائمة كلُّها كما كانت. */
+  for (let minute = 8 * 60; minute < to; minute += step) if (minute >= from && (!(length > 0) || minute + length <= SCHEDULE_DAY_END)) out.push(clock(minute));
   return out;
 }
 

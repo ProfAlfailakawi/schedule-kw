@@ -411,9 +411,11 @@ export default function QuickCreatePopover({
     checking: checkable && (!previewCurrent || liveCheck.checking),
     companionRequired,
     regulation: fit,
-    /* نهايةٌ تخالف النمط تمنع بسطرٍ يقول النهاية الصحيحة؛ وإصلاحُها «طبّق النمط المعتمد» بجانب الشرائح. */
+    /* نهايةٌ تخالف النمط تنبيهٌ بسطرٍ يقول النهاية الصحيحة (لا يمنع، ويُؤكَّد استثناءً عند الحفظ)؛ وإصلاحُها «طبّق النمط المعتمد» بجانب الشرائح. */
     regulationNote: patternLengthIssue(selectedCourse, chosenDays, draft.start, draft.end) || undefined,
     notes: (previewCurrent ? liveCheck.notices : []).map(text => ({ kind: "time" as const, text })),
+    /* استثناءاتُ اللائحة من الخادم ملاحظاتٌ في الحكم نفسه: العدّادُ والبطاقةُ يعدّان الشيء ذاته. */
+    regulationIssues: previewCurrent ? (liveCheck.regulation || []) : [],
   });
   const blockingCount = previewCurrent ? liveCheck.conflicts.filter(isBlockingConflict).filter(item => !item?.holdRequestId).length : 0;
   const pendingCheck = ready && checkable && (!previewCurrent || liveCheck.checking);
@@ -658,9 +660,9 @@ export default function QuickCreatePopover({
                   preferredDuration={regulationChoiceFor(selectedCourse, chosenDays)?.minutes || Number(durationForDay?.(seed.day) || 0)}
                 />
                 {/* سُلّمُ البدايات للأيام المختارة (م.7/8): الاثنين والأربعاء 8:00، 9:30، 11:00… والبقيةُ على رأس الساعة. */}
-                {ladderStartsForDays(chosenDays).length ? (
+                {ladderStartsForDays(chosenDays, undefined, undefined, durationMinutes).length ? (
                   <div className="qc-ladder" role="group" aria-label="بدايات اللائحة">
-                    {ladderStartsForDays(chosenDays).map(time => (
+                    {ladderStartsForDays(chosenDays, undefined, undefined, durationMinutes).map(time => (
                       <button key={time} type="button" dir="ltr" aria-pressed={draft.start === time}
                         data-guide-ignore="يضع بداية الموعد على سُلّم اللائحة؛ لا يحفظ شيئاً"
                         onClick={() => {

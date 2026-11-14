@@ -19,11 +19,12 @@ import { PENDING_ROOM } from "../../utils/locationRegistry";
 import { noteScheduleMutation, scheduleLockRefusal } from "./approvals";
 import type { AuthenticatedRequest } from "./auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "./locations";
-import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "./scheduleConflicts";
+import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts, scheduleConflictsForEdit } from "./scheduleConflicts";
 import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, editShapeIssue, schedulePayloadIssues, sectionShapeIssue } from "./scheduleRules";
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
+import { makeSlotGuard, pauseAfterCheckForTests, SlotTakenError } from "./slotGuard";
 import { noteTrail } from "../activityTrail";
 
 /* «👣 الأثر»: الموعدُ بكلمتين (المقرر · الشعبة)، ومكانُه في الأسبوع بسطر. */
@@ -38,7 +39,12 @@ const trailSlot = (row: any) => [
  * يُكتب فقط حين يمرّ الحفظ من «اعتماد الاقتراح» (الرادار، حالة طالب، رغبة أستاذ). الحفظُ اليدويّ
  * لا يحمل مصدراً ولا يتغيّر. والقيم مقيّدة: نوعٌ من قائمةٍ مغلقة، ونصوصٌ قصيرة. */
 const SCHEDULE_ORIGIN_KINDS = new Set(["radar", "student-case", "instructor-request", "intelligence", "planning"]);
+/* ── المصدرُ يكتبه الخادمُ وحده ───────────────────────────────────────────────
+ * `origin` من جسم طلبٍ قادمٍ من المتصفح يُهمَل: الواجهةُ لا ترسله في حفظٍ مباشر أبداً (يمرّ «اعتماد الاقتراح» من
+ * applyProposalCore → runScheduleHandler، وهو وحده يضبط `__internal`)، وكان المزوَّر منه (`instructor-request` برقم طلبٍ
+ * لقسمٍ آخر) يُلحِق أسطراً بخطّ ذلك الطلب. والتعديلُ المباشر يُبقي مصدرَ الصفّ المخزَّن كما هو. */
 function scheduleOriginOf(req: AuthenticatedRequest): import("../../types").ScheduleOrigin | undefined {
+  if (!(req as any).__internal) return undefined;
   const raw = (req.body as any)?.origin;
   if (!raw || !SCHEDULE_ORIGIN_KINDS.has(String(raw.kind))) return undefined;
   const text = (value: unknown, max: number) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max) || undefined;
@@ -57,6 +63,45 @@ const skipsRegulation = (req: any) => Boolean(req.__internal) && !req.__regulati
 /* يُرفض بلا موافقة؛ والجمعُ لا يرفض: صاحبُه يسأل مرةً واحدة عن الخطوات كلها. */
 const regulationRefused = (req: any, issues: readonly RegulationExceptionIssue[]) =>
   issues.length > 0 && !regulationExceptionAccepted(req.body) && !req.__regulationCollect;
+
+/* ── المدخلاتُ تُقرأ بصرامة ──────────────────────────────────────────────────── */
+export const SCODE_MAX_LENGTH = 6;
+const SOURCE_TEXT_MAX = 80;
+const DAY_FIELD_KEYS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
+/** علمُ يومٍ: true/false أو 1/0 أو "1"/"0"/"true"/"false" — لا تُقرأ السلسلةُ "false" يوماً مختاراً. null = قيمةٌ غير صالحة. */
+export function strictDayFlag(value: unknown): boolean | null {
+  if (value === undefined || value === null || value === "") return false;
+  if (value === true || value === 1 || value === "1" || value === "true") return true;
+  if (value === false || value === 0 || value === "0" || value === "false") return false;
+  return null;
+}
+/** الجسمُ بأعلام أيامٍ منطقيةٍ صريحة، أو سببُ الرفض. */
+export function withStrictDays(body: any): { body: any; error?: string } {
+  if (!body || typeof body !== "object") return { body };
+  const next = { ...body };
+  for (const key of DAY_FIELD_KEYS) {
+    const flag = strictDayFlag(body[key]);
+    if (flag === null) return { body, error: "قيمة اليوم غير صالحة: استعمل نعم أو لا" };
+    next[key] = flag;
+  }
+  return { body: next };
+}
+/** نصُّ المصدر (المبنى/القاعة كما كُتبا في الملف): نصٌّ مقصوصٌ بحدٍّ أقصى، أو undefined. */
+export function cleanSourceText(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") return undefined;
+  const text = value.replace(/\s+/g, " ").trim().slice(0, SOURCE_TEXT_MAX);
+  return text || undefined;
+}
+const sourceTextInvalid = (body: any) => ["sourceBuildingText", "sourceRoomText"].some(key => body?.[key] !== undefined && body?.[key] !== null && typeof body[key] !== "string");
+const sectionCodeIssue = (code: unknown): string | null => {
+  const text = String(code ?? "");
+  if (!/^\d+$/.test(text)) return "الرجاء كتابة الأرقام بالانجليزي";
+  if (text.length > SCODE_MAX_LENGTH) return `رقم الشعبة حتى ${SCODE_MAX_LENGTH} خانات`;
+  return null;
+};
+/** ردُّ تغيّر الإصدار: الصفُّ كما هو الآن، وما أرسله صاحبُ الطلب. */
+const revisionBody = (current: any, yours: any, extra: Record<string, unknown> = {}) => ({ error: "تغيّر هذا الموعد أثناء عملك.", conflict: "revision", current, yours, ...extra });
 
 /** The course owns the requirement; the appointment holds the physical facility. */
 export async function companionBookingFor(course:AdCourse,body:any,canonical:any,existing?:FSchedule):Promise<{issue?:string;id:string;label:string}>{
@@ -78,6 +123,18 @@ export async function companionBookingFor(course:AdCourse,body:any,canonical:any
 }
 
 export const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) => {
+  /* النطاقُ أولاً، قبل أي فحصٍ لشكل الطلب: رسائلُ الشكل (الساعات، النمط) تقول شيئاً عن جدول القسم المقصود. */
+  {
+    const scopeCollege = parseInt(req.body?.AdCollegeId), scopeSection = parseInt(req.body?.AdSectionId);
+    if (Number.isFinite(scopeCollege) && Number.isFinite(scopeSection) && !isScopeAllowed(req, scopeCollege, scopeSection) && !req.user?.IsAdminUser) {
+      res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" });
+      return;
+    }
+  }
+  const strictCreate = withStrictDays(req.body);
+  if (strictCreate.error) { res.status(400).json({ error: strictCreate.error }); return; }
+  req.body = strictCreate.body;
+  if (sourceTextInvalid(req.body)) { res.status(400).json({ error: "نص المبنى أو القاعة المصدر يجب أن يكون نصاً" }); return; }
   /* مسارٌ داخلي (اعتماد اقتراح، بناء شعب، مقترح، آلة الزمن): النهايةُ من النمط المعتمد لا طولٌ قديم يُحمل ثم يُرفض. */
   if ((req as any).__fitPattern && req.body) req.body = { ...req.body, fendtime: await fitPatternEnd(req.body) };
   const {
@@ -102,10 +159,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" });
     return;
   }
-  if (!/^\d+$/.test(String(SCode))) {
-    res.status(400).json({ error: "الرجاء كتابة الأرقام بالانجليزي" });
-    return;
-  }
+  {const codeIssue=sectionCodeIssue(SCode);if(codeIssue){res.status(400).json({ error: codeIssue });return;}}
   const payloadIssues=await schedulePayloadIssues(req.body);
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   /* ساعاتُ المقرّر والنمطُ المعتمد لكل من يُنشئ موعداً (المالك 2026-10-30) — الحكمُ الواحد sectionShapeIssue. */
@@ -184,8 +238,8 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     roomId: canonicalBody.roomId,
     ...(companion.id?{companionRoomId:companion.id,companionRoomLabel:companion.label}:{}),
     locationStatus: canonicalBody.locationStatus,
-    sourceBuildingText: req.body?.sourceBuildingText,
-    sourceRoomText: req.body?.sourceRoomText,
+    sourceBuildingText: cleanSourceText(req.body?.sourceBuildingText),
+    sourceRoomText: cleanSourceText(req.body?.sourceRoomText),
     /* Explicit post-PDF provenance: manual rows live permanently in the green
        range. Later edits preserve this value, so they can never become yellow
        merely because course/section happens to match an old PDF row. */
@@ -194,11 +248,15 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     ...(scheduleOriginOf(req) ? { origin: scheduleOriginOf(req) } : {}),
   };
   if ((req as any).__dryRun) { res.json({ ok: true, dryRun: true, row: writeRow, warnings: conflicts.filter((c:any)=>c.soft) }); return; }
+  await pauseAfterCheckForTests();
   const addVersion = await captureScopeVersion(req, collegeId, sectionId, termId, "قبل إضافة موعد دراسي", "manual");
   let newSched: FSchedule;
-  try { newSched = await Repository.createSchedule(writeRow, (req as any).__requestReservationOwner || ""); }
+  /* إعادةُ الفحص الذرّية: القاعةُ والأستاذ وسقفُ الساعات يُقرأ من جديد داخل الكتابة نفسها (slotGuard). */
+  const createGuard = (req as any).__hypotheticalWeek ? undefined : await makeSlotGuard();
+  try { newSched = await Repository.createSchedule(writeRow, (req as any).__requestReservationOwner || "", createGuard); }
   catch (error) {
     if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId], [error.holdItemId])); return; }
+    if (error instanceof SlotTakenError) { res.status(409).json({ error: error.message, code: error.code, issues: error.issues }); return; }
     throw error;
   }
   const createFixes = createOverrides.length ? await noteRequestHoldOverride(createOverrides, newSched, String(req.user?.Name || "القسم")) : [];
@@ -216,6 +274,10 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
 
 export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Response) => {
   const id = parseInt(req.params.id);
+  const strictEdit = withStrictDays(req.body);
+  if (strictEdit.error) { res.status(400).json({ error: strictEdit.error }); return; }
+  req.body = strictEdit.body;
+  if (sourceTextInvalid(req.body)) { res.status(400).json({ error: "نص المبنى أو القاعة المصدر يجب أن يكون نصاً" }); return; }
   /* مسارٌ داخلي ينقل موعداً إلى وقتٍ أو يومٍ جديد: النهايةُ من النمط؛ والشكلُ الذي لم يتغيّر (نقلُ قاعةٍ أو أستاذ) يبقى (A6). */
   if ((req as any).__fitPattern && req.body) {
     const saved = await Repository.getScheduleById(id).catch(() => null);
@@ -251,6 +313,19 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
    * تُقرأ حقولُ الوجهة. */
   const existing = await Repository.getScheduleById(id);
   if (!existing) { res.status(404).json({ error: "الجدول غير موجود" }); return; }
+  /* النطاقُ أولاً: لا قفلَ ولا شكلَ ولا إصدارَ يُقال لمن لا يملك هذا الجدول. */
+  if (!req.user?.IsAdminUser && !isScopeAllowed(req, existing.AdCollegeId, existing.AdSectionId)) {
+    res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" });
+    return;
+  }
+  /* ── الإصدارُ لازمٌ على كل تعديلٍ من المتصفح ─────────────────────────────────
+   * الواجهةُ ترسل `rev` دائماً (والتراجعُ يضيف الإصدار الحالي)؛ وطلبٌ بلا رقم إصدارٍ لصفٍّ له إصدار كان يكتب فوق ما
+   * عدّله زميلٌ دون أن يُرى. المسارُ الداخلي (runScheduleHandler: اعتماد طلب الأستاذ، آلة الزمن، الأدوات، الاقتراحات)
+   * يعيد حالةً معلومةً أو يحمل إصدارَه بنفسه، فيبقى بلا إلزام. الصفُّ الذي لا إصدارَ له بعدُ (0) يُقبل. */
+  if (!(req as any).__internal && req.body?.rev == null && Number(existing.rev || 0) > 0) {
+    res.status(409).json(revisionBody(existing, { AdCourseId: req.body?.AdCourseId, SCode: req.body?.SCode, AdInstructorId: req.body?.AdInstructorId }, { code: "rev-required" }));
+    return;
+  }
   const frozenSource = await scheduleLockRefusal(req, existing.AdCollegeId, existing.AdSectionId, existing.AdTermId);
   if (frozenSource) { res.status(409).json({ error: frozenSource, code: "schedule-locked" }); return; }
 
@@ -258,10 +333,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" });
     return;
   }
-  if (!/^\d+$/.test(String(SCode))) {
-    res.status(400).json({ error: "الرجاء كتابة الأرقام بالانجليزي" });
-    return;
-  }
+  {const codeIssue=sectionCodeIssue(SCode);if(codeIssue){res.status(400).json({ error: codeIssue });return;}}
   const payloadIssues=await schedulePayloadIssues(req.body,{keptTime:Boolean((req as any).__exactRestore)||(existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime)});
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
   /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) يبقى كما هو؛ ومن غيّر شيئاً منها فبنمطٍ معتمد. */
@@ -302,7 +374,8 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   canonicalBody.companionRoomId=companion.id;
   canonicalBody.companionRoomLabel=companion.label;
   const overriddenHolds=await applyRequestHoldOverride(req);
-  const conflicts=await scheduleConflicts(req,canonicalBody,id,(req as any).__hypotheticalWeek);
+  /* ما كان قائماً لا يُمنع به التعديل (A6): يمنع ما استجدّ وحده، وما كان قائماً بعينه يبقى ملاحظةً (scheduleConflictsForEdit). */
+  const conflicts=await scheduleConflictsForEdit(req,canonicalBody,existing,id,(req as any).__hypotheticalWeek);
   const blockingEdit=conflicts.filter((c:any)=>!c.soft);
   if(blockingEdit.length&&blockingEdit.every((c:any)=>c.holdRequestId)){res.status(409).json({...await requestHoldRefusal([...new Set(blockingEdit.map((c:any)=>String(c.holdRequestId)))] as string[],blockingEdit.map((c:any)=>String(c.holdItemId||""))),issues:blockingEdit});return;}
   if(blockingEdit.length){res.status(409).json({error:blockingEdit[0].message||"يوجد تعارض يمنع التعديل",issues:blockingEdit});return;}
@@ -347,26 +420,30 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
       companionRoomId: companion.id,
       companionRoomLabel: companion.label,
       locationStatus: canonicalBody.locationStatus,
-      sourceBuildingText: req.body?.sourceBuildingText,
-      sourceRoomText: req.body?.sourceRoomText,
+      sourceBuildingText: cleanSourceText(req.body?.sourceBuildingText),
+      sourceRoomText: cleanSourceText(req.body?.sourceRoomText),
       fdetail: legacyFDetail({ fsunday, fmonday, ftuesday, fwednesday, fthursday }),
       ...((req as any).__restoreOrigin ? { origin: (req as any).__restoreOrigin.value } : scheduleOriginOf(req) ? { origin: scheduleOriginOf(req) } : existing.origin ? { origin: existing.origin } : {}),
     };
   if ((req as any).__dryRun) { res.json({ ok: true, dryRun: true, row: writeFields, warnings: conflicts.filter((c:any)=>c.soft) }); return; }
+  await pauseAfterCheckForTests();
+  const editGuard = (req as any).__hypotheticalWeek ? undefined : await makeSlotGuard();
   try {
     const editVersion = await captureScopeVersion(req, existing.AdCollegeId, existing.AdSectionId, existing.AdTermId, "قبل تعديل موعد دراسي", "manual");
     const arrivalVersion = existing.AdCollegeId !== collegeId || existing.AdSectionId !== sectionId || existing.AdTermId !== termId
       ? await captureScopeVersion(req, collegeId, sectionId, termId, "قبل نقل موعد إلى هذا الجدول", "manual")
       : undefined;
     const updated = await Repository.updateSchedule(id, writeFields,
-      req.body?.rev == null ? undefined : Number(req.body.rev), (req as any).__requestReservationOwner || "");
+      req.body?.rev == null ? undefined : Number(req.body.rev), (req as any).__requestReservationOwner || "", editGuard);
     const editFixes = overriddenHolds.length ? await noteRequestHoldOverride(overriddenHolds, updated, String(req.user?.Name || "القسم")) : [];
     /* يظلّ تعديلُ الموعد من الجدول مرتبطاً برغبة الأستاذ الأصلية، فيظهر في
        سجلّها للقسم وللأستاذ بدلاً من أن يختفي أثر التعديل خارج الوارد. */
     if (existing.origin?.kind === "instructor-request" && existing.origin.refId) {
       const linked = await Repository.getInstructorRequest(existing.origin.refId);
       const change = describeScheduleChange(existing, updated);
-      if (linked && change) {
+      /* لا يُلحَق بخطّ طلبٍ إلا إن كان طلبَ أستاذ هذا الموعد في فصله نفسه: مصدرٌ مخزَّنٌ بمعرّفٍ لطلبٍ آخر لا يكتب فيه. */
+      const sameRequest = Boolean(linked) && Number(linked!.AdInstructorId) === Number(existing.AdInstructorId) && Number(linked!.AdTermId) === Number(existing.AdTermId);
+      if (linked && change && sameRequest) {
         const at = new Date().toISOString();
         await Repository.saveInstructorRequest({
           ...linked,
@@ -401,6 +478,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   } catch (e: any) {
     if (e instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([e.holdRequestId], [e.holdItemId])); return; }
     if (e instanceof RequestReservationConflict) { res.status(409).json({ error: e.message, code: e.code }); return; }
+    if (e instanceof SlotTakenError) { res.status(409).json({ error: e.message, code: e.code, issues: e.issues }); return; }
     if (e instanceof ScheduleRevisionConflict) {
       /* Not a failure to write — a refusal to overwrite. Both versions go back
          so the interface can show the reader what changed and let them decide,
@@ -429,6 +507,13 @@ export const deleteScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" });
     return;
   }
+  /* حذفُ ما لا وجودَ له من المتصفح 404 لا نجاح (تراجعٌ مكرّر أو صفحةٌ قديمة). والمسارُ الداخلي يبقى متساهلاً: «إلغاء الموعد»
+     وتراجعُ الاقتراحات يحذفان صفاً قد يسبقهما إليه غيرُهما، والمطلوبُ عندهم أنه غير موجود. */
+  if (!sched && !(req as any).__internal) { res.status(404).json({ error: "الموعد غير موجود أو حُذف من قبل" }); return; }
+  /* الإصدارُ اختياري في الحذف (`?rev=` أو في الجسم): إن أُرسل وتغيّر الصفّ منذئذٍ لا يُحذف. */
+  const rawRev = (req.query as any)?.rev ?? (req.body as any)?.rev;
+  const expectedRev = rawRev === undefined || rawRev === null || rawRev === "" || !Number.isFinite(Number(rawRev)) ? undefined : Number(rawRev);
+  if (sched && expectedRev !== undefined && Number(sched.rev || 0) !== expectedRev) { res.status(409).json(revisionBody(sched, null)); return; }
   let deleteVersion: Awaited<ReturnType<typeof captureScopeVersion>>;
   if (sched) {
     const deleteLock = await scheduleLockRefusal(req,sched.AdCollegeId, sched.AdSectionId, sched.AdTermId);
@@ -439,9 +524,10 @@ export const deleteScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     noteTrail(res, { target: trailTarget(sched), before: trailSlot(sched), scope: { collegeId: sched.AdCollegeId, sectionId: sched.AdSectionId, termId: sched.AdTermId }, row: Number(id) });
   }
   const deleteOverrides = await applyRequestHoldOverride(req);
-  try { await Repository.deleteSchedule(id, (req as any).__requestReservationOwner || ""); }
+  try { await Repository.deleteSchedule(id, (req as any).__requestReservationOwner || "", expectedRev); }
   catch (error) {
     if (error instanceof RequestHoldConflict) { res.status(409).json(await requestHoldRefusal([error.holdRequestId], [error.holdItemId])); return; }
+    if (error instanceof ScheduleRevisionConflict) { res.status(409).json(revisionBody(error.current, null)); return; }
     throw error;
   }
   if (deleteOverrides.length) await noteRequestHoldOverride(deleteOverrides, null, String(req.user?.Name || "القسم"));

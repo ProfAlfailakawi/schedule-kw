@@ -19,6 +19,9 @@
     [role=button]:not(button),[role=tab]:not(button),summary,a.btn,a[class*="-chip"],a[class*="-btn"]
   ){min-inline-size:var(--ix-tap)!important}
 
+  /* شارة «نُقل» على البطاقة صغيرةٌ عمداً (تراجع بضغطة على البطاقة نفسها): لا يُنفخ حجمها إلى 44؛ تتّسع منطقة لمسها بطبقتها الشفافة. */
+  button.week-moved-pill.week-moved-pill{min-block-size:0!important;min-inline-size:0!important}
+
   /* أيقونةٌ وحدها: طبقةٌ شفافة تمدّ اللمس إلى 44 دون تغيير الرسم. */
   :where(button[aria-label]:is(:has(> svg:only-child),:empty):not(.install-trigger)){position:relative}
   :where(button[aria-label]:is(:has(> svg:only-child),:empty):not(.install-trigger))::after{

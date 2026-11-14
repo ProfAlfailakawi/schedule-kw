@@ -57,6 +57,11 @@ const fold = (value: string) => foldInstructorText(toEnglishDigits(value)).toLow
 const spaceless = (value: string) => value.replace(/ /g, "");
 
 /** تصفيةُ الخيارات بما يُكتب: البدايةُ أولاً، ثم الاحتواء، ثم بلا مسافات، ثم كلماتٌ متفرقة. تُختبر وحدها. */
+/** هل يغيّر اختيارُ `next` القيمةَ الحالية؟ (المقارنة نصّية: 5 و«5» واحد.) */
+export function selectionChanges(current: unknown, next: unknown): boolean {
+  return String(current ?? "") !== String(next ?? "");
+}
+
 export function filterOptions(options: readonly SelectOption[], query: string): readonly SelectOption[] {
   const needle = fold(query);
   if (!needle) return options;
@@ -93,15 +98,23 @@ export default function SearchableSelect({
   const single = autoSingle && options.length === 1 ? options[0] : null;
 
   /* خيارٌ وحيد: يُختار وحده، ويعاد اختياره إن تبدّل المقرر فصار له خيارٌ وحيدٌ آخر. */
+  const autoKey = useRef("");
   useEffect(() => {
-    if (single && !disabled && String(value) !== String(single.value)) onChange(single.value);
+    if (!single || disabled || !selectionChanges(value, single.value)) { if (!single) autoKey.current = ""; return; }
+    /* idempotent: the same (value → only option) pair is announced once, so a parent that resets the value
+       cannot loop it, and re-choosing never replays the editor's "course changed" reset. */
+    const key = `${String(value ?? "")}>${String(single.value)}`;
+    if (autoKey.current === key) return;
+    autoKey.current = key;
+    onChange(single.value);
   }, [single?.value, value, disabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const needle = fold(query);
   const shown = useMemo(() => filterOptions(options, query), [options, query]);
 
   const close = () => { setOpen(false); setQuery(""); };
-  const choose = (option: SelectOption) => { onChange(option.value); close(); };
+  /* اختيارُ القيمة الحالية نفسها لا يُطلق onChange: المحرر يعدّ كل تغييرٍ مقرراً جديداً فيصفّر الشعبة والأيام. */
+  const choose = (option: SelectOption) => { if (selectionChanges(value, option.value)) onChange(option.value); close(); };
 
   useEffect(() => {
     if (!open) return;

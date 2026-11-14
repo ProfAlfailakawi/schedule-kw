@@ -26,7 +26,7 @@ import { barterRequestRoomKey, HALL_BARTER_DAY_LABEL } from "../core/hallBarter"
 import { courseHabit } from "../core/instructorRequests";
 import { capacityContextForSection } from "../core/capacityRules";
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
-import { scheduleConflicts } from "../core/scheduleConflicts";
+import { scheduleConflicts, scheduleConflictsForEdit } from "../core/scheduleConflicts";
 import { describeScheduleChange, hoursNotice, keepsSectionShape, mixedPatternNotice, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, scheduleLengthIssue, scheduleOverlap, schedulePayloadIssues, sectionShapeIssue, unapprovedPatternIssue } from "../core/scheduleRules";
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { companionBookingFor } from "../core/scheduleWrites";
@@ -273,7 +273,17 @@ export function registerScheduleReviewRoutes(app: Express): void {
    تعارض) وكلٌّ منها يقرأ القاعدة بنفسه، فيطول «جاري الفحص». لا تعتمد أيٌّ منها
    على الأخرى، فتُطلق معاً، والنتيجة نفسها التي تحكم بها بوابة الحفظ. */
 app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => { const row=req.body||{};
+  /* النطاقُ أولاً: الفحصُ يقرأ الفصل كله ويقول ساعاتِ موعدِ من في الجهة الأخرى، فلا يُجاب إلا من يملك قسمَ هذا الموعد.
+     وصفٌّ بلا كلية وقسم لا يُحكم عليه لغير المدير (لا نطاقَ يُقاس عليه، ولا يُسرَّب شيءٌ بغيره). */
+  const scopeCollege=Number(row.AdCollegeId||0),scopeSection=Number(row.AdSectionId||0);
+  if(!req.user?.IsAdminUser){
+    if(!scopeCollege||!scopeSection){res.json({conflicts:[],validationIssues:[]});return;}
+    if(!isScopeAllowed(req,scopeCollege,scopeSection)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  }
+  /* وكلُّ قراءةٍ داخل الفحص (الصفُّ والمقرر) تُجرى مرةً واحدة: عشرُ دوال تسأل الوثيقة نفسها. */
+  await Repository.withReadMemo(async()=>{
   const savedRow=Number(row.excludeId||0)?await Repository.getScheduleById(Number(row.excludeId)).catch(()=>null):null;
+  if(savedRow&&!req.user?.IsAdminUser&&!isScopeAllowed(req,Number(savedRow.AdCollegeId),Number(savedRow.AdSectionId))){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
   const keptTime=Boolean(savedRow)&&savedRow!.fstarttime===row.fstarttime&&savedRow!.fendtime===row.fendtime;
   const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
   const [patternNotice,lectureNotice,departmentHours,payloadIssues,lengthIssue,placeIssues,conflicts,patternIssue,demand]=await Promise.all([
@@ -284,7 +294,7 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
     schedulePayloadIssues(row,{keptTime}),
     checkLengthIssue(row),
     checkLocationIssues(row),
-    scheduleConflicts(req,row,Number(row.excludeId||0)),
+    savedRow?scheduleConflictsForEdit(req,row,savedRow,Number(row.excludeId||0)):scheduleConflicts(req,row,Number(row.excludeId||0)),
     checkPatternIssue(row).catch(()=>null),
     /* الطلب الفعلي: أثرُ الموعد على الخريجين و«نبض الطلبة» يُقالان قبل الحفظ ولا يمنعانه. */
     appointmentDemandFor(req,row),
@@ -297,7 +307,8 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
   if(lengthIssue)validationIssues.push(lengthIssue);
   if(patternIssue)validationIssues.push(patternIssue);
   validationIssues.push(...placeIssues);
-  res.json({conflicts,validationIssues,...(regulation.length?{regulation}:{}),...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{}),...(departmentHours?{departmentHoursNotice:departmentHours}:{}),...(graduateImpact?{graduateImpact}:{}),...(studentFit?{studentFit}:{})}); });
+  res.json({conflicts,validationIssues,...(regulation.length?{regulation}:{}),...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{}),...(departmentHours?{departmentHoursNotice:departmentHours}:{}),...(graduateImpact?{graduateImpact}:{}),...(studentFit?{studentFit}:{})});
+  }); });
 
 
 /**

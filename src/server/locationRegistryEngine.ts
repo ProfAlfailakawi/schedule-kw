@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { FSchedule, LocationMigrationLog, LocationReviewCase, LocationMigrationRun, MasterBuilding, MasterRoom } from "../types";
 import { LOCATION_REGISTRY_SEED } from "../generated/locationRegistrySeed";
-import { PENDING_ROOM, canonicalRoomShape, isInvalidLocationToken, normalizeLocationToken, resolveBuilding, resolveRoom, type LocationRegistry } from "../utils/locationRegistry";
+import { PENDING_ROOM, canonicalRoomShape, isInvalidLocationToken, isSharedRoom, normalizeLocationToken, resolveBuilding, resolveRoom, type LocationRegistry } from "../utils/locationRegistry";
 
 export const LOCATION_MIGRATION_VERSION = `${String(LOCATION_REGISTRY_SEED.version)}-smart3`;
 
@@ -50,7 +50,7 @@ export function locationPreflight(row: Partial<FSchedule>, registry: LocationReg
   /* الفرع يوسّع نطاق المبنى لا نطاق القاعة: مواقع الفرع كلها للكلية نفسها،
      أما القاعة فتبقى لقسمها، ولا تُستعمل من قسم آخر إلا بنافذة استعارة معتمدة
      — وهي التي تمرّ عبر allowOutOfScopeRoom بعد التحقق منها. */
-  if(opts.sectionId && !opts.allowOutOfScopeRoom && !room.shared && room.sectionIds.length && !room.sectionIds.includes(Number(opts.sectionId)))issues.push({type:"room_scope",severity:"high",message:"القاعة مرتبطة بقسم آخر وليست مصنفة كقاعة مشتركة أو مستعارة بنافذة معتمدة."});
+  if(opts.sectionId && !opts.allowOutOfScopeRoom && !isSharedRoom(room) && room.sectionIds.length && !room.sectionIds.includes(Number(opts.sectionId)))issues.push({type:"room_scope",severity:"high",message:"القاعة مرتبطة بقسم آخر وليست مصنفة كقاعة مشتركة أو مستعارة بنافذة معتمدة."});
   return {ok:!issues.some(x=>x.severity==="high"),issues,canonical:{...row,buildingId:building.id,roomId:room.id,AdRoomCode:building.officialCode,AdRoomHall:room.canonicalCode,locationStatus:"VERIFIED",locationResolvedAt:new Date().toISOString()}};
 }
 

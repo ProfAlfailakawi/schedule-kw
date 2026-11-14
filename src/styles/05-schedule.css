@@ -968,7 +968,7 @@ button.schedule-radar:hover{filter:brightness(.96)}
   white-space:nowrap;
 }
 
-.week-drag-handle{display:none}
+.week-drag-handle{display:none;touch-action:none}
 
 .week-event.ripple-source{opacity:.72;border-style:dashed}
 .week-event.ghost-semester-event{opacity:.4}
@@ -4808,7 +4808,7 @@ html:not(.schedule-physics-active) .rooms-slot:hover::after{
 html.schedule-physics-active .rooms-slot:hover::after{content:none}
 .rooms-paint{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .rooms-paint span{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
-.rooms-drag-handle{display:none}
+.rooms-drag-handle{display:none;touch-action:none}
 .schedule-physics-float.physics-view-rooms{min-width:min(260px,70vw)}
 
 /* Context selection and high-frequency appointment surfaces stay visually

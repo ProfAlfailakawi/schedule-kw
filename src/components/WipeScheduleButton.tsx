@@ -1,3 +1,4 @@
+import { trapFocusRef } from "../hooks/useFocusTrap";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, RotateCcw, ShieldAlert, Trash2, X } from "lucide-react";
@@ -218,7 +219,7 @@ export default function WipeScheduleButton({ collegeId, sectionId, termId, rowCo
       {step !== 0 ? createPortal(
         <div className="wipe-modal" role="presentation" onClick={event => { if (event.target === event.currentTarget) close(); }}>
           <style>{CSS}</style>
-          <div className="wipe-card" role="alertdialog" aria-modal="true" aria-label="مسح الجدول بالكامل">
+          <div ref={trapFocusRef} className="wipe-card" role="alertdialog" aria-modal="true" aria-label="مسح الجدول بالكامل">
             <button type="button" className="wipe-close" onClick={close} disabled={busy} aria-label="إغلاق" data-guide-ignore="يغلق النافذة"><X aria-hidden="true" /></button>
             {body}
             {error ? <div className="wipe-error" role="alert">{error}</div> : null}

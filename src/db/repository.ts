@@ -21,7 +21,7 @@ import path from "path";
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore, FieldPath, FieldValue, Timestamp } from "firebase-admin/firestore";
-import type { Firestore, QueryDocumentSnapshot, WriteBatch } from "firebase-admin/firestore";
+import type { Firestore, QueryDocumentSnapshot, Transaction, WriteBatch } from "firebase-admin/firestore";
 import { gzipSync, gunzipSync } from "zlib";
 import { assertExplicitProductionTarget } from "../server/firestoreTarget";
 import {
@@ -346,6 +346,7 @@ let baseDb: DBState = {
 };
 
 type DemoSandboxRecord = { state: DBState; expiresAt: number };
+const readMemo = new AsyncLocalStorage<Map<string, Promise<unknown>>>();
 const demoSandboxContext = new AsyncLocalStorage<{ sessionId: string; state: DBState }>();
 const demoSandboxes = new Map<string, DemoSandboxRecord>();
 function currentDb(): DBState { return demoSandboxContext.getStore()?.state || baseDb; }
@@ -581,6 +582,12 @@ async function hydrateFirestoreScheduleRows(rows: FSchedule[], preferredCourses?
     preferredCourses?.length ? preferredCourses : relations.courses,
     preferredSections?.length ? preferredSections : relations.sections
   );
+}
+
+/** صفوفُ الفصل كلها كما هي داخل معاملة (قراءةٌ مقفلة)، مع تعبئة الكلية والقسم من المقرر — لحارس الكتابة. */
+async function termWeekInTransaction(tx: Transaction, termId: number): Promise<FSchedule[]> {
+  const snap = await tx.get(firestoreDb!.collection("schedules").where("AdTermId", "in", [termId, String(termId)]));
+  return hydrateFirestoreScheduleRows(snap.docs.map(doc => doc.data() as FSchedule));
 }
 
 const FIRESTORE_COUNTER_DOC = "_meta/counters";
@@ -1198,6 +1205,13 @@ export class ScheduleRevisionConflict extends Error {
     this.name = "ScheduleRevisionConflict";
   }
 }
+
+/**
+ * حارسُ الكتابة: يُستدعى داخل المعاملة (Firestore) أو تحت قفل الفصل (التجريبي) على صفوف الفصل كما هي الآن،
+ * فيرفع خطأً إن كان الصفّ الجديد يتعارض في القاعة أو الأستاذ أو يتجاوز سقف ساعات الشعبة. `current` هو الصفّ
+ * المخزَّن قبل التعديل (لتمييز ما كان قائماً عمّا استجدّ).
+ */
+export type ScheduleWriteGuard = (week: FSchedule[], next: FSchedule, current?: FSchedule) => Promise<void> | void;
 
 /** المقترحُ الدراسي تغيّر بين قراءته وكتابته: لا تُكتب نسخةٌ فوق أخرى لم تُرَ. */
 export class StudyProposalRevisionConflict extends Error {
@@ -4506,6 +4520,14 @@ export const Repository = {
   }),
 
   getCourseById: async (id: number): Promise<AdCourse | undefined> => {
+    const memo = readMemo.getStore();
+    if (!memo) return Repository.getCourseByIdUncached(id);
+    const key = `course:${id}`;
+    if (!memo.has(key)) memo.set(key, Repository.getCourseByIdUncached(id));
+    return memo.get(key) as Promise<AdCourse | undefined>;
+  },
+
+  getCourseByIdUncached: async (id: number): Promise<AdCourse | undefined> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const doc = await firestoreDb.collection("courses").doc(`course_${id}`).get();
       if (!doc.exists) return undefined;
@@ -5280,6 +5302,20 @@ export const Repository = {
   },
 
   getScheduleById: async (id: number): Promise<FSchedule | undefined> => {
+    const memo = readMemo.getStore();
+    if (!memo) return Repository.getScheduleByIdUncached(id);
+    const key = `schedule:${id}`;
+    if (!memo.has(key)) memo.set(key, Repository.getScheduleByIdUncached(id));
+    return memo.get(key) as Promise<FSchedule | undefined>;
+  },
+
+  /**
+   * قراءاتٌ مذكَّرة لطلبٍ واحد: داخل `withReadMemo` تُقرأ كلُّ وثيقةٍ (صفّ أو مقرر) مرةً واحدة ولو سألها عشرُ دوال في الفحص نفسه.
+   * الذاكرةُ تعيش بعمر الطلب فقط، ولا تُستعمل في مسارٍ يكتب (الفحصُ قراءةٌ صِرف) — فلا حاجةَ لإبطالها.
+   */
+  withReadMemo: <T>(task: () => Promise<T>): Promise<T> => readMemo.run(new Map<string, Promise<unknown>>(), task),
+
+  getScheduleByIdUncached: async (id: number): Promise<FSchedule | undefined> => {
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const doc = await firestoreDb.collection("schedules").doc(`schedule_${id}`).get();
       if (!doc.exists) return undefined;
@@ -5294,7 +5330,7 @@ export const Repository = {
     return schedule ? hydrateSchedules([schedule], db.courses, db.sections)[0] : undefined;
   },
 
-  createSchedule: async (schedule: Omit<FSchedule, "id">, reservationOwner: string | string[] = ""): Promise<FSchedule> => {
+  createSchedule: async (schedule: Omit<FSchedule, "id">, reservationOwner: string | string[] = "", guard?: ScheduleWriteGuard): Promise<FSchedule> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -5306,6 +5342,9 @@ export const Repository = {
         const windows = hallBarterWindows(barterSnapshot.docs.map(doc => doc.data() as HallBarterRequest));
         if (scheduleViolatesApprovedBarterWindow(newSched, windows)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
         assertRequestReservationWrite(newSched, ledger.data()?.entries || [], reservationOwner);
+        /* إعادةُ فحص القاعة والأستاذ وسقف الساعات داخل المعاملة نفسها: كل كاتبٍ للفصل يقرأ سجلَّ الحجوزات ويكتب فيه
+           (serial)، فالمعاملتان المتزامنتان تتسلسلان ولا تمرّ الثانيةُ على قراءةٍ قديمة. */
+        if (guard) await guard(await termWeekInTransaction(tx, Number(schedule.AdTermId)), newSched);
         tx.set(firestoreDb!.collection("schedules").doc(`schedule_${nextId}`), newSched);
         tx.set(ref, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
       });
@@ -5319,7 +5358,10 @@ export const Repository = {
       const windows = hallBarterWindows((db.hallBarterRequests || []).filter(row => Number(row.AdTermId) === Number(schedule.AdTermId)));
       if (scheduleViolatesApprovedBarterWindow(newSched, windows)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
       assertRequestReservationWrite(newSched, db.instructorRequestReservationLedgers?.[String(schedule.AdTermId)] || [], reservationOwner);
+      /* الفحصُ والكتابةُ تحت قفل الفصل نفسه: لا يتخلّل بينهما كاتبٌ آخر. */
+      if (guard) await guard(hydrateSchedules(db.schedules.filter(row => Number(row.AdTermId) === Number(schedule.AdTermId)), db.courses, db.sections), newSched);
       db.schedules.push(newSched); saveDatabase();
+      invalidateSchedules(); // القراءةُ التي وقعت أثناء انتظار القفل لا تبقى «أحدث» ما في الذاكرة.
       await markRegistrationRunsStale(Number(schedule.AdTermId)); return newSched;
     });
   },
@@ -5336,7 +5378,7 @@ export const Repository = {
    * The read and the write happen inside one Firestore transaction, so the
    * comparison cannot be overtaken between them.
    */
-  updateSchedule: async (id: number, fields: Partial<FSchedule>, expectedRev?: number, reservationOwner: string | string[] = ""): Promise<FSchedule> => {
+  updateSchedule: async (id: number, fields: Partial<FSchedule>, expectedRev?: number, reservationOwner: string | string[] = "", guard?: ScheduleWriteGuard): Promise<FSchedule> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -5357,6 +5399,8 @@ export const Repository = {
         const sourceLedger = sourceLedgerRef ? await transaction.get(sourceLedgerRef) : null;
         if (sourceLedger) assertRequestReservationWrite(current, (sourceLedger.data()?.entries || []).filter((entry: RequestReservation) => entry.offeringRowIds.includes(id)), reservationOwner);
         assertRequestReservationWrite(updated, ledger.data()?.entries || [], reservationOwner);
+        /* إعادةُ فحص القاعة والأستاذ والسقف داخل المعاملة (انظر createSchedule). */
+        if (guard) await guard(await termWeekInTransaction(transaction, Number(updated.AdTermId)), updated, current);
         transaction.set(docRef, updated);
         if (sourceLedgerRef && sourceLedger) transaction.set(sourceLedgerRef, { entries: sourceLedger.data()?.entries || [], serial: Number(sourceLedger.data()?.serial || 0) + 1 });
         transaction.set(ledgerRef, { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 });
@@ -5378,8 +5422,9 @@ export const Repository = {
       if (scheduleViolatesApprovedBarterWindow(next, windows)) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
       assertRequestReservationWrite(current, (db.instructorRequestReservationLedgers?.[String(current.AdTermId)] || []).filter(entry => entry.offeringRowIds.includes(id)), reservationOwner);
       assertRequestReservationWrite(next, db.instructorRequestReservationLedgers?.[String(next.AdTermId)] || [], reservationOwner);
+      if (guard) await guard(hydrateSchedules(db.schedules.filter(row => Number(row.AdTermId) === Number(next.AdTermId)), db.courses, db.sections), next, current);
       const at = db.schedules.findIndex(s => s.id === id); db.schedules[at] = next;
-      saveDatabase(); await markRegistrationRunsStale(Number(next.AdTermId)); return next;
+      saveDatabase(); invalidateSchedules(); await markRegistrationRunsStale(Number(next.AdTermId)); return next;
     });
   },
 
@@ -5393,6 +5438,8 @@ export const Repository = {
    */
   moveSchedulesBatch: async (
     moves: Array<{ id: number; fields: Partial<FSchedule>; expectedRev?: number }>,
+    /** حارسُ الكتابة (انظر ScheduleWriteGuard): يُستدعى لكل صفٍّ منقول على الأسبوع كما سيصير بعد النقل كلِّه. */
+    guard?: ScheduleWriteGuard,
   ): Promise<FSchedule[]> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
@@ -5424,6 +5471,14 @@ export const Repository = {
           if (scheduleViolatesApprovedBarterWindow(row, windowsByTerm.get(Number(row.AdTermId)) || [])) throw new RequestReservationConflict("القاعة محجوزة ضمن نافذة استعارة معتمدة لهذا اليوم والوقت.");
           assertRequestReservationWrite(row, ledgers[termIds.indexOf(Number(row.AdTermId))].data()?.entries || []);
         });
+        if (guard) {
+          const finalById = new Map(updated.map(row => [Number(row.id), row] as const));
+          const currentById = new Map(docs.map(doc => [Number(doc.data()!.id), doc.data() as FSchedule] as const));
+          for (const termId of termIds) {
+            const week = (await termWeekInTransaction(transaction, termId)).map(row => finalById.get(Number(row.id)) || row);
+            for (const row of updated.filter(item => Number(item.AdTermId) === termId)) await guard(week, row, currentById.get(Number(row.id)));
+          }
+        }
         updated.forEach((next, index) => transaction.set(refs[index], next));
         ledgers.forEach((ledger, at) => transaction.set(firestoreDb!.collection("instructorRequestReservations").doc(String(termIds[at])),
           { entries: ledger.data()?.entries || [], serial: Number(ledger.data()?.serial || 0) + 1 }));
@@ -5434,7 +5489,9 @@ export const Repository = {
       return updated;
     }
     // Demo mode: verify everything — existence AND revision — before touching
-    // anything, then one save.
+    // anything, then one save. With a guard the check and the write share the term lock (as create/update do).
+    const demoTerm = Number(db.schedules.find(row => row.id === moves[0]?.id)?.AdTermId || 0);
+    return withSerialLock(`request-reservations:${demoTerm}`, async () => {
     for (const move of moves) {
       const idx = db.schedules.findIndex(s => s.id === move.id);
       if (idx === -1) throw new Error("الجدول غير موجود");
@@ -5449,15 +5506,24 @@ export const Repository = {
       assertRequestReservationWrite(current, (db.instructorRequestReservationLedgers?.[String(current.AdTermId)] || []).filter(entry => entry.offeringRowIds.includes(Number(current.id))));
       assertRequestReservationWrite(next, db.instructorRequestReservationLedgers?.[String(move.fields.AdTermId || current.AdTermId)] || []);
     }
+    if (guard) {
+      const finalById = new Map(moves.map(move => { const current = db.schedules.find(row => row.id === move.id)!; return [move.id, { ...current, ...move.fields, rev: Number(current.rev || 0) + 1 } as FSchedule] as const; }));
+      const termIds = [...new Set([...finalById.values()].map(row => Number(row.AdTermId)))];
+      for (const termId of termIds) {
+        const week = hydrateSchedules(db.schedules.filter(row => Number(row.AdTermId) === termId), db.courses, db.sections).map(row => finalById.get(Number(row.id)) || row);
+        for (const row of [...finalById.values()].filter(item => Number(item.AdTermId) === termId)) await guard(week, row, db.schedules.find(item => item.id === row.id));
+      }
+    }
     const updated: FSchedule[] = [];
     for (const move of moves) {
       const idx = db.schedules.findIndex(s => s.id === move.id);
       db.schedules[idx] = { ...db.schedules[idx], ...move.fields, rev: Number(db.schedules[idx].rev || 0) + 1 };
       updated.push(db.schedules[idx]);
     }
-    saveDatabase();
+    saveDatabase(); invalidateSchedules();
     await Promise.all([...new Set(updated.map(row => Number(row.AdTermId)))].map(id => markRegistrationRunsStale(id)));
     return updated;
+    });
   },
 
   /**
@@ -5534,7 +5600,8 @@ export const Repository = {
     return { rows, deletedIds };
   },
 
-  deleteSchedule: async (id: number, reservationOwner: string | string[] = ""): Promise<void> => {
+  /** `expectedRev`: الإصدارُ الذي رآه صاحبُ الحذف؛ إن تغيّر الصفّ منذئذٍ لا يُحذف ويُرفع ScheduleRevisionConflict. */
+  deleteSchedule: async (id: number, reservationOwner: string | string[] = "", expectedRev?: number): Promise<void> => {
     invalidateSchedules();
     invalidateReference(REFERENCE_KEYS.scheduleCount);
     if (firestoreDb && !demoSandboxContext.getStore()) {
@@ -5544,6 +5611,7 @@ export const Repository = {
         const ref = firestoreDb!.collection("schedules").doc(`schedule_${id}`);
         const live = await tx.get(ref);
         if (!live.exists) return;
+        if (expectedRev !== undefined && Number((live.data() as FSchedule).rev || 0) !== expectedRev) throw new ScheduleRevisionConflict(live.data() as FSchedule);
         const ledgerRef = firestoreDb!.collection("instructorRequestReservations").doc(String(live.data()!.AdTermId));
         const ledger = await tx.get(ledgerRef);
         // Deleting an unrelated booking is safe; claiming a section is a reviewable decision.
@@ -5557,9 +5625,10 @@ export const Repository = {
       return;
     }
     const old = db.schedules.find(s => s.id === id);
+    if (old && expectedRev !== undefined && Number(old.rev || 0) !== expectedRev) throw new ScheduleRevisionConflict(old);
     if (old) assertRequestReservationWrite(old, (db.instructorRequestReservationLedgers?.[String(old.AdTermId)] || []).filter(entry => entry.offeringRowIds.includes(id)), reservationOwner);
     db.schedules = db.schedules.filter(s => s.id !== id);
-    saveDatabase();
+    saveDatabase(); invalidateSchedules();
     await markRegistrationRunsStale(old ? Number(old.AdTermId) : undefined);
   },
 

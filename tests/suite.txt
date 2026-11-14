@@ -269,6 +269,8 @@ test:appointment-ideas-1114
 test:appointment-ideas2-1114
 test:graduate-drag-1114
 test:quick-best-1114
+test:chain-solve
+test:chain-pulse
 test:section-plan
 test:colleagues-advising-registration
 test:quick-studio-family
@@ -332,3 +334,11 @@ test:latin-digits
 test:acceptance-rehearsal
 test:ladder-start-hint
 test:rank-gap-sign
+test:schedule-write-integrity
+test:time-field-parse
+test:one-line-spoken
+test:regulation-parity
+test:wheel-lengths
+test:meeting-slots-clock
+test:verdict-regulation-warning
+test:searchable-select-change

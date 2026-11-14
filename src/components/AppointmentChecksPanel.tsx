@@ -3,7 +3,7 @@ import { parseHoursIssue } from "../utils/hoursIssue";
 import {
   AlertTriangle, Building2, Check, Clock3, Info, Loader2, LockOpen, Minus, MonitorPlay, Puzzle, Ruler, UserRound, WandSparkles, X, DoorOpen,
 } from "lucide-react";
-import type { AppointmentVerdict, CheckKind, VerdictCheck, VerdictDetail } from "../utils/appointmentVerdict";
+import { withRegulationNotes, type AppointmentVerdict, type CheckKind, type RegulationNote, type VerdictCheck, type VerdictDetail } from "../utils/appointmentVerdict";
 import { isReachNote } from "../utils/courseReach";
 
 /**
@@ -75,9 +75,12 @@ function shownDetails(check: VerdictCheck): VerdictDetail[] {
 }
 
 export default function AppointmentChecksPanel({
-  verdict, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, onOpenReach, reachBusy = false, missing = [], saveLabel = "موافق", children,
+  verdict: verdictIn, regulationNotes, checking, onAlternative, alternativeBusy = false, renderConflict, lockedReason, onApplyPattern, onOpenReach, reachBusy = false, missing = [], saveLabel = "موافق", children,
 }: {
   verdict: AppointmentVerdict;
+  /** ما قاله الخادم من استثناءات اللائحة (regulationIssues): تُسرد ملاحظاتٍ في بطاقة «الوقت» وتُعدّ مع الملاحظات، فيطابق
+      عددُ الشريط ما تسرده اللوحة. الشكل: [{ rule?, text, article? }] — هو شكلُ RegulationExceptionIssue نفسه. */
+  regulationNotes?: readonly RegulationNote[];
   checking: boolean;
   /** «بديل» بجانب المانع: يطلب بديلاً آمناً من محرّك الاقتراح الواحد. */
   onAlternative?: (check: VerdictCheck, detail: VerdictDetail) => void;
@@ -98,19 +101,22 @@ export default function AppointmentChecksPanel({
   /** ما يُعرض تحت البطاقات (اقتراحات البديل، رسم النمط…). */
   children?: React.ReactNode;
 }) {
+  /* مصدرٌ واحد للعنوان والعدّادات والصفوف: الحكمُ + ملاحظاتُ اللائحة. وما دام الفحصُ جارياً فلا «جاهز». */
+  const verdict = React.useMemo(() => withRegulationNotes(verdictIn, regulationNotes), [verdictIn, regulationNotes]);
+  const busy = checking || verdict.state === "checking";
   const blockers = verdict.blockers.length, notes = verdict.notes.length;
   const incomplete = verdict.state !== "empty" && missing.length > 0;
-  const tone = lockedReason ? "locked" : blockers ? "block" : verdict.state === "empty" || incomplete ? "idle" : notes ? "warn" : "ok";
+  const tone = lockedReason ? "locked" : blockers ? "block" : busy ? "idle" : verdict.state === "empty" || incomplete ? "idle" : notes ? "warn" : "ok";
   const headline = lockedReason ? "لا يُحفظ الآن"
-    : blockers ? "موانع" : verdict.state === "empty" ? "ابدأ بالاختيار" : incomplete ? "ناقص" : notes ? "ملاحظات" : "جاهز";
-  return <aside className={`conflict-panel checks-panel is-${tone}`} aria-label="فحص موانع الحفظ" aria-busy={checking}>
+    : blockers ? "موانع" : busy ? "يفحص…" : verdict.state === "empty" ? "ابدأ بالاختيار" : incomplete ? "ناقص" : notes ? "ملاحظات" : "جاهز";
+  return <aside className={`conflict-panel checks-panel is-${tone}`} aria-label="فحص موانع الحفظ" aria-busy={busy}>
     <header className="checks-head">
       <Ring verdict={verdict} />
       <div className="checks-head-copy">
         <strong>فحص موانع الحفظ</strong>
         <span className="checks-head-state">
           {headline}
-          {checking ? <Loader2 className="checks-spin" aria-label="يفحص" /> : null}
+          {busy ? <Loader2 className="checks-spin" aria-label="يفحص" /> : null}
         </span>
       </div>
       <div className="checks-tally" aria-label="الملخص">
