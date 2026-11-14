@@ -1,0 +1,106 @@
+/* ── مركز الاستعلام: السؤال المفهوم، والجواب السريع، وتقاريري، وموجز الصباح ──
+   إضافاتٌ على الشاشة وحدها (no-print)، وورقةُ الموجز بأصناف الطباعة القائمة. */
+
+/* السؤال: «لم أفهم» تُقرأ تنبيهاً، و«هل تقصد؟» أزرارٌ تُضغط */
+.query-ask-note.is-failed{color:var(--danger,#9b2c2c)}
+.query-ask-choices{display:flex;flex-wrap:wrap;gap:var(--s2,8px);margin-block-start:var(--s2,8px)}
+.query-ask-choices button{min-height:40px;padding:6px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+.query-ask-choices button:hover,.query-ask-choices button:focus-visible{border-color:var(--accent);background:var(--accent-softer)}
+
+/* الفترة: نصفُ نافذة أو نافذةٌ مقلوبة تُقال ولا تُطبَّق */
+.query-period-hint{display:block;margin-block-start:6px;color:var(--muted);font-size:12.5px}
+.query-period-hint.is-warn{color:var(--warn,#7a5208)}
+.query-period-hint button{border:0;background:none;color:var(--accent);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;padding:0}
+
+/* أزرار الطباعة و Excel تحمل كلمتها بجانب الأيقونة */
+.query-print-icon.has-label{width:auto;min-width:40px;display:inline-flex;align-items:center;gap:6px;padding-inline:12px;font:inherit;font-size:13.5px;font-weight:600;text-decoration:none}
+.query-print-icon.has-label svg{width:18px;height:18px;flex:none}
+@media (max-width:640px){.query-canvas-actions>.query-report-action>.query-print-icon.has-label{width:auto}}
+
+/* شريط العدسات: الطرفُ الذي يخفي عدساتٍ يُظلَّل */
+.lens-strip[data-more-start],.lens-strip[data-more-end]{--fade:28px}
+.lens-strip[data-more-end]:not([data-more-start]){-webkit-mask-image:linear-gradient(to left,transparent 0,#000 var(--fade));mask-image:linear-gradient(to left,transparent 0,#000 var(--fade))}
+.lens-strip[data-more-start]:not([data-more-end]){-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade));mask-image:linear-gradient(to right,transparent 0,#000 var(--fade))}
+.lens-strip[data-more-start][data-more-end]{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade),#000 calc(100% - var(--fade)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--fade),#000 calc(100% - var(--fade)),transparent 100%)}
+
+/* الشبكتان العريضتان تُسحبان أفقياً داخل إطارهما، والصفحة لا تتجاوز عرضها */
+.query-wide-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain;contain:paint}
+/* عناوينُ الأعمدة الثابتة (sticky) داخل إطارٍ يُسحب كانت تمدّ الصفحة نفسها على الهاتف. */
+.lens-matrix,.lens-rooms{min-width:0;overflow-x:clip}
+@media (max-width:760px){
+  .query-wide-scroll::before{content:attr(data-wide-hint);display:block;padding:6px var(--s4,16px) 0;color:var(--muted);font-size:12px}
+  .query-wide-scroll>.occupancy-grid{min-width:640px}
+  .query-wide-scroll>.matrix-table{min-width:720px}
+}
+.query-filter-note{margin:var(--s3,12px) var(--s5,20px) 0;color:var(--muted);font-size:13px}
+
+/* الجواب السريع: ثلاث بطاقات فوق النتائج */
+.query-insights{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:var(--s2,8px);padding:var(--s3,12px) var(--s5,20px) 0}
+.query-insights>button,.query-insights>.query-insight-quiet{display:flex;gap:10px;align-items:flex-start;min-height:64px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md,14px);background:var(--surface-2,var(--surface));color:var(--ink);font:inherit;text-align:start}
+.query-insights>button{cursor:pointer}
+.query-insights>button:hover,.query-insights>button:focus-visible{border-color:color-mix(in srgb,var(--accent) 40%,var(--line));background:var(--accent-softer)}
+.query-insights svg{width:20px;height:20px;flex:none;margin-block-start:2px;color:var(--accent)}
+.query-insights span{display:grid;gap:1px;min-width:0}
+.query-insights small{color:var(--muted);font-size:12px}
+.query-insights b{font-size:15px;overflow-wrap:anywhere}
+.query-insights em{font-style:normal;color:var(--ink-2,var(--muted));font-size:12.5px;overflow-wrap:anywhere}
+
+/* المقارنة بنسخة سابقة */
+.history-compare{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2,8px) var(--s4,16px);margin:var(--s3,12px) var(--s5,20px) 0;padding:10px 12px;border:1px dashed var(--line);border-radius:var(--r-md,14px)}
+.history-compare label{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13.5px;font-weight:600}
+.history-compare label svg{width:18px;height:18px;color:var(--accent)}
+.history-compare select{min-height:40px;max-width:100%}
+.history-compare-facts{display:flex;flex-wrap:wrap;gap:var(--s2,8px) var(--s4,16px);margin:0;align-items:baseline}
+.history-compare-facts div{display:flex;gap:6px;align-items:baseline}
+.history-compare-facts dt{color:var(--muted);font-size:12.5px}
+.history-compare-facts dd{margin:0;font-weight:700}
+.history-compare-facts b[data-tone="good"]{color:var(--good,#0f6b4f)}
+.history-compare-facts b[data-tone="bad"]{color:var(--danger,#9b2c2c)}
+.history-compare-facts small{flex-basis:100%;color:var(--muted);font-size:12px}
+
+/* تقاريري: محفوظة باسم، ورابطٌ يُنسخ */
+.query-saved{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-block-start:var(--s3,12px)}
+.query-saved-chip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--surface);overflow:hidden}
+.query-saved-chip button{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 10px;border:0;background:none;color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+.query-saved-chip button+button{padding-inline:8px;color:var(--muted);border-inline-start:1px solid var(--line)}
+.query-saved-chip svg,.query-saved-action svg{width:15px;height:15px}
+.query-saved-action{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 12px;border:1px dashed var(--line);border-radius:999px;background:none;color:var(--ink-2,var(--ink));font:inherit;font-size:13px;cursor:pointer}
+.query-saved-action:hover,.query-saved-chip button:hover{color:var(--accent)}
+.query-saved-form{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
+.query-saved-form input{min-height:36px;min-width:min(240px,100%);padding:4px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:13.5px}
+.query-saved-form button{min-height:36px;padding:4px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+.query-saved-form button[type="submit"]{border-color:var(--accent);color:var(--accent);font-weight:700}
+.query-saved-note{flex-basis:100%;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+
+/* موجز الصباح */
+.morning-brief{border:1px solid var(--line);border-radius:var(--r-lg,18px);background:var(--surface)}
+.morning-brief-head{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 16px;border:0;background:none;color:var(--ink);font:inherit;text-align:start;cursor:pointer}
+.morning-brief-head>svg:first-child{width:22px;height:22px;color:var(--warn,#b7791f);flex:none}
+.morning-brief-head span{display:grid;gap:1px;flex:1;min-width:0}
+.morning-brief-head small{color:var(--muted);font-size:12.5px}
+.morning-brief-head>svg:last-child{width:18px;height:18px;transition:transform .15s}
+.morning-brief.is-open .morning-brief-head>svg:last-child{transform:rotate(180deg)}
+.morning-brief-body{padding:0 16px 14px;display:grid;gap:10px}
+.morning-brief-lines{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.morning-brief-lines li{padding:6px 10px;border-inline-start:3px solid var(--line);border-radius:6px;background:var(--surface-2,transparent);font-size:14px}
+.morning-brief-lines li[data-tone="good"]{border-color:var(--good,#0f6b4f)}
+.morning-brief-lines li[data-tone="warn"]{border-color:var(--warn,#b7791f)}
+.morning-brief-lines li[data-tone="danger"]{border-color:var(--danger,#9b2c2c)}
+.morning-brief-lines li[data-tone="info"]{border-color:var(--accent)}
+.morning-brief-moves{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:13px}
+.morning-brief-moves li{display:grid;grid-template-columns:auto auto auto minmax(0,1fr);gap:8px;align-items:baseline}
+.morning-brief-moves time{color:var(--muted)}
+.morning-brief-moves small{color:var(--muted);overflow-wrap:anywhere}
+@media (max-width:640px){.morning-brief-moves li{grid-template-columns:auto minmax(0,1fr)}.morning-brief-moves span,.morning-brief-moves small{grid-column:2}}
+.morning-brief-note{color:var(--muted);font-size:12px}
+.morning-brief-actions button{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:13.5px;cursor:pointer}
+.morning-brief-actions svg{width:16px;height:16px}
+
+/* ورقة الموجز: سطورٌ وجدول آخر الحركات */
+.print-morning-report .print-morning-lines{margin:6mm 0 4mm;padding:0;list-style:none;display:grid;gap:2.2mm;font-size:11pt}
+.print-morning-report .print-morning-lines li{padding:1.6mm 3mm;border-inline-start:1mm solid #999}
+.print-morning-report .print-morning-lines li[data-tone="danger"]{border-color:#9b2c2c}
+.print-morning-report .print-morning-lines li[data-tone="warn"]{border-color:#b7791f}
+.print-morning-report .print-morning-lines li[data-tone="good"]{border-color:#0f6b4f}
+.print-morning-report table{width:100%;border-collapse:collapse;font-size:10pt}
+.print-morning-report th,.print-morning-report td{padding:1.6mm 2mm;border-bottom:.2mm solid #ccc;text-align:start}

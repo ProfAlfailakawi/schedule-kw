@@ -9,8 +9,14 @@ import {
   BookOpen, Building2, CalendarDays, Compass, ChevronDown, ChevronUp, ClipboardList, Clock3, LayoutList,
   CheckCircle2, History, Landmark, Printer, Scale, Search, SlidersHorizontal, Table2, UserPlus, UserRound, X,
   ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, Grid3x3, Network,
+  Bookmark, Link2, Lightbulb, Sunrise,
 } from "lucide-react";
-import { parseNaturalQuery } from "../utils/naturalQuery";
+import { resolveAsk, type AskAnswer, type AskOption } from "../utils/queryAsk";
+import { buildReportInsights } from "../utils/reportInsights";
+import { compactFilters, decodeReportState, readSavedReports, removeSavedReport, reportShareUrl, saveReport, type SavedReport, type SharedReportState } from "../utils/reportShare";
+import { balanceSheet, courseLoadSheet, courseRoomSheet, directorySheets, downloadSheets, exportFileName, fairnessSheet, instructorSheet, occupancySheet, roomLoadSheet, timeSheet, visitingHistorySheet, visitingSheet, type ExportSheet } from "../utils/lensExport";
+import { briefSeenKey, buildMorningBrief, type MorningBrief } from "../utils/morningBrief";
+import { TRAIL_KIND_META, isTrailKind } from "../utils/activityTrail";
 import { EmptyState, Field, GhostButton, Notice, PageTitle, PrintLetterhead, PrintPortal, SecondaryButton } from "./ui";
 import { APPROVAL_STATUS_LABEL } from "../utils/approvalWorkflow";
 import type { ScheduleApprovalStatus } from "../types";
@@ -104,7 +110,7 @@ type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "occupancy"
 /* كل عدسةٍ لها ورقة: زرّ «طباعة هذا العرض» يظهر في كل عدسة، وعدسةٌ بلا ورقة كانت
    تخرج صفحةً بيضاء عنوانها «undefined» («المقررات × القاعات» و«لوحة القرار»).
    tests/report-print-menus-audit.ts يحرس ذلك. */
-type PrintKind = Lens | "comprehensive" | "comprehensive-branch" | null;
+type PrintKind = Lens | "comprehensive" | "comprehensive-branch" | "morning" | null;
 
 /* Safari is the one printing engine here that ignores `@page size` (so wide
    sheets meet portrait paper) — detected once, and only ever used to OFFER a
@@ -163,6 +169,48 @@ const LENS_FOR_MODE: Record<ReportMode, Lens> = {
   searchRoomTime: "time", reportRoomTime: "time",
   searchAdvanced: "list", reportDepartment: "list"
 };
+
+/**
+ * ── الرابط المشارَك (`?r=`) يُقرأ مرةً عند الفتح ────────────────────────────
+ * ثم يُنزع من شريط العنوان: النطاقُ بعده نطاقُ القارئ، والتحديثُ لا يُعيده إلى الرابط.
+ */
+function takeSharedReport(): SharedReportState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const url = new URL(window.location.href);
+    const raw = url.searchParams.get("r");
+    if (!raw) return null;
+    url.searchParams.delete("r");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    return decodeReportState(raw);
+  } catch { return null; }
+}
+
+/** ما يكتبه البحث العام (قائمة الأوامر) قبل أن يفتح الاستعلامات: أستاذٌ أو قاعةٌ أو مقرر. */
+type ReportPrefill = { instructorId?: number; courseId?: number; building?: string; hall?: string };
+function takeReportPrefill(): ReportPrefill | null {
+  try {
+    const raw = sessionStorage.getItem("schedule-report-prefill");
+    if (!raw) return null;
+    sessionStorage.removeItem("schedule-report-prefill");
+    const value = JSON.parse(raw) || {};
+    return {
+      instructorId: Number(value.instructorId) || undefined,
+      courseId: Number(value.courseId) || undefined,
+      building: String(value.building || "").trim() || undefined,
+      hall: String(value.hall || "").trim() || undefined,
+    };
+  } catch { return null; }
+}
+
+/* نافذة الوقت تُطبَّق حين تكتمل وتصحّ: البداية قبل النهاية. وما سواها يُقال للقارئ ولا يُطبَّق. */
+const clockMinutes = (value: string) => { const [h, m] = String(value || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+type TimeWindowState = "none" | "partial" | "inverted" | "ok";
+const timeWindowState = (start: string, end: string): TimeWindowState =>
+  !start && !end ? "none" : !start || !end ? "partial" : clockMinutes(start) >= clockMinutes(end) ? "inverted" : "ok";
+
+/* عدساتٌ جوابها قائمةُ مواعيد: ملفّها من الخادم بمرشّحات الشاشة. وغيرها يُخرج جوابه هو (lensExport). */
+const SERVER_EXCEL_LENSES = new Set<string>(["list", "week", "matrix", "decision"]);
 
 /**
  * ── العدسات، وما تحمله كل واحدة ─────────────────────────────────────────────
@@ -476,6 +524,11 @@ function QuerySkeleton() {
   );
 }
 
+const formatBriefDate = (iso: string) => {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat("ar-KW-u-nu-latn", { timeZone: "Asia/Kuwait", weekday: "long", day: "numeric", month: "long" }).format(date);
+};
+
 /** Rows shown before the phone fold in the appointment list (display only). */
 const QUERY_PHONE_HEAD = 6;
 
@@ -485,9 +538,20 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const scopeOwner = Number(user?.SystemUserId || 0);
   let saved: any = {};
   try { saved = JSON.parse(localStorage.getItem(prefKey) || "{}"); } catch { /* first run */ }
+  /* رابطٌ مشارَك أو تقريرٌ محفوظ، وما أرسله البحث العام: يُقرآن مرةً عند الفتح. */
+  const sharedOnOpen = useRef<SharedReportState | null | undefined>(undefined);
+  if (sharedOnOpen.current === undefined) sharedOnOpen.current = takeSharedReport();
+  const prefillOnOpen = useRef<ReportPrefill | null | undefined>(undefined);
+  if (prefillOnOpen.current === undefined) prefillOnOpen.current = takeReportPrefill();
+  /* القاعة من البحث العام تصل نصّاً (رمز المبنى والقاعة): تُترجم إلى السجل الرسمي حين يصل. */
+  const pendingPlace = useRef<{ building?: string; hall?: string } | null>(
+    prefillOnOpen.current?.building ? { building: prefillOnOpen.current.building, hall: prefillOnOpen.current.hall } : null,
+  );
 
   const isDeanReader = roleId === "dean" || roleId === "viceDean";
-  const [lens, setLens] = useState<Lens>(() => initialLensFor(roleId, mode, saved.lens));
+  const [lens, setLens] = useState<Lens>(() => sharedOnOpen.current
+    ? initialLensFor(roleId, "reportDepartment", sharedOnOpen.current.lens)
+    : initialLensFor(roleId, mode, saved.lens));
   const [colleges, setColleges] = useState<AdCollege[]>([]);
   const [sections, setSections] = useState<AdSection[]>([]);
   const [terms, setTerms] = useState<AdTerm[]>([]);
@@ -557,6 +621,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     civil: "",
     building: cleanOptionText(saved.filters?.building || ""),
     hall: cleanOptionText(saved.filters?.hall || ""),
+    /* الرابط المشارَك يحمل مرشّحاته كاملةً، وهو ما طلبه القارئ الآن. */
+    ...(sharedOnOpen.current ? { ...fresh(), ...(sharedOnOpen.current.f || {}), collegeId: 0, sectionId: 0, termId: 0 } as Partial<Filters> : {}),
+    ...(prefillOnOpen.current ? {
+      instructorId: prefillOnOpen.current.instructorId || 0,
+      courseId: prefillOnOpen.current.courseId || 0,
+      building: "", hall: "",
+    } : {}),
   }));
   /* وثيقة «كل الفروع» تضم صفوف أقسامٍ عدة: يُحكم على كل صفٍّ بكليته وقسمه (قائمة الفصل)،
      وإن لم تصل القائمة فبقائمة النطاق المختار إن كان الصفُّ من نطاقها. */
@@ -572,8 +643,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const put = (key: string, value: unknown) => { if (value !== undefined && value !== null && value !== "" && value !== 0 && value !== false) query.set(key, String(value)); };
     put("termId", filters.termId); put("collegeId", filters.collegeId); put("sectionId", filters.sectionId);
     put("instructorId", filters.instructorId); put("courseId", filters.courseId); put("courseCode", filters.courseCode);
-    put("building", filters.building); put("hall", filters.hall); put("civil", filters.civil);
-    if (filters.startTime && filters.endTime) { put("startTime", filters.startTime); put("endTime", filters.endTime); }
+    put("building", filters.building); put("hall", filters.hall); put("civil", filters.civil); put("instructorQuery", filters.instructorQuery.trim());
+    if (timeWindowState(filters.startTime, filters.endTime) === "ok") { put("startTime", filters.startTime); put("endTime", filters.endTime); }
     (["sun", "mon", "tue", "wed", "thr"] as const).forEach(day => { if (filters[day]) query.set(day, "true"); });
     return query.toString();
   }, [filters]);
@@ -625,14 +696,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const [occupancyLoading, setOccupancyLoading] = useState(false);
   const [roomDay, setRoomDay] = useState<number | "week">("week");
   /** Which square of the occupancy grid the reader asked about. */
-  const [roomPick, setRoomPick] = useState<{ room: string; point: number | null } | null>(null);
+  const [roomPick, setRoomPick] = useState<{ room: string; roomId?: string; point: number | null } | null>(null);
   /* نسبة الإشغال: الموقع المفتوح أو عائلة القسم كلها، والخانة التي فُتحت. */
   const [occupancyScope, setOccupancyScope] = useState<"site" | "family">("site");
   const [occupancyPick, setOccupancyPick] = useState<{ day: number; hour: number | null } | null>(null);
   const [familyRead, setFamilyRead] = useState<{ key: string; rows: FSchedule[]; denied: string[]; loading: boolean } | null>(null);
   const [ask, setAsk] = useState("");
   const [askNote, setAskNote] = useState<string | null>(null);
-  const [mobileWideNotice, setMobileWideNotice] = useState<Lens | null>(null);
 
   const isPowerAdmin = Boolean(user?.IsAdminUser || user?.SystemUserId === 1);
   const termsRef = useRef<AdTerm[]>([]);
@@ -645,6 +715,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
      ولا يمحوه بعدسة الشاشة الخام — كان يفعل، فيفتح العميدُ على قائمةٍ فارغة. */
   const modeSeen = useRef(false);
   useEffect(() => {
+    if (modeSeen.current) {
+      /* البحث العام قد يفتح الاستعلامات وهي مفتوحة أصلاً (تبديل الشاشة لا يعيد بناءها). */
+      const prefill = takeReportPrefill();
+      if (prefill) {
+        setFilters(prev => ({ ...prev, instructorId: prefill.instructorId || 0, courseId: prefill.courseId || 0, building: "", hall: "", instructorQuery: "", civil: "" }));
+        pendingPlace.current = prefill.building ? { building: prefill.building, hall: prefill.hall } : null;
+      }
+    }
     const nextLens = modeSeen.current ? initialLensFor(roleId, mode, undefined) : lens;
     modeSeen.current = true;
     setLens(nextLens);
@@ -735,6 +813,17 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       .catch(error=>{if(error?.name!=="AbortError")setError(String(error?.message||error));});
     return()=>controller.abort();
   },[filters.collegeId,filters.sectionId,filters.termId]);
+  /* قاعةٌ وصلت من البحث العام نصّاً: تُترجم إلى معرّف السجل الرسمي متى وصل السجل. */
+  useEffect(() => {
+    const wanted = pendingPlace.current;
+    if (!wanted?.building || !locationRegistry.buildings.length) return;
+    const key = optionKey(wanted.building);
+    const building = locationRegistry.buildings.find(item => optionKey(item.officialCode) === key || optionKey(buildingNumberLabel(item)) === key);
+    if (!building) return;
+    const room = wanted.hall ? locationRegistry.rooms.find(item => item.buildingId === building.id && optionKey(item.canonicalCode) === optionKey(wanted.hall)) : undefined;
+    pendingPlace.current = null;
+    setFilters(prev => ({ ...prev, building: building.id, hall: room?.id || "" }));
+  }, [locationRegistry]);
 
   useEffect(() => {
     /* مستوى الكلية مقبول (N7): الخادم يجيزه لمن يغطّي الكلية كلها. */
@@ -825,7 +914,10 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         }
         setFilters(prev => {
           /* الإشعار كتب هدفه في النطاق المشترك (takeNotifyFocus)، فيُقرأ منه. */
-          const stored = focus ? readSharedScope(scopeOwner) : { collegeId: prev.collegeId, sectionId: prev.sectionId, termId: prev.termId };
+          const shared = sharedOnOpen.current;
+          const stored = shared && (shared.c || shared.t)
+            ? { collegeId: shared.c, sectionId: shared.s, termId: shared.t }
+            : focus ? readSharedScope(scopeOwner) : { collegeId: prev.collegeId, sectionId: prev.sectionId, termId: prev.termId };
           /* فصلٌ محفوظٌ زال → الجاري تشغيلياً (لا أحدثُ فصلٍ قد يكون قيد الإعداد
              وفارغاً، كما في لوحة البداية)؛ ولا فصلَ محفوظاً → العميدان يفتحان على
              الفصل الجاري مباشرة: لا يُسألان عن فصلٍ قبل أن يريا شيئاً. */
@@ -864,6 +956,10 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
    */
   const [pending, setPending] = useState(false);
   const [liveNudge, setLiveNudge] = useState(false);
+  /* التحديث بطلب القارئ: يعيد قراءة الميزان مع الصفوف، ولا شيء يتحرّك تحت يده قبل أن يطلب. */
+  const [refreshTick, setRefreshTick] = useState(0);
+  /* الإشارة الحية تسأل من جديد «هل لملف الهيئة نسخة؟» — سؤالٌ لا يغيّر ما على الشاشة. */
+  const [authorityTick, setAuthorityTick] = useState(0);
   const reportEventsRef = useRef<(() => void) | null>(null);
   /**
    * ميزان الأقسام — every department of the term on one line each.
@@ -932,6 +1028,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     }
     return LENSES.filter(item => item.id !== "visitingHistory" && (item.id !== "balance" || isPowerAdmin) && (item.id !== "decision" || canSeeDecisionBoard({ roleId, isPowerAdmin })));
   }, [isPowerAdmin, roleId]);
+  const shownLensesRef = useRef(shownLenses);
+  shownLensesRef.current = shownLenses;
   /* العدسة المختارة قد تكون محفوظةً من صفةٍ سابقة أو من قبل هذه الإضافة:
      تُردّ إلى أول ما هو متاح بدل أن تُعرض شاشةٌ فارغة بلا سبب ظاهر. */
   useEffect(() => {
@@ -958,7 +1056,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       .then(data => { if (data) { setBalance(data); setError(null); } })
       .catch((e: any) => { if (e?.name !== "AbortError") setError("تعذّر قراءة ميزان الأقسام"); });
     return () => controller.abort();
-  }, [lens, filters.termId, liveNudge]);
+  }, [lens, filters.termId, refreshTick]);
 
   const closeReportEvents = useCallback(() => {
     const stop = reportEventsRef.current;
@@ -973,12 +1071,18 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   const openReportEvents = useCallback(() => {
     if (reportEventsRef.current) return;
     reportEventsRef.current = onLiveSignal(["schedules"], () => {
+      /* لا يتحرّك شيءٌ تحت يد القارئ (FR-RPT-032): كانت الإشارة تعيد قراءة الصفوف
+         بهدوء فتمحو سطر «اضغط للتحديث» في اللحظة نفسها — فيتغيّر التقرير وهو يُقرأ
+         أو يُطبع، ولا يعرف القارئ أنه تغيّر. فالسطر يبقى حتى يضغطه، والذي يُسأل
+         الآن هو وجود ملف الهيئة وحده (زرّ التقرير لا يُبقى على شيءٍ زال). */
       setLiveNudge(true);
-      /* A deleted timetable must also delete its stale comparison button from
-         this screen. Re-read the scoped rows quietly on the live event instead
-         of waiting for the reader to press Refresh. */
-      void readScope(undefined, true);
+      setAuthorityTick(tick => tick + 1);
     });
+  }, []);
+  const refreshNow = useCallback(() => {
+    setError(null);
+    setRefreshTick(tick => tick + 1);
+    void readScope();
   }, [readScope]);
   /* The listening sleeps with the tab (see pageAwake.ts); waking re-reads once
      so nothing saved during the sleep is missed. */
@@ -1157,7 +1261,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     if(omit!=="room"&&filters.hall)rows=rows.filter(r=>rowMatchesRoom(r,filters.hall));
     /* Arithmetic, not alphabetical: an unpadded «9:00» stored years ago sorts
        after «10:00» as a word, and used to fall out of its own filter. */
-    if(filters.startTime&&filters.endTime)rows=rows.filter(r=>clockRangesOverlap(r.fstarttime,r.fendtime,filters.startTime,filters.endTime));
+    if(timeWindowState(filters.startTime,filters.endTime)==="ok")rows=rows.filter(r=>clockRangesOverlap(r.fstarttime,r.fendtime,filters.startTime,filters.endTime));
     const chosenDays=DAYS.filter(day=>filters[day.key]);
     if(chosenDays.length)rows=rows.filter(r=>chosenDays.some(day=>Boolean((r as any)[day.flag])));
     return rows;
@@ -1224,7 +1328,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     }
     if (filters.building) rows = rows.filter(s => rowMatchesBuilding(s, filters.building));
     if (filters.hall) rows = rows.filter(s => rowMatchesRoom(s, filters.hall));
-    if (filters.startTime && filters.endTime) {
+    if (timeWindowState(filters.startTime, filters.endTime) === "ok") {
       /* A lecture that lives entirely inside the window is the most obvious
          answer to "what is on between ten and twelve", and the old test — which
          only matched appointments straddling an endpoint — was the one shape
@@ -1261,46 +1365,57 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
    * that answer it. Nothing is sent anywhere, so the answer appears as fast as
    * it can be typed, and every question stays reproducible.
    */
-  const runAsk = (text: string) => {
-    const question = parseNaturalQuery(text);
-    if (question.intent === "unknown" && !question.name) { setAskNote("لم أفهم السؤال — جرّب: قاعات فارغة الثلاثاء 10"); return; }
+  /* ما يُسأل عنه: أساتذة النطاق ومقرراته وقاعات السجل الرسمي — لا الجامعة كلها. */
+  const askContext = useMemo(() => {
+    const inScope = new Set(all.map(row => Number(row.AdInstructorId)).filter(Boolean));
+    return {
+      instructors: instructors.filter(person => inScope.has(Number(person.AdInstructorId))).map(person => ({ id: Number(person.AdInstructorId), name: String(person.AdInstructorName || "") })),
+      courses: courses.filter(course => !filters.sectionId || Number(course.AdSectionId) === Number(filters.sectionId))
+        .map(course => ({ id: Number(course.AdCourseId), name: String(course.CourseName || ""), codes: [String(course.CourseCode || ""), courseNumberOf(null, course)].filter(Boolean) })),
+      buildings: locationRegistry.buildings.flatMap(building => [{ id: building.id, code: building.officialCode }, { id: building.id, code: buildingNumberLabel(building) }]),
+      rooms: locationRegistry.rooms.map(room => ({ id: room.id, code: room.canonicalCode, buildingId: room.buildingId })),
+    };
+  }, [all, instructors, courses, filters.sectionId, locationRegistry, courseNumberOf]);
+  const [askChoices, setAskChoices] = useState<AskOption[] | null>(null);
+  const [askFailed, setAskFailed] = useState(false);
 
+  const applyAsk = (patch: AskOption["patch"], target: Lens, said: string[], roomDayNext: number | "week" | null) => {
     const next: Filters = { ...fresh(), collegeId: filters.collegeId, sectionId: filters.sectionId, termId: filters.termId };
-    const said: string[] = [];
+    if (patch.day !== undefined) next[DAYS[patch.day].key] = true;
+    if (patch.startTime) next.startTime = patch.startTime;
+    if (patch.endTime) next.endTime = patch.endTime;
+    if (patch.building) next.building = patch.building;
+    if (patch.hall) next.hall = patch.hall;
+    if (patch.instructorId) next.instructorId = patch.instructorId;
+    if (patch.courseId) next.courseId = patch.courseId;
+    if (patch.courseCode) next.courseCode = patch.courseCode;
+    if (roomDayNext !== null) setRoomDay(roomDayNext);
+    /* عدسةٌ لا تملكها الصفة تُردّ إلى الأولى المتاحة بدل شاشةٍ لا تُفتح. */
+    const allowed = shownLensesRef.current.some(item => item.id === target) ? target : (shownLensesRef.current[0]?.id || "list");
+    runVisualTransition(() => { setFilters(next); setLens(allowed); setPrintKind(allowed === "decision" ? "list" : allowed); setOpenGroup(null); });
+    setAskChoices(null);
+    setAskFailed(false);
+    setAskNote(said.length ? `فهمت: ${said.join(" · ")}` : null);
+  };
 
-    if (question.day !== null) { next[DAYS[question.day].key] = true; said.push(DAYS[question.day].label); }
-    if (question.time) {
-      const [hour, minute] = question.time.split(":").map(Number);
-      next.startTime = question.time;
-      next.endTime = `${String(Math.min(23, hour + 1)).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-      said.push(question.time);
+  /**
+   * Ask in plain Arabic.
+   *
+   * The sentence is resolved against the screen's own data (src/utils/queryAsk.ts):
+   * a teacher, a course by name or seven-digit number, a hall as «7/31». A name
+   * that matches several people offers them as choices; a sentence that matches
+   * nothing says so and changes nothing — it used to clear the filters silently.
+   */
+  const runAsk = (text: string) => {
+    const answer: AskAnswer = resolveAsk(text, askContext);
+    if (answer.kind === "unknown") { setAskChoices(null); setAskFailed(true); setAskNote(answer.hint); return; }
+    if (answer.kind === "choose") {
+      setAskFailed(false);
+      setAskChoices(answer.options);
+      setAskNote(`هل تقصد؟ «${answer.question}» يطابق أكثر من واحد — اختر:`);
+      return;
     }
-    if (question.room) {
-      const [code, hall] = question.room.split("-");
-      const building=locationRegistry.buildings.find(item=>optionKey(item.officialCode)===optionKey(code));
-      const room=building?locationRegistry.rooms.find(item=>item.buildingId===building.id&&optionKey(item.canonicalCode)===optionKey(hall)):undefined;
-      if(building)next.building=building.id;if(room)next.hall=room.id;
-      said.push(building&&room?`${building.officialCode}-${room.canonicalCode}`:`${code}-${hall}`);
-    }
-    const named = question.name
-      ? instructors.find(row => String(row.AdInstructorName || "").includes(question.name as string))
-      : null;
-    if (named) { next.instructorId = named.AdInstructorId; said.push(named.AdInstructorName); }
-
-    const target: Lens =
-      question.intent === "freeRooms" ? "room"
-      : question.intent === "room" ? "room"
-      : question.intent === "gaps" ? "week"
-      : named ? "instructor"
-      : question.intent === "time" ? "time"
-      : lens;
-
-    // A free-room question is about availability, not about one department's
-    // rows, so it drops the instructor filter and opens on the chosen day.
-    if (question.intent === "freeRooms") { next.instructorId = 0; setRoomDay(question.day ?? "week"); }
-
-    runVisualTransition(() => { setFilters(next); setLens(target); setOpenGroup(null); });
-    setAskNote(said.length ? said.join(" · ") : null);
+    applyAsk(answer.patch, answer.lens as Lens, answer.said, answer.roomDay);
   };
 
   /**
@@ -1318,7 +1433,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   if (filters.hall) chips.push({ key: "hall", label: `القاعة: ${locationRegistry.rooms.find(r=>r.id===filters.hall)?.canonicalCode||"رسمية"}`, clear: () => set("hall", "") });
   if (selectedCourse) chips.push({ key: "course", label: `المقرر: ${selectedCourse.CourseName}`, clear: () => set("courseId", 0) });
   if (filters.courseCode) chips.push({ key: "course-code", label: `الرقم الأكاديمي: ${filters.courseCode}`, clear: () => set("courseCode", "") });
-  if (filters.startTime && filters.endTime) chips.push({
+  if (timeWindowState(filters.startTime, filters.endTime) === "ok") chips.push({
     key: "time",
     label: `الفترة: ${formatScheduleTimeRange(filters.startTime, filters.endTime)}`,
     clear: () => setFilters(prev => ({ ...prev, startTime: "", endTime: "" }))
@@ -1607,7 +1722,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
   // A hall booked by another college is still busy, so occupancy is read from a
   // dedicated endpoint that sees the whole term but returns only times.
   useEffect(() => {
-    if (lens !== "room" || !filters.termId) { setOccupancyLoading(false); return; }
+    /* يُقرأ متى اختير النطاق، لا في عدسة القاعات وحدها: «القاعات الفارغة الآن» فوق
+       النتائج تقرؤه أيضاً. نداءٌ واحد للنطاق، بلا مقررٍ ولا أستاذٍ لغيره. */
+    if (!filters.termId || !filters.collegeId) { setOccupancyLoading(false); setOccupancy(null); return; }
     const controller = new AbortController();
     const query = new URLSearchParams({ termId: String(filters.termId) });
     if (filters.collegeId) query.set("collegeId", String(filters.collegeId));
@@ -1620,13 +1737,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         setOccupancy(await response.json());
         setError(null);
       } catch (e: any) {
-        if (e?.name !== "AbortError") { setOccupancy(null); setError(e.message); }
+        if (e?.name !== "AbortError") { setOccupancy(null); if (lens === "room") setError(e.message); }
       } finally {
         if (!controller.signal.aborted) setOccupancyLoading(false);
       }
     })();
     return () => controller.abort();
-  }, [lens, filters.termId, filters.collegeId, filters.sectionId]);
+  }, [filters.termId, filters.collegeId, filters.sectionId, refreshTick]);
 
   /**
    * The paper sheet, rebuilt.
@@ -1686,9 +1803,21 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     return { columns, lines, buildings, total: scoped.length };
   }, [results, matrixBuilding, matrixHall, locationRegistry.buildings]);
 
+  /* مرشّحات الشاشة تحكم عدسة القاعات أيضاً (FR-RPT-002): المبنى والقاعة من السجل
+     الرسمي، ومرشّحُ أستاذٍ أو مقررٍ يقصر القاعات على التي تقع فيها مواعيدُه.
+     والوقت واليوم لا يُسقطان قاعة: هما سؤالُ «متى تفرغ»، والجواب في الشبكة نفسها. */
+  const roomFilterIds = useMemo(() => {
+    const narrowed = filters.instructorId || filters.courseId || filters.courseCode.trim() || filters.instructorQuery.trim() || filters.civil.trim();
+    return narrowed ? new Set(results.map(row => String(row.roomId || "")).filter(Boolean)) : null;
+  }, [results, filters.instructorId, filters.courseId, filters.courseCode, filters.instructorQuery, filters.civil]);
   const roomLoad = useMemo(() => {
     if (!occupancy?.rooms?.length) return null;
-    const allBusy = occupancy.rooms.flatMap((room: any) => room.busy || []);
+    const visibleRooms = occupancy.rooms.filter((room: any) =>
+      (!filters.building || String(room.buildingId || "") === filters.building)
+      && (!filters.hall || String(room.roomId || "") === filters.hall)
+      && (!roomFilterIds || roomFilterIds.has(String(room.roomId || ""))));
+    if (!visibleRooms.length) return { slots: [] as number[], rooms: [] as any[], totalRate: 0, days: [] as number[], hidden: occupancy.rooms.length };
+    const allBusy = visibleRooms.flatMap((room: any) => room.busy || []);
     const dayStart = Math.min(SCHEDULE_DAY_START, ...allBusy.map((slot: any) => Math.floor(slot.from / 60) * 60));
     const dayEnd = Math.max(SCHEDULE_DAY_END, ...allBusy.map((slot: any) => slot.to));
     const slots: number[] = [];
@@ -1696,7 +1825,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const days = roomDay === "week" ? [0, 1, 2, 3, 4] : [roomDay];
     const capacity = slots.length * days.length;
 
-    const rooms = occupancy.rooms.map((room: any) => {
+    const rooms = visibleRooms.map((room: any) => {
       const busy = (room.busy || []).filter((slot: any) => days.includes(slot.day));
       // One cell per hour: 0 = free, otherwise how many of the chosen days are taken.
       const cells = slots.map(point => {
@@ -1719,6 +1848,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       return {
         key: `${room.room}|${room.hall}`,
         name: `${room.room}/${room.hall}`,
+        roomId: String(room.roomId || ""),
         mine: Boolean(room.mine),
         cells, windows,
         usedHours: used,
@@ -1731,8 +1861,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
        hall, numerically. It used to lead with the busiest room, which is why
        «9/F13» sat above «7/F31» and the sheet read as if it had no order at
        all. The occupancy share is still on every row for whoever wants it. */
-    return { slots, rooms: rooms.sort((a: any, b: any) => byRoomLabel(a.name, b.name)), totalRate, days };
-  }, [occupancy, roomDay]);
+    return { slots, rooms: rooms.sort((a: any, b: any) => byRoomLabel(a.name, b.name)), totalRate, days, hidden: occupancy.rooms.length - visibleRooms.length };
+  }, [occupancy, roomDay, filters.building, filters.hall, roomFilterIds]);
 
   /* ── نسبة الإشغال (utils/occupancyHeat) ─────────────────────────────────
      الموقع يقرأ صفوف الاستعلام نفسها، بمرشّحاتها كبقية العدسات؛ والعائلة تقرأ
@@ -1782,7 +1912,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     if (filters.courseId) params.set("courseId", String(filters.courseId));
     if (filters.courseCode.trim()) params.set("courseCode", filters.courseCode.trim());
     if (filters.civil.trim()) params.set("civil", filters.civil.trim());
-    if (filters.startTime && filters.endTime) {
+    if (timeWindowState(filters.startTime, filters.endTime) === "ok") {
       params.set("startTime", filters.startTime);
       params.set("endTime", filters.endTime);
     }
@@ -1841,46 +1971,39 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     printReport("comprehensive");
   };
 
-  const printReport = (kind: Exclude<PrintKind, null> = lens, titleOverride?: string) => {
-    if (showPwaPrintHelp()) return;
-    /* Safari/WebKit has a long-standing failure mode where an active EventSource
-       can make window.print() silently do nothing. Pause the live schedule stream
-       synchronously inside the same tap, commit the requested sheet synchronously,
-       then invoke the browser print command without RAF/timers/await. */
+  /**
+   * ── أمرُ الطباعة: مسارٌ واحد لكل الأوراق ──────────────────────────────────
+   *
+   * كان في هذا الملف ثلاثُ نسخٍ من هذا المسار، وافترقت: نسختا «كل الفروع» وتقرير
+   * التغييرات كانتا تنزعان هندسة الورقة حين يعود القارئ إلى الصفحة — وSafari على
+   * iOS يُعيد الصفحة مرئيةً ومعاينةُ الطباعة ما زالت مفتوحة، فتنهار الترويسة.
+   * فصارت كلها هنا، بسلوك النسخة الصحيحة:
+   *
+   * Safari/WebKit has a long-standing failure mode where an active EventSource
+   * can make window.print() silently do nothing. Pause the live schedule stream
+   * synchronously inside the same tap, commit the requested sheet synchronously,
+   * then invoke the browser print command without RAF/timers/await.
+   *
+   * Two different things end here, and they must not end together.
+   * Restoring the live stream is safe at any moment. STRIPPING THE PRINT
+   * ATTRIBUTES IS NOT: a preview can still be open, and Safari re-lays the
+   * preview out when the document changes — so a timer that cleared them
+   * mid-preview re-flowed the sheets and produced the broken portrait
+   * letterheads. The attributes now come off only when the printing is
+   * really over: afterprint, or the moment the reader comes back to the
+   * page. The timer restores the stream and nothing else.
+   */
+  const invokePrint = (kind: string, title: string) => {
     closeReportEvents();
-    /* ── لكل أمر طباعة وثيقته وحدها ────────────────────────────────────
-       تقرير التغييرات يبقى في الذاكرة بعد فتحه مرة، ومنفذه يعيش بجانب منفذ
-       التقارير. فقبل أي طباعة أخرى يُفرَّغ صراحةً: القارئ طلب وثيقة واحدة،
-       فلا تخرج معها وثيقة لم يطلبها. */
-    if (printKind !== kind || authorityReport || authorityBook) {
-      flushSync(() => {
-        setPrintKind(kind);
-        setAuthorityReport(null);
-        setAuthorityBook(null);
-      });
-    }
     const printedStamp = printedStampFor(kind);
-
     const root = document.documentElement;
     const originalTitle = document.title;
-    const reportTitles: Record<Exclude<PrintKind, null>, string> = {
-      list: "نتائج الاستعلام", week: "الأسبوع", instructor: "تقرير الأستاذ", courseLoad: "توزيع المواد بين المواقع", room: "إشغال القاعات والفراغات", occupancy: "نسبة الإشغال", roomInstructor: "القاعات والأساتذة",
-      matrix: "القاعات والأوقات", time: "الأوقات", visiting: "المنتدبون — الفصل الحالي",
-      visitingHistory: "المنتدبون — كل الفصول", fairness: "عدالة توزيع العبء", balance: "ميزان الأقسام",
-      courseRoom: "المقررات × القاعات", decision: "لوحة القرار",
-      comprehensive: "تقرير الجدول الشامل", "comprehensive-branch": "تقرير الجدول الشامل — كل الفروع",
-    };
-    document.title = `SCHEDULE · ${titleOverride || reportTitles[kind]}`;
+    document.title = title;
     root.dataset.printKind = kind;
     /* ── ورقة واحدة لكل التقارير: عرضية ─────────────────────────────────
-       Every report in this program is designed on a wide sheet, and the two
-       that were set portrait were the two that kept arriving broken: a wide
-       design meeting a narrow page loses its left edge, and the reader has to
-       know about a switch to get their own document printed properly.
-       So there is no switch and no exception any more. Chrome asks for the
-       landscape page through `@page`; Safari ignores that, so the sheet is
-       painted rotated inside Safari's portrait page — geometry only, and
-       invisible to every other engine. */
+       Chrome asks for the landscape page through `@page`; Safari ignores that,
+       so the sheet is painted rotated inside Safari's portrait page — geometry
+       only, and invisible to every other engine. */
     if (SAFARI_PRINT_ENGINE || IOS_CHROME_PRINT_ENGINE) root.dataset.printRotate = "1";
     if (CHROMIUM_PRINT_ENGINE) root.dataset.printChromium = "1";
     /* ── الورقة تمتلئ ولا تُقصّ ───────────────────────────────────────────
@@ -1890,14 +2013,6 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     fitPrintPages(document.getElementById("app-print-root") || document);
     let leftForPrint = false;
     let resumed = false;
-    /* Two different things end here, and they must not end together.
-       Restoring the live stream is safe at any moment. STRIPPING THE PRINT
-       ATTRIBUTES IS NOT: a preview can still be open, and Safari re-lays the
-       preview out when the document changes — so a timer that cleared them
-       mid-preview re-flowed the sheets and produced the broken portrait
-       letterheads. The attributes now come off only when the printing is
-       really over: afterprint, or the moment the reader comes back to the
-       page. The timer restores the stream and nothing else. */
     const clearPrintFlags = () => {
       delete root.dataset.printKind;
       delete root.dataset.printRotate;
@@ -1906,8 +2021,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
          المتصفّح بعد تغيّر البيانات تخرج بالحجم المصمَّم لا بحجمٍ قديم. */
       clearPrintFit(document.getElementById("app-print-root") || document);
       /* وملحقُ التغييرات معها: هو جزءٌ من الوثيقة المعروضة، ونزعُه أثناء
-         المعاينة يُسقطه من المطبوع أو يُعيد ترتيب الصفحات — وهو العطبُ نفسه
-         الذي وُصف أعلاه، لا عطبٌ آخر. */
+         المعاينة يُسقطه من المطبوع أو يُعيد ترتيب الصفحات. */
       setPrintRowsOverride(null);
       setPrintCollegeOverride("");
       setChangesAppendix(null);
@@ -1948,8 +2062,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
 
        وملحقُ التغييرات يُرفع هنا أيضاً: متصفّحٌ ابتلع أمر الطباعة لا يبعث
        `afterprint` ولا يُخفي الصفحة، فلا شيء بعدها يرفع الملحق — فيبقى مركَّباً
-       ويخرج مع أول طباعةٍ شاملةٍ بعده لم تطلبه. والسمات تبقى كما هي عمداً، كما
-       يقول التعليق أعلاه؛ الملحقُ ليس سمةً على الجذر بل عقدةٌ في الوثيقة. */
+       ويخرج مع أول طباعةٍ شاملةٍ بعده لم تطلبه. */
     window.setTimeout(() => {
       if (!leftForPrint && !resumed) {
         openReportEvents();
@@ -1959,6 +2072,32 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         setPrintCollegeOverride("");
       }
     }, 2500);
+  };
+
+  const REPORT_TITLES: Record<Exclude<PrintKind, null>, string> = {
+    list: "نتائج الاستعلام", week: "الأسبوع", instructor: "تقرير الأستاذ", courseLoad: "توزيع المواد بين المواقع", room: "إشغال القاعات والفراغات", occupancy: "نسبة الإشغال", roomInstructor: "القاعات والأساتذة",
+    matrix: "القاعات والأوقات", time: "الأوقات", visiting: "المنتدبون — الفصل الحالي",
+    visitingHistory: "المنتدبون — كل الفصول", fairness: "عدالة توزيع العبء", balance: "ميزان الأقسام",
+    courseRoom: "المقررات × القاعات", decision: "لوحة القرار",
+    comprehensive: "تقرير الجدول الشامل", "comprehensive-branch": "تقرير الجدول الشامل — كل الفروع",
+    morning: "موجز الصباح",
+  };
+
+  const printReport = (kind: Exclude<PrintKind, null> = lens, titleOverride?: string) => {
+    if (showPwaPrintHelp()) return;
+    closeReportEvents();
+    /* ── لكل أمر طباعة وثيقته وحدها ────────────────────────────────────
+       تقرير التغييرات يبقى في الذاكرة بعد فتحه مرة، ومنفذه يعيش بجانب منفذ
+       التقارير. فقبل أي طباعة أخرى يُفرَّغ صراحةً: القارئ طلب وثيقة واحدة،
+       فلا تخرج معها وثيقة لم يطلبها. */
+    if (printKind !== kind || authorityReport || authorityBook) {
+      flushSync(() => {
+        setPrintKind(kind);
+        setAuthorityReport(null);
+        setAuthorityBook(null);
+      });
+    }
+    invokePrint(kind, `SCHEDULE · ${titleOverride || REPORT_TITLES[kind]}`);
   };
 
   /* أوراق التقريرين المركّبين: كل خيارٍ يصل إلى أمر الطباعة الذي كان يخرج به. */
@@ -2041,57 +2180,17 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
       .then(data => { if (!cancelled) setAuthorityReportAvailable(Boolean(data?.draftId)); })
       .catch(() => { if (!cancelled) setAuthorityReportAvailable(false); });
     return () => { cancelled = true; };
-  }, [filters.collegeId, filters.sectionId, filters.termId, all.length]);
+  }, [filters.collegeId, filters.sectionId, filters.termId, all.length, authorityTick]);
 
-  /* الطباعة بعد القراءة: نفس نمط «تقرير تغييرات الجدول» القائم — تُجلب
-     البيانات أولاً ثم تُثبَّت الورقة ثم يُستدعى أمر الطباعة. */
+  /* الطباعة بعد القراءة: تُجلب البيانات أولاً ثم تُثبَّت الورقة ثم يُستدعى أمر الطباعة
+     — من المسار الواحد نفسه (invokePrint). */
   const runPrint = (kind: string) => {
-    const printedStamp = printedStampFor(kind);
-    closeReportEvents();
-    const root = document.documentElement;
-    const originalTitle = document.title;
     const titles: Record<string, string> = {
       comprehensive: "تقرير الجدول الشامل",
       "comprehensive-branch": "تقرير الجدول الشامل — كل الفروع",
       "authority-pdf": "تقرير تغييرات الجدول",
     };
-    document.title = `SCHEDULE · ${titles[kind] || "التقرير"}`;
-    root.dataset.printKind = kind;
-    if (SAFARI_PRINT_ENGINE || IOS_CHROME_PRINT_ENGINE) root.dataset.printRotate = "1";
-    if (CHROMIUM_PRINT_ENGINE) root.dataset.printChromium = "1";
-    /* الشامل وتقرير التغييرات بحجمهما المعتمد؛ لا يُصغَّر منهما إلا ما كان سيُقصّ. */
-    fitPrintPages(document.getElementById("app-print-root") || document);
-    let leftForPrint = false;
-    let resumed = false;
-    const clearPrintFlags = () => {
-      delete root.dataset.printKind;
-      delete root.dataset.printRotate;
-      delete root.dataset.printChromium;
-      clearPrintFit(document.getElementById("app-print-root") || document);
-    };
-    const resume = () => {
-      if (resumed) return;
-      resumed = true;
-      /* الورقة خرجت: يُسجَّل ختمها الآن، لا قبل الأمر. */
-      sendReportStamp(printedStamp);
-      window.removeEventListener("afterprint", resume);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      clearPrintFlags();
-      document.title = originalTitle;
-      openReportEvents();
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") leftForPrint = true;
-      else if (leftForPrint) resume();
-    };
-    window.addEventListener("afterprint", resume, { once: true });
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    let invoked = false;
-    if (!invoked && SAFARI_PRINT_ENGINE && typeof document.execCommand === "function") {
-      try { invoked = document.execCommand("print"); } catch { invoked = false; }
-    }
-    if (!invoked) window.print();
-    window.setTimeout(() => { if (!leftForPrint && !resumed) { openReportEvents(); document.title = originalTitle; } }, 2500);
+    invokePrint(kind, `SCHEDULE · ${titles[kind] || "التقرير"}`);
   };
 
   const printBranchComprehensive = async () => {
@@ -2148,54 +2247,8 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
 
       closeReportEvents();
       flushSync(() => { setAuthorityCivil(civil); setAuthorityBook(null); setAuthorityReport(data as AuthorityReport); });
-      const printedStamp = printedStampFor("authority-pdf");
-
-      const root = document.documentElement;
-      const originalTitle = document.title;
-      document.title = `SCHEDULE · تقرير تغييرات الجدول — ${sectionName || "القسم"}`;
-      root.dataset.printKind = "authority-pdf";
-      if (SAFARI_PRINT_ENGINE || IOS_CHROME_PRINT_ENGINE) root.dataset.printRotate = "1";
-      if (CHROMIUM_PRINT_ENGINE) root.dataset.printChromium = "1";
       /* بحجمه المعتمد؛ ولا تُصغَّر منه إلا صفحةٌ كانت ستُقصّ (printFit). */
-      fitPrintPages(document.getElementById("app-print-root") || document);
-      let leftForPrint = false;
-      let resumed = false;
-      const clearPrintFlags = () => {
-        delete root.dataset.printKind;
-        delete root.dataset.printRotate;
-        delete root.dataset.printChromium;
-        clearPrintFit(document.getElementById("app-print-root") || document);
-      };
-      const resume = () => {
-        if (resumed) return;
-        resumed = true;
-        /* الورقة خرجت: يُسجَّل ختمها الآن، لا قبل الأمر. */
-        sendReportStamp(printedStamp);
-        window.removeEventListener("afterprint", resume);
-        document.removeEventListener("visibilitychange", onVisibilityChange);
-        clearPrintFlags();
-        document.title = originalTitle;
-        openReportEvents();
-      };
-      const onVisibilityChange = () => {
-        if (document.visibilityState === "hidden") leftForPrint = true;
-        else if (leftForPrint) {
-          /* Returning from Safari's print sheet is not proof that preview has
-             closed. Keep page rotation until `afterprint` to avoid reflow. */
-          leftForPrint = false;
-          document.title = originalTitle;
-          openReportEvents();
-        }
-      };
-      window.addEventListener("afterprint", resume, { once: true });
-      document.addEventListener("visibilitychange", onVisibilityChange);
-
-      let invoked = false;
-      if (!invoked && SAFARI_PRINT_ENGINE && typeof document.execCommand === "function") {
-        try { invoked = document.execCommand("print"); } catch { invoked = false; }
-      }
-      if (!invoked) window.print();
-      window.setTimeout(() => { if (!leftForPrint && !resumed) { openReportEvents(); document.title = originalTitle; } }, 2500);
+      invokePrint("authority-pdf", `SCHEDULE · تقرير تغييرات الجدول — ${sectionName || "القسم"}`);
     } catch (e: any) {
       setError(e?.message || "تعذر إعداد تقرير تغييرات الجدول");
     } finally {
@@ -2311,12 +2364,9 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [occupancyPick]);
 
+  /* على الهاتف تُفتح العدسات كلها: الشبكتان العريضتان تُسحبان أفقياً داخل إطارهما
+     (query-wide-scroll) بدل نافذةٍ تقول «افتحه من الكمبيوتر». */
   const selectLens = (next: Lens) => {
-    const phone = isNarrowWorkspace();
-    if (phone && (next === "week" || next === "room" || next === "matrix")) {
-      setMobileWideNotice(next);
-      return;
-    }
     runVisualTransition(() => {
       setLens(next);
       setPrintKind(next === "decision" ? "list" : next);
@@ -2326,13 +2376,33 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     });
   };
 
-  useEffect(() => {
-    const phone = isNarrowWorkspace();
-    if (phone && (lens === "week" || lens === "room" || lens === "matrix")) {
-      setLens("list");
-      setPrintKind("list");
-    }
+  /* شريط العدسات أطول من الشاشة: العدسة المختارة تُمرَّر إلى المنظور، وطرفا الشريط
+     يُظلَّلان ما دام فيهما ما لا يُرى (data-more-start / data-more-end). */
+  const lensStripRef = useRef<HTMLElement | null>(null);
+  const [stripMore, setStripMore] = useState({ start: false, end: false });
+  const measureStrip = useCallback(() => {
+    const strip = lensStripRef.current;
+    if (!strip) return;
+    const max = strip.scrollWidth - strip.clientWidth;
+    const offset = Math.abs(strip.scrollLeft);
+    setStripMore(previous => {
+      const next = { start: max > 2 && offset > 2, end: max > 2 && offset < max - 2 };
+      return previous.start === next.start && previous.end === next.end ? previous : next;
+    });
   }, []);
+  useEffect(() => {
+    const strip = lensStripRef.current;
+    if (!strip) return;
+    measureStrip();
+    strip.addEventListener("scroll", measureStrip, { passive: true });
+    window.addEventListener("resize", measureStrip, { passive: true });
+    return () => { strip.removeEventListener("scroll", measureStrip); window.removeEventListener("resize", measureStrip); };
+  }, [measureStrip, shownLenses.length]);
+  useEffect(() => {
+    const tab = document.getElementById(`query-lens-tab-${lens === "visitingHistory" ? "visiting" : lens}`);
+    try { tab?.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch { /* jsdom */ }
+    requestAnimationFrame(measureStrip);
+  }, [lens, measureStrip]);
 
   const moveLensFocus = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
     const last = shownLenses.length - 1;
@@ -2346,6 +2416,163 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
     const next = shownLenses[target];
     selectLens(next.id);
     requestAnimationFrame(() => document.getElementById(`query-lens-tab-${next.id}`)?.focus());
+  };
+
+  /* ── الجواب قبل العدسة (utils/reportInsights) ─────────────────────────── */
+  const insights = useMemo(() => {
+    if (!results.length) return null;
+    const hours = teachingHoursByInstructor(results, new Map([...courseById.values()].map(course => [Number(course.AdCourseId), effectiveCourseHours(course)])));
+    const people = new Set(buildFairnessEngine(results, instructors).profiles.map(profile => Number(profile.id)));
+    return buildReportInsights({
+      rows: results,
+      teachingHours: hours,
+      nameOf: id => instructorById.get(id)?.AdInstructorName || "",
+      isPerson: id => people.has(id),
+      rooms: roomLoad?.rooms?.length ? (occupancy?.rooms || [])
+        .filter((room: any) => roomLoad.rooms.some((item: any) => item.roomId && item.roomId === String(room.roomId || "")))
+        .map((room: any) => ({ name: `${room.room}/${room.hall}`, busy: room.busy || [] })) : null,
+      now: new Date(),
+    });
+  }, [results, courseById, instructors, instructorById, occupancy, roomLoad]);
+  const insightsShown = Boolean(insights && (lens === "list" || lens === "week" || lens === "instructor" || lens === "time" || lens === "room") && !pending && !loading);
+
+  /* ── التقارير المحفوظة والرابط المشارَك (utils/reportShare) ─────────────── */
+  const [savedReports, setSavedReports] = useState<SavedReport[]>(() => readSavedReports(scopeOwner));
+  const [saveName, setSaveName] = useState<string | null>(null);
+  const [shareNote, setShareNote] = useState<string | null>(null);
+  const currentShareState = (): SharedReportState => ({ v: 1, lens, c: filters.collegeId, s: filters.sectionId, t: filters.termId, f: compactFilters(filters as any) });
+  const openSavedReport = (item: SavedReport) => {
+    const state = item.state;
+    const allowed = shownLenses.some(entry => entry.id === state.lens) ? state.lens as Lens : lens;
+    if (state.c || state.s || state.t) pickScope({ collegeId: state.c, sectionId: state.s, termId: state.t });
+    runVisualTransition(() => {
+      setFilters(prev => ({ ...fresh(), ...(state.f || {}), collegeId: state.c || prev.collegeId, sectionId: state.s || prev.sectionId, termId: state.t || prev.termId }));
+      setLens(allowed);
+      setPrintKind(allowed === "decision" ? "list" : allowed);
+    });
+    setShareNote(`فُتح «${item.name}».`);
+  };
+  const copyShareLink = async () => {
+    const url = reportShareUrl(window.location.origin, window.location.pathname, currentShareState());
+    try { await navigator.clipboard.writeText(url); setShareNote("نُسخ الرابط. من يفتحه يرى ما يملك صلاحيته فقط."); }
+    catch { setShareNote(url); }
+  };
+
+  /* ── موجز الصباح (utils/morningBrief) ─────────────────────────────────── */
+  const briefScopeKey = filters.collegeId && filters.sectionId && filters.termId ? `${filters.collegeId}:${filters.sectionId}:${filters.termId}` : "";
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [brief, setBrief] = useState<{ key: string; loading: boolean; data: MorningBrief | null; error?: string } | null>(null);
+  const briefLoadedKey = useRef("");
+  const [briefTick, setBriefTick] = useState(0);
+  useEffect(() => {
+    if (!briefScopeKey || !scopeReadAt) return;
+    const seen = briefSeenKey(scopeOwner, new Date());
+    if (safeStorage.get(seen)) return;
+    safeStorage.set(seen, "1");
+    setBriefOpen(true);
+  }, [briefScopeKey, scopeReadAt, scopeOwner]);
+  useEffect(() => {
+    /* المخزَّن قراءةٌ اكتملت وحدها: طيُّ الموجز أثناء القراءة يلغيها، وفتحُه يعيدها. */
+    if (!briefOpen || !briefScopeKey || briefLoadedKey.current === briefScopeKey) return;
+    const controller = new AbortController();
+    setBrief({ key: briefScopeKey, loading: true, data: null });
+    const scopeQuery = `collegeId=${filters.collegeId}&sectionId=${filters.sectionId}&termId=${filters.termId}`;
+    Promise.all([
+      fetch("/api/activity-trail", { signal: controller.signal }).then(response => (response.ok ? response.json() : null)).catch(() => null),
+      fetch(`/api/reports/schedule-changes?${scopeQuery}`, { signal: controller.signal }).then(response => (response.ok ? response.json() : null)).catch(() => null),
+    ]).then(([trail, changes]) => {
+      if (controller.signal.aborted) return;
+      const data = buildMorningBrief({
+        now: new Date(),
+        scopeRowIds: new Set(all.map(row => Number(row.id))),
+        scope: { collegeId: Number(filters.collegeId), sectionId: Number(filters.sectionId), termId: Number(filters.termId) },
+        trail: Array.isArray(trail?.entries) ? trail.entries : [],
+        kindLabel: kind => (isTrailKind(kind) ? TRAIL_KIND_META[kind].label : kind),
+        approval: changes ? { statusLabel: String(changes.statusLabel || ""), round: Number(changes.round || 0) }
+          : printApproval ? { statusLabel: printApproval.statusLabel || APPROVAL_STATUS_LABEL[printApproval.status] || "", round: printApproval.round } : null,
+        deadline: changes?.deadline ? { date: changes.deadline.effective ? formatBriefDate(changes.deadline.effective) : undefined, daysLeft: changes.deadline.daysLeft } : null,
+        blockers: Number(changes?.blockingConflicts || 0),
+        regulationNotes: Array.isArray(changes?.regulationNotices) ? changes.regulationNotices.length : Number(changes?.regulationNotices?.count || 0),
+        changes: changes?.diff?.counts ? { added: Number(changes.diff.counts.added || 0), removed: Number(changes.diff.counts.removed || 0), changed: Number(changes.diff.counts.changed || 0) } : null,
+      });
+      briefLoadedKey.current = briefScopeKey;
+      setBrief({ key: briefScopeKey, loading: false, data, error: changes ? undefined : "تعذّرت قراءة حال الاعتماد والموانع — المعروض من أثر النشاط وحده." });
+    });
+    return () => controller.abort();
+  }, [briefOpen, briefScopeKey, all, printApproval, briefTick]);
+  /* الجدول تغيّر: الموجز يُقرأ من جديد عند فتحه القادم (أو الآن إن كان مفتوحاً). */
+  useEffect(() => { if (!liveNudge) return; briefLoadedKey.current = ""; setBriefTick(tick => tick + 1); }, [liveNudge]);
+
+  /* ── المقارنة بنسخةٍ سابقة (نقاط تاريخ الجدول) ─────────────────────────── */
+  const historyLens = lens === "fairness" || lens === "occupancy";
+  const historyScopeKey = historyLens && !isDeanReader ? briefScopeKey : "";
+  const [historyPoints, setHistoryPoints] = useState<{ key: string; points: Array<{ id: string; label: string; createdAt: string; rowCount: number }> } | null>(null);
+  const [historyPick, setHistoryPick] = useState<{ id: string; label: string; createdAt: string; rows: FSchedule[] | null } | null>(null);
+  useEffect(() => {
+    if (!historyScopeKey || historyPoints?.key === historyScopeKey) return;
+    const controller = new AbortController();
+    fetch(`/api/reports/history-points?collegeId=${filters.collegeId}&sectionId=${filters.sectionId}&termId=${filters.termId}`, { signal: controller.signal })
+      .then(response => (response.ok ? response.json() : { points: [] }))
+      .then(data => setHistoryPoints({ key: historyScopeKey, points: Array.isArray(data?.points) ? data.points : [] }))
+      .catch(error => { if (error?.name !== "AbortError") setHistoryPoints({ key: historyScopeKey, points: [] }); });
+    return () => controller.abort();
+  }, [historyScopeKey]);
+  useEffect(() => { setHistoryPick(null); }, [briefScopeKey]);
+  const pickHistoryPoint = (id: string) => {
+    const point = historyPoints?.points.find(item => item.id === id);
+    if (!point) { setHistoryPick(null); return; }
+    setHistoryPick({ ...point, rows: null });
+    fetch(`/api/reports/history-points/${encodeURIComponent(id)}`)
+      .then(response => (response.ok ? response.json() : null))
+      .then(data => setHistoryPick(current => current?.id === id ? { ...current, rows: Array.isArray(data?.rows) ? data.rows : [] } : current))
+      .catch(() => setHistoryPick(current => current?.id === id ? { ...current, rows: [] } : current));
+  };
+  const historyCompare = useMemo(() => {
+    if (!historyPick?.rows) return null;
+    const before = historyPick.rows.filter(row => Number(row.AdCollegeId) === Number(filters.collegeId) && Number(row.AdSectionId) === Number(filters.sectionId));
+    const now = all.filter(row => Number(row.AdCollegeId) === Number(filters.collegeId) && Number(row.AdSectionId) === Number(filters.sectionId));
+    const fairBefore = buildFairnessEngine(before, instructors);
+    const fairNow = buildFairnessEngine(now, instructors);
+    const heatBefore = buildOccupancyHeat(before, occupancyRoomKey);
+    const heatNow = buildOccupancyHeat(now, occupancyRoomKey);
+    return {
+      lectures: { before: before.length, now: now.length },
+      fairness: { before: fairBefore.profiles.length ? fairBefore.score : null, now: fairNow.profiles.length ? fairNow.score : null },
+      occupancy: { before: heatBefore.rate, now: heatNow.rate, peakBefore: heatBefore.peak?.count || 0, peakNow: heatNow.peak?.count || 0 },
+    };
+  }, [historyPick, all, instructors, filters.collegeId, filters.sectionId, occupancyRoomKey]);
+
+  /* ── سطرُ النطاق للعدستين اللتين تتجاوزان القسم المختار ──────────────────
+     الميزان واللوحة يعرضان أقساماً عدة، وكان سطرُهما يسمّي القسم المختار وحده —
+     فيقرأ العميد «3 أقسام · تكنولوجيا التعليم». فيُقال ما يُعرض فعلاً. */
+  const balanceScopeLabel = String(balance?.totals?.scopeLabel || "");
+  const balanceScopeText = [termName, balanceScopeLabel === "الجامعة" ? "كل أقسام الجامعة" : balanceScopeLabel === "الكلية" ? `كل أقسام ${collegeName || "الكلية"}` : "كل الأقسام في نطاقك"].filter(Boolean).join(" · ");
+  const decisionScopeText = [termName, collegeName, decisionPrintDepartments.length > 1 ? decisionPrintDepartments.map(entry => entry.name).join("، ") : sectionName].filter(Boolean).join(" · ");
+
+  /* ── Excel بحسب العدسة (utils/lensExport) ─────────────────────────────── */
+  const [exportBusy, setExportBusy] = useState(false);
+  const exportLens = async () => {
+    const scopeName = lens === "balance" ? (balance?.totals?.scopeLabel || collegeName) : sectionName || collegeName;
+    let sheets: ExportSheet[] = [];
+    switch (lens) {
+      case "balance": sheets = [balanceSheet(mergeBalanceDepartments(balance?.departments || [], termApprovals || undefined), id => { const state = termApprovals?.get(id); return state ? (state.late ? "متأخّر" : balanceStatusLabel(state.status)) : ""; })]; break;
+      case "fairness": if (fairness) sheets = [fairnessSheet(fairness)]; break;
+      case "instructor": sheets = [instructorSheet(byInstructor)]; break;
+      case "time": sheets = [timeSheet(byTime)]; break;
+      case "room": if (roomLoad) sheets = [roomLoadSheet(roomLoad.rooms, day => DAYS[day]?.label || "", clock)]; break;
+      case "occupancy": if (occupancyHeat) sheets = [occupancySheet(occupancyHeat, clock), ...occupancySites.map(site => ({ ...occupancySheet(site.heat, clock), name: site.label }))]; break;
+      case "roomInstructor": sheets = directorySheets(roomTeacherIndex); break;
+      case "courseRoom": sheets = [courseRoomSheet(roomTypeMismatches.map(item => ({ course: String(item.row.AdCourseName || courseById.get(item.row.AdCourseId)?.CourseName || ""), code: courseNumberOf(item.row), section: String(item.row.SCode || ""), room: item.room, wanted: item.wanted, actual: item.actual, teacher: instructorById.get(item.row.AdInstructorId)?.AdInstructorName || "" })))]; break;
+      case "visiting": sheets = [visitingSheet(visitingTermGroups.map(group => ({ name: group.name, courses: group.courses, sections: group.sections, hours: weeklyHours(group.weeklyMinutes), places: group.places.map(place => visitingPlaceLabel(place.collegeId, place.sectionId)).join("، ") })))]; break;
+      case "visitingHistory": sheets = [visitingHistorySheet(visibleVisitingHistory?.terms || [], visitingHistoryRows)]; break;
+      case "courseLoad": sheets = [courseLoadSheet(courseLoads)]; break;
+      default: return;
+    }
+    if (!sheets.length) return;
+    setExportBusy(true);
+    try { await downloadSheets(exportFileName([REPORT_TITLES[lens], scopeName, termName]), sheets); }
+    catch { setError("تعذّر إنشاء ملف Excel لهذا العرض."); }
+    finally { setExportBusy(false); }
   };
 
   const lensCountDescription =
@@ -2364,13 +2591,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           {error}
           {/* A failure with no way forward is a dead end; one press retries the
               read that failed rather than making the reader reload the page. */}
-          <button type="button" className="notice-retry" onClick={() => { setError(null); void readScope(); }}>
+          <button type="button" className="notice-retry" data-guide-ignore="إعادة قراءة النطاق بعد خطأ؛ قراءة فقط" onClick={refreshNow}>
             إعادة المحاولة
           </button>
         </Notice>
       ) : null}
       {liveNudge ? (
-        <button type="button" className="query-live-nudge no-print" onClick={() => void readScope()}>
+        <button type="button" className="query-live-nudge no-print" data-guide-ignore="تحديث التقرير بعد تغيّر الجدول؛ قراءة فقط" onClick={refreshNow}>
           <span className="query-live-dot" aria-hidden="true" />
           تغيّر الجدول بعد فتح هذا التقرير — اضغط للتحديث
         </button>
@@ -2394,17 +2621,27 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               runAsk(event.currentTarget.value);
             }}
             placeholder="اسأل: قاعات فارغة الثلاثاء 10"
+            title="أمثلة: جدول أحمد · 0109101 · 7/31 · الخميس 9"
             aria-label="اسأل بالعربية"
             aria-describedby={askNote ? "query-ask-note" : undefined}
             enterKeyHint="search"
           />
           {ask ? (
-            <button type="button" onClick={() => { setAsk(""); setAskNote(null); resetFilters(); }} aria-label="مسح السؤال" title="مسح">
+            <button type="button" data-guide-ignore="مسح السؤال والمرشحات الإضافية؛ يغيّر العرض فقط" onClick={() => { setAsk(""); setAskNote(null); setAskChoices(null); setAskFailed(false); resetFilters(); }} aria-label="مسح السؤال" title="مسح">
               <X />
             </button>
           ) : null}
         </form>
-        {askNote ? <p className="query-ask-note" id="query-ask-note" role="status">{askNote}</p> : null}
+        {askNote ? <p className={`query-ask-note${askFailed ? " is-failed" : ""}`} id="query-ask-note" role={askFailed ? "alert" : "status"}>{askNote}</p> : null}
+        {askChoices?.length ? (
+          <div className="query-ask-choices" role="group" aria-label="هل تقصد؟">
+            {askChoices.map(option => (
+              <button key={`${option.label}-${option.patch.instructorId || option.patch.courseId || 0}`} type="button"
+                data-guide-ignore="اختيار المقصود من السؤال يغيّر المرشحات فقط"
+                onClick={() => applyAsk(option.patch, option.lens as Lens, [option.label], null)}>{option.label}</button>
+            ))}
+          </div>
+        ) : null}
 
         <div className="query-scope query-primary-filters" data-count={3 - (hidesCollege(scopeShape(scopes, isPowerAdmin)) ? 1 : 0) - (soleDepartment !== null || hidesSection(scopeShape(scopes, isPowerAdmin)) ? 1 : 0) + (roleId === "departmentHead" && filters.termId && (filters.sectionId || soleDepartment) ? 1 : 0)} aria-label="المرشحات الأساسية">
           {hidesCollege(scopeShape(scopes, isPowerAdmin)) ? null : <Field label="الكلية">
@@ -2469,6 +2706,17 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 strictDepartmentOnly
               />
             </Field>
+            <Field label="بحث بالاسم أو الرقم المدني">
+              <input
+                type="search"
+                value={filters.instructorQuery}
+                onChange={event => setFilters(prev => ({ ...prev, instructorQuery: event.target.value, instructorId: 0 }))}
+                placeholder="جزء من الاسم، أو أرقام الرقم المدني"
+                aria-label="بحث بالاسم أو الرقم المدني"
+                inputMode="search"
+                enterKeyHint="search"
+              />
+            </Field>
             <Field label="المبنى">
               <select value={filters.building} onChange={event => { set("building", event.target.value); set("hall", ""); }}>
                 <option value="">الكل</option>
@@ -2504,6 +2752,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 <label className="query-period-input"><span>من</span><QueryTimeSelect value={filters.startTime} onChange={value => set("startTime", value)} label="من" /></label>
                 <label className="query-period-input"><span>إلى</span><QueryTimeSelect value={filters.endTime} onChange={value => set("endTime", value)} label="إلى" /></label>
               </div>
+              {timeWindowState(filters.startTime, filters.endTime) === "partial" ? (
+                <small className="query-period-hint" role="status">اختر {filters.startTime ? "«إلى»" : "«من»"} أيضاً لتفعيل الفترة.</small>
+              ) : timeWindowState(filters.startTime, filters.endTime) === "inverted" ? (
+                <small className="query-period-hint is-warn" role="alert">
+                  البداية بعد النهاية، فلم تُطبَّق الفترة.{" "}
+                  <button type="button" data-guide-ignore="تبديل بداية الفترة ونهايتها في المرشح؛ يغيّر العرض فقط" onClick={() => setFilters(prev => ({ ...prev, startTime: prev.endTime, endTime: prev.startTime }))}>بدّل الوقتين</button>
+                </small>
+              ) : null}
             </div>
             <div className="field wide">
               <label>الأيام</label>
@@ -2532,9 +2788,63 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             <button type="button" onClick={resetFilters} aria-label="مسح كل المرشحات الإضافية" title="مسح كل المرشحات"><X aria-hidden="true" /></button>
           </div>
         ) : null}
+
+        {/* ── تقاريري: استعلامٌ يُحفظ باسمٍ ويُفتح بضغطة، أو يُرسل رابطاً ── */}
+        <div className="query-saved" role="group" aria-label="تقاريري المحفوظة">
+          {savedReports.map(item => (
+            <span className="query-saved-chip" key={item.id}>
+              <button type="button" data-guide-ignore="فتح استعلام محفوظ يغيّر العرض والمرشحات فقط" onClick={() => openSavedReport(item)} title={`احفظ في ${new Date(item.at).toLocaleDateString("ar-KW-u-nu-latn")}`}><Bookmark aria-hidden="true" />{item.name}</button>
+              <button type="button" data-guide-ignore="حذف استعلام محفوظ من هذا المتصفح فقط" onClick={() => setSavedReports(removeSavedReport(scopeOwner, item.id))} aria-label={`حذف «${item.name}» من تقاريري`} title="حذف"><X aria-hidden="true" /></button>
+            </span>
+          ))}
+          {saveName === null ? (
+            <button type="button" className="query-saved-action" data-guide-ignore="حفظ الاستعلام الحالي في هذا المتصفح" onClick={() => setSaveName("")}><Bookmark aria-hidden="true" />احفظ هذا الاستعلام</button>
+          ) : (
+            <form className="query-saved-form" onSubmit={event => { event.preventDefault(); if (!saveName.trim()) return; setSavedReports(saveReport(scopeOwner, saveName, currentShareState())); setShareNote(`حُفظ «${saveName.trim()}» في تقاريرك.`); setSaveName(null); }}>
+              <input autoFocus value={saveName} onChange={event => setSaveName(event.target.value)} placeholder="اسمٌ قصير: قاعات مبنى 7 صباحاً" aria-label="اسم الاستعلام المحفوظ" maxLength={60} onKeyDown={event => { if (event.key === "Escape") setSaveName(null); }} />
+              <button type="submit" data-guide-ignore="حفظ الاستعلام في هذا المتصفح فقط" disabled={!saveName.trim()}>حفظ</button>
+              <button type="button" data-guide-ignore="إلغاء حفظ الاستعلام" onClick={() => setSaveName(null)}>إلغاء</button>
+            </form>
+          )}
+          <button type="button" className="query-saved-action" data-guide-ignore="نسخ رابط الاستعلام الحالي؛ لا يمنح صلاحية" onClick={() => void copyShareLink()}><Link2 aria-hidden="true" />انسخ الرابط</button>
+          {shareNote ? <small className="query-saved-note" role="status">{shareNote}</small> : null}
+        </div>
       </section>
 
-      <nav className="lens-strip no-print" role="tablist" aria-label="طريقة عرض النتائج" aria-orientation="horizontal">
+      {/* ── موجز الصباح ── */}
+      {briefScopeKey ? (
+        <section className={`morning-brief no-print${briefOpen ? " is-open" : ""}`} aria-label="موجز الصباح">
+          <button type="button" className="morning-brief-head" data-guide-ignore="فتح موجز الصباح للقراءة فقط" aria-expanded={briefOpen} aria-controls="morning-brief-body" onClick={() => setBriefOpen(open => !open)}>
+            <Sunrise aria-hidden="true" />
+            <span><b>موجز الصباح</b><small>ما تحرّك منذ أمس، وما يمنع الاعتماد، وكم بقي على الموعد — {sectionName || "القسم"}</small></span>
+            <ChevronDown aria-hidden="true" />
+          </button>
+          {briefOpen ? (
+            <div className="morning-brief-body" id="morning-brief-body">
+              {brief?.loading || !brief ? <p role="status">يُجهّز الموجز…</p> : brief.data ? (
+                <>
+                  <ul className="morning-brief-lines">
+                    {brief.data.lines.map((line, index) => <li key={index} data-tone={line.tone}>{line.text}</li>)}
+                  </ul>
+                  {brief.data.moves.length ? (
+                    <ol className="morning-brief-moves" aria-label="آخر الحركات">
+                      {brief.data.moves.map((move, index) => (
+                        <li key={`${move.at}-${index}`}><time dir="ltr">{new Date(move.at).toLocaleTimeString("ar-KW-u-nu-latn", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kuwait" })}</time><b>{move.who}</b><span>{move.what}</span><small>{move.target}</small></li>
+                      ))}
+                    </ol>
+                  ) : null}
+                  {brief.error ? <small className="morning-brief-note">{brief.error}</small> : null}
+                  <div className="morning-brief-actions">
+                    <button type="button" data-guide-ignore="طباعة موجز الصباح؛ قراءة فقط" onClick={() => printReport("morning")}><Printer aria-hidden="true" /> طباعة الموجز</button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      <nav ref={lensStripRef as any} className="lens-strip no-print" role="tablist" aria-label="طريقة عرض النتائج" aria-orientation="horizontal" data-more-start={stripMore.start ? "1" : undefined} data-more-end={stripMore.end ? "1" : undefined}>
         {shownLenses.map((item, index) => {
           const active = lens === item.id || (item.id === "visiting" && lens === "visitingHistory");
           return (
@@ -2593,23 +2903,6 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
         </div>
       ) : null}
 
-      {mobileWideNotice ? (
-        <div className="mobile-desktop-gate no-print" role="dialog" aria-modal="true" aria-label="هذا العرض يحتاج كمبيوتر">
-          <div className="mobile-desktop-gate-card">
-            <span className="mobile-desktop-gate-icon"><Table2 aria-hidden="true" /></span>
-            <div className="mobile-desktop-gate-copy">
-              <strong>{mobileWideNotice === "week" ? "عرض الأسبوع" : mobileWideNotice === "room" ? "إشغال القاعات" : "القاعات × الأوقات"}</strong>
-              <p>عرضٌ عريض يُقرأ كاملاً على شاشة كبيرة.</p>
-              <div className="mobile-desktop-gate-steps" aria-hidden="true">
-                <span><Search /><b>افتحه من الكمبيوتر</b></span>
-                <span><Table2 /><b>شاهد الأعمدة كاملة</b></span>
-                <span><Printer /><b>اطبع أو صدّر بوضوح</b></span>
-              </div>
-            </div>
-            <button type="button" onClick={() => setMobileWideNotice(null)}>حسنًا</button>
-          </div>
-        </div>
-      ) : null}
 
       <section
         className="query-canvas"
@@ -2623,11 +2916,14 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
             {/* الميزان يعدّ الأقسام لا المواعيد المعتمدة: «0 موعد» فوق جدولٍ فيه أقسامٌ
                 ومواعيد كان يقول للعميد شيئاً غير ما يراه تحته. */}
             {/* «0 موعد» فوق «لا نتائج» تكرارٌ للجواب نفسه (قاعدة إخفاء الفارغ). */}
-            {(lens === "balance" ? Number(balance?.departments?.length || 0) : lens === "visitingHistory" ? visitingHistoryRows.length : lens === "visiting" ? visitingTermGroups.length : results.length) ? <>
-            <b>{num(lens === "balance" ? Number(balance?.departments?.length || 0) : lens === "visitingHistory" ? visitingHistoryRows.length : lens === "visiting" ? visitingTermGroups.length : results.length)}</b>
-            <span>{lens === "balance" ? nounFor(Number(balance?.departments?.length || 0), AR.department) : lens === "visitingHistory" ? "منتدب تاريخي" : lens === "visiting" ? "منتدب" : "موعد"}</span>
+            {(lens === "balance" ? Number(balance?.departments?.length || 0) : lens === "decision" ? decisionPrintDepartments.length : lens === "visitingHistory" ? visitingHistoryRows.length : lens === "visiting" ? visitingTermGroups.length : results.length) ? <>
+            <b>{num(lens === "balance" ? Number(balance?.departments?.length || 0) : lens === "decision" ? decisionPrintDepartments.length : lens === "visitingHistory" ? visitingHistoryRows.length : lens === "visiting" ? visitingTermGroups.length : results.length)}</b>
+            <span>{lens === "balance" || lens === "decision" ? nounFor(Number(lens === "balance" ? balance?.departments?.length || 0 : decisionPrintDepartments.length), AR.department) : lens === "visitingHistory" ? "منتدب تاريخي" : lens === "visiting" ? "منتدب" : "موعد"}</span>
             </> : null}
-            {lens === "courseLoad" ? <small>{termName} · {sectionName || "اختر القسم"} · المواقع التي يوجد فيها القسم</small> : scopeLine ? <small>{scopeLine}</small> : null}
+            {lens === "courseLoad" ? <small>{termName} · {sectionName || "اختر القسم"} · المواقع التي يوجد فيها القسم</small>
+              : lens === "balance" ? <small>{balanceScopeText}</small>
+              : lens === "decision" ? <small>{decisionScopeText}</small>
+              : scopeLine ? <small>{scopeLine}</small> : null}
           </div>
           {!pending && (results.length || (lens === "courseLoad" && courseLoads.length) || (lens === "balance" && balance) || (lens === "occupancy" && occupancyHeat?.lectures) || (authorityReportAvailable && all.length > 0)) ? <div className="query-canvas-actions">
             {/* نسبة الإشغال تطبع النطاق المختار: عائلة القسم لها محاضراتها ولو خلا الموقع المفتوح منها. */}
@@ -2649,14 +2945,19 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 <Printer aria-hidden="true" />
               </button>
             ) : null}
+            {!results.length && (lens === "balance" ? Boolean(balance) : lens === "occupancy" ? Boolean(occupancyHeat?.lectures) : lens === "courseLoad" ? courseLoads.length > 0 : false) ? (
+              <button type="button" className="query-print-icon has-label" data-guide-ignore="تنزيل ملف Excel لهذا العرض نفسه؛ قراءة فقط" onClick={() => void exportLens()} disabled={exportBusy} aria-label="تصدير Excel" title={`ملف «${REPORT_TITLES[lens]}» كما يظهر`}>
+                <FileSpreadsheet aria-hidden="true" /><span>{exportBusy ? "يُجهّز…" : "Excel"}</span>
+              </button>
+            ) : null}
             {!results.length && lens === "courseLoad" && filters.sectionId && courseLoads.length ? <button type="button" className="query-print-icon" data-guide-ignore="طباعة توزيع المواد بين المواقع" onClick={() => printReport("courseLoad")} aria-label="طباعة توزيع المواد بين المواقع" title="طباعة التقرير"><Printer aria-hidden="true" /></button> : null}
             {results.length ? <>
               {lens === "courseLoad" ? (
-                <button type="button" className="query-print-icon" data-guide-ignore="طباعة توزيع المواد بين المواقع" onClick={() => printReport("courseLoad")} disabled={!filters.sectionId || siteLoadRead?.loading || !courseLoads.length} aria-label="طباعة توزيع المواد بين المواقع" title="طباعة التقرير"><Printer aria-hidden="true" /></button>
+                <button type="button" className="query-print-icon has-label" data-guide-ignore="طباعة توزيع المواد بين المواقع" onClick={() => printReport("courseLoad")} disabled={!filters.sectionId || siteLoadRead?.loading || !courseLoads.length} aria-label="طباعة توزيع المواد بين المواقع" title="طباعة التقرير"><Printer aria-hidden="true" /><span>طباعة</span></button>
               ) : lens === "instructor" ? (
                 <div className="query-report-action">
-                  <SecondaryButton type="button" className="query-print-icon" data-guide-ignore="اختيار نطاق طباعة تقرير الأستاذ؛ قراءة فقط" aria-label="طباعة تقرير الأستاذ" aria-haspopup="menu" aria-expanded={scopeMenu === "instructor" || undefined} onClick={() => setScopeMenu(scopeMenu === "instructor" ? null : "instructor")} disabled={branchBusy} title="اختر نطاق تقرير الأستاذ للطباعة">
-                    <Printer aria-hidden="true" />
+                  <SecondaryButton type="button" className="query-print-icon has-label" data-guide-ignore="اختيار نطاق طباعة تقرير الأستاذ؛ قراءة فقط" aria-label="طباعة تقرير الأستاذ" aria-haspopup="menu" aria-expanded={scopeMenu === "instructor" || undefined} onClick={() => setScopeMenu(scopeMenu === "instructor" ? null : "instructor")} disabled={branchBusy} title="اختر نطاق تقرير الأستاذ للطباعة">
+                    <Printer aria-hidden="true" /><span>طباعة</span>
                   </SecondaryButton>
                   {scopeMenu === "instructor" ? (
                     <div className="query-scope-menu" role="menu" aria-label="نطاق تقرير الأستاذ">
@@ -2666,23 +2967,29 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                   ) : null}
                 </div>
               ) : (
-                <button type="button" className="query-print-icon" data-guide-ignore="طباعة العرض الحالي؛ قراءة فقط" onClick={() => printReport(lens)} disabled={lens === "occupancy" && familyPending} aria-label="طباعة هذا العرض" title="طباعة هذا العرض">
-                  <Printer aria-hidden="true" />
+                <button type="button" className="query-print-icon has-label" data-guide-ignore="طباعة العرض الحالي؛ قراءة فقط" onClick={() => printReport(lens)} disabled={lens === "occupancy" && familyPending} aria-label="طباعة هذا العرض" title="طباعة هذا العرض">
+                  <Printer aria-hidden="true" /><span>طباعة</span>
                 </button>
               )}
               {/* ── تصدير Excel (N12) ────────────────────────────────────────
                   الملفّ بمرشّحات الشاشة نفسها، ومن قارئ الخادم نفسه: العميدان
                   يُصدّران النهائيَّ وحده، والرقمُ المدني لا يخرج لصفات الاطّلاع. */}
-              <a
-                className="query-print-icon"
-                href={`/api/reports/excel/ListofTeacherCourseExcel?${excelQuery}`}
-                download
-                data-guide-ignore="تنزيل ملف Excel بمرشحات العرض الحالي؛ قراءة فقط ولا يغيّر بيانات الجدول"
-                aria-label="تصدير Excel"
-                title="تصدير Excel"
-              >
-                <FileSpreadsheet aria-hidden="true" />
-              </a>
+              {SERVER_EXCEL_LENSES.has(lens) ? (
+                <a
+                  className="query-print-icon has-label"
+                  href={`/api/reports/excel/ListofTeacherCourseExcel?${excelQuery}`}
+                  download
+                  data-guide-ignore="تنزيل ملف Excel بمرشحات العرض الحالي؛ قراءة فقط ولا يغيّر بيانات الجدول"
+                  aria-label="تصدير Excel"
+                  title="قائمة المواعيد بمرشحات العرض الحالي"
+                >
+                  <FileSpreadsheet aria-hidden="true" /><span>Excel</span>
+                </a>
+              ) : (
+                <button type="button" className="query-print-icon has-label" data-guide-ignore="تنزيل ملف Excel لهذا العرض نفسه؛ قراءة فقط" onClick={() => void exportLens()} disabled={exportBusy} aria-label="تصدير Excel" title={`ملف «${REPORT_TITLES[lens]}» كما يظهر`}>
+                  <FileSpreadsheet aria-hidden="true" /><span>{exportBusy ? "يُجهّز…" : "Excel"}</span>
+                </button>
+              )}
               {/* ── السؤال يُطرح عند الضغط، لا قبله ────────────────────────────
                   زر لكل تقرير، ومفتاح دائم للنطاق: ثلاثة عناصر تشغل الشريط
                   طوال الوقت لأجل قرار يُتخذ لحظةَ الطباعة فقط. فصار الزر يسأل
@@ -2709,6 +3016,65 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           </div> : null}
         </header>
 
+        {insightsShown && insights ? (
+          <div className="query-insights no-print" role="list" aria-label="الجواب السريع">
+            {insights.heaviest ? (
+              <button type="button" role="listitem" data-guide-ignore="فتح مواعيد الأستاذ الأثقل؛ يغيّر العرض فقط"
+                onClick={() => applyAsk({ instructorId: insights.heaviest!.id }, "instructor", [insights.heaviest!.name], null)}>
+                <UserRound aria-hidden="true" />
+                <span><small>أثقل نصاباً</small><b>{insights.heaviest.name}</b><em>{countOf(insights.heaviest.hours, AR.hour)} معتمدة · {countOf(insights.heaviest.lectures, AR.appointment)}</em></span>
+              </button>
+            ) : null}
+            {insights.busiest ? (
+              <button type="button" role="listitem" data-guide-ignore="فتح مواعيد أزحم ساعة؛ يغيّر العرض فقط"
+                onClick={() => applyAsk({ day: insights.busiest!.day, startTime: clock(insights.busiest!.hour), endTime: clock(insights.busiest!.hour + 60) }, "time", [insights.busiest!.dayLabel, insights.busiest!.label], null)}>
+                <Clock3 aria-hidden="true" />
+                <span><small>أزحم ساعة</small><b>{insights.busiest.dayLabel} <bdi dir="ltr">{insights.busiest.label}</bdi></b><em>{countOf(insights.busiest.lectures, AR.lecture)} معاً</em></span>
+              </button>
+            ) : null}
+            {insights.freeNow ? (
+              insights.freeNow.state === "open" ? (
+                <button type="button" role="listitem" data-guide-ignore="فتح إشغال القاعات اليوم؛ يغيّر العرض فقط"
+                  onClick={() => { const today = (insights.freeNow as any).day; setRoomDay(today); selectLens("room"); }}>
+                  <DoorOpen aria-hidden="true" />
+                  <span><small>فارغة الآن · {insights.freeNow.dayLabel} <bdi dir="ltr">{insights.freeNow.clock}</bdi></small><b>{num(insights.freeNow.free.length)} من {countOf(insights.freeNow.total, AR.room)}</b><em>{insights.freeNow.free.slice(0, 3).join("، ")}{insights.freeNow.free.length > 3 ? "…" : ""}</em></span>
+                </button>
+              ) : (
+                <span role="listitem" className="query-insight-quiet"><DoorOpen aria-hidden="true" /><span><small>القاعات الآن</small><b>{insights.freeNow.reason}</b></span></span>
+              )
+            ) : null}
+          </div>
+        ) : null}
+
+        {historyLens && historyPoints?.key === historyScopeKey && historyPoints.points.length ? (
+          <div className="history-compare no-print">
+            <label>
+              <History aria-hidden="true" />
+              <span>قارن بنسخةٍ سابقة</span>
+              <select value={historyPick?.id || ""} onChange={event => pickHistoryPoint(event.target.value)} aria-label="نسخة سابقة من جدول القسم">
+                <option value="">— اختر —</option>
+                {historyPoints.points.map(point => (
+                  <option key={point.id} value={point.id}>{point.label} · {new Date(point.createdAt).toLocaleDateString("ar-KW-u-nu-latn", { day: "numeric", month: "short" })} · {countOf(point.rowCount, AR.appointment)}</option>
+                ))}
+              </select>
+            </label>
+            {historyPick && !historyPick.rows ? <small role="status">يقرأ النسخة…</small> : null}
+            {historyCompare ? (
+              <dl className="history-compare-facts">
+                <div><dt>المواعيد</dt><dd><bdi>{num(historyCompare.lectures.before)}</bdi> ← <bdi>{num(historyCompare.lectures.now)}</bdi></dd></div>
+                {lens === "fairness" ? (
+                  <div><dt>مؤشر العدالة</dt><dd><bdi>{historyCompare.fairness.before ?? "—"}</bdi> ← <bdi>{historyCompare.fairness.now ?? "—"}</bdi>{historyCompare.fairness.before !== null && historyCompare.fairness.now !== null ? <b data-tone={historyCompare.fairness.now >= historyCompare.fairness.before ? "good" : "bad"}> ({historyCompare.fairness.now - historyCompare.fairness.before >= 0 ? "+" : ""}{historyCompare.fairness.now - historyCompare.fairness.before})</b> : null}</dd></div>
+                ) : (
+                  <>
+                    <div><dt>إشغال الأسبوع</dt><dd><bdi>{num(historyCompare.occupancy.before)}٪</bdi> ← <bdi>{num(historyCompare.occupancy.now)}٪</bdi></dd></div>
+                    <div><dt>محاضرات الذروة</dt><dd><bdi>{num(historyCompare.occupancy.peakBefore)}</bdi> ← <bdi>{num(historyCompare.occupancy.peakNow)}</bdi></dd></div>
+                  </>
+                )}
+                <small>قبل: «{historyPick?.label}» — والآن: جدول القسم كاملاً بلا مرشحات.</small>
+              </dl>
+            ) : null}
+          </div>
+        ) : null}
 
         {loading || pending || (lens === "visitingHistory" && visitingHistoryLoading) ? (
           <QuerySkeleton />
@@ -2840,7 +3206,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               {matrix ? <span className="matrix-count">{countOf(matrix.lines.length, AR.row)} · {countOf(matrix.total, AR.appointment)}</span> : null}
             </div>
             {matrix && matrix.lines.length ? (
-              <div className="matrix-scroll">
+              <div className="matrix-scroll query-wide-scroll" data-wide-hint="اسحب أفقياً لرؤية كل الساعات">
                 <table className="matrix-table">
                   <thead>
                     <tr>
@@ -2906,10 +3272,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                 </div>
               ) : null}
             </div>
-            {occupancyLoading ? (
+            {roomLoad?.hidden && roomLoad.rooms.length ? <p className="query-filter-note" role="status">تُعرض {countOf(roomLoad.rooms.length, AR.room)} من {countOf(roomLoad.rooms.length + roomLoad.hidden, AR.room)} بحسب المرشحات.</p> : null}
+            {occupancyLoading && !roomLoad ? (
               <div className="occupancy-loading"><QuerySkeleton /></div>
+            ) : roomLoad && !roomLoad.rooms.length ? (
+              <div className="query-empty"><EmptyState title="لا قاعات تطابق المرشحات" detail="غيّر المبنى أو القاعة أو الأستاذ من «المزيد»، أو امسح المرشحات." /></div>
             ) : roomLoad ? (
-              <div className="occupancy-grid" style={{ "--slots": roomLoad.slots.length } as React.CSSProperties}>
+              <div className="query-wide-scroll" data-wide-hint="اسحب أفقياً لرؤية كل الساعات"><div className="occupancy-grid" style={{ "--slots": roomLoad.slots.length } as React.CSSProperties}>
                 <div className="occupancy-ruler">
                   <span />
                   {roomLoad.slots.map(point => <b key={point} dir="ltr">{String(Math.floor(point / 60)).padStart(2, "0")}</b>)}
@@ -2924,7 +3293,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                       aria-expanded={roomPick?.room === room.name && roomPick?.point == null}
                       aria-controls={roomPick?.room === room.name ? "query-room-detail" : undefined}
                       onClick={() => setRoomPick(current =>
-                        current?.room === room.name && current?.point == null ? null : { room: room.name, point: null })}
+                        current?.room === room.name && current?.point == null ? null : { room: room.name, roomId: room.roomId, point: null })}
                     >
                       {room.name}
                     </button>
@@ -2942,13 +3311,13 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                         onClick={() => setRoomPick(current =>
                           current?.room === room.name && current?.point === cell.point
                             ? null
-                            : { room: room.name, point: cell.point })}
+                            : { room: room.name, roomId: room.roomId, point: cell.point })}
                       />
                     ))}
                     <b className="occupancy-rate">{num(room.rate)}٪</b>
                   </div>
                 ))}
-              </div>
+              </div></div>
             ) : (
               <div className="query-empty"><EmptyState title="لا بيانات إشغال" /></div>
             )}
@@ -2959,8 +3328,11 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
               name — now opens exactly the appointments behind it.
             */}
             {roomPick ? (() => {
+              /* القاعة بمعرّفها في السجل، والنصُّ لصفٍّ قديمٍ بلا معرّف: كتابةٌ مختلفة
+                 لاسم القاعة نفسها كانت تُظهر حجز القسم نفسه «من قسم آخر». */
               const picked = results.filter(row => {
-                if (`${row.AdRoomCode}/${row.AdRoomHall}` !== roomPick.room) return false;
+                const sameRoom = roomPick.roomId && row.roomId ? String(row.roomId) === roomPick.roomId : `${row.AdRoomCode}/${row.AdRoomHall}` === roomPick.room;
+                if (!sameRoom) return false;
                 if (roomPick.point == null) return true;
                 const from = minutes(row.fstarttime), to = minutes(row.fendtime);
                 const dayOk = roomDay === "week" || Boolean((row as any)[DAYS[roomDay as number].flag]);
@@ -3015,6 +3387,19 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
                     const takenElsewhere = roomPick.point == null
                       ? Number(room?.cells?.reduce((sum: number, cell: any) => Math.max(sum, Number(cell.taken) || 0), 0) || 0)
                       : Number(room?.cells?.find((cell: any) => cell.point === roomPick.point)?.taken || 0);
+                    /* حجزٌ من قسمك نفسه أخفته مرشّحاتُ الشاشة ليس «قسماً آخر»: الخادم
+                       يعلّم ما لنطاقك (mine)، فيُقال ذلك ويُعرض طريقُ رؤيته. */
+                    const mineHidden = roomPick.point == null
+                      ? Boolean(room?.cells?.some((cell: any) => cell.mine))
+                      : Boolean(room?.cells?.find((cell: any) => cell.point === roomPick.point)?.mine);
+                    if (mineHidden) return (
+                      <p className="occupancy-pick-external">
+                        <b>محجوزة لقسمك</b>
+                        {chips.length
+                          ? <span>مواعيدها مخفية بالمرشحات الحالية.{" "}<button type="button" className="notice-retry" data-guide-ignore="مسح المرشحات الإضافية؛ يغيّر العرض فقط" onClick={() => { resetFilters(); }}>امسح المرشحات لتراها</button></span>
+                          : <span>القاعة مشغولة بمواعيد من نطاقك في هذا الوقت.</span>}
+                      </p>
+                    );
                     if (takenElsewhere > 0) return (
                       <p className="occupancy-pick-external">
                         <b>محجوزة خارج نطاقك</b>
@@ -3626,7 +4011,10 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           roomDay={roomDay}
           balance={balance}
           visitingHistory={visibleVisitingHistory}
-          scopeLine={printKind === "courseLoad" ? [termName, sectionName, "المواقع التي يوجد فيها القسم"].filter(Boolean).join(" · ") : printCollegeOverride ? [termName, printCollegeOverride].filter(Boolean).join(" · ") : scopeLine}
+          scopeLine={printKind === "courseLoad" ? [termName, sectionName, "المواقع التي يوجد فيها القسم"].filter(Boolean).join(" · ")
+            : printKind === "balance" ? balanceScopeText
+            : printKind === "decision" ? decisionScopeText
+            : printCollegeOverride ? [termName, printCollegeOverride].filter(Boolean).join(" · ") : scopeLine}
           collegeName={printKind === "courseLoad" ? sectionName || "القسم المحدد" : printCollegeOverride || collegeName}
           termName={termName}
           sectionName={sectionName}
@@ -3653,6 +4041,7 @@ export default function Reports({ mode, user, scopes = [], roleId }: Props) {
           occupancy={occupancyHeat ? { heat: occupancyHeat, sites: occupancySites, scopeLabel: occupancyScopeLabel } : null}
           courseRoom={printKind === "courseRoom" ? roomTypeMismatches : undefined}
           decision={printKind === "decision" ? decisionPrintDepartments : undefined}
+          morning={printKind === "morning" ? brief?.data || null : null}
         />
       </PrintPortal>
       {meetingOpen && roleId === "departmentHead" ? <MeetingSlots
@@ -4288,7 +4677,7 @@ function PrintSheet(props: React.ComponentProps<typeof PrintSheetBody>) {
   );
 }
 
-function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balance, visitingHistory, scopeLine, collegeName, termName, sectionName, sectionCode, courseById, departmentKeyBySection, instructorById, collegeById, showCollegeOnInstructorRows, visitingIds, visitingRows, visitingScopeNote, visitingScopeSites, visitingPlace, siteGroups, approval, changesAppendix, balanceApprovals, stampCode, stampOrigin, occupancy, courseRoom, decision }: {
+function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balance, visitingHistory, scopeLine, collegeName, termName, sectionName, sectionCode, courseById, departmentKeyBySection, instructorById, collegeById, showCollegeOnInstructorRows, visitingIds, visitingRows, visitingScopeNote, visitingScopeSites, visitingPlace, siteGroups, approval, changesAppendix, balanceApprovals, stampCode, stampOrigin, occupancy, courseRoom, decision, morning }: {
   kind: PrintKind;
   rows: FSchedule[];
   fairness: any;
@@ -4338,6 +4727,8 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
   courseRoom?: Array<{ row: FSchedule; wanted: string; actual: string; room: string }>;
   /** «لوحة القرار»: ما يعرضه كل قسمٍ في اللوحة (DecisionBoard → onPrintData). */
   decision?: DecisionBoardPrintDepartment[];
+  /** «موجز الصباح»: سطورُه وآخر الحركات (utils/morningBrief). */
+  morning?: MorningBrief | null;
 }) {
   if (!kind) return null;
 
@@ -4356,6 +4747,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
     visiting: "المنتدبون — الفصل الحالي",
     visitingHistory: "المنتدبون — كل الفصول",
     fairness: "عدالة توزيع العبء",
+    morning: "موجز الصباح",
     balance: "نشرة المجلس — ميزان الأقسام",
     courseRoom: "المقررات × القاعات",
     decision: "لوحة القرار",
@@ -4967,6 +5359,31 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
             <PrintPageMeta page={pageIndex + 1} total={pages.length} college={collegeName} date={issueDate} />
           </section>
         )) : <p className="print-empty">لا توجد قاعات × أوقات ضمن النطاق المحدد.</p>}
+      </div>
+    );
+  }
+
+  if (kind === "morning") {
+    /* ورقةٌ واحدة بأصناف الطباعة القائمة (الترويسة وجدول الاستعلام): سطورُ الموجز ثم آخر الحركات. */
+    return (
+      <div className="print-report print-wide print-query-report print-morning-report">
+        <section className="print-explicit-page">
+          <PrintLetterhead title={titles[kind]} scope={scopeLine} college={collegeName} footer={false} />
+          {morning ? (
+            <>
+              <ul className="print-morning-lines">{morning.lines.map((line, index) => <li key={index} data-tone={line.tone}>{line.text}</li>)}</ul>
+              {morning.moves.length ? (
+                <table>
+                  <thead><tr><th>الوقت</th><th>من</th><th>الحركة</th><th>الموعد</th></tr></thead>
+                  <tbody>{morning.moves.map((move, index) => (
+                    <tr key={`${move.at}-${index}`}><td className="print-ltr">{new Date(move.at).toLocaleString("ar-KW-u-nu-latn", { timeZone: "Asia/Kuwait", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}</td><td>{move.who}</td><td>{move.what}</td><td>{move.target}</td></tr>
+                  ))}</tbody>
+                </table>
+              ) : null}
+            </>
+          ) : <p className="print-empty">افتح موجز الصباح أولاً ثم اطبعه.</p>}
+          <PrintPageMeta page={1} total={1} college={collegeName} date={issueDate} />
+        </section>
       </div>
     );
   }

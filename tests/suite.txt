@@ -299,3 +299,4 @@ test:radar-suggestions
 test:inbox-pilot
 test:advising
 test:admin-station
+test:query-center-plus

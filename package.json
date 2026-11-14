@@ -267,6 +267,7 @@
     "test:report-stamp": "tsx tests/report-stamp-audit.ts",
     "test:report-print-menus": "tsx tests/report-print-menus-audit.ts",
     "test:report-choices": "tsx tests/report-choices-audit.ts",
+    "test:query-center-plus": "tsx tests/query-center-plus-audit.ts",
     "test:report-approval": "tsx tests/report-approval-audit.ts",
     "test:approval-integrity": "tsx tests/approval-integrity-audit.ts",
     "test:relay-fixes": "tsx tests/relay-fixes-audit.ts",
