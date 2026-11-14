@@ -33,6 +33,7 @@ import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChi
 import { appointmentVerdict, type CheckKind } from "../utils/appointmentVerdict";
 import { bestRegulationChoice, completeSectionEnd, patternLengthIssue, pickDay, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, wheelLengths, type RegulationChoice } from "../utils/appointmentRegulation";
 import { ladderStartsForDays } from "../utils/scheduleRegulations";
+import { LadderStartHint } from "./LadderStartHint";
 import type { RegulationExceptionIssue } from "../utils/regulationException";
 import { fetchSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
 import { byCourseNumber } from "../utils/sheetMembership";
@@ -628,6 +629,14 @@ export default function QuickCreatePopover({
                   {...conflictSkipIds(liveCheck.conflicts, isBlockingConflict)} termId={termId || undefined} sectionId={sectionId || undefined} collegeId={collegeId || undefined} scode={draft.scode} dayWindow={sameSlot.dayWindow} />
               ) : null}
             </div>
+            {/* «البداية حسب اللائحة»: يظهر والعجلةُ مطويّة أيضاً، فيُرى قبل الحفظ ولا يمنعه. */}
+            <LadderStartHint days={chosenDays} start={draft.start} length={durationMinutes}
+              onPick={time => {
+                meter?.mark("wheel");
+                const fitted = completeSectionEnd(selectedCourse, chosenDays, time);
+                if (fitted) { timeEdited.current = false; flashAutofill(); }
+                patch({ start: time, end: fitted || timeOf(Math.max(0, minutesOf(draft.end) + minutesOf(time) - minutesOf(draft.start))) });
+              }} />
             {previewCurrent && !liveCheck.checking ? <FitStrip fit={liveCheck.studentFit} graduateImpact={liveCheck.graduateImpact} /> : null}
             {timeOpen ? (
               <div className="qc-time-wheels" id="qc-time-wheels">

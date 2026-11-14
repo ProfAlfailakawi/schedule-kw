@@ -18,6 +18,7 @@ import LocationPicker from "../LocationPicker";
 import { Field } from "../ui";
 import type { StudyProposalDayKey, StudyProposalOp } from "../../types";
 import { adviseDayPattern, ladderStartsForDays, type DayKey } from "../../utils/scheduleRegulations";
+import { LadderStartHint } from "../LadderStartHint";
 import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import { SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME } from "../../utils/scheduleTime";
 import { PROPOSAL_DAY_KEYS, PROPOSAL_DAY_NAMES, daysLabel, type GridItem } from "../../utils/studyProposal";
@@ -262,6 +263,9 @@ function ScheduleFields({ ws, locked }: { ws: Workspace; locked?: boolean }) {
         <Field label="بداية الوقت" required>
           <TimeField value={draft.start} min={from} max={until} dir="ltr" suggestions={ladderStartsForDays(draft.days as DayKey[], timeToMinutes(from), timeToMinutes(until))}
             onChange={e => ws.patchDraft({ start: e.target.value })} aria-invalid={invalidTime || undefined} />
+          <LadderStartHint days={draft.days as DayKey[]} start={draft.start}
+            length={draft.start && draft.end ? timeToMinutes(draft.end) - timeToMinutes(draft.start) : 0}
+            onPick={time => ws.patchDraft({ start: time })} />
         </Field>
         <Field label="نهاية الوقت" required>
           <TimeField value={draft.end} min={from} max={until} dir="ltr"

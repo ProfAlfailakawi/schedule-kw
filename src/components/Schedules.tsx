@@ -198,6 +198,7 @@ import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
 import { onLiveSignal, onLiveState, setLiveScope, type LiveState } from "../utils/livePulse";
 import { adviseDayPattern, daysApprovedForHours, ladderStartsForDays, DECISION_1913_LABEL, expectedMinutesForDay, isDecision1912Finding, reviewSchedule, type DayKey as RegDayKey } from "../utils/scheduleRegulations";
+import { LadderStartHint } from "./LadderStartHint";
 import { fastConflictScan, findConflicts, isBlockingConflict } from "../utils/scheduleIntelligence";
 import { askRequestHold, type RequestHold } from "./RequestHoldSheet";
 import type { RegulationExceptionIssue } from "../utils/regulationException";
@@ -4300,6 +4301,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return span > 0 && regulationHours(course) > 0 ? timeFromMins(Math.min(SCHEDULE_CLOCK_END, mins(start) + span)) : autoEndFor(row, start);
   };
   const formSpan = form.fstarttime && form.fendtime ? mins(String(form.fendtime)) - mins(String(form.fstarttime)) : 0;
+  /* البدايةُ من الحقل أو من «البداية حسب اللائحة»: الطريقُ نفسه، فتُحسب النهاية كما لو كُتبت باليد. */
+  const applyFormStart = (start: string) => {
+    setStartTimeLimitNotice("");
+    setScheduleTouched(true);
+    /* قرار المالك 2026-11-08: البدايةُ على أي يوم تحسب النهاية من ساعات المقرّر والنمط والأيام دائماً،
+       ولو سبقها تجاوزٌ أو طولٌ قديم (كانت «اثنين · 170د» + 08:00 ← 08:30). ما لا نمطَ له يحفظ طوله. */
+    const patterned = Boolean(start && completeSectionEnd(formCourse, formDays, start, formSpan));
+    if (patterned) { setTimingOverride(false); flashAutofill(); }
+    /* مسحُ البداية لا يحسب نهايةً من لا شيء (كانت 01:20)، ولا تُبقي نهايةً محسوبةً من بدايةٍ ذهبت:
+       تُمسح معها إلا نهايةً كتبها صاحبها عمداً (المراجعة 2026-11-14، البند 2). */
+    setForm((p) => ({ ...p, fstarttime: start, fendtime: !start ? (timingOverride ? p.fendtime : "") : patterned ? endForStart(p, start) : timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
+  };
   const chooseFormDay = (day: RegDayKey, checked: boolean) => {
     setScheduleTouched(true);
     const result = pickDay(formCourse, formDays, day, checked, formSpan);
@@ -10038,18 +10051,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         const boundary = limit === "max" ? SCHEDULE_DAY_END_TIME : SCHEDULE_DAY_START_TIME;
                         setStartTimeLimitNotice(`${limit === "max" ? "ينتهي الدوام" : "يبدأ الدوام"} عند ${scheduleClockForDisplay(boundary)}.`);
                       }}
-                      onChange={(e) => {
-                        setStartTimeLimitNotice("");
-                        setScheduleTouched(true);
-                        const start = e.target.value;
-                        /* قرار المالك 2026-11-08: البدايةُ على أي يوم تحسب النهاية من ساعات المقرّر والنمط والأيام دائماً،
-                           ولو سبقها تجاوزٌ أو طولٌ قديم (كانت «اثنين · 170د» + 08:00 ← 08:30). ما لا نمطَ له يحفظ طوله. */
-                        const patterned = Boolean(start && completeSectionEnd(formCourse, formDays, start, formSpan));
-                        if (patterned) { setTimingOverride(false); flashAutofill(); }
-                        /* مسحُ البداية لا يحسب نهايةً من لا شيء (كانت 01:20)، ولا تُبقي نهايةً محسوبةً من بدايةٍ ذهبت:
-                           تُمسح معها إلا نهايةً كتبها صاحبها عمداً (المراجعة 2026-11-14، البند 2). */
-                        setForm((p) => ({ ...p, fstarttime: start, fendtime: !start ? (timingOverride ? p.fendtime : "") : patterned ? endForStart(p, start) : timingOverride ? shiftedEnd(p, start) : endForStart(p, start) }));
-                      }}
+                      onChange={(e) => applyFormStart(e.target.value)}
                       required
                     />
                     <button
@@ -10070,6 +10072,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       <Clock3 aria-hidden="true" />
                     </button>
                   </div>
+                  <LadderStartHint days={formDays as RegDayKey[]} start={String(form.fstarttime || "")} length={formSpan} onPick={applyFormStart} />
                   {startTimeLimitNotice ? <small className="schedule-time-limit-note" role="status">{startTimeLimitNotice}</small> : null}
                   {timeCounterOpen ? (
                     <TimeCounterPopover
