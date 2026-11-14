@@ -68,7 +68,12 @@
     "src/components/query/QueryCompare.tsx",
     "src/components/query/QueryPrintPreview.tsx",
     "src/components/query/QueryEmptyWhy.tsx",
-    "src/server/morningBriefPush.ts"
+    "src/server/morningBriefPush.ts",
+    "src/utils/queryWhatIf.ts",
+    "src/utils/excludedRows.ts",
+    "src/components/query/QueryWhatIf.tsx",
+    "src/components/query/QueryExcluded.tsx",
+    "src/styles/59-print-ink.css"
   ],
   "screens": [
     {
@@ -3012,8 +3017,8 @@
         "en": "Morning-brief push endpoint"
       },
       "text": {
-        "ar": "يجب على النظام أن يخدم POST /api/internal/morning-brief لجدولةٍ خارجية بسرٍّ في الترويسة x-brief-token يطابق MORNING_BRIEF_TOKEN، فيرسل لكل حسابٍ مسجَّلٍ للتنبيهات تنبيهاً واحداً في اليوم بسطرٍ لكل قسمٍ من أقسامه (حتى ثلاثة) فيه الموانع والأيام الباقية.",
-        "en": "The system shall serve POST /api/internal/morning-brief to an external scheduler with a secret in header x-brief-token matching MORNING_BRIEF_TOKEN, sending each account registered for notifications one notification a day with a line for each of its departments (up to three) holding the blockers and days left."
+        "ar": "يجب على النظام أن يخدم POST /api/internal/morning-brief لجدولةٍ خارجية بسرٍّ في الترويسة x-brief-token يطابق MORNING_BRIEF_TOKEN، فيرسل لكل حسابٍ مسجَّلٍ للتنبيهات تنبيهاً واحداً في اليوم بسطرٍ لكل قسمٍ من أقسامه (حتى ثلاثة) فيه الموانع والأيام الباقية، وسطراً 🔔 لكل تقريرٍ محفوظ بـ«نبّهني إن تغيّر» تغيّر جدولُ قسمه منذ آخر موجز.",
+        "en": "The system shall serve POST /api/internal/morning-brief to an external scheduler with a secret in header x-brief-token matching MORNING_BRIEF_TOKEN, sending each account registered for notifications one notification a day with a line for each of its departments (up to three) holding the blockers and days left, plus a 🔔 line for each report saved with «notify me if it changes» whose department schedule changed since the last brief."
       },
       "rationale": {
         "ar": "الخادم بلا مؤقّت عن قصد، فالموعد يأتي من الخارج.",
@@ -3034,6 +3039,10 @@
         {
           "ar": "لكل حسابٍ مرةً في اليوم ذرّياً (pushCooldowns)؛ ولا يصل مدير النظام، ولا قسمٌ بلا جدولٍ ولا ما يستحق الذكر.",
           "en": "Once a day per account, atomically (pushCooldowns); the system administrator, a department without a schedule and one with nothing worth saying receive none."
+        },
+        {
+          "ar": "أولُ موجزٍ بعد الحفظ يُثبّت البصمة ولا ينبّه؛ والتالي ينبّه إن اختلفت بصمةُ جدول القسم، وتُحفظ البصمة بعد أخذ حصّة اليوم.",
+          "en": "The first brief after saving records the fingerprint without notifying; the next notifies if the department schedule's fingerprint differs, and the fingerprint is stored after the day's claim."
         }
       ],
       "evidence": {
@@ -3112,6 +3121,195 @@
         "code": [
           "src/hooks/useSpeechAsk.ts",
           "src/utils/queryAsk.ts#fuzzyNames"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-058",
+      "kind": "functional",
+      "title": {
+        "ar": "طباعة موفّرة للحبر بالورقة نفسها",
+        "en": "Ink-saving print on the same sheet"
+      },
+      "text": {
+        "ar": "يجب أن يتيح مركز الاستعلام وضع «موفّر الحبر» (قطرة في معاينة الصفحات) يطبع كل الأوراق بالرمادي بلا تلوين، والورقةُ هي هي بالمليمتر: لا يتغيّر هامشٌ ولا حشوةٌ ولا حجمُ خطٍّ ولا عرضُ حدٍّ ولا ترتيبٌ ولا عددُ صفحات؛ ويبقى الاختيار في المتصفح، وبغيره تخرج الورقة كما كانت.",
+        "en": "The query centre shall offer an «ink saver» mode (a drop in the page preview) that prints every sheet in grey without colour while the sheet stays identical to the millimetre: no margin, padding, font size, border width, order or page count changes; the choice persists in the browser, and without it the sheet prints as before."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الأنماط محصورةٌ في @media print وبالسمة data-print-ink ولا تحمل إلا خصائص الرسم (لون، خلفية، فلتر)، وتُحرَس بنيوياً.",
+          "en": "The styles are confined to @media print and the data-print-ink attribute and carry only paint properties (colour, background, filter), guarded structurally."
+        },
+        {
+          "ar": "ما يحمل معنى لا يُمحى: درجات الإشغال الخمس والأشرطة وسجل المنتدبين ومضاف/محذوف/معدّل في تقرير التغييرات تبقى متمايزة بدرجات الرمادي.",
+          "en": "What carries meaning is not erased: the five occupancy levels, the bars, the visiting history and added/deleted/changed in the changes report stay distinguishable in greys."
+        },
+        {
+          "ar": "إحداثيات كل كلمةٍ في كل ورقةٍ (الأربع عشرة عدسة والتقرير الشامل) متطابقةٌ مع الوضع العادي في متصفحٍ حقيقي.",
+          "en": "The coordinates of every word on every sheet (the fourteen lenses and the comprehensive report) are identical to the normal mode in a real browser."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/styles/59-print-ink.css",
+          "src/components/query/QueryPrintPreview.tsx",
+          "src/components/Reports.tsx#invokePrint"
+        ],
+        "tests": [
+          "tests/print-ink-audit.ts",
+          "tests/query-center-e2e.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-059",
+      "kind": "functional",
+      "title": {
+        "ar": "ما لم يُحسب",
+        "en": "What was not counted"
+      },
+      "text": {
+        "ar": "يجب أن تعرض عدسات القاعات ونسبة الإشغال والقاعات × الأوقات بجانب العدّاد شريحةً (عين مشطوبة ورقم) بالمواعيد التي لم تدخل حساب القاعات وسبب كلٍّ منها، ولا تظهر إن لم يُستبعد شيء.",
+        "en": "The rooms, occupancy and rooms-by-times lenses shall show beside the counter a chip (a struck-through eye and a number) for the appointments that did not enter the room calculation and why, and shall not appear when nothing was excluded."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الأسباب: قاعةٌ بانتظار التثبيت، قاعةٌ تحتاج مراجعة، قاعةٌ قديمةٌ غير صالحة، بلا قاعة، بلا وقتٍ صالح، بلا أيام.",
+          "en": "Reasons: room awaiting confirmation, room needing review, invalid historical room, no room, no valid time, no days."
+        },
+        {
+          "ar": "تُعرض أول 8 مواعيد مع «+n» لما بعدها.",
+          "en": "The first 8 appointments are listed with «+n» for the rest."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/excludedRows.ts",
+          "src/components/query/QueryExcluded.tsx"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-060",
+      "kind": "functional",
+      "title": {
+        "ar": "افتحه في الجدول",
+        "en": "Open it in the schedule"
+      },
+      "text": {
+        "ar": "يجب أن يتيح مركز الاستعلام لمن يملك الجدول (الشاشة 7، لا صفة الاطّلاع فقط) زرّ «افتحه في الجدول» على تفاصيل الموعد وعلى المستبعدين وعلى بطاقة «لو نقلت»، فيفتح الموعد نفسه في ورشة الجدول بقسمه وفصله، وتبقى التقارير قراءةً فقط.",
+        "en": "The query centre shall give whoever holds the schedule permission (screen 7, not a viewer role) an «open it in the schedule» button on the appointment detail, on the excluded list and on the «what if I moved» card, opening that appointment in the schedule workshop on its department and term, while reports stay read-only."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "يكتب النطاق المشترك والمفتاح schedule-open-context-id ثم ينتقل؛ ولا يظهر لصفة الاطّلاع.",
+          "en": "It writes the shared scope and the key schedule-open-context-id, then navigates; it is not shown to a viewer role."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx#openInSchedule",
+          "src/App.tsx"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-061",
+      "kind": "functional",
+      "title": {
+        "ar": "لو نقلتُ… ماذا يتعارض؟",
+        "en": "If I moved it, what clashes?"
+      },
+      "text": {
+        "ar": "يجب أن يجيب مركز الاستعلام عن سؤالٍ بصيغة قرار («لو نقلت شعبة 101 للثلاثاء 10»، «انقل 0109101 الاثنين 9:30») ببطاقةٍ بأيقونات وأرقام لكل شعبةٍ من المقرر: لا تعارض، أو قاعةٌ محجوزة، أو أستاذٌ مشغول، أو حجزٌ من خارج القسم، أو خارج ساعات الدوام؛ دون أن يغيّر شيئاً في الجدول.",
+        "en": "The query centre shall answer a decision-form question («if I moved section 101 to Tuesday 10», «move 0109101 Monday 9:30») with a card of icons and numbers for each section of the course: no clash, room booked, instructor busy, booking from outside the department, or outside working hours; without changing anything in the schedule."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "الشعبة تحتفظ بمدّتها، واليوم والساعة كما قيل؛ والأستاذ والقاعة يُفحصان ضد القسم المقروء، والقاعة ضد حجوزات الجامعة (بلا أسماء من قسمٍ آخر).",
+          "en": "The section keeps its duration with the day and hour as asked; the instructor and room are checked against the department read and the room against university bookings (no names from another department)."
+        },
+        {
+          "ar": "لا مقرر بهذا الرقم ← «لا مقرر بهذا الرقم في القسم»؛ ونقلٌ بلا يومٍ أو وقتٍ لا يُعدّ سؤال قرار.",
+          "en": "No such course ← «no course with this number in the department»; a move with neither day nor time is not a decision question."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/queryWhatIf.ts",
+          "src/components/query/QueryWhatIf.tsx",
+          "src/utils/queryAsk.ts#resolveAsk"
+        ],
+        "tests": [
+          "tests/query-center-plus-audit.ts",
+          "tests/query-center-e2e.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-RPT-062",
+      "kind": "functional",
+      "title": {
+        "ar": "مشاركة الرابط من الهاتف",
+        "en": "Share the link from a phone"
+      },
+      "text": {
+        "ar": "يجب أن يفتح زرّ الرابط على الأجهزة اللمسية قائمة المشاركة في الجهاز (واتساب وغيره) إن كانت متاحة، وإلا ينسخ الرابط.",
+        "en": "On touch devices the link button shall open the device's share sheet (WhatsApp and others) when available, otherwise copy the link."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "departmentHead",
+        "committeeChair",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "إلغاء القارئ للقائمة لا يُعدّ خطأً ولا ينسخ شيئاً.",
+          "en": "The reader cancelling the sheet is neither an error nor a copy."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/Reports.tsx#copyShareLink"
         ],
         "tests": [
           "tests/query-center-plus-audit.ts"

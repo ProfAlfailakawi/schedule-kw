@@ -176,6 +176,12 @@
 .query-preview-pop .sheet i{display:block;inline-size:100%;background:color-mix(in srgb,var(--accent) 28%,transparent)}
 .query-preview-pop li.is-signed .sheet{border-color:var(--accent);box-shadow:inset 0 -4px 0 var(--accent)}
 .query-preview-pop li b{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.query-preview-actions{display:flex;justify-content:flex-end;gap:8px}
+.query-ink-toggle{inline-size:44px;block-size:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);cursor:pointer}
+.query-ink-toggle svg{inline-size:19px;block-size:19px}
+.query-ink-toggle.is-on{background:var(--accent-softer);border-color:var(--accent);color:var(--accent)}
+.query-print-icon.has-ink{position:relative}
+.query-ink-dot{position:absolute;inset-block-start:5px;inset-inline-end:5px;inline-size:8px;block-size:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--surface)}
 .query-preview-print{justify-self:end;inline-size:44px;block-size:40px;display:grid;place-items:center;border:0;border-radius:12px;background:var(--accent);color:var(--surface);cursor:pointer}
 .query-preview-print svg{inline-size:19px;block-size:19px}
 
@@ -187,3 +193,50 @@
 .print-morning-report .print-morning-lines li[data-tone="good"]{border-color:#0f6b4f}
 .print-morning-report table{width:100%;border-collapse:collapse;font-size:10pt}
 .print-morning-report th,.print-morning-report td{padding:1.6mm 2mm;border-bottom:.2mm solid #ccc;text-align:start}
+
+/* ── لو نقلتُ…: بطاقةٌ بأيقونات ─────────────────────────────────────────────── */
+.query-whatif{margin-block-start:var(--s2,8px);border:1px solid var(--line);border-radius:18px;background:var(--surface-2,var(--surface));overflow:hidden}
+.query-whatif header{display:flex;align-items:center;gap:10px;padding:8px 12px;border-block-end:1px dashed var(--line)}
+.query-whatif .qw-mark{inline-size:34px;block-size:34px;display:grid;place-items:center;border-radius:50%;background:var(--accent-softer);color:var(--accent)}
+.query-whatif .qw-mark svg{inline-size:18px;block-size:18px}
+.query-whatif header b{flex:1;min-inline-size:0;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qw-x,.qw-open{inline-size:36px;block-size:36px;display:grid;place-items:center;border:0;border-radius:10px;background:none;color:var(--muted);cursor:pointer}
+.qw-x svg,.qw-open svg{inline-size:17px;block-size:17px}
+.qw-open:hover{background:var(--accent-softer);color:var(--accent)}
+.query-whatif ul{margin:0;padding:4px 8px 8px;list-style:none;display:grid;gap:4px}
+.query-whatif li{display:flex;align-items:center;gap:10px;min-block-size:46px;padding:4px 8px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.query-whatif li[data-clean="1"]{border-color:color-mix(in srgb,var(--good,#0f6b4f) 35%,var(--line))}
+.qw-name{display:grid;min-inline-size:0;flex:1}
+.qw-name strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qw-name small{color:var(--muted);font-size:12px}
+.qw-move{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2,var(--ink));font-variant-numeric:tabular-nums;font-size:13px}
+.qw-move svg{inline-size:14px;block-size:14px;color:var(--muted)}
+.qw-chips{display:inline-flex;gap:4px;align-items:center}
+.qw-chips i{display:inline-flex;align-items:center;gap:4px;min-block-size:28px;padding:0 9px;border-radius:999px;font-style:normal;border:1px solid var(--line)}
+.qw-chips i svg{inline-size:15px;block-size:15px}
+.qw-chips i b{font-size:13px}
+.qw-ok,.qw-same{color:var(--good,#0f6b4f);background:color-mix(in srgb,var(--good,#0f6b4f) 10%,transparent)}
+.qw-same{color:var(--muted);background:none}
+.qw-bad{color:var(--danger,#b3261e);background:color-mix(in srgb,var(--danger,#b3261e) 10%,transparent);border-color:color-mix(in srgb,var(--danger,#b3261e) 35%,var(--line))}
+.qw-warn{color:var(--warn,#a86b00);background:color-mix(in srgb,var(--warn,#a86b00) 10%,transparent)}
+.qw-none{margin:0;padding:12px;color:var(--muted);text-align:center}
+@media (max-width:640px){.query-whatif li{flex-wrap:wrap}.qw-name{flex-basis:calc(100% - 50px)}}
+
+/* ── ما لم يُحسب: عينٌ مشطوبة ورقم ──────────────────────────────────────────── */
+.query-excluded{position:relative;display:inline-flex}
+.query-excluded>button{display:inline-flex;align-items:center;gap:5px;min-block-size:34px;padding:0 11px;border:1px solid color-mix(in srgb,var(--warn,#a86b00) 40%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--warn,#a86b00) 9%,transparent);color:var(--warn,#a86b00);font:inherit;cursor:pointer}
+.query-excluded>button svg{inline-size:16px;block-size:16px}
+.query-excluded>button b{font-size:14px;font-variant-numeric:tabular-nums}
+.query-excluded-pop{position:absolute;inset-block-start:calc(100% + 8px);inset-inline-start:0;z-index:40;inline-size:min(340px,calc(100vw - 32px));padding:10px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:var(--shadow-lg,0 18px 40px rgba(0,0,0,.18));display:grid;gap:6px}
+.query-excluded-pop p{margin:0;color:var(--warn,#a86b00)}
+.query-excluded-pop p svg{inline-size:20px;block-size:20px}
+.query-excluded-pop ul{margin:0;padding:0;list-style:none;display:grid;gap:2px}
+.query-excluded-pop li{display:flex;align-items:center;gap:8px;min-block-size:40px;padding:2px 6px;border-radius:10px}
+.query-excluded-pop li:nth-child(odd){background:var(--surface-2,transparent)}
+.query-excluded-pop li span{display:grid;flex:1;min-inline-size:0}
+.query-excluded-pop li strong{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.query-excluded-pop li small{color:var(--muted);font-size:12px}
+.query-excluded-pop li button{inline-size:34px;block-size:34px;display:grid;place-items:center;border:0;border-radius:10px;background:none;color:var(--muted);cursor:pointer}
+.query-excluded-pop li button:hover{background:var(--accent-softer);color:var(--accent)}
+.query-excluded-pop li button svg{inline-size:16px;block-size:16px}
+.query-excluded-more{color:var(--muted);text-align:center}

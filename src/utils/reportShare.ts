@@ -30,13 +30,3 @@ export const clearLocalSavedReports = (owner: number) => safeStorage.set(localKe
 const seenKey = (owner: number, id: string) => `schedule-saved-seen-${owner}-${id}`;
 export const readSeen = (owner: number, id: string) => safeStorage.get(seenKey(owner, id));
 export const writeSeen = (owner: number, id: string, fingerprint: string) => safeStorage.set(seenKey(owner, id), fingerprint);
-
-/** بصمةُ نتائج: عددُها ومجموعُ مفاتيحها وأوقاتها — يتغيّر بإضافة موعدٍ أو حذفه أو تحريكه. */
-export function resultsFingerprint(rows: ReadonlyArray<{ id: number; fstarttime?: string; fendtime?: string; AdRoomHall?: string; AdInstructorId?: number }>): string {
-  let hash = 0;
-  for (const row of rows) {
-    const text = `${row.id}|${row.fstarttime}|${row.fendtime}|${row.AdRoomHall}|${row.AdInstructorId}`;
-    for (let i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
-  }
-  return `${rows.length}:${hash.toString(36)}`;
-}

@@ -1982,6 +1982,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -1995,6 +1997,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2008,6 +2012,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2021,6 +2027,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2034,6 +2042,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2047,6 +2057,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2060,6 +2072,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2073,6 +2087,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2086,6 +2102,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2099,6 +2117,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
