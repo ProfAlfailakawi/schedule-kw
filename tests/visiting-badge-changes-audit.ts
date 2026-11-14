@@ -22,7 +22,12 @@ const display = server.slice(server.indexOf("const asDisplayRow = (row: any) => 
 check(/readVisitingStatus\(collegeId, sectionId, termId\)/.test(server.slice(server.indexOf("visitingIdsForReport") - 20, server.indexOf("visitingIdsForReport") + 200)), "الخادم يقرأ دفتر المنتدبين الحيّ لنطاق التقرير");
 check(/visiting: visitingIdsForReport\.has\(Number\(row\.AdInstructorId\)\)/.test(display), "ويحمل علمَ المنتدب مع كل صفٍّ يعرضه");
 check(/\{row\.visiting \? <VisitingBadge compact \/> : null\}/.test(read("src/components/ScheduleChanges.tsx")), "وصفُّ التقرير يرسم الشارة بجانب الأستاذ");
-check(/rows\.some\(row => row\.visiting\)/.test(read("src/components/ScheduleChanges.tsx")), "وملاحظاتُ المراجعة تُظهرها بجانب اسم الأستاذ");
+/* المالك 2026-11-14: المراجعةُ المدمجة تأخذ أسماءَ المنتدبين من صفوف التقرير، وترسم الشارةَ بجانب الأستاذ (ReviewPersonGroup). */
+check(/filter\(row => row\?\.visiting && row\.instructor\)/.test(read("src/components/ScheduleChanges.tsx"))
+  && /visitingNames=\{visitingNames\}/.test(read("src/components/ScheduleChanges.tsx"))
+  && /visitingNames\.has\(String\(person\.AdInstructorName/.test(read("src/components/ScheduleReview.tsx"))
+  && /\{who\}\{visiting \? <VisitingBadge compact \/> : null\}/.test(read("src/components/ScheduleReview.tsx")),
+  "وملاحظاتُ المراجعة تُظهرها بجانب اسم الأستاذ");
 check(/item\.visiting \? <VisitingBadge compact \/> : null/.test(read("src/components/ApprovalDossier.tsx")), "وملفُّ الاعتماد يرسمها");
 
 const scope = { collegeId: 1, sectionId: 2, termId: 3 };

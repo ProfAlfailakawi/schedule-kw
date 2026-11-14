@@ -378,8 +378,10 @@ check(server.includes("authorityDraftForScope(collegeId, sectionId, termId)")
 /* ── ١١) اللائحة في موضع المراجعة نفسه ────────────────────────────────── */
 check(server.includes("regulationNotices: await regulationNoticesForScope"),
   "وتصل الملاحظات اللائحية بتفاصيلها إلى شاشة التغييرات");
-check(changes.includes("<RegulationReview notices={report.regulationNotices || []} onJump={onJump} rowsById={rowsById} />")
-  && changes.includes('className={`review-finding'),
+/* المالك 2026-11-14: الشاشةُ نفسها (ScheduleReview) مدمجةً، لا عرضٌ ثانٍ. */
+check(changes.includes('import ScheduleReview from "./ScheduleReview";')
+  && /<ScheduleReview\s+inline\s+readingUrl="\/api\/reports\/schedule-changes\/review"/.test(changes)
+  && !changes.includes("function RegulationReview(") && !changes.includes("appointmentCoverageScore"),
   "وتُعرض بتقديم شاشة الاعتماد نفسه، لا بعدّادٍ مكرر عند زر التوقيع");
 check(!approvalBar.includes("approval-sign-notices") && !approvalBar.includes("regulationNotices"),
   "وشريط الاعتماد لا يكرر عدّاد اللائحة أو حالته");
@@ -388,12 +390,11 @@ check(!approvalBar.includes("approval-sign-notices") && !approvalBar.includes("r
    وشعبهم، والانتقالُ إلى الجدول زرٌّ صريحٌ بعدها — لا تحويلٌ عند أول ضغطة. */
 check(changes.includes("const [open, setOpen] = useState(false)")
   && changes.includes('aria-expanded={open}')
-  && changes.includes("setOpenBlocker(current => current === key ? null : key)")
-  && changes.includes("<FindingRows rowIds={blocker.rowIds} rowsById={rowsById} onJump={onJump} />")
-  && changes.includes('className="review-person-head"')
-  && changes.includes("onClick={() => onJump([row.scheduleId])}")
-  && !changes.includes("انتقل إلى المواعيد في الجدول")
-  && !changes.includes('onClick={() => onJump(blocker.rowIds)}'),
+  && changes.includes("onFocusRows={onJump}")
+  && changes.includes("jumpableIds={jumpable}")
+  && changes.includes("extraRows={removedRows}")
+  && changes.includes('document.getElementById(`schedule-row-${id}`)')
+  && !changes.includes("انتقل إلى المواعيد في الجدول"),
   "ومراجعة الاعتماد مغلقة افتراضياً، والملاحظة تُفتح في مكانها بأساتذتها، والضغط على المقرّر ينقل إلى موعده وحده");
 check(changes.includes('document.getElementById(`schedule-row-${id}`)')
   && changes.includes('scrollIntoView({ behavior: "smooth", block: "center" })')

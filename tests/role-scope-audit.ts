@@ -245,7 +245,14 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
   check(!/\["blocking", "فيه موانع", 0\]/.test(changes) && /\["blocking", "فيه موانع", signalCounts\.blocking\]/.test(changes), "D الوارد: إشارات الانتباه تُعدّ من السطور لا صفراً مكتوباً");
   check(/more=\{statusChips\.length > 1 \|\| signalChips\.length \? \(/.test(changes), "D الوارد: لا «المزيد» حين لا شريحةَ فيه غير «الكل»");
   check(/if \(!\(canAnnotate && annotatable\) && !notes\.length\) return null;/.test(changes), "D تقرير التغييرات: لا كتلةَ فارغةً تحت موعدٍ بلا زرٍّ ولا ملاحظة");
-  check(/\{spread\.high \? <span className="seg-high">/.test(changes) && /\{spread\.clean \? <span className="seg-clean">/.test(changes), "D مراجعة الاعتماد: مفتاحُ الشريحة الصفرية لا يُكتب");
+  /* المالك 2026-11-14: التغييرات تدمج «مراجعة الاعتماد» نفسها، ومفاتيحُها من approvalSpreadKeys التي تُسقط الصفري. */
+  {
+    const { approvalSpreadKeys } = await import("../src/utils/approvalScore");
+    const keys = approvalSpreadKeys({ high: 0, medium: 2, low: 0, clean: 5, total: 7 } as any);
+    const review = read("src/components/ScheduleReview.tsx");
+    check(/<ScheduleReview\s+inline/.test(changes) && /spreadKeys\.map\(key =>/.test(review) && !/spread\.high \?/.test(changes)
+      && keys.map(key => key.tone).join(",") === "medium,clean", "D مراجعة الاعتماد: مفتاحُ الشريحة الصفرية لا يُكتب");
+  }
   const review = read("src/components/ScheduleReview.tsx");
   check(/<div className="spread-keys">\s*\{spreadKeys\.map/.test(review) && /print-spread-keys">\{spreadKeys\.map/.test(review)
   && /return keys\.filter\(key => key\.count > 0\)/.test(read("src/utils/approvalScore.ts")), "D نافذة المراجعة ونسختها المطبوعة كذلك");
