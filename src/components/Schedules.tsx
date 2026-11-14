@@ -79,6 +79,9 @@ import { DnaCount, DnaStatusHeader } from "./dna";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
+import RoomSwapCard from "./RoomSwapCard";
+import { roomSwapBody, useRoomSwaps } from "./useRoomSwaps";
+import type { RoomSwap } from "../utils/appointmentRoomSwap";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
 import ColleagueHoldNotice, { ColleaguePresenceChip } from "./ColleagueHoldNotice";
 import { holdDraftFromForm, useScheduleHolds } from "../utils/scheduleHolds";
@@ -3826,6 +3829,51 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
 
 
+  /* ── 🔁 «بدّل القاعتين»: نقلُ الشعبة الأخرى بالبوابة الذرّية نفسها (move-batch) ثم أخذُ موعدك قاعتَها ──
+     الخادم حكم على الشعبتين بمانع الحفظ قبل العرض؛ وهنا تأكيدٌ بصورة «قبل/بعد»، وتنفيذٌ بتراجع.
+     يعيد true إن نُقلت الشعبة الأخرى، فيضع المستدعي القاعة في موعده (النموذج الكامل أو «موعد جديد»). */
+  const [roomSwapBusy, setRoomSwapBusy] = useState(false);
+  const applyRoomSwapMove = async (swap: RoomSwap): Promise<boolean> => {
+    if (refuseInPractice()) return false;
+    const before = rows.find(row => Number(row.id) === Number(swap.other.rowId));
+    if (!before) { setError("تغيّر الجدول؛ أعد البحث عن التبديل."); return false; }
+    const hallText = (hall: { room: string; hall: string } | null) => (hall ? `${hall.room}/${hall.hall}` : "بلا قاعة");
+    const name = swap.other.courseName || "الشعبة الأخرى";
+    const confirmed = await visualConfirm({
+      title: "بدّل القاعتين",
+      message: `الشعبة ${swap.other.scode} من ${name}: ${hallText(swap.other.from)} ← ${hallText(swap.other.to)}\nموعدك: ${hallText(swap.mine.from)} ← ${hallText(swap.mine.to)}\nتُنقل الشعبة الأخرى الآن بفحصٍ كامل ويمكنك التراجع؛ وموعدك يأخذ القاعة عند حفظه.`,
+      confirmLabel: "بدّل القاعتين",
+      compact: true,
+    });
+    if (!confirmed) return false;
+    setRoomSwapBusy(true);
+    try {
+      const to = swap.other.to;
+      const outcome: any = await fetchJson("/api/schedules/move-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          strict: false,
+          moves: [{ id: before.id, rev: before.rev, fields: { AdRoomCode: to.room, AdRoomHall: to.hall, buildingId: to.buildingId ?? null, roomId: to.roomId ?? null, locationStatus: "VERIFIED" } }],
+        }),
+      });
+      if (Array.isArray(outcome?.rows) && outcome.rows.length) {
+        const confirmedRows = new Map<number, FSchedule>(outcome.rows.map((item: FSchedule) => [item.id, item]));
+        setRows(current => current.map(item => confirmedRows.get(item.id) || item));
+      }
+      offerUndo(`تبديل قاعة شعبة ${swap.other.scode} من ${name}`, [restoreStep(before)]);
+      forgetSuggestions();
+      markChanged(before.id);
+      requestAnimationFrame(() => setMessage(`نُقلت الشعبة ${swap.other.scode} إلى ${to.room}/${to.hall} — موعدك يأخذ ${swap.mine.to.room}/${swap.mine.to.hall} عند الحفظ.`));
+      return true;
+    } catch (e: any) {
+      setError(friendlyError(e));
+      return false;
+    } finally {
+      setRoomSwapBusy(false);
+    }
+  };
+
   /**
    * What the regulation would say about this appointment, said while it is
    * still being written.
@@ -3899,6 +3947,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const currentRoomLabel = form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : "";
   const selectedDaySummary = selectedFormDays.map(day => day.label).join(" / ");
   const hallAvailabilityReady = Boolean(selectedFormDays.length && form.fstarttime && form.fendtime && !timeRangeInvalid);
+  /* «بدّل القاعتين»: يُسأل الخادم حين يكتمل الموعد؛ ولا بطاقةَ إلا إن كان له تبديلٌ آمن. */
+  const roomSwapIdeas = useRoomSwaps(editor !== "index" && hallAvailabilityReady && !practiceMode ? roomSwapBody(form as any, editor === "edit" ? Number(editId || 0) : 0) : null, rows.length);
+  const takeRoomSwap = async (swap: RoomSwap) => {
+    if (!(await applyRoomSwapMove(swap))) return;
+    setScheduleTouched(true);
+    setForm(current => {
+      const to = swap.mine.to;
+      const buildingChanged = String(to.buildingId || "") !== String(current.buildingId || "");
+      return {
+        ...current, buildingId: to.buildingId, roomId: to.roomId, AdRoomCode: to.room, AdRoomHall: to.hall, locationStatus: "VERIFIED" as const,
+        ...(buildingChanged ? { companionRoomId: "", companionRoomLabel: "" } : {}),
+      };
+    });
+    setRoomIdeas(null);
+  };
   const hallAvailability = useMemo(() => {
     const building = normalizeRoomToken(form.AdRoomCode);
     const start = form.fstarttime ? mins(form.fstarttime) : 0;
@@ -10330,6 +10393,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           <SuggestionEmpty reason={roomIdeasReason} note={roomIdeasNote || "لا توجد قاعة خالية من قاعات القسم في هذا الوقت."} />
                         )
                       ) : null}
+                      <RoomSwapCard swaps={roomSwapIdeas} busy={roomSwapBusy} mineLabel={courseById.get(Number(form.AdCourseId || 0))?.CourseName || "موعدك"} onApply={swap => void takeRoomSwap(swap)} />
                     </div>
                   ) : null}
                 />
@@ -13472,6 +13536,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           onCreate={createQuick}
           meter={quickMeter.current}
           replaceBusy={replaceBusy}
+          onSwapRooms={applyRoomSwapMove}
+          swapBusy={roomSwapBusy}
           onReplaceable={(section, action, appointment) => void placeholderAction(section, action, { appointment: appointment as Partial<FSchedule>, done: () => { setQuick(null); setQuickError(null); } })}
         />
       ) : null}

@@ -123,3 +123,38 @@
 .pulse-toggle:hover .pulse-chevron{color:var(--ink-2)}
 .pulse-body{display:grid;gap:12px;animation:pulse-in .24s var(--ease-out,ease-out) both}
 @media (prefers-reduced-motion:reduce){.pulse-chevron{transition:none}.pulse-body{animation:none}}
+
+/* ── «بدّل القاعتين»: بطاقةٌ بجانب مقترحات القاعة (نفس لغة بطاقة «هيئة تدريسية») ── */
+.room-swap{display:grid;gap:8px;margin-top:8px;padding:10px;border:1px solid color-mix(in srgb,var(--brass) 30%,var(--line));border-radius:16px;background:linear-gradient(180deg,color-mix(in srgb,var(--brass-soft) 55%,var(--surface)),var(--surface));box-shadow:var(--shadow-xs);animation:pulse-in .28s var(--ease-out,ease-out) both}
+.room-swap-head{display:flex;align-items:center;gap:8px;margin:0;min-width:0}
+.room-swap-head b{font-size:var(--t-sm);font-weight:800;color:var(--ink)}
+.room-swap-head small{margin-inline-start:auto;font-size:var(--t-xs);color:var(--muted);white-space:nowrap}
+.room-swap-mark{width:28px;height:28px;display:grid;place-items:center;flex:none;border-radius:10px;background:var(--surface);color:var(--brass);border:1px solid color-mix(in srgb,var(--brass) 28%,var(--line))}
+.room-swap-mark svg{width:16px;height:16px}
+.room-swap-list{display:grid;gap:6px}
+.room-swap-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.room-swap-card.is-best{border-color:color-mix(in srgb,var(--brass) 55%,var(--line))}
+.room-swap-rows{display:grid;gap:5px;min-width:0}
+.room-swap-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0;min-width:0}
+.room-swap-who{display:inline-flex;align-items:center;gap:6px;min-width:0;color:var(--ink-2)}
+.room-swap-who svg{width:15px;height:15px;flex:none;color:var(--brass)}
+.room-swap-who b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--t-xs);font-weight:800}
+.room-swap-who small{color:var(--muted);font-size:var(--t-xs);flex:none}
+.room-swap-move{display:inline-flex;align-items:center;gap:5px;flex:none}
+.room-swap-arrow{width:13px;height:13px;color:var(--muted)}
+.room-swap-move .is-from{opacity:.62}
+.room-swap-move .is-to{color:var(--success)}
+.room-swap-facts{display:flex;flex-wrap:wrap;gap:4px}
+.room-swap-apply{display:inline-flex;align-items:center;gap:5px;min-height:38px;padding:6px 14px;border:1px solid var(--brass);border-radius:999px;background:var(--brass);color:var(--surface);font-size:var(--t-xs);font-weight:800;cursor:pointer}
+.room-swap-apply svg{width:14px;height:14px}
+.room-swap-apply:hover:not(:disabled){filter:brightness(1.06)}
+.room-swap-apply:disabled{opacity:.6;cursor:progress}
+@media (max-width:520px){
+  .room-swap-card{grid-template-columns:1fr}
+  .room-swap-row{flex-direction:column;align-items:flex-start;gap:3px}
+  .room-swap-who{max-width:100%}
+  .room-swap-apply{justify-content:center;width:100%}
+  .room-swap-head small{display:none}
+}
+.room-swap .room-suggest-code{font:800 13px/1.2 var(--font-mono);letter-spacing:.02em;color:var(--ink);white-space:nowrap}
+.room-swap .room-suggest-code.is-to{color:var(--success)}

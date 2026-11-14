@@ -10,6 +10,7 @@ import { roomTypeIn } from "../../utils/roomTypeForSection";
 import type { Express } from "express";
 import { roomSuitability } from "../../utils/roomSuitability";
 import { placeholderMatch } from "../../utils/placeholderMatch";
+import { appointmentRoomSwaps, type RoomSwapHall } from "../../utils/appointmentRoomSwap";
 import { eligibleSuggestionEditId, instructorRowsForSuggestion } from "../../utils/slotSuggestionScope";
 import { deferCoreqClashes, emptySuggestionReason, orderSuggestionCandidates, rankSuggestionCandidates, SUGGESTION_EMPTY_WORD, toClock, type SuggestionDayKey, type SuggestionEmptyReason, type SuggestionHall } from "../../utils/suggestionEngine";
 import { reservationRows, RequestReservationConflict, RequestHoldConflict } from "../../utils/instructorRequestReservations";
@@ -575,6 +576,54 @@ app.post("/api/schedules/fit-grid", requirePermission(7), async (req: Authentica
     .map((item: any) => ({ days: (Array.isArray(item?.days) ? item.days : []).map(String).filter((day: string) => (SCHEDULE_DAY_KEYS as readonly string[]).includes(day)), start: String(item?.start || ""), end: String(item?.end || "") }));
   const scores = await fitScoresFor(req, { ...body, AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, SCode: String(body.SCode || "") }, wanted);
   res.json({ scores });
+});
+
+/**
+ * «بدّل القاعتين» داخل الموعد: موعدٌ في قاعةٍ لا تلائمه (نوعٌ أو سعة) أو لا قاعةَ ملائمةً حرّة له،
+ * فيُقترح تبديلٌ مع شعبةٍ أخرى من القسم نفسه (appointmentRoomSwaps). للعرض فقط — لا يكتب.
+ * كلُّ اقتراحٍ يمرّ بمانع الحفظ نفسه للشعبتين معاً (scheduleConflicts على الأسبوع كما سيصير)
+ * قبل أن يُعرض؛ والتنفيذُ يبقى عبر /api/schedules/move-batch الذرّي بعد تأكيد المستخدم.
+ */
+app.post("/api/schedules/room-swap-ideas", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const body = req.body || {};
+  const collegeId = Number(body.AdCollegeId || 0), sectionId = Number(body.AdSectionId || 0), termId = Number(body.AdTermId || 0);
+  const dayKeys = SCHEDULE_DAY_KEYS.filter(key => Boolean(body[key]));
+  if (!collegeId || !sectionId || !termId || !Number(body.AdCourseId || 0) || !dayKeys.length || !body.fstarttime || !body.fendtime) { res.json({ need: null, swaps: [] }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  const [universe, registry, courses] = await Promise.all([Repository.getSchedulesByScope({ termId }), readLocationRegistry(), Repository.getCourses()]);
+  const editedId = eligibleSuggestionEditId(universe, body.excludeId, collegeId, sectionId, termId);
+  const halls: RoomSwapHall[] = eligibleHallsForSection(registry, sectionId).map(hall => {
+    const room = registry.rooms.find(item => item.id === hall.roomId);
+    return { room: String(hall.room), hall: String(hall.hall), buildingId: hall.buildingId, roomId: hall.roomId, roomType: roomTypeIn(room, sectionId, registry.roomTypeScopes), capacity: room?.capacity ?? null };
+  });
+  /* قاعةٌ رسميةٌ مكانٌ واحد عبر الكليات؛ وصفٌّ نصّيٌّ قديم لا يُحسب إلا في كليته (A4). */
+  const live = universe.filter(row => Boolean(row.roomId) || Boolean(row.companionRoomId) || Number(row.AdCollegeId) === collegeId);
+  const draft: any = { ...body, id: editedId, AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId };
+  const answer = appointmentRoomSwaps({
+    draft, rows: live as FSchedule[], halls, courses: new Map(courses.map(course => [Number(course.AdCourseId), course as any])),
+    movable: row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId && Number(row.AdTermId) === termId,
+  }, 4);
+  const conflictReq = Object.create(req) as AuthenticatedRequest;
+  const swaps: typeof answer.swaps = [];
+  for (const swap of answer.swaps) {
+    if (swaps.length >= 2) break;
+    const original = universe.find(row => Number(row.id) === swap.other.rowId);
+    if (!original) continue;
+    const moved: any = { ...original, buildingId: swap.other.to.buildingId, roomId: swap.other.to.roomId, AdRoomCode: swap.other.to.room, AdRoomHall: swap.other.to.hall, locationStatus: "VERIFIED" };
+    const location = await canonicalizeLocationForWrite(moved, collegeId, sectionId);
+    if (!location.check.ok) continue;
+    const otherRow = { ...moved, ...location.check.canonical };
+    const otherConflicts = await scheduleConflicts(conflictReq, otherRow, Number(original.id));
+    if (otherConflicts.some((conflict: any) => !conflict.soft && isBlockingConflict(conflict))) continue;
+    /* موعدك يأخذ القاعة بعد خروج الشعبة الأخرى: يُفحص على الأسبوع كما سيصير، وما يخصّ القاعة وحده يحكم
+       (ما سواه قائمٌ قبل التبديل ويحكم عليه الحفظ العادي). */
+    const mine: any = { ...draft, buildingId: swap.mine.to.buildingId, roomId: swap.mine.to.roomId, AdRoomCode: swap.mine.to.room, AdRoomHall: swap.mine.to.hall, locationStatus: "VERIFIED" };
+    const week = universe.map(row => Number(row.id) === Number(original.id) ? otherRow : row);
+    const mineConflicts = await scheduleConflicts(conflictReq, mine, editedId, week as FSchedule[]);
+    if (mineConflicts.some((conflict: any) => !conflict.soft && isBlockingConflict(conflict) && ["room", "hallBarter", "hallBarterWindow"].includes(conflict.type))) continue;
+    swaps.push({ ...swap, other: { ...swap.other, rev: Number(original.rev || 0) } });
+  }
+  res.json({ need: answer.need, swaps });
 });
 
 /* ── 🔄 شعبة «هيئة تدريسية» قابلة للاستبدال: تنفيذٌ ذرّي (G3) ────────────────────
