@@ -88,7 +88,7 @@ export default function QueryBrief({ open, onToggle, loading, data, error, onPri
   return (
     <section className={`morning-brief no-print${shown ? " is-open" : ""}`} aria-label="موجز الصباح">
       <div className="morning-brief-head">
-        <button type="button" className="morning-brief-sun" data-guide-ignore="فتح موجز الصباح للقراءة فقط" aria-expanded={full} aria-controls="morning-brief-body" onClick={sunrise} title={`موجز الصباح — ${label}`}>
+        <button type="button" className="morning-brief-sun" data-guide-ignore="فتح موجز الصباح للقراءة فقط" aria-expanded={full} aria-controls="morning-brief-body" onClick={sunrise} aria-label={`موجز الصباح — ${label}`} title={`موجز الصباح — ${label}`}>
           <Sunrise aria-hidden="true" />
         </button>
         <span className="morning-brief-tiles">
