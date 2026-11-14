@@ -84,7 +84,8 @@ check(admin.includes("headerPhrase(req) !== IMPORT_PHRASE") && admin.includes('S
 check(admin.includes('app.delete("/api/system-backup/import-jobs/:id"') && admin.includes("FULL-SYSTEM-IMPORT-ABANDON"), "V2 طريقٌ لإلغاء الاستيراد بتأكيدٍ صريح");
 const abandon = repo.slice(repo.indexOf("async function abandonSystemImportJob"), repo.indexOf("function validateFirestoreDocumentPath"));
 check(abandon.includes("loadSystemRestorePoint(String(row.restorePointId)") && abandon.includes("replaceSystemFromBackup(original") && abandon.includes('status: "abandoned"'), "V2 الإلغاء يعيد النظام من نقطة الأمان إن كان قد بدأ الاستبدال");
-check((repo.match(/row\.status === "ready" \|\| row\.status === "abandoned"/g) || []).length === 2, "V2 لا خطوةَ على مهمةٍ ملغاة");
+/* الخطوةُ على مهمةٍ منتهية (ready/abandoned) لا تتقدّم: يقرّر ذلك الآن أخذُ الإيجار (isTerminalVaultStatus) لا مقارنةٌ نصّية في كل دالة. */
+check(/isTerminalVaultStatus\(row\.status\)\) return \{ row, acquired: false, busy: false \}/.test(repo) && /async function advanceSystemImportJob[\s\S]*acquireJobLease<SystemImportJobRecord>/.test(repo), "V2 لا خطوةَ على مهمةٍ ملغاة");
 check(repo.includes('await markOpenImportJobAbandoned(rootAdminId, "أُلغي بالتراجع الكامل")'), "V3 التراجع الكامل يُلغي الاستيراد المعلّق");
 check(!repo.includes("importSystemBackup: async"), "V4 الاستيراد دفعةً واحدة غير المستعمل أُزيل");
 check(!ui.includes("وإذا فشلت أي خطوة يعيده الخادم تلقائيًا") && ui.includes("«تلغي الاستيراد» فيعود النظام إلى نقطة الأمان"), "V5 نافذة الاستيراد تقول ما يحدث فعلاً");

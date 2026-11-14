@@ -121,6 +121,8 @@ interface ImportJob {
   current?: string;
   error?: string;
   restorePointId?: string;
+  /** خطوةٌ أخرى من المهمة جاريةٌ الآن: لم يُنفَّذ شيء ويُعاد الاستطلاع. */
+  busy?: boolean;
 }
 /* التصفير والتراجع الكامل: مهمّتان متدرجتان على شكل الاستيراد (src/server/vaultJobPlanner.ts). */
 interface OpJob {
@@ -129,13 +131,16 @@ interface OpJob {
   createdAt: string;
   updatedAt: string;
   status: "running" | "ready" | "failed" | "abandoned";
-  phase: "safety" | "apply" | "finalizing";
+  phase: "safety" | "apply" | "finalizing" | "rollback";
   totalUnits: number;
   completedUnits: number;
   current?: string;
   error?: string;
   restorePointId?: string;
   targetAction?: string;
+  busy?: boolean;
+  /** يرجع من الإلغاء حين تبدأ مرحلةُ العودة المتدرجة إلى نقطة الأمان. */
+  rollingBack?: boolean;
 }
 interface BackupStatus {
   rootOnly: boolean;
@@ -516,6 +521,11 @@ export default function AdminUsers({
         }
         if (runner !== importRunner.current) return;
         setImportJob(job);
+        if (job.busy) {
+          setBackupMessage("خطوة جارية… أنتظر انتهاءها ثم أتابع.");
+          await new Promise(resolve => window.setTimeout(resolve, 1500));
+          continue;
+        }
         if (job.status === "failed") {
           visibleFailureRetries += 1;
           if (visibleFailureRetries > 8) break;
@@ -623,6 +633,11 @@ export default function AdminUsers({
         }
         if (runner !== opRunner.current) return;
         setOpJob(job);
+        if (job.busy) {
+          setBackupMessage("خطوة جارية… أنتظر انتهاءها ثم أتابع.");
+          await new Promise(resolve => window.setTimeout(resolve, 1500));
+          continue;
+        }
         if (job.status === "failed") {
           visibleFailureRetries += 1;
           if (visibleFailureRetries > 8) break;
@@ -667,7 +682,14 @@ export default function AdminUsers({
     const kind = opJob.kind;
     setError(null); setBackupMessage(null); setBackupBusy(kind);
     try {
-      const result = await api(`/api/system-backup/op-jobs/${encodeURIComponent(opJob.id)}`, { method: "DELETE", headers: { "X-Schedule-Confirm": "FULL-SYSTEM-OP-ABANDON" } });
+      const result = await api(`/api/system-backup/op-jobs/${encodeURIComponent(opJob.id)}`, { method: "DELETE", headers: { "X-Schedule-Confirm": "FULL-SYSTEM-OP-ABANDON" } }) as OpJob & { rolledBack?: boolean };
+      if (result.rollingBack) {
+        /* العودةُ إلى نقطة الأمان مرحلةٌ متدرجة في المهمة نفسها: نتابع خطواتها بالمتابِع ذاته حتى «ملغاة». */
+        setOpJob(result);
+        setBackupMessage("بدأت العودة إلى نقطة الأمان على مراحل؛ التقدم محفوظ ويُستكمل لو أُغلقت الصفحة.");
+        await driveOpJob(result.id);
+        return;
+      }
       await refreshBackupStatus();
       setBackupMessage(result.rolledBack ? "أُلغيت العملية وعاد النظام إلى نقطة الأمان التي سبقتها." : "أُلغيت العملية قبل أن يتغيّر شيء.");
     } catch (e: any) { setError(e.message); }
@@ -1416,6 +1438,7 @@ export default function AdminUsers({
       : job.status === "ready" ? (job.kind === "reset" ? "اكتمل التصفير" : "اكتمل التراجع")
       : job.status === "failed" ? "توقفت مرحلة — التقدم محفوظ"
       : job.phase === "safety" ? "نقطة أمان قبل البدء"
+      : job.phase === "rollback" ? "العودة إلى نقطة الأمان"
       : job.phase === "apply" ? (job.kind === "reset" ? "مسح بيانات العمل" : "استعادة البيانات")
       : "التحقق النهائي";
     const opProgressBlock = (kind: "reset" | "undo") => opJob && opJob.kind === kind ? (
