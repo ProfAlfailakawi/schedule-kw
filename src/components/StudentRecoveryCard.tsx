@@ -88,7 +88,7 @@ export default function StudentRecoveryCard() {
           <div className="srec-row">
             <input id="srec-civil" inputMode="numeric" autoComplete="off" dir="ltr" maxLength={12} placeholder="من البطاقة المدنية" value={civil}
               aria-invalid={civil.length === 12 && !valid} onChange={event => { setCivil(latin(event.target.value)); setError(""); }} />
-            <button type="submit" className="srec-btn" disabled={!valid || busy}>
+            <button type="submit" className="srec-btn" disabled={!valid || busy} data-guide-ignore="يصدر رمز استعادةٍ لطالبٍ حاضرٍ ببطاقته المدنية — إجراءٌ للموظف في القسم">
               <KeyRound aria-hidden="true" />{busy ? "يصدر…" : "أصدر الرمز"}
             </button>
           </div>
