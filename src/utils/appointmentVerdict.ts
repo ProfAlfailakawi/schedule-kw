@@ -180,6 +180,20 @@ export function appointmentVerdict(input: VerdictInput): AppointmentVerdict {
     blocks: isBlockingConflict(conflict) && !conflict?.holdRequestId,
     conflict,
   }));
+  /* حجزٌ واحد يتعارض فيه الأستاذ والقاعة معاً يُسمّى باسم الأستاذ (scheduleIntelligence) — فكانت «القاعة: سليم»
+     ثم يظهر مانعُ القاعة بعد إصلاح الأستاذ. السببُ الثاني يُقال في بطاقته من الآن (المراجعة 2026-11-14، البند 3). */
+  if (chosen.room) conflicts.forEach((conflict, index) => {
+    const reasons: unknown[] = Array.isArray(conflict?.reasons) ? conflict.reasons : [];
+    if (String(conflict?.type || "") !== "instructor" || !reasons.includes("room")) return;
+    const place = [form.AdRoomCode, form.AdRoomHall].map(value => String(value ?? "").trim()).filter(Boolean).join("/");
+    byKind.get("room")!.push({
+      id: `conflict-room-of-${conflict?.rowId || conflict?.otherId || index}-${index}`,
+      text: `القاعة${place ? ` ${place}` : ""} مشغولة في نفس الوقت`,
+      detail: String(conflict?.detail || "").replace(/\s+/g, " ").trim() || undefined,
+      blocks: isBlockingConflict(conflict) && !conflict?.holdRequestId,
+      conflict: { ...conflict, type: "room" },
+    });
+  });
   (input.notes || []).forEach((note, index) => {
     if (!chosen[note.kind] && note.kind !== "time") return;
     byKind.get(note.kind)!.push({ id: `note-${index}`, text: note.text, detail: note.detail, blocks: false });

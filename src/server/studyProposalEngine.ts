@@ -10,6 +10,7 @@
  * ما يُكشف للمستخدم محدودٌ بصلاحيته: موعدُ أستاذٍ في قسمٍ خارج نطاقه يظهر
  * إشغالاً وحسب — لا مقرّر ولا شعبة ولا كلية.
  */
+import { overHoursMessage } from "../utils/hoursIssue";
 import { roomTypeIn } from "../utils/roomTypeForSection";
 import { Repository } from "../db/repository";
 import type {
@@ -210,7 +211,7 @@ export async function proposalSchedulePreflight(
     const total = reading.total;
     /* لا يُعفي تاريخُ المقرّر من سقف الساعات — كبوابة الحفظ (المالك 2026-10-30 و2026-11-08): كان «طبعُ» المقرّر يُسقط المنع هنا وحده. */
     if (total > maxWeeklyMinutesFor(hours)) {
-      issues.push(`ساعات هذا المقرر المعتمدة ${countOf(hours, AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(total / 50), AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة`);
+      issues.push(overHoursMessage(hours, total));
     }
     if (reading.under) issues.push(sectionHoursShortfallText(row.SCode, reading));
     /* النهايةُ من النمط المعتمد، بالحكم الواحد نفسه الذي يقرؤه النموذج والخادم (patternLengthIssue). */

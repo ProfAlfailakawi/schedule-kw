@@ -27,14 +27,14 @@ export interface GraduateClash {
 
 const minutes = (clock: string) => { const [h, m] = String(clock || "").split(":").map(Number); return Number.isFinite(h) ? h * 60 + (Number(m) || 0) : NaN; };
 const on = (row: ClashRow, day: typeof DAYS[number]) => { const value = (row as any)[day]; return value === true || value === 1 || value === "1" || value === "true"; };
-function meetingsOverlap(a: ClashRow, b: ClashRow): boolean {
+export function meetingsOverlap(a: ClashRow, b: ClashRow): boolean {
   const [as, ae, bs, be] = [minutes(a.fstarttime), minutes(a.fendtime), minutes(b.fstarttime), minutes(b.fendtime)];
   if (![as, ae, bs, be].every(Number.isFinite)) return false;
   return DAYS.some(day => on(a, day) && on(b, day)) && as < be && bs < ae;
 }
 
 /** شعبُ مقررٍ في مسار: كل شعبة (كلية + رمز) بمواعيدها. */
-function sectionsOf(rows: readonly ClashRow[], courseIds: ReadonlySet<number>, colleges: ReadonlySet<number>): ClashRow[][] {
+export function sectionsOf(rows: readonly ClashRow[], courseIds: ReadonlySet<number>, colleges: ReadonlySet<number>): ClashRow[][] {
   const map = new Map<string, ClashRow[]>();
   for (const row of rows) {
     if (!courseIds.has(Number(row.AdCourseId)) || !colleges.has(Number(row.AdCollegeId))) continue;
@@ -43,7 +43,7 @@ function sectionsOf(rows: readonly ClashRow[], courseIds: ReadonlySet<number>, c
   }
   return [...map.values()];
 }
-const sectionsClash = (x: ClashRow[], y: ClashRow[]) => x.some(a => y.some(b => meetingsOverlap(a, b)));
+export const sectionsClash = (x: ClashRow[], y: ClashRow[]) => x.some(a => y.some(b => meetingsOverlap(a, b)));
 
 /** التعارضات التي لا مفرّ منها بين مقررات خريجي البرنامج الواحد، الأكثر أثراً أولاً. */
 export function graduateClashes(input: {

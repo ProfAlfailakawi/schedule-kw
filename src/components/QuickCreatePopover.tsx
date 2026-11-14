@@ -1,4 +1,5 @@
 import CompanionFacilityPicker from "./CompanionFacilityPicker";
+import { parseHoursIssue } from "../utils/hoursIssue";
 import SearchableSelect from "./SearchableSelect";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Building2, CalendarClock, Check, Clock3, DoorOpen, Loader2, Lock, Maximize2, Minus, MonitorPlay, Puzzle, ShieldAlert, SlidersHorizontal, Sparkles, UserRound, X } from "lucide-react";
@@ -464,7 +465,8 @@ export default function QuickCreatePopover({
   const dayLabel = chosenDays.map(day => DAY_ORDER.find(item => item.key === day)?.short).filter(Boolean).join("·") || seed.dayLabel;
   const firstBlocker = verdict.blockers[0]?.text;
   const blockerMessage = error || (blocked || checkFailed ? firstBlocker || liveCheck.error : "");
-  const underHours = /ساعات الشعبة .+ أقل من ساعات المقرر · (\d+)\/(\d+) د/.exec(String(blockerMessage || ""));
+  const underIssue = parseHoursIssue(String(blockerMessage || ""));
+  const underHours = underIssue?.kind === "under" ? ["", String(underIssue.got), String(underIssue.need)] as const : null;
 
   /* ── «حارس الزملاء» في البطاقة نفسها: من يبني موعداً معك الآن يُرى، وخانتك محجوزةٌ له دقيقتين ── */
   const placeholderIds = useMemo(() => (instructors as any[]).filter(person => isFacultyPlaceholder(person)).map(person => Number(person.AdInstructorId)), [instructors]);
