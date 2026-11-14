@@ -258,7 +258,7 @@ check(notice.includes("window.setTimeout") && notice.includes("controller.abort(
 const schedules = fs.readFileSync("src/components/Schedules.tsx", "utf8");
 check(schedules.split("<TeachingLoadNotice").length === 2 && schedules.split("import TeachingLoadNotice").length === 2, "شاشة الجدول تضيف الشارة في موضعٍ واحد فقط (استيراد + استخدام)");
 const admin = fs.readFileSync("src/components/AdminUsers.tsx", "utf8");
-check(/rootAdmin \? \{ value: "teachingLoad"/.test(admin) && admin.includes('mode === "teachingLoad"'), "التبويب في إعدادات الإدارة للمدير الرئيسي وحده");
+check(/rootAdmin && permissions\.includes\(7\) \? \{ value: "teachingLoad"/.test(admin) && admin.includes('mode === "teachingLoad"'), "التبويب في إعدادات الإدارة للمدير الرئيسي وحده");
 const repo = fs.readFileSync("src/db/repository.ts", "utf8");
 check(repo.includes('collection("teachingLoadConfig").doc(TEACHING_LOAD_DOC_ID)') && repo.includes("db.teachingLoadConfig = [row]"), "التخزين: وثيقةٌ واحدة في Firestore وفي القاعدة المحلية/الديمو");
 

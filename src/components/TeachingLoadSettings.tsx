@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, GraduationCap, GripVertical, Plus, Save, Search, Trash2, UserCog } from "lucide-react";
-import { Notice, PageTitle, PrimaryButton, SecondaryButton, Surface, GhostButton } from "./ui";
+import { Notice, PageTitle, PrimaryButton, SecondaryButton, Surface, GhostButton, visualConfirm } from "./ui";
 import { ExceptionBadge, HoursInput, LoadExceptionEditor, LoadMeter } from "./LoadException";
 import { evaluateTeachingLoad, emptyTeachingLoadConfig, hasLoadOverride, hoursLabel, loadTermContext, MAX_ACADEMIC_RANKS, MAX_OVERTIME_HOURS, teachingLoadProblem } from "../utils/teachingLoad";
 import { compareArabic } from "../utils/arabicText";
@@ -69,6 +69,11 @@ export default function TeachingLoadSettings({ header, demoReadOnly = false }: {
   useEffect(() => { void load(); }, []);
 
   const dirty = JSON.stringify(config) !== saved;
+  /* تغييرُ الفصل يعيد قراءة الإعدادات من الخادم: تغييراتٌ لم تُحفظ تُسأل عنها قبل أن تضيع. */
+  const changeTerm = async (next: number) => {
+    if (dirty && !(await visualConfirm({ title: "تغييرات لم تُحفظ", message: "تغيير الفصل يعيد تحميل الإعدادات المحفوظة، وتضيع التغييرات التي لم تُحفظ بعد.", confirmLabel: "تجاهلها وغيّر الفصل", tone: "warning", safeCancel: true }))) return;
+    await load(next);
+  };
   const problem = teachingLoadProblem(config);
   const termContext = useMemo(() => loadTermContext(terms.map(term => ({ AdTermId: term.id, AdTermName: term.name })), termId), [terms, termId]);
   const rounded = (id: string) => (to: number) => {
@@ -186,7 +191,7 @@ export default function TeachingLoadSettings({ header, demoReadOnly = false }: {
           </div>
           <label className="tl-term">
             <span>الفصل</span>
-            <select value={termId || ""} onChange={event => void load(Number(event.target.value))} aria-label="الفصل المحسوب عليه العبء">
+            <select value={termId || ""} onChange={event => void changeTerm(Number(event.target.value))} aria-label="الفصل المحسوب عليه العبء">
               {terms.map(term => <option key={term.id} value={term.id}>{term.name}</option>)}
             </select>
           </label>

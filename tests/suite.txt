@@ -296,3 +296,4 @@ test:academic-console
 test:radar-suggestions
 test:inbox-pilot
 test:advising
+test:admin-station

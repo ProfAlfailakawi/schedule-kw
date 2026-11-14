@@ -89,7 +89,8 @@ check('requireAnyPermission([7, 8, 9, 10, 14, 16, 17])' in server,'schedule/repo
 # صار الحرسُ أضيقَ لا أوسع: `isPowerAdmin && hasPerm(7) && user.IsRootAdmin`.
 # فيُثبَّت القائمُ اليوم، وهو يفي بما كان يفي به الرقمُ الصريح وزيادة.
 check('isPowerAdmin && hasPerm(7) && user.IsRootAdmin' in app,'CopySchedule UI restricted to legacy primary admin')
-check('req.user.SystemUserId !== 1' in server,'CopySchedule API restricted to legacy primary admin')
+# الرقمُ الصريح ١ صار ROOT_ADMIN_USER_ID (افتراضه ١): الحسابُ الرئيسي نفسه الذي تحرسه الخزنة.
+check('Number(req.user.SystemUserId) !== ROOT_ADMIN_USER_ID' in server,'CopySchedule API restricted to the root administration account')
 # زرُّ التنقّل انتقل إلى `NavButton`، والضغطةُ ما زالت واحدةً مباشرة.
 check('onClick={() => onGo(view)}' in app,'navigation is direct single-click')
 check('onClick={() => go("dashboard")}' in app and 'SCHEDULE' in app,'SCHEDULE brand returns to dashboard')

@@ -62,7 +62,7 @@ check(server.includes("const roleChanged = isAcademicRole(Role) && Role !== prev
   "وتغييرُ الصفة وحده يُعيد كتابة القالب");
 
 const createAt = server.indexOf('app.post("/api/users"');
-const createBody = server.slice(createAt, createAt + 3000);
+const createBody = server.slice(createAt, createAt + 4500);
 check(createBody.includes("applyRoleTemplate(newUser.SystemUserId, createdRole"),
   "والحساب الجديد يأخذ قالبه كاملاً: لا حساب يُنشأ بلا شاشة");
 
@@ -241,7 +241,8 @@ check(adminUsersSrc.includes('roleDefinition(storedRole).scopeMode === "college"
   "والشاشة لا تملأ حقل الكليات من صفةٍ تكتب صفّاً لكل كليةٍ في الجامعة");
 check(adminUsersSrc.includes('item.readOnly ? " — للاطّلاع" : " — يعدّل"'),
   "وقائمةُ الصفات تسمّي الكاتبين كما تسمّي القارئين: الكتابةُ ليست الحالَ الصامتة");
-check(roleChangeBody.includes("roleLabel(previousRole)"), "والسجلّ يقول من أيّ صفةٍ إلى أيّها");
+/* السطرُ صار جزءاً من «ما تغيّر» كلّه (userEditDiff): الصفةُ من «إلى» بجانب الاسم والتفعيل والقفل. */
+check(server.includes("res.locals.auditChanges = userEditDiff(before") && fs.readFileSync("src/server/userAdminGuards.ts", "utf8").includes("parts.push(`الصفة: «${label(before.Role)}» ← «${label(after.Role)}»`)"), "والسجلّ يقول من أيّ صفةٍ إلى أيّها");
 /* والصفةُ المختارة تحمل قالبها، والصفةُ التي لم تُذكر لا تفرضه: حسابٌ يُنشأ
    بنداءٍ برمجيٍّ بلا صفة يبقى على العقد القديم — شاشةٌ واحدة — ولا يُمنح سبعاً
    لم يطلبها أحد. */
