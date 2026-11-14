@@ -125,7 +125,7 @@ export function AllCoursesBody({ context, reload, onImportStats }: { context: Lo
         <p className="ac-source is-missing" data-ac-source="missing" role="status">
           <FileSpreadsheet aria-hidden="true" />
           <span>لا كشف تسجيل لهذا الفصل{context.demand ? " · الأرقام من الرادار" : ""}</span>
-          {onImportStats ? <button type="button" onClick={onImportStats} data-guide-ignore="انتقالٌ إلى «تخطيط الشعب» لاستيراد كشف المتبقي"><FileUp aria-hidden="true" />استورد الكشف</button> : null}
+          {onImportStats ? <button type="button" onClick={onImportStats} data-guide-ignore="انتقالٌ إلى «تخطيط الشعب» لرفع تقرير التسجيل"><FileUp aria-hidden="true" />تخطيط الشعب</button> : null}
         </p>
       )}
 

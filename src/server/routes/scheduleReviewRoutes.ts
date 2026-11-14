@@ -32,7 +32,7 @@ import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationE
 import { companionBookingFor } from "../core/scheduleWrites";
 import { filterByScope, isScopeAllowed, legacyFDetail } from "../core/scope";
 import { approvalBlockerOptions } from "../core/smartImport";
-import { graduateImpactFor } from "../actualDemand";
+import { appointmentDemandFor } from "../actualDemand";
 
 async function scheduleLengthNotice(row:any):Promise<string|null>{
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
@@ -276,7 +276,7 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
   const savedRow=Number(row.excludeId||0)?await Repository.getScheduleById(Number(row.excludeId)).catch(()=>null):null;
   const keptTime=Boolean(savedRow)&&savedRow!.fstarttime===row.fstarttime&&savedRow!.fendtime===row.fendtime;
   const len=(()=>{const [a,b]=[String(row.fstarttime||""),String(row.fendtime||"")].map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m});return b-a})();
-  const [patternNotice,lectureNotice,departmentHours,payloadIssues,lengthIssue,placeIssues,conflicts,patternIssue,graduateImpact]=await Promise.all([
+  const [patternNotice,lectureNotice,departmentHours,payloadIssues,lengthIssue,placeIssues,conflicts,patternIssue,demand]=await Promise.all([
     mixedPatternNotice(Number(row.AdCourseId||0),SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row.AdTermId||0),Number.isFinite(len)&&len>0?len:undefined).catch(()=>null),
     scheduleLengthNotice(row).catch(()=>null),
     hoursNotice(row).catch(()=>""),
@@ -286,9 +286,10 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
     checkLocationIssues(row),
     scheduleConflicts(req,row,Number(row.excludeId||0)),
     checkPatternIssue(row).catch(()=>null),
-    /* الطلب الفعلي: أثرُ الموعد على الخريجين يُقال قبل الحفظ ولا يمنعه. */
-    graduateImpactFor(req,row),
+    /* الطلب الفعلي: أثرُ الموعد على الخريجين و«نبض الطلبة» يُقالان قبل الحفظ ولا يمنعانه. */
+    appointmentDemandFor(req,row),
   ]);
+  const {graduateImpact,studentFit}=demand;
   /* ما يحتاج تأكيداً صريحاً عند الحفظ يُقال قبله (ملاحظتا المالك 10 و20): البطاقةُ لا تقول «جاهز للحفظ» وفيه مخالفة. */
   const regulation=await regulationExceptionsFor({...row,id:Number(row.excludeId||row.id||0)},undefined,savedRow&&sameScheduleShape(savedRow as any,row)
     ?{shapeChanged:false,sequenceChanged:Number(savedRow.AdInstructorId||0)!==Number(row.AdInstructorId||0)}:{}).catch(()=>[]);
@@ -296,7 +297,7 @@ app.post("/api/schedules/check-conflicts", requirePermission(7), async (req: Aut
   if(lengthIssue)validationIssues.push(lengthIssue);
   if(patternIssue)validationIssues.push(patternIssue);
   validationIssues.push(...placeIssues);
-  res.json({conflicts,validationIssues,...(regulation.length?{regulation}:{}),...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{}),...(departmentHours?{departmentHoursNotice:departmentHours}:{}),...(graduateImpact?{graduateImpact}:{})}); });
+  res.json({conflicts,validationIssues,...(regulation.length?{regulation}:{}),...(patternNotice?{patternNotice}:{}),...(lectureNotice?{lectureNotice}:{}),...(departmentHours?{departmentHoursNotice:departmentHours}:{}),...(graduateImpact?{graduateImpact}:{}),...(studentFit?{studentFit}:{})}); });
 
 
 /**

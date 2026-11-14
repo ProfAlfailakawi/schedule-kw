@@ -23,7 +23,7 @@ import { isCampusCollege, trackOf } from "../utils/collegeTrack";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import CourseTags from "./CourseTags";
 import DemandBadge, { DemandFactsContext } from "./DemandBadge";
-import type { CourseDemandFact } from "../utils/actualDemandSupply";
+import type { PlanCourseFact } from "../utils/sectionPlan";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 import { ReachReviewNotes } from "./CourseReach";
 import { shortCourseCode } from "../utils/courseReach";
@@ -349,7 +349,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
   /* «أعد المحاولة» بعد تعذّر القراءة. */
   const [retry, setRetry] = useState(0);
   /* الطلب الفعلي (تقرير التسجيل): شارةٌ صغيرة على كل مقرر — قراءةٌ لا تمنع شيئاً. */
-  const [demandFacts, setDemandFacts] = useState<Record<string, CourseDemandFact> | null>(null);
+  const [demandFacts, setDemandFacts] = useState<Record<string, PlanCourseFact> | null>(null);
   const [graduateClashes, setGraduateClashes] = useState<Array<{ a: { code: string; name: string; courseIds?: number[] }; b: { code: string; name: string; courseIds?: number[] }; track: string; graduates: number }>>([]);
   const [quietOpen, setQuietOpen] = useState(false);
   const [periodOpen, setPeriodOpen] = useState(false);

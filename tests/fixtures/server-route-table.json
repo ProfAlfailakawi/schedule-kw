@@ -1814,7 +1814,7 @@
    ],
    "path": "/api/schedules/check-conflicts",
    "name": "bound dispatch",
-   "call": "b249733030280b0f",
+   "call": "931f51cbb0a51e62",
    "site": "src/server/routes/scheduleReviewRoutes.ts:275",
    "regexp": "/^\\/api\\/schedules\\/check-conflicts\\/?$/i",
    "end": true
@@ -1827,7 +1827,7 @@
    "path": "/api/schedules/review-readiness",
    "name": "bound dispatch",
    "call": "a10fb02d73dbe095",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:314",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:315",
    "regexp": "/^\\/api\\/schedules\\/review-readiness\\/?$/i",
    "end": true
   },
@@ -1839,7 +1839,7 @@
    "path": "/api/schedules/outside-clashes",
    "name": "bound dispatch",
    "call": "660366a03abedb9a",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:345",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:346",
    "regexp": "/^\\/api\\/schedules\\/outside-clashes\\/?$/i",
    "end": true
   },
@@ -1851,7 +1851,7 @@
    "path": "/api/schedules/move-batch",
    "name": "bound dispatch",
    "call": "71da2ceac1d77b7d",
-   "site": "src/server/routes/scheduleReviewRoutes.ts:396",
+   "site": "src/server/routes/scheduleReviewRoutes.ts:397",
    "regexp": "/^\\/api\\/schedules\\/move-batch\\/?$/i",
    "end": true
   },
@@ -2163,7 +2163,7 @@
     "/v/:code"
    ],
    "name": "bound dispatch",
-   "call": "fed220845a3a0a1d",
+   "call": "9c52702081b8045b",
    "site": "src/server/routes/reportsRoutes.ts:760",
    "regexp": "/^\\/v\\/?$|^\\/v(?:\\/([^/]+?))\\/?$/i",
    "end": true
@@ -2175,9 +2175,33 @@
    ],
    "path": "/api/reports/excel/:type",
    "name": "bound dispatch",
-   "call": "04a20a38b3cb32d5",
-   "site": "src/server/routes/reportsRoutes.ts:838",
+   "call": "cb7a1c5516a4403d",
+   "site": "src/server/routes/reportsRoutes.ts:840",
    "regexp": "/^\\/api\\/reports\\/excel(?:\\/([^/]+?))\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/reports/history-points",
+   "name": "bound dispatch",
+   "call": "ee01f1fc83a1b1c2",
+   "site": "src/server/routes/reportsRoutes.ts:986",
+   "regexp": "/^\\/api\\/reports\\/history-points\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/reports/history-points/:id",
+   "name": "bound dispatch",
+   "call": "eda128e1da7967ff",
+   "site": "src/server/routes/reportsRoutes.ts:996",
+   "regexp": "/^\\/api\\/reports\\/history-points(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
   {
@@ -2188,7 +2212,7 @@
    "path": "/api/reports/department-balance",
    "name": "bound dispatch",
    "call": "35e16c0bb3271c70",
-   "site": "src/server/routes/reportsRoutes.ts:956",
+   "site": "src/server/routes/reportsRoutes.ts:1004",
    "regexp": "/^\\/api\\/reports\\/department-balance\\/?$/i",
    "end": true
   },
@@ -2200,7 +2224,7 @@
    "path": "/api/reports/room-load",
    "name": "bound dispatch",
    "call": "fc4e4ba1f6ecda24",
-   "site": "src/server/routes/reportsRoutes.ts:1038",
+   "site": "src/server/routes/reportsRoutes.ts:1086",
    "regexp": "/^\\/api\\/reports\\/room-load\\/?$/i",
    "end": true
   },
@@ -4276,8 +4300,8 @@
    ],
    "path": "/api/actual-demand",
    "name": "bound dispatch",
-   "call": "8630c6aae4892325",
-   "site": "src/server/actualDemandRoutes.ts:36",
+   "call": "a5a4f653ed947fe6",
+   "site": "src/server/actualDemandRoutes.ts:45",
    "regexp": "/^\\/api\\/actual-demand\\/?$/i",
    "end": true
   },
@@ -4288,8 +4312,8 @@
    ],
    "path": "/api/actual-demand/upload",
    "name": "bound dispatch",
-   "call": "289c657859c10690",
-   "site": "src/server/actualDemandRoutes.ts:43",
+   "call": "15cb05f19b5677aa",
+   "site": "src/server/actualDemandRoutes.ts:52",
    "regexp": "/^\\/api\\/actual-demand\\/upload\\/?$/i",
    "end": true
   },
@@ -4300,8 +4324,8 @@
    ],
    "path": "/api/actual-demand/link",
    "name": "bound dispatch",
-   "call": "b22863d0806673da",
-   "site": "src/server/actualDemandRoutes.ts:69",
+   "call": "a60820b299fd2065",
+   "site": "src/server/actualDemandRoutes.ts:78",
    "regexp": "/^\\/api\\/actual-demand\\/link\\/?$/i",
    "end": true
   },

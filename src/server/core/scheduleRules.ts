@@ -5,6 +5,7 @@
  * نصُّ كل جملةٍ وترتيبُها كما كانا، إلا `export` على ما تستعمله وحداتٌ أخرى،
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  */
+import { freshSectionTail, overHoursMessage } from "../../utils/hoursIssue";
 import { Repository } from "../../db/repository";
 import { timeToMinutes } from "../../utils/scheduleIntelligence";
 import type { FSchedule } from "../../types";
@@ -188,7 +189,7 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
     /* الموعدُ وحده يتّسع لساعات المقرّر والشعبةُ نفسُها مكتملة: السببُ رقمُ الشعبة لا الموعد — فيُقال الرقمُ الحرّ
        التالي لهذا المقرّر في الفصل والقسم، ويعرضه النموذج زرّاً «شعبة جديدة» (المالك 2026-11-08). */
     const freshCode=reading.others.length&&weeklyLectureMinutes(row,hours)<=maxWeeklyMinutesFor(hours)?nextCourseSectionCode([...scopeRows,row] as any,courseId,Number(row.AdTermId),null):"";
-    if(reading.total>maxWeeklyMinutesFor(hours))return `ساعات هذا المقرر المعتمدة ${countOf(hours,AR.hour)} أسبوعيًا، والمجموع بعد هذا الموعد يزيدها (${countOf(Math.round(reading.total/50),AR.hour)} تقريبًا). لا يُحفظ ما يزيد على الساعات المعتمدة${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}${freshCode&&freshCode!==String(row.SCode||"")?` — لشعبة جديدة: ${freshCode}`:""}`;
+    if(reading.total>maxWeeklyMinutesFor(hours))return `${overHoursMessage(hours,reading.total)}${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}${freshCode&&freshCode!==String(row.SCode||"")?freshSectionTail(freshCode):""}`;
     if(reading.under)return sectionHoursShortfallText(row.SCode,reading);
   }
   return null;

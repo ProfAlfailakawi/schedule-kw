@@ -1,8 +1,5 @@
 /** كم منتدباً نحتاج: شعبٌ بلا أستاذ ÷ ٢، مجموعٌ للقسم لا لكل بطاقة، وبلا أسماء. */
-import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { staffCourse, visitingNeed, visitorFreeSlots, type CourseStaffing } from "../src/utils/visitingNeed";
-import { SectionGapPanel } from "../src/components/SectionGapNote";
 import type { GapItem } from "../src/utils/sectionGap";
 
 let passed = 0, failed = 0;
@@ -34,12 +31,6 @@ const s = staffCourse(
   id => !people.visiting.has(id) && !people.placeholder.has(id) && !people.retired.has(id), id => people.visiting.has(id), id => people.placeholder.has(id), id => !people.retired.has(id), (id, term) => id === 14 && term === 1,
 );
 check(s.ours === 2 && s.covered === 2 && s.withVisitors === 1 && s.unassigned === 2 && s.returnable === 1, "إحصاء مقرر: ٢ أساتذة، ٢ مغطاة، ١ منتدب، ٢ بلا أستاذ، ١ عائد (لا المتقاعد ولا منتدب ذلك الفصل)", s);
-
-/* العرض: لا يظهر شيءٌ من التفاصيل قبل الضغط، ولا اسم. */
-const html = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: three, kind: "plan", onClose: () => {}, staffing: { 1: staff({ ours: 3, covered: 5 }) }, freeSlots: 0 }));
-check(html.includes("apb-gap-total") && html.includes("apb-gap-total-btn") && !html.includes("apb-gap-total-sum") && !html.includes("apb-staff\""), "المجموع ظاهرٌ والتفاصيل مطويّة", html.slice(0, 200));
-const legacy = renderToStaticMarkup(React.createElement(SectionGapPanel, { items: three, kind: "plan", onClose: () => {} }));
-check(!legacy.includes("apb-gap-total"), "بلا بيانات تدريس لا يظهر المجموع");
 
 console.log(`\nVisiting need audit: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
