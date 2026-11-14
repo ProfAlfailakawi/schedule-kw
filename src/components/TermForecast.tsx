@@ -51,7 +51,7 @@ export default function TermForecast({ scopes, isAdmin, fallbackTermId = 0, onIm
     <div className="term-forecast-body">
       {forecast.status === "ready" && percent != null ? <div className={`forecast-gauge tone-${tone}`}>
         <MiniRing value={percent} size={64} decorative>{""}</MiniRing>
-        <b>{percent.toLocaleString("ar-KW-u-nu-latn")}٪</b>
+        <b>{percent.toLocaleString("ar-KW-u-nu-latn")}%</b>
         <small>تغطية الطلب</small>
       </div> : null}
       <div className="forecast-list">

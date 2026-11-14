@@ -117,9 +117,9 @@ export default function AdsManager() {
 
       <section className="ad-hero" aria-label="لمحة">
         <div className="ad-hero-kpi"><span className="ic"><Megaphone aria-hidden="true" /></span><b>{fmt(stats.live)}<small> / {fmt(stats.capacity)}</small></b><span>الحملات العاملة الآن من سعة المواقع</span></div>
-        <div className="ad-hero-kpi"><span className="ic"><TrendingUp aria-hidden="true" /></span><b>{fmt(stats.week)}</b><span>ظهور مرئي آخر ٧ أيام</span></div>
+        <div className="ad-hero-kpi"><span className="ic"><TrendingUp aria-hidden="true" /></span><b>{fmt(stats.week)}</b><span>ظهور مرئي آخر 7 أيام</span></div>
         <div className="ad-hero-kpi"><span className="ic"><ShieldCheck aria-hidden="true" /></span><b>{pct1(stats.ctr)}</b><span>نسبة النقر الإجمالية</span></div>
-        <div className={`ad-hero-kpi${stats.soon ? " warn" : ""}`}><span className="ic"><Send aria-hidden="true" /></span><b>{fmt(stats.soon)}</b><span>{stats.soon ? "تنتهي خلال ٧ أيام: تواصل للتجديد" : "لا حملة تنتهي هذا الأسبوع"}</span></div>
+        <div className={`ad-hero-kpi${stats.soon ? " warn" : ""}`}><span className="ic"><Send aria-hidden="true" /></span><b>{fmt(stats.soon)}</b><span>{stats.soon ? "تنتهي خلال 7 أيام: تواصل للتجديد" : "لا حملة تنتهي هذا الأسبوع"}</span></div>
       </section>
 
       <div className="ad-tabs" role="tablist" aria-label="أقسام الإعلانات" onKeyDown={onTabKey}>
@@ -160,9 +160,9 @@ export default function AdsManager() {
               <h3>ملف الشراكة للشركات</h3>
               <p>صفحةٌ واحدة ترسل رابطها للشركة: حجم الجمهور بأرقامٍ تقريبية، وما يبحث عنه الطلبة، وتقويم المواسم، والمواقع ومقاساتها وتوفرها، وشروطنا. تتحدث وحدها ولا تكشف أي اسم.</p>
               <ol className="ad-steps3">
-                <li><b>١</b><span>أنشئ رابطاً باسم الشركة</span></li>
-                <li><b>٢</b><span>أرسله لها، وتابع هنا كم مرةً فتحته</span></li>
-                <li><b>٣</b><span>أضف حملتها وأرسل لها رابط تقريرها الحي</span></li>
+                <li><b>1</b><span>أنشئ رابطاً باسم الشركة</span></li>
+                <li><b>2</b><span>أرسله لها، وتابع هنا كم مرةً فتحته</span></li>
+                <li><b>3</b><span>أضف حملتها وأرسل لها رابط تقريرها الحي</span></li>
               </ol>
               <PartnerLinks data={data} busy={busy}
                 onCreate={(company, days, category, seasons) => act("plink", () => api("/api/admin/ads/partner-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company, days, category, seasons }) }), `أُنشئ رابط «${company}».`)}

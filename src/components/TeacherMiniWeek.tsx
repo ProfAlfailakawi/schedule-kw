@@ -801,13 +801,13 @@ export default function TeacherMiniWeek({
               const fit = fits.get(fitKeyOf(target));
               const fitWho = fit ? (fit.kind === "grad" ? "الخريجين" : "الطلبة") : "";
               return <button type="button" key={`t-${target.start}`} className={`mini-week-target${lit ? " is-lit" : ""}${golden === true ? " is-golden" : golden === false ? " is-room-busy" : ""}${fit ? ` has-fit fit-${fitTone(fit.percent)}${pixels(target.start, target.end) >= 34 ? " fit-labeled" : ""}` : ""}`} style={place(target.start, target.end)}
-                title={`${toClock(target.start)}–${toClock(target.end)} · ${daysText(target.days)}${golden === true ? " · والقاعة خالية" : golden === false ? " · القاعة محجوزة" : ""}${fit ? ` · يناسب ${fit.percent}٪ من ${fitWho}` : ""}`}
+                title={`${toClock(target.start)}–${toClock(target.end)} · ${daysText(target.days)}${golden === true ? " · والقاعة خالية" : golden === false ? " · القاعة محجوزة" : ""}${fit ? ` · يناسب ${fit.percent}% من ${fitWho}` : ""}`}
                 aria-label={`ضع الموعد ${DAY_FULL[day]} ${toClock(target.start)} (${daysText(target.days)})${golden === true ? " · والقاعة خالية" : golden === false ? " · القاعة محجوزة" : ""}`}
                 onMouseEnter={hover(target)} onFocus={hover(target)} onBlur={hover(null)} onClick={() => pick(target)}
                 data-guide-ignore="يملأ اليوم والبداية والنهاية وأيام النمط في النموذج؛ لا يحفظ شيئاً"><Plus aria-hidden="true" />
                 {pixels(target.start, target.end) >= 22 && !(fit && pixels(target.start, target.end) >= 34) ? <span className="mini-week-target-time" dir="ltr">{toClock(target.start)}</span> : null}
                 {golden === true ? <Star className="mini-week-target-star" aria-hidden="true" /> : null}
-                {fit && pixels(target.start, target.end) >= 34 ? <em className="mini-week-target-fit" dir="ltr" aria-hidden="true">{fit.percent}٪</em> : null}
+                {fit && pixels(target.start, target.end) >= 34 ? <em className="mini-week-target-fit" dir="ltr" aria-hidden="true">{fit.percent}%</em> : null}
               </button>;
             })}
             {lectures.filter(item => item.day === day).map(item => {

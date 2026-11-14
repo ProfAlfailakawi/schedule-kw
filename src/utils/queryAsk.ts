@@ -31,6 +31,7 @@ export interface AskOption { label: string; patch: AskPatch; lens: AskLens }
 export type AskAnswer =
   | { kind: "ok"; patch: AskPatch; lens: AskLens; said: string[]; freeRooms: boolean; roomDay: number | "week" | null }
   | { kind: "choose"; question: string; options: AskOption[]; said: string[]; fuzzy?: boolean }
+  | { kind: "whatif"; code: string; day: number | null; time: string | null }
   | { kind: "unknown"; hint: string };
 
 export interface AskContext {
@@ -80,10 +81,18 @@ export function askSubject(text: string): string {
 const ROOM_TOKEN = /([0-9a-z؀-ۿ]{1,8})\s*[\/\-‑–]\s*([0-9a-z]{1,6})/i;
 const COURSE_NUMBER = /(?:^|\D)(\d{7}|\d{3})(?:\D|$)/;
 
+/* «لو نقلت شعبة 101 للثلاثاء 10»: سؤالٌ بصيغة قرار يُجاب بالأرقام ولا يُنفَّذ (ماذا يتعارض). */
+const WHATIF = /(?:انقل|نقل|حرك|رحل)[\u0600-\u06FF]*\s*(?:مقرر|ماد[ةه]|شعب[ةه])?\s*(\d{3}|\d{7})(?!\d)/;
+
 /** يحوّل الجملة إلى جواب، من بيانات الشاشة وحدها. */
 export function resolveAsk(text: string, context: AskContext): AskAnswer {
   const raw = String(text || "").trim();
   if (!raw) return { kind: "unknown", hint: ASK_HINT };
+  const moveAsk = askNormalize(raw).match(WHATIF);
+  if (moveAsk) {
+    const rest = parseNaturalQuery(askNormalize(raw).replace(moveAsk[1], " "));
+    if (rest.day !== null || rest.time) return { kind: "whatif", code: moveAsk[1], day: rest.day, time: rest.time };
+  }
   const question = parseNaturalQuery(raw);
   const plain = askNormalize(raw);
   const patch: AskPatch = {};

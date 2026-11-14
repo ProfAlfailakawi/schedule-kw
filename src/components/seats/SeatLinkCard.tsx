@@ -67,7 +67,7 @@ export function SeatHolderCard({ origin, seat, holder, onReissue, onDone }: {
   };
   return (
     <SeatLinkCard title={holder.name} subtitle={model.caption} url={model.url} mobile={holder.mobile} message={model.message} note={model.note} fileStem={model.fileStem} onDone={onDone}>
-      {seat.firstPasswordExpiresAt && !expired && !issued ? <p className="seat-access-note"><CalendarClock aria-hidden="true" />تنتهي الكلمة الأولى في {new Date(seat.firstPasswordExpiresAt).toLocaleDateString("ar-KW")}</p> : null}
+      {seat.firstPasswordExpiresAt && !expired && !issued ? <p className="seat-access-note"><CalendarClock aria-hidden="true" />تنتهي الكلمة الأولى في {new Date(seat.firstPasswordExpiresAt).toLocaleDateString("ar-KW-u-nu-latn")}</p> : null}
       {onReissue ? <button type="button" data-guide-ignore="إعادة إصدار الكلمة الأولى؛ لمدير النظام ويحرسها الخادم" className="seat-reissue" disabled={busy || issued} onClick={() => void reissue()}><RefreshCw aria-hidden="true" />{issued ? "أُعيد الإصدار" : "أعد إصدار الكلمة الأولى"}</button> : null}
       {seat.mustChangePassword && !expired ? (
         <label className="invitation-password seat-access-password">

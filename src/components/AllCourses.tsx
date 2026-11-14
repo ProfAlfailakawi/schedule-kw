@@ -215,7 +215,7 @@ function CourseCard({ courseId, code, name, tag, now, after, delta, impact, none
       </div>
       {fill !== null || (after.graduates !== null && after.demandSource === "remaining") || (after.planned !== null && after.demandSource === "remaining") || (after.wanted !== null && after.demandSource !== "radar") ? (
         <div className="ac-legend">
-          {fill !== null ? <span className={fill >= 100 ? "is-ok" : "is-short"}><i className="ac-dot" aria-hidden="true" />{fill}٪ من {demandWord}</span> : null}
+          {fill !== null ? <span className={fill >= 100 ? "is-ok" : "is-short"}><i className="ac-dot" aria-hidden="true" />{fill}% من {demandWord}</span> : null}
           {after.graduates !== null && after.demandSource === "remaining" ? <span title="الخريجون الذين يحتاجون المقرر"><GraduationCap aria-hidden="true" />{countOf(after.graduates, AR.graduate)}</span> : null}
           {after.planned !== null && after.demandSource === "remaining" ? <span title="مقترح التخطيط من تاريخ القسم: عدد الشعب"><Layers aria-hidden="true" />يُقترح {after.planned}</span> : null}
           {after.wanted !== null && after.demandSource !== "radar" ? <span title="الطلب من رادار التسجيل"><Radar aria-hidden="true" />{after.wanted} رادار</span> : null}

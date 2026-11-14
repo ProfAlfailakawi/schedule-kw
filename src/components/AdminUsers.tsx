@@ -3,10 +3,11 @@ import { sortByName } from "../utils/sorting";
 import LocationQuickSetup from "./LocationQuickSetup";
 import SectionScheduleHours from "./SectionScheduleHours";
 import TeachingLoadSettings from "./TeachingLoadSettings";
+import SystemHealth from "./SystemHealth";
 import AccountInvitation from "./AccountInvitation";
 import { hasTeamCard } from "../utils/seats";
 import SeatsAdmin from "./seats/SeatsAdmin";
-import { Activity, ArchiveRestore, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, History, KeyRound, Landmark, Layers, LifeBuoy, RefreshCw, Save, ScanSearch, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
+import { Activity, ArchiveRestore, Building2, Check, ChevronLeft, Clock3, CopyPlus, DatabaseBackup, DoorOpen, Download, Eraser, FileArchive, FileCheck2, GraduationCap, HeartPulse, History, KeyRound, Landmark, Layers, LifeBuoy, RefreshCw, Save, ScanSearch, ScrollText, Search, ShieldCheck, Trash2, Upload, UserCog, UsersRound, X } from "lucide-react";
 import {
   AddButton,
   Badge,
@@ -42,7 +43,7 @@ import { IMPORT_PHRASE, RESET_PHRASE, UNDO_PHRASE } from "../utils/vaultPhrases"
 /* «نسخ فصل» is administration, not day-to-day scheduling: it belongs on this
    rail beside the users, the scopes and the log. It keeps its own screen and
    its own URL — this only moves the door it is opened from. */
-export type AdminMode = "users" | "seats" | "permissions" | "scopes" | "audit" | "backup" | "copyTerm" | "roomSetup" | "sectionHours" | "teachingLoad";
+export type AdminMode = "users" | "seats" | "permissions" | "scopes" | "audit" | "backup" | "copyTerm" | "roomSetup" | "sectionHours" | "teachingLoad" | "health";
 type PageMode = "index" | "create" | "edit";
 interface SafeUser {
   SystemUserId: number;
@@ -729,7 +730,7 @@ export default function AdminUsers({
   const load = async () => {
     setError(null);
     try {
-      if (mode === "roomSetup" || mode === "sectionHours" || mode === "teachingLoad" || mode === "seats" || mode === "copyTerm") return;
+      if (mode === "roomSetup" || mode === "sectionHours" || mode === "teachingLoad" || mode === "seats" || mode === "copyTerm" || mode === "health") return;
       if (mode === "backup") {
         if (!rootAdmin) throw new Error("هذه الخزنة مخصصة لحساب الإدارة الرئيسي فقط");
         const status = await api("/api/system-backup/status") as BackupStatus;
@@ -1110,6 +1111,8 @@ export default function AdminUsers({
     rootAdmin && permissions.includes(7) ? { value: "teachingLoad", label: "النصاب التدريسي", icon: <GraduationCap /> } : null,
     rootAdmin && permissions.includes(7) ? { value: "copyTerm", label: "نسخ فصل", icon: <CopyPlus /> } : null,
     rootAdmin ? { value: "backup", label: "النسخة الاحتياطية", icon: <DatabaseBackup /> } : null,
+    /* سلامة النظام: قراءةٌ فقط للحساب الرئيسي (GET /api/system-health بحارس الخزنة نفسه). */
+    rootAdmin ? { value: "health", label: "سلامة النظام", icon: <HeartPulse /> } : null,
   ].filter(Boolean) as Array<{ value: string; label: string; icon: React.ReactNode }>;
   // One header line for the whole console: the section rail plus whatever the
   // open section can create. Editor pages get the message only — switching
@@ -1131,6 +1134,12 @@ export default function AdminUsers({
   );
 
   if (mode === "seats") return <SeatsAdmin header={consoleHead()} />;
+
+  if (mode === "health") {
+    return rootAdmin
+      ? <SystemHealth header={consoleHead()} onOpenVault={() => onNavigate?.("backup")} />
+      : <div className="content-stack admin-page">{consoleHead()}<Notice>سلامة النظام متاحة للمدير الرئيسي فقط.</Notice></div>;
+  }
 
   if (mode === "roomSetup") {
     return rootAdmin
@@ -1763,11 +1772,11 @@ export default function AdminUsers({
               <tbody>
                 {headPlan.map(row => (
                   <tr key={planKind === "advisors" ? `${row.sectionName}:${(row.sectionIds || [row.sectionId]).join(",")}` : `${row.collegeId}:${row.sectionId}`}>
-                    <td>{row.sectionName}</td>
-                    <td>{(row.collegeNames?.length ? row.collegeNames : [row.collegeName]).filter(Boolean).map((name: string, index: number) => <span key={`${name}:${index}`} className="campus-name"><CampusChip collegeName={name} />{name}</span>)}</td>
-                    <td dir="ltr">{row.deptLogin || "—"}</td>
-                    <td dir="ltr">{row.status === "exists" ? row.existingLogin : row.proposedLogin}</td>
-                    <td>
+                    <td data-label="القسم">{row.sectionName}</td>
+                    <td data-label="الكلية">{(row.collegeNames?.length ? row.collegeNames : [row.collegeName]).filter(Boolean).map((name: string, index: number) => <span key={`${name}:${index}`} className="campus-name"><CampusChip collegeName={name} />{name}</span>)}</td>
+                    <td dir="ltr" data-label="حساب القسم">{row.deptLogin || "—"}</td>
+                    <td dir="ltr" data-label="اسم الدخول المقترح">{row.status === "exists" ? row.existingLogin : row.proposedLogin}</td>
+                    <td data-label="الحالة">
                       <Badge tone={row.status === "create" ? "info" : row.status === "review" ? "warning" : "neutral"}>{row.status === "create" ? "سيُنشأ" : row.status === "review" ? "يحتاج مراجعة" : "موجود"}</Badge>
                       {planKind === "advisors" && row.duplicateUserIds && row.duplicateUserIds.length > 1 ? <small> حسابات مكررة؛ {row.consolidationReady ? "توحيد آمن" : "توحيد يدوي"}</small> : null}
                       {row.note ? <small> {row.note}</small> : null}

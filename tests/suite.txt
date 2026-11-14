@@ -312,5 +312,10 @@ test:delete-impact
 test:inbox-undo
 test:report-insight
 test:names-one-label
+test:weekly-smoke
 test:whatif-in-changes
 test:roster-add-instructor
+test:print-ink
+test:system-health
+test:wish-patterns
+test:latin-digits

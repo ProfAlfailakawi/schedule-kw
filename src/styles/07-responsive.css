@@ -576,6 +576,8 @@
     font-weight:600;
     line-height:1.4;
   }
+  /* اسمٌ وشارة (منتدب): الاسم يُقطع بنقاط والشارة تبقى مرئيةً بجواره، لا اسمٌ طويل يدفعها خارج السطر فتُقصّ. */
+  .lens-groups strong.report-instructor-with-badge{display:flex!important;align-items:center;gap:4px}
   .group-bar{
     grid-area:bar;
     height:5px;
@@ -755,8 +757,10 @@
      its own row so the action button cannot squeeze it into two visible tabs. */
   .console-head{flex-wrap:wrap}
   .console-head .console-rail{flex:1 1 100%}
-  .console-action-slot{width:100%}
-  .console-action-slot .btn{width:100%}
+  /* صفٌّ يلتفّ: عدّة أزرارٍ في الخانة (المستخدمون: رؤساء الأقسام، المرشدون، مستخدم جديد) كانت تُحشر في سطرٍ واحد
+     بعرض 100% لكلٍّ منها فيقصّ نصُّها ويتراكب مع أيقونتها. كلُّ زرٍّ بعرض محتواه على الأقل، وما لا يتّسع ينزل. */
+  .console-action-slot{width:100%;flex-wrap:wrap;gap:var(--s2)}
+  .console-action-slot .btn{width:auto;flex:1 1 max-content;min-width:0;white-space:normal;justify-content:center}
   .console-action-slot .course-head-actions{display:grid;gap:var(--s2);width:100%}
   .console-rail{scroll-snap-type:inline proximity;scroll-padding-inline:var(--s3)}
   .console-tab{flex:1 0 auto;min-width:96px;padding:var(--s2) var(--s3);scroll-snap-align:center}

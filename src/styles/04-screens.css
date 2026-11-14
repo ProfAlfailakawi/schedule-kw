@@ -2512,12 +2512,25 @@ html[data-demo-admin-readonly="true"] .app-main::before{content:"تجريبي ·
 .degree-rule-plan{display:grid;gap:8px;padding-top:10px;border-top:1px solid var(--line)}.degree-rule-plan>strong{display:flex;align-items:center;gap:8px;font-size:13px}
 
 /* معاينة «إنشاء حسابات رؤساء الأقسام» — لوحٌ هادئ فوق قائمة المستخدمين. */
-.admin-head-plan { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--line, #e2e5ea); border-radius: 14px; background: var(--surface, #fff); overflow-x: auto; }
-.admin-head-plan > header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.admin-head-plan { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px 16px; border: 1px solid var(--line, #e2e5ea); border-radius: 14px; background: var(--surface, #fff); overflow-x: auto; }
+.admin-head-plan > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: baseline; }
 .admin-head-plan table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .admin-head-plan th, .admin-head-plan td { padding: 6px 8px; border-block-end: 1px solid var(--line, #e2e5ea); text-align: start; }
 .admin-head-plan small { color: var(--muted, #6b7280); }
 .admin-head-plan > footer { display: flex; gap: 8px; flex-wrap: wrap; }
+.admin-head-plan > p { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+/* الهاتف والدوو المطويّ: كلُّ صفٍّ بطاقةٌ بتسميات فوق القيم، لا جدولٌ بخمسة أعمدة يلتفّ نصُّه كلمةً في كل سطر
+   ويقصّه إطارُ البطاقة. (النمطُ نفسه لـ .request-table في 11-approval.css.) */
+@media (max-width: 760px), screen and (min-width: 640px) and (max-width: 720px) and (min-height: 520px) and (max-height: 960px), screen and (min-width: 721px) and (max-width: 1000px) and (min-height: 520px) and (max-height: 960px) and (orientation: landscape) {
+  .admin-head-plan { overflow-x: visible; }
+  .admin-head-plan table, .admin-head-plan tbody, .admin-head-plan tr, .admin-head-plan td { display: block; inline-size: 100%; }
+  .admin-head-plan thead { display: none; }
+  .admin-head-plan tr { display: grid; gap: 6px; padding: 10px 0; border-block-end: 1px solid var(--line, #e2e5ea); }
+  .admin-head-plan td { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 0; border: 0; min-width: 0; overflow-wrap: anywhere; }
+  .admin-head-plan td::before { content: attr(data-label); font-size: 11px; font-weight: 700; color: var(--muted, #6b7280); }
+  .admin-head-plan td .campus-name { display: flex; align-items: center; gap: 6px; }
+  .admin-head-plan td[dir="ltr"] { text-align: start; direction: ltr; unicode-bidi: plaintext; }
+}
 
 /* رأسُ القائمة على كل العروض: البحثُ سطرٌ، والمرشّحُ والعدّادُ سطرٌ داخل البطاقة
    — فلا يخرج المرشّحُ عن حافتها ولا يبقى العدّادُ رقماً عائماً بلا إطار. */

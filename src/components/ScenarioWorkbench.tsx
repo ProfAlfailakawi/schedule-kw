@@ -161,7 +161,7 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
               <ul>
                 <li className="tm-delta-better">⬆️ <b>{students.helped}</b><small>تحسّن</small></li>
                 <li className="tm-delta-worse">⬇️ <b>{students.harmed + (students.harmedOutside ? 1 : 0)}</b><small>تضرّر</small></li>
-                <li><Ico n="reach" /><b><bdi>{students.delta12 > 0 ? `+${students.delta12}` : students.delta12}</bdi></b><small>يبلغ ١٢</small></li>
+                <li><Ico n="reach" /><b><bdi>{students.delta12 > 0 ? `+${students.delta12}` : students.delta12}</bdi></b><small>يبلغ 12</small></li>
               </ul>
             ) : null}
           </div>

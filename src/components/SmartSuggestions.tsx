@@ -105,7 +105,7 @@ export function PatternWhatIf({ context }: { context: LoadedContext }) {
         <section className="ss-pattern-result" aria-live="polite">
           <ul className="tm-kpis">
             <li><b>{result.roomDays.after}</b>{delta(result.roomDays.before, result.roomDays.after, true)}<small>إشغال القاعات (قاعة × يوم)</small></li>
-            <li><b>{result.longWindows.after}</b>{delta(result.longWindows.before, result.longWindows.after, false)}<small>متّسعٌ طويل في القاعات (٣ س فأكثر)</small></li>
+            <li><b>{result.longWindows.after}</b>{delta(result.longWindows.before, result.longWindows.after, false)}<small>متّسعٌ طويل في القاعات (3 س فأكثر)</small></li>
             <li className={result.blocking.after > result.blocking.before ? "is-warn" : ""}><b>{result.blocking.after}</b>{delta(result.blocking.before, result.blocking.after, true)}<small>التعارض</small></li>
           </ul>
           <ul className="ss-rows">

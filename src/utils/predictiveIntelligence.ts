@@ -113,7 +113,7 @@ export function confidenceFrom(input: ConfidenceInput): Confidence {
     ? Math.max(0, input.backtestError) : null;
   if (backtestError !== null) {
     score *= 1 - clamp01(backtestError) * BACKTEST_MAX_PENALTY;
-    if (backtestError >= BACKTEST_CAVEAT_AT && !caveat) caveat = `أخطأ التنبّؤ الرجعي بنحو ${Math.round(backtestError * 100)}٪.`;
+    if (backtestError >= BACKTEST_CAVEAT_AT && !caveat) caveat = `أخطأ التنبّؤ الرجعي بنحو ${Math.round(backtestError * 100)}%.`;
   }
   const level: ConfidenceLevel = termsUsed === 0 && (input.agreement === undefined || input.agreement === null)
     ? "insufficient" : score >= CONFIDENCE_HIGH ? "high" : score >= CONFIDENCE_MEDIUM ? "medium" : "low";

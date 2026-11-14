@@ -13,6 +13,7 @@ import type { Express, Request, Response } from "express";
 import { timingSafeEqual } from "crypto";
 import { Repository } from "../db/repository";
 import { AR, countOf } from "../utils/arabicCount";
+import { resultsFingerprint, type SharedReportState } from "../utils/reportShareCore";
 import { currentTermId } from "../utils/termSequence";
 import { countBlockingConflicts, readApproval, readDeadlineFor } from "./core/approvals";
 import { approvalBlockerOptions } from "./core/smartImport";
@@ -29,11 +30,15 @@ export function briefLineText(line: BriefLine): string {
   return parts.join(" · ");
 }
 
-export function briefMessage(lines: BriefLine[], at = new Date().toISOString()): PushMessage | null {
+/** `watched`: أسماءُ تقاريرَ حفظها صاحبُها بـ«نبّهني إن تغيّر» وتغيّر جدولُ قسمها منذ آخر موجز. */
+export function briefMessage(lines: BriefLine[], at = new Date().toISOString(), watched: string[] = []): PushMessage | null {
   const worth = lines.filter(line => line.blockers > 0 || (line.daysLeft !== null && line.daysLeft <= 7));
-  if (!worth.length) return null;
-  return { title: "☀ موجز الصباح", body: worth.slice(0, 3).map(briefLineText).join("\n"), url: "/FSchedule/MainScheduleReport", tag: "morning-brief", at };
+  if (!worth.length && !watched.length) return null;
+  const body = [...worth.slice(0, 3).map(briefLineText), ...watched.slice(0, 3).map(name => `🔔 «${name}»`)].join("\n");
+  return { title: "☀ موجز الصباح", body, url: "/FSchedule/MainScheduleReport", tag: "morning-brief", at };
 }
+
+interface WatchedDoc { id: string; owner: number; name: string; watch: boolean; state: SharedReportState | null; fp?: string }
 
 /** يوم الأسبوع بتوقيت الكويت: الأحد 0 … الخميس 4. */
 export function kuwaitWeekday(now: Date): number {
@@ -81,12 +86,26 @@ export function registerMorningBriefRoute(app: Express, deps: { deliver: Deliver
           const deadline = approval.status === "accepted" ? null : await readDeadlineFor(approval, termId);
           lines.push({ place: nameOf.get(sectionId) || "", blockers: countBlockingConflicts(rows, termRows, options), daysLeft: typeof deadline?.daysLeft === "number" ? deadline.daysLeft : null });
         }
-        const message = briefMessage(lines, now.toISOString());
-        if (!message) { quiet += 1; continue; }
+        /* «نبّهني إن تغيّر»: بصمةُ جدول القسم الآن مقابل ما كان عند آخر موجز. أولُ مرةٍ قاعدةٌ لا تغيّر. */
+        const watchedNames: string[] = [];
+        const fingerprints: Array<{ id: string; fp: string }> = [];
+        for (const doc of await Repository.listFeatureDocs<WatchedDoc>("savedReports", `${userId}:`)) {
+          const state = doc?.state;
+          if (!doc?.watch || !state || Number(doc.owner) !== userId || state.t !== termId) continue;
+          if (!wanted.some(scope => Number(scope.AdCollegeId) === state.c && Number(scope.AdSectionId) === state.s)) continue;
+          const fp = resultsFingerprint(termRows.filter(row => Number(row.AdCollegeId) === state.c && Number(row.AdSectionId) === state.s));
+          if (doc.fp === fp) continue;
+          fingerprints.push({ id: doc.id, fp });
+          if (doc.fp !== undefined) watchedNames.push(doc.name);
+        }
+        const message = briefMessage(lines, now.toISOString(), watchedNames);
+        const remember = () => Promise.all(fingerprints.map(item => Repository.updateFeatureDoc<WatchedDoc, boolean>("savedReports", item.id, current => current ? { next: { ...current, fp: item.fp }, result: true } : { refuse: false })));
+        if (!message) { await remember(); quiet += 1; continue; }
         /* مرةً في اليوم لكل حساب، ذرّياً: نسختان من الخادم لا ترسلان تنبيهين. */
         const claimed = await Repository.updateFeatureDoc<{ id: string; at: number }, boolean>("pushCooldowns", `brief:${userId}:${day}`, current =>
           current ? { refuse: false } : { next: { id: `brief:${userId}:${day}`, at: now.getTime() }, result: true });
         if (!claimed.ok) continue;
+        await remember();
         const report = await deps.deliver(records, message, { urgency: "normal", topic: pushTopic(`brief:${userId}`) });
         users += 1; sent += report.sent;
       }

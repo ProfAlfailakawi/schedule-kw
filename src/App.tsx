@@ -260,7 +260,7 @@ const reportViews: ReportMode[] = [
   "reportTime",
   "reportRoomTime",
 ];
-const adminViews: AdminMode[] = ["users", "seats", "permissions", "scopes", "audit", "roomSetup", "sectionHours", "teachingLoad", "backup"];
+const adminViews: AdminMode[] = ["users", "seats", "permissions", "scopes", "audit", "roomSetup", "sectionHours", "teachingLoad", "backup", "health"];
 const academicViews: AcademicTab[] = ["terms", "colleges", "sections", "instructors", "courses"];
 /** Permission id that unlocks each academic catalogue. */
 const ACADEMIC_PERM: Record<AcademicTab, number> = {
@@ -328,6 +328,7 @@ const pathByView: Record<View, string> = {
   sectionHours: "/System/SectionHours",
   teachingLoad: "/System/TeachingLoad",
   backup: "/System/Backup",
+  health: "/System/Health",
   scheduleChanges: "/FSchedule/Changes",
   instructorRequests: "/FSchedule/InstructorRequests",
   studentRegistration: "/FSchedule/StudentRegistration",
@@ -1982,6 +1983,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -1995,6 +1998,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2008,6 +2013,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2021,6 +2028,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2034,6 +2043,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2047,6 +2058,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2060,6 +2073,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2073,6 +2088,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2086,6 +2103,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2099,6 +2118,8 @@ export default function App() {
             user={user}
             scopes={scopes}
             availableModes={[...availableSearchModes, ...availableReportModes]}
+            canSchedule={hasPerm(7) && !sessionRole.viewerOnly}
+            onOpenSchedule={() => go("schedules")}
             roleId={sessionRole.id}
             canReadWorkspace={hasPerm(7)}
           />
@@ -2158,6 +2179,12 @@ export default function App() {
       case "backup":
         return user.IsRootAdmin ? (
           <AdminUsers mode="backup" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
+        ) : (
+          unauthorized()
+        );
+      case "health":
+        return user.IsRootAdmin ? (
+          <AdminUsers mode="health" onNavigate={adminGo} permissions={permissions} rootAdmin demoReadOnly={Boolean(user.IsDemo)} />
         ) : (
           unauthorized()
         );

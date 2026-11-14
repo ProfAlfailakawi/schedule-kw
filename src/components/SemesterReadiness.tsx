@@ -41,8 +41,8 @@ export default function SemesterReadiness({ bands, wanted, seated, fullCourses, 
       </div>
 
       <div className="rd-facts">
-        <article><span className="rd-ic"><GraduationCap /></span><b>{fmt(r.reachShare)}٪</b><small>يبلغون 12 وحدة فأكثر</small></article>
-        <article><span className="rd-ic"><UsersRound /></span><b>{fmt(r.seatShare)}٪</b><small>من الطلب وجد مقعداً</small></article>
+        <article><span className="rd-ic"><GraduationCap /></span><b>{fmt(r.reachShare)}%</b><small>يبلغون 12 وحدة فأكثر</small></article>
+        <article><span className="rd-ic"><UsersRound /></span><b>{fmt(r.seatShare)}%</b><small>من الطلب وجد مقعداً</small></article>
         <article className={fullCourses ? "warn" : ""}><span className="rd-ic"><Gauge /></span><b>{fmt(fullCourses)}</b><small>{fullCourses === 1 ? "مقررٌ يمتلئ" : "مقرراتٌ تمتلئ"}</small></article>
         <article className={notOffered ? "warn" : ""}><span className="rd-ic"><CalendarX2 /></span><b>{fmt(notOffered)}</b><small>{notOffered === 1 ? "مطلوبٌ ولا يُطرح" : "مطلوبةٌ ولا تُطرح"}</small></article>
       </div>
@@ -61,7 +61,7 @@ export default function SemesterReadiness({ bands, wanted, seated, fullCourses, 
       ) : null}
       {!insight && !failed ? <div className="rd-why rd-skeleton" aria-hidden="true"><i /><i /><i /></div> : null}
 
-      {r.weak ? <p className="rd-weak"><ShieldQuestion aria-hidden="true" /> {fmt(r.unknownShare)}٪ من الملفات «غير معلوم»: الرقمُ تقديرٌ ضعيف حتى تكتمل بياناتها.</p> : null}
+      {r.weak ? <p className="rd-weak"><ShieldQuestion aria-hidden="true" /> {fmt(r.unknownShare)}% من الملفات «غير معلوم»: الرقمُ تقديرٌ ضعيف حتى تكتمل بياناتها.</p> : null}
       {onStart && (fullCourses || notOffered) ? <button type="button" className="rd-go" onClick={onStart} data-guide-ignore="ينقل إلى قائمة المقررات التي تحتاج قراراً داخل الرادار؛ لا يكتب شيئاً">ابدأ بالأهم <ArrowLeft aria-hidden="true" /></button> : null}
     </section>
   );
