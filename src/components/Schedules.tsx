@@ -9919,6 +9919,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     time: String(studioOriginal.fstarttime || "") !== String(form.fstarttime || "") || String(studioOriginal.fendtime || "") !== String(form.fendtime || ""),
     room: String(studioOriginal.AdRoomCode || "") !== String(form.AdRoomCode || "") || String(studioOriginal.AdRoomHall || "") !== String(form.AdRoomHall || ""),
   } : null;
+  /* «كان: …» من الصف المحفوظ — نقطة صغيرة بجانب عنوان الخطوة (الأيام · الوقت · القاعة) وعلى ملخّص المقرر. */
+  const studioWas = studioOriginal ? {
+    days: days.filter(day => Boolean((studioOriginal as any)[day.key])).map(day => day.label).join(" · ") || "بلا أيام",
+    time: studioOriginal.fstarttime && studioOriginal.fendtime ? formatScheduleTimeRange(studioOriginal.fstarttime, studioOriginal.fendtime) : "بلا وقت",
+    room: studioOriginal.AdRoomCode ? `${studioOriginal.AdRoomCode}${studioOriginal.AdRoomHall ? `/${studioOriginal.AdRoomHall}` : ""}` : "بلا قاعة",
+  } : null;
+  const studioTimeWas = studioChanged && (studioChanged.days || studioChanged.time) && studioWas
+    ? `كان: ${[studioChanged.days ? studioWas.days : "", studioChanged.time ? studioWas.time : ""].filter(Boolean).join(" · ")}` : "";
+  const studioRoomWas = studioChanged?.room && studioWas ? `كان: ${studioWas.room}` : "";
+  const studioWasMark = (was: string, key: string) => was ? <span className="appt-was is-changed" data-changed={key} role="img" aria-label={`تغيّر — ${was}`} title={was}><bdi>{was}</bdi></span> : null;
   /* ── الترتيب الإلزامي (المالك 2026-10-30): النطاق ← المقرر ← الأستاذ ← الوقت ← المكان ── */
   const studioTimeDone = Boolean(selectedFormDays.length && form.fstarttime && form.fendtime);
   const studioCourseLocked = studioScopeMissing;
@@ -10263,6 +10273,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <header className="appt-step-head">
                     <span className="appt-num">3</span>
                     <div className="appt-q"><strong>متى؟ الأيام والوقت</strong><small>اختر الأيام أو نمطاً من اللائحة، ثم البداية</small></div>
+                    {studioWasMark(studioTimeWas, "time")}
                   </header>
                 <Field label="الأيام" hint={formRegulationChips.length ? undefined : dayPatternNote}>
                   <div className={`checkbox-row day-pills${autofillFlash ? " is-autofilled" : ""}`}>
@@ -10549,6 +10560,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <header className="appt-step-head">
                     <span className="appt-num">4</span>
                     <div className="appt-q"><strong>أين؟ المبنى والقاعة</strong><small>قاعات القسم، والمشتركة، والمستعارة المعتمدة</small></div>
+                    {studioWasMark(studioRoomWas, "room")}
                   </header>
                   <div className="form-grid appt-place">
                 <LocationPicker
