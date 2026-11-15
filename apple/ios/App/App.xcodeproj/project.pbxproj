@@ -20,6 +20,8 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		A1D0C0DE0000000000000002 /* AppHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0C0DE0000000000000001 /* AppHandoff.swift */; };
+		A1D0C0DE0000000000000004 /* AppHandoffLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0C0DE0000000000000003 /* AppHandoffLogic.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +40,8 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1D0C0DE0000000000000001 /* AppHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHandoff.swift; sourceTree = "<group>"; };
+		A1D0C0DE0000000000000003 /* AppHandoffLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHandoffLogic.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +79,8 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				2047B674A9A0E164288AD79D /* MainViewController.swift */,
+				A1D0C0DE0000000000000003 /* AppHandoffLogic.swift */,
+				A1D0C0DE0000000000000001 /* AppHandoff.swift */,
 				02EF54D2459FC995898D20A8 /* NetworkWatcher.swift */,
 				0CEE3A01CC0DC2267B3D9593 /* OfflineBanner.swift */,
 				85CCDB3732489B8EDB267EF7 /* PrivacyInfo.xcprivacy */,
@@ -174,6 +180,8 @@
 				BED86A6F05E4EA98FF599AC8 /* OfflineBanner.swift in Sources */,
 				66970D0902F466AF04B45B56 /* NetworkWatcher.swift in Sources */,
 				6CA183D59E46AD669B8E7186 /* MainViewController.swift in Sources */,
+				A1D0C0DE0000000000000004 /* AppHandoffLogic.swift in Sources */,
+				A1D0C0DE0000000000000002 /* AppHandoff.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 			);
@@ -320,14 +328,14 @@
 				DEVELOPMENT_TEAM = 55V8UB9X3H;
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = com.dralfailakawi.schedule;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -346,14 +354,14 @@
 				DEVELOPMENT_TEAM = 55V8UB9X3H;
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dralfailakawi.schedule;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
