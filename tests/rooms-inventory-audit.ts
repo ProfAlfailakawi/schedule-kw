@@ -39,7 +39,7 @@ for (const cap of baseline.capabilities) {
   const css = fs.readFileSync("src/styles/71-rooms-explorer.css", "utf8");
   check(!/dark|prefers-color-scheme/.test(css), "static: no dark theme in the explorer stylesheet");
   check(/prefers-reduced-motion/.test(css) && /prefers-reduced-motion/.test(src), "static: reduced motion respected in css and in the slide logic");
-  check(!/[٠-٩]/.test(src) && !/ذكاء اصطناعي/.test(src), "static: Latin digits only, no forbidden wording");
+  check(!/[٠-٩]/.test(src) && !new RegExp("ذكاء" + " اصطناعي").test(src), "static: Latin digits only, no forbidden wording");
   check(/safeStorage/.test(src) && /rooms-explorer:v1/.test(src), "static: last building/room/view persisted through safeStorage");
   check(/aria-expanded/.test(src) && /role="listbox"/.test(src) && /aria-selected/.test(src) && /aria-activedescendant/.test(src), "static: listbox roles and aria-expanded/aria-selected");
   check(/ArrowDown/.test(src) && /Escape/.test(src) && /ArrowLeft/.test(src), "static: keyboard arrows/Esc in the dropdowns and on the room header");
