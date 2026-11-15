@@ -65,7 +65,7 @@
 
 /* الأسئلة: بطاقةٌ لكل سؤال، والمحرَّرة الآن تضيء */
 .schedule-editor.is-studio .appt-steps{gap:12px;margin-top:0}
-.schedule-editor.is-studio .appt-step{gap:16px;padding:20px 22px;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-xs);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.schedule-editor.is-studio .appt-step{container:appointment-step / inline-size;gap:16px;padding:20px 22px;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-xs);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
 .schedule-editor.is-studio .appt-step:focus-within{border-color:color-mix(in srgb,var(--accent) 34%,var(--line));box-shadow:0 0 0 4px var(--accent-softer),var(--shadow-sm)}
 .schedule-editor.is-studio .appt-step>.appt-step-head{display:flex;align-items:center;gap:12px;padding:0;border:0}
 .schedule-editor.is-studio .appt-step-head>.appt-num,.appt-sumrow>.appt-num{width:32px;height:32px;border-radius:11px;background:var(--accent-soft);color:var(--accent-strong);display:grid;place-items:center;font:700 15px/1 var(--font-ui);flex:none}
