@@ -9983,9 +9983,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* ── 🔁 التبديل السريع: شعبُ المقرر عند مدرّبٍ أو شاغرةً تنتقل إلى الأستاذ المختار (بوقتها أو بوقت موعدي) ── */
   const quickSwapMineNow = useMemo(() => quickSwapMine(form), [form]);
   const quickSwapList = useMemo(() => quickSwapSources({
-    rows, teacherId: Number(form.AdInstructorId) || 0, courseId: Number(form.AdCourseId) || 0, termId: studioTermId,
+    rows, teacherId: Number(form.AdInstructorId) || 0, sectionId: Number(form.AdSectionId || filterSection) || 0, termId: studioTermId,
     editId: editor === "edit" ? Number(editId || 0) : 0, traineeIds: formTrainees, placeholderIds: new Set(studioPlaceholderIds), mine: quickSwapMineNow,
-  }), [rows, form.AdInstructorId, form.AdCourseId, studioTermId, editor, editId, formTrainees, studioPlaceholderIds, quickSwapMineNow]);
+  }), [rows, form.AdInstructorId, form.AdSectionId, filterSection, studioTermId, editor, editId, formTrainees, studioPlaceholderIds, quickSwapMineNow]);
   const applyQuickSwap = async (source: QuickSwapSource, mode: "its" | "mine") => {
     if (refuseInPractice()) return;
     const teacherId = Number(form.AdInstructorId) || 0;

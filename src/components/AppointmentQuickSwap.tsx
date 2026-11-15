@@ -1,6 +1,6 @@
 /**
  * أيقونة «التبديل السريع» بجانب خطوة الوقت في الموعد: تبويبان — «تدريب» و«هيئة تدريسية» (الشاغر) —
- * وفي كلٍّ شعبُ المقرر التي يمكن أن تنتقل إلى الأستاذ المختار. لا تحفظ هذه الواجهةُ شيئاً بنفسها؛ الحفظ في الأب.
+ * وفي كلٍّ شعبُ مقررات القسم والفصل المختارين التي يمكن أن تنتقل إلى الأستاذ. لا تحفظ الواجهة شيئاً بنفسها.
  */
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeftRight, CalendarCheck, CalendarX2, Clock, GraduationCap, UserRoundX, X } from "lucide-react";
@@ -43,7 +43,7 @@ export default function AppointmentQuickSwap({ sources, hasMine, busy, onApply }
       </div>
       <ul className="qs-list">
         {list.map(item => <li key={item.rowId} className="qs-item">
-          <span className="qs-what"><b>{item.row.SCode || "—"}</b>
+          <span className="qs-what"><b>{item.row.AdCourseName || `مقرر ${item.row.AdCourseId}`} · {item.row.SCode || "—"}</b>
             <span className="qs-days" aria-hidden="true">{DAY_LABELS.filter(([key]) => (item.row as any)[key]).map(([, label]) => label).join(" ")}</span>
             <span className="qs-time"><Clock aria-hidden="true" /><bdi dir="ltr">{formatScheduleTimeRange(item.row.fstarttime, item.row.fendtime)}</bdi></span>
             {item.row.AdRoomCode ? <small className="qs-room"><bdi dir="ltr">{item.row.AdRoomCode}/{item.row.AdRoomHall}</bdi></small> : null}
