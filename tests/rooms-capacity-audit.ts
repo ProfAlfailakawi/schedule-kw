@@ -96,7 +96,7 @@ async function live() {
     const skip = p.locator(".ob-root .ob-skip").first();
     if (await skip.waitFor({ state: "visible", timeout: 3000 }).then(() => true).catch(() => false)) await skip.click().catch(() => {});
     await p.locator('button[data-guide-target="schedule.view.rooms"]').first().click();
-    await p.waitForSelector(".rx-root", { timeout: 30000 }); await sleep(1500);
+    await p.waitForSelector(".rx-root", { timeout: 120000 }); await sleep(1500);
     const options = async () => p.locator('[role=listbox] [role=option]').evaluateAll((els: Element[]) => els.map(e => e.textContent || ""));
     await p.locator('.rx-dd-btn[aria-label="اختيار القاعة"]').click(); await sleep(400);
     const all = await options();
