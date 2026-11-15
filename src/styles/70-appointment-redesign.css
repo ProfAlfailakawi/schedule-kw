@@ -176,3 +176,10 @@
 .mini-week .mini-week-chip.is-roomy .mini-week-chip-text b.mini-week-chip-name,.mini-week .mini-week-chip.is-tall .mini-week-chip-text b.mini-week-chip-name{-webkit-line-clamp:2;line-clamp:2;overflow-wrap:break-word;word-break:normal;text-overflow:ellipsis}
 .mini-week .mini-week-chip-text small{margin-top:auto;padding-top:2px}
 @media (max-width:420px){.mini-week .mini-week-chip-text b.mini-week-chip-name{font-size:10.5px}}
+
+/* نهاية الوقت: العلامةُ «حسب النمط» أيقونةٌ داخل الحقل لا شريحةٌ في العنوان، فيبقى العنوانُ والنجمةُ في سطرٍ واحد وتتساوى حقولُ الوقت */
+.schedule-editor.is-studio .appt-time-fields .field>label{white-space:nowrap}
+.schedule-editor.is-studio .appt-time-fields .field>label .required{font-size:11px;margin-inline-start:3px}
+.schedule-editor .schedule-time-control .appt-pattern-mark{position:absolute;inset-inline-start:10px;top:50%;transform:translateY(-50%);display:inline-grid;place-items:center;color:var(--brand,#0f6b52);pointer-events:none;z-index:1}
+.schedule-editor .schedule-time-control .appt-pattern-mark svg{width:16px;height:16px}
+.appt-pulse-toggle[aria-pressed="true"]{border-color:var(--brand,#0f6b52);background:var(--brand-soft,#dcf0e8);color:var(--brand,#0f6b52)}
