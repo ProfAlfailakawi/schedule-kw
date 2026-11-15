@@ -71,9 +71,11 @@
     padding-right:calc(var(--s3) + var(--duo-widget-inset));
   }
   /* الأدراج والأوراق المثبَّتة عند الحافة اليسرى الفيزيائية (inline-end في RTL): لا تمتدّ تحت الودجت. */
-  .schedule-context,.intel-drawer,.catalog-form-drawer,.trail-sheet,.seat-drawer,.query-detail-panel,.appt-drawer,.wish-sheet{
+  html :is(.schedule-context,.intel-drawer,.catalog-form-drawer,.trail-sheet,.seat-drawer,.query-detail-panel,.appt-drawer,.wish-sheet){
     max-inline-size:calc(100vw - var(--duo-widget-inset) - var(--s3));
   }
+  /* درج التفاصيل ثابتٌ على اليمين الفيزيائي (right:0) على الهاتف: يلتصق باليسار فلا يبلغ الودجت. */
+  .schedule-context,.intel-drawer{left:var(--s3);right:auto;width:min(560px,calc(100vw - var(--duo-widget-inset) - var(--s3)))}
   /* الدرج المثبَّت عند الحافة اليمنى (inline-start في RTL): يبدأ يسار الودجت. */
   .sp-more-drawer{inset-inline-start:var(--duo-widget-inset);max-inline-size:calc(100vw - var(--duo-widget-inset))}
   /* لوحة الإشعارات وتنبيهها عند الحافة اليسرى: عرضها لا يبلغ الودجت. */
@@ -86,6 +88,7 @@
   .insight-page-head,.intelligence-page .insight-page-nav,.intelligence-scenes,.location-admin-tabs{margin-right:var(--duo-widget-inset)}
 }
 @media screen and (orientation:portrait) and (max-width:700px) and (min-height:360px),
+       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:800px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
   /* الدخول طولياً: أول سطرٍ في بطاقة الدخول يبدأ يسار الودجت؛ والبطاقة نفسها تمتدّ تحتها. */
   .apex-login-access .apex-access-head{margin-right:var(--duo-widget-inset)}
@@ -97,7 +100,6 @@
   .apex-login-kicker,
   .apex-login-story h1,
   .apex-login-story>p{margin-right:var(--duo-widget-inset)}
-}
 }
 
 /* ==========================================================================
@@ -316,4 +318,6 @@
 /* الكتاب: صفحة العمل يسار الفهرس، والودجت فوق الفهرس وحده، فلا عمودَ عائماً في صفحة العمل. */
 @media screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
   .content-frame::before{content:none}
+  /* بطاقة الدخول على الصفحة اليسرى في الكتاب: لا ودجت فوقها. */
+  .apex-login-access .apex-access-head{margin-right:0}
 }

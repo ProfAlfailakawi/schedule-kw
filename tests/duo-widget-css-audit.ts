@@ -70,6 +70,12 @@ check(!/!important/.test(reserve), "قواعد الركن بلا !important");
 check(/ركن الودجت/.test(duoFile) && !/--duo-cutout/.test(duoFile + foundation) && !/display-mode/.test(strip(duoFile)),
   "لا بقايا للمستطيل القديم 116×116 ولا شرط display-mode");
 
+/* 0) توازن الأقواس في الملفين (قوسٌ زائد كسر بناء postcss كله). */
+for (const file of ["src/styles/01-foundation.css", "src/styles/55-duo-adaptive.css"]) {
+  const t = strip(read(file));
+  check(t.split("{").length === t.split("}").length, `أقواس ${file} متوازنة`);
+}
+
 /* 4) صفحة التشخيص تُحمَّل بالمعامل وحده. */
 const main = read("src/main.tsx");
 check(/duo-debug/.test(main) && /import\(["']\.\/utils\/duoDebug["']\)/.test(main), "صفحة ?duo-debug=1 تُحمَّل ديناميكياً بوجود المعامل وحده");
