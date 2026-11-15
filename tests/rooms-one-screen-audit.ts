@@ -62,8 +62,8 @@ for (let attempt = 0; attempt < 150; attempt++) {
 const login = await fetch(`${base}/api/auth/demo`, { method: "POST" });
 assert.ok(login.ok, "demo login");
 const cookie = String(login.headers.get("set-cookie") || "").split(";")[0];
-const call = async (method: string, url: string, body?: unknown) => {
-  const response = await fetch(`${base}${url}`, { method, headers: { "Content-Type": "application/json", cookie }, body: body === undefined ? undefined : JSON.stringify(body) });
+const call = async (method: string, url: string, body?: unknown, extraHeaders: Record<string, string> = {}) => {
+  const response = await fetch(`${base}${url}`, { method, headers: { "Content-Type": "application/json", cookie, ...extraHeaders }, body: body === undefined ? undefined : JSON.stringify(body) });
   return { status: response.status, data: await response.json().catch(() => ({})) as any };
 };
 
@@ -110,7 +110,8 @@ const keep = await call("PUT", `/api/admin/location-setup/buildings/${encodeURIC
 check(keep.data.active === false, "تعديل بلا ذكر الحالة لا يغيّرها");
 const on = await call("PUT", `/api/admin/location-setup/buildings/${encodeURIComponent(building.id)}`, { active: true, sectionIds: [] });
 check(on.data.active === true && on.data.sectionIds.length === 0, "إعادة التفعيل وتفريغ الأقسام (= كل الأقسام)");
-const delB = await call("DELETE", `/api/admin/location-setup/buildings/${encodeURIComponent(building.id)}`);
+/* مبنى فيه مواعيد في الفصل الحالي يلزمه تأكيد صريح للإيقاف (location-in-use): يختلف وجودها بحسب تاريخ التشغيل، فيُرسل التأكيد دائماً. */
+const delB = await call("DELETE", `/api/admin/location-setup/buildings/${encodeURIComponent(building.id)}`, undefined, { "x-schedule-confirm": "location-in-use" });
 const stillThere = ((await call("GET", "/api/admin/location-setup")).data.buildings as any[]).find(item => item.id === building.id);
 check(delB.status === 200 && stillThere && stillThere.active === false, "حذف المبنى يؤرشفه ويبقى صفه");
 

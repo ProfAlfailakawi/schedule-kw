@@ -174,7 +174,7 @@ async function main() {
         /* أسبوع الأستاذ (خلاياه وأزرار الالتصاق وإغلاقه) يتغيّر بالبيانات والتخطيط ويملكه عاملٌ آخر؛ والدرج المفتوح يحجب ما خلفه فيُتحقق من ضوابط الصفحة في حالة «ready». */
         const gridish = (c: Control) => /^(ضع الموعد|بعدها|قبلها|إغلاق جدول الأ)/.test(c.name);
         const readyNames = new Set((base["ready"] || []).map(c => c.kind + "|" + c.name));
-        const want = (base[state] || []).map(c => ({ ...c, name: norm(c.name) })).filter(c => !gridish(c) && !(state === "checks-open" && readyNames.has(c.kind + "|" + c.name)));
+        const want = (base[state] || []).map(c => ({ ...c, name: norm(c.name) })).filter(c => !gridish(c) && !(state === "checks-open" && readyNames.has(c.kind + "|" + c.name)) && !(state === "checks-open" && c.name === "نبض الطلبة")) /* بطاقةُ نبض الطلبة انتقل زرُّها إلى «مساعدات» (قرار المالك 2026-11-15) ويُفحص وصولُه في حالات ready وdays-time؛ ولا يُنقر تحت لوحة الفحص المفتوحة */;
         const have = await collect(p);
         const has = (list: Control[], c: Control) => list.some(h => h.name === c.name && h.kind === c.kind);
         const missing = want.filter(c => !has(have, c));

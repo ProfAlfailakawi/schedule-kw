@@ -88,6 +88,7 @@
 @import "./styles/67-student-pulse-live.css";
 @import "./styles/68-week-layers.css";
 @import "./styles/70-appointment-redesign.css";
+@import "./styles/71-rooms-explorer.css";
 @import "./styles/71-quick-swap.css";
 @import "./styles/71-official-app.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the

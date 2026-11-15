@@ -243,6 +243,7 @@ test:appointment-forms-r2
 test:appointment-forms-r3
 test:appointment-redesign
 test:appointment-inventory
+test:rooms-inventory
 test:appointment-phase3
 test:review-1105
 test:holds-patterns-r4
@@ -363,3 +364,6 @@ test:why-not
 test:week-replay
 test:teacher-registry
 test:account-deletion
+test:room-now
+test:room-query
+test:rooms-capacity

@@ -137,7 +137,7 @@ const DAY_SPELLINGS: Array<[DayKey, string[]]> = [
   ["fwednesday", ["أربعاء", "الأربعاء", "wed", "wednesday"]],
   ["fthursday", ["خميس", "الخميس", "thu", "thur", "thurs", "thursday"]],
 ];
-const DAY_WORDS = new Map<string, DayKey>(DAY_SPELLINGS.flatMap(([key, spellings]) => spellings.map(spelling => [fold(spelling), key] as [string, DayKey])));
+export const DAY_WORDS = new Map<string, DayKey>(DAY_SPELLINGS.flatMap(([key, spellings]) => spellings.map(spelling => [fold(spelling), key] as [string, DayKey])));
 /** Not teaching days: said back with a reason, never read as a different day. */
 const NON_TEACHING = new Map<string, string>([
   ["سبت", "السبت"], ["السبت", "السبت"], ["جمعه", "الجمعة"], ["الجمعه", "الجمعة"], ["sat", "السبت"], ["saturday", "السبت"], ["fri", "الجمعة"], ["friday", "الجمعة"],

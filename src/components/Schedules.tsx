@@ -1,6 +1,11 @@
 import PatternLibraryButton from "./PatternLibraryButton";
 import WeekHeat from "./WeekHeat";
 import { RoomsNowLine, RoomsRoomBoundary, RoomsTrackGrid, buildRoomsSlotGeo, objectId, type RoomsNowSource, type RoomsSlotHandlers } from "./RoomsBoard";
+import RoomsExplorer from "./RoomsExplorer";
+import RoomsInfoBar from "./RoomsInfoBar";
+import { occupancyPercent, type RxBuilding, type RxRoom } from "../utils/roomsExplorerModel";
+import { roomFactsByKey, type RoomFacts } from "../utils/roomFacts";
+import { WHY_META, whyNotCell } from "../utils/whyNot";
 import WipeScheduleButton from "./WipeScheduleButton";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
 import { arabicMatchKey } from "../utils/arabicText";
@@ -1022,6 +1027,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     [matrixBuildings, setMatrixBuildings] = useState<Set<string>>(new Set()),
     [matrixRooms, setMatrixRooms] = useState<Set<string>>(new Set()),
     [roomFilterQuery, setRoomFilterQuery] = useState(""),
+    /* مستكشف القاعات: الموعد المحدد في شريط المعلومات، وطلبُ القفز إلى قاعةٍ بعد نقلٍ إليها. */
+    [rxInfoId, setRxInfoId] = useState<number | null>(null),
+    [rxGoto, setRxGoto] = useState<{ key: string; n: number } | null>(null),
     [viewMode, setViewMode] = useState(
       isPhoneDevice() ? "list" : savedPrefs.viewMode === "week" ? "week" : savedPrefs.viewMode === "rooms" ? "rooms" : "list",
     ),
@@ -6885,6 +6893,53 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       return next.size === current.size ? current : next;
     });
   }, [roomsMatrix.allRooms, matrixBuildings]);
+  /* نموذجُ مستكشف القاعات (RoomsExplorer): إشغالُ كل قاعةٍ ومبنى ومجالاتُ أيامها، يُحسب مرةً لكل تغيّر في المواعيد. */
+  /* سعةُ القاعات ونوعها من سجل المواقع نفسه (/api/location-registry، المستعمل في المحرر): طلبٌ واحد لكل نطاق
+     عند فتح عرض القاعات، لا طلبَ لكل قاعة. فشلُه يترك الحقائق مجهولة فلا يُحذف شيءٌ ولا يُطبع رقمٌ مخترع. */
+  const [rxFacts, setRxFacts] = useState<Map<string, RoomFacts>>(() => new Map());
+  useEffect(() => {
+    if (viewMode !== "rooms") return;
+    const controller = new AbortController();
+    const query = new URLSearchParams({ collegeId: String(filterCollege || 0), sectionId: String(filterSection || 0) });
+    if (filterTerm) query.set("termId", String(filterTerm));
+    fetch(`/api/location-registry?${query}`, { credentials: "include", signal: controller.signal })
+      .then(response => (response.ok ? response.json() : null))
+      .then(data => { if (data) setRxFacts(roomFactsByKey(data, (building, hall) => roomIdentity(building, hall).key, filterSection || 0)); })
+      .catch(() => { /* إلغاءٌ أو انقطاع: تبقى الحقائق كما كانت */ });
+    return () => controller.abort();
+  }, [viewMode, filterCollege, filterSection, filterTerm]);
+  const RX_NO_BUILDING_KEY = "__no-building__";
+  const rxModel = useMemo(() => {
+    const rooms: RxRoom[] = roomsMatrix.allRooms.map(room => {
+      const ids = new Set<number>();
+      const perDay = days.map(day => (roomsMatrix.byDayRoom.get(`${day.key}|${room.key}`) || []).map(row => {
+        ids.add(row.id);
+        return { from: mins(row.fstarttime), to: mins(row.fendtime) };
+      }));
+      return {
+        key: room.key, buildingKey: room.buildingKey, label: displayRoomBadge(room), building: room.building,
+        perDay, occupancy: occupancyPercent(perDay, gridWindow.start, gridWindow.end), lectures: ids.size,
+        capacity: rxFacts.get(room.key)?.capacity ?? null, roomType: rxFacts.get(room.key)?.roomType || "",
+      };
+    });
+    const buildings: RxBuilding[] = roomsMatrix.allBuildings.map(building => {
+      const own = rooms.filter(room => room.buildingKey === building.key);
+      return {
+        key: building.key, label: building.label, roomCount: own.length,
+        occupancy: own.length ? Math.round(own.reduce((sum, room) => sum + room.occupancy, 0) / own.length) : 0,
+      };
+    });
+    /* قاعةٌ لها اسمٌ بلا مبنى (رمز المبنى فارغ) تُحجَب من الاستكشاف إن لم تكن لها مجموعة: «بلا مبنى» تجمعها. */
+    const knownBuildings = new Set(buildings.map(item => item.key));
+    const orphans = rooms.filter(room => !knownBuildings.has(room.buildingKey));
+    if (orphans.length) {
+      orphans.forEach(room => { room.buildingKey = RX_NO_BUILDING_KEY; });
+      buildings.push({ key: RX_NO_BUILDING_KEY, label: "بلا مبنى", roomCount: orphans.length, occupancy: Math.round(orphans.reduce((sum, room) => sum + room.occupancy, 0) / orphans.length) });
+    }
+    const homeless = new Set<number>();
+    roomsMatrix.noRoomByDay.forEach(list => list.forEach(row => homeless.add(row.id)));
+    return { rooms, buildings, noRoomCount: homeless.size };
+  }, [roomsMatrix, gridWindow, rxFacts]);
   /* The ladder is the window's own, not the constant's. It already declared
      `gridWindow` as its dependency and then ignored it — so a window that grew
      to hold an early or late lecture produced a card with nowhere to stand. */
@@ -7376,8 +7431,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         : weekMainScrollRef.current;
     mirrorHorizontalScroll(element, [weekTopScrollRef.current, weekRulerScrollRef.current, weekMainScrollRef.current]);
   };
-  const syncRoomsScroll = (source: "ruler" | "main", _value?: number) => {
-    const element = source === "ruler" ? roomsRulerScrollRef.current : roomsMainScrollRef.current;
+  const syncRoomsScroll = (source: "ruler" | "main", _value?: number, from?: HTMLElement | null) => {
+    /* في المقارنة تُرسم عدة أسابيع، لكل منها شريطُها وجسمُه متجاوران: يُزامَن الزوجُ الذي أصدر الحدث لا آخرُ زوجٍ رُكّب. */
+    const element = from || (source === "ruler" ? roomsRulerScrollRef.current : roomsMainScrollRef.current);
+    const mate = from ? (source === "ruler" ? from.nextElementSibling : from.previousElementSibling) as HTMLElement | null : null;
+    if (from && mate) { mirrorHorizontalScroll(element, source === "ruler" ? [element, mate] : [mate, element]); return; }
     mirrorHorizontalScroll(element, [roomsRulerScrollRef.current, roomsMainScrollRef.current]);
   };
 
@@ -10061,6 +10119,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   }, [studioCourseOpen, studioTeacherOpen]);
   useEffect(() => { studioMeter.current?.blocked(editorVerdict.blockers.length > 0); }, [editorVerdict.blockers.length > 0]);
   const [studioHelpersOpen, setStudioHelpersOpen] = useState(false);
+  /* «نبض الطلبة» داخل «مساعدات»: يُفتح بالطلب، ويُفتح من نفسه حين يكون أثرُه حرجاً على الخريجين. */
+  const [studioPulseOpen, setStudioPulseOpen] = useState(false);
   /* خيط التقدّم: خمس خطوات (النطاق · المقرر · الأستاذ · الوقت · المكان) — يملأ بقدر ما اكتمل منها. */
   const studioProgress = [!studioScopeMissing, studioCourseDone, studioTeacherDone, studioTimeDone, studioTimeDone && !studioMissing.includes("القاعة")].filter(Boolean).length / 5;
   const studioChip = (done: boolean, changed?: boolean) => `appt-chip${done ? "" : " is-missing"}${changed ? " is-changed" : ""}`;
@@ -10451,8 +10511,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     />
                   ) : null}
                 </Field>
-                <Field label={<span className="appt-label-row">نهاية الوقت{studioEndByPattern ? <span className="appt-tag is-ok">حسب النمط</span> : null}</span>} required>
+                <Field label={<span className="appt-label-row">نهاية الوقت</span>} required>
                   <div className={`schedule-time-control${autofillFlash ? " is-autofilled" : ""}`} dir="ltr">
+                    {studioEndByPattern ? <span className="appt-pattern-mark" role="img" aria-label="النهاية حسب النمط" title="حسب النمط"><Ruler aria-hidden="true" /></span> : null}
                     <TimeField
                      
           min={SCHEDULE_DAY_START_TIME}
@@ -10516,7 +10577,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     </div>
                   </div>:null}
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
-                  {studioTimeDone ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact}
+                  {studioTimeDone && (studioPulseOpen || (studentFit?.graduates?.percent != null && studentFit.graduates.percent < 60) || Number((graduateImpact as any)?.graduates || 0) > 0) ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact}
                     best={bestTime && (bestTime.start !== String(form.fstarttime || "") || bestTime.days.join() !== formDays.join()) ? bestTime : null}
                     bestBusy={bestBusy} currentDays={formDays} onPickBest={best => void pickBestTime(best)} loading={checking} showEmpty /> : null}
                   <div className={`appt-helpers ${studioHelpersOpen ? "is-open" : "is-closed"}`} role="group" aria-label="مساعدات الوقت"
@@ -10543,6 +10604,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     >
                       <Sparkles aria-hidden="true" />
                       {slotBusy ? "أبحث…" : "اقترح لي وقتاً وقاعة"}
+                    </button>
+                    <button type="button" className="appt-helper appt-pulse-toggle" aria-pressed={studioPulseOpen} disabled={!studioTimeDone}
+                      onClick={() => setStudioPulseOpen(open => !open)}
+                      data-guide-ignore="يفتح بطاقة «نبض الطلبة» أو يطويها؛ لا يغيّر الموعد">
+                      <GraduationCap aria-hidden="true" />نبض الطلبة
                     </button>
                     {courseNature && courseNature.confidence !== "low" ? (
                       /* «املأ كالمعتاد» لا يعبّئ نمطاً خارج مكتبة الأنماط: التاريخُ اقتراحٌ لا يخالف اللائحة (المالك 2026-10-30). */
@@ -12505,7 +12571,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     if (rowPending || physics.didDrag() || physicsActive) return;
                     const from = pressOrigin.current;
                     if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
-                    void openContext(row);
+                    setRxInfoId(row.id);
                   }}
                   onPointerEnter={(e) => { if (!physicsActive) openPeek(row, e.currentTarget); }}
                   onPointerLeave={() => closePeek(row.id)}
@@ -12513,7 +12579,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   onBlur={() => closePeek(row.id)}
                   tabIndex={0}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") { void openContext(row); return; }
+                    if (e.key === "Enter") { setRxInfoId(row.id); return; }
                     if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); pickUpWithKeyboard(row); }
                   }}
                 >
@@ -12581,145 +12647,85 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               if (paint?.trackKey?.startsWith(`${room.key}|`)) parts.push(`${paint.trackKey}:${paint.from}:${paint.to}`);
               return parts.join("\u0002");
             };
+            /* ── مستكشف القاعات: المباني والقاعات في قائمتين، وأسبوعُ القاعة يُرسَم بجدول اللوحة نفسه عند فتحه ── */
+            const rxRooms: RxRoom[] = [
+              ...rxModel.rooms,
+              ...tracedRooms
+                .filter(trace => !rxModel.rooms.some(item => item.key === trace.key))
+                .map(trace => ({ key: trace.key, buildingKey: trace.buildingKey, label: displayRoomBadge(trace), building: trace.building, perDay: days.map(() => []), occupancy: 0, lectures: 0 })),
+            ];
+            const rxRow = rxInfoId != null ? rows.find(item => item.id === rxInfoId) : undefined;
+            const rxInfoNode = rxRow ? (() => {
+              const course = courseById.get(rxRow.AdCourseId);
+              const instructor = instructorById.get(rxRow.AdInstructorId);
+              const code = String(course?.CourseCode || "").trim() || "—";
+              const title = rxRow.AdCourseName || course?.CourseName || code;
+              const rowDays = days.filter(day => Boolean((rxRow as any)[day.key]));
+              const here = roomIdentity(rxRow.AdRoomCode, rxRow.AdRoomHall);
+              const undoId = recentMoves[rxRow.id];
+              const undoEntry = undoId ? undoLog.find(item => item.id === undoId && !item.usedAt) : null;
+              const sourceDay = (rowDays[0]?.key || days[0].key) as DayKey;
+              return (
+                <RoomsInfoBar
+                  title={title}
+                  code={code}
+                  who={withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(rxRow.AdInstructorId))}
+                  when={`${rowDays.map(day => day.label).join(" · ") || "بلا يوم"} ${formatScheduleTimeRange(rxRow.fstarttime, rxRow.fendtime)}`}
+                  place={here.label ? `القاعة ${here.label}` : "بلا قاعة"}
+                  canMove={!phoneReadOnly && !dragBlocked && Boolean(rxRow.fstarttime)}
+                  undo={undoEntry ? { label: `${undoEntry.label} — اضغط للتراجع`, run: () => { void runUndoEntry(undoEntry); setRecentMoves(current => { const next = { ...current }; delete next[rxRow.id]; return next; }); } } : null}
+                  onDetails={() => { void openContext(rxRow); }}
+                  onClose={() => setRxInfoId(null)}
+                  moveOptions={() => rxRooms
+                    .filter(item => !here.buildingKey || item.buildingKey === here.buildingKey)
+                    .map(item => {
+                      const known = roomsWithAfterglow.find(room => room.key === item.key);
+                      const cell = whyNotCell({
+                        subject: rxRow, days, slots: timeSlots, gridEnd: gridWindow.end, mins,
+                        buildCandidate: (source, target) => buildPhysicsTargetCandidate(source, { ...(target as any), label: "", room: { code: known?.roomCode || "", hall: known?.roomHall || "" } }),
+                        blockers: localPhysicsBlockers as any,
+                      }, sourceDay, rxRow.fstarttime);
+                      /* تبديلُ القاعة لا يغيّر انشغالَ الأستاذ: تعارضُه إن وُجد قائمٌ قبل النقل وبعده، فلا يمنع هذه القائمة (ويظهر في تأكيد النقل نفسه). */
+                      const hard = cell.reasons.find(reason => WHY_META[reason.kind].hard && reason.kind !== "instructor");
+                      return { key: item.key, label: item.label, current: item.key === here.key, free: !hard, reason: hard ? WHY_META[hard.kind].label : "" };
+                    })}
+                  onMove={async (key) => {
+                    const target = roomsWithAfterglow.find(room => room.key === key);
+                    if (!target) return;
+                    await commitRoomMove(rxRow, sourceDay, rxRow.fstarttime, target.roomCode, target.roomHall);
+                    await new Promise(resolve => window.setTimeout(resolve, 80));
+                    const moved = liveCmd.current.rows.find(item => item.id === rxRow.id);
+                    if (moved && roomIdentity(moved.AdRoomCode, moved.AdRoomHall).key === key) setRxGoto({ key, n: Date.now() });
+                  }}
+                />
+              );
+            })() : null;
             return (
               <>
-                <div className="rooms-head">
-                  <Segmented
-                    value={matrixDay}
-                    instant
-                    options={[{ value: "week", label: "الأسبوع كامل" }, ...days.map(day => ({ value: day.key, label: day.label }))]}
-                    onChange={(value) => setMatrixDay(value as DayKey | "week")}
-                  />
-                  {physicsActive && dragComparison ? (
+                <RoomsExplorer
+                  buildings={rxModel.buildings}
+                  rooms={rxRooms}
+                  days={days.map(day => ({ key: day.key, label: day.label }))}
+                  windowStart={gridWindow.start}
+                  windowEnd={gridWindow.end}
+                  noRoomCount={rxModel.noRoomCount}
+                  readOnly={phoneReadOnly}
+                  goto={rxGoto}
+                  hint={!focusMode && !phoneReadOnly ? "اسحب لتنقل · اضغط فراغاً لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل" : ""}
+                  info={rxInfoNode}
+                  onNavigate={() => setRxInfoId(null)}
+                  onCreate={(room, dayIndex, from) => {
+                    const known = roomsWithAfterglow.find(item => item.key === room.key);
+                    openCreate({ day: days[dayIndex].key as DayKey, start: timeFromMins(from), roomCode: known?.roomCode || "", roomHall: known?.roomHall || "" });
+                  }}
+                  dragNote={physicsActive && dragComparison ? (
                     <div className="rooms-drag-compare" aria-live="polite">
                       <GripVertical aria-hidden="true" />
                       <span><b dir="ltr">{dragComparison.before}</b><ChevronLeft aria-hidden="true" /><b dir="ltr">{dragComparison.after}</b></span>
                       <em dir="ltr">{dragComparison.place}</em>
                     </div>
                   ) : null}
-                </div>
-                {!focusMode ? (
-                  <div className={`week-note rooms-note ${physicsActive ? "gravity-note-active" : ""}`}>
-                    <GripVertical aria-hidden="true" />
-                    <span aria-live="polite">
-                      {physicsActive && dragComparison
-                        ? `قبل: ${dragComparison.before} · بعد: ${dragComparison.after} · القاعة ${dragComparison.place}`
-                        : phoneReadOnly
-                          ? "على الهاتف يبقى عرض المباني والقاعات للقراءة فقط، والتعديل والإضافة متاحان من «قائمة»."
-                          : "اسحب لتنقل · اضغط فراغاً لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل"}
-                    </span>
-                  </div>
-                ) : null}
-                {allBuildings.length > 0 ? (
-                  <div className="rooms-filter-block">
-                    <div className="rooms-filter-copy">
-                      <div><Building2 /><strong>فلتر المباني</strong></div>
-                      <small>{phoneReadOnly ? "المباني معروضة للقراءة فقط على الهاتف؛ التصفية والتحريك من الكمبيوتر." : matrixBuildings.size ? `اخترت ${matrixBuildings.size.toLocaleString("ar-KW-u-nu-latn")} من ${countOf(allBuildings.length, oblique(AR.building))} — اضغط لإضافة مبنى أو إزالته.` : "كل المباني ظاهرة — اختر مبنى واحدًا أو عدة مبانٍ قبل تصفية القاعات."}</small>
-                    </div>
-                    <div className="rooms-picker" role="group" aria-label="اختيار مبنى واحد أو عدة مبانٍ">
-                      <button
-                        type="button"
-                        className={`rooms-chip ${matrixBuildings.size ? "" : "on"}`}
-                        aria-pressed={matrixBuildings.size === 0}
-                        data-guide-ignore="مرشح بصري للمباني داخل لوحة القاعات؛ لا يغير بيانات الجدول"
-                        onClick={(e) => {
-                          setMatrixBuildings(new Set());
-                          requestAnimationFrame(() => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }));
-                        }}
-                      >
-                        كل المباني
-                      </button>
-                      {allBuildings.map(building => (
-                        <button
-                          type="button"
-                          key={building.key}
-                          className={`rooms-chip ${matrixBuildings.has(building.key) ? "on" : ""}`}
-                          aria-pressed={matrixBuildings.has(building.key)}
-                          data-guide-ignore="مرشح بصري لمبنى داخل لوحة القاعات؛ لا يغير بيانات الجدول"
-                          title={`${matrixBuildings.has(building.key) ? "إخفاء" : "إظهار"} ${building.label}`}
-                          onClick={(e) => {
-                            setMatrixBuildings(current => {
-                              const next = new Set(current);
-                              if (next.has(building.key)) next.delete(building.key); else next.add(building.key);
-                              return next;
-                            });
-                            requestAnimationFrame(() => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }));
-                          }}
-                        >
-                          <span dir="ltr">{building.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {buildingScopedRooms.length > 1 ? (
-                  <div className="rooms-filter-block">
-                    <div className="rooms-filter-copy">
-                      <div><MapPin /><strong>القاعات المعروضة</strong></div>
-                      <small>{phoneReadOnly
-                        ? "القاعات معروضة للقراءة فقط على الهاتف؛ التصفية والتحريك من الكمبيوتر."
-                        : roomFilterKey
-                          ? `نتيجة الفلتر: ${countOf(roomFilterMatches.length, AR.room)} من ${countOf(buildingScopedRooms.length, oblique(AR.room))}.`
-                          : matrixRooms.size
-                            ? `اخترت ${matrixRooms.size} من ${countOf(buildingScopedRooms.length, oblique(AR.room))} — اضغط لإضافة قاعة أو إزالتها.`
-                            : matrixBuildings.size
-                              ? "كل قاعات المباني المختارة ظاهرة — اختر قاعة واحدة أو مجموعة قاعات للمقارنة."
-                              : "كل القاعات ظاهرة — اختر قاعة واحدة أو مجموعة قاعات للمقارنة."}</small>
-                      {!phoneReadOnly ? (
-                        <label className="week-legend-search rooms-filter-search">
-                          <Search aria-hidden="true" />
-                          <input
-                            type="search"
-                            value={roomFilterQuery}
-                            onChange={(e) => setRoomFilterQuery(e.target.value)}
-                            placeholder="فلتر القاعات…"
-                            aria-label="فلتر القاعات بالرمز أو المبنى أو رقم القاعة"
-                            autoComplete="off"
-                            spellCheck={false}
-                          />
-                        </label>
-                      ) : null}
-                    </div>
-                    <div className="rooms-picker" role="group" aria-label="اختيار قاعة واحدة أو عدة قاعات">
-                      <button
-                        type="button"
-                        className={`rooms-chip ${matrixRooms.size ? "" : "on"}`}
-                        aria-pressed={matrixRooms.size === 0}
-                        data-guide-ignore="مرشح بصري للقاعات داخل لوحة القاعات؛ لا يغير بيانات الجدول"
-                        onClick={(e) => {
-                          setMatrixRooms(new Set());
-                          requestAnimationFrame(() => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }));
-                        }}
-                      >
-                        كل القاعات
-                      </button>
-                      {roomFilterMatches.map(room => (
-                        <button
-                          type="button"
-                          key={room.key}
-                          className={`rooms-chip ${matrixRooms.has(room.key) ? "on" : ""}`}
-                          aria-pressed={matrixRooms.has(room.key)}
-                          data-guide-ignore="مرشح بصري لقاعة داخل لوحة القاعات؛ لا يغير بيانات الجدول"
-                          title={`${matrixRooms.has(room.key) ? "إخفاء" : "إظهار"} ${displayRoomBadge(room)}`}
-                          onClick={(e) => {
-                            setMatrixRooms(current => {
-                              const next = new Set(current);
-                              if (next.has(room.key)) next.delete(room.key); else next.add(room.key);
-                              return next;
-                            });
-                            requestAnimationFrame(() => e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }));
-                          }}
-                        >
-                          <span dir="ltr">{displayRoomBadge(room)}</span>
-                        </button>
-                      ))}
-                      {roomFilterKey && roomFilterMatches.length === 0 ? (
-                        <span className="rooms-filter-empty">لا توجد قاعة مطابقة.</span>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-                {hueLegend.length > 1 || scheduledVisitingIds.size ? (
+                  tools={hueLegend.length > 1 || scheduledVisitingIds.size ? (
                   <div className="week-legend rooms-legend" role="group" aria-label="مفتاح ألوان المباني والقاعات">
                     <div className="week-legend-basis" role="group" aria-label="معنى اللون">
                       {([
@@ -12803,13 +12809,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     ) : null}
                   </div>
                 ) : null}
+                  renderWeek={(weekKeys, includeNone) => {
+                    const weekRooms = weekKeys.map(key => roomsWithAfterglow.find(room => room.key === key)).filter(Boolean) as typeof roomsWithAfterglow;
+                    return (
+                <>
                 <div
                   ref={roomsRulerScrollRef}
                   className="rooms-ruler-scroll"
                   onPointerDown={(e) => claimScroller(e.currentTarget)}
                   onTouchStart={(e) => claimScroller(e.currentTarget)}
                   onWheel={(e) => claimScroller(e.currentTarget)}
-                  onScroll={(e) => syncRoomsScroll("ruler", e.currentTarget.scrollLeft)}
+                  onScroll={(e) => syncRoomsScroll("ruler", e.currentTarget.scrollLeft, e.currentTarget)}
                   aria-label="شريط ساعات القاعات"
                 >
                   <div
@@ -12851,7 +12861,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   onPointerDown={(e) => claimScroller(e.currentTarget)}
                   onTouchStart={(e) => claimScroller(e.currentTarget)}
                   onWheel={(e) => claimScroller(e.currentTarget)}
-                  onScroll={(e) => syncRoomsScroll("main", e.currentTarget.scrollLeft)}
+                  onScroll={(e) => syncRoomsScroll("main", e.currentTarget.scrollLeft, e.currentTarget)}
                 >
                   <div
                     className="rooms-rows"
@@ -12861,7 +12871,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       ["--rooms-fixed-label" as any]: `${ROOM_FIXED_WIDTH}px`,
                     }}
                   >
-                  {roomList.map(room => (
+                  {weekRooms.map(room => (
                     <RoomsRoomBoundary key={room.key} sig={roomSig(room)} draw={() => (
                     <section className="rooms-week-room" aria-label={`القاعة ${room.label}`} title={room.label}>
                       <div className="rooms-week-days">
@@ -12931,7 +12941,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     </section>
                     )} />
                   ))}
-                  {displayDays.some(day => (noRoomByDay.get(day.key as DayKey) || []).length || moveTraces.some(trace => trace.roomKey === "|" && trace.dayKey === day.key)) ? (
+                  {includeNone && displayDays.some(day => (noRoomByDay.get(day.key as DayKey) || []).length || moveTraces.some(trace => trace.roomKey === "|" && trace.dayKey === day.key)) ? (
                     <section className="rooms-week-room rooms-row-none" aria-label="بلا قاعة" title="بلا قاعة">
                       <div className="rooms-week-days">
                         {displayDays.map(day => {
@@ -12975,11 +12985,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       </div>
                     </section>
                   ) : null}
-                  {!roomList.length && !displayDays.some(day => (noRoomByDay.get(day.key as DayKey) || []).length || moveTraces.some(trace => trace.roomKey === "|" && trace.dayKey === day.key)) ? (
-                    <p className="rooms-empty">لا قاعات مسجلة في هذا النطاق بعد — أسنِد قاعة لأي محاضرة وستظهر هنا صفاً كاملاً.</p>
-                  ) : null}
                   </div>
                 </div>
+                </>
+                    );
+                  }}
+                />
               </>
             );
           })()}

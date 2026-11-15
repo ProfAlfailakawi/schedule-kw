@@ -1,0 +1,145 @@
+/* ==========================================================================
+   مستكشف المباني والقاعات (RoomsExplorer / RoomsOverview / RoomsInfoBar)
+   قاعةٌ واحدة على الشاشة؛ ألوانٌ هادئة من رموز المنتج؛ سمةٌ فاتحةٌ وحيدة.
+   ========================================================================== */
+
+.rx-root{display:grid;gap:var(--s3);min-width:0}
+.rx-grow{flex:1}
+.rx-root button{font-family:inherit}
+.rx-root :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.rx-empty{margin:0}
+
+/* ── الاختيار: مبنى · قاعة · مفتاح العرض ── */
+.rx-pick{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center}
+.rx-dd{position:relative;min-width:0}
+.rx-dd-btn{display:inline-flex;align-items:center;gap:10px;min-height:48px;padding:6px 12px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font-size:var(--t-body);cursor:pointer;text-align:start;transition:border-color .2s,box-shadow .2s}
+.rx-dd-btn:hover{border-color:var(--accent)}
+.rx-dd-btn[aria-expanded="true"]{border-color:var(--accent);box-shadow:var(--ring)}
+.rx-dd-btn>svg{width:18px;height:18px;flex:none;color:var(--muted)}
+.rx-dd-btn .rx-dd-caret{width:16px;height:16px;transition:transform .25s}
+.rx-dd-btn[aria-expanded="true"] .rx-dd-caret{transform:rotate(180deg)}
+.rx-dd-text{display:grid;line-height:1.3;min-width:0}
+.rx-dd-text b{font-size:var(--t-h4)}
+.rx-dd-text small,.rx-opt small{color:var(--muted);font-size:var(--t-xs);white-space:nowrap}
+.rx-dd-panel{position:absolute;top:calc(100% + 6px);inset-inline-start:0;z-index:30;min-width:min(260px,calc(100vw - 32px));max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-md);box-shadow:var(--shadow-md);padding:6px;animation:rx-pop .16s ease-out}
+@keyframes rx-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.rx-dd-list{max-height:min(320px,50vh);overflow:auto;display:grid;gap:2px;outline:none}
+.rx-opt{display:flex;align-items:center;gap:10px;min-height:46px;padding:0 10px;border-radius:var(--r-sm);cursor:pointer;color:var(--ink)}
+.rx-opt b{font-size:var(--t-h4)}
+.rx-opt small{margin-inline-start:auto}
+.rx-opt.is-active{background:var(--accent-softer)}
+.rx-opt.is-selected{background:var(--accent-soft)}
+.rx-opt[aria-disabled="true"]{opacity:.55;cursor:default}
+.rx-dd-empty{margin:0;padding:12px;color:var(--muted);font-size:var(--t-sm)}
+.rx-dd-search{display:flex;align-items:center;gap:8px;min-height:44px;margin:2px 2px 6px;padding:0 10px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface)}
+.rx-dd-search svg{width:16px;height:16px;color:var(--muted);flex:none}
+.rx-dd-search input{flex:1;min-width:0;min-height:40px;border:0;outline:0;background:transparent;font:inherit;color:var(--ink)}
+.rx-dd-clear{border:0;background:none;color:var(--muted);cursor:pointer;min-width:32px;min-height:32px;display:grid;place-items:center}
+.rx-dd-clear svg{width:14px;height:14px}
+.rx-dd-need{padding:0 4px 6px}
+.rx-need{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 10px;border-radius:var(--r-full);background:var(--accent-soft);color:var(--accent-ink);font-size:var(--t-sm)}
+.rx-need button{border:0;background:none;color:inherit;cursor:pointer;min-width:28px;min-height:28px;display:grid;place-items:center}
+.rx-need button svg{width:13px;height:13px}
+.rx-dot{width:10px;height:10px;border-radius:50%;background:var(--line-strong);flex:none}
+.rx-dot.is-free{background:var(--success)}
+.rx-dd.is-compact .rx-dd-btn{min-height:44px;font-size:var(--t-sm)}
+.rx-seg{display:inline-flex;gap:2px;padding:4px;border-radius:var(--r-md);background:var(--surface-3)}
+.rx-seg button{min-height:44px;padding:0 16px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--muted);font-weight:600;cursor:pointer}
+.rx-seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-xs)}
+.rx-seg button:disabled{opacity:.5;cursor:default}
+
+/* ── الحلقة ── */
+.rx-ring{--p:0;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex:none;background:conic-gradient(var(--accent) calc(var(--p)*1%),var(--surface-3) 0)}
+.rx-ring>span{width:27px;height:27px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--ink)}
+
+/* ── القاعة ── */
+.rx-room{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.rx-room+.rx-room{margin-top:calc(var(--s2) * -1)}
+.rx-hero{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3);padding:var(--s4) var(--s4) var(--s3)}
+.rx-hero:focus-visible{outline-offset:-3px}
+.rx-code{font-size:30px;font-weight:700;line-height:1;direction:ltr;display:block;font-family:var(--font-ui)}
+.rx-hero-id small{display:block;margin-top:4px;color:var(--muted);font-size:var(--t-sm)}
+.rx-status{padding:4px 12px;border-radius:var(--r-full);font-size:var(--t-sm);font-weight:600;background:var(--surface-3);color:var(--ink-2)}
+.rx-status.is-free{background:var(--success-soft);color:var(--success)}
+.rx-status.is-soon{background:var(--warning-soft);color:var(--warning)}
+.rx-nav,.rx-x{display:grid;place-items:center;min-width:44px;min-height:44px;border:0;border-radius:var(--r-full);background:var(--surface-3);color:var(--ink-2);cursor:pointer}
+.rx-nav:disabled{opacity:.35;cursor:default}
+.rx-nav svg,.rx-x svg{width:18px;height:18px}
+.rx-x{background:transparent;color:var(--muted)}
+.rx-free{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);padding:0 var(--s4) var(--s3)}
+.rx-free>span,.rx-free>em{color:var(--muted);font-size:var(--t-sm);font-style:normal;font-weight:600}
+.rx-chip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:1px solid var(--line-strong);border-radius:var(--r-full);background:var(--surface);color:var(--ink);font-size:var(--t-sm);font-weight:600;cursor:pointer;transition:background .15s,border-color .15s}
+.rx-chip:hover{border-color:var(--accent);background:var(--accent-softer)}
+.rx-chip svg{width:14px;height:14px;color:var(--accent)}
+.rx-chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}
+.rx-btn{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font-size:var(--t-sm);font-weight:600;cursor:pointer}
+.rx-btn:hover{border-color:var(--accent)}
+.rx-btn svg{width:16px;height:16px;color:var(--accent)}
+
+/* ── شريط الأسبوع الواحد والانزلاق ── */
+.rx-weekbar{display:flex;align-items:center;gap:10px;width:calc(100% - 2 * var(--s4));min-height:48px;margin:0 var(--s4) var(--s4);padding:0 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2);color:var(--ink);cursor:pointer;font-size:var(--t-body)}
+.rx-weekbar:hover{border-color:var(--accent)}
+.rx-weekbar svg{width:18px;height:18px;color:var(--muted);flex:none}
+.rx-weekbar small{color:var(--muted);font-size:var(--t-sm)}
+.rx-weekbar .rx-chev{transition:transform .3s}
+.rx-weekbar[aria-expanded="true"] .rx-chev{transform:rotate(180deg)}
+.rx-slide{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .4s ease,opacity .3s}
+.rx-slide.is-open{grid-template-rows:1fr;opacity:1}
+.rx-slide-in{overflow:hidden;min-height:0}
+.rx-week{padding:0 var(--s3) var(--s4);display:grid;gap:var(--s2);min-width:0}
+.rx-tools{display:grid;gap:var(--s2)}
+.rx-note{margin:0;padding:10px 14px;border-radius:var(--r-md);background:var(--surface-2);color:var(--muted);font-size:var(--t-sm)}
+.rx-hint{margin:0;color:var(--muted);font-size:var(--t-sm)}
+.rx-compare{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+.rx-compare small{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:var(--t-sm)}
+.rx-compare small svg{width:14px;height:14px}
+
+/* أسبوعُ القاعة: كتلٌ رماديةٌ هادئةٌ بلا نص؛ تفاصيلُها في شريط المعلومات وفي title/aria. تُستعاد الألوانُ بفتح «ألوان وتصفية». */
+.rx-week .rooms-room-identity-compact{display:none}
+.rx-week .rooms-main-scroll,.rx-week .rooms-ruler-scroll{max-width:100%}
+.rx-week .rooms-week-room{content-visibility:visible}
+.rx-tools .rx-btn{justify-self:start}
+.rx-week[data-tint="off"] .rooms-card{--hue:0;background:color-mix(in srgb,var(--ink) 10%,var(--surface));border-color:transparent;box-shadow:none;height:34px!important}
+.rx-week[data-tint="off"] .rooms-card:hover,.rx-week[data-tint="off"] .rooms-card:focus-visible{background:color-mix(in srgb,var(--accent) 22%,var(--surface))}
+.rx-week[data-tint="off"] .rooms-card>:not(.week-moved-pill){visibility:hidden}
+.rx-week[data-tint="off"] .rooms-card .week-moved-pill{visibility:visible}
+
+/* ── شريط المعلومات ── */
+.rx-info{position:sticky;bottom:var(--s3);z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3);padding:10px 14px;border:1px solid var(--accent);border-radius:var(--r-md);background:var(--accent-softer);box-shadow:var(--shadow-md);animation:rx-pop .18s ease-out}
+.rx-info-text{display:grid;flex:1 1 220px;min-width:0;line-height:1.4}
+.rx-info-text b{font-size:var(--t-h4)}
+.rx-info-text em{font-style:normal;color:var(--muted);font-weight:500}
+.rx-info-text small{color:var(--ink-2);font-size:var(--t-sm)}
+.rx-info-actions{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center}
+.rx-move .rx-dd-panel{inset-inline-start:auto;inset-inline-end:0;top:auto;bottom:calc(100% + 6px)}
+
+/* ── نظرة المبنى ── */
+.rx-ov{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.rx-ov-days{display:flex;flex-wrap:wrap;gap:var(--s2);padding:var(--s3) var(--s4);background:var(--surface-2);border-bottom:1px solid var(--line)}
+.rx-ov-row{display:grid;grid-template-columns:72px 1fr 44px;align-items:center;gap:var(--s3);width:100%;min-height:48px;padding:6px var(--s4);border:0;border-top:1px solid var(--line);background:none;color:var(--ink);cursor:pointer;text-align:start}
+.rx-ov-row:first-child{border-top:0}
+.rx-ov-row:hover{background:var(--surface-2)}
+.rx-ov-row b{direction:ltr;text-align:start;font-size:var(--t-h4)}
+.rx-heat{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;height:26px}
+.rx-heat i{border-radius:4px;background:var(--surface-3)}
+.rx-heat i.is-part{background:color-mix(in srgb,var(--accent) 22%,var(--surface-3))}
+.rx-heat i.is-busy{background:color-mix(in srgb,var(--accent) 62%,var(--surface-3))}
+.rx-ov-pct{color:var(--muted);font-size:var(--t-xs);text-align:end}
+
+@media (max-width:700px){
+  .rx-pick{gap:var(--s2)}
+  .rx-pick>.rx-dd{flex:1 1 150px}
+  .rx-pick .rx-dd-btn{width:100%}
+  .rx-seg{width:100%}
+  .rx-seg button{flex:1}
+  .rx-hero{padding:var(--s3)}
+  .rx-free{padding:0 var(--s3) var(--s3)}
+  .rx-weekbar{width:calc(100% - 2 * var(--s3));margin:0 var(--s3) var(--s3)}
+  .rx-ov-row{grid-template-columns:56px 1fr 40px;padding-inline:var(--s3)}
+  .rx-info{inset-inline:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .rx-root *{transition:none!important;animation:none!important}
+}
+@media print{.rx-info,.rx-pick,.rx-weekbar,.rx-compare,.rx-nav{display:none!important}.rx-slide{grid-template-rows:1fr!important;opacity:1!important}}
+.rx-opt .rx-opt-facts{margin-inline-start:0}
