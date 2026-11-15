@@ -1,48 +1,14 @@
 /**
  * ── الشاغر وعضو التدريب داخل الموعد ─────────────────────────────────────────
  * في المقترح الدراسي: شعبةٌ شاغرة («هيئة تدريسية») تُسند إلى أستاذٍ حقيقي، وعضوُ تدريبٍ يحمل شارته.
- * هنا الأداتان نفسهما بلغة الشارات نفسها داخل خطوة «الأستاذ»:
- *   • SeatQuickPick: شريحتان تحت المنتقي — «شاغر» (هيئة تدريسية) و«عضو تدريب» (قائمة متدرّبي القسم).
+ * هنا «أسند إلى…» لموعدٍ محفوظٍ شاغر (والتبديل السريع من التدريب والشاغر في AppointmentQuickSwap):
  *   • VacantAssign: لموعدٍ محفوظٍ شاغر — «أسند إلى…» يفتح منتقياً، ثم شريحتا الحكم (الأستاذ حرّ/يتداخل ·
  *     النصاب) وزرّ «أسند» الذي يمرّ بمسار الإسناد القائم (placeholder-action) نفسه: تأكيدٌ ثم طلبٌ ذرّيٌّ بتراجع.
  * لا منطقَ خادمٍ جديد، ولا شيء يُكتب من هنا بنفسه.
  */
-import React, { useState } from "react";
+import React from "react";
 import PersonChips from "./PersonChips";
-import { CalendarCheck, CalendarX2, GraduationCap, Loader2, Scale, UserRoundCheck, UserRoundX, X } from "lucide-react";
-
-export interface SeatPerson { id: number; name: string }
-
-export function SeatQuickPick({ value, vacantId, trainees, onPick }: {
-  value: number;
-  /** معرّف «هيئة تدريسية» في هذا القسم (0 = لا سجلّ). */
-  vacantId: number;
-  trainees: SeatPerson[];
-  onPick: (id: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  if (!vacantId && !trainees.length) return null;
-  const traineeOn = trainees.some(person => person.id === value);
-  return <div className="seat-quick" role="group" aria-label="خياراتٌ سريعة للأستاذ">
-    {vacantId ? <button type="button" className={`seat-chip is-vacant${value === vacantId ? " is-on" : ""}`} aria-pressed={value === vacantId}
-      data-guide-ignore="يضع «شاغر · هيئة تدريسية» أستاذاً للموعد؛ لا يحفظ شيئاً"
-      onClick={() => onPick(vacantId)}>
-      <UserRoundX aria-hidden="true" /><span>شاغر</span><small>هيئة تدريسية</small>
-    </button> : null}
-    {trainees.length ? <button type="button" className={`seat-chip is-trainee${traineeOn || open ? " is-on" : ""}`} aria-expanded={open}
-      data-guide-ignore="يعرض أعضاء هيئة التدريب في القسم لاختيار أحدهم؛ لا يحفظ شيئاً"
-      onClick={() => setOpen(current => !current)}>
-      <GraduationCap aria-hidden="true" /><span>عضو تدريب</span><small>{trainees.length}</small>
-    </button> : null}
-    {open ? <span className="seat-trainees">
-      {trainees.map(person => <button type="button" key={person.id} className={`seat-chip is-person${person.id === value ? " is-on" : ""}`} aria-pressed={person.id === value}
-        data-guide-ignore="يضع عضو التدريب أستاذاً للموعد؛ لا يحفظ شيئاً"
-        onClick={() => { onPick(person.id); setOpen(false); }}>
-        <GraduationCap aria-hidden="true" /><span>{person.name}</span><PersonChips trainee />
-      </button>)}
-    </span> : null}
-  </div>;
-}
+import { CalendarCheck, CalendarX2, Loader2, Scale, UserRoundCheck, UserRoundX, X } from "lucide-react";
 
 export interface SeatVerdict { free: boolean; clashWith?: string; load?: { now: number; after: number; limit: number | null } | null }
 

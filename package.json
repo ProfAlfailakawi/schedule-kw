@@ -299,6 +299,7 @@
     "test:demo-training-seed": "tsx tests/demo-training-seed-audit.ts",
     "test:appointment-review-1114": "tsx tests/appointment-review-1114-audit.ts",
     "test:appointment-seats": "tsx tests/appointment-seats-audit.ts",
+    "test:appointment-quick-swap": "tsx tests/appointment-quick-swap-audit.ts",
     "test:appointment-room-swap": "tsx tests/appointment-room-swap-audit.ts",
     "test:appointment-ideas-1114": "tsx tests/appointment-ideas-1114-audit.ts",
     "test:appointment-ideas2-1114": "tsx tests/appointment-ideas2-1114-audit.ts",

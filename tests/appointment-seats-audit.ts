@@ -1,6 +1,6 @@
 /**
  * ── الشاغر وعضو التدريب داخل الموعد (8) ─────────────────────────────────────
- *  Q  شريحتا «شاغر» و«عضو تدريب» تحت منتقي الأستاذ في المحرر الكامل، وتضعان الأستاذ بلا حفظ.
+ *  Q  الشريحتان القديمتان حُذفتا؛ والتبديل السريع بجانب الوقت.
  *  A  «أسند إلى…» لموعدٍ محفوظٍ شاغر: يمرّ بمسار الإسناد القائم (placeholderAction assign) لا بمنطقٍ جديد، ولا مسارَ خادمٍ جديد.
  *  V  حكمٌ قبل الإسناد: الأستاذ حرّ/يتداخل والنصاب، وزرّ «أسند» يُعطَّل إن تداخل.
  *  K  المسارات القائمة سليمة: «شعب شاغرة» ومقترح الدراسة وبطاقات الاستبدال في القاعة.
@@ -17,9 +17,9 @@ const schedules = read("src/components/Schedules.tsx");
 const seats = read("src/components/InstructorSeats.tsx");
 const tools = read("src/server/routes/scheduleToolsRoutes.ts");
 
-check(/<SeatQuickPick value=\{Number\(form\.AdInstructorId\) \|\| 0\} vacantId=\{seatVacantId\} trainees=\{seatTrainees\}/.test(schedules), "Q1 الشريحتان تحت المنتقي في خطوة الأستاذ");
-check(/onPick=\{\(id\) => \{[\s\S]{0,500}setForm\(\(p\) => \(\{ \.\.\.p, AdInstructorId: id \}\)\)/.test(schedules) && !/fetch|setForm|save/.test(seats.replace(/data-guide-ignore="[^"]*"/g, "")), "Q2 الاختيار يضع الأستاذ في النموذج وحده (الأداة بلا شبكة ولا حفظ)");
-check(/useTraineePeople\(/.test(schedules) && /people: ids\.map/.test(read("src/server/routes/offeringRoutes.ts")) && /trainees\.length \? <button/.test(seats), "Q3 عضو التدريب من متدرّبي النطاق نفسه (/api/ta-trainees بأسمائهم، فقائمةُ الصفحة لا تضمّ المدرّبين) ويغيب بلا متدرّبين");
+check(!/SeatQuickPick/.test(schedules) && !/SeatQuickPick/.test(seats), "Q1 لا شريحتا «شاغر» و«عضو تدريب» تحت منتقي الأستاذ (مكانُهما خطأ؛ صار التبديل السريع بجانب الوقت)");
+check(/<AppointmentQuickSwap sources=\{quickSwapList\}/.test(schedules), "Q2 أيقونةُ التبديل السريع بجانب خطوة الوقت");
+check(!/useTraineePeople|ta-trainee-names/.test(schedules + read("src/server/routes/offeringRoutes.ts")) && /traineeIds: formTrainees/.test(schedules), "Q3 المتدرّبون بمعرّفاتهم من /api/ta-trainees وحدها (لا أسماء)");
 check(/hidePlaceholder\n/.test(schedules) && /hidePlaceholder \? null/.test(read("src/components/InstructorPicker.tsx")), "A4 منتقي «أسند إلى…» لا يعرض «شاغر» (لا إسناد شاغرٍ إلى شاغر)");
 check(/studioPlaceholderIds\.find\(id => dept\.has\(id\)\)/.test(schedules), "Q4 شاغر القسم يُفضَّل (placeholder السجل نفسه)");
 check(/assignVacantTo = async[\s\S]{0,500}placeholderAction\([\s\S]{0,300}"assign"/.test(schedules), "A1 الإسناد عبر placeholderAction «assign» القائم");

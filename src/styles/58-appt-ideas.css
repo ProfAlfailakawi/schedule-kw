@@ -125,15 +125,6 @@
 @media (prefers-reduced-motion:reduce){.pulse-chevron{transition:none}.pulse-body{animation:none}}
 
 /* ── الشاغر وعضو التدريب داخل الموعد: نفس لغة شارات المقترح الدراسي ── */
-.seat-quick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
-.seat-trainees{display:flex;flex-wrap:wrap;gap:6px;flex-basis:100%}
-.seat-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink-2);font-size:var(--t-xs);font-weight:800;cursor:pointer}
-.seat-chip svg{width:15px;height:15px;flex:none}
-.seat-chip small{color:var(--muted);font-size:10.5px;font-weight:700}
-.seat-chip.is-vacant svg{color:var(--brass)}
-.seat-chip.is-trainee svg,.seat-chip.is-person svg{color:var(--success)}
-.seat-chip:hover{border-color:color-mix(in srgb,var(--brass) 50%,var(--line))}
-.seat-chip.is-on{border-color:var(--brass);background:var(--brass-soft);color:var(--ink)}
 .seat-assign{display:grid;gap:8px;margin-top:8px;padding:10px;border:1px solid color-mix(in srgb,var(--brass) 30%,var(--line));border-radius:16px;background:linear-gradient(180deg,color-mix(in srgb,var(--brass-soft) 55%,var(--surface)),var(--surface));box-shadow:var(--shadow-xs)}
 .seat-assign-head{display:flex;align-items:center;gap:8px;margin:0}
 .seat-assign-head svg{width:18px;height:18px;color:var(--brass)}
