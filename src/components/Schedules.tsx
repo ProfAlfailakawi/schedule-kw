@@ -9941,13 +9941,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...body, rev: (before as any).rev, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }),
       }), "التبديل", after);
-      offerUndo(`نقل شعبة ${before.SCode || ""} إلى ${instructorById.get(teacherId)?.AdInstructorName || "الأستاذ"}`, [restoreStep(before)]);
+      /* «ثبّت الطلب» قد يُعدّل صفاً آخر قائماً بدل هذه الشعبة: التراجع والرسالة من الصفّ الذي تغيّر فعلاً. */
+      const changed: FSchedule = saved?.movedFromRow || before;
+      offerUndo(`نقل شعبة ${changed.SCode || ""} إلى ${instructorById.get(teacherId)?.AdInstructorName || "الأستاذ"}`, [restoreStep(changed)]);
       forgetSuggestions();
       await loadRows({ silent: true });
-      markChanged(Number(saved?.id || before.id));
+      markChanged(Number(saved?.id || changed.id));
       /* «بوقتي» استهلكت موعداً يُبنى الآن: تبقى مسودتُه فتُنشئ نسخةً مكررة. */
       if (mode === "mine" && editor === "create") { clearDraft(); back(); }
-      requestAnimationFrame(() => setMessage(`انتقلت الشعبة ${before.SCode || ""} إلى ${instructorById.get(teacherId)?.AdInstructorName || "الأستاذ"}.`));
+      requestAnimationFrame(() => setMessage(`انتقلت الشعبة ${changed.SCode || ""} إلى ${instructorById.get(teacherId)?.AdInstructorName || "الأستاذ"}.`));
     } catch (e: any) {
       setError(friendlyError(e));
     } finally {

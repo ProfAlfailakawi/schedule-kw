@@ -70,7 +70,9 @@ export function quickSwapSources(opts: {
     const owner = Number(row.AdInstructorId);
     const kind = placeholderIds.has(owner) ? "vacant" : traineeIds.has(owner) ? "trainee" : null;
     if (!kind) continue;
-    const sameTime = !mine || (String(row.fstarttime) === mine.start && String(row.fendtime) === mine.end && QUICK_SWAP_DAY_KEYS.every(key => Boolean((row as any)[key]) === mine.days.includes(key)));
+    const sameTime = !mine || (String(row.fstarttime) === mine.start && String(row.fendtime) === mine.end && QUICK_SWAP_DAY_KEYS.every(key => Boolean((row as any)[key]) === mine.days.includes(key))
+      /* القاعةُ المختارة جزءٌ من «بوقتي»: قاعةٌ مختلفة تُبقي الخيارين غير متكافئين. */
+      && (!mine.room || (String(row.AdRoomCode || "") === mine.room.AdRoomCode && String(row.AdRoomHall || "") === mine.room.AdRoomHall)));
     out.push({
       rowId: Number(row.id), kind, row, sameTime,
       freeAtIts: !clashes(quickSwapAfter(row, teacherId, "its", mine)),
