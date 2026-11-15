@@ -163,10 +163,13 @@
 .appt-was>svg{width:13px;height:13px;color:var(--brass);flex:none}
 .appt-was-label{color:var(--muted);flex:none}
 .appt-was>bdi{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (max-width:640px){
-  .schedule-editor.is-studio .appt-step-head{flex-wrap:wrap;row-gap:7px}
-  .schedule-editor.is-studio .appt-step-head>.appt-was{order:3;flex:0 0 calc(100% - 38px);width:calc(100% - 38px);max-width:calc(100% - 38px);margin:0 0 0 38px;box-sizing:border-box}
-  .schedule-editor.is-studio .appt-step-head>.appt-q{flex:1 1 calc(100% - 80px)}
+@container appointment-step (max-width:560px){
+  .schedule-editor.is-studio .appt-step-head{display:grid;grid-template-columns:26px minmax(0,1fr) 36px;align-items:start;gap:6px 8px}
+  .schedule-editor.is-studio .appt-step-head>.appt-num{grid-column:1;grid-row:1}
+  .schedule-editor.is-studio .appt-step-head>.appt-q{grid-column:2;grid-row:1;min-width:0}
+  .schedule-editor.is-studio .appt-step-head>.qs-wrap{grid-column:3;grid-row:1;justify-self:end}
+  .schedule-editor.is-studio .appt-step-head>.appt-was{grid-column:2 / 4;grid-row:2;justify-self:start;margin:0;max-width:100%;width:auto;min-width:0}
+  .schedule-editor.is-studio .appt-step-head>.appt-was>bdi{min-width:0;max-width:100%}
 }
 
 /* الخطوة المقفلة بلا ترويسةٍ وسيطة: أبناؤها المباشرون يصفّهم flex بالمظهر نفسه */
