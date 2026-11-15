@@ -63,8 +63,8 @@
    تسبق كتلة الكتاب أدناه عمداً: في الكتاب النافذةُ على الصفحة اليسرى (لا ودجت فيها) وقاعدتُه أولى.
    الاستعلامات الثلاثة هي نفسها في 01-foundation.css (يحرس تطابقَها tests/duo-widget-css-audit.ts).
    ========================================================================== */
-@media screen and (orientation:portrait) and (max-width:700px) and (min-height:360px),
-       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:800px) and (max-aspect-ratio:17/10),
+@media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
+       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
   /* النوافذ المركزية: الخلفية بعرض الشاشة (تعتّم وتحجب اللمس)، والنافذة وحدها يسار الودجت. */
   :is([class*="backdrop"],[class*="scrim"]):has(>[role="dialog"],>[aria-modal="true"]){
@@ -87,14 +87,14 @@
   /* رؤوسٌ لاصقة تقف قرب أعلى الشاشة عند التمرير (top ≤ 84px): تبدأ يسار الودجت. */
   .insight-page-head,.intelligence-page .insight-page-nav,.intelligence-scenes,.location-admin-tabs{margin-right:var(--duo-widget-inset)}
 }
-@media screen and (orientation:portrait) and (max-width:700px) and (min-height:360px),
-       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:800px) and (max-aspect-ratio:17/10),
+@media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
+       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
   /* الدخول طولياً: أول سطرٍ في بطاقة الدخول يبدأ يسار الودجت؛ والبطاقة نفسها تمتدّ تحتها. */
   .apex-login-access .apex-access-head{margin-right:var(--duo-widget-inset)}
 }
-@media screen and (orientation:portrait) and (max-width:700px) and (min-height:360px),
-       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:800px) and (max-aspect-ratio:17/10),
+@media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
+       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
   /* الدخول: الكلمة التعريفية والعنوان يبدآن يسار الودجت. */
   .apex-login-kicker,
@@ -296,8 +296,8 @@
    01-foundation.css (يحرس تطابقَها tests/duo-widget-css-audit.ts). ركن الودجت سجلُّه في
    docs/IPHONE-DUO-FINAL-ACCEPTANCE.md.
    ========================================================================== */
-@media screen and (orientation:portrait) and (max-width:700px) and (min-height:360px),
-       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:800px) and (max-aspect-ratio:17/10),
+@media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
+       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
   /* الشريط العلوي: أول زرٍّ (القائمة) يبدأ يسار الودجت لا تحتها، والشريط نفسه يمتدّ تحتها. */
   .mobile-topbar{padding-right:calc(var(--s3) + var(--duo-widget-inset))}
@@ -305,19 +305,15 @@
   html .smart-guide-fab,html .smart-guide-fab:not(.icon-only),html .smart-guide-fab.icon-only{right:calc(61px + var(--duo-widget-inset))}
   /* الدرج الجانبي المفتوح، والفهرس (صفحة الكتاب اليمنى): يبتعد عمودُه عن الحافة اليمنى؛ الخلفية تمتدّ تحته. */
   .sidebar{padding-right:calc(env(safe-area-inset-right) + var(--duo-widget-inset))}
-  /* صفحة العمل: عمودٌ عائم يحجز الركن ما دام الركن في الشاشة، وما تحته يعود لعرضه كاملاً. يضيّق أسطرَ النص
-     وصناديقَ الشبكة وflex التي تبدأ في الركن بمحاذاته، وتبقى خلفيات البطاقات ممتدّةً تحت الودجت. */
-  .content-frame::before{
-    content:"";float:right;pointer-events:none;
-    width:max(0px,calc(var(--duo-widget-inset) - var(--gutter)));
-    height:max(0px,calc(var(--duo-widget-h) + var(--duo-widget-gap) - var(--topbar-h) - var(--s6)));
-  }
+  /* صفحة العمل: أول كتلةٍ في الصفحة (رأس الصفحة/بطاقة العنوان) وحدها تبتعد عن الودجت، وما بعدها يعود لعرضه كاملاً.
+     (كان عمودٌ عائم يضيّق العمود كله لأن الحاوية flex، وهو ما لا نريده.) */
+  .content-frame>:first-child>:first-child{margin-right:max(0px,calc(var(--duo-widget-inset) - var(--gutter)))}
   /* الرسائل العابرة: العمود يبدأ يسار الودجت. */
   .toast-layer{padding-right:calc(var(--s3) + var(--duo-widget-inset))}
 }
-/* الكتاب: صفحة العمل يسار الفهرس، والودجت فوق الفهرس وحده، فلا عمودَ عائماً في صفحة العمل. */
+/* الكتاب: صفحة العمل يسار الفهرس، والودجت فوق الفهرس وحده، فلا حجز في صفحة العمل. */
 @media screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
-  .content-frame::before{content:none}
+  .content-frame>:first-child>:first-child{margin-right:0}
   /* بطاقة الدخول على الصفحة اليسرى في الكتاب: لا ودجت فوقها. */
   .apex-login-access .apex-access-head{margin-right:0}
 }
