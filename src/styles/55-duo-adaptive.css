@@ -73,6 +73,8 @@
   .schedule-context,.intel-drawer,.catalog-form-drawer,.trail-sheet,.seat-drawer,.query-detail-panel,.appt-drawer,.wish-sheet{
     max-inline-size:calc(100vw - var(--duo-widget-inset) - var(--s3));
   }
+  /* النص داخل بطاقة تفاصيل الموعد قد يلامس الركن حتى عندما يكون صندوق الدرج نفسه قصيراً. */
+  .schedule-context{padding-right:calc(var(--s3) + var(--duo-widget-inset));box-sizing:border-box}
   /* الدرج المثبَّت عند الحافة اليمنى (inline-start في RTL): يبدأ يسار الودجت. */
   .sp-more-drawer{inset-inline-start:var(--duo-widget-inset);max-inline-size:calc(100vw - var(--duo-widget-inset))}
   /* لوحة الإشعارات وتنبيهها عند الحافة اليسرى: عرضها لا يبلغ الودجت. */
@@ -83,6 +85,10 @@
   .guide-point-bar{right:var(--duo-widget-inset)}
   /* رؤوسٌ لاصقة تقف قرب أعلى الشاشة عند التمرير (top ≤ 84px): تبدأ يسار الودجت. */
   .insight-page-head,.intelligence-page .insight-page-nav,.intelligence-scenes,.location-admin-tabs{margin-right:var(--duo-widget-inset)}
+  /* عنوان نطاق الذكاء داخل بطاقة بعرض كامل يحتاج مسافة مستقلة عن هامش البطاقة. */
+  .intel-context.visual-minimal .intel-context-copy{margin-right:8px}
+  /* نص الحالة داخل الشريط جزء من المحتوى، ويُبقى بعيداً عن ركن النظام. */
+  .hg-strip{padding-right:calc(8px + var(--duo-widget-inset))}
 }
 @media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
        screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
