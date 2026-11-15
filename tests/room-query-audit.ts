@@ -1,0 +1,40 @@
+import { parseRoomQuery, roomMatchesQuery } from "../src/utils/roomQuery";
+
+let failed = 0;
+const check = (ok: boolean, label: string) => { if (!ok) failed++; console.log(ok ? `\x1b[32m✓ ${label}\x1b[0m` : `\x1b[31m✗ ${label}\x1b[0m`); };
+const q = parseRoomQuery;
+
+check(q("40 مقعد").minCapacity === 40, "40 مقعد");
+check(q("سعة 40").minCapacity === 40, "سعة 40");
+check(q("40+").minCapacity === 40, "40+");
+check(q("٤٠ مقعد").minCapacity === 40, "Arabic-Indic digits");
+check(q("مختبر").lab === true && q("معمل").lab === true, "lab words");
+const a = q("مختبر الاثنين صباحاً");
+check(a.lab === true && a.day === "fmonday" && a.from === "08:00" && a.to === "12:00" && a.rest === "", "مختبر الاثنين صباحاً");
+check(q("الثلوث").day === "ftuesday" && q("الأحد").day === "fsunday" && q("الأربعاء").day === "fwednesday" && q("الخميس").day === "fthursday", "day names incl. dialect");
+check(q("الساعة 2").from === "14:00", "الساعة 2 = 14:00");
+check(q("10").from === "10:00" && q("10:30").from === "10:30", "10 and 10:30");
+check(q("الساعة ٢ ظهراً").from === "14:00", "2 ظهراً = 14:00");
+check(q("8 صباحا").from === "08:00" && q("7 صباحا").from === "07:00", "period forces am");
+check(q("الاثنين عصراً").from === "14:00" && q("الاثنين عصراً").to === "18:00", "عصراً window");
+check(q("مساءً").from === "16:00" && q("ظهراً").to === "16:00", "evening and noon windows");
+check(q("من 10 الى 12").from === "10:00" && q("من 10 الى 12").to === "12:00", "range");
+check(q("الاثنيـــن   مختبر").day === "fmonday", "tatweel and extra spaces");
+check(q("901A01/104").rest === "901A01/104" && q("901A01/104").from === undefined, "room code stays in rest");
+check(q("قاعة 104 مقعد 30".replace("مقعد 30", "30 مقعد")).rest === "قاعة 104", "rest keeps room words");
+
+const room = { capacity: 50, roomType: "مختبر حاسب", canonicalCode: "901A01/104" };
+const row = { fmonday: true, fstarttime: "09:00", fendtime: "10:30" };
+check(roomMatchesQuery(room, [row], q("40 مقعد")), "capacity ok");
+check(!roomMatchesQuery(room, [row], q("60 مقعد")), "capacity too small");
+check(!roomMatchesQuery({ capacity: 50, roomType: "classroom" }, [], q("مختبر")), "lab required");
+check(!roomMatchesQuery(room, [row], q("الاثنين 10")), "10:00 overlaps 09:00-10:30");
+check(roomMatchesQuery(room, [row], q("الاثنين 10:30")), "10:30 free");
+check(roomMatchesQuery(room, [row], q("الثلاثاء 10")), "other day free");
+check(!roomMatchesQuery(room, [row], q("الاثنين 8:30")), "08:30 + 50min overlaps 09:00");
+check(roomMatchesQuery(room, [row], q("الاثنين 8")), "08:00-08:50 free");
+check(!roomMatchesQuery(room, [row], q("الاثنين صباحاً")), "whole morning has a row");
+check(roomMatchesQuery(room, [row], q("104")), "rest matches code");
+check(!roomMatchesQuery(room, [row], q("205")), "rest mismatch");
+console.log(failed ? `\n${failed} failed` : "\nall passed");
+process.exit(failed ? 1 : 0);

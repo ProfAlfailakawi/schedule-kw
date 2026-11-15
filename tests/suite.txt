@@ -362,3 +362,5 @@ test:why-not
 test:week-replay
 test:teacher-registry
 test:account-deletion
+test:room-now
+test:room-query
