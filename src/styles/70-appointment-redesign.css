@@ -162,7 +162,10 @@
 .appt-was{margin-inline-start:auto;display:inline-flex;align-items:center;gap:6px;max-width:55%;min-height:22px;padding:0 9px;border-radius:999px;background:var(--brass-soft);border:1px solid color-mix(in srgb,var(--brass) 45%,var(--line));color:var(--ink-2);font-size:12px;font-weight:600}
 .appt-was::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brass);flex:none}
 .appt-was>bdi{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (max-width:640px){.appt-was{max-width:48%}}
+@media (max-width:640px){
+  .schedule-editor.is-studio .appt-step-head>.appt-was{order:3;flex:0 0 100%;width:100%;max-width:100%;min-width:0;margin:2px 0 0 38px;box-sizing:border-box}
+  .schedule-editor.is-studio .appt-step-head>.appt-was>bdi{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
 
 /* الخطوة المقفلة بلا ترويسةٍ وسيطة: أبناؤها المباشرون يصفّهم flex بالمظهر نفسه */
 .schedule-editor.is-studio .appt-step.is-locked{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:flex-start;gap:12px;text-align:start}
