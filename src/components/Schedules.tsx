@@ -1,5 +1,6 @@
 import PatternLibraryButton from "./PatternLibraryButton";
 import WeekHeat from "./WeekHeat";
+import { RoomsNowLine, RoomsRoomBoundary, RoomsTrackGrid, buildRoomsSlotGeo, objectId, type RoomsNowSource, type RoomsSlotHandlers } from "./RoomsBoard";
 import WipeScheduleButton from "./WipeScheduleButton";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
 import { arabicMatchKey } from "../utils/arabicText";
@@ -86,8 +87,14 @@ import RoomSwapCard from "./RoomSwapCard";
 import { roomSwapBody, useRoomSwaps } from "./useRoomSwaps";
 import type { RoomSwap } from "../utils/appointmentRoomSwap";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
+import ConflictTimeline, { DurationBar } from "./ConflictTimeline";
+import { ChainSolveButton } from "./ChainSolveSheet";
+import { chainOffered } from "../utils/chainSolve";
+import { lectureSegments } from "../utils/lectureSegments";
+import { travelSavedCard } from "../utils/saveTravel";
 import ColleagueHoldNotice, { ColleaguePresenceChip } from "./ColleagueHoldNotice";
 import { holdDraftFromForm, useScheduleHolds } from "../utils/scheduleHolds";
+import { usePrintMounted } from "../utils/usePrintMounted";
 import { createEntryMeter, sendEntryMeasure, type EntryMeter, type HelperName } from "../utils/appointmentMeasure";
 import { useCourseReach } from "./CourseReach";
 import { reachLocked, reachNote, shortCourseCode } from "../utils/courseReach";
@@ -226,6 +233,7 @@ import { sectionRequestNotice, takeSectionRequestHandoff, type SectionRequestHan
 import { ACTUAL_DEMAND_HANDOFF_EVENT, actualDemandNotice, FOCUS_COURSE_EVENT, graduateImpactNote, takeActualDemandHandoff, takeFocusedCourse } from "../utils/actualDemandHandoff";
 import { freshSectionOf, parseHoursIssue } from "../utils/hoursIssue";
 import ChainSolveSheet from "./ChainSolveSheet";
+import WeekLayerTools from "./WeekLayerTools";
 import StudentPulse, { FitImpact, saveImpactOf, type BestTime, type SaveImpact } from "./StudentPulse";
 import type { StudentFit } from "../utils/studentFit";
 import { createPresenceClient, createPresencePainter, presenceHue, type PresencePeer } from "./schedulePresence";
@@ -2131,6 +2139,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
    * to erase them.
    */
   const presence = useMemo(() => createPresenceClient(Number(user?.SystemUserId || 0)), [user?.SystemUserId]);
+  /* ورقةُ طباعة الجدول (ألفُ صفّ) لا تُركَّب إلا عند الطباعة. */
+  const printSheetMounted = usePrintMounted();
   const presencePaint = useMemo(() => createPresencePainter(), []);
   const [peers, setPeers] = useState<PresencePeer[]>([]);
   /** Bumped whenever the live channel reports a write, so readings that depend
@@ -4256,6 +4266,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       axisStart: axisStart != null ? displayClockCompact(timeFromMins(axisStart)) : "",
       axisEnd: axisEnd != null ? displayClockCompact(timeFromMins(axisEnd)) : "",
       overlap,
+      overlapMinutes: overlapStart != null && overlapEnd != null && overlapEnd > overlapStart ? overlapEnd - overlapStart : 0,
       lines,
     };
     });
@@ -5696,7 +5707,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       }
       /* A hundred appointments are entered in one sitting: the editor stays
          open on the same run, with the next section number already chosen. */
-      if (keepCreating) { continueCreating(savedRow || form); return; }
+      if (keepCreating) { travelSavedCard(`${courseName || "الموعد"}${form.SCode ? ` · ${form.SCode}` : ""}`); continueCreating(savedRow || form); return; }
       back();
     } catch (e: any) {
       const guideOp = guideOperationRef.current;
@@ -8684,6 +8695,36 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       : sampled || "";
     return `${active ? `physics-target physics-${quality}` : ""} ${sampled ? `gravity-slot gravity-${sampled}` : ""} ${shade ? `field-tier tier-${shade}` : ""} ${rank ? `suggested-slot suggested-${rank}` : ""}`.trim();
   };
+  /* لوحة القاعات (RoomsBoard.tsx): هندسةُ المربّعات تُحسب مرةً لكل نافذةٍ زمنية، ومعالجاتُها في مرجعٍ ثابتٍ يُحدَّث كل تصيير
+     فلا تتقادم داخل المربّعات المحفوظة، وإسقاطُ البطاقة كذلك. */
+  const roomsSlotGeo = useMemo(() => {
+    const timelineWidth = weekStripConfig.timelineWidth;
+    const pctAt = (minutesAt: number) => (weekStripOffset(minutesAt) / timelineWidth) * 100;
+    const spanAt = (from: number, to: number) => Math.max(0.18, ((weekStripOffset(to) - weekStripOffset(from)) / timelineWidth) * 100);
+    return buildRoomsSlotGeo(timeSlots, mins, pctAt, spanAt, SCHEDULE_SLOT_MINUTES, SCHEDULE_DAY_END_TIME);
+  }, [timeSlots, weekStripConfig, gridWindow]);
+  const roomsSlotHandlers = useRef<RoomsSlotHandlers>({ down: () => undefined, enter: () => undefined });
+  roomsSlotHandlers.current = {
+    down: (e, at) => {
+      if (physicsActive || e.target !== e.currentTarget || e.button !== 0) return;
+      paintRef.current = { day: at.day as DayKey, anchor: mins(at.slot), roomCode: at.roomCode, roomHall: at.roomHall, trackKey: at.trackKey };
+      setPaint({ day: at.day as DayKey, from: at.slot, to: timeFromMins(mins(at.slot) + SCHEDULE_SLOT_MINUTES), roomCode: at.roomCode, roomHall: at.roomHall, trackKey: at.trackKey });
+    },
+    enter: at => {
+      if (physicsActive) return;
+      const stroke = paintRef.current;
+      if (!stroke || stroke.day !== at.day || stroke.trackKey !== at.trackKey) return;
+      const here = mins(at.slot);
+      setPaint({
+        day: at.day as DayKey,
+        from: timeFromMins(Math.min(stroke.anchor, here)),
+        to: timeFromMins(Math.max(stroke.anchor, here) + SCHEDULE_SLOT_MINUTES),
+        roomCode: at.roomCode, roomHall: at.roomHall, trackKey: at.trackKey,
+      });
+    },
+  };
+  const roomsDropRef = useRef<(building: string, hall: string, day: DayKey) => (e: React.DragEvent<HTMLDivElement>) => Promise<void>>(() => async () => undefined);
+  const roomsNowRef = useRef<RoomsNowSource>({ minutes: 0, start: 0, end: 0, pct: () => 0, clock: () => "" });
   /**
    * The live radar: collisions and regulation notes, read on every change.
    *
@@ -9913,6 +9954,16 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     time: String(studioOriginal.fstarttime || "") !== String(form.fstarttime || "") || String(studioOriginal.fendtime || "") !== String(form.fendtime || ""),
     room: String(studioOriginal.AdRoomCode || "") !== String(form.AdRoomCode || "") || String(studioOriginal.AdRoomHall || "") !== String(form.AdRoomHall || ""),
   } : null;
+  /* «كان: …» من الصف المحفوظ — نقطة صغيرة بجانب عنوان الخطوة (الأيام · الوقت · القاعة) وعلى ملخّص المقرر. */
+  const studioWas = studioOriginal ? {
+    days: days.filter(day => Boolean((studioOriginal as any)[day.key])).map(day => day.label).join(" · ") || "بلا أيام",
+    time: studioOriginal.fstarttime && studioOriginal.fendtime ? formatScheduleTimeRange(studioOriginal.fstarttime, studioOriginal.fendtime) : "بلا وقت",
+    room: studioOriginal.AdRoomCode ? `${studioOriginal.AdRoomCode}${studioOriginal.AdRoomHall ? `/${studioOriginal.AdRoomHall}` : ""}` : "بلا قاعة",
+  } : null;
+  const studioTimeWas = studioChanged && (studioChanged.days || studioChanged.time) && studioWas
+    ? `كان: ${[studioChanged.days ? studioWas.days : "", studioChanged.time ? studioWas.time : ""].filter(Boolean).join(" · ")}` : "";
+  const studioRoomWas = studioChanged?.room && studioWas ? `كان: ${studioWas.room}` : "";
+  const studioWasMark = (was: string, key: string) => was ? <span className="appt-was is-changed" data-changed={key} role="img" aria-label={`تغيّر — ${was}`} title={was}><bdi>{was}</bdi></span> : null;
   /* ── الترتيب الإلزامي (المالك 2026-10-30): النطاق ← المقرر ← الأستاذ ← الوقت ← المكان ── */
   const studioTimeDone = Boolean(selectedFormDays.length && form.fstarttime && form.fendtime);
   const studioCourseLocked = studioScopeMissing;
@@ -9921,13 +9972,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioPlaceLocked = studioTimeLocked || !studioTimeDone;
   const studioTimeSeed = [arabicDays(form), form.fstarttime && form.fendtime ? formatScheduleTimeRange(form.fstarttime, form.fendtime) : ""].filter(Boolean).join(" · ");
   const studioRoomSeed = form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : "";
+  /* انطواء حقيقي: الملخّص والجسم كلاهما مُركَّب دائماً داخل شبكتَي صفٍّ (0fr↔1fr)؛ المطويّ منهما inert فلا يُركَّز ولا يُقرأ. */
+  const studioFold = (key: string, expanded: boolean, done: boolean, body: React.ReactNode, summary: React.ReactNode) => (
+    <>
+      <div className={`appt-fold-sum${!expanded && done ? " is-open" : ""}`} data-fold-sum={key} inert={expanded || !done} aria-hidden={expanded || !done}>{summary}</div>
+      <div className={`appt-fold-body${expanded ? " is-open" : ""}`} data-fold={key} data-appt-step={key} inert={!expanded} aria-hidden={!expanded}>{body}</div>
+    </>
+  );
   const studioLockedStep = (key: string, num: React.ReactNode, title: string, waits: string, seed = "", ref?: React.Ref<HTMLElement>) => (
     <section className="schedule-form-section appt-step is-locked" aria-label={`${title} — ${waits}`} aria-disabled="true" data-appt-step={key} ref={ref as any}>
-      <header className="appt-step-head">
-        <span className="appt-num">{num}</span>
-        <div className="appt-q"><strong>{title}</strong><small>{seed ? <><bdi>{seed}</bdi> · </> : null}{waits}</small></div>
-        <Lock aria-hidden="true" className="appt-lock" />
-      </header>
+      {/* بلا ترويسةٍ وسيطة (أقلّ عناصر): الرقم والسؤال والقفل أبناءٌ مباشرون ويصفّهم flex في 70-appointment-redesign.css */}
+      <span className="appt-num">{num}</span>
+      <div className="appt-q"><strong>{title}</strong><small>{seed ? <><bdi>{seed}</bdi> · </> : null}{waits}</small></div>
+      <Lock aria-hidden="true" className="appt-lock" />
     </section>
   );
   /* حين يُجاب سؤالٌ في «موعد جديد» ينطوي، ويُسلَّم المؤشر للسؤال التالي — بلا قفزٍ عند الفتح. */
@@ -9954,12 +10011,30 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studioDoneKey, studioDoneNow.scope, studioDoneNow.course, studioDoneNow.teacher, studioDoneNow.time]);
+  /* التركيز يتبع الانطواء: «تغيير» يفتح الجسم ويُسلَّم التركيز لحقله، و«تم» يطويه ويعود التركيز إلى «تغيير» في ملخّصه (المطويّ inert فلا يبقى فيه). */
+  const foldFocusPrev = useRef({ course: studioCourseOpen, teacher: studioTeacherOpen });
+  useEffect(() => {
+    const prev = foldFocusPrev.current;
+    foldFocusPrev.current = { course: studioCourseOpen, teacher: studioTeacherOpen };
+    const move = (key: "course" | "teacher", opened: boolean) => window.requestAnimationFrame(() => {
+      const fold = document.querySelector<HTMLElement>(`.schedule-editor.is-studio .appt-fold-body[data-fold="${key}"]`);
+      const target = opened
+        ? fold?.querySelector<HTMLElement>(key === "course" ? 'button[aria-label="المقرر الدراسي"]' : ".instructor-trigger")
+        : document.querySelector<HTMLElement>(`.schedule-editor.is-studio .appt-fold-sum[data-fold-sum="${key}"] .appt-link`);
+      target?.focus({ preventScroll: true });
+    });
+    if (prev.course !== studioCourseOpen) move("course", studioCourseOpen);
+    if (prev.teacher !== studioTeacherOpen) move("teacher", studioTeacherOpen);
+  }, [studioCourseOpen, studioTeacherOpen]);
   useEffect(() => { studioMeter.current?.blocked(editorVerdict.blockers.length > 0); }, [editorVerdict.blockers.length > 0]);
+  const [studioHelpersOpen, setStudioHelpersOpen] = useState(false);
+  /* خيط التقدّم: خمس خطوات (النطاق · المقرر · الأستاذ · الوقت · المكان) — يملأ بقدر ما اكتمل منها. */
+  const studioProgress = [!studioScopeMissing, studioCourseDone, studioTeacherDone, studioTimeDone, studioTimeDone && !studioMissing.includes("القاعة")].filter(Boolean).length / 5;
   const studioChip = (done: boolean, changed?: boolean) => `appt-chip${done ? "" : " is-missing"}${changed ? " is-changed" : ""}`;
   const studioInitial = String(selectedInstructor?.AdInstructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
   const studioScopeText = [formScopeLabel, studioTermName].filter(Boolean).join(" · ") || "اختر الكلية والقسم والفصل";
   const editorView = (
-      <div className={`content-stack editor-page schedule-editor is-studio${studioChecksOpen ? " is-checks-open" : ""}`} data-tone={studioTone}>
+      <div className={`content-stack editor-page schedule-editor is-studio${studioChecksOpen ? " is-checks-open" : ""}`} data-tone={studioTone} data-ctype={String(formCourse?.CourseTeachingMode || "")} style={{ ["--appt-p" as any]: studioProgress }}>
         {/* The way out, at the top where the eye already is. */}
         <button
           type="button"
@@ -10065,8 +10140,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   </div>
                 </section>
                 ) : null}
-                {studioCourseLocked ? studioLockedStep("course", 1, "ماذا؟ المقرر", "يُفتح بعد اختيار الكلية والقسم والفصل") : studioCourseExpanded ? (
-                <section className="schedule-form-section appt-step" aria-label="المقرر" data-appt-step="course">
+                {studioCourseLocked ? studioLockedStep("course", 1, "ماذا؟ المقرر", "يُفتح بعد اختيار الكلية والقسم والفصل") : studioFold("course", studioCourseExpanded, studioCourseDone, (
+                <section className="schedule-form-section appt-step" aria-label="المقرر">
                   <header className="appt-step-head">
                     <span className="appt-num">1</span>
                     <div className="appt-q"><strong>ماذا؟ المقرر</strong><small>اكتب حرفين من اسمه أو رمزه</small></div>
@@ -10144,8 +10219,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </Field>
                   </div>
                 </section>
-                ) : (
-                <div className="appt-sumrow" aria-label="المقرر" data-appt-step="course">
+                ), (
+                <div className={`appt-sumrow${studioChanged?.course ? " is-changed" : ""}`} aria-label={studioChanged?.course ? "المقرر — تغيّر" : "المقرر"} title={studioChanged?.course && studioOriginal ? `كان: شعبة ${String(studioOriginal.SCode || "")}` : undefined}>
                   <span className="appt-num is-done"><Check aria-hidden="true" /></span>
                   <span className="appt-kv"><span className="k">المقرر</span><span className="v">{courseName}<CourseTags courseId={form.AdCourseId} reach={formReachVerdict} /></span></span>
                   {formCourse?.CourseCode ? <span className="appt-tag is-muted" dir="ltr">{String(formCourse.CourseCode)}</span> : null}
@@ -10172,9 +10247,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       data-guide-ignore="يفتح حقول المقرر والرمز والشعبة لتغييرها؛ لا يحفظ شيئاً">تغيير</button>
                   </span>
                 </div>
-                )}
-                {studioTeacherLocked ? studioLockedStep("teacher", 2, "من؟ الأستاذ", "يُفتح بعد اختيار المقرر") : studioTeacherExpanded ? (
-                <section className="schedule-form-section appt-step" aria-label="الأستاذ" data-appt-step="teacher">
+                ))}
+                {studioTeacherLocked ? studioLockedStep("teacher", 2, "من؟ الأستاذ", "يُفتح بعد اختيار المقرر") : studioFold("teacher", studioTeacherExpanded, studioTeacherDone, (
+                <section className="schedule-form-section appt-step" aria-label="الأستاذ">
                   <header className="appt-step-head">
                     <span className="appt-num">2</span>
                     <div className="appt-q"><strong>من؟ الأستاذ</strong><small>أساتذة القسم والمنتدبون إليه</small></div>
@@ -10214,8 +10289,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       setForm((p) => ({ ...p, AdInstructorId: id })); setStudioTeacherOpen(false);
                     }} />
                 </section>
-                ) : (
-                <div className="appt-sumrow" aria-label="الأستاذ" data-appt-step="teacher">
+                ), (
+                <div className={`appt-sumrow${studioChanged?.teacher ? " is-changed" : ""}`} aria-label={studioChanged?.teacher ? "الأستاذ — تغيّر" : "الأستاذ"}>
                   <span className="appt-num is-done"><Check aria-hidden="true" /></span>
                   <span className="appt-avatar" aria-hidden="true">{studioInitial}</span>
                   <span className="appt-kv"><span className="k">الأستاذ</span><span className="v">{selectedInstructor?.AdInstructorName || ""}</span></span>
@@ -10227,7 +10302,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       data-guide-ignore="يفتح حقل الأستاذ لتغييره؛ لا يحفظ شيئاً">تغيير</button>
                   </span>
                 </div>
-                )}
+                ))}
                 {seatAssignRow ? (
                   <VacantAssign
                     picker={<InstructorPicker
@@ -10259,6 +10334,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <header className="appt-step-head">
                     <span className="appt-num">3</span>
                     <div className="appt-q"><strong>متى؟ الأيام والوقت</strong><small>اختر الأيام أو نمطاً من اللائحة، ثم البداية</small></div>
+                    {studioWasMark(studioTimeWas, "time")}
                   </header>
                 <Field label="الأيام" hint={formRegulationChips.length ? undefined : dayPatternNote}>
                   <div className={`checkbox-row day-pills${autofillFlash ? " is-autofilled" : ""}`}>
@@ -10375,7 +10451,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </Field>
                 <div className="field appt-duration">
                   <span className="appt-duration-label">المدة</span>
-                  <div className="appt-duration-value"><bdi dir="ltr">{studioDuration ? studioDuration : "—"}</bdi>{studioDuration ? <small>د</small> : null}
+                  <div className="appt-duration-value"><bdi dir="ltr">{studioDuration ? studioDuration : "—"}</bdi>{studioDuration ? <small>د</small> : null}<DurationBar segments={lectureSegments(studioDuration)} />
                   <SameSlotHint rows={rows} courseOf={(id: number) => courseById.get(id)} instructorName={(id: number) => instructorById.get(id)?.AdInstructorName || ""}
                     days={selectedFormDays.map(d => d.key as any)} start={String(form.fstarttime || "")} end={String(form.fendtime || "")}
                     excludeId={editId} {...conflictSkipIds(conflicts, isBlockingConflict)}
@@ -10393,9 +10469,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       <Timer aria-hidden="true" className="appt-inline-mark" />
                       <span className="appt-inline-text">ساعات الشعبة زائدة</span>
                       <bdi className="appt-hours-figure" dir="ltr">{editorOverHours[2]}<span>/</span>{editorOverHours[1]} <small>س</small></bdi>
-                    </> : <><X aria-hidden="true" className="appt-inline-mark" />
-                      <span className="appt-inline-text">{editorBlockerLine(editorVerdict.blockers[0].text)}</span></>}
-                    <div className="appt-inline-actions">
+                    </> : <ConflictTimeline card={editorConflictCards.find((item: any) => item.source === editorVerdict.blockers[0].conflict)} text={editorBlockerLine(editorVerdict.blockers[0].text)} />}
+                    <div className={`appt-inline-actions${!editorUnderHours && !editorOverHours && chainOffered(editorVerdict) && editorVerdict.blockers.length === 1 ? " is-pair" : ""}`}>
                     {editorVerdict.blockers.length > 1 ? <button type="button" className="appt-inline-more" onClick={() => setStudioChecksOpen(true)}
                       data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً"><bdi dir="ltr">+{editorVerdict.blockers.length - 1}</bdi></button> : null}
                     {editorFreshSection ? <button type="button" className="appt-inline-alt is-fix" onClick={useFreshSection}
@@ -10409,21 +10484,35 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       if (end) { setTimingOverride(false); setForm(previous => ({ ...previous, fendtime: end })); flashAutofill(); }
                     }} data-guide-ignore="يكمل نهاية الموعد وفق ساعات المقرر والأيام المختارة؛ لا يحفظ شيئاً"><Ruler aria-hidden="true" />أكمل النمط</button> : null}
                     <button type="button" className="appt-inline-alt" onClick={() => goToAlternatives()} disabled={altBusy}
-                      data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً"><WandSparkles aria-hidden="true" />{altBusy ? "…" : "بديل"}</button>
+                      data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً">{altBusy ? "…" : "بديل"}</button>
+                    {chainOffered(editorVerdict) ? <ChainSolveButton onOpen={() => setChainOpen(true)} data-guide-ignore="يفتح ورقة «حلّ بسلسلة» لمعاينة نقلات مقترحة؛ لا يكتب شيئاً قبل التطبيق" /> : null}
                     </div>
                   </div>:null}
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
                   {studioTimeDone ? <StudentPulse fit={studentFit} graduateImpact={graduateImpact}
                     best={bestTime && (bestTime.start !== String(form.fstarttime || "") || bestTime.days.join() !== formDays.join()) ? bestTime : null}
                     bestBusy={bestBusy} currentDays={formDays} onPickBest={best => void pickBestTime(best)} loading={checking} showEmpty /> : null}
-                  <div className="appt-helpers" role="group" aria-label="مساعدات الوقت">
-                    <span className="appt-helpers-label">مساعدات الوقت</span>
+                  <div className={`appt-helpers ${studioHelpersOpen ? "is-open" : "is-closed"}`} role="group" aria-label="مساعدات الوقت"
+                    onKeyDown={(event: React.KeyboardEvent<HTMLDivElement>) => {
+                      const box = event.currentTarget;
+                      if (event.key === "Escape" && studioHelpersOpen) { event.stopPropagation(); setStudioHelpersOpen(false); box.querySelector<HTMLElement>(".appt-helpers-menu")?.focus(); return; }
+                      if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key) || !studioHelpersOpen) return;
+                      const items = [...box.querySelectorAll<HTMLElement>("button:not([disabled])")].filter(item => item.offsetParent !== null);
+                      const at = items.indexOf(document.activeElement as HTMLElement); if (at < 0) return;
+                      event.preventDefault();
+                      items[(at + (event.key === "ArrowDown" || event.key === "ArrowLeft" ? 1 : -1) + items.length) % items.length]?.focus();
+                    }}>
+                    <button type="button" className="appt-helpers-menu" aria-haspopup="true" aria-expanded={studioHelpersOpen} onClick={() => setStudioHelpersOpen(open => !open)}
+                      data-guide-ignore="يفتح قائمة مساعدات الوقت (اقترح لي وقتاً وقاعة · لاصق بمحاضرتي) أو يطويها؛ لا يغيّر الموعد">
+                      <Sparkles aria-hidden="true" />مساعدات<ChevronDown aria-hidden="true" />
+                    </button>
                     <button
                       type="button"
                       className="slot-advisor-ask"
-                      onClick={askForSlots}
+                      onClick={(event) => { setStudioHelpersOpen(false); (askForSlots as any)(event); }}
                       disabled={slotBusy || !selectedFormDays.length}
                       title={selectedFormDays.length ? "اقترح أفضل ثلاث خانات" : "اختر الأيام أولاً"}
+                      data-guide-ignore="يطلب من محرك الاقتراح أفضل ثلاث خانات وقتٍ وقاعة ويعرضها دون أن يغيّر الموعد؛ لا يحفظ شيئاً"
                     >
                       <Sparkles aria-hidden="true" />
                       {slotBusy ? "أبحث…" : "اقترح لي وقتاً وقاعة"}
@@ -10532,6 +10621,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   <header className="appt-step-head">
                     <span className="appt-num">4</span>
                     <div className="appt-q"><strong>أين؟ المبنى والقاعة</strong><small>قاعات القسم، والمشتركة، والمستعارة المعتمدة</small></div>
+                    {studioWasMark(studioRoomWas, "room")}
                   </header>
                   <div className="form-grid appt-place">
                 <LocationPicker
@@ -10722,13 +10812,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 )}
               </div>
               <div className="save-preview appt-bar" role="group" aria-label="ملخّص الموعد">
-                <div className="appt-sum">
-                  <span className={studioChip(studioCourseDone, studioChanged?.course)} title={courseName ? `${courseName}${form.SCode ? ` · ${form.SCode}` : ""}` : undefined}><BookOpen aria-hidden="true" /><span>{courseName || "المقرر"}{form.SCode ? ` · ${form.SCode}` : ""}</span></span>
-                  <span className={studioChip(studioTeacherDone, studioChanged?.teacher)} title={selectedInstructor?.AdInstructorName || undefined}><UserRound aria-hidden="true" /><span>{selectedInstructor?.AdInstructorName || "الأستاذ"}</span>{selectedInstructor ? <PersonChips visiting={formVisiting(form.AdInstructorId)} trainee={formTrainees.has(Number(form.AdInstructorId))} /> : null}</span>
-                  <span className={studioChip(selectedFormDays.length > 0, studioChanged?.days)}><CalendarDays aria-hidden="true" /><span>{arabicDays(form) || "الأيام"}</span></span>
-                  <span className={studioChip(Boolean(form.fstarttime && form.fendtime), studioChanged?.time)}><Clock3 aria-hidden="true" /><bdi dir="ltr">{form.fstarttime && form.fendtime ? formatScheduleTimeRange(form.fstarttime, form.fendtime) : "الوقت"}</bdi></span>
-                  <span className={studioChip(!studioMissing.includes("القاعة"), studioChanged?.room)}><DoorOpen aria-hidden="true" /><bdi dir="ltr">{form.AdRoomCode && form.AdRoomHall ? `${form.AdRoomCode}/${form.AdRoomHall}` : form.locationStatus === "PENDING_ROOM" ? "بانتظار القاعة" : "القاعة"}</bdi></span>
-                </div>
                 <button type="button" ref={studioStatusRef} className={`appt-status is-${studioTone}`} aria-expanded={studioChecksOpen} aria-controls="appt-checks"
                   onClick={() => setStudioChecksOpen(open => !open)}
                   data-guide-ignore="يفتح لوحة فحص الموعد من اليسار بكل الموانع والتنبيهات وتفاصيلها؛ لا يحفظ شيئاً">
@@ -10774,6 +10857,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               window={miniWeekWindow}
               userId={Number(user?.SystemUserId || 0)}
               onPick={pickFromMiniWeek}
+              usual={courseNature && courseNature.confidence !== "low" && courseNature.suggestion && daysApprovedForHours(regulationHours(formCourse), courseNature.suggestion.days as RegDayKey[]) !== false ? { days: courseNature.suggestion.days, start: courseNature.suggestion.start } : null}
               dockable
               autoCollapse={studioChecksOpen || timeCounterOpen}
               room={studioRoom}
@@ -10931,6 +11015,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 scope: { collegeId: Number(form.AdCollegeId || 0), sectionId: Number(form.AdSectionId || 0), termId: Number(form.AdTermId || 0) },
                 frozen: termFrozen,
                 approvalLocked: Boolean(approvalLock),
+                heldRowIds: [...pendingWriteIds, ...peers.flatMap((peer: any) => [peer.holding?.rowId, peer.editing?.rowId]).filter((id: any) => Number(id) > 0)].map(Number),
                 holds: studioHolds.holds.map((hold: any) => ({ days: hold.days, start: hold.start, end: hold.end, roomCode: hold.roomCode, roomHall: hold.roomHall, instructorId: hold.instructorId, editId: hold.editId })),
                 placeholderInstructorIds: studioPlaceholderIds,
                 courseHours: repairCourseHours,
@@ -11753,6 +11838,32 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             focusMode={focusMode}
             onToggleFocus={phoneReadOnly ? undefined : () => { physics.cancel(); setFocusMode(!focusMode); setPresentationMode(false); }}
           />
+          {viewMode === "week" ? (
+            <WeekLayerTools
+              rows={rows}
+              selectedId={context?.selected?.id ? Number(context.selected.id) : null}
+              replayReady={Boolean(filterCollege && filterSection && filterTerm)}
+              replay={{
+                scope: { collegeId: Number(filterCollege), sectionId: Number(filterSection), termId: Number(filterTerm) },
+                current: rows.filter(row => Number(row.AdCollegeId) === Number(filterCollege) && Number(row.AdSectionId) === Number(filterSection) && Number(row.AdTermId) === Number(filterTerm)),
+                instructorName: (id: number) => instructorById.get(id)?.AdInstructorName || "",
+              }}
+              whyNot={{
+                days, slots: timeSlots, gridEnd: gridWindow.end, mins,
+                buildCandidate: (row, target) => buildPhysicsTargetCandidate(row, target as any),
+                blockers: localPhysicsBlockers as any,
+                patternSwitchFor: (row, day) => Boolean(rhythmSwitchForTarget(row, day as DayKey)),
+                hours: { start: activeScheduleWindow.start, end: activeScheduleWindow.end },
+                locked: approvalLock || (termFrozen ? "الفصل مجمَّد" : null),
+                readOnly: phoneReadOnly || !canEditSchedule,
+                scope: { collegeId: Number(filterCollege), sectionId: Number(filterSection), termId: Number(filterTerm) },
+                onMove: (row, day, start, label) => {
+                  const sourceDay = (days.find(d => Boolean((row as any)[d.key]))?.key || day) as any;
+                  void commitMove({ row, sourceDay, target: { day: day as any, start, label }, decision: null });
+                },
+              }}
+            />
+          ) : null}
           {/* The live radar: what the board knows about itself, always visible.
               Counted locally on every change, so the number never waits for a
               request — pressing it takes you to the offending cards. */}
@@ -12412,6 +12523,37 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               const start = timeFromMins(Math.round((gridWindow.start + share * span) / SCHEDULE_SLOT_MINUTES) * SCHEDULE_SLOT_MINUTES);
               await commitRoomMove(row, day, start, building, hall);
             };
+            /* ── البصمات: ما يقرؤه رسمُ القاعة ومعالجاتُها، فلا تُعاد قاعةٌ لم يتغيّر منه شيء (RoomsBoard.tsx) ── */
+            roomsDropRef.current = trackDrop;
+            roomsNowRef.current = { minutes: nowMinutes, start: gridWindow.start, end: gridWindow.end, pct, clock: minutesAt => scheduleClockForDisplay(timeFromMins(minutesAt)) };
+            const fieldLive = Boolean(physics.state.target) || !dragFieldIdle || suggestionRank.size > 0 || Object.keys(physicsField).length > 0;
+            const slotSigFor = (roomCode: string, roomHall: string, dayKey: DayKey) =>
+              fieldLive ? timeSlots.map(slot => physicsSlotClass(dayKey, slot, `${roomCode}|${roomHall}`)).join("\u0001") : "";
+            const roomsGlobalSig = [
+              objectId(rows), objectId(courseById), objectId(instructorById), objectId(visitingIds), objectId(displayDays), objectId(timeSlots),
+              objectId(roomsSlotGeo), objectId(weekStripConfig), objectId(gridWindow), matrixDay, hueBy, physicsActive, physics.supported, dragBlocked,
+              String(approvalLock || ""), mode, editor, picking, presentationMode, todayKey,
+            ].join("\u0003");
+            const roomCardSig = (row: FSchedule) => {
+              const course = courseById.get(row.AdCourseId);
+              const instructor = instructorById.get(row.AdInstructorId);
+              const code = String(course?.CourseCode || "").trim() || "—";
+              const title = row.AdCourseName || course?.CourseName || code;
+              const undoId = recentMoves[row.id];
+              const undoEntry = undoId ? undoLog.find(item => item.id === undoId && !item.usedAt) : null;
+              return `${objectId(row)}|${pendingWriteIds.has(row.id) ? 1 : 0}${draggingId === row.id ? 1 : 0}${justChangedId === row.id ? 1 : 0}${liveClash.ids.has(row.id) ? 1 : 0}${outsideClash.notes[row.id] ? 1 : 0}${physicsActive && physicsOrigin?.id === row.id ? 1 : 0}${keyMove?.rowId === row.id ? 1 : 0}|${hueFor(code, title, instructor?.AdInstructorName, placeOf(row))}|${xrayClass(row)}|${physicsRelationClass(row)}|${hueFocusClass(row)}|${undoEntry ? undoEntry.id : ""}`;
+            };
+            const roomSig = (room: { key: string; building: string; hall: string; label: string; roomCode: string; roomHall: string }) => {
+              const parts: string[] = [roomsGlobalSig, room.key, room.building, room.hall, room.label, room.roomCode, room.roomHall];
+              for (const day of displayDays) {
+                const layout = byDayRoomLayout.get(`${day.key}|${room.key}`);
+                parts.push(String(layout ? objectId(layout) : 0), slotSigFor(room.roomCode, room.roomHall, day.key as DayKey));
+                if (layout) for (const item of layout.items) parts.push(roomCardSig(item.row));
+              }
+              for (const trace of moveTraces) if (trace.roomKey === room.key) parts.push(`${trace.key}:${trace.dayKey}:${trace.from}:${trace.to}:${trace.label}`);
+              if (paint?.trackKey?.startsWith(`${room.key}|`)) parts.push(`${paint.trackKey}:${paint.from}:${paint.to}`);
+              return parts.join("\u0002");
+            };
             return (
               <>
                 <div className="rooms-head">
@@ -12693,7 +12835,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     }}
                   >
                   {roomList.map(room => (
-                    <section className="rooms-week-room" key={room.key} aria-label={`القاعة ${room.label}`} title={room.label}>
+                    <RoomsRoomBoundary key={room.key} sig={roomSig(room)} draw={() => (
+                    <section className="rooms-week-room" aria-label={`القاعة ${room.label}`} title={room.label}>
                       <div className="rooms-week-days">
                         {displayDays.map((day, dayIndex) => {
                           const roomLayout = layoutFor(day.key as DayKey, room.key);
@@ -12719,43 +12862,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                                 style={{ height: roomTrackHeight }}
                                 data-physics-day-column="true"
                                 onDragOver={(e) => e.preventDefault()}
-                                onDrop={trackDrop(room.roomCode, room.roomHall, day.key as DayKey)}
+                                onDrop={(e) => roomsDropRef.current(room.roomCode, room.roomHall, day.key as DayKey)(e)}
                               >
-                                {timeSlots.map(slot => (
-                                  <i
-                                    key={`slot-${slot}`}
-                                    className={`rooms-slot ${physicsSlotClass(day.key as DayKey, slot, `${room.roomCode}|${room.roomHall}`)}`}
-                                    data-physics-slot="true"
-                                    data-physics-day={day.key}
-                                    data-physics-start={slot}
-                                    data-physics-label={`${day.label} · ${room.label}`}
-                                    data-physics-room={`${room.roomCode}|${room.roomHall}`}
-                                    style={{ right: `${pct(mins(slot))}%`, width: `${roomSpanPct(mins(slot), mins(slot) + SCHEDULE_SLOT_MINUTES)}%` }}
-                                    role="button"
-                                    tabIndex={-1}
-                                    title={`إضافة موعد · ${day.label} ${slot} · ${room.label}`}
-                                    onPointerDown={(e) => {
-                                      if (physicsActive || e.target !== e.currentTarget || e.button !== 0) return;
-                                      const trackKey = `${room.key}|${day.key}`;
-                                      paintRef.current = { day: day.key as DayKey, anchor: mins(slot), roomCode: room.roomCode, roomHall: room.roomHall, trackKey };
-                                      setPaint({ day: day.key as DayKey, from: slot, to: timeFromMins(mins(slot) + SCHEDULE_SLOT_MINUTES), roomCode: room.roomCode, roomHall: room.roomHall, trackKey });
-                                    }}
-                                    onPointerEnter={() => {
-                                      if (physicsActive) return;
-                                      const stroke = paintRef.current;
-                                      const trackKey = `${room.key}|${day.key}`;
-                                      if (!stroke || stroke.day !== day.key || stroke.trackKey !== trackKey) return;
-                                      const here = mins(slot);
-                                      setPaint({
-                                        day: day.key as DayKey,
-                                        from: timeFromMins(Math.min(stroke.anchor, here)),
-                                        to: timeFromMins(Math.max(stroke.anchor, here) + SCHEDULE_SLOT_MINUTES),
-                                        roomCode: room.roomCode, roomHall: room.roomHall, trackKey,
-                                      });
-                                    }}
-                                  />
-                                ))}
-                                {timeSlots.map(slot => <i key={slot} className={`rooms-hourline ${mins(slot) % 60 === 0 ? "rooms-hourline-major" : "rooms-hourline-half"} ${slot === SCHEDULE_DAY_END_TIME ? "rooms-hourline-terminal" : ""}`} style={{ right: `${pct(mins(slot))}%` }} />)}
+                                <RoomsTrackGrid
+                                  geo={roomsSlotGeo}
+                                  day={day.key}
+                                  dayLabel={day.label}
+                                  placeLabel={room.label}
+                                  roomCode={room.roomCode}
+                                  roomHall={room.roomHall}
+                                  roomAttr={`${room.roomCode}|${room.roomHall}`}
+                                  trackKey={`${room.key}|${day.key}`}
+                                  slotClassSig={slotSigFor(room.roomCode, room.roomHall, day.key as DayKey)}
+                                  handlers={roomsSlotHandlers}
+                                />
                                 {moveTraces
                                   .filter(trace => trace.dayKey === day.key && trace.roomKey === room.key)
                                   .map(trace => (
@@ -12774,7 +12894,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                                     <b dir="ltr">{formatScheduleTimeRange(paint.from, paint.to)}</b><span>موعد جديد</span>
                                   </div>
                                 ) : null}
-                                {todayKey === day.key && nowMinutes >= gridWindow.start && nowMinutes <= gridWindow.end ? <i className="rooms-now" style={{ right: `${pct(nowMinutes)}%` }} title={`الآن · ${scheduleClockForDisplay(timeFromMins(nowMinutes))}`}><b dir="ltr">{scheduleClockForDisplay(timeFromMins(nowMinutes))}</b></i> : null}
+                                {todayKey === day.key ? <RoomsNowLine source={roomsNowRef} stamp={`${gridWindow.start}|${gridWindow.end}|${weekStripConfig.timelineWidth}`} /> : null}
                                 {roomLayout.items.map(({ row, lane }) => renderTrackCard(row, day.key as DayKey, { lane }))}
                               </div>
                             </div>
@@ -12782,6 +12902,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         })}
                       </div>
                     </section>
+                    )} />
                   ))}
                   {displayDays.some(day => (noRoomByDay.get(day.key as DayKey) || []).length || moveTraces.some(trace => trace.roomKey === "|" && trace.dayKey === day.key)) ? (
                     <section className="rooms-week-room rooms-row-none" aria-label="بلا قاعة" title="بلا قاعة">
@@ -12792,37 +12913,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                           return (
                           <div className="rooms-row" key={`none|${day.key}`} style={{ minHeight: homelessTrackHeight }}>
                             <small className="rooms-day-label">{day.label}</small>
-                            <div className="rooms-track" style={{ height: homelessTrackHeight }} data-physics-day-column="true" onDragOver={(e) => e.preventDefault()} onDrop={trackDrop("", "", day.key as DayKey)}>
-                              {timeSlots.map(slot => (
-                                <i
-                                  key={`none-slot-${slot}`}
-                                  className={`rooms-slot ${physicsSlotClass(day.key as DayKey, slot, "|")}`}
-                                  data-physics-slot="true"
-                                  data-physics-day={day.key}
-                                  data-physics-start={slot}
-                                  data-physics-label={`${day.label} · بلا قاعة`}
-                                  data-physics-room="|"
-                                  style={{ right: `${pct(mins(slot))}%`, width: `${roomSpanPct(mins(slot), mins(slot) + SCHEDULE_SLOT_MINUTES)}%` }}
-                                  role="button"
-                                  tabIndex={-1}
-                                  title={`إضافة موعد · ${day.label} ${slot} · بلا قاعة`}
-                                  onPointerDown={(e) => {
-                                    if (physicsActive || e.target !== e.currentTarget || e.button !== 0) return;
-                                    const trackKey = `none|${day.key}`;
-                                    paintRef.current = { day: day.key as DayKey, anchor: mins(slot), roomCode: "", roomHall: "", trackKey };
-                                    setPaint({ day: day.key as DayKey, from: slot, to: timeFromMins(mins(slot) + SCHEDULE_SLOT_MINUTES), roomCode: "", roomHall: "", trackKey });
-                                  }}
-                                  onPointerEnter={() => {
-                                    if (physicsActive) return;
-                                    const stroke = paintRef.current;
-                                    const trackKey = `none|${day.key}`;
-                                    if (!stroke || stroke.day !== day.key || stroke.trackKey !== trackKey) return;
-                                    const here = mins(slot);
-                                    setPaint({ day: day.key as DayKey, from: timeFromMins(Math.min(stroke.anchor, here)), to: timeFromMins(Math.max(stroke.anchor, here) + SCHEDULE_SLOT_MINUTES), roomCode: "", roomHall: "", trackKey });
-                                  }}
-                                />
-                              ))}
-                              {timeSlots.map(slot => <i key={slot} className={`rooms-hourline ${mins(slot) % 60 === 0 ? "rooms-hourline-major" : "rooms-hourline-half"} ${slot === SCHEDULE_DAY_END_TIME ? "rooms-hourline-terminal" : ""}`} style={{ right: `${pct(mins(slot))}%` }} />)}
+                            <div className="rooms-track" style={{ height: homelessTrackHeight }} data-physics-day-column="true" onDragOver={(e) => e.preventDefault()} onDrop={(e) => roomsDropRef.current("", "", day.key as DayKey)(e)}>
+                              <RoomsTrackGrid
+                                geo={roomsSlotGeo}
+                                day={day.key}
+                                dayLabel={day.label}
+                                placeLabel="بلا قاعة"
+                                roomCode=""
+                                roomHall=""
+                                roomAttr="|"
+                                trackKey={`none|${day.key}`}
+                                slotClassSig={slotSigFor("", "", day.key as DayKey)}
+                                handlers={roomsSlotHandlers}
+                              />
                               {moveTraces
                                 .filter(trace => trace.dayKey === day.key && trace.roomKey === "|")
                                 .map(trace => (
@@ -14226,7 +14329,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       </PrintPortal> : null}
       {/* The week is a wide document; it is printed on a wide page, in the same
           hand as every other sheet the program produces. */}
-      {!reviewOpen ? (
+      {!reviewOpen && printSheetMounted ? (
         <PrintPortal>
           <div className="schedule-print print-report print-wide print-query-report print-query-list-report">
         <PrintLetterhead

@@ -122,6 +122,7 @@ export const AR = {
   day:         { one: "يوم", two: "يومان", few: "أيام", many: "يوماً" },
   person:      { one: "شخص", two: "شخصان", few: "أشخاص", many: "شخصاً" },
   week:        { one: "أسبوع", two: "أسبوعان", few: "أسابيع", many: "أسبوعاً" },
+  month:       { one: "شهر", two: "شهران", few: "أشهر", many: "شهراً" },
   minute:      { one: "دقيقة", two: "دقيقتان", few: "دقائق", many: "دقيقة" },
   hour:        { one: "ساعة", two: "ساعتان", few: "ساعات", many: "ساعة" },
   section:     { one: "شعبة", two: "شعبتان", few: "شعب", many: "شعبة" },

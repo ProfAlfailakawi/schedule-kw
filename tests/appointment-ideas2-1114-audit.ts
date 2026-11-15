@@ -66,7 +66,8 @@ check(/onBestFit/.test(mini) && /bestKey/.test(mini) && /onBestRef\.current\?\.\
 check(/onPickBest=\{best => void pickBestTime\(best\)\}/.test(schedules) && /const pickBestTime = async \(best: BestTime\) => \{\s*pickFromMiniWeek\(\{ day: best\.day/.test(schedules) && /onBestFit=\{setBestTime\}/.test(schedules), "S3 الضغطة تضع الموعد بالمسار نفسه (pickFromMiniWeek) فيُفحص كأي اختيار، ثم تبحث عن القاعة");
 check(/يناسب \{impact\.kind === "grad" \? "الخريجين" : "الطلبة"\}/.test(pulse) && !/خدمة الخريجين|خدمة الطلبة/.test(pulse + schedules), "S4 السطر بكلمة «يناسب» لا «خدمة»");
 check(/saveImpactOf\(studentFit\)/.test(schedules) && /current === impact \? null : current/.test(schedules) && /saveImpact && editor === "index"/.test(schedules), "S5 أثرُ الحفظ يظهر لثوانٍ في المحرّر وفي اللوحة بعد إغلاق التعديل");
-check(/fit-labeled/.test(mini) && /!\(fit && pixels\(target\.start, target\.end\) >= 34\)/.test(mini) && /\.mini-week-target\.fit-labeled>svg\{display:none\}/.test(css), "S6 الخانة الملوّنة: النسبة وحدها، والوقت في التلميح، و«+» عند التمرير");
+/* تغيّرت النيّة (المرحلة 3): الخانة أيقونيةٌ بلا نصٍّ — لا نسبة ولا وقت داخلها؛ النسبة في التلميح، ولونها ينعكس على سبب «يزاحم الخريجين» في الطبقة الواحدة. */
+check(/has-fit fit-\$\{fitTone/.test(mini) && !/fit-labeled|mini-week-target-fit"|mini-week-target-time/.test(mini) && /يناسب \$\{fit\.percent\}% من/.test(mini) && /graduates: fit \?/.test(mini), "S6 الخانة أيقونية: النسبة في التلميح وسبب الخريجين من القارئ الواحد (whyNot)");
 check(/mini-week\.is-sheet:not\(\.is-open\) \.mini-week-facts>em:last-child:not\(\.is-load\)\{display:none\}/.test(css), "S7 ورقة الأستاذ المطويّة على الجوال: النصاب والأيام فقط");
 check(!/«\+» لتضع الموعد|على «\+» فتضيء/.test(mini), "S8 التلميح لا يذكر «+» المخفيّة");
 
