@@ -13,6 +13,7 @@ final class MainViewController: CAPBridgeViewController {
     private let offlineBanner = OfflineBanner()
     private let network = NetworkWatcher()
     private static let lastURLKey = "apple.shell.lastURL"
+    private var appHandoff: AppHandoffHandler?
 
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
@@ -45,7 +46,17 @@ final class MainViewController: CAPBridgeViewController {
             if online, self.webView?.url?.scheme != "https" { self.reloadPage() }
         }
         network.start()
+        registerAppHandoff(on: webView)
         restoreLastPage()
+    }
+
+    /// Safari → app login handoff: the page posts { challenge } to `appHandoff`.
+    private func registerAppHandoff(on webView: WKWebView) {
+        let controller = webView.configuration.userContentController
+        controller.removeScriptMessageHandler(forName: AppHandoffLogic.handlerName)
+        let handler = AppHandoffHandler(webView: webView)
+        appHandoff = handler
+        controller.add(handler, name: AppHandoffLogic.handlerName)
     }
 
     /// Reopen the page the user was on (same host, https only) instead of the home page.
@@ -72,5 +83,9 @@ final class MainViewController: CAPBridgeViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.refresh.endRefreshing() }
     }
 
-    deinit { webView?.removeObserver(self, forKeyPath: #keyPath(WKWebView.url)) }
+    deinit {
+        appHandoff?.cancel()
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: AppHandoffLogic.handlerName)
+        webView?.removeObserver(self, forKeyPath: #keyPath(WKWebView.url))
+    }
 }
