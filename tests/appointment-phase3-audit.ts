@@ -21,7 +21,7 @@ const editor = read("src/components/Schedules.tsx"), mini = read("src/components
 check(/studioWasMark\(studioTimeWas, "time"\)/.test(editor) && /studioWasMark\(studioRoomWas, "room"\)/.test(editor), "A1 عنوانا خطوتَي الوقت والمكان يحملان مؤشر «تغيّر»");
 check(/كان: \$\{\[studioChanged\.days/.test(editor) && /aria-label=\{`تغيّر — \$\{was\}`\}/.test(editor) && /studioOriginal\.fstarttime && studioOriginal\.fendtime/.test(editor), "A2 «كان: …» من الصف المحفوظ نصاً مقروءاً بالقارئ");
 check(/studioChanged\?\.course \? "المقرر — تغيّر"/.test(editor) && /studioChanged\?\.teacher \? "الأستاذ — تغيّر"/.test(editor), "A3 ملخّصا المقرر والأستاذ المتغيّران يُنطقان «تغيّر»");
-check(/\.appt-was\{/.test(css) && /\.appt-was::before/.test(css), "A4 تنسيق النقطة النحاسية");
+check(/\.appt-was\{/.test(css) && /\.appt-was>svg/.test(css), "A4 تنسيق شارة القيمة السابقة");
 
 /* C — الانطواء الحقيقي */
 check(/studioFold = \(key: string, expanded: boolean, done: boolean/.test(editor) && /inert=\{expanded \|\| !done\}/.test(editor) && /inert=\{!expanded\}/.test(editor), "C1 الملخّص والجسم كلاهما مُركَّب والمطويّ inert");

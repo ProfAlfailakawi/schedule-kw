@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeftRight, CalendarCheck, CalendarX2, Clock, GraduationCap, UserRoundX, X } from "lucide-react";
 import type { QuickSwapSource } from "../utils/appointmentQuickSwap";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
+import CourseTags from "./CourseTags";
 
 const DAY_LABELS: Array<[string, string]> = [["fsunday", "ح"], ["fmonday", "ن"], ["ftuesday", "ث"], ["fwednesday", "ر"], ["fthursday", "خ"]];
 
@@ -43,7 +44,7 @@ export default function AppointmentQuickSwap({ sources, hasMine, busy, onApply }
       </div>
       <ul className="qs-list">
         {list.map(item => <li key={item.rowId} className="qs-item">
-          <span className="qs-what"><b>{item.row.AdCourseName || `مقرر ${item.row.AdCourseId}`} · {item.row.SCode || "—"}</b>
+          <span className="qs-what"><b>{item.row.AdCourseName || `مقرر ${item.row.AdCourseId}`}<CourseTags courseId={Number(item.row.AdCourseId)} /> · {item.row.SCode || "—"}</b>
             <span className="qs-days" aria-hidden="true">{DAY_LABELS.filter(([key]) => (item.row as any)[key]).map(([, label]) => label).join(" ")}</span>
             <span className="qs-time"><Clock aria-hidden="true" /><bdi dir="ltr">{formatScheduleTimeRange(item.row.fstarttime, item.row.fendtime)}</bdi></span>
             {item.row.AdRoomCode ? <small className="qs-room"><bdi dir="ltr">{item.row.AdRoomCode}/{item.row.AdRoomHall}</bdi></small> : null}
