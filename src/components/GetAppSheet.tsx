@@ -19,7 +19,7 @@ export default function GetAppSheet() {
   if (!open) return null;
   const later = () => { snoozeAppOffer(APP_OFFER_LATER_DAYS); setOpen(false); };
   return (
-    <aside className="get-app" role="dialog" aria-label="تطبيق SCHEDULE الرسمي" dir="rtl" data-guide-ignore="دعوةٌ لتحميل التطبيق الرسمي من المتجر؛ لا تغيّر بيانات">
+    <aside className="get-app" role="dialog" aria-modal="false" aria-label="تطبيق SCHEDULE الرسمي" dir="rtl" data-guide-ignore="دعوةٌ لتحميل التطبيق الرسمي من المتجر؛ لا تغيّر بيانات">
       <img src="/schedule-icon-192.png" alt="" width="56" height="56" />
       <div className="get-app-text">
         <b>استخدم SCHEDULE من التطبيق الرسمي</b>
