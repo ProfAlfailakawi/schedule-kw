@@ -3,7 +3,7 @@
 .qs-btn{inline-size:36px;block-size:36px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink-2);cursor:pointer;transition:border-color .15s,background .15s}
 .qs-btn svg{inline-size:18px;block-size:18px}
 .qs-btn:hover,.qs-btn.is-open{border-color:var(--brass);background:var(--brass-soft);color:var(--ink)}
-.qs-panel{position:absolute;inset-block-start:calc(100% + 8px);inset-inline-end:0;z-index:30;inline-size:min(360px,86vw);display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 14px 34px rgba(0,0,0,.18)}
+.qs-panel{position:absolute;inset-block-start:calc(100% + 8px);inset-inline-end:0;z-index:500;inline-size:min(360px,86vw);display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 14px 34px rgba(0,0,0,.18)}
 .qs-tabs{display:flex;align-items:center;gap:6px}
 .qs-tabs [role="tab"]{display:inline-flex;align-items:center;gap:6px;min-block-size:36px;padding:4px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink-2);font:inherit;font-size:var(--t-sm);font-weight:700;cursor:pointer}
 .qs-tabs [role="tab"] svg{inline-size:15px;block-size:15px;color:var(--success)}
@@ -27,4 +27,4 @@
 .qs-go.bad{border-color:color-mix(in srgb,var(--danger) 55%,var(--line))}.qs-go.bad svg{color:var(--danger)}
 .qs-go:disabled{opacity:.55;cursor:progress}
 .qs-btn:focus-visible,.qs-go:focus-visible,.qs-tabs button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
-@media (max-width:640px){.qs-panel{position:fixed;inset-inline:12px;inset-block-start:auto;inset-block-end:12px;inline-size:auto}}
+@media (max-width:640px){.qs-panel{position:fixed;inset-inline:12px;inset-block-start:auto;inset-block-end:calc(12px + env(safe-area-inset-bottom,0px));inline-size:auto;max-block-size:min(72dvh,560px);overflow:hidden}.qs-list{max-block-size:min(52dvh,420px)}}
