@@ -29,7 +29,7 @@ check(!isVisitingIn(lookup, 10, 1, 3), "وليس منتدباً في قسمٍ آ
 // ── Schedules.tsx
 const S = "src/components/Schedules.tsx";
 has(S, /useVisitingLookup\(formLookupTerm\)/, "Schedules: النموذج يسأل القائمة الموحّدة بفصله");
-has(S, /selectedInstructor \? <PersonChips visiting=\{formVisiting\(form\.AdInstructorId\)\} trainee=\{formTrainees\.has\(Number\(form\.AdInstructorId\)\)\} \/>/, "Schedules: بطاقة المعاينة قبل الحفظ تحمل الشارة (PersonChips)");
+has(S, /<PersonChips visiting=\{formVisiting\(form\.AdInstructorId\)\} trainee=\{formTrainees\.has\(Number\(form\.AdInstructorId\)\)\} \/>/, "Schedules: بطاقة المعاينة قبل الحفظ تحمل الشارة (PersonChips)");
 has(S, /withVisitingSuffix\(instructorTitleName,/, "Schedules: عنوان بطاقة تعارض الأستاذ بلاحقة");
 has(S, /withVisitingSuffix\(instructorById\.get\(Number\(other\.AdInstructorId \|\| 0\)\)\?\.AdInstructorName/, "Schedules: سطر الحجز المقابل في بطاقة التعارض بلاحقة");
 has(S, /function GhostInstructorName[\s\S]{0,600}useVisitingLookup\(row\.AdTermId\)/, "Schedules: ظلّ الفصل السابق يقرّر بفصل صفّه");

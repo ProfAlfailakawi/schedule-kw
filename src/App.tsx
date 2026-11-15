@@ -38,6 +38,7 @@ import {
   Wrench,
   X,
   CircleHelp,
+  UserX,
 } from "lucide-react";
 import { controlLabel } from "./utils/controlLabel";
 
@@ -62,6 +63,7 @@ import { installClientTelemetry, setTelemetryOwner, telemetryBreadcrumb, telemet
 import { AR, countOf, nounFor } from "./utils/arabicCount";
 import { isInvitationHash } from "./utils/invitationLink";
 import ChangePassword from "./components/ChangePassword";
+import AccountDeletion from "./components/AccountDeletion";
 import SeatDrawer from "./components/seats/SeatDrawer";
 import TrailButton from "./components/trail/TrailButton";
 import { forgetTrailStamps, setTrailStampOwner } from "./components/trail/trailStampMemory";
@@ -1146,6 +1148,7 @@ export default function App() {
   const [journeyOpen, setJourneyOpen] = useState(false);
   /* «كرسيّي» (docs/SEATS.md): فريقُ الكرسي والتسليم وتاريخه، من بطاقة الحساب. */
   const [seatDrawerOpen, setSeatDrawerOpen] = useState(false);
+  const [deletionOpen, setDeletionOpen] = useState(false);
   /* «الرحلة» من مساري (/?journey=1&back=/me): تُفتح فوق التطبيق نفسه حين يكون الزائر داخلاً (حساب العرض مثلاً)، لا في شاشة الدخول وحدها. */
   const [journeyFromMasari, setJourneyFromMasari] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("journey") === "1");
   /* التطبيق يعيد كتابة العنوان عند الإقلاع فيضيع ?back=: يُلتقط مرةً عند أول رسم. */
@@ -2538,7 +2541,7 @@ export default function App() {
           </button>
         </div>
         {user.IsDemo ? (
-          <div className="demo-rail-chip" aria-label="بيئة تجريبية معزولة">
+          <div className="demo-rail-chip" role="group" aria-label="بيئة تجريبية معزولة">
             <FlaskConical aria-hidden="true" /><span>تجريبي</span><i aria-hidden="true" />
             {demoInfo?.seedStatus === "preparing" ? <small className="demo-seed-status" role="status">يُجهَّز العرض</small> : null}
             {demoInfo?.seedStatus === "failed" ? <small className="demo-seed-status demo-seed-status--error" role="status">بعض أمثلة العرض لم تكتمل</small> : null}
@@ -2756,6 +2759,9 @@ export default function App() {
         {seatDrawerOpen ? (
           <SeatDrawer onClose={() => setSeatDrawerOpen(false)} canManage={!seatActor || seatActor.kind === "holder"} trail={sessionRole.id !== "viceDean"} />
         ) : null}
+        {deletionOpen ? (
+          <AccountDeletion onClose={() => setDeletionOpen(false)} onDone={() => { setDeletionOpen(false); void logout(); }} />
+        ) : null}
         {journeyOpen ? (
           <Suspense fallback={null}>
             <ScheduleJourney onClose={() => setJourneyOpen(false)} />
@@ -2815,6 +2821,17 @@ export default function App() {
               >
                 <Compass />
               </button>
+              {!user.IsDemo && !user.IsRootAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => setDeletionOpen(true)}
+                  title="طلب حذف الحساب"
+                  aria-label="طلب حذف الحساب"
+                  data-guide-ignore="يفتح نافذة تأكيد لطلب حذف الحساب؛ لا ينفذ شيئاً قبل تأكيد كلمة السر"
+                >
+                  <UserX />
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={logout}

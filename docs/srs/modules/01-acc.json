@@ -48,7 +48,10 @@
     "scripts/role-scope-live-audit.mjs",
     "src/server/staffRecovery.ts",
     "src/server/staffRecoveryWiring.ts",
-    "src/server/userAdminGuards.ts"
+    "src/server/userAdminGuards.ts",
+    "src/server/accountDeletion.ts",
+    "src/server/accountDeletionWiring.ts",
+    "src/components/AccountDeletion.tsx"
   ],
   "screens": [
     { "name": { "ar": "تسجيل الدخول", "en": "Sign-in" }, "file": "src/components/Login.tsx", "note": { "ar": "اسم المستخدم وكلمة السر، ورابط الدعوة في جزء # الذي يملأ الاسم ولا يُرسل إلى الخادم، وزر الدخول التجريبي إن كان مفعّلاً.", "en": "User name and password, the invitation link fragment that pre-fills the name and is never sent to the server, and the demo entry button when enabled." } },
@@ -1359,6 +1362,57 @@
           "tests/delete-impact-audit.ts"
         ]
       }
+    },
+    {
+      "id": "FR-ACC-060",
+      "kind": "functional",
+      "title": {
+        "ar": "طلب حذف الحساب من داخل التطبيق",
+        "en": "In-app account deletion request"
+      },
+      "text": {
+        "ar": "يجب أن يتيح النظام لصاحب حسابٍ مسجَّلِ الدخول أن يطلب حذف حسابه من بطاقة المستخدم بخطوتين (بيانٌ ثم كلمة السر): يسجّل الخادم طلباً معلّقاً بموعدٍ أقصاه 30 يوماً مع سطر تدقيق (POST /api/account/deletion-request، بست محاولاتٍ لكل حساب في 15 دقيقة)، وينبّه مدير النظام في الجرس وبتنبيه الجوال، ويغلق كل جلسات الحساب. لا يُحذف الحساب آلياً: ينفّذه مدير النظام من شاشة المستخدمين ثم يغلق الطلب (GET /api/admin/account-deletion-requests، POST ‎…/:id/resolve). ولا يُسجَّل طلبٌ من البيئة التجريبية ولا من حساب الإدارة الرئيسي ولا من عضو فريق.",
+        "en": "The system shall let a signed-in account owner request deletion of their account from the user card in two steps (a notice, then the password): the server records a pending request due within 30 days with an audit line (POST /api/account/deletion-request, six attempts per account per 15 minutes), alerts the system manager in the bell and by push, and ends every session of the account. The account is not deleted automatically: the system manager carries it out from the Users screen and then closes the request (GET /api/admin/account-deletion-requests, POST …/:id/resolve). No request is recorded from the demo environment, the root account or a team member."
+      },
+      "rationale": {
+        "ar": "متطلبُ متجر التطبيقات لكل تطبيقٍ بحسابات: طريقةٌ لبدء الحذف من داخل التطبيق، وبيانٌ صادقٌ بالمدة.",
+        "en": "An app-store requirement for apps with accounts: a way to start deletion inside the app, with an honest statement of the timeframe."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "admin",
+        "dean",
+        "departmentHead",
+        "committeeChair",
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "كلمة سرٍّ صحيحة ← طلبٌ معلّق بموعد بعد 30 يوماً، وخروجٌ من الحساب، وتنبيهٌ لمدير النظام.",
+          "en": "A correct password creates a pending request due in 30 days, signs the user out and alerts the system manager."
+        },
+        {
+          "ar": "كلمة سرٍّ خاطئة ← 400 ولا طلب؛ والسابعة في 15 دقيقة ← 429.",
+          "en": "A wrong password returns 400 and records nothing; the seventh attempt in 15 minutes returns 429."
+        },
+        {
+          "ar": "البيئة التجريبية ← 403 ولا يُخزَّن شيء.",
+          "en": "The demo environment returns 403 and stores nothing."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/accountDeletion.ts#registerAccountDeletionRoutes",
+          "src/server/accountDeletionWiring.ts#accountDeletionDeps",
+          "src/components/AccountDeletion.tsx",
+          "public/privacy-policy.html"
+        ],
+        "tests": [
+          "tests/account-deletion-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [

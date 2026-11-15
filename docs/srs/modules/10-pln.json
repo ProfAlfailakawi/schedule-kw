@@ -3115,6 +3115,46 @@
           "tests/study-proposal-studio-audit.ts"
         ]
       }
+    },
+    {
+      "id": "FR-PLN-051",
+      "kind": "functional",
+      "title": {
+        "ar": "أهداف بناء الشعب",
+        "en": "Section-build goals"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح عند «نزّل الشعب» اختيار هدف: متوازن، أو راحة الأساتذة، أو الطلبة أولاً، أو قاعات أقل، وأن يحسب المعاينةَ لكل الأهداف معاً بمقاييسها (المبنيّ، القاعات، المباني، فرق الأحمال، الفراغ بين مقررات المستوى)؛ والهدف يغيّر ترتيب المحاولة فقط ولا يتجاوز قاعدة، ويعيد الخادم الحساب عند التنزيل بالهدف المختار.",
+        "en": "The system shall let the department choose a goal when building sections from the plan: balanced, teachers first, students first, or fewer rooms; compute the preview for all goals together with their metrics (placed, rooms, buildings, load spread, gap between same-level courses); a goal only reorders the attempts and never relaxes a rule, and the server recomputes with the chosen goal when applying."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "«متوازن» يعطي ناتج المحرك السابق نفسه.",
+          "en": "Balanced yields the same output as the previous engine."
+        },
+        {
+          "ar": "لا هدف ينتج تعارضاً ولا يخالف اللائحة.",
+          "en": "No goal produces a conflict or violates the regulation."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/sectionGoals.ts",
+          "src/utils/sectionOpening.ts",
+          "src/components/SectionBuild.tsx"
+        ],
+        "tests": [
+          "tests/section-goals-audit.ts",
+          "tests/section-goals-live-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [

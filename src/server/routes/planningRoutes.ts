@@ -23,6 +23,7 @@ import { loadSimulationInput, rankDemandRepairsBySimulation, rankSectionOpenings
 import { readCourseSuccession, cohortTurnover, predictDemand } from "../../utils/courseSuccession";
 import { nextSectionCodes, readSectionOpenings, type OpeningReading } from "../../utils/sectionOpening";
 import { demandFromTargets, gapRows, hardestFirst, weekFingerprint } from "../../utils/sectionBuild";
+import { SECTION_GOALS, goalMetrics, isSectionGoal, type SectionGoal } from "../../utils/sectionGoals";
 import { visitorFreeSlots, staffCourse, type CourseStaffing } from "../../utils/visitingNeed";
 import { FACULTY_PLACEHOLDER, facultyPlaceholderOf, placePending, templatesFromHistory, type PendingRoom } from "../../utils/sectionPending";
 import { courseLevelFromCode } from "../../utils/curriculumRules";
@@ -52,7 +53,7 @@ import { planTargetsFor } from "../actualDemand";
  * موثّقة، أستاذٌ درّس المقرر وله نصاب، دفعةٌ لا تتقاطع، وكلّ أقسام الفصل في الحسبان)، ثم يُكتب بالمسار
  * المشترك (applyProposalCore) باسم المستخدم الحالي ومصدره «تخطيط الشعب». لا يُكتب شيء قبل ضغطة التأكيد،
  * وبصمة الأسبوع تمنع الإنزال على جدولٍ تغيّر، والإنزال كلُّه أو لا شيء. */
-async function readSectionBuild(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number, given?: unknown) {
+async function readSectionBuild(req: AuthenticatedRequest, collegeId: number, sectionId: number, termId: number, given?: unknown, goal: SectionGoal = "balanced") {
   const [courses, planned, termWeek, history, people, registry] = await Promise.all([
     Repository.getCoursesBySection(sectionId), planTargetsFor(req, collegeId, sectionId, termId),
     Repository.getSchedulesByScope({ termId }), Repository.getSchedulesByScope({ collegeId, sectionId }),
@@ -78,7 +79,7 @@ async function readSectionBuild(req: AuthenticatedRequest, collegeId: number, se
   const style = ordered.length ? await departmentStyle({ AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId }) : null;
   /* C5: لا تُقترح شعبةٌ لمقررٍ 🔒/🌱، و🎯 على المتبقي فقط. */
   const reading = applyOfferingToOpenings(ordered.length
-    ? readSectionOpenings(week, termWeek, courses, people as any[], history, demand, null, style?.reading || null, style?.doorway || 0, 999, registry.rooms, termId)
+    ? readSectionOpenings(week, termWeek, courses, people as any[], history, demand, null, style?.reading || null, style?.doorway || 0, 999, registry.rooms, termId, goal)
     : { proposals: [], noCeiling: [], headline: "" } as OpeningReading, await offeringStatesForTerm(termId));
   const byCourse = new Map(reading.proposals.map(proposal => [proposal.courseId, proposal]));
 
@@ -153,8 +154,11 @@ async function readSectionBuild(req: AuthenticatedRequest, collegeId: number, se
       /* سقف ما يجوز طلبه لهذا المقرر = الحاجة الكاملة، ومنهم الخريجون: تعرضه الشاشة ولا تمنع به. */
       ceiling: Math.max(planned.ceiling.get(row.courseId) || 0, row.target ?? 0), grad: planned.gradShort.has(row.courseId) };
   });
-  return { rows, started, fingerprint: weekFingerprint(termWeek), courseCount: courses.length };
+  return { rows, started, fingerprint: weekFingerprint(termWeek), courseCount: courses.length, goal, metrics: goalMetrics(rows as any, week, levelOf) };
 }
+
+/* الهدف من الطلب: مجهولٌ أو غائب = «متوازن» (السلوك الأصلي). */
+const goalOf = (value: unknown): SectionGoal => (isSectionGoal(value) ? value : "balanced");
 
 /* ── من يدرّس كل مقرر؟ أعدادٌ لا أسماء ─────────────────────────────────────────────────
    أساتذتنا من تاريخ القسم كلّه (منذ ٢٠١٦)، دون المنتدبين و«هيئة تدريسية» ومن تقاعد أو تفرّغ. الحساب في utils/visitingNeed.ts. */
@@ -205,7 +209,12 @@ app.post("/api/section-build/preview", requirePermission(7), async (req: Authent
   if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "حدد الكلية والقسم والفصل" }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   res.setHeader("Cache-Control", "no-store");
-  const builtRaw = await readSectionBuild(req, collegeId, sectionId, termId, req.body?.targets);
+  const goal = goalOf(req.body?.goal);
+  const builtRaw = await readSectionBuild(req, collegeId, sectionId, termId, req.body?.targets, goal);
+  /* كل الأهداف من المدخلات نفسها في طلبٍ واحد؛ ومن أراد تبديل الهدف فقط يطلب بلا مقارنة (compare:false). */
+  const goals = req.body?.compare === false ? undefined : await Promise.all(SECTION_GOALS.map(async item => ({
+    goal: item.id, metrics: item.id === goal ? builtRaw.metrics : (await readSectionBuild(req, collegeId, sectionId, termId, req.body?.targets, item.id)).metrics,
+  })));
   /* الشارة «منتدب» بجانب أستاذ الشعبة المقترحة: علمٌ للعرض فقط في ردّ المعاينة، لا يدخل ما يُنزَّل. */
   const placementVisiting = await visitingChecker(termId, [{ collegeId, sectionId }]);
   const built = { ...builtRaw, rows: builtRaw.rows.map(row => ({ ...row, placements: row.placements.map(p => ({ ...p, visiting: placementVisiting(p.instructorId, collegeId, sectionId) })) })) };
@@ -215,7 +224,7 @@ app.post("/api/section-build/preview", requirePermission(7), async (req: Authent
     pending: sum.pending + row.placements.filter(p => (p as any).pending).length,
     roomless: sum.roomless + row.placements.filter(p => (p as any).pending && !p.roomId).length,
   }), { target: 0, existing: 0, remaining: 0, placeable: 0, pending: 0, roomless: 0 });
-  res.json({ ...built, totals });
+  res.json({ ...built, totals, ...(goals ? { goals } : {}) });
 });
 
 app.post("/api/section-build/apply", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
@@ -226,7 +235,7 @@ app.post("/api/section-build/apply", requirePermission(7), async (req: Authentic
   const picked = new Set<string>((Array.isArray(req.body?.pick) ? req.body.pick : []).map(String).slice(0, 200));
   if (!picked.size) { res.status(400).json({ error: "لم تختر شعباً للتنزيل." }); return; }
   const outcome = await withSerialLock(`section-build:${collegeId}:${sectionId}:${termId}`, async (): Promise<{ status: number; json: any; audit?: string }> => {
-    const built = await readSectionBuild(req, collegeId, sectionId, termId, req.body?.targets);
+    const built = await readSectionBuild(req, collegeId, sectionId, termId, req.body?.targets, goalOf(req.body?.goal));
     if (String(req.body?.fingerprint || "") !== built.fingerprint) {
       return { status: 409, json: { error: "تغيّر جدول الفصل منذ المعاينة. أعد المعاينة قبل التنزيل.", code: "stale" } };
     }
@@ -249,7 +258,7 @@ app.post("/api/section-build/apply", requirePermission(7), async (req: Authentic
     let amendment: string | null = null;
     const openingOf = (row: any, placement: any) => ({
       kind: "opening", collegeId, sectionId, termId, courseId: row.courseId, placement: { ...placement, days: [placement.day] },
-      origin: { kind: "planning", refId: `${batchId}:${row.courseId}:${placement.sectionCode}`, note: `تنزيل الشعب: ${row.name} (مطلوب ${row.target}، كان ${row.existing})` },
+      origin: { kind: "planning", refId: `${batchId}:${row.courseId}:${placement.sectionCode}`, note: `تنزيل الشعب: ${row.name} (مطلوب ${row.target}، كان ${row.existing})${built.goal === "balanced" ? "" : ` — هدف: ${SECTION_GOALS.find(item => item.id === built.goal)?.title}`}` },
     });
     /* مخالفةُ اللائحة تُسأل مرةً عن الدفعة كلها قبل أي كتابة: فحصٌ جافّ على أسبوعٍ يتراكم (regulationGate). */
     const gate = regulationGate(req);
@@ -289,7 +298,7 @@ app.post("/api/section-build/review-rows", requirePermission(7), async (req: Aut
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   res.setHeader("Cache-Control", "no-store");
   const [built, occupied, people, allCourses] = await Promise.all([
-    readSectionBuild(req, collegeId, sectionId, termId, req.body?.targets),
+    readSectionBuild(req, collegeId, sectionId, termId, req.body?.targets, goalOf(req.body?.goal)),
     Repository.getSchedulesByScope({ collegeId, sectionId, termId }),
     Repository.getInstructors(termId).catch(() => []), Repository.getCoursesBySection(sectionId),
   ]);

@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUp, Building2, CalendarDays, CalendarOff, Check, ChevronDown, DoorOpen, GraduationCap, Hourglass, Info, Pin, Plus, Star, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Building2, CalendarDays, CalendarOff, Check, ChevronDown, DoorOpen, GraduationCap, Hourglass, Info, Link2, Pin, Plus, Star, X } from "lucide-react";
 import type { AdCourse, FSchedule } from "../types";
 import type { AppointmentVerdict } from "../utils/appointmentVerdict";
 import { DAY_KEYS, type DayKey } from "../utils/scheduleRegulations";
@@ -12,6 +12,8 @@ import {
 } from "../utils/teacherMiniWeek";
 import { safeStorage } from "../utils/safeStorage";
 import PersonChips from "./PersonChips";
+import WhyIcon from "./WhyIcon";
+import { WHY_META, WHY_TIER_LABEL, whyNotCell, type WhyBlocker, type WhyCell, type WhyNotInput } from "../utils/whyNot";
 import { fitKeyOf, useFitGrid } from "./useFitGrid";
 
 /**
@@ -281,7 +283,7 @@ export default function TeacherMiniWeek({
   teacherId, teacherName, nisab = 0, overtime = 0, limited = nisab > 0, visiting = false, trainee = false, rows, termId, collegeId, sectionId = 0, excludeId = 0, original = null,
   draft, verdict, checked = true, course, courses, window: dayWindow, userId = 0, fixedDays, onPick, variant = "side",
   autoCollapse = false, dockable = false, room = null, readOnly = false, onClose,
-  collegeNames, onBestFit,
+  collegeNames, onBestFit, usual = null,
 }: {
   teacherId: number;
   teacherName: string;
@@ -325,6 +327,8 @@ export default function TeacherMiniWeek({
   readOnly?: boolean;
   onClose?: () => void;
   collegeNames?: Map<number, string>;
+  /** «املأ كالمعتاد»: الأيام والبداية المعتادتان لهذا المقرر — نقطةٌ هادئة على الخانة المطابقة بدل زرٍّ إضافي. */
+  usual?: { days: readonly string[]; start: string } | null;
   /** أفضل خانةٍ حرّةٍ بنبض الطلبة، أو null: لزرّ «أفضل وقت» في نموذج الموعد. */
   onBestFit?: (best: { day: string; days: string[]; start: string; end: string; percent: number; kind: "grad" | "stud" } | null) => void;
 }) {
@@ -459,6 +463,60 @@ export default function TeacherMiniWeek({
     onBestRef.current?.({ day, days: days.split("+"), start: toClock(Number(start)), end: toClock(Number(end)), percent: Number(percent), kind: kind as "grad" | "stud" });
     return () => onBestRef.current?.(null);
   }, [bestKey]);
+
+  /* «لماذا لا؟» لكل خانةٍ حرّة: القارئ نفسه (src/utils/whyNot) بمانعَي الأستاذ والقاعة من بيانات هذه النافذة؛
+     الخانة خضراء ناعمة (حرّة) أو عنبرية (بملاحظة) أو حمراء (يمنعها شيء)، وأيقونةٌ واحدةٌ مهيمنة لغير الحرّة. */
+  const adjacentKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const spot of placements.values()) for (const side of [spot.before, spot.after]) if (side) for (const day of side.days) set.add(`${day}|${side.start}`);
+    return set;
+  }, [placements]);
+  const cellWhy = useMemo(() => {
+    const map = new Map<string, WhyCell>();
+    if (readOnly) return map;
+    const dayList = DAY_KEYS.map(key => ({ key, label: DAY_FULL[key] }));
+    for (const target of shownTargets) {
+      const fit = fits.get(fitKeyOf(target));
+      const input: WhyNotInput = {
+        subject: { ...(draft || {}) } as FSchedule, days: dayList, slots: [], gridEnd: dayWindow.end, mins: value => toMin(value),
+        buildCandidate: (row) => ({ ...row, ...Object.fromEntries(DAY_KEYS.map(key => [key, target.days.includes(key) ? 1 : 0])), fstarttime: toClock(target.start), fendtime: toClock(target.end) }) as FSchedule,
+        blockers: () => {
+          const out: WhyBlocker[] = [];
+          if (spotCrowds(target, lectures)) out.push({ type: "instructor", message: "", detail: "" });
+          if (roomOn && spotCrowds(target, roomBusy)) out.push({ type: "room", message: "", detail: roomLabel });
+          return out;
+        },
+        hours: dayWindow, graduates: fit ? () => ({ percent: fit.percent, blocked: fit.percent < 60 ? 1 : 0 }) : undefined,
+      };
+      map.set(`${target.day}|${target.start}`, whyNotCell(input, target.day, toClock(target.start)));
+    }
+    return map;
+  }, [shownTargets, fits, lectures, roomBusy, roomOn, roomLabel, dayWindow, readOnly, ghostKey]);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const infoId = useId();
+  /* لوحة المفاتيح: الأسهم تنقل التركيز بين الخانات الحرّة (يميناً/يساراً بين الأيام، وأعلى/أسفل داخل اليوم)، وEnter يضع الموعد. */
+  const arrowNav = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    const current = (event.target as Element).closest?.<HTMLElement>(".mini-week-target");
+    if (!current) return;
+    const cells = [...event.currentTarget.querySelectorAll<HTMLElement>(".mini-week-target")].map(node => ({ node, day: DAY_KEYS.indexOf(String(node.dataset.day) as DayKey), start: Number(node.dataset.start) }));
+    const here = cells.find(cell => cell.node === current);
+    if (!here) return;
+    event.preventDefault();
+    let next: HTMLElement | undefined;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      const column = cells.filter(cell => cell.day === here.day).sort((a, b) => a.start - b.start);
+      const index = column.indexOf(here) + (event.key === "ArrowDown" ? 1 : -1);
+      next = column[index]?.node;
+    } else {
+      const step = (event.key === "ArrowLeft") === (document.documentElement?.dir !== "ltr") ? 1 : -1;
+      for (let day = here.day + step; day >= 0 && day < DAY_KEYS.length && !next; day += step) {
+        const column = cells.filter(cell => cell.day === day);
+        next = column.sort((a, b) => Math.abs(a.start - here.start) - Math.abs(b.start - here.start))[0]?.node;
+      }
+    }
+    next?.focus();
+  };
 
   /* معاينة قبل الضغط: «+» يضيء خانات النمط كلها، و«قبلها/بعدها» يرسم حدّ الموضع. */
   const [preview, setPreview] = useState<(MiniTarget & { stick: boolean }) | null>(null);
@@ -783,7 +841,7 @@ export default function TeacherMiniWeek({
           {ticks.map((value, index) => index % labelEvery === 0
             ? <span key={value} style={{ top: `${at(value)}%` }}>{value / 60}</span> : null)}
         </div>
-        <div className="mini-week-grid" onMouseLeave={() => setPreview(null)}>
+        <div className="mini-week-grid" onMouseLeave={() => setPreview(null)} onKeyDown={arrowNav}>
           {DAY_KEYS.map(day => <div key={day} className={`mini-week-track${draftDays.includes(day) ? " is-draft" : ""}`} data-day={day}
             onMouseMove={widen(day)} onClick={tapWiden(day)} onPointerDown={startDraw(day)} onPointerMove={moveDraw} onPointerUp={endDraw} onPointerCancel={cancelDraw} onLostPointerCapture={lostDraw}>
             {ticks.map(value => <i key={value} className="mini-week-tick" style={{ top: `${at(value)}%` }} aria-hidden="true" />)}
@@ -800,14 +858,20 @@ export default function TeacherMiniWeek({
               const golden = target.golden;
               const fit = fits.get(fitKeyOf(target));
               const fitWho = fit ? (fit.kind === "grad" ? "الخريجين" : "الطلبة") : "";
-              return <button type="button" key={`t-${target.start}`} className={`mini-week-target${lit ? " is-lit" : ""}${golden === true ? " is-golden" : golden === false ? " is-room-busy" : ""}${fit ? ` has-fit fit-${fitTone(fit.percent)}${pixels(target.start, target.end) >= 34 ? " fit-labeled" : ""}` : ""}`} style={place(target.start, target.end)}
-                title={`${toClock(target.start)}–${toClock(target.end)} · ${daysText(target.days)}${golden === true ? " · والقاعة خالية" : golden === false ? " · القاعة محجوزة" : ""}${fit ? ` · يناسب ${fit.percent}% من ${fitWho}` : ""}`}
-                aria-label={`ضع الموعد ${DAY_FULL[day]} ${toClock(target.start)} (${daysText(target.days)})${golden === true ? " · والقاعة خالية" : golden === false ? " · القاعة محجوزة" : ""}`}
+              const why = cellWhy.get(`${target.day}|${target.start}`);
+              const tier = why?.tier || "free";
+              const reasonWords = why && why.reasons.length ? why.reasons.map(item => WHY_META[item.kind].label).join("، ") : "";
+              const isBest = Boolean(bestKey) && bestKey.startsWith(`${target.day}|${target.days.join("+")}|${target.start}|`);
+              const isUsual = Boolean(usual && usual.days.includes(target.day) && usual.start === toClock(target.start));
+              const isLinked = adjacentKeys.has(`${target.day}|${target.start}`);
+              const marks = [isBest ? "أفضل وقت" : "", isUsual ? "الوقت المعتاد" : "", isLinked ? "لاصق بمحاضرتك" : ""].filter(Boolean).join("، ");
+              return <button type="button" key={`t-${target.start}`} data-day={day} data-start={target.start} data-tier={tier} data-best={isBest || undefined} data-usual={isUsual || undefined} data-link={isLinked || undefined}
+                className={`mini-week-target is-tier-${tier}${lit ? " is-lit" : ""}${golden === true ? " is-golden" : golden === false ? " is-room-busy" : ""}${fit ? ` has-fit fit-${fitTone(fit.percent)}` : ""}${isBest ? " is-best" : ""}`} style={place(target.start, target.end)}
+                title={`${toClock(target.start)}–${toClock(target.end)} · ${daysText(target.days)}${golden === true ? " · والقاعة خالية" : golden === false ? " · القاعة محجوزة" : ""}${reasonWords ? ` · ${reasonWords}` : ""}${fit ? ` · يناسب ${fit.percent}% من ${fitWho}` : ""}${marks ? ` · ${marks}` : ""}`}
+                aria-label={`ضع الموعد ${DAY_FULL[day]} ${toClock(target.start)} (${daysText(target.days)})${golden === true ? " · والقاعة خالية" : golden === false ? " · القاعة محجوزة" : ""} — ${tier === "free" ? WHY_TIER_LABEL.free : reasonWords || WHY_TIER_LABEL[tier]}${marks ? ` — ${marks}` : ""}`}
                 onMouseEnter={hover(target)} onFocus={hover(target)} onBlur={hover(null)} onClick={() => pick(target)}
-                data-guide-ignore="يملأ اليوم والبداية والنهاية وأيام النمط في النموذج؛ لا يحفظ شيئاً"><Plus aria-hidden="true" />
-                {pixels(target.start, target.end) >= 22 && !(fit && pixels(target.start, target.end) >= 34) ? <span className="mini-week-target-time" dir="ltr">{toClock(target.start)}</span> : null}
-                {golden === true ? <Star className="mini-week-target-star" aria-hidden="true" /> : null}
-                {fit && pixels(target.start, target.end) >= 34 ? <em className="mini-week-target-fit" dir="ltr" aria-hidden="true">{fit.percent}%</em> : null}
+                data-guide-ignore="يملأ اليوم والبداية والنهاية وأيام النمط في النموذج؛ لا يحفظ شيئاً">
+                {why?.dominant && tier !== "free" ? <WhyIcon name={WHY_META[why.dominant].icon} className="mini-week-reason" /> : <Plus aria-hidden="true" />}
               </button>;
             })}
             {lectures.filter(item => item.day === day).map(item => {
@@ -851,20 +915,30 @@ export default function TeacherMiniWeek({
           </div>)}
         </div>
       </div>
-      {roomOn || fits.size ? <div className="mini-week-legend">
+      <div className="mini-week-foot">
+        <button type="button" className="mini-week-info" aria-expanded={infoOpen} aria-controls={infoId} aria-label="دليل الألوان والرموز" title="دليل الألوان والرموز" onClick={() => setInfoOpen(value => !value)}
+          data-guide-ignore="يفتح دليل ألوان الخانات ورموزها أو يطويه؛ لا يغيّر الموعد"><Info aria-hidden="true" /></button>
+        {roomOn ? <b className="mini-week-legend-room" title="القاعة المختارة في النموذج"><DoorOpen aria-hidden="true" /><bdi dir="ltr">{roomLabel}</bdi></b> : null}
+      </div>
+      <div className="mini-week-legend" id={infoId} hidden={!infoOpen}>
+        <span><i className="is-tier-free" aria-hidden="true" />متاحة</span>
+        <span><i className="is-tier-caution" aria-hidden="true" />بملاحظة</span>
+        <span><i className="is-tier-blocked" aria-hidden="true" />يمنعها شيء</span>
+        <span><Star className="mini-week-legend-glyph" aria-hidden="true" />أفضل وقت</span>
+        <span><i className="is-usual" aria-hidden="true" />المعتاد</span>
+        <span><Link2 className="mini-week-legend-glyph" aria-hidden="true" />لاصق بمحاضرة</span>
         {roomOn ? <>
           <span><i className="is-own" aria-hidden="true" />محاضرات الأستاذ</span>
           <span><i className="is-room" aria-hidden="true" />القاعة محجوزة</span>
-          <span><i className="is-golden" aria-hidden="true"><Star /></i>تناسب الاثنين</span>
+          <span><i className="is-golden" aria-hidden="true" />تناسب الاثنين</span>
         </> : null}
-        {fits.size ? <span className="mini-week-legend-fit" title="لون الخانة: كم ممن يحتاجون المقرر يناسبهم الوقت — الخريجون أولاً (تقدير من الطلب الفعلي)">
-          <GraduationCap aria-hidden="true" />نبض الطلبة<i className="is-good" aria-hidden="true" /><i className="is-warn" aria-hidden="true" /><i className="is-bad" aria-hidden="true" />
+        {fits.size ? <span className="mini-week-legend-fit" title="الخانة الحمراء قد تزاحم الخريجين: كم ممن يحتاجون المقرر يناسبهم الوقت (تقدير من الطلب الفعلي)">
+          <GraduationCap aria-hidden="true" />نبض الطلبة
         </span> : null}
-        {roomOn ? <b className="mini-week-legend-room" title="القاعة المختارة في النموذج"><DoorOpen aria-hidden="true" /><bdi dir="ltr">{roomLabel}</bdi></b> : null}
-      </div> : null}
-      <p className="mini-week-hint"><Info aria-hidden="true" />
-        <span>{readOnly ? "أسبوعه في كل عائلة القسم · اضغط المادة لعرض اسمها كاملاً" : <>{hoverable ? "مرّر على خانةٍ فتضيء خانات النمط" : "اضغط خانةً لتضع الموعد"}{canDraw ? " · اسحب على فراغ لترسم موعداً" : ""} · اضغط المادة لعرض اسمها كاملاً · لا يُحفظ شيء</>}</span>
-      </p>
+        <p className="mini-week-hint">
+          <span>{readOnly ? "أسبوعه في كل عائلة القسم · اضغط المادة لعرض اسمها كاملاً" : <>{hoverable ? "مرّر على خانةٍ فتضيء خانات النمط" : "اضغط خانةً لتضع الموعد"}{canDraw ? " · اسحب على فراغ لترسم موعداً" : ""} · الأسهم تنقلك بين الخانات وEnter يضع الموعد · اضغط المادة لعرض اسمها كاملاً · لا يُحفظ شيء</>}</span>
+        </p>
+      </div>
     </div> : null}
   </section>;
   return floating ? createPortal(card, document.body) : card;

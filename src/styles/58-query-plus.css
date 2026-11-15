@@ -128,7 +128,10 @@
 .morning-brief-days b{font-weight:600}
 @media (max-width:640px){.morning-brief-items li{flex-direction:column;align-items:stretch}.morning-brief-open button{flex:1;justify-content:center}.morning-brief-days small{min-inline-size:78px}}
 .morning-brief-note{color:var(--muted);font-size:12px}
-.morning-brief-print{position:absolute;inset-block-end:12px;inset-inline-end:14px;inline-size:40px;block-size:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink-2,var(--ink));cursor:pointer}
+/* زرّ الطباعة يلتصق بزاوية الموجز نفسه لا بحاوية الزرّ (position:relative) — وإلا وقف فوق آخر سطرٍ وغطّى «افتح الثاني»؛ وقائمته تُفتح إلى أعلى. */
+.morning-brief-body>.query-print-menu{position:absolute;inset-block-end:12px;inset-inline-end:14px;z-index:2}
+.morning-brief-body>.query-print-menu .query-scope-menu{inset-block-start:auto;inset-block-end:calc(100% + 6px)}
+.morning-brief-print{position:static;inline-size:40px;block-size:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink-2,var(--ink));cursor:pointer}
 .morning-brief-print svg{inline-size:18px;block-size:18px}
 .morning-brief-print:hover{background:var(--accent-softer);color:var(--accent)}
 

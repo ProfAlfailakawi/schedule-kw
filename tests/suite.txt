@@ -186,6 +186,7 @@ test:radar-insight
 test:reference-apply
 test:outcome-story
 test:section-build
+test:section-goals
 test:import-status-bar
 test:sound-schedule
 test:data-gaps
@@ -240,10 +241,14 @@ test:schedule-stale-read
 test:week-window
 test:appointment-forms-r2
 test:appointment-forms-r3
+test:appointment-redesign
+test:appointment-inventory
+test:appointment-phase3
 test:review-1105
 test:holds-patterns-r4
 test:one-line-appointment
 test:same-slot
+test:slot-guard-emulator
 test:plan-peers
 test:teacher-card-peers
 test:coreq-sections
@@ -268,6 +273,7 @@ test:actual-demand
 test:actual-demand-supply
 test:actual-demand-graduates
 test:demo-actual-demand
+test:demo-training-seed
 test:appointment-review-1114
 test:appointment-ideas-1114
 test:appointment-seats
@@ -276,6 +282,9 @@ test:appointment-ideas2-1114
 test:graduate-drag-1114
 test:quick-best-1114
 test:chain-solve
+test:time-machine-restore-baseline
+test:touch-drag-grip
+test:print-lazy-sheet
 test:chain-pulse
 test:section-plan
 test:colleagues-advising-registration
@@ -350,4 +359,7 @@ test:meeting-slots-clock
 test:verdict-regulation-warning
 test:searchable-select-change
 test:schedule-w3
+test:why-not
+test:week-replay
 test:teacher-registry
+test:account-deletion

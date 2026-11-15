@@ -49,6 +49,7 @@ import { rateLimitPublic, requestLinkLimit } from "./src/server/core/rateLimits"
 import { scheduleConflicts } from "./src/server/core/scheduleConflicts";
 import { readSchedulesForRequest, termEndedForReading } from "./src/server/core/scheduleReads";
 import { regulationExceptionsFor, scheduleLengthIssue } from "./src/server/core/scheduleRules";
+import { newHoursIssueOnly } from "./src/utils/hoursIssue";
 import { createScheduleHandler, regulationGate, runScheduleHandler, updateScheduleHandler } from "./src/server/core/scheduleWrites";
 import { isScopeAllowed } from "./src/server/core/scope";
 import { graduateProofCore, graduateSubmitCheck, graduateThreshold, graduationCandidatesForSection, isSummerTerm, openStudentIdentity, sealStudentIdentity, studentIdentityKey, surveyFingerprint } from "./src/server/core/studentIdentity";
@@ -59,6 +60,8 @@ import { registerApprovalsRoutes } from "./src/server/routes/approvalsRoutes";
 import { registerAuthRoutes } from "./src/server/routes/authRoutes";
 import { registerStaffRecoveryRoutes } from "./src/server/staffRecovery";
 import { staffRecoveryDeps } from "./src/server/staffRecoveryWiring";
+import { registerAccountDeletionRoutes } from "./src/server/accountDeletion";
+import { accountDeletionDeps } from "./src/server/accountDeletionWiring";
 import { registerStudentRecoveryRoutes } from "./src/server/studentRecovery";
 import { studentRecoveryDeps } from "./src/server/studentRecoveryWiring";
 import { registerCoursesRoutes } from "./src/server/routes/coursesRoutes";
@@ -425,6 +428,7 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
 app.use("/api", activityTrailRecorder);
 registerAuthRoutes(app);
 registerStaffRecoveryRoutes(app, staffRecoveryDeps());
+registerAccountDeletionRoutes(app, accountDeletionDeps());
 /* «رمز استعادة لطالب»: موظفُ القسم يُصدره بعد رؤية البطاقة المدنية (src/server/studentRecovery.ts). */
 registerStudentRecoveryRoutes(app, studentRecoveryDeps());
 registerDashboardRoutes(app);
@@ -631,15 +635,15 @@ registerTimeMachineRoutes(app, {
   termFrozen: async termId => (termIsFrozen(termId, (await Repository.getTerms()) as any) ? TERM_FROZEN_MESSAGE
     : await termEndedForReading(termId) ? "انتهى هذا الفصل: آلة الزمن للقراءة والمحاكاة فقط." : null),
   /* الاعتمادُ حفظٌ من القسم تُجمع مخالفاتُه اللائحية (regulationGate)؛ والاستعادةُ تعيد ما كان بالضبط فلا تُسأل. */
-  dryRunUpdate: (req: AuthenticatedRequest, rowId, body, week, exactRestore) => runScheduleHandler(updateScheduleHandler, req, { params: { id: String(rowId) }, body, hypotheticalWeek: week, dryRun: true, exactRestore, regulation: !exactRestore }),
-  dryRunCreate: (req: AuthenticatedRequest, body, week, exactRestore) => runScheduleHandler(createScheduleHandler, req, { body, hypotheticalWeek: week, dryRun: true, exactRestore, regulation: !exactRestore }),
+  dryRunUpdate: (req: AuthenticatedRequest, rowId, body, week, exactRestore, baseline) => runScheduleHandler(updateScheduleHandler, req, { params: { id: String(rowId) }, body, hypotheticalWeek: week, dryRun: true, exactRestore, restoreBaselineWeek: baseline, regulation: !exactRestore }),
+  dryRunCreate: (req: AuthenticatedRequest, body, week, exactRestore, baseline) => runScheduleHandler(createScheduleHandler, req, { body, hypotheticalWeek: week, dryRun: true, exactRestore, restoreBaselineWeek: baseline, regulation: !exactRestore }),
   lockRefusal: (req: AuthenticatedRequest, collegeId, sectionId, termId) => scheduleLockRefusal(req, collegeId, sectionId, termId),
   captureVersion: (req: AuthenticatedRequest, collegeId, sectionId, termId, label) => captureScopeVersion(req, collegeId, sectionId, termId, label, "manual"),
   /* «ما صار» من صفوف الاعتماد نفسها (R7): يُستدعى بعد المعاملة وقبل الردّ. */
   recordVersionAfter: async (version, after) => { await recordVersionAfter(version, after); },
   noteMutation: (req: AuthenticatedRequest, collegeId, sectionId, termId, change) => noteScheduleMutation(req, collegeId, sectionId, termId, change),
   normalizer: async () => { const registry = await readLocationRegistry(); return row => canonicalizeHistoricalLocationForRuntime(row, registry); },
-  lengthIssue: (row, week) => scheduleLengthIssue(row, week),
+  lengthIssue: async (row, week, baseline) => newHoursIssueOnly(await scheduleLengthIssue(row, week), baseline ? await scheduleLengthIssue(row, baseline) : null),
   dataContextKey: dataContextCacheKey,
 });
 
