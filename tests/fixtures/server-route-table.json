@@ -5979,22 +5979,10 @@
    "methods": [
     "get"
    ],
-   "path": "/api/ta-trainee-names",
-   "name": "bound dispatch",
-   "call": "702e3489ce7ad129",
-   "site": "src/server/routes/offeringRoutes.ts:262",
-   "regexp": "/^\\/api\\/ta-trainee-names\\/?$/i",
-   "end": true
-  },
-  {
-   "kind": "route",
-   "methods": [
-    "get"
-   ],
    "path": "/api/ta-trainees",
    "name": "bound dispatch",
    "call": "256cb8b1e7a7f000",
-   "site": "src/server/routes/offeringRoutes.ts:275",
+   "site": "src/server/routes/offeringRoutes.ts:263",
    "regexp": "/^\\/api\\/ta-trainees\\/?$/i",
    "end": true
   },
@@ -6006,7 +5994,7 @@
    "path": "/api/ta-phase/allowed",
    "name": "bound dispatch",
    "call": "c789c863487b9b3d",
-   "site": "src/server/routes/offeringRoutes.ts:286",
+   "site": "src/server/routes/offeringRoutes.ts:274",
    "regexp": "/^\\/api\\/ta-phase\\/allowed\\/?$/i",
    "end": true
   },
@@ -6018,7 +6006,7 @@
    "path": "/api/ta-phase/open",
    "name": "bound dispatch",
    "call": "564fa125691613e1",
-   "site": "src/server/routes/offeringRoutes.ts:303",
+   "site": "src/server/routes/offeringRoutes.ts:291",
    "regexp": "/^\\/api\\/ta-phase\\/open\\/?$/i",
    "end": true
   },
@@ -6030,7 +6018,7 @@
    "path": "/api/ta-phase/close",
    "name": "bound dispatch",
    "call": "f987905419afe70d",
-   "site": "src/server/routes/offeringRoutes.ts:326",
+   "site": "src/server/routes/offeringRoutes.ts:314",
    "regexp": "/^\\/api\\/ta-phase\\/close\\/?$/i",
    "end": true
   },
@@ -6042,7 +6030,7 @@
    "path": "/api/advisor-seats",
    "name": "bound dispatch",
    "call": "9629c3bbbd8567ea",
-   "site": "src/server/routes/offeringRoutes.ts:335",
+   "site": "src/server/routes/offeringRoutes.ts:323",
    "regexp": "/^\\/api\\/advisor-seats\\/?$/i",
    "end": true
   },
@@ -6054,7 +6042,7 @@
    "path": "/api/advisor-seats/config",
    "name": "bound dispatch",
    "call": "6c241eda7d680b1a",
-   "site": "src/server/routes/offeringRoutes.ts:368",
+   "site": "src/server/routes/offeringRoutes.ts:356",
    "regexp": "/^\\/api\\/advisor-seats\\/config\\/?$/i",
    "end": true
   },
@@ -6066,7 +6054,7 @@
    "path": "/api/advisor-seats/add",
    "name": "bound dispatch",
    "call": "48ee62b0d701ae24",
-   "site": "src/server/routes/offeringRoutes.ts:389",
+   "site": "src/server/routes/offeringRoutes.ts:377",
    "regexp": "/^\\/api\\/advisor-seats\\/add\\/?$/i",
    "end": true
   },
@@ -6078,7 +6066,7 @@
    "path": "/api/advisor-seats/undo",
    "name": "bound dispatch",
    "call": "2e5262264fcc9352",
-   "site": "src/server/routes/offeringRoutes.ts:425",
+   "site": "src/server/routes/offeringRoutes.ts:413",
    "regexp": "/^\\/api\\/advisor-seats\\/undo\\/?$/i",
    "end": true
   },
@@ -6090,7 +6078,7 @@
    "path": "/api/advisor-seats/exception",
    "name": "bound dispatch",
    "call": "72fa4d89697001d5",
-   "site": "src/server/routes/offeringRoutes.ts:453",
+   "site": "src/server/routes/offeringRoutes.ts:441",
    "regexp": "/^\\/api\\/advisor-seats\\/exception\\/?$/i",
    "end": true
   },
@@ -6102,7 +6090,7 @@
    "path": "/api/advisor-seats/exception/resolve",
    "name": "bound dispatch",
    "call": "1e305178baac56d4",
-   "site": "src/server/routes/offeringRoutes.ts:481",
+   "site": "src/server/routes/offeringRoutes.ts:469",
    "regexp": "/^\\/api\\/advisor-seats\\/exception\\/resolve\\/?$/i",
    "end": true
   },

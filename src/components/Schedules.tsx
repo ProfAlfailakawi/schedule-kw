@@ -183,7 +183,9 @@ import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import { isTermClosed, previousYearSameTermName, sameTermName, sortTermsNewest, currentTermId, termIsArchive } from "../utils/termSequence";
 import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
-import { SeatQuickPick, VacantAssign, type SeatVerdict } from "./InstructorSeats";
+import { VacantAssign, type SeatVerdict } from "./InstructorSeats";
+import AppointmentQuickSwap from "./AppointmentQuickSwap";
+import { quickSwapAfter, quickSwapMine, quickSwapSources, type QuickSwapSource } from "../utils/appointmentQuickSwap";
 import SameSlotHint from "./SameSlotHint";
 import { conflictSkipIds, sectionCodeKey } from "../utils/sameSlot";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
@@ -207,7 +209,7 @@ import CourseTags from "./CourseTags";
 import type { GapItem as SectionGapItem } from "../utils/sectionGap";
 import VisitingBadge, { withVisitingSuffix } from "./VisitingBadge";
 import PersonChips from "./PersonChips";
-import { useTrainees, useTraineePeople } from "../utils/trainees";
+import { useTrainees } from "../utils/trainees";
 import { weeklyLoadOf } from "../utils/instructorRequestVerdict";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
@@ -9898,9 +9900,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const dept = new Set((departmentInstructorIds as number[]).map(Number));
     return studioPlaceholderIds.find(id => dept.has(id)) ?? studioPlaceholderIds[0] ?? 0;
   }, [studioPlaceholderIds, departmentInstructorIds]);
-  /* أسماءُ المتدرّبين من ‎/api/ta-trainees‎ نفسه: قائمةُ الأساتذة في الصفحة هي هيئةُ القسم، ولا تضمّ المدرّبين. */
-  const traineePeople = useTraineePeople(editor !== "index" ? formReachScope.collegeId : 0, Number(form.AdSectionId || filterSection || 0), formReachScope.termId);
-  const seatTrainees = useMemo(() => traineePeople.filter(person => !isFacultyPlaceholderId(person.id)).slice(0, 8), [traineePeople]);
   const [seatPick, setSeatPick] = useState(0);
   const seatAssignRow = editor === "edit" && editorOriginalRow && studioPlaceholderIds.includes(Number(editorOriginalRow.AdInstructorId)) && !practiceMode ? editorOriginalRow : null;
   useEffect(() => { setSeatPick(0); }, [editId, editor]);
@@ -9922,6 +9921,38 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     await placeholderAction(
       { rowId: Number(row.id), room: String(row.AdRoomCode || ""), hall: String(row.AdRoomHall || ""), start: row.fstarttime, end: row.fendtime, courseId: Number(row.AdCourseId), sameCourse: true },
       "assign", { appointment: { ...row, AdInstructorId: teacherId } as Partial<FSchedule>, done: () => { setSeatPick(0); back(); } });
+  };
+  /* ── 🔁 التبديل السريع: شعبُ المقرر عند مدرّبٍ أو شاغرةً تنتقل إلى الأستاذ المختار (بوقتها أو بوقت موعدي) ── */
+  const quickSwapMineNow = useMemo(() => quickSwapMine(form), [form]);
+  const quickSwapList = useMemo(() => quickSwapSources({
+    rows, teacherId: Number(form.AdInstructorId) || 0, courseId: Number(form.AdCourseId) || 0, termId: studioTermId,
+    editId: editor === "edit" ? Number(editId || 0) : 0, traineeIds: formTrainees, placeholderIds: new Set(studioPlaceholderIds), mine: quickSwapMineNow,
+  }), [rows, form.AdInstructorId, form.AdCourseId, studioTermId, editor, editId, formTrainees, studioPlaceholderIds, quickSwapMineNow]);
+  const applyQuickSwap = async (source: QuickSwapSource, mode: "its" | "mine") => {
+    if (refuseInPractice()) return;
+    const teacherId = Number(form.AdInstructorId) || 0;
+    const before = rows.find(row => Number(row.id) === source.rowId);
+    if (!teacherId || !before) { setError("تغيّر الجدول؛ أعد فتح التبديل السريع."); return; }
+    setReplaceBusy(true);
+    try {
+      const after: any = quickSwapAfter(before, teacherId, mode, quickSwapMineNow);
+      const { id: _id, AdCourseName: _name, ...body } = after;
+      const saved: any = await withRequestHoldPrompt(overrideRequestHolds => fetchJson(`/api/schedules/${before.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, rev: (before as any).rev, ...(overrideRequestHolds ? { overrideRequestHolds } : {}) }),
+      }), "التبديل", after);
+      offerUndo(`نقل شعبة ${before.SCode || ""} إلى ${instructorById.get(teacherId)?.AdInstructorName || "الأستاذ"}`, [restoreStep(before)]);
+      forgetSuggestions();
+      await loadRows({ silent: true });
+      markChanged(Number(saved?.id || before.id));
+      /* «بوقتي» استهلكت موعداً يُبنى الآن: تبقى مسودتُه فتُنشئ نسخةً مكررة. */
+      if (mode === "mine" && editor === "create") { clearDraft(); back(); }
+      requestAnimationFrame(() => setMessage(`انتقلت الشعبة ${before.SCode || ""} إلى ${instructorById.get(teacherId)?.AdInstructorName || "الأستاذ"}.`));
+    } catch (e: any) {
+      setError(friendlyError(e));
+    } finally {
+      setReplaceBusy(false);
+    }
   };
   const studioHolds = useScheduleHolds({
     enabled: editor !== "index",
@@ -10281,13 +10312,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   />
                   </div>
                   </Field>
-                  <SeatQuickPick value={Number(form.AdInstructorId) || 0} vacantId={seatVacantId} trainees={seatTrainees}
-                    onPick={(id) => {
-                      /* المتدرّبُ ليس في قائمة الصفحة: يُضاف إليها فيُعرض اسمُه في الملخّص. */
-                      const person = seatTrainees.find(item => item.id === id);
-                      if (person) setInstructors((current: any[]) => current.some(row => Number(row.AdInstructorId) === id) ? current : [...current, { AdInstructorId: id, AdInstructorName: person.name, AdInstructorCivil: "", AdInstructorCategory: "ta" }]);
-                      setForm((p) => ({ ...p, AdInstructorId: id })); setStudioTeacherOpen(false);
-                    }} />
                 </section>
                 ), (
                 <div className={`appt-sumrow${studioChanged?.teacher ? " is-changed" : ""}`} aria-label={studioChanged?.teacher ? "الأستاذ — تغيّر" : "الأستاذ"}>
@@ -10335,6 +10359,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <span className="appt-num">3</span>
                     <div className="appt-q"><strong>متى؟ الأيام والوقت</strong><small>اختر الأيام أو نمطاً من اللائحة، ثم البداية</small></div>
                     {studioWasMark(studioTimeWas, "time")}
+                    <AppointmentQuickSwap sources={quickSwapList} hasMine={Boolean(quickSwapMineNow)} busy={replaceBusy} onApply={(source, mode) => { void applyQuickSwap(source, mode); }} />
                   </header>
                 <Field label="الأيام" hint={formRegulationChips.length ? undefined : dayPatternNote}>
                   <div className={`checkbox-row day-pills${autofillFlash ? " is-autofilled" : ""}`}>
