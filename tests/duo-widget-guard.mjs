@@ -234,6 +234,24 @@ async function main() {
       await context.close();
     }
 
+    /* ضابطٌ سلبي: الحارس يجب أن يلتقط تقاطعاً معروفاً، والمنطقة المحلولة بالمتغيّرات يجب أن تساوي المنطقة المتوقعة (فلا يمرّ بلا قياس). */
+    console.log("— ضابط سلبي وحلّ المتغيّرات —");
+    for (const size of [[382, 580], [457, 678], [951, 585]]) {
+      const context = await newContext(size); const page = await context.newPage();
+      try {
+        await go(page, "/Home/Index");
+        const probe = await page.evaluate(`(() => { const d = document.createElement("div"); d.style.cssText = "position:fixed;visibility:hidden;left:0;top:0;width:var(--duo-widget-w);height:var(--duo-widget-h)"; document.body.appendChild(d); const r = d.getBoundingClientRect(); d.remove(); return { w: r.width, h: r.height }; })()`);
+        const wantH = zoneHeight(size[1]);
+        const okZone = probe.w === WIDGET_W && Math.abs(probe.h - wantH) < 1.5 && probe.w > 0 && probe.h > 0;
+        console.log(`${okZone ? "✓" : "✗"} ${size.join("x")} المنطقة المحلولة ${probe.w}×${probe.h.toFixed(1)} (المتوقع ${WIDGET_W}×${wantH.toFixed(1)})`); if (!okZone) fail(`${size.join("x")} المنطقة المحلولة ${probe.w}×${probe.h}`);
+        await page.evaluate(`(() => { const b = document.createElement("button"); b.textContent = "ضابط"; b.id = "duo-negative-control"; b.style.cssText = "position:fixed;top:8px;right:8px;z-index:2147483000;width:40px;height:40px"; document.body.appendChild(b); })()`);
+        const m = await page.evaluate(`${AUDIT}(${WIDGET_W}, ${zoneHeight(size[1])})`);
+        const caught = m.violations.some((v) => /duo-negative-control|button/.test(v.el));
+        console.log(`${caught ? "✓" : "✗"} ${size.join("x")} الحارس يلتقط زراً موضوعاً عمداً داخل المنطقة`); if (!caught) fail(`${size.join("x")}: الضابط السلبي لم يُلتقط`);
+      } catch (error) { fail(`ضابط ${size.join("x")}: ${String(error.message).split("\n")[0]}`); }
+      await context.close();
+    }
+
     /* صفحة التشخيص المخفية. */
     console.log("— ?duo-debug=1 —");
     {
