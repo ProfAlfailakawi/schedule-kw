@@ -22,7 +22,7 @@ import { getCookies, SERVER_IDLE_SESSION_MS } from "./core/auth";
 export const APP_HANDOFF_SCHEME = "schedulekw";
 export const APP_HANDOFF_TTL_MS = 2 * 60 * 1000;
 
-type Handoff = { userId: number; memberId?: string; initialPassMark?: string; challenge: string; expiresAt: number; usedAt?: number };
+type Handoff = { userId: number; memberId?: string; sourceSessionId: string; challenge: string; expiresAt: number; usedAt?: number };
 
 const secure = () => (process.env.NODE_ENV === "production" ? "; Secure" : "");
 const CHALLENGE = /^[A-Za-z0-9_-]{43}$/;
@@ -50,9 +50,12 @@ export function registerAppHandoffRoutes(app: Express): void {
     const session = sessionId?.startsWith("sess_") ? await Repository.getSession(sessionId) : undefined;
     if (!session) { back(res, "error=no-session"); return; }
     /* من لم يغيّر كلمته الأولى يغيّرها في المتصفح أولاً: لا تنتقل جلسةٌ مؤقتة. */
-    if (session.initialPassMark) { back(res, "error=password-first"); return; }
+    if (!session.memberId) {
+      const user = await Repository.getUserById(session.userId);
+      if (!user || user.MustChangePassword) { back(res, "error=password-first"); return; }
+    }
     const code = randomBytes(32).toString("base64url");
-    const row: Handoff = { userId: session.userId, ...(session.memberId ? { memberId: session.memberId } : {}), challenge, expiresAt: Date.now() + APP_HANDOFF_TTL_MS };
+    const row: Handoff = { userId: session.userId, sourceSessionId: sessionId, ...(session.memberId ? { memberId: session.memberId } : {}), challenge, expiresAt: Date.now() + APP_HANDOFF_TTL_MS };
     await Repository.saveFeatureDoc("appHandoffs", code, row);
     back(res, `code=${code}`);
   });
@@ -68,6 +71,8 @@ export function registerAppHandoffRoutes(app: Express): void {
     });
     if (!out.ok) { res.redirect(302, "/?handoff=expired"); return; }
     const row = out.next;
+    /* أُلغيت الجلسة الأصلية (إعادة تعيين، خروج، حذف) بعد إصدار الرمز ← لا جلسة جديدة منه. */
+    if (!(await Repository.getSession(row.sourceSessionId))) { res.redirect(302, "/?handoff=expired"); return; }
     const sessionId = `sess_${randomBytes(32).toString("hex")}`;
     await Repository.createSession(sessionId, row.userId, SERVER_IDLE_SESSION_MS, row.memberId ? { memberId: row.memberId } : {});
     res.setHeader("Set-Cookie", `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax${secure()}`);

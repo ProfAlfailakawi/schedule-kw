@@ -22,6 +22,9 @@ const verifier = () => randomBytes(32).toString("base64url");
 const challengeOf = (v: string) => createHash("sha256").update(v).digest("base64url");
 
 async function main() {
+  /* حسابان في الذاكرة: 7 عاديٌّ، و8 عليه تغيير كلمته. */
+  const accounts: Record<number, any> = { 7: { SystemUserId: 7, MustChangePassword: false }, 8: { SystemUserId: 8, MustChangePassword: true }, 9: { SystemUserId: 9, MustChangePassword: true } };
+  (Repository as any).getUserById = async (id: number) => accounts[id];
   const app = express();
   registerAppHandoffRoutes(app);
   const server = app.listen(0);
@@ -58,9 +61,19 @@ async function main() {
   res = await get(`/app-handoff/redeem?code=${old}&verifier=${v2}`);
   check(location(res) === "/?handoff=expired", "H3 المنتهي يُرفض");
 
-  await Repository.createSession("sess_fresh", 8, 60_000, { initialPassMark: "m1" });
+  await Repository.createSession("sess_fresh", 8, 60_000);
   res = await get(`/app-handoff/start?challenge=${challengeOf(v1)}`, "session_id=sess_fresh");
-  check(location(res) === "schedulekw://handoff?error=password-first", "H4 كلمةٌ أولى لم تُغيَّر ← password-first");
+  check(location(res) === "schedulekw://handoff?error=password-first", "H4 حسابٌ عليه تغيير كلمته ← password-first");
+  accounts[8].MustChangePassword = false;
+  res = await get(`/app-handoff/start?challenge=${challengeOf(v1)}`, "session_id=sess_fresh");
+  check(location(res).startsWith("schedulekw://handoff?code="), "H4 بعد أن غيّرها (المجلسُ نفسُها بعلامتها القديمة) ← يُسلَّم");
+  const v4 = verifier();
+  res = await get(`/app-handoff/start?challenge=${challengeOf(v4)}`, "session_id=sess_owner");
+  const orphan = codeOf(res);
+  await Repository.deleteSession("sess_owner");
+  res = await get(`/app-handoff/redeem?code=${orphan}&verifier=${v4}`);
+  check(location(res) === "/?handoff=expired" && !res.headers.get("set-cookie"), "H4 سقوط الجلسة الأصلية يُبطل الرمز");
+  await Repository.createSession("sess_owner", 7, 60_000);
 
   await Repository.createSession("sess_member", 9, 60_000, { memberId: "m-42" });
   const v3 = verifier();
