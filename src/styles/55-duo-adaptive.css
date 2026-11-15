@@ -57,7 +57,6 @@
   /* فقاعة وارد القاعات فوق شريط التنقل لا عليه. */
   .hall-barter-inbox:not(.hall-barter-inbox-decision){bottom:calc(var(--dock-h) + 8px + env(safe-area-inset-bottom))}
 }
-
 /* ==========================================================================
    ركن الودجت — النوافذ والأدراج والطفو (قواعد تُبدِّل قيمةً أصلية، فتُكتب داخل الدوو وحده)
    تسبق كتلة الكتاب أدناه عمداً: في الكتاب النافذةُ على الصفحة اليسرى (لا ودجت فيها) وقاعدتُه أولى.
@@ -96,9 +95,9 @@
        screen and (horizontal-viewport-segments:2){
   /* الدخول: الكلمة التعريفية والعنوان يبدآن يسار الودجت. */
   .apex-login-kicker,
-  .apex-login-story h1,
-  .apex-login-story>p{margin-right:var(--duo-widget-inset)}
-}
+  html body .apex-login .apex-login-story h1,
+  .apex-login-story>p,
+  html body .apex-login .apex-login-access .apex-access-head p{transform:translateX(calc(0px - var(--duo-widget-inset)))!important}
 }
 
 /* ==========================================================================
