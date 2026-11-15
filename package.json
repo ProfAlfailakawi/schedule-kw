@@ -293,6 +293,7 @@
     "test:handover-pick": "tsx tests/handover-pick-audit.ts",
     "test:activity-trail": "tsx tests/activity-trail-audit.ts",
     "test:seat-access-card": "tsx tests/seat-access-card-audit.tsx",
+    "test:app-handoff": "tsx tests/app-handoff-audit.ts",
     "test:first-login-password": "tsx tests/first-login-password-audit.tsx",
     "test:colleague-guard-measure": "tsx tests/colleague-guard-measure-audit.ts",
     "test:actual-demand": "tsx tests/actual-demand-audit.ts",

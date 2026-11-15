@@ -98,6 +98,7 @@ import { registerSurveyRoutes } from "./src/server/routes/surveyRoutes";
 import { registerSystemRoutes } from "./src/server/routes/systemRoutes";
 import { registerUsersRoutes } from "./src/server/routes/usersRoutes";
 import { registerSeatsRoutes, seatMemberGuard } from "./src/server/seatsRoutes";
+import { registerAppHandoffRoutes } from "./src/server/appHandoff";
 import { registerSectionRequestsRoutes } from "./src/server/sectionRequestsRoutes";
 import { registerScheduleHoldsRoutes } from "./src/server/scheduleHoldsRoutes";
 import { registerActualDemandRoutes } from "./src/server/actualDemandRoutes";
@@ -471,6 +472,7 @@ registerNotificationsRoutes(app);
 registerAdminRoutes(app);
 registerUsersRoutes(app);
 registerSeatsRoutes(app);
+registerAppHandoffRoutes(app);
 registerActivityTrailRoutes(app);
 /* حارسُ الزملاء: حجزٌ ليّن لدقيقتين يراه من يبني موعداً معك، ومقياسُ إدخال المواعيد (مجهول الهوية). */
 registerScheduleHoldsRoutes(app);

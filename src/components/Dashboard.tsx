@@ -3,6 +3,7 @@ import HealthGlance from "./HealthGlance";
 import{ArrowLeft,BookOpen,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,DoorOpen,GraduationCap,ShieldAlert,Sparkles,TrendingDown,TrendingUp,UsersRound}from"lucide-react";
 import{Notice,PrimaryButton}from"./ui";
 import InstallApp from"./InstallApp";
+import GetAppSheet from"./GetAppSheet";
 import MiniRing from"./MiniRing";
 import{Counted,useMotionScope}from"./dna";
 import TermForecast from"./TermForecast";
@@ -248,6 +249,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
    {/* The install invitation lives here now — full the first time, a single
        icon every time after. */}
    <InstallApp />
+   <GetAppSheet />
   </header>
   {user?.IsRootAdmin&&onNavigate?<HealthGlance onOpen={()=>onNavigate("health")}/>:null}
 

@@ -1,0 +1,41 @@
+/* ── التطبيق الرسمي: دعوةُ التحميل في المتصفح، و«ادخل بحسابك» داخل التطبيق ──────
+   بطاقةٌ هادئة بألوان النظام وحدها: أيقونة، جملتان، زرٌّ بارز واحد. */
+.get-app{
+  position:fixed;z-index:60;inset-inline:var(--s4);bottom:max(var(--s4),env(safe-area-inset-bottom));
+  max-width:460px;margin-inline:auto;
+  display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:var(--s3) var(--s4);
+  padding:var(--s4);border:1px solid var(--line);border-radius:var(--r-lg);
+  background:var(--surface);box-shadow:var(--shadow-lg);
+  animation:get-app-in .38s var(--ease-out,ease) both;
+}
+@keyframes get-app-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.get-app img{width:56px;height:56px;border-radius:14px;box-shadow:0 6px 16px rgb(17 25 22 / .14)}
+.get-app-text{display:grid;gap:3px;min-width:0}
+.get-app-text b{font-size:var(--t-md,15px);font-weight:700;color:var(--ink);line-height:1.45}
+.get-app-text small{font-size:var(--t-sm);color:var(--muted);line-height:1.6}
+.get-app-go{
+  grid-column:1 / -1;display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
+  min-height:48px;border-radius:var(--r-md,12px);background:var(--accent);color:var(--accent-contrast);
+  font-size:15px;font-weight:700;text-decoration:none;
+}
+.get-app-go:hover{background:var(--accent-strong)}
+.get-app-go svg{width:18px;height:18px}
+.get-app-later{
+  grid-column:1 / -1;justify-self:center;min-height:36px;padding:0 var(--s4);
+  color:var(--muted);font-size:var(--t-sm);cursor:pointer;background:none;border:0;
+}
+.get-app-later:hover{color:var(--ink)}
+@media (min-width:700px){.get-app{inset-inline:auto;inset-inline-end:var(--s5);margin:0;width:420px}}
+@media (prefers-reduced-motion:reduce){.get-app{animation:none}}
+
+.app-handoff{display:grid;gap:var(--s2);justify-items:center;text-align:center;margin-bottom:var(--s4)}
+.app-handoff-go{
+  width:100%;min-height:54px;display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
+  border-radius:var(--r-md,12px);background:var(--accent);color:var(--accent-contrast);
+  font-size:16px;font-weight:700;cursor:pointer;border:0;
+}
+.app-handoff-go:hover:not(:disabled){background:var(--accent-strong)}
+.app-handoff-go:disabled{opacity:.7;cursor:progress}
+.app-handoff-go svg{width:19px;height:19px}
+.app-handoff small{color:var(--muted);font-size:var(--t-sm);line-height:1.6}
+.app-handoff p{margin:0;padding:var(--s3) var(--s4);border-radius:var(--r-md,12px);background:var(--accent-soft);color:var(--ink-2);font-size:var(--t-sm);line-height:1.7}
