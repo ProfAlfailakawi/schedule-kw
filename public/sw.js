@@ -90,7 +90,7 @@ self.addEventListener("fetch",event=>{
   /* الإعلانات والنبض: شبكةٌ مباشرة دائماً؛ نسخةٌ قديمة تعني إعلاناً منتهياً أو عدّاداً لا يُحتسب. */
   if(url.pathname.startsWith("/_ads/")||url.pathname==="/_pulse")return;
   /* صفحتا الشركاء مستقلتان عن التطبيق وبرمزٍ سرّي: لو مرّتا بقاعدة التنقّل لحلّتا محلّ هيكل التطبيق دون اتصال. */
-  if(url.pathname.startsWith("/ad-report/")||url.pathname.startsWith("/partners/")||url.pathname.startsWith("/verify/")||url.pathname==="/measurement")return leaveToNetwork();
+  if(url.pathname.startsWith("/app-handoff/")||url.pathname.startsWith("/ad-report/")||url.pathname.startsWith("/partners/")||url.pathname.startsWith("/verify/")||url.pathname==="/measurement")return leaveToNetwork();
   /* صفحاتُ الروابط العامة — كرتُ الأستاذ (/r/) وبطاقةُ القسم (/s/) ومساري (/me) وأخواتها — تُبنى في
      الخادم لكل رمز. لا تُخزَّن هنا ولا تُجاب من هيكل التطبيق: لو مرّت بقاعدة التنقّل لصار الكرتُ هو
      «التطبيق» دون اتصال، ولقُدِّم كرتٌ قديم. ولها عاملُها الخاص للتنبيهات (/push-sw.js) بلا ذاكرة. */

@@ -19,6 +19,10 @@
     "src/server/core/rateLimits.ts",
     "src/server/roleGuard.ts",
     "src/server/accountPassword.ts",
+    "src/server/appHandoff.ts",
+    "src/utils/nativeApp.ts",
+    "src/components/GetAppSheet.tsx",
+    "src/components/AppHandoffEntry.tsx",
     "src/server/anonymousGuard.ts",
     "src/server/staffDeviceKey.ts",
     "src/server/readScope.ts",
@@ -1411,6 +1415,40 @@
         "tests": [
           "tests/account-deletion-audit.ts"
         ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-ACC-061",
+      "kind": "functional",
+      "title": {
+        "ar": "تسليم الدخول من المتصفح إلى التطبيق الرسمي",
+        "en": "Handing the browser sign-in over to the official app"
+      },
+      "text": {
+        "ar": "يجب أن يتيح النظام لمن دخل في Safari أن ينتقل إلى التطبيق الرسمي بلا كتابة اسمٍ أو كلمة سر: يُصدر الخادم من جلسته رمزاً لمرة واحدة ودقيقتين مربوطاً بتحدٍّ (PKCE) لا يعرفه إلا التطبيق الطالب (GET /app-handoff/start)، ثم يبدّله التطبيق بجلسةٍ جديدة في مخزنه (GET /app-handoff/redeem). ولا يُسلَّم لجلسة التجربة ولا لحسابٍ عليه تغيير كلمته، ويسقط الرمز بسقوط الجلسة الأصلية. وتُعرض في المتصفح على أجهزة آبل دعوةٌ واحدة لتحميل التطبيق.",
+        "en": "The system shall let a person signed in on Safari move to the official app without typing a name or password: the server issues, from that session, a one-time two-minute code bound to a PKCE challenge only the requesting app knows (GET /app-handoff/start), and the app exchanges it for a new session in its own store (GET /app-handoff/redeem). It is never handed over from a demo session or for an account that must change its password, and the code dies when the source session does. The browser on Apple devices shows a single invitation to download the app."
+      },
+      "rationale": {
+        "ar": "التطبيق لا يشارك Safari كوكيزه؛ فبدون تسليمٍ يُطلب من كل مدعوٍّ أن يكتب ما لم يكتبه يوماً.",
+        "en": "The app does not share Safari's cookies; without a handover every invitee would have to type what they never typed."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["standard"],
+      "acceptance": [
+        {
+          "ar": "رمزٌ استُعمل مرة أو انقضت دقيقتاه أو بتحدٍّ خاطئ ← لا جلسة.",
+          "en": "A code used once, older than two minutes, or with the wrong verifier yields no session."
+        },
+        {
+          "ar": "سقوط الجلسة الأصلية أو حسابٌ عليه تغيير كلمته ← لا تسليم.",
+          "en": "A dropped source session, or an account that must change its password, is not handed over."
+        }
+      ],
+      "evidence": {
+        "code": ["src/server/appHandoff.ts", "src/utils/nativeApp.ts", "src/components/GetAppSheet.tsx", "src/components/AppHandoffEntry.tsx"],
+        "tests": ["tests/app-handoff-audit.ts"]
       },
       "inferred": false
     }
