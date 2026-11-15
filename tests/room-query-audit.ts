@@ -8,6 +8,9 @@ check(q("40 مقعد").minCapacity === 40, "40 مقعد");
 check(q("سعة 40").minCapacity === 40, "سعة 40");
 check(q("40+").minCapacity === 40, "40+");
 check(q("٤٠ مقعد").minCapacity === 40, "Arabic-Indic digits");
+/* الصيغة المنصوبة «40 مقعداً» (ومعها «فأكثر») تُستهلك كاملةً فلا يبقى حرفٌ في rest يُقارَن برمز القاعة. */
+check(q("40 مقعداً").minCapacity === 40 && q("40 مقعداً").rest === "", "40 مقعداً consumed whole, rest empty");
+check(q("٤٠ مقعدا فأكثر").minCapacity === 40 && q("٤٠ مقعدا فأكثر").rest === "", "inflected seat word with «فأكثر» consumed whole");
 check(q("مختبر").lab === true && q("معمل").lab === true, "lab words");
 const a = q("مختبر الاثنين صباحاً");
 check(a.lab === true && a.day === "fmonday" && a.from === "08:00" && a.to === "12:00" && a.rest === "", "مختبر الاثنين صباحاً");

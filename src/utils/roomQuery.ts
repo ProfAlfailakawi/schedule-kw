@@ -30,7 +30,7 @@ export function parseRoomQuery(text: string): RoomQuery {
   let s = normalizeOneLine(text);
   const out: RoomQuery = { rest: "" };
   const cap = (re: RegExp) => { const m = re.exec(s); if (m) { out.minCapacity = Number(m[1]); s = s.replace(m[0], " "); return true; } return false; };
-  cap(/(\d{1,4})\s*\+/) || cap(/(?:سعه|سعة)\s*(\d{1,4})/) || cap(/(\d{1,4})\s*(?:مقعد|مقاعد|كرسي|كراسي|طالب|طلاب)/);
+  cap(/(\d{1,4})\s*\+/) || cap(/(?:سعه|سعة)\s*(\d{1,4})/) || cap(/(\d{1,4})\s*(?:مقعد|مقاعد|كرسي|كراسي|طالب|طلاب)[اى]?(?:\s*(?:ف[اأإ]كثر|فما فوق|وما فوق))?/);
 
   const kept: string[] = [];
   let periodHit: (typeof PERIODS)[number] | undefined;

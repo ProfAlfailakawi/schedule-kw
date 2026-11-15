@@ -6906,6 +6906,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       .catch(() => { /* إلغاءٌ أو انقطاع: تبقى الحقائق كما كانت */ });
     return () => controller.abort();
   }, [viewMode, filterCollege, filterSection, filterTerm]);
+  const RX_NO_BUILDING_KEY = "__no-building__";
   const rxModel = useMemo(() => {
     const rooms: RxRoom[] = roomsMatrix.allRooms.map(room => {
       const ids = new Set<number>();
@@ -6926,6 +6927,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         occupancy: own.length ? Math.round(own.reduce((sum, room) => sum + room.occupancy, 0) / own.length) : 0,
       };
     });
+    /* قاعةٌ لها اسمٌ بلا مبنى (رمز المبنى فارغ) تُحجَب من الاستكشاف إن لم تكن لها مجموعة: «بلا مبنى» تجمعها. */
+    const knownBuildings = new Set(buildings.map(item => item.key));
+    const orphans = rooms.filter(room => !knownBuildings.has(room.buildingKey));
+    if (orphans.length) {
+      orphans.forEach(room => { room.buildingKey = RX_NO_BUILDING_KEY; });
+      buildings.push({ key: RX_NO_BUILDING_KEY, label: "بلا مبنى", roomCount: orphans.length, occupancy: Math.round(orphans.reduce((sum, room) => sum + room.occupancy, 0) / orphans.length) });
+    }
     const homeless = new Set<number>();
     roomsMatrix.noRoomByDay.forEach(list => list.forEach(row => homeless.add(row.id)));
     return { rooms, buildings, noRoomCount: homeless.size };
@@ -7421,8 +7429,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         : weekMainScrollRef.current;
     mirrorHorizontalScroll(element, [weekTopScrollRef.current, weekRulerScrollRef.current, weekMainScrollRef.current]);
   };
-  const syncRoomsScroll = (source: "ruler" | "main", _value?: number) => {
-    const element = source === "ruler" ? roomsRulerScrollRef.current : roomsMainScrollRef.current;
+  const syncRoomsScroll = (source: "ruler" | "main", _value?: number, from?: HTMLElement | null) => {
+    /* في المقارنة تُرسم عدة أسابيع، لكل منها شريطُها وجسمُه متجاوران: يُزامَن الزوجُ الذي أصدر الحدث لا آخرُ زوجٍ رُكّب. */
+    const element = from || (source === "ruler" ? roomsRulerScrollRef.current : roomsMainScrollRef.current);
+    const mate = from ? (source === "ruler" ? from.nextElementSibling : from.previousElementSibling) as HTMLElement | null : null;
+    if (from && mate) { mirrorHorizontalScroll(element, source === "ruler" ? [element, mate] : [mate, element]); return; }
     mirrorHorizontalScroll(element, [roomsRulerScrollRef.current, roomsMainScrollRef.current]);
   };
 
@@ -12781,7 +12792,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   onPointerDown={(e) => claimScroller(e.currentTarget)}
                   onTouchStart={(e) => claimScroller(e.currentTarget)}
                   onWheel={(e) => claimScroller(e.currentTarget)}
-                  onScroll={(e) => syncRoomsScroll("ruler", e.currentTarget.scrollLeft)}
+                  onScroll={(e) => syncRoomsScroll("ruler", e.currentTarget.scrollLeft, e.currentTarget)}
                   aria-label="شريط ساعات القاعات"
                 >
                   <div
@@ -12823,7 +12834,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   onPointerDown={(e) => claimScroller(e.currentTarget)}
                   onTouchStart={(e) => claimScroller(e.currentTarget)}
                   onWheel={(e) => claimScroller(e.currentTarget)}
-                  onScroll={(e) => syncRoomsScroll("main", e.currentTarget.scrollLeft)}
+                  onScroll={(e) => syncRoomsScroll("main", e.currentTarget.scrollLeft, e.currentTarget)}
                 >
                   <div
                     className="rooms-rows"
