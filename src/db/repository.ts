@@ -3424,6 +3424,8 @@ export type FeatureCollection =
   | "seatLedgers" | "seatMemberLinks"
   /* إعادةُ تعيين كلمة السر: أثرُ الكلمة المؤقتة ودخولُها الواحد، لا الكلمة (src/server/accountPassword.ts). */
   | "passwordResets"
+  /* تسليمُ الجلسة من المتصفح إلى التطبيق الرسمي (src/server/appHandoff.ts): رمزٌ لمرةٍ واحدة ودقيقتين، بلا كلمة سر. */
+  | "appHandoffs"
   /* «نسيت كلمة السر؟» للموظفين (src/server/staffRecovery.ts): حارسٌ على بصمة الاسم، وتذكرةٌ لمرةٍ واحدة، وأثرٌ لمدير النظام. */
   | "staffRecovery"
   /* طلبُ حذف الحساب من التطبيق (src/server/accountDeletion.ts): وثيقةٌ لكل حساب `u<id>`، بلا كلمة سر. */

@@ -19,6 +19,7 @@
     "src/server/core/rateLimits.ts",
     "src/server/roleGuard.ts",
     "src/server/accountPassword.ts",
+    "src/server/appHandoff.ts",
     "src/server/anonymousGuard.ts",
     "src/server/staffDeviceKey.ts",
     "src/server/readScope.ts",
