@@ -11,8 +11,8 @@
     "en": "From server boot to release: runtime, backups, the demo sandbox and the installable app."
   },
   "summary": {
-    "ar": "تصف هذه الوحدة كيف يُركَّب الخادم ويُقلع ويحمي نفسه، وكيف تُختار قاعدة البيانات وتُرفض الوجهة الخاطئة، وكيف يُصدَّر النظام كاملاً ويُستعاد بخطوات قابلة للاستئناف لحساب الإدارة الرئيسي وحده. وتشمل البيئة التجريبية المعزولة لكل زائر، والتطبيق المثبَّت وصفحة «نُحدّث البرنامج» عند التبديل، وخط البناء والفحص والنشر وحرّاسه. تعتمد عليها كل الوحدات الأخرى لأن أي خلل هنا يظهر لكل مستخدم.",
-    "en": "This module describes how the server is composed, booted and protected; how the database target is chosen and a wrong target refused; and how the whole system is exported and restored in resumable steps by the root administrator alone. It also covers the per-visitor demo sandbox, the installable app with its 'we are updating' page during a switch-over, and the build, check and release pipeline with its guards. Every other module depends on it, because a fault here is seen by every user."
+    "ar": "تصف هذه الوحدة كيف يُركَّب الخادم ويُقلع ويحمي نفسه، وكيف تُختار قاعدة البيانات وتُرفض الوجهة الخاطئة، وكيف يُصدَّر النظام كاملاً ويُستعاد بخطوات قابلة للاستئناف لحساب الإدارة الرئيسي وحده. وتشمل البيئة التجريبية المعزولة لكل زائر، والتطبيق المثبَّت وصفحة «نُحدّث البرنامج» عند التبديل، وخط البناء والفحص والنشر وحرّاسه. تعتمد عليها كل الوحدات الأخرى لأن أي خلل هنا يظهر لكل مستخدم. وتتيح كذلك واجهة تشخيصية اختيارية لـ iPhone Duo قياس مساحة ودجت النظام المحجوزة ومعايرتها عند طلبها صراحة.",
+    "en": "This module describes how the server is composed, booted and protected; how the database target is chosen and a wrong target refused; and how the whole system is exported and restored in resumable steps by the root administrator alone. It also covers the per-visitor demo sandbox, the installable app with its 'we are updating' page during a switch-over, and the build, check and release pipeline with its guards. Every other module depends on it, because a fault here is seen by every user. It also provides an opt-in iPhone Duo diagnostic overlay to measure and tune the reserved system-widget area when explicitly requested."
   },
   "actors": [
     "rootAdmin",
@@ -106,7 +106,8 @@
     "src/server/featureHealth.ts",
     "src/utils/featureHealth.ts",
     "src/utils/featureHealthView.ts",
-    "src/components/FeatureHealth.tsx"
+    "src/components/FeatureHealth.tsx",
+    "src/utils/duoDebug.ts"
   ],
   "screens": [
     {

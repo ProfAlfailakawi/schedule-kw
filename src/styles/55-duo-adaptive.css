@@ -57,6 +57,48 @@
   /* فقاعة وارد القاعات فوق شريط التنقل لا عليه. */
   .hall-barter-inbox:not(.hall-barter-inbox-decision){bottom:calc(var(--dock-h) + 8px + env(safe-area-inset-bottom))}
 }
+/* ==========================================================================
+   ركن الودجت — النوافذ والأدراج والطفو (قواعد تُبدِّل قيمةً أصلية، فتُكتب داخل الدوو وحده)
+   تسبق كتلة الكتاب أدناه عمداً: في الكتاب النافذةُ على الصفحة اليسرى (لا ودجت فيها) وقاعدتُه أولى.
+   الاستعلامات الثلاثة هي نفسها في 01-foundation.css (يحرس تطابقَها tests/duo-widget-css-audit.ts).
+   ========================================================================== */
+@media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
+       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
+       screen and (horizontal-viewport-segments:2){
+  /* النوافذ المركزية: الخلفية بعرض الشاشة (تعتّم وتحجب اللمس)، والنافذة وحدها يسار الودجت. */
+  :is([class*="backdrop"],[class*="scrim"]):has(>[role="dialog"],>[aria-modal="true"]){
+    padding-right:calc(var(--s3) + var(--duo-widget-inset));
+  }
+  /* الأدراج والأوراق المثبَّتة عند الحافة اليسرى الفيزيائية (inline-end في RTL): لا تمتدّ تحت الودجت. */
+  .schedule-context,.intel-drawer,.catalog-form-drawer,.trail-sheet,.seat-drawer,.query-detail-panel,.appt-drawer,.wish-sheet{
+    max-inline-size:calc(100vw - var(--duo-widget-inset) - var(--s3));
+  }
+  /* الدرج المثبَّت عند الحافة اليمنى (inline-start في RTL): يبدأ يسار الودجت. */
+  .sp-more-drawer{inset-inline-start:var(--duo-widget-inset);max-inline-size:calc(100vw - var(--duo-widget-inset))}
+  /* لوحة الإشعارات وتنبيهها عند الحافة اليسرى: عرضها لا يبلغ الودجت. */
+  .notify-panel,.notify-toast{max-width:calc(100vw - 16px - var(--duo-widget-inset))}
+  /* شرائط طافية بين حافّتين (inset-inline): الحافة اليمنى الفيزيائية تبتعد. */
+  .move-refusal{right:calc(var(--s4) + var(--duo-widget-inset))}
+  .inbox-pilot-sheet-error{right:calc(16px + var(--duo-widget-inset))}
+  .guide-point-bar{right:var(--duo-widget-inset)}
+  /* رؤوسٌ لاصقة تقف قرب أعلى الشاشة عند التمرير (top ≤ 84px): تبدأ يسار الودجت. */
+  .insight-page-head,.intelligence-page .insight-page-nav,.intelligence-scenes,.location-admin-tabs{margin-right:var(--duo-widget-inset)}
+}
+@media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
+       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
+       screen and (horizontal-viewport-segments:2){
+  /* الدخول طولياً: أول سطرٍ في بطاقة الدخول يبدأ يسار الودجت؛ والبطاقة نفسها تمتدّ تحتها. */
+  .apex-login-access .apex-access-head{margin-right:var(--duo-widget-inset)}
+}
+@media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
+       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
+       screen and (horizontal-viewport-segments:2){
+  /* الدخول: الكلمة التعريفية والعنوان يبدآن يسار الودجت. */
+  .apex-login-kicker,
+  html body .apex-login .apex-login-story h1,
+  .apex-login-story>p,
+  html body .apex-login .apex-login-access .apex-access-head p{transform:translateX(calc(0px - var(--duo-widget-inset)))!important}
+}
 
 /* ==========================================================================
    iPhone Duo — الشاشة الداخلية كتابٌ مفتوح (2026-11-14)
@@ -242,34 +284,35 @@
 }
 
 /* ==========================================================================
-   مستطيل الودجت (الجولة 3، 14 نوفمبر 2026) — الشاشة الداخلية للدوو في تبويب المتصفح والتطبيق المثبَّت معاً
-   على الدوو تطفو ودجتُ النظام (سهم الموقع، الساعة، حلقة الواي فاي) فوق
-   الزاوية العلوية اليمنى فتغطّي الشعار والعناوين والقائمة. موضعها ملكُ النظام ولا يُعرف
-   صندوقها بدقّة، فتُحجز زاويةٌ سخيّة 116×116 (يمين الشاشة الفعلي، لا بداية السطر)،
-   وتبقى الخلفية ممتدّةً خلفها والمحتوى وحده يبتعد.
-   الشرط: كتلة الكتاب (أفقي) أو الشاشة الداخلية الطولية (640–720)، ولا يُشترط display-mode (المالك على الأرجح في تبويب Safari، وهناك تطفو الودجت أيضاً).
-   الطولي هنا هاتفٌ عاديّ بلا صفحتين: الشريط العلوي يرتفع إلى ارتفاع المستطيل ويُبعَد
-   زرُّ القائمة عنه؛ وفي الكتاب المستطيلُ للصفحة اليمنى (الفهرس) وحدها.
-   لا يُخمَّن شيءٌ للشاشة الخارجية المطويّة (367×740): لا تُميَّز عن iPhone عادي.
+   ركن الودجت — iPhone Duo (14 نوفمبر 2026، الجولة 4): الهيكل
+   ودجتُ النظام (المصباح + الحساب/الموقع + الوقت + البطارية) تطفو على الزاوية العلوية اليمنى
+   الفيزيائية وليست من safe-area. حدودها في 01-foundation.css:
+   --duo-widget-w/-gap/-h، و--duo-widget-inset = العرض + الفجوة (صفرٌ خارج الدوو).
+   الخلفيات والزجاج تمتدّ تحتها؛ المحتوى وحده يبتعد. كلُّ الجهات فيزيائية (right/left) لأن
+   الودجت يمين الشاشة الفعلي لا بداية السطر: inline-end في هذا الموقع RTL يذهب لليسار.
+   هذه الكتلة بعد كتلة الكتاب عمداً (تُبدِّل حشوةَ الفهرس فيها)؛ والاستعلامات الثلاثة هي نفسها في
+   01-foundation.css (يحرس تطابقَها tests/duo-widget-css-audit.ts). ركن الودجت سجلُّه في
+   docs/IPHONE-DUO-FINAL-ACCEPTANCE.md.
    ========================================================================== */
-@media screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape),
-       screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px) and (orientation:portrait){
-  :root{--duo-cutout-w:116px;--duo-cutout-h:116px}
-  /* رأس الفهرس (الدرج في الطولي، والصفحة اليمنى في الكتاب): الشعار يبتعد عن المستطيل،
-     والصفّ يبلغ ارتفاعه فلا يركب ما بعده. */
-  .sidebar-brand{
-    box-sizing:border-box;min-height:var(--duo-cutout-h);
-    padding-right:calc(var(--duo-cutout-w) + 4px);padding-bottom:10px;align-items:center;
-  }
+@media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
+       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
+       screen and (horizontal-viewport-segments:2){
+  /* الشريط العلوي: أول زرٍّ (القائمة) يبدأ يسار الودجت لا تحتها، والشريط نفسه يمتدّ تحتها. */
+  .mobile-topbar{padding-right:calc(var(--s3) + var(--duo-widget-inset))}
+  /* زرّ المرشد بجوار زرّ القائمة (right:61px في 35-visual-polish.css): يتبعه بالإزاحة نفسها. */
+  html .smart-guide-fab,html .smart-guide-fab:not(.icon-only),html .smart-guide-fab.icon-only{right:calc(61px + var(--duo-widget-inset))}
+  /* الدرج الجانبي المفتوح، والفهرس (صفحة الكتاب اليمنى): يبتعد عمودُه عن الحافة اليمنى؛ الخلفية تمتدّ تحته. */
+  .sidebar{padding-right:calc(env(safe-area-inset-right) + var(--duo-widget-inset))}
+  /* صفحة العمل: أول كتلةٍ في الصفحة (رأس الصفحة/بطاقة العنوان) وحدها تبتعد عن الودجت، وما بعدها يعود لعرضه كاملاً.
+     (كان عمودٌ عائم يضيّق العمود كله لأن الحاوية flex، وهو ما لا نريده.) */
+  .content-frame>:first-child>:first-child{margin-right:max(0px,calc(var(--duo-widget-inset) - var(--gutter)))}
+  /* الرسائل العابرة: العمود يبدأ يسار الودجت. */
+  .toast-layer{padding-right:calc(var(--s3) + var(--duo-widget-inset))}
 }
-@media screen and (min-width:640px) and (max-width:720px) and (min-height:520px) and (max-height:960px) and (orientation:portrait){
-  :root{--topbar-h:var(--duo-cutout-h)}
-  .mobile-topbar{
-    box-sizing:border-box;
-    padding-left:var(--s4);padding-right:calc(var(--duo-cutout-w) + 8px);
-  }
-  /* زرّ المرشد ثابتٌ بـ right:61px بجوار زرّ القائمة: يتبعه إلى الداخل بمقدار الإزاحة نفسها. */
-  html .smart-guide-fab,html .smart-guide-fab:not(.icon-only),html .smart-guide-fab.icon-only{
-    right:calc(var(--duo-cutout-w) + 8px + 45px);
-  }
+/* الكتاب: صفحة العمل يسار الفهرس، والودجت فوق الفهرس وحده، فلا حجز في صفحة العمل. */
+@media screen and (min-width:721px) and (max-width:1000px) and (min-height:520px) and (max-height:960px) and (orientation:landscape){
+  .content-frame::before{content:none}
+  .content-frame>:first-child>:first-child{margin-right:0}
+  /* بطاقة الدخول على الصفحة اليسرى في الكتاب: لا ودجت فوقها. */
+  .apex-login-access .apex-access-head{margin-right:0}
 }
