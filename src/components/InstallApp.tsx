@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Download, Menu, Plus, Share, X } from "lucide-react";
 import { safeStorage } from "../utils/safeStorage";
+import { isAppleBrowser } from "../utils/nativeApp";
 
 const SEEN_KEY = "schedule-install-seen";
 type InstallVariant = "dashboard" | "login";
@@ -74,7 +75,8 @@ export default function InstallApp({ variant = "dashboard" }: { variant?: Instal
     };
   }, [open]);
 
-  if (isStandalone || installed) return null;
+  /* على أجهزة آبل التطبيقُ الرسمي هو الدعوة الوحيدة (GetAppSheet): لا دعوتان تتنافسان. */
+  if (isStandalone || installed || isAppleBrowser()) return null;
 
   const discover = () => {
     if (!seen) {

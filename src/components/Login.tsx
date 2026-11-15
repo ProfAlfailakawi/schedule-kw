@@ -15,6 +15,7 @@ import InstallApp from "./InstallApp";
 import ScheduleJourney from "./ScheduleJourney";
 import BrandMark from "./BrandMark";
 import { parseInvitationHash } from "../utils/invitationLink";
+import AppHandoffEntry from "./AppHandoffEntry";
 interface LoginProps {
   onLoginSuccess: (data: {
     user: any;
@@ -247,6 +248,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               <Notice inline>{error}</Notice>
             </div>
           ) : null}
+          {recovery ? null : <AppHandoffEntry />}
           {recovery ? null : (
           <form className="apex-login-form" onSubmit={submit}>
             <Field label="اسم المستخدم" required>
