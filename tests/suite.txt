@@ -243,6 +243,7 @@ test:appointment-forms-r2
 test:appointment-forms-r3
 test:appointment-redesign
 test:appointment-inventory
+test:rooms-inventory
 test:appointment-phase3
 test:review-1105
 test:holds-patterns-r4

@@ -14,10 +14,9 @@ import RoomsDropdown, { type RxOption } from "./RoomsDropdown";
 import RoomsOverview from "./RoomsOverview";
 import { AR, countOf } from "../utils/arabicCount";
 import { safeStorage } from "../utils/safeStorage";
-import {
-  NO_ROOM_KEY, clockText, kuwaitNow, nextFreeWindows, parseRoomNeed, roomFitsNeed, roomStatusNow,
-  type RxBuilding, type RxDay, type RxRoom,
-} from "../utils/roomsExplorerModel";
+import { NO_ROOM_KEY, clockText, nextFreeWindows, type RxBuilding, type RxDay, type RxRoom } from "../utils/roomsExplorerModel";
+import { roomNowStatus, type RoomNowRow } from "../utils/roomNow";
+import { parseRoomQuery, roomMatchesQuery, type RoomQuery } from "../utils/roomQuery";
 
 const PREF_KEY = "rooms-explorer:v1";
 const WEEKS_KEY = "rooms-explorer:weeks";
@@ -34,6 +33,8 @@ export interface RoomsExplorerProps {
   /** يقفز المستكشف إلى قاعةٍ بعينها (بعد نقلٍ إليها مثلاً). */
   goto: { key: string; n: number } | null;
   tools: React.ReactNode;
+  /** سطرُ إرشادٍ هادئ فوق جدول الأسبوع (يُحذف في وضع التركيز وعلى الهاتف). */
+  hint?: string;
   dragNote: React.ReactNode;
   info: React.ReactNode;
   renderWeek: (roomKeys: string[], includeNone: boolean) => React.ReactNode;
@@ -60,6 +61,16 @@ function useSlide(open: boolean) {
   return { mounted, shown };
 }
 
+/** مجالاتُ القاعة كصفوفٍ بسيطة لمساعدَي roomNow/roomQuery. */
+const rowsOfRoom = (room: RxRoom, days: RxDay[]): Array<RoomNowRow & Record<string, any>> =>
+  room.perDay.flatMap((list, index) => list.map(item => ({ fstarttime: clockText(item.from), fendtime: clockText(item.to), [days[index]?.key || ""]: true })));
+
+/** نصُّ الحاجة المفهومة شريحةً: يوم · وقت. (المقاعد والمختبر تحتاج بيانات سعةٍ غير محمّلة هنا فلا تُطبَّق ولا تُعرض.) */
+const needLabel = (need: RoomQuery, days: RxDay[]): string => [
+  need.day ? days.find(day => day.key === need.day)?.label : "",
+  need.from ? (need.to ? `${need.from}–${need.to}` : need.from) : "",
+].filter(Boolean).join(" · ");
+
 const Ring = ({ percent, label }: { percent: number; label: string }) => (
   <span className="rx-ring" style={{ ["--p" as any]: percent }} role="img" aria-label={label}>
     <span aria-hidden="true" dir="ltr">{percent}%</span>
@@ -67,30 +78,34 @@ const Ring = ({ percent, label }: { percent: number; label: string }) => (
 );
 
 interface BlockProps {
+  key?: string;
   room: RxRoom | null;
   noRoomCount: number;
   days: RxDay[];
   windowStart: number;
   windowEnd: number;
-  now: { weekday: number; minutes: number };
+  now: Date;
   open: boolean;
   onToggle: () => void;
   renderWeek: RoomsExplorerProps["renderWeek"];
   onCreate: RoomsExplorerProps["onCreate"];
   tools?: React.ReactNode;
+  hint?: string;
   prev?: (() => void) | null;
   next?: (() => void) | null;
   onRemove?: () => void;
   compact?: boolean;
 }
 
-function RoomBlock({ room, noRoomCount, days, windowStart, windowEnd, now, open, onToggle, renderWeek, onCreate, tools, prev, next, onRemove, compact }: BlockProps) {
+function RoomBlock({ room, noRoomCount, days, windowStart, windowEnd, now, open, onToggle, renderWeek, onCreate, tools, hint, prev, next, onRemove, compact }: BlockProps) {
   const { mounted, shown } = useSlide(open);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const status = useMemo(
-    () => room ? roomStatusNow(room.perDay[now.weekday] || [], now, days.map((_, index) => index), windowStart, windowEnd, minutes => countOf(minutes, AR.minute)) : null,
-    [room, now, days, windowStart, windowEnd],
-  );
+  const status = useMemo(() => {
+    if (!room) return null;
+    const result = roomNowStatus(rowsOfRoom(room, days), now);
+    if (result.state === "none") return null;
+    return { kind: result.state === "busy-soon" ? "soon" : result.state === "busy-until" ? "busy" : "free", text: result.text };
+  }, [room, now, days]);
   const free = useMemo(() => room ? nextFreeWindows(room.perDay, windowStart, windowEnd, 50, 4) : [], [room, windowStart, windowEnd]);
   const lectures = room ? room.lectures : noRoomCount;
   const title = room ? room.label : "بلا قاعة";
@@ -134,7 +149,7 @@ function RoomBlock({ room, noRoomCount, days, windowStart, windowEnd, now, open,
               key={`${window_.dayIndex}-${window_.from}`}
               type="button"
               className="rx-chip"
-              aria-label={`احجز القاعة ${title} يوم ${days[window_.dayIndex]?.label} من ${clockText(window_.from)}`}
+              aria-label={`احجز القاعة ${title}، ${days[window_.dayIndex]?.label}، من ${clockText(window_.from)}`}
               title={`فراغٌ حتى ${clockText(window_.to)} — اضغط لإضافة موعدٍ جاهز`}
               data-guide-ignore="فتح «موعد جديد» مُعبّأً بالقاعة واليوم والساعة من أقرب فراغ"
               onClick={() => onCreate(room, window_.dayIndex, window_.from)}
@@ -161,6 +176,7 @@ function RoomBlock({ room, noRoomCount, days, windowStart, windowEnd, now, open,
         <div className="rx-slide-in" {...(!open ? { inert: "" as any } : {})}>
           {mounted ? (
             <div className="rx-week" data-tint={toolsOpen ? "on" : "off"}>
+              {hint ? <p className="rx-hint">{hint}</p> : null}
               {tools ? (
                 <div className="rx-tools">
                   <button type="button" className="rx-btn" aria-expanded={toolsOpen} data-guide-ignore="إظهار مفتاح الألوان والتصفية البصرية؛ عرضٌ فقط" onClick={() => setToolsOpen(current => !current)}>
@@ -179,7 +195,7 @@ function RoomBlock({ room, noRoomCount, days, windowStart, windowEnd, now, open,
 }
 
 export default function RoomsExplorer(props: RoomsExplorerProps) {
-  const { buildings, rooms, days, windowStart, windowEnd, noRoomCount, readOnly, goto, tools, dragNote, info, renderWeek, onCreate, onNavigate } = props;
+  const { buildings, rooms, days, windowStart, windowEnd, noRoomCount, readOnly, goto, tools, hint, dragNote, info, renderWeek, onCreate, onNavigate } = props;
   const saved = useMemo(() => safeStorage.json<{ b?: string; r?: string; v?: string }>(PREF_KEY, {}), []);
   const [bKey, setBKey] = useState(saved.b || "");
   const [rKey, setRKey] = useState(saved.r || "");
@@ -188,11 +204,15 @@ export default function RoomsExplorer(props: RoomsExplorerProps) {
   const [query, setQuery] = useState("");
   const [dayIndex, setDayIndex] = useState(0);
   const [weeks, setWeeks] = useState<Record<string, boolean>>(() => safeStorage.json(WEEKS_KEY, {}, "session"));
-  const [now, setNow] = useState(() => kuwaitNow());
+  const [now, setNow] = useState(() => new Date());
   const swipe = useRef<{ x: number; y: number } | null>(null);
 
-  useEffect(() => { const timer = window.setInterval(() => setNow(kuwaitNow()), 60000); return () => window.clearInterval(timer); }, []);
-  useEffect(() => { setDayIndex(index => (now.weekday >= 0 && now.weekday < days.length && index === 0 ? now.weekday : index)); /* اليوم الحالي عند أول فتح */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => {
+    /* نظرةُ المبنى تفتح على يوم اليوم (بتوقيت الكويت) إن كان يومَ تدريس. */
+    const today = new Date(Date.now() + 3 * 3600_000).getUTCDay();
+    if (today >= 0 && today < days.length) setDayIndex(today);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const building = buildings.find(item => item.key === bKey) || buildings[0] || null;
@@ -233,14 +253,16 @@ export default function RoomsExplorer(props: RoomsExplorerProps) {
   const next = room && roomIndex >= 0 && roomIndex < roomsOfBuilding.length - 1 ? () => stepRoom(1) : null;
 
   /* ── البحث بالحاجة ── */
-  const need = useMemo(() => parseRoomNeed(query), [query]);
+  const parsed = useMemo(() => parseRoomQuery(query), [query]);
+  const need = parsed.day || parsed.from ? { ...parsed, label: needLabel(parsed, days) } : null;
   const filtered = useMemo(() => {
-    const text = (need ? need.rest : query).trim().toLowerCase();
+    const text = (need ? parsed.rest : query).trim().toLowerCase();
+    const timeOnly: RoomQuery = { day: parsed.day, from: parsed.from, to: parsed.to, rest: "" };
     return roomsOfBuilding.filter(item => {
-      if (need && !roomFitsNeed(need, item.perDay, windowStart, windowEnd)) return false;
+      if (need && !roomMatchesQuery({}, rowsOfRoom(item, days), timeOnly)) return false;
       return !text || item.label.toLowerCase().includes(text);
     });
-  }, [roomsOfBuilding, need, query, windowStart, windowEnd]);
+  }, [roomsOfBuilding, need, parsed, query, days]);
 
   const buildingOptions: RxOption[] = buildings.map(item => ({
     key: item.key,
@@ -287,7 +309,7 @@ export default function RoomsExplorer(props: RoomsExplorerProps) {
   }
 
   return (
-    <div className="rx-root" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div className="rx-root" data-guide-target="schedule.rooms.board" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <div className="rx-pick">
         {building ? (
           <RoomsDropdown
@@ -296,7 +318,6 @@ export default function RoomsExplorer(props: RoomsExplorerProps) {
             options={buildingOptions}
             selectedKey={building.key}
             onSelect={key => choose({ b: key, r: "", v: view })}
-            guideReason="اختيار المبنى المعروض؛ مرشّح بصري لا يغيّر بيانات الجدول"
           />
         ) : null}
         <RoomsDropdown
@@ -305,14 +326,13 @@ export default function RoomsExplorer(props: RoomsExplorerProps) {
           options={roomOptions}
           selectedKey={showNone ? NO_ROOM_KEY : room?.key || null}
           onSelect={key => choose({ r: key, v: "room" })}
-          guideReason="اختيار القاعة المعروضة؛ مرشّح بصري لا يغيّر بيانات الجدول"
           search={{
             value: query, onChange: setQuery, label: "ابحث عن قاعة أو عن حاجة مثل «الأحد 10» أو «الاثنين مساءً»",
             placeholder: "قاعة، أو «الأحد 10»…",
             chip: need ? (
               <span className="rx-need">
                 <b>{need.label}</b>
-                <button type="button" aria-label={`مسح الشرط ${need.label}`} data-guide-ignore="مسح شرط الحاجة المفهوم من نص البحث" onClick={() => setQuery(need.rest)}><X aria-hidden="true" /></button>
+                <button type="button" aria-label={`مسح الشرط ${need.label}`} data-guide-ignore="مسح شرط الحاجة المفهوم من نص البحث" onClick={() => setQuery(parsed.rest)}><X aria-hidden="true" /></button>
               </span>
             ) : null,
           }}
@@ -345,7 +365,7 @@ export default function RoomsExplorer(props: RoomsExplorerProps) {
             days={days} windowStart={windowStart} windowEnd={windowEnd} now={now}
             open={Boolean(weeks[showNone ? NO_ROOM_KEY : room?.key || ""])}
             onToggle={() => toggleWeek(showNone ? NO_ROOM_KEY : room?.key || "")}
-            renderWeek={renderWeek} onCreate={onCreate} tools={tools}
+            renderWeek={renderWeek} onCreate={onCreate} tools={tools} hint={hint}
             prev={showNone ? undefined : prev} next={showNone ? undefined : next}
           />
           {extraRooms.map(item => (
@@ -366,7 +386,6 @@ export default function RoomsExplorer(props: RoomsExplorerProps) {
                 options={compareOptions}
                 selectedKey={null}
                 onSelect={key => { setExtra(current => [...current, key].slice(0, 2)); setWeeks(current => ({ ...current, [key]: true })); }}
-                guideReason="إضافة قاعةٍ للمقارنة بجانب القاعة الحالية؛ عرض فقط"
               />
               <small><Building2 aria-hidden="true" />{extra.length ? `${countOf(extra.length, AR.room)} للمقارنة` : "حتى قاعتين إضافيتين"}</small>
             </div>

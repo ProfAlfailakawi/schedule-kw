@@ -14,14 +14,13 @@ interface Props {
   options: RxOption[];
   selectedKey: string | null;
   onSelect: (key: string) => void;
-  guideReason: string;
   search?: { value: string; onChange: (value: string) => void; placeholder: string; label: string; chip?: React.ReactNode };
   empty?: string;
   className?: string;
   compact?: boolean;
 }
 
-export default function RoomsDropdown({ label, button, options, selectedKey, onSelect, guideReason, search, empty, className = "", compact }: Props) {
+export default function RoomsDropdown({ label, button, options, selectedKey, onSelect, search, empty, className = "", compact }: Props) {
   const uid = useId().replace(/:/g, "");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -81,7 +80,7 @@ export default function RoomsDropdown({ label, button, options, selectedKey, onS
         aria-expanded={open}
         aria-controls={open ? `${uid}-panel` : undefined}
         aria-label={label}
-        data-guide-ignore={guideReason}
+        data-guide-ignore="قائمة منسدلة داخل مستكشف المباني والقاعات؛ اختيارٌ بصري يمرّ أي تغييرٍ فيه بمسارات الجدول الموثّقة"
         onClick={() => setOpen(current => !current)}
         onKeyDown={event => { if ((event.key === "ArrowDown" || event.key === "ArrowUp") && !open) { event.preventDefault(); setOpen(true); } }}
       >

@@ -12631,7 +12631,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         buildCandidate: (source, target) => buildPhysicsTargetCandidate(source, { ...(target as any), label: "", room: { code: known?.roomCode || "", hall: known?.roomHall || "" } }),
                         blockers: localPhysicsBlockers as any,
                       }, sourceDay, rxRow.fstarttime);
-                      const hard = cell.reasons.find(reason => WHY_META[reason.kind].hard);
+                      /* تبديلُ القاعة لا يغيّر انشغالَ الأستاذ: تعارضُه إن وُجد قائمٌ قبل النقل وبعده، فلا يمنع هذه القائمة (ويظهر في تأكيد النقل نفسه). */
+                      const hard = cell.reasons.find(reason => WHY_META[reason.kind].hard && reason.kind !== "instructor");
                       return { key: item.key, label: item.label, current: item.key === here.key, free: !hard, reason: hard ? WHY_META[hard.kind].label : "" };
                     })}
                   onMove={async (key) => {
@@ -12656,6 +12657,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   noRoomCount={rxModel.noRoomCount}
                   readOnly={phoneReadOnly}
                   goto={rxGoto}
+                  hint={!focusMode && !phoneReadOnly ? "اسحب لتنقل · اضغط فراغاً لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل" : ""}
                   info={rxInfoNode}
                   onNavigate={() => setRxInfoId(null)}
                   onCreate={(room, dayIndex, from) => {

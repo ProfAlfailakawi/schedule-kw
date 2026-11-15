@@ -60,7 +60,6 @@ export default function RoomsInfoBar({ title, code, who, when, place, canMove, u
               options={options}
               selectedKey={null}
               onSelect={onMove}
-              guideReason="نقل موعد إلى قاعة حرّة؛ يمرّ بتنبؤ النقل وتأكيده والتراجع كالسحب تماماً"
               empty="لا قاعات أخرى في هذا المبنى."
             />
           </div>
