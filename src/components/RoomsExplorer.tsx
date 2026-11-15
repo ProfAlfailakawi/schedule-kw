@@ -16,7 +16,8 @@ import { AR, countOf } from "../utils/arabicCount";
 import { safeStorage } from "../utils/safeStorage";
 import { NO_ROOM_KEY, clockText, nextFreeWindows, type RxBuilding, type RxDay, type RxRoom } from "../utils/roomsExplorerModel";
 import { roomNowStatus, type RoomNowRow } from "../utils/roomNow";
-import { parseRoomQuery, roomMatchesQuery, type RoomQuery } from "../utils/roomQuery";
+import { parseRoomQuery, type RoomQuery } from "../utils/roomQuery";
+import { roomFactsText, roomMatchesNeed } from "../utils/roomFacts";
 
 const PREF_KEY = "rooms-explorer:v1";
 const WEEKS_KEY = "rooms-explorer:weeks";
@@ -65,8 +66,10 @@ function useSlide(open: boolean) {
 const rowsOfRoom = (room: RxRoom, days: RxDay[]): Array<RoomNowRow & Record<string, any>> =>
   room.perDay.flatMap((list, index) => list.map(item => ({ fstarttime: clockText(item.from), fendtime: clockText(item.to), [days[index]?.key || ""]: true })));
 
-/** نصُّ الحاجة المفهومة شريحةً: يوم · وقت. (المقاعد والمختبر تحتاج بيانات سعةٍ غير محمّلة هنا فلا تُطبَّق ولا تُعرض.) */
+/** نصُّ الحاجة المفهومة شريحةً: سعة · مختبر · يوم · وقت. */
 const needLabel = (need: RoomQuery, days: RxDay[]): string => [
+  need.minCapacity ? `${countOf(need.minCapacity, AR.seat)} فأكثر` : "",
+  need.lab ? "مختبر" : "",
   need.day ? days.find(day => day.key === need.day)?.label : "",
   need.from ? (need.to ? `${need.from}–${need.to}` : need.from) : "",
 ].filter(Boolean).join(" · ");
@@ -254,12 +257,11 @@ export default function RoomsExplorer(props: RoomsExplorerProps) {
 
   /* ── البحث بالحاجة ── */
   const parsed = useMemo(() => parseRoomQuery(query), [query]);
-  const need = parsed.day || parsed.from ? { ...parsed, label: needLabel(parsed, days) } : null;
+  const need = parsed.day || parsed.from || parsed.minCapacity || parsed.lab ? { ...parsed, label: needLabel(parsed, days) } : null;
   const filtered = useMemo(() => {
     const text = (need ? parsed.rest : query).trim().toLowerCase();
-    const timeOnly: RoomQuery = { day: parsed.day, from: parsed.from, to: parsed.to, rest: "" };
     return roomsOfBuilding.filter(item => {
-      if (need && !roomMatchesQuery({}, rowsOfRoom(item, days), timeOnly)) return false;
+      if (need && !roomMatchesNeed(item, rowsOfRoom(item, days), parsed).match) return false;
       return !text || item.label.toLowerCase().includes(text);
     });
   }, [roomsOfBuilding, need, parsed, query, days]);
@@ -270,11 +272,17 @@ export default function RoomsExplorer(props: RoomsExplorerProps) {
     node: <><Ring percent={item.occupancy} label={`إشغال ${item.occupancy}%`} /><b dir="ltr">{item.label}</b><small>{countOf(item.roomCount, AR.room)}</small></>,
   }));
   const roomOptions: RxOption[] = [
-    ...filtered.map(item => ({
-      key: item.key,
-      aria: `قاعة ${item.label}، إشغال ${item.occupancy}%، ${countOf(item.lectures, AR.lecture)}`,
-      node: <><i className={`rx-dot ${item.occupancy < 40 ? "is-free" : ""}`} aria-hidden="true" /><b dir="ltr">{item.label}</b><small>{countOf(item.lectures, AR.lecture)} · <span dir="ltr">{item.occupancy}%</span></small></>,
-    })),
+    ...filtered.map(item => {
+      const facts = roomFactsText(item);
+      /* الحاجةُ تُبقي القاعةَ المجهولة السعة/النوع وتَسمها بهدوء بدل حذفها (القاعدة في roomFacts.ts). */
+      const verdict = need ? roomMatchesNeed(item, [], parsed) : null;
+      const unknown = verdict?.capacityUnknown ? "السعة غير مسجّلة" : verdict?.typeUnknown ? "النوع غير مسجّل" : "";
+      return {
+        key: item.key,
+        aria: `قاعة ${item.label}${facts ? `، ${facts}` : ""}${unknown ? `، ${unknown}` : ""}، إشغال ${item.occupancy}%، ${countOf(item.lectures, AR.lecture)}`,
+        node: <><i className={`rx-dot ${item.occupancy < 40 ? "is-free" : ""}`} aria-hidden="true" /><b dir="ltr">{item.label}</b>{facts || unknown ? <small className="rx-opt-facts">{[facts, unknown].filter(Boolean).join(" · ")}</small> : null}<small>{countOf(item.lectures, AR.lecture)} · <span dir="ltr">{item.occupancy}%</span></small></>,
+      };
+    }),
     ...(hasNone && !query ? [{ key: NO_ROOM_KEY, aria: `بلا قاعة، ${countOf(noRoomCount, AR.lecture)}`, node: <><i className="rx-dot" aria-hidden="true" /><b>بلا قاعة</b><small>{countOf(noRoomCount, AR.lecture)}</small></> }] : []),
   ];
 

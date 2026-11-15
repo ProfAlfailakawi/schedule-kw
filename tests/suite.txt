@@ -365,3 +365,4 @@ test:teacher-registry
 test:account-deletion
 test:room-now
 test:room-query
+test:rooms-capacity

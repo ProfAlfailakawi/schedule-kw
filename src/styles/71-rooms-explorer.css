@@ -142,3 +142,4 @@
   .rx-root *{transition:none!important;animation:none!important}
 }
 @media print{.rx-info,.rx-pick,.rx-weekbar,.rx-compare,.rx-nav{display:none!important}.rx-slide{grid-template-rows:1fr!important;opacity:1!important}}
+.rx-opt .rx-opt-facts{margin-inline-start:0}

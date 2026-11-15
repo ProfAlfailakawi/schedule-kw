@@ -11,6 +11,14 @@
   "actors": ["committeeChair", "departmentHead", "rootAdmin", "admin", "collegeRegistrar", "registrarStaff", "dean", "system"],
   "sources": [
     "src/components/LadderStartHint.tsx",
+    "src/components/RoomsExplorer.tsx",
+    "src/components/RoomsDropdown.tsx",
+    "src/components/RoomsOverview.tsx",
+    "src/components/RoomsInfoBar.tsx",
+    "src/utils/roomsExplorerModel.ts",
+    "src/utils/roomFacts.ts",
+    "src/utils/roomNow.ts",
+    "src/utils/roomQuery.ts",
     "src/components/ConflictTimeline.tsx",
     "src/components/WeekLayerTools.tsx",
     "src/components/WeekReplay.tsx",
@@ -2172,6 +2180,88 @@
         ],
         "tests": [
           "tests/time-machine-restore-baseline-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-087",
+      "kind": "functional",
+      "title": {
+        "ar": "المباني والقاعات: قاعة واحدة في الشاشة",
+        "en": "Buildings and rooms: one room on screen"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض عرض «المباني والقاعات» بقائمتين منسدلتين للمبنى والقاعة (فيهما بحث وحلقة إشغال)، وقاعةٍ واحدة في الشاشة برمزها وسعتها وحالتها الآن وأقرب فراغ فيها، وأسبوعها مطويّ في شريط واحد يُفتح بالضغط، ومقارنةً بقاعتين إضافيتين على الأكثر؛ وزرّ «نظرة المبنى» بخريطة لونية هادئة لكل قاعة في يومٍ مختار بلا نصوص؛ ونقلٌ إلى قاعة أخرى من قائمة تبيّن المتاحة وسبب غير المتاحة وبالمسار نفسه للنقل؛ وكل قدرة العرض السابق باقية.",
+        "en": "The system shall present the buildings-and-rooms view with building and room dropdowns (with search and an occupancy ring), one room on screen with its code, capacity, status now and nearest vacancy, its week folded into a single bar that opens on tap, a comparison of at most two extra rooms, and a building overview as a quiet colour map per room for a chosen day with no text; moving an appointment to another room from a list that shows which rooms are free and why the others are not, through the same move path; every capability of the previous view remains."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "قاعة مغلقة الأسبوع تعرض عدداً أقل بكثير من عناصر العرض السابق.",
+          "en": "A room with its week folded shows far fewer elements than the previous view."
+        },
+        {
+          "ar": "«أقرب فراغ» يفتح محرّر الموعد مملوءاً بالقاعة واليوم والبداية.",
+          "en": "The nearest-vacancy chip opens the appointment editor prefilled with room, day and start."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/components/RoomsExplorer.tsx",
+          "src/components/RoomsDropdown.tsx",
+          "src/components/RoomsOverview.tsx",
+          "src/components/RoomsInfoBar.tsx",
+          "src/utils/roomsExplorerModel.ts"
+        ],
+        "tests": [
+          "tests/rooms-inventory-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-088",
+      "kind": "functional",
+      "title": {
+        "ar": "حالة القاعة والبحث بالحاجة",
+        "en": "Room status and need-based search"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يذكر حالة القاعة بتوقيت الكويت في أيام الدوام وساعاته («متاحة الآن حتى 11:40»، «تُشغل بعد 20 دقيقة»)، وأن يفهم مربع البحث حاجةً مكتوبة («40 مقعداً»، «مختبر الاثنين صباحاً») فيُبقي القاعات المناسبة، دون إسقاط قاعةٍ سعتها غير مسجّلة بل يُشار إليها بهدوء.",
+        "en": "The system shall state a room status in Kuwait time on teaching days and hours (available now until 11:40, busy in 20 minutes) and understand a typed need in the search box (40 seats, lab on Monday morning), keeping the fitting rooms and never dropping a room whose capacity is not recorded but marking it quietly."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "خارج الدوام لا تظهر حالة.",
+          "en": "Outside teaching hours no status is shown."
+        },
+        {
+          "ar": "سعة غير مسجّلة لا تُسقط القاعة من تصفية السعة.",
+          "en": "An unrecorded capacity does not drop a room from a capacity filter."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/roomNow.ts",
+          "src/utils/roomQuery.ts",
+          "src/utils/roomFacts.ts"
+        ],
+        "tests": [
+          "tests/room-now-audit.ts",
+          "tests/room-query-audit.ts",
+          "tests/rooms-capacity-audit.ts"
         ]
       },
       "inferred": false

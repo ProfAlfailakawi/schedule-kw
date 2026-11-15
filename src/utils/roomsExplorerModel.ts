@@ -73,6 +73,10 @@ export interface RxRoom {
   perDay: Interval[][];
   occupancy: number;
   lectures: number;
+  /** سعةُ القاعة من سجل المواقع؛ غيابها = غير معروفة (لا تُطبع أبداً كصفر). */
+  capacity?: number | null;
+  /** نوعُ القاعة من السجل (مختبر/قاعة…)؛ غيابه = غير معروف. */
+  roomType?: string;
 }
 export interface RxDay { key: string; label: string }
 export const NO_ROOM_KEY = "|";

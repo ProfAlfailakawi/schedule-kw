@@ -4,6 +4,7 @@ import { RoomsNowLine, RoomsRoomBoundary, RoomsTrackGrid, buildRoomsSlotGeo, obj
 import RoomsExplorer from "./RoomsExplorer";
 import RoomsInfoBar from "./RoomsInfoBar";
 import { occupancyPercent, type RxBuilding, type RxRoom } from "../utils/roomsExplorerModel";
+import { roomFactsByKey, type RoomFacts } from "../utils/roomFacts";
 import { WHY_META, whyNotCell } from "../utils/whyNot";
 import WipeScheduleButton from "./WipeScheduleButton";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
@@ -6891,6 +6892,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     });
   }, [roomsMatrix.allRooms, matrixBuildings]);
   /* نموذجُ مستكشف القاعات (RoomsExplorer): إشغالُ كل قاعةٍ ومبنى ومجالاتُ أيامها، يُحسب مرةً لكل تغيّر في المواعيد. */
+  /* سعةُ القاعات ونوعها من سجل المواقع نفسه (/api/location-registry، المستعمل في المحرر): طلبٌ واحد لكل نطاق
+     عند فتح عرض القاعات، لا طلبَ لكل قاعة. فشلُه يترك الحقائق مجهولة فلا يُحذف شيءٌ ولا يُطبع رقمٌ مخترع. */
+  const [rxFacts, setRxFacts] = useState<Map<string, RoomFacts>>(() => new Map());
+  useEffect(() => {
+    if (viewMode !== "rooms") return;
+    const controller = new AbortController();
+    const query = new URLSearchParams({ collegeId: String(filterCollege || 0), sectionId: String(filterSection || 0) });
+    if (filterTerm) query.set("termId", String(filterTerm));
+    fetch(`/api/location-registry?${query}`, { credentials: "include", signal: controller.signal })
+      .then(response => (response.ok ? response.json() : null))
+      .then(data => { if (data) setRxFacts(roomFactsByKey(data, (building, hall) => roomIdentity(building, hall).key, filterSection || 0)); })
+      .catch(() => { /* إلغاءٌ أو انقطاع: تبقى الحقائق كما كانت */ });
+    return () => controller.abort();
+  }, [viewMode, filterCollege, filterSection, filterTerm]);
   const rxModel = useMemo(() => {
     const rooms: RxRoom[] = roomsMatrix.allRooms.map(room => {
       const ids = new Set<number>();
@@ -6901,6 +6916,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       return {
         key: room.key, buildingKey: room.buildingKey, label: displayRoomBadge(room), building: room.building,
         perDay, occupancy: occupancyPercent(perDay, gridWindow.start, gridWindow.end), lectures: ids.size,
+        capacity: rxFacts.get(room.key)?.capacity ?? null, roomType: rxFacts.get(room.key)?.roomType || "",
       };
     });
     const buildings: RxBuilding[] = roomsMatrix.allBuildings.map(building => {
@@ -6913,7 +6929,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const homeless = new Set<number>();
     roomsMatrix.noRoomByDay.forEach(list => list.forEach(row => homeless.add(row.id)));
     return { rooms, buildings, noRoomCount: homeless.size };
-  }, [roomsMatrix, gridWindow]);
+  }, [roomsMatrix, gridWindow, rxFacts]);
   /* The ladder is the window's own, not the constant's. It already declared
      `gridWindow` as its dependency and then ignored it — so a window that grew
      to hold an early or late lecture produced a card with nowhere to stand. */
