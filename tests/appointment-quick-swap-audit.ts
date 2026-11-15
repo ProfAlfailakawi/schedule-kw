@@ -1,6 +1,6 @@
 /**
  * ── التبديل السريع داخل الموعد ──────────────────────────────────────────────
- *  U  دالّةٌ نقيّة: المصدرُ مدرّبٌ أو شاغر من المقرر والفصل نفسيهما، والاتجاهُ إلى الأستاذ الحقيقي وحده.
+ *  U  دالّةٌ نقيّة: المصدرُ مدرّبٌ أو شاغر من القسم والفصل نفسيهما، والاتجاهُ إلى الأستاذ الحقيقي وحده.
  *  W  الواجهة: أيقونةٌ بجانب الوقت وتبويبان «تدريب» و«هيئة تدريسية» بلا عدّاد ولا نصاب مدرّبين.
  *  S  الحفظ: مسار التعديل (PUT) القائم نفسه بتراجع، بلا مسارِ خادمٍ جديد ولا طلب موافقة من الأستاذ.
  */
@@ -13,19 +13,20 @@ const check = (ok: unknown, label: string, extra?: unknown) => {
   else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`, extra ?? ""); }
 };
 const read = (file: string) => fs.readFileSync(file, "utf8");
-const row = (id: number, instructor: number, extra: any = {}): any => ({ id, AdTermId: 1, AdCourseId: 10, AdInstructorId: instructor, SCode: String(id), fsunday: true, ftuesday: true, fstarttime: "14:00", fendtime: "15:00", AdRoomCode: "R", AdRoomHall: "1", ...extra });
+const row = (id: number, instructor: number, extra: any = {}): any => ({ id, AdTermId: 1, AdSectionId: 3, AdCourseId: 10, AdCourseName: `Course ${id}`, AdInstructorId: instructor, SCode: String(id), fsunday: true, ftuesday: true, fstarttime: "14:00", fendtime: "15:00", AdRoomCode: "R", AdRoomHall: "1", ...extra });
 const TRAINEE = 50, VACANT = 90, TEACHER = 7;
 const mine = quickSwapMine({ fsunday: true, ftuesday: true, fstarttime: "15:00", fendtime: "16:00", AdRoomCode: "A", AdRoomHall: "2" });
 const rows = [row(1, TRAINEE), row(2, VACANT, { fstarttime: "15:00", fendtime: "16:00" }), row(3, 33), row(4, TRAINEE, { AdCourseId: 11 }), row(5, TRAINEE, { AdTermId: 2 }), row(6, TEACHER, { fstarttime: "14:00", fendtime: "15:00", fsunday: true, ftuesday: false, fmonday: false })];
-const base = { rows, teacherId: TEACHER, courseId: 10, termId: 1, editId: 0, traineeIds: new Set([TRAINEE]), placeholderIds: new Set([VACANT]), mine };
+const base = { rows, teacherId: TEACHER, sectionId: 3, termId: 1, editId: 0, traineeIds: new Set([TRAINEE]), placeholderIds: new Set([VACANT]), mine };
 const list = quickSwapSources(base);
-check(list.map(item => item.rowId).sort().join() === "1,2", "U1 المصدرُ مدرّبٌ أو شاغر من المقرر والفصل نفسيهما فقط", list.map(i => i.rowId));
+check(list.map(item => item.rowId).sort().join() === "1,2,4", "U1 المصدرُ مدرّبٌ أو شاغر من القسم والفصل نفسيهما ويشمل مقررات مختلفة", list.map(i => i.rowId));
 check(list.find(item => item.rowId === 1)?.kind === "trainee" && list.find(item => item.rowId === 2)?.kind === "vacant", "U2 النوعُ تدريب/شاغر");
 const noRoom = quickSwapSources({ ...base, mine: quickSwapMine({ fsunday: true, ftuesday: true, fstarttime: "15:00", fendtime: "16:00" }) });
 check(noRoom.find(item => item.rowId === 2)?.sameTime === true && noRoom.find(item => item.rowId === 1)?.sameTime === false, "U3 sameTime يقارن أيام الموعد ووقته");
 check(list.find(item => item.rowId === 1)?.freeAtIts === false && list.find(item => item.rowId === 1)?.freeAtMine === true, "U4 تداخل الأستاذ في وقتها (14:00) وحرّيته في وقت موعدي (15:00)");
 check(quickSwapSources({ ...base, teacherId: TRAINEE }).length === 0 && quickSwapSources({ ...base, teacherId: VACANT }).length === 0, "U5 لا تبديلَ إلى مدرّبٍ أو شاغر (الهدف تقليلُهما)");
-check(quickSwapSources({ ...base, editId: 1 }).map(i => i.rowId).join() === "2", "U6 الموعدُ المفتوح للتعديل لا يُعرض");
+check(quickSwapSources({ ...base, editId: 1 }).map(i => i.rowId).join() === "2,4", "U6 الموعدُ المفتوح للتعديل لا يُعرض");
+check(quickSwapSources({ ...base, sectionId: 4 }).length === 0, "U11 لا يعرض شعباً من قسم آخر");
 const its = quickSwapAfter(rows[0], TEACHER, "its", mine) as any, withMine = quickSwapAfter(rows[0], TEACHER, "mine", mine) as any;
 check(its.AdInstructorId === TEACHER && its.fstarttime === "14:00" && its.AdRoomCode === "R", "U7 «بوقتها»: الأستاذ وحده يتبدّل");
 check(withMine.AdInstructorId === TEACHER && withMine.fstarttime === "15:00" && withMine.fendtime === "16:00" && withMine.AdRoomCode === "A" && withMine.fmonday === false, "U8 «بوقتي»: أيامُ الموعد ووقتُه وقاعتُه");

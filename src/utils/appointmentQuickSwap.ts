@@ -1,7 +1,7 @@
 /**
  * ── التبديل السريع داخل الموعد ──────────────────────────────────────────────
- * المالك يريد تقليل المدرّبين والشواغر: بعد اختيار المقرر والأستاذ الحقيقي تظهر شعبُ المقرر نفسه
- * التي عند مدرّبٍ أو على «هيئة تدريسية» (شاغر)، فتنتقل إلى هذا الأستاذ بنقرةٍ واحدة:
+ * المالك يريد تقليل المدرّبين والشواغر: بعد اختيار القسم والأستاذ الحقيقي تظهر شعبُ جميع المقررات
+ * في الفصل والقسم المختارين، إذا كانت عند مدرّبٍ أو على «هيئة تدريسية» (شاغر):
  *   • «بوقتها»: الشعبةُ تبقى في وقتها وقاعتها ويتبدّل صاحبُها فقط.
  *   • «بوقتي»: الشعبةُ تأخذ أيامَ الموعد الذي يُبنى الآن ووقتَه (وقاعتَه إن اختيرت) فيحلّ محلّ موعدٍ جديد.
  * دالّةٌ نقيّةٌ للعرض والحكم المسبق فقط؛ الحفظُ يمرّ بمسار التعديل (PUT) نفسه بتراجع، ولا موافقةَ تُطلب من الأستاذ.
@@ -53,20 +53,20 @@ export function quickSwapAfter(row: FSchedule, teacherId: number, mode: "its" | 
 export function quickSwapSources(opts: {
   rows: FSchedule[];
   teacherId: number;
-  courseId: number;
+  sectionId: number;
   termId: number;
   editId?: number | null;
   traineeIds: ReadonlySet<number>;
   placeholderIds: ReadonlySet<number>;
   mine: QuickSwapMine | null;
 }): QuickSwapSource[] {
-  const { rows, teacherId, courseId, termId, editId, traineeIds, placeholderIds, mine } = opts;
-  if (!teacherId || placeholderIds.has(teacherId) || traineeIds.has(teacherId) || !courseId) return [];
+  const { rows, teacherId, sectionId, termId, editId, traineeIds, placeholderIds, mine } = opts;
+  if (!teacherId || placeholderIds.has(teacherId) || traineeIds.has(teacherId) || !sectionId || !termId) return [];
   const clashes = (candidate: FSchedule) => findConflicts([candidate], rows.filter(row => Number(row.id) !== Number(candidate.id)), { placeholderInstructorIds: placeholderIds })
     .some(issue => issue.type === "instructor");
   const out: QuickSwapSource[] = [];
   for (const row of rows) {
-    if (Number(row.AdTermId) !== termId || Number(row.AdCourseId) !== courseId || Number(row.id) === Number(editId || 0)) continue;
+    if (Number(row.AdTermId) !== termId || Number(row.AdSectionId) !== sectionId || Number(row.id) === Number(editId || 0)) continue;
     const owner = Number(row.AdInstructorId);
     const kind = placeholderIds.has(owner) ? "vacant" : traineeIds.has(owner) ? "trainee" : null;
     if (!kind) continue;
