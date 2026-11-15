@@ -45,6 +45,7 @@ import {
   Focus,
   GripVertical,
   History,
+  History as PreviousValueIcon,
   HelpCircle,
   Inbox,
   Timer,
@@ -10054,7 +10055,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioTimeWas = studioChanged && (studioChanged.days || studioChanged.time) && studioWas
     ? `كان: ${[studioChanged.days ? studioWas.days : "", studioChanged.time ? studioWas.time : ""].filter(Boolean).join(" · ")}` : "";
   const studioRoomWas = studioChanged?.room && studioWas ? `كان: ${studioWas.room}` : "";
-  const studioWasMark = (was: string, key: string) => was ? <span className="appt-was is-changed" data-changed={key} role="img" aria-label={`تغيّر — ${was}`} title={was}><bdi>{was}</bdi></span> : null;
+  const studioWasMark = (was: string, key: string) => was ? <span className="appt-was is-changed" data-changed={key} aria-label={`تغيّر — ${was}`} title={was}><PreviousValueIcon aria-hidden="true" /><span className="appt-was-label">سابقًا</span><bdi>{was}</bdi></span> : null;
   /* ── الترتيب الإلزامي (المالك 2026-10-30): النطاق ← المقرر ← الأستاذ ← الوقت ← المكان ── */
   const studioTimeDone = Boolean(selectedFormDays.length && form.fstarttime && form.fendtime);
   const studioCourseLocked = studioScopeMissing;
