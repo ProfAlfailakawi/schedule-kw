@@ -79,7 +79,7 @@ check(Boolean(a.general && a.graduates) && a.general!.report.courses.length >= 2
 check(demandTermMatches(a.general!.report.termLabel, String(term.AdTermName)) === true, "A1 فصلُ التقرير هو فصل النظام", [a.general!.report.termLabel, term.AdTermName]);
 check(demandDepartmentMatches(a.general!.report.department, familyKey), "A1 وقسمُه هو عائلة القسم", [a.general!.report.department, familyKey]);
 check(reading.matched === a.general!.report.courses.length && reading.unmatched.length === 0, "A1 وكلُّ مقررٍ فيه يطابق كتالوجنا بلا «غير مطابَق»", [reading.matched, reading.unmatched.length]);
-check(a.history.length === 2 && a.general!.uploadedBy.includes("عرض تجريبي") && a.general!.uploadedAt === "2026-10-04T09:00:00.000Z", "A1 سجلُّ الرفع (مرتان) وتاريخُه من بدء الفصل لا من ساعة الجلسة", a.history);
+check(a.history.length === 2 && a.general!.uploadedBy.includes("عرض تجريبي") && a.general!.uploadedAt === new Date(Date.parse(`${String(term.AdTermStart || "2026-10-18").slice(0, 10)}T09:00:00Z`) - 14 * 86_400_000).toISOString(), "A1 سجلُّ الرفع (مرتان) وتاريخُه من بدء الفصل لا من ساعة الجلسة", a.history);
 check(a.general!.report.courses.every(course => /^\d{7}$/.test(course.code) && course.programs.reduce((sum, program) => sum + program.total, 0) === course.students.total && course.students.boys + course.students.girls === course.students.total), "A1 رقمُ المقرر بسبع خانات والبرامجُ مجموعُها الطلبة وبنون + بنات = الكل");
 
 /* ── A2 ── */

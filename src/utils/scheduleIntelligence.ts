@@ -12,9 +12,18 @@ export const SCHEDULE_DAYS: Array<{key:DayKey;label:string}> = [
   {key:"fsunday",label:"الأحد"},{key:"fmonday",label:"الاثنين"},{key:"ftuesday",label:"الثلاثاء"},{key:"fwednesday",label:"الأربعاء"},{key:"fthursday",label:"الخميس"}
 ];
 
+/* Hot path of the chain/repair search (millions of calls on a 1000-row board):
+   parse each distinct clock string once. Same results as the old split/map. */
+const minutesCache=new Map<string,number>();
 export function timeToMinutes(value:string):number {
-  const [h,m]=String(value||"0:0").split(":").map(Number);
-  return (Number.isFinite(h)?h:0)*60+(Number.isFinite(m)?m:0);
+  const key=typeof value==="string"?value:String(value||"0:0");
+  const hit=minutesCache.get(key);
+  if(hit!==undefined) return hit;
+  const [h,m]=(key||"0:0").split(":").map(Number);
+  const out=(Number.isFinite(h)?h:0)*60+(Number.isFinite(m)?m:0);
+  if(minutesCache.size>4096) minutesCache.clear();
+  minutesCache.set(key,out);
+  return out;
 }
 export function minutesToTime(value:number):string {
   const bounded=Math.max(0,Math.min(23*60+59,Math.round(value)));

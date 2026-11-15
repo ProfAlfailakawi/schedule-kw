@@ -221,6 +221,7 @@
   "GET /api/schedules/outside-clashes",
   "GET /api/schedules/pulse",
   "GET /api/schedules/replace-instructor/history",
+  "GET /api/schedules/replay",
   "GET /api/schedules/review-readiness",
   "GET /api/schedules/section-gap",
   "GET /api/schedules/section-gap/staffing",

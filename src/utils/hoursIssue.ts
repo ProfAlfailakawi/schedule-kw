@@ -43,3 +43,14 @@ export function parseHoursIssue(text: string): HoursIssue | null {
 
 /** «لشعبة جديدة: 502» ← "502". */
 export const freshSectionOf = (text: string) => /لشعبة جديدة: (\d+)/.exec(String(text || ""))?.[1] || "";
+
+/**
+ * ── الاستعادةُ لا تُمنع بما كان قائماً (A6) ────────────────────────────────────────
+ * مخالفةُ ساعات الشعبة (نقصٌ أو زيادة) التي كانت في الحالة المستعادة نفسها (`baselineIssue`: الأسبوعُ كما كان قبل الاعتماد)
+ * لا تمنع إعادتَها؛ ومن اختلف نوعُها (كان نقصاً فصار زيادةً بصفٍّ جديد) أو لم تكن قائمةً فهي جديدةٌ تمنع.
+ */
+export const hoursIssueKind=(message:string)=>/أقل/.test(message)?"under":"over";
+export function newHoursIssueOnly(issue:string|null,baselineIssue:string|null):string|null{
+  if(!issue||!baselineIssue)return issue;
+  return hoursIssueKind(issue)===hoursIssueKind(baselineIssue)?null:issue;
+}

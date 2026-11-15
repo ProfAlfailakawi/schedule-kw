@@ -5,7 +5,7 @@
  *  P2  daysFitLibrary: النمطُ الكامل، وجزءُ النمط لصفٍّ بيومٍ واحد، والخلط، وما لا يُعرف (null).
  *  P3  الأطوالُ المعتمدة لكل يوم من المكتبة (لا 75 يوم الأحد ولا الاثنين).
  *  P4  عادةُ القسم في المدة لا تُؤخذ إن خالفت المكتبة؛ وتنبيهُ «خارج إيقاع القسم» لا يقال عن طولٍ معتمد.
- *  P5  ساكن: بوابتا الإنشاء والتعديل والفحص المباشر وتثبيتُ طلب الأستاذ تمنع النمط غير المعتمد، ولا يُعفي التاريخ.
+ *  P5  ساكن: النمط غير المعتمد استثناءٌ لائحيّ بتأكيد صريح (قرار المالك 2026-11-14) تسأل عنه بوابتا الإنشاء والتعديل، ولا يُعفي التاريخ، وتبقى مانعةً مدةُ المحاضرة وسقفُ الساعات.
  *  P6  ساكن: طلبُ الأستاذ يمنع ما ليس نمطاً معتمداً ويقترح المعتمد، و«المعتاد تاريخياً» لا يُقترح خارج المكتبة.
  *  P7  ساكن: «املأ كالمعتاد» لا يعبّئ نمطاً خارج المكتبة، ويأخذ طول اللائحة.
  *  P8  سُلّمُ البدايات تنبيهٌ للقسم.
@@ -62,11 +62,11 @@ const review = fs.readFileSync("src/server/routes/scheduleReviewRoutes.ts", "utf
 const inbox = fs.readFileSync("src/server/routes/instructorRequestsRoutes.ts", "utf8");
 check(/export async function unapprovedPatternIssue/.test(rules) && /sectionDaysFitLibrary\(hours,row,siblings\)/.test(rules), "P5 مانعٌ واحد: أيامُ الشعبة كلها نمطٌ معتمد (والصفّ بيومٍ واحد جزءٌ منه)");
 check(!/historicalOrigin\(await courseHabit\(courseId,termId\)/.test(rules) && !/!habitual&&reading\.total/.test(rules), "P5 لا يُعفي التاريخُ نمطاً مختلطاً ولا سقفَ الساعات");
-check((writes.match(/sectionShapeIssue\(/g) || []).length === 1 && /await editShapeIssue\(existing,\{\.\.\.req\.body,id\}/.test(writes) && /if\(keepsSectionShape\(existing,next\)\)return null;/.test(rules)
+check((writes.match(/sectionShapeIssue\(/g) || []).length === 3 && /await editShapeIssue\(existing,\{\.\.\.req\.body,id\},\(req as any\)\.__hypotheticalWeek,\{skipPattern:true\}\)/.test(writes) && (writes.match(/regulationExceptionsFor\(/g) || []).length >= 2 && /if\(keepsSectionShape\(existing,next\)\)return null;/.test(rules)
   && (writes.match(/skipPattern:Boolean\(\(req as any\)\.__exactRestore\)/g) || []).length === 2
   && /scheduleLengthIssue\(row,hypothetical\)\|\|\(options\.skipPattern\?null:await unapprovedPatternIssue\(row,hypothetical\)\)/.test(rules), "P5 بوابتا الإنشاء والتعديل (والشكل الذي لم يتغيّر والاستعادة لا يُرفضان)");
 const machine = fs.readFileSync("src/server/timeMachineRoutes.ts", "utf8");
-check(/dryRunUpdate\(req, op\.rowId, op\.body, finalWeek, kind === "restore"\)/.test(machine) && /inner\.__exactRestore = Boolean\(patch\.exactRestore\)/.test(writes), "P5 استعادةُ «آلة الزمن» تعيد ما كان بالضبط ولا تمنعها قاعدة النمط");
+check(/dryRunUpdate\(req, op\.rowId, op\.body, finalWeek, kind === "restore", baselineWeek\)/.test(machine) && /inner\.__exactRestore = Boolean\(patch\.exactRestore\)/.test(writes), "P5 استعادةُ «آلة الزمن» تعيد ما كان بالضبط ولا تمنعها قاعدة النمط");
 check(/existing:savedRow/.test(review) && !/validationIssues\.push\(patternIssue\)/.test(review), "P5 الفحصُ المباشر يقول النمطَ استثناءً لائحياً (regulation) لا مانعاً — قرار المالك");
 check(/regulation: true/.test(inbox) && !/unapprovedPatternIssue\(/.test(inbox), "P5 تثبيتُ طلب الأستاذ يُسأل عن النمط في الفحص الجافّ (استثناءٌ بتأكيد) لا في معاملةٍ ترفضه بعد التأكيد");
 

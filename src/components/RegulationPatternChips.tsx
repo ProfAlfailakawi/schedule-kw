@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, Ruler, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Ruler, Sparkles } from "lucide-react";
 import type { RegulationChoice, RegulationFit } from "../utils/appointmentRegulation";
 
 /**
@@ -45,17 +45,25 @@ export default function RegulationPatternChips({
   /** أكمل النمطُ الأيام/النهاية الآن: يضيء الشريحة المطبَّقة ويظهر «أُكمل تلقائياً» لحظة. */
   autofilled?: boolean;
 }) {
+  const [more, setMore] = useState(false);
   if (!choices.length && fit !== "off") return null;
+  /* المنصوح به أولاً: النمط المطبَّق، وإلا أول الأنماط؛ وبقيتها خلف «أنماط أخرى» (ضغطةٌ واحدة). */
+  const lead = choices.find(choice => choice.id === activeId) || choices[0];
+  const rest = choices.filter(choice => choice !== lead);
+  const chip = (choice: RegulationChoice) => {
+    const active = choice.id === activeId;
+    return <button type="button" key={choice.id} className={active ? "is-active" : ""} aria-pressed={active}
+      data-guide-ignore="شريحة نمط لائحي: تضبط الأيام ومدة اللقاء معاً؛ لا تحفظ شيئاً"
+      onClick={() => onPick(choice)} title={choice.block ? "كتلة واحدة (مختبر/ورشة)" : "نمط معتمد"}>
+      {active ? <Check aria-hidden="true" /> : null}{choice.label}
+    </button>;
+  };
   return <div className={`regulation-chips${compact ? " is-compact" : ""}${autofilled ? " is-autofilled" : ""}`} role="group" aria-label="أنماط اللائحة">
     <span className="regulation-chips-mark" title="أنماط قرار 1913/2016 لساعات المقرر" aria-hidden="true"><Ruler /></span>
-    {choices.map(choice => {
-      const active = choice.id === activeId;
-      return <button type="button" key={choice.id} className={active ? "is-active" : ""} aria-pressed={active}
-        data-guide-ignore="شريحة نمط لائحي: تضبط الأيام ومدة اللقاء معاً؛ لا تحفظ شيئاً"
-        onClick={() => onPick(choice)} title={choice.block ? "كتلة واحدة (مختبر/ورشة)" : "نمط معتمد"}>
-        {active ? <Check aria-hidden="true" /> : null}{choice.label}
-      </button>;
-    })}
+    {lead ? chip(lead) : null}
+    {rest.length ? <button type="button" className="regulation-chips-more" aria-expanded={more} onClick={() => setMore(open => !open)}
+      data-guide-ignore="يُظهر بقية أنماط اللائحة المعتمدة لساعات المقرر أو يطويها؛ لا يغيّر الموعد">أنماط أخرى<ChevronDown aria-hidden="true" /></button> : null}
+    {more ? rest.map(chip) : null}
     <span className="regulation-chips-auto" role="status" aria-live="polite">{autofilled && activeId ? <><Sparkles aria-hidden="true" />أُكمل تلقائياً</> : null}</span>
     {fit === "off" ? <span className="regulation-chips-off" role="status" title="الأيام أو المدة لا تطابق نمطاً معتمداً لساعات المقرر — تنبيه لا يمنع الحفظ"><AlertTriangle aria-hidden="true" />خارج اللائحة</span> : null}
     {fit === "off" && onApplyBest ? <button type="button" className="regulation-chips-apply" onClick={onApplyBest}

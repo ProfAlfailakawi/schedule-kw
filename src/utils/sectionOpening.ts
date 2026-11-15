@@ -15,6 +15,8 @@ import { weeklyLoadOf } from "./instructorRequestVerdict";
 import { loadCapOf } from "./teachingLoad";
 import { patternsForHours } from "./scheduleRegulations";
 import { regulationLengthFor, regulationStarts } from "./regulationCandidates";
+import { courseLevelFromCode } from "./curriculumRules";
+import { type SectionGoal, orderOptionsFor, orderRoomsFor, orderTeachersFor } from "./sectionGoals";
 
 /**
  * ── الشعبة الجديدة، وأين توضع ───────────────────────────────────────────────
@@ -235,6 +237,8 @@ export function readSectionOpenings(
   limit = 6,
   verifiedRooms: readonly MasterRoom[] = [],
   termId?: number,
+  /** الهدف: يغيّر الترتيب فقط (من يُجرَّب أولاً)، ولا يخفّف قيداً. «متوازن» أو الغياب = السلوك الأصلي حرفاً بحرف. */
+  goal: SectionGoal = "balanced",
 ): OpeningReading {
   const wanted = demand.respondents
     ? demand.courses.map(course => ({ id: course.courseId, students: course.students, predicted: false }))
@@ -336,6 +340,8 @@ export function readSectionOpenings(
     for (let slot = 1; slot <= needed; slot += 1) {
       let placed: Placement | null = null;
 
+      /* خياراتُ (يوم، بداية) بترتيب الأصل: اليوم ثم سُلّم القسم. الهدفُ يعيد ترتيبها فقط؛ كل قيد يُفحص كما كان. */
+      const options: Array<{ day: DayKey; at: number; dayLength: number }> = [];
       for (const day of DAY_KEYS) {
         /* سُلّمُ القسم اقتراحٌ لا يخالف اللائحة (المولّدُ الواحد): ما خرج منه عن سُلّم م.7/8 لا يُقترح، وطولُ اللقاء طولٌ
            لائحيّ لهذا اليوم (كتلةُ المكتبة، وإلا أقربُ طولٍ معتمد) — لا ثمانون على الأحد. */
@@ -347,20 +353,38 @@ export function readSectionOpenings(
         const onLadder = learned.filter(time => official.includes(time));
         const ladder = onLadder.length ? onLadder : official;
         for (const time of ladder) {
-          if (placed) break;
           const at = timeToMinutes(time);
           if (at + dayLength > 20 * 60) continue;
-          for (const room of rooms.filter(candidateRoom => fits(candidateRoom, capacity)).slice(0, 24)) {
+          options.push({ day, at, dayLength });
+        }
+      }
+      const myLevel = courseLevelFromCode(course.CourseCode) || 0;
+      const ordering = goal === "balanced" ? options : orderOptionsFor(goal, options, {
+        dayRows: (day: DayKey) => working.filter(row => Number(row.AdTermId) === Number(termId ?? row.AdTermId) && (row as any)[day] && Number(row.AdCourseId) !== item.id
+          && myLevel > 0 && (courseLevelFromCode(courseById.get(Number(row.AdCourseId))?.CourseCode) || 0) === myLevel)
+          .map(row => ({ from: timeToMinutes(row.fstarttime), to: timeToMinutes(row.fendtime) })),
+      });
+      const usedHere = new Map<string, number>(), buildingsHere = new Set<string>();
+      if (goal === "rooms") for (const row of working) {
+        if (Number(row.AdSectionId) !== Number(seed.AdSectionId) || Number(row.AdTermId) !== Number(termId ?? seed.AdTermId)) continue;
+        const key = roomIdentityKey(row);
+        if (key) { usedHere.set(key, (usedHere.get(key) || 0) + 1); if (row.buildingId) buildingsHere.add(String(row.buildingId)); }
+      }
+      const roomPool = goal === "rooms" ? orderRoomsFor(rooms, usedHere, buildingsHere) : rooms;
+      for (const { day, at, dayLength } of ordering) {
+        if (placed) break;
+        {
+          for (const room of roomPool.filter(candidateRoom => fits(candidateRoom, capacity)).slice(0, 24)) {
             if (placed) break;
             /* An executable placement needs an active teacher with a recorded
                load allowance and a verified hall large enough for this section. */
             const courseHours = Number(course.CourseHours || course.CourseCredit) || 0;
-            const candidates = teachers.filter(id => {
+            const candidates = orderTeachersFor(goal, teachers.filter(id => {
               const person = personById.get(id);
               const limit = loadCapOf(person);
               return person && person.AdInstructorStatus !== "retired" && person.AdInstructorStatus !== "sabbatical"
                 && limit > 0 && (currentLoads.get(id) || 0) + courseHours <= limit;
-            });
+            }), id => currentLoads.get(id) || 0);
             for (const teacherId of candidates) {
               const candidate = draft(seed, day, at, dayLength, room, teacherId, draftId, termId);
               if (!physicallyFree(candidate, working)) continue;
@@ -382,7 +406,6 @@ export function readSectionOpenings(
             }
           }
         }
-        if (placed) break;
       }
 
       if (placed) placements.push(placed);

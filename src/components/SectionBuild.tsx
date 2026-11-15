@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CalendarCheck, CalendarPlus, CircleAlert, CheckCircle2, ClipboardPenLine, DoorClosed, GraduationCap, Layers, Minus, Plus, Undo2, UserRoundX } from "lucide-react";
+import { Building2, CalendarCheck, CalendarPlus, CircleAlert, CheckCircle2, ClipboardPenLine, DoorClosed, DoorOpen, Equal, GraduationCap, Hourglass, Layers, Minus, Plus, Scale, Star, Undo2, UserRound, UserRoundX, type LucideIcon } from "lucide-react";
+import { SECTION_GOALS, bestPerMetric, isSectionGoal, type GoalMetrics, type MetricKey, type SectionGoal } from "../utils/sectionGoals";
+import { safeStorage } from "../utils/safeStorage";
 import { AR, countOf } from "../utils/arabicCount";
 import { Notice, PrimaryButton, SecondaryButton } from "./ui";
 import VisitingBadge from "./VisitingBadge";
@@ -18,7 +20,8 @@ import { settleRegulationException } from "./RegulationExceptionSheet";
 
 interface Placement { pending?: boolean; days?: string[]; index: number; day: string; dayLabel: string; start: string; end: string; roomCode: string; roomHall: string; instructorName: string; sectionCode: string; buildingId: string; roomId: string; instructorId: number; visiting?: boolean }
 interface BuildRow { courseId: number; name: string; code: string; target: number | null; existing: number; remaining: number; state: "done" | "missing" | "over" | "unset"; placements: Placement[]; unplaced: number; reason: string; ceiling: number; grad: boolean }
-interface Built { rows: BuildRow[]; started: boolean; fingerprint: string; totals: { target: number; existing: number; remaining: number; placeable: number; pending: number; roomless: number } }
+interface GoalReading { goal: SectionGoal; metrics: GoalMetrics }
+interface Built { goals?: GoalReading[]; goal?: SectionGoal; rows: BuildRow[]; started: boolean; fingerprint: string; totals: { target: number; existing: number; remaining: number; placeable: number; pending: number; roomless: number } }
 
 /** دفعةٌ أكبر من هذا تُنبَّه إلى أن الأنصبة هي الحدّ، ولا تُمنع. */
 const BIG_BATCH = 40;
@@ -52,6 +55,42 @@ function Dots({ row, picked }: { row: BuildRow; picked: Set<string> }) {
   return <span className="sb-dots" aria-hidden="true">{dots.map((kind, i) => <i key={i} className={`sb-dot ${kind}`} />)}</span>;
 }
 
+const GOAL_ICON: Record<SectionGoal, LucideIcon> = { balanced: Scale, teachers: UserRound, students: GraduationCap, rooms: Building2 };
+const goalKey = (sectionId: number) => `sb-goal:${sectionId}`;
+const rememberedGoal = (sectionId: number): SectionGoal => { const saved = safeStorage.get(goalKey(sectionId)); return isSectionGoal(saved) ? saved : "balanced"; };
+
+/** صفٌّ واحد من أربع بطاقات: حلقة نسبة الموضوع، وثلاث شارات صغيرة، ونجمةٌ لأفضل قيمةٍ في كل مقياس. */
+export function GoalCards({ goals, value, onPick, busy }: { goals: GoalReading[]; value: SectionGoal; onPick: (goal: SectionGoal) => void; busy?: boolean }) {
+  const best = bestPerMetric(goals);
+  const star = (goal: SectionGoal, key: MetricKey) => best[key].includes(goal) ? <Star className="sbg-star" aria-label="الأفضل" role="img" /> : null;
+  return (
+    <div className="sbg" role="radiogroup" aria-label="هدف البناء">
+      {SECTION_GOALS.map(item => {
+        const reading = goals.find(entry => entry.goal === item.id);
+        if (!reading) return null;
+        const m = reading.metrics, Icon = GOAL_ICON[item.id], on = value === item.id;
+        const pct = m.needed ? Math.round((m.placed + m.pending) / m.needed * 100) : 100;
+        const label = `${item.title}: ${m.placed} من ${countOf(m.needed, AR.section)}، ${countOf(m.rooms, AR.room)}، ${countOf(m.buildings, AR.building)}، فراغ ${countOf(m.gapMinutes, AR.minute)}`;
+        return (
+          <button key={item.id} type="button" role="radio" aria-checked={on} aria-label={label} disabled={busy && !on} className={`sbg-card g-${item.id}${on ? " is-on" : ""}`} onClick={() => onPick(item.id)} data-guide-ignore="اختيار هدف بناء الشعب: يغيّر ترتيب الاختيار فقط ولا يخفّف أي قيد">
+            <span className="sbg-top"><span className="sbg-ic" aria-hidden="true"><Icon /></span>
+              <span className="sbg-ring" style={{ "--p": `${pct}%` } as React.CSSProperties} aria-hidden="true"><b>{pct}</b></span></span>
+            <b className="sbg-title">{item.title}</b>
+            <span className="sbg-chips" aria-hidden="true">
+              <i title="قاعات"><DoorOpen />{m.rooms}{star(item.id, "rooms")}</i>
+              <i title="مبانٍ"><Building2 />{m.buildings}{star(item.id, "buildings")}</i>
+              <i title="تفاوت الأحمال"><UserRound />±{m.teacherSpread}{star(item.id, "teacherSpread")}</i>
+              <i title="فراغ الطلبة (دقيقة)"><Hourglass />{m.gapMinutes}{star(item.id, "gapMinutes")}</i>
+              {m.notPlaced > 0 ? <i className="is-bad" title={m.reasons[0]?.reason || "لم تُبنَ"}><CircleAlert />{m.notPlaced}</i> : null}
+            </span>
+          </button>
+        );
+      })}
+      {goals.every(entry => JSON.stringify(entry.metrics) === JSON.stringify(goals[0].metrics)) ? <p className="sbg-same" role="note"><Equal aria-hidden="true" /></p> : null}
+    </div>
+  );
+}
+
 export default function SectionBuild({ collegeId, sectionId, termId, onBuilt, onReview, onClose }: {
   key?: React.Key; collegeId: number; sectionId: number; termId: number; onBuilt?: () => void;
   /** صفوفٌ بشكل نموذج الاستيراد تُفتح في شاشة المراجعة نفسها. */
@@ -71,7 +110,10 @@ export default function SectionBuild({ collegeId, sectionId, termId, onBuilt, on
   /* من غادر التخطيط والطلب معلّق لا تُسحَب شاشته إلى المراجعة. */
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  const baseWith = (map: Record<string, number> | null) => ({ collegeId, sectionId, termId, ...(map ? { targets: map } : {}) });
+  const [goal, setGoal] = useState<SectionGoal>(() => rememberedGoal(sectionId));
+  const [goals, setGoals] = useState<GoalReading[] | null>(null);
+  const latest = useRef(0);
+  const baseWith = (map: Record<string, number> | null, chosen: SectionGoal = goal) => ({ collegeId, sectionId, termId, goal: chosen, ...(map ? { targets: map } : {}) });
 
   const openReview = async (data: Built, keep: Set<string>, map: Record<string, number> | null) => {
     const pending = data.rows.flatMap(row => row.placements.filter(p => p.pending).map(p => `${row.courseId}:${p.sectionCode}`));
@@ -81,17 +123,24 @@ export default function SectionBuild({ collegeId, sectionId, termId, onBuilt, on
     onReview?.(rows.rows || [], { existing: Number(rows.existing) || 0, added: Number(rows.added) || 0, pending: Number(rows.pending) || 0, existingKeys: Array.isArray(rows.existingKeys) ? rows.existingKeys.map(String) : undefined });
   };
   /* المعاينة: من الخادم المقترحُ كما هو، أو ما عدّله القسم. */
-  const look = async (map: Record<string, number> | null = null, keepDone = false) => {
+  const look = async (map: Record<string, number> | null = null, keepDone = false, chosen: SectionGoal = goal, compare = true) => {
+    const mine = ++latest.current;
     setBusy(true); setError(""); setAsking(false); if (!keepDone) { setDone(null); setUndone(0); } setImpact(null);
     try {
-      const data: Built = await call("/api/section-build/preview", baseWith(map));
+      const data: Built = await call("/api/section-build/preview", { ...baseWith(map, chosen), ...(compare ? {} : { compare: false }) });
       const keep = new Set(data.rows.flatMap(row => row.placements.filter(p => !p.pending).map(p => `${row.courseId}:${p.sectionCode}`)));
-      if (!alive.current) return;
+      if (!alive.current || mine !== latest.current) return;
+      if (data.goals) setGoals(data.goals);
       setBuilt(data); setPicked(keep);
       setTargets(Object.fromEntries(data.rows.filter(row => row.target !== null).map(row => [String(row.courseId), row.target as number])));
       const items = data.rows.flatMap(row => row.placements.filter(p => !p.pending).map(p => ({ collegeId, sectionId, courseId: row.courseId, placement: p })));
       if (items.length) postWhatIf({ kind: "openings", termId, items }).then(setImpact).catch(() => setImpact(null));
-    } catch (e: any) { setError(e.message); } finally { setBusy(false); }
+    } catch (e: any) { if (mine === latest.current) setError(e.message); } finally { if (mine === latest.current) setBusy(false); }
+  };
+  const pickGoal = (next: SectionGoal) => {
+    if (next === goal) return;
+    setGoal(next); safeStorage.set(goalKey(sectionId), next);
+    void look(targets, false, next, false);
   };
   useEffect(() => { void look(); }, [collegeId, sectionId, termId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -99,7 +148,7 @@ export default function SectionBuild({ collegeId, sectionId, termId, onBuilt, on
     if (!targets) return;
     const next = Math.max(row.existing, Math.min(row.ceiling, (targets[String(row.courseId)] ?? row.existing) + delta));
     if (next === targets[String(row.courseId)]) return;
-    void look({ ...targets, [String(row.courseId)]: next });
+    void look({ ...targets, [String(row.courseId)]: next }); /* الأعداد تغيّرت: المقارنة تُعاد */
   };
   const review = async () => {
     if (!built) return;
@@ -152,6 +201,7 @@ export default function SectionBuild({ collegeId, sectionId, termId, onBuilt, on
           <p className="sb-totals" role="status">
             <span><b>{totals.target}</b> مقترحة</span><span><b>{totals.existing}</b> موجودة</span><span className={totals.remaining ? "is-gap" : "is-ok"}><b>{totals.remaining}</b> باقية</span>
           </p>
+          {goals && totals.remaining > 0 ? <GoalCards goals={goals} value={goal} onPick={pickGoal} busy={busy} /> : null}
           {totals.remaining > BIG_BATCH ? <p className="sb-big" role="note"><UserRoundX aria-hidden="true" /> دفعةٌ كبيرة: الحدّ هو الأساتذة والقاعات، راجع «المنتدبين» في التخطيط. تُنزَّل بدفعاتٍ ولكلٍّ تراجع.</p> : null}
           {built.rows.some(row => row.unplaced > 0) ? (
             <ul className="sb-why" aria-label="لماذا لم تُبنَ بعض الشعب">
