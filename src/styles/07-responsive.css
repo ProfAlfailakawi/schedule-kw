@@ -2007,3 +2007,30 @@ html[data-demo-admin-readonly="true"] .app-main::before{
 @media (max-width:340px){
   .apex-login-signature small{display:none}
 }
+
+
+/* iPhone Duo outer-landscape login: keep the two-column brand composition,
+   but let the access card grow and the page scroll when the short viewport
+   cannot hold every sign-in and recovery action. No entry point is removed. */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:420px){
+  .apex-login{
+    height:var(--login-vh,100dvh)!important;
+    min-height:var(--login-vh,100dvh)!important;
+    max-height:var(--login-vh,100dvh)!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:contain!important;
+    -webkit-overflow-scrolling:touch;
+  }
+  .apex-login-stage{
+    height:auto!important;
+    min-height:0!important;
+    overflow:visible!important;
+    flex:1 0 auto!important;
+    grid-template-rows:none!important;
+    align-items:start!important;
+    padding-block:8px!important;
+  }
+  .apex-login-story{align-self:center}
+  .apex-login-access{min-height:max-content}
+}
