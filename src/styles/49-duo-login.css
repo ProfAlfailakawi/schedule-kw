@@ -36,7 +36,7 @@
 }
 /* Opened portrait / wide Split View: one calm column, everything centred. */
 @media (min-width:600px) and (max-width:900px) and (min-height:480px){
-  .apex-login{position:relative!important;inset:auto!important;height:auto!important;max-height:none!important;min-height:100dvh!important;overflow:clip!important}
+  .apex-login{position:relative!important;inset:auto!important;height:auto!important;max-height:none!important;min-height:100dvh!important;overflow:visible!important}
   .apex-login .apex-login-stage{
     grid-template-columns:minmax(0,520px)!important;
     grid-template-rows:none!important;
