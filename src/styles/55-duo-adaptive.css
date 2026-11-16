@@ -345,10 +345,10 @@
     max-inline-size:100%;text-align:center;justify-self:center;
   }
   .apex-login .apex-login-kicker{justify-content:center;transform:none!important}
-  .apex-login .apex-login-story h1{font-size:clamp(28px,6vw,34px);line-height:1.1;margin-top:8px;transform:none!important}
+  html body .apex-login .apex-login-story h1{font-size:clamp(28px,6vw,34px);line-height:1.1;margin-top:8px;transform:none!important}
   .apex-login .apex-login-story>p{margin-top:8px;transform:none!important}
   .apex-login .apex-login-principles{display:none}
-  .apex-login .apex-login-access .apex-access-head p{transform:none!important}
+  html body .apex-login .apex-login-access .apex-access-head p{transform:none!important}
   .apex-login .apex-login-access{
     grid-column:1!important;grid-row:2!important;align-self:start;justify-self:center;
     inline-size:min(480px,100%);max-inline-size:100%;
