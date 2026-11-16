@@ -2009,9 +2009,9 @@ html[data-demo-admin-readonly="true"] .app-main::before{
 }
 
 
-/* iPhone Duo outer-landscape login: keep the two-column brand composition,
-   but let the access card grow and the page scroll when the short viewport
-   cannot hold every sign-in and recovery action. No entry point is removed. */
+/* iPhone Duo outer-landscape login: keep the brand and access card readable
+   in a single column, then scroll naturally when the short viewport cannot
+   hold every sign-in, recovery, and demo action at once. */
 @media (pointer:coarse) and (orientation:landscape) and (max-height:420px){
   .apex-login{
     height:var(--login-vh,100dvh)!important;
@@ -2027,10 +2027,30 @@ html[data-demo-admin-readonly="true"] .app-main::before{
     min-height:0!important;
     overflow:visible!important;
     flex:1 0 auto!important;
-    grid-template-rows:none!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:auto auto!important;
     align-items:start!important;
-    padding-block:8px!important;
+    gap:12px!important;
+    padding-block:8px 20px!important;
   }
-  .apex-login-story{align-self:center}
-  .apex-login-access{min-height:max-content}
+  .apex-login-story{
+    grid-column:1!important;
+    grid-row:1!important;
+    justify-self:center;
+    align-self:start;
+    width:min(480px,100%);
+    text-align:center;
+  }
+  .apex-login-kicker{justify-content:center}
+  .apex-login-story h1{font-size:clamp(28px,6vw,34px)!important;line-height:1.1!important;margin-top:8px!important}
+  .apex-login-story>p{font-size:12px!important;line-height:1.5!important;margin-top:8px!important}
+  .apex-login-principles{display:none!important}
+  .apex-login-access{
+    grid-column:1!important;
+    grid-row:2!important;
+    justify-self:center;
+    align-self:start;
+    inline-size:min(480px,100%);
+    min-height:max-content;
+  }
 }
