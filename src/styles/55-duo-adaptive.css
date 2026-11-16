@@ -91,13 +91,13 @@
   .hg-strip{padding-right:calc(8px + var(--duo-widget-inset))}
 }
 @media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
-       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
+       screen and (orientation:landscape) and (min-width:721px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
   /* الدخول طولياً: أول سطرٍ في بطاقة الدخول يبدأ يسار الودجت؛ والبطاقة نفسها تمتدّ تحتها. */
   .apex-login-access .apex-access-head{margin-right:var(--duo-widget-inset)}
 }
 @media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
-       screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
+       screen and (orientation:landscape) and (min-width:721px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
   /* النصوص القصيرة تُزاح عن ركن الودجت؛ العنوان يبقى في تدفق الصفحة الطولية كي لا يُقصّ من حافة الشاشة الخارجية. */
   .apex-login-kicker,
@@ -105,7 +105,7 @@
   html body .apex-login .apex-login-access .apex-access-head p{transform:translateX(calc(0px - var(--duo-widget-inset)))!important}
 }
 
-@media screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
+@media screen and (orientation:landscape) and (min-width:721px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
   /* في الاتجاه العريض يبقى العنوان يسار الركن المحجوز. */
   html body .apex-login .apex-login-story h1{transform:translateX(calc(0px - var(--duo-widget-inset)))!important}
@@ -326,4 +326,30 @@
   .content-frame>:first-child>:first-child{margin-right:0}
   /* بطاقة الدخول على الصفحة اليسرى في الكتاب: لا ودجت فوقها. */
   .apex-login-access .apex-access-head{margin-right:0}
+}
+
+/* Folded Duo in landscape (and other short coarse-pointer windows): the login card
+   is taller than the fixed viewport. Keep the app frame, but let the content scroll
+   and place the story before the card instead of centering an oversized form outside
+   the clipped stage. */
+@media screen and (pointer:coarse) and (orientation:landscape) and (max-width:760px) and (max-height:480px){
+  .apex-login{overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:contain!important}
+  .apex-login .apex-login-stage{
+    height:auto!important;min-height:0!important;max-height:none!important;
+    overflow:visible!important;align-content:start!important;align-items:start!important;
+    grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto auto!important;
+    gap:12px!important;padding-block:12px 24px!important;
+  }
+  .apex-login .apex-login-story{
+    display:block!important;grid-column:1!important;grid-row:1!important;
+    max-inline-size:100%;text-align:center;justify-self:center;
+  }
+  .apex-login .apex-login-kicker{justify-content:center}
+  .apex-login .apex-login-story h1{font-size:clamp(28px,6vw,34px);line-height:1.1;margin-top:8px}
+  .apex-login .apex-login-story>p{margin-top:8px}
+  .apex-login .apex-login-principles{display:none}
+  .apex-login .apex-login-access{
+    grid-column:1!important;grid-row:2!important;align-self:start;justify-self:center;
+    inline-size:min(480px,100%);max-inline-size:100%;
+  }
 }
