@@ -99,11 +99,16 @@
 @media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
        screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
        screen and (horizontal-viewport-segments:2){
-  /* الدخول: الكلمة التعريفية والعنوان يبدآن يسار الودجت. */
+  /* النصوص القصيرة تُزاح عن ركن الودجت؛ العنوان يبقى في تدفق الصفحة الطولية كي لا يُقصّ من حافة الشاشة الخارجية. */
   .apex-login-kicker,
-  html body .apex-login .apex-login-story h1,
   .apex-login-story>p,
   html body .apex-login .apex-login-access .apex-access-head p{transform:translateX(calc(0px - var(--duo-widget-inset)))!important}
+}
+
+@media screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
+       screen and (horizontal-viewport-segments:2){
+  /* في الاتجاه العريض يبقى العنوان يسار الركن المحجوز. */
+  html body .apex-login .apex-login-story h1{transform:translateX(calc(0px - var(--duo-widget-inset)))!important}
 }
 
 /* ==========================================================================
