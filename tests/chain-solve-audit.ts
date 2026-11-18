@@ -180,6 +180,27 @@ function packed(skip: (room: number, start: string) => boolean = () => false, pa
     check(ms < 600 && bigRows.length >= 990, "G4 لوحةُ ألف صفٍّ تنتهي في زمنٍ معقول", ms);
   }
 
+  /* ── H: السعةُ والنوع شرطٌ صلب، ولا صفَّ مرتين، والرادارُ القديم لا يشهد ──────── */
+  {
+    /* خانةٌ حرّةٌ وحيدة في قاعةٍ صغيرة: الدومينو الوحيد يضع الشعبةَ الكبيرة فيها. roomFits يمنعها فلا سلسلة. */
+    const rows = packed((room, start) => room === 1 && start === "13:00");
+    const free = solveChain(base(rows));
+    const toSmall = (row: FSchedule, room: { roomId: string }) => room.roomId !== "r2";
+    const fitsOnlyHome = solveChain(base(rows, { roomFits: toSmall }));
+    check(free.ok && free.steps.some(step => step.roomChanged), "H1 بلا شرط: السلسلة قد تنقل شعبةً إلى قاعةٍ أخرى", free.steps.map(step => step.roomChanged));
+    check(fitsOnlyHome.steps.every(step => !step.roomChanged || step.to.room !== "102"), "H2 roomFits: لا يُنقل صفٌّ إلى قاعةٍ لا تلائمه (السعة/النوع)", fitsOnlyHome.steps.map(step => step.to.room));
+    const nobody = solveChain(base(rows, { roomFits: () => false }));
+    check(nobody.steps.every(step => !step.roomChanged), "H3 لا قاعةَ تلائم أحداً: لا تبديل قاعةٍ في أي خطوة، وقاعتُه الحالية تبقى مسموحة", nobody.steps.map(step => step.roomChanged));
+    /* صفٌّ واحد لا يظهر مرتين في الخطوات والتغييرات أبداً. */
+    for (const sample of [rows, twoMoveRows().rows]) {
+      const out = solveChain(base(sample));
+      const ids = out.steps.map(step => step.rowId);
+      check(new Set(ids).size === ids.length && new Set(out.changes.map((change: any) => change.rowId)).size === out.changes.length, "H4 لا صفَّ مرتين في السلسلة", ids);
+    }
+    check(chainImpactLine({ helped: 0, harmed: 0 }, true).tone === "idle" && chainImpactLine({ helped: 0, harmed: 0 }, true).count === null && chainImpactLine({ helped: 0, harmed: 0 }, false).text === "لا يمسّ طلبة", "H5 رادارٌ قديم: صفرُه لا يُقال له «لا يمسّ طلبة»");
+    check(chainImpactLine({ helped: 0, harmed: 2 }, true).tone === "warn", "H6 رادارٌ قديم وفيه متضرّرون: التنبيه يبقى");
+  }
+
   console.log(`\nchain-solve audit: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch(error => { console.error(error); process.exit(1); });

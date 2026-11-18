@@ -104,5 +104,23 @@ check(/applyRoomSwapMove/.test(schedules) && /api\/schedules\/move-batch/.test(s
 check(/<RoomSwapCard swaps=\{roomSwapIdeas\}/.test(schedules) && /<RoomSwapCard swaps=\{roomSwapIdeas\}/.test(quick) && /onSwapRooms=\{applyRoomSwapMove\}/.test(schedules), "S4 البطاقة في المحرر الكامل و«موعد جديد» بجانب القاعة");
 check(!/اقترح قاعة|setForm\(/.test(card), "S5 البطاقة لا تكتب شيئاً بنفسها (العرض وحده)");
 
+/* ── المقاعد في المخرجات، والكشف، والقفل، والمعاينة = المحفوظ ──────────────────────── */
+{
+  const rows = [row(10, 2, G30, "10:00", "11:30")];
+  const swap = appointmentRoomSwaps({ draft: draftOf(1, G20), rows, halls, courses, movable }).swaps[0];
+  check(swap?.mine.seats === 25 && swap.other.seats === 35, "V1 المقاعد تصحب كلَّ مسار لشريط السعة", [swap?.mine.seats, swap?.other.seats]);
+  check(swap && swap.other.to.capacity !== null && Number(swap.other.to.capacity) >= swap.other.seats && Number(swap.mine.to.capacity) >= swap.mine.seats, "V2 سعةُ كلٍّ من القاعتين الجديدتين تكفي مقاعد شعبتها", swap);
+  const fn = route.slice(route.indexOf("room-swap-ideas"));
+  check(/movable: row => Number\(row\.AdCollegeId\) === collegeId && Number\(row\.AdSectionId\) === sectionId/.test(fn), "V3 الشعبةُ الأخرى من قسم المستخدم وحده: لا كشفَ لمقررٍ أو مدرّسٍ خارج النطاق");
+  const json = JSON.stringify(swap);
+  check(!/AdInstructor|instructor|Instructor/.test(json), "V4 ردُّ الاقتراح بلا أيِّ أستاذ");
+  check(/scheduleLockRefusal\(req, collegeId, sectionId, termId\)/.test(fn.slice(0, 1400)), "V5 جدولٌ مقفل: لا يُعرض تبديلٌ يردّه النقل");
+  const move = schedules.slice(schedules.indexOf("const applyRoomSwapMove"), schedules.indexOf("const applyRoomSwapMove") + 2600);
+  check(/swap\.other\.rev/.test(move) && /sameRoom/.test(move) && /sameTime/.test(move), "V6 النقلُ يرفض إن تغيّر الصفُّ (النسخة/القاعة/الوقت) بعد الاقتراح");
+  check(/body: <RoomSwapConfirmBody/.test(move) && !/\\n/.test(move.slice(move.indexOf("visualConfirm"), move.indexOf("visualConfirm") + 500)), "V7 حوارُ التأكيد برسمٍ لا بفقرة نصّية");
+  check(/signature/.test(schedules.slice(schedules.indexOf("const takeRoomSwap"), schedules.indexOf("const takeRoomSwap") + 900)), "V8 تغيّر الموعد أثناء التأكيد: لا تُكتب القاعة فيه");
+  check(/<bdi dir="ltr">/.test(card) && /aria-label=\{`المقاعد/.test(card) && /data-guide-ignore/.test(card), "V9 رموزُ القاعات ltr، وشريطُ السعة بوصفٍ للقارئ، وزرّ «بدّل» محفوظ للمرشد");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

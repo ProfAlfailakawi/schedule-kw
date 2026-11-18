@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { createPortal } from "react-dom";
 import {
   ArrowLeft, Building2, Check, CircleCheck, Clock3, DoorOpen, Layers, Link2, LoaderCircle, Lock, Pencil, Route, Snowflake,
-  TriangleAlert, Undo2, UserRound, X, type LucideIcon,
+  TriangleAlert, Undo2, UserRound, UsersRound, X, type LucideIcon,
 } from "lucide-react";
 import { useDialogDismiss } from "./ui";
 import { trapFocusRef } from "../hooks/useFocusTrap";
@@ -12,6 +12,9 @@ import {
   type ChainBlock, type ChainImpactLine, type ChainSlot, type ChainSolution, type ChainSolveInput, type ChainStep, type ChainWeek,
 } from "../utils/chainSolve";
 import type { DayKey } from "../utils/scheduleIntelligence";
+import { roomIsGood, type RoomSwapHall } from "../utils/appointmentRoomSwap";
+import { roomTypeIn } from "../utils/roomTypeForSection";
+import { cleanCapacity } from "../utils/roomFacts";
 
 /**
  * ── «حلّ بسلسلة»: ورقةُ الدومينو ──────────────────────────────────────────────
@@ -51,7 +54,7 @@ export function SlotChip({ slot, tone, room }: { slot: ChainSlot; tone: "from" |
     <span className={`chain-slot is-${tone}`} title={`${slot.room} ${slot.hall}`.trim()}>
       <span className="chain-slot-day">{daysText(slot.days)}</span>
       <bdi dir="ltr" className="chain-slot-time">{slot.start}</bdi>
-      {room && slot.room ? <span className="chain-slot-room"><DoorOpen aria-hidden="true" /><bdi dir="ltr">{slot.room}</bdi></span> : null}
+      {room && slot.room ? <span className="chain-slot-room"><DoorOpen aria-hidden="true" /><bdi dir="ltr">{slot.room}{slot.hall ? `/${slot.hall}` : ""}</bdi></span> : null}
     </span>
   );
 }
@@ -70,7 +73,7 @@ function StepCard({ step, index }: { step: ChainStep; index: number }) {
           </span>
         </div>
         <div className="chain-move" aria-label={`من ${daysText(step.from.days)} ${step.from.start} إلى ${daysText(step.to.days)} ${step.to.start}`}>
-          <SlotChip slot={step.from} tone="from" />
+          <SlotChip slot={step.from} tone="from" room={step.roomChanged} />
           <ArrowLeft className="chain-arrow" aria-hidden="true" />
           <SlotChip slot={step.to} tone="to" room={step.roomChanged} />
         </div>
@@ -109,6 +112,7 @@ function ImpactLine({ line, busy }: { line: ChainImpactLine | null; busy: boolea
   return (
     <p className={`chain-impact is-${line.tone}`} role="status">
       <i aria-hidden="true" className="chain-dot" />
+      <UsersRound aria-hidden="true" className="chain-impact-ico" />
       <span>{line.text}</span>
     </p>
   );
@@ -190,8 +194,8 @@ export function ChainSolveView({ phase, solution, impact, impactBusy = false, dr
           <div className="chain-foot-info">
             <ImpactLine line={impact} busy={impactBusy} />
             <span className="chain-chips" aria-label="ملخص الأثر">
-              <span className="chain-chip" title="أساتذة تتحرّك مواعيدهم"><UserRound aria-hidden="true" /><b dir="ltr">{solution.effects.teachers}</b></span>
-              <span className="chain-chip" title="قاعات تتبدّل"><DoorOpen aria-hidden="true" /><b dir="ltr">{solution.effects.roomChanges}</b></span>
+              <span className="chain-chip" role="img" aria-label={`أساتذة تتحرّك مواعيدهم: ${solution.effects.teachers}`} title="أساتذة تتحرّك مواعيدهم"><UserRound aria-hidden="true" /><b dir="ltr">{solution.effects.teachers}</b></span>
+              <span className="chain-chip" role="img" aria-label={`قاعات تتبدّل: ${solution.effects.roomChanges}`} title="قاعات تتبدّل"><DoorOpen aria-hidden="true" /><b dir="ltr">{solution.effects.roomChanges}</b></span>
             </span>
           </div>
         </div>
@@ -247,6 +251,33 @@ export function ChainSolveButton({ onOpen, busy = false }: { onOpen: () => void;
   );
 }
 
+/**
+ * ملاءمةُ القاعة لمقرر الصف من سجلّ المواقع (نوعٌ يطابق، وسعةٌ معروفة تكفي مقاعدَ المقرر): شرطٌ صلب كما في «بدّل القاعتين».
+ * تعذّر السجلّ: لا قاعةَ جديدة لأحد (تبقى كلُّ شعبةٍ في قاعتها)، فلا يُرسَل صفٌّ إلى سعةٍ مجهولة.
+ */
+async function loadRoomFits(input: ChainSolveInput): Promise<ChainSolveInput["roomFits"]> {
+  if (!input.courseOf) return undefined;
+  const { collegeId, sectionId, termId } = input.scope;
+  let registry: any = null;
+  try {
+    const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
+    const response = await fetch(`/api/location-registry?${query}`, { credentials: "include", signal: AbortSignal.timeout?.(8000) });
+    registry = response.ok ? await response.json() : null;
+  } catch { registry = null; }
+  const halls = new Map<string, RoomSwapHall>();
+  for (const room of Array.isArray(registry?.rooms) ? registry.rooms : []) {
+    if (!room?.id) continue;
+    halls.set(String(room.id), { room: "", hall: "", roomId: String(room.id), roomType: roomTypeIn(room, sectionId, registry?.roomTypeScopes), capacity: cleanCapacity(room.capacity) });
+  }
+  return (row, room) => {
+    const hall = halls.get(String(room.roomId));
+    const course = input.courseOf!(row);
+    if (!hall || !course) return false;
+    const current = halls.get(String(row.roomId || ""));
+    return roomIsGood({ AdCourseId: Number(row.AdCourseId), ...course }, hall, current?.roomType);
+  };
+}
+
 const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 export interface ChainAppliedInfo { moves: number; rowIds: number[]; scenarioId: string; undone?: boolean }
@@ -281,18 +312,20 @@ export default function ChainSolveSheet({ open, onClose, input, onApplied, onUnd
   useEffect(() => {
     if (!open) return;
     setPhase("solving"); setSolution(null); setImpact(null); setError(""); setScenario(null);
-    const timer = window.setTimeout(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
       try {
-        const out = solveChain(inputRef.current);
-        if (!alive.current) return;
+        const fits = await loadRoomFits(inputRef.current);
+        if (cancelled || !alive.current) return;
+        const out = solveChain({ ...inputRef.current, roomFits: inputRef.current.roomFits || fits });
         setSolution(out);
         setPhase(out.ok ? "ready" : "empty");
       } catch (e: any) {
-        if (!alive.current) return;
+        if (cancelled || !alive.current) return;
         setError("تعذّر الحلّ"); setPhase("error");
       }
     }, 40);
-    return () => window.clearTimeout(timer);
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [open, attempt]);
 
   /* أثرُ السلسلة على الطلبة: من رادار آلة الزمن نفسه (عدٌّ لا أسماء)، وبلا رادار لا رقمَ مخترع. */
@@ -301,7 +334,7 @@ export default function ChainSolveSheet({ open, onClose, input, onApplied, onUnd
     let cancelled = false;
     setImpactBusy(true);
     postJson("/api/time-machine/students", { ...inputRef.current.scope, changes: solution.changes })
-      .then(body => { if (!cancelled) setImpact(body.available ? chainImpactLine(body.impact) : chainImpactLine(null)); })
+      .then(body => { if (!cancelled) setImpact(body.available ? chainImpactLine(body.impact, Boolean(body.stale)) : chainImpactLine(null)); })
       .catch(() => { if (!cancelled) setImpact(chainImpactLine(null)); })
       .finally(() => { if (!cancelled) setImpactBusy(false); });
     return () => { cancelled = true; };
@@ -320,16 +353,20 @@ export default function ChainSolveSheet({ open, onClose, input, onApplied, onUnd
   const apply = async () => {
     if (!solution?.ok || phase === "applying") return;
     setPhase("applying"); setError("");
+    let record: { id: string; revision: number } | null = null;
     try {
       const scope = inputRef.current.scope;
       const saved = await postJson("/api/time-machine/scenarios", { ...scope, name: "حلّ بسلسلة", mode: "lab", changes: solution.changes });
-      const record = saved.scenario;
+      record = saved.scenario;
+      if (!record) throw new Error("تعذّر التطبيق");
       const body = await postJson(`/api/time-machine/scenarios/${record.id}/apply`, { revision: record.revision });
       if (!alive.current) return;
       setScenario({ id: record.id, revision: Number(body.scenario?.revision ?? record.revision) });
       setPhase("done");
       onApplied({ moves: solution.steps.length, rowIds: solution.steps.map(step => step.rowId), scenarioId: record.id });
     } catch (e: any) {
+      /* لم يُعتمد شيء: لا تبقى مسوّدةُ سيناريو يتيمةٌ في آلة الزمن (محاولةٌ صامتة؛ الاعتمادُ ذرّيٌّ فلم يُكتب جدولٌ). */
+      if (record) void fetch(`/api/time-machine/scenarios/${record.id}`, { method: "DELETE", credentials: "include" }).catch(() => undefined);
       if (!alive.current) return;
       const drifted = e?.body?.code === "drift" || e?.body?.code === "revision" || e?.body?.code === "stale";
       setError(drifted ? "تغيّر الجدول — أعد الحلّ" : e?.message || "تعذّر التطبيق");

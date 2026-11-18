@@ -85,6 +85,7 @@
 
 .chain-foot-info{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
 .chain-impact{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:13.5px;font-weight:800;min-height:28px}
+.chain-impact-ico{width:16px;height:16px;flex:none}
 .chain-dot{width:10px;height:10px;border-radius:50%;background:var(--muted-2,var(--muted));flex:none}
 .chain-impact.is-good .chain-dot{background:var(--success);box-shadow:0 0 0 4px var(--success-soft)}
 .chain-impact.is-warn .chain-dot{background:var(--warning);box-shadow:0 0 0 4px var(--warning-soft)}
