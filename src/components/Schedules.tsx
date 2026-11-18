@@ -191,6 +191,8 @@ import ScheduleReview from "./ScheduleReview";
 import InstructorPicker from "./InstructorPicker";
 import { VacantAssign, type SeatVerdict } from "./InstructorSeats";
 import AppointmentQuickSwap from "./AppointmentQuickSwap";
+import CampusChip from "./CampusChip";
+import { campusOf } from "../utils/campus";
 import { quickSwapAfter, quickSwapMine, quickSwapSources, type QuickSwapSource } from "../utils/appointmentQuickSwap";
 import SameSlotHint from "./SameSlotHint";
 import { conflictSkipIds, sectionCodeKey } from "../utils/sameSlot";
@@ -1825,12 +1827,18 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const step = entry.steps[0] as any;
     const idMatch = String(step?.url || "").match(/\/api\/schedules\/(\d+)/);
     const affected = idMatch ? rows.find(r => r.id === Number(idMatch[1])) : null;
-    const courseId = Number(step?.body?.AdCourseId || affected?.AdCourseId || 0);
-    const instrId = Number(step?.body?.AdInstructorId || affected?.AdInstructorId || 0);
+    const courseId = Number(affected?.AdCourseId || step?.body?.AdCourseId || 0);
+    /* الأستاذُ هو صاحبُ الموعد الآن لا قبل التعديل: جسمُ خطوة التراجع يحمل الحالَ السابقة، فكان السجلُّ
+       يذكر أستاذاً كان ثم رُفع عنه الموعد (وربما متقاعداً). فإن لم يبقَ الصفّ (حُذف) فجسمُ الخطوة هو آخرُ حالٍ له. */
+    const instrId = Number(affected?.AdInstructorId || step?.body?.AdInstructorId || 0);
+    const person = instructorById.get(instrId);
+    const collegeId = Number(affected?.AdCollegeId || step?.body?.AdCollegeId || entry.scope?.c || 0);
     return {
       courseName: courseById.get(courseId)?.CourseName || affected?.AdCourseName || "",
-      whoName: instructorById.get(instrId)?.AdInstructorName || "",
+      whoName: person?.AdInstructorName || "",
       visiting: Boolean(instrId && visitingIds.has(instrId)),
+      retired: person?.AdInstructorStatus === "retired",
+      campus: campusOf(colleges.find(college => Number(college.AdCollegeId) === collegeId)?.AdCollegeName),
     };
   };
   const printUndoReport = () => {
@@ -2283,6 +2291,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     if (!opts?.silent) setRowsLoading(true);
     try {
       const data = await fetchJson(`/api/schedules${p.size ? `?${p}` : ""}`, { signal: controller.signal });
+      /* القراءةُ تلي كلَّ تعديل (إسناد، نقل، تحويلٌ إلى «هيئة تدريسية»…): أسابيعُ الأساتذة المحفوظة في الذاكرة
+         لا تعرف أن الصفّ غادر أستاذه أو تغيّر وقتُه، فتبقى تعرضه حتى يُغادَر الشاشة. تُنسى كلُّها فتُقرأ من جديد. */
+      forgetMiniWeekRows();
       // Second guard, belt to the ref's braces: an answer that arrives after the
       // reader has moved to another department describes a board that is no
       // longer on screen, and must never be painted onto the one that is.
@@ -14234,7 +14245,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   // The course and the teacher behind the change, pulled from the
                   // affected row (or the step's own body for a re-create), and
                   // set in a whisper-light line beneath the action.
-                  const { whoName, visiting } = undoEntryMeta(entry);
+                  const { whoName, visiting, retired, campus } = undoEntryMeta(entry);
                   return (
                   <li key={entry.id} className={entry.usedAt ? "used" : ""}>
                     {/* One column of words, one column of action. The teacher's
@@ -14253,7 +14264,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     */}
                       <span className="undo-log-when">
                         <time dateTime={new Date(entry.at).toISOString()}>{undoClock(entry.at)}</time>
-                        {whoName ? <em className="schedule-instructor-with-badge">{whoName}{visiting ? <VisitingBadge compact /> : null}</em> : null}
+                        {campus ? <CampusChip campus={campus} /> : null}
+                        {whoName ? <em className="schedule-instructor-with-badge">{whoName}{visiting ? <VisitingBadge compact /> : null}{retired ? <small className="undo-log-retired" title="أستاذ متقاعد مسجَّل على هذا الموعد؛ راجع الإسناد">متقاعد</small> : null}</em> : null}
                       </span>
                     </div>
                     {entry.usedAt ? (

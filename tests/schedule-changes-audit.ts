@@ -372,7 +372,7 @@ check(changes.includes('report.baselineSource === "none"')
   && changes.includes('report.baselineSource === "authority"'),
   "والشاشةُ تقول من أين تبدأ المقارنة، فلا يُقرأ «كلُّ صفٍّ مضاف» خبراً عن الجدول وهو خبرٌ عن المقارنة");
 check(server.includes("authorityDraftForScope(collegeId, sectionId, termId)")
-  && server.includes("const authorityComparison=buildAuthorityPdfDiff(scopedBaseline,live as any"),
+  && server.includes("const authorityComparison=await buildAuthorityPdfDiffWithHistory(scopedBaseline,live as any"),
   "وشاشة تغييرات الجدول تستخدم وثيقة الهيئة ومحرك تقريرها نفسه، فتظهر المحذوفات والتعديلات لا المضاف وحده");
 
 /* ── ١١) اللائحة في موضع المراجعة نفسه ────────────────────────────────── */

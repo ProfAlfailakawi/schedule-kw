@@ -23,7 +23,7 @@ import { locateRowsBySite, splitRowsByBranch, unplacedSiteIssue, type BranchScop
 import { pageReviewWaitLine, unconfirmedReviewPages } from "../../utils/importPageReview";
 import { noteScheduleMutation, scheduleLockRefusal, wholesaleRefusal } from "../core/approvals";
 import { type AuthenticatedRequest, requirePermission, requirePowerAdmin } from "../core/auth";
-import { authorityBaselineForScope, authorityCourseCodeMap, buildAuthorityPdfDiff, inferAuthorityBranchCode } from "../core/authority";
+import { authorityBaselineForScope, authorityCourseCodeMap, buildAuthorityPdfDiff, buildAuthorityPdfDiffWithHistory, inferAuthorityBranchCode } from "../core/authority";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "../core/locations";
 import { intelligenceReadScopes, isScopeAllowed, scopedScheduleUniverse } from "../core/scope";
 import { approvalBlockerOptions, mapSmartIssuesToRows, type PdfImportReceipt, safeDraftRows, smartContextFrom, validateSmartRows } from "../core/smartImport";
@@ -134,7 +134,7 @@ app.get("/api/intelligence/drafts/:id/import-report", requirePermission(7), asyn
   ]);
   const instructorNameById=new Map<number,string>(instructors.map((row:any)=>[Number(row.AdInstructorId),String(row.AdInstructorName||"")] as [number,string]));
   const scopedBaseline=await authorityBaselineForScope(draft.baselineRows,draft,draft.AdCollegeId,draft.AdSectionId);
-  const comparison=buildAuthorityPdfDiff(scopedBaseline,live,{instructorNameById,courseCodeById:await authorityCourseCodeMap()});
+  const comparison=await buildAuthorityPdfDiffWithHistory(scopedBaseline,live,{instructorNameById,courseCodeById:await authorityCourseCodeMap()},{collegeId:draft.AdCollegeId,sectionId:draft.AdSectionId,termId:draft.AdTermId});
   res.json({
     draftId:draft.id,name:draft.name,sourceFileName:draft.sourceFileName||"الجدول المعتمد.pdf",
     sourceBranchCode:inferAuthorityBranchCode(draft,[...scopedBaseline,...live]),

@@ -28,14 +28,13 @@
 @media (min-width:700px){.get-app{inset-inline:auto;inset-inline-end:var(--s5);margin:0;width:420px}}
 @media (prefers-reduced-motion:reduce){.get-app{animation:none}}
 
-.app-handoff{display:grid;gap:var(--s2);justify-items:center;text-align:center;margin-bottom:var(--s4)}
+.app-handoff{display:grid;gap:var(--s2);justify-items:center;text-align:center;margin-top:var(--s3)}
 .app-handoff-go{
-  width:100%;min-height:54px;display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
-  border-radius:var(--r-md,12px);background:var(--accent);color:var(--accent-contrast);
-  font-size:16px;font-weight:700;cursor:pointer;border:0;
+  min-height:44px;padding:0 var(--s4);display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
+  border-radius:var(--r-full,999px);background:transparent;color:var(--accent);
+  font-size:var(--t-sm);font-weight:700;cursor:pointer;border:1px solid color-mix(in srgb,var(--accent) 38%,var(--line));
 }
-.app-handoff-go:hover:not(:disabled){background:var(--accent-strong)}
+.app-handoff-go:hover:not(:disabled){background:var(--accent-soft)}
 .app-handoff-go:disabled{opacity:.7;cursor:progress}
-.app-handoff-go svg{width:19px;height:19px}
-.app-handoff small{color:var(--muted);font-size:var(--t-sm);line-height:1.6}
+.app-handoff-go svg{width:17px;height:17px}
 .app-handoff p{margin:0;padding:var(--s3) var(--s4);border-radius:var(--r-md,12px);background:var(--accent-soft);color:var(--ink-2);font-size:var(--t-sm);line-height:1.7}
