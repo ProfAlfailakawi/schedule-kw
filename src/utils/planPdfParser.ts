@@ -138,11 +138,13 @@ export function parsePlanItems(pages: PlanItem[][]): ParsedPlan {
   /* ── الترويسة: الصفحة الأولى فوق أول جدول ── */
   const head = (pages[0] || []).map(item => ({ ...item, str: clean(item.str) })).filter(item => item.str);
   const headText = (pred: (item: PlanItem) => boolean) => head.filter(pred).sort((a, b) => b.x - a.x);
-  const program = head.find(item => /^BA-\d+$/i.test(item.str));
+  /* BA بكالوريوس، BC استكمال بكالوريوس، DP دبلوم (صحائف كلية العلوم الصحية). */
+  const PROGRAM_CODE = /^(?:BA|BC|DP)-\d+$/i;
+  const program = head.find(item => PROGRAM_CODE.test(item.str));
   plan.program = program ? program.str.toUpperCase() : "";
   if (program) {
     /* اسم البرنامج على سطر رمزه نفسه إلى يساره (الترويسة تُقرأ معكوسة). */
-    const title = head.filter(item => Math.abs(item.y - program.y) < 4 && item.x + item.w < program.x && !/^BA-/i.test(item.str)).sort((a, b) => b.str.length - a.str.length)[0];
+    const title = head.filter(item => Math.abs(item.y - program.y) < 4 && item.x + item.w < program.x && !PROGRAM_CODE.test(item.str)).sort((a, b) => b.str.length - a.str.length)[0];
     plan.programName = title?.str || "";
   }
   const semester = head.find(item => /^الفصل\s.*\d{4}-\d{4}/.test(item.str));
@@ -154,10 +156,11 @@ export function parsePlanItems(pages: PlanItem[][]): ParsedPlan {
   /* «كلية» أو «كليه»: صحائف العلوم الصحية تطبعها بالهاء. */
   const collegeItem = head.find(item => /^كلي[ةه] /.test(item.str));
   plan.college = collegeItem?.str || "";
-  const deptItems = headText(item => item.y > 480 && item.y < 495 && item.str !== ":" && !/^BA-/i.test(item.str) && item.str !== "القسم" && item.str !== "البرنامج");
+  const deptItems = headText(item => item.y > 480 && item.y < 495 && item.str !== ":" && !PROGRAM_CODE.test(item.str) && item.str !== "القسم" && item.str !== "البرنامج");
   plan.department = deptItems.find(item => item.x > 600)?.str || deptItems[0]?.str || "";
   const degree = head.find(item => /^(بكالوريوس|دبلوم|ماجستير|دكتوراه)/.test(item.str));
-  plan.degree = degree?.str || "";
+  /* صحيفة الاستكمال تطبع «الدرجة العلمية :» بلا قيمة؛ برنامجها بكالوريوس. */
+  plan.degree = degree?.str || (/^BC-/i.test(plan.program) ? "بكالوريوس" : "");
   const total = head.find(item => /^\d{2,3}$/.test(item.str) && item.y > 460 && item.y < 480 && item.x < 400);
   plan.degreeUnits = total ? Number(total.str) : 0;
   if (!plan.program) warnings.push("لم يُقرأ رمز البرنامج (BA-…)");

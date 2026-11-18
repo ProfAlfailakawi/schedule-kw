@@ -63,7 +63,9 @@ export function dominantDepartment(plan: Pick<ParsedPlan, "courses">, field: "de
 /** الصحيفة الجديدة تبدأ من هذه السنة؛ ما قبلها قديمةٌ تدخل «الصحيفة السابقة» ولا تمسّ الفعّالة.
  *  وهذا تجديدُ التربية الأساسية (BA-01…) وحدها: صحيفةُ كليةٍ أخرى هي المعتمدة لها مهما كانت سنتها (العلوم البيئية 2008). */
 export const NEW_PLAN_FROM_YEAR = 2026;
-export const isNewSheet = (plan: Pick<ParsedPlan, "startYear" | "program">) => plan.startYear >= NEW_PLAN_FROM_YEAR || /^BA-(?!01)\d{2}/.test(String(plan.program || ""));
+/** كليةُ البرنامج من رمزه («BA-031001» و«DP-0317» و«BC-031401» ← 03). */
+const programCollege = (program: string) => /^(?:BA|BC|DP)-(\d{2})/i.exec(String(program || ""))?.[1] || "";
+export const isNewSheet = (plan: Pick<ParsedPlan, "startYear" | "program">) => plan.startYear >= NEW_PLAN_FROM_YEAR || (programCollege(plan.program) !== "" && programCollege(plan.program) !== "01");
 
 /**
  * صحائفُ برامج التربية الخاصة ورياض الأطفال تُطبع باسم القسم الإداري («علم النفس»، «علم التربية») لا باسم القسم
@@ -164,7 +166,7 @@ export function sheetSectionCode(plan: Pick<ParsedPlan, "courses" | "department"
 }
 
 /** أقسامٌ تشمل صحيفتُها رمزاً فرعياً ثانياً هو منها (الكهرباء 72 والإلكترونيات 73): كلُّه من الصحيفة. */
-export const DEPARTMENT_EXTRA_CODES: Readonly<Record<string, readonly string[]>> = { "72": ["73"] };
+export const DEPARTMENT_EXTRA_CODES: Readonly<Record<string, readonly string[]>> = { "72": ["73"], "45": ["50"] };
 
 /** مقررات القسم وحده: رمز القسم والكلية في رمز المقرر (ومعها رموزه الفرعية إن وُجدت). */
 export function ownCourses(plan: Pick<ParsedPlan, "courses">, departmentKey: string): PlanCourse[] {
