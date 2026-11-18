@@ -8,6 +8,7 @@ import { extractPlanItems } from "../src/server/planPdfExtract";
 import { parsePlanItems } from "../src/utils/planPdfParser";
 import { ownsSheet, sheetHomeCode, trackProgramOf } from "../src/server/sheetReconcile";
 import { englishPrefixOf } from "../src/utils/englishPrefix";
+import { correctCourseName } from "../src/utils/courseNameCorrection";
 import { buildReferenceRules } from "../src/utils/referenceApply";
 import { blockingWarnings, checkSheetScope, isNewSheet, sheetKey, sheetOwnKey, sheetSectionCode, sheetSectionName, sheetToReference, correctedNames, dominantDepartment, ownCourses, printedTotalsNotes } from "../src/utils/planSheetImport";
 
@@ -87,6 +88,13 @@ const EXPECTED: Record<string, [string, number]> = {
   check(sheetHomeCode(lab) === "72" && ownsSheet(lab, at("72"), [at("72"), at("48")]) && !ownsSheet(lab, at("48"), [at("72"), at("48")]), "تكنولوجيا المختبرات (72) لقسمها لا للصيدلانية المطبوعة في ترويستها");
   check(sheetHomeCode(rt) === "42" && ownsSheet(rt, at("42"), [at("42")]), "العلاج التنفسي لقسم العلوم الطبية التطبيقية (42)");
   check(sheetSectionName(rt, "قسم العلوم الطبية التطبيقية") === "" && sheetSectionName(completion, "قسم م") === "" && sheetSectionCode(rt, "42") === "", "المسار (DP/BC) لا يسمّي القسم ولا يرمّزه من ترويسته");
+  /* أسماء العلوم الصحية: قاموسٌ مغلق يصحّح ما عُرف خطؤه ولا يمسّ الصحيح */
+  const fixed = (name: string) => correctCourseName(name).name;
+  check(fixed("مقدمه فى الهندسه البيئيه(1)") === "مقدمة في الهندسة البيئية (1)" && fixed("اداره جوده المياه") === "إدارة جودة المياه", "أسماء البيئة: ه←ة وهمزة الإدارة");
+  check(fixed("قوانين واخلاقيات الطوارىءالطبيه") === "قوانين وأخلاقيات الطوارئ الطبية" && fixed("التخدير للاطفال") === "التخدير للأطفال", "حرف العطف واللام قبل الهمزة: وأخلاقيات، للأطفال");
+  check(fixed("مصطلحات طب الا سنان") === "مصطلحات طب الأسنان" && fixed("علم الا دويه (1)") === "علم الأدوية (1)", "«ال» المفصولة بفراغ مطبعي تعود إلى كلمتها");
+  check(fixed("الحاسب الالى") === "الحاسب الآلي" && fixed("مدخل الى علم النفس") === "مدخل إلى علم النفس" && fixed("محتوى وتحليل السجل الطبى") === "محتوى وتحليل السجل الطبي", "الآلي وإلى، و«محتوى» تبقى كما هي");
+  check(["حفظه", "ومشتقاته", "على", "فيه"].every(word => fixed(word) === word), "الضمير «ـه» لا يتحوّل تاءً");
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);
 })();
