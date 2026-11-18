@@ -149,7 +149,11 @@ export function checkSheetScope(plan: ParsedPlan, scope: SheetScope, opts: { for
  * اسمُ القسم يُؤخذ من الصحيفة المعتمدة: إن خالف ما عندنا («معلم الحاسب» و«حاسوب») ردّ الاسم الجديد
  * (بنمط التسمية الحالي: «قسم …» إن كان اسمه الحالي بها)، وإلا فارغاً. بعد قبول الرمزين فقط.
  */
-export function sheetSectionName(plan: Pick<ParsedPlan, "department">, currentName: string): string {
+/** برنامجٌ (دبلوم DP أو استكمال BC) مسارٌ داخل قسمٍ تحمل ترويستُه اسم قسمٍ آخر («الطوارئ الطبية» تحت 42): لا يسمّي القسم ولا يرمّزه. */
+const isProgramTrack = (plan: { program?: string }) => /^(?:DP|BC)-/i.test(String(plan.program || ""));
+
+export function sheetSectionName(plan: Pick<ParsedPlan, "department"> & { program?: string }, currentName: string): string {
+  if (isProgramTrack(plan)) return "";
   const a = matchKey(currentName), b = matchKey(plan.department);
   /* اسم «علم النفس/علم التربية» قسمٌ إداري لا اسم القسم المختص: لا يُسمّى به. */
   if (!b || a === b || isUmbrellaSheet(plan)) return "";
@@ -160,6 +164,7 @@ export function sheetSectionName(plan: Pick<ParsedPlan, "department">, currentNa
 
 /** رمز القسم من الصحيفة بنمط رمزه الحالي (أربع خانات إن كان بالهيئة، وإلا خانتان)؛ فارغ إن طابق. */
 export function sheetSectionCode(plan: Pick<ParsedPlan, "courses" | "department" | "program">, currentCode: string): string {
+  if (isProgramTrack(plan)) return "";
   const dept = authorityDept(plan), current = String(currentCode || "").replace(/\D/g, "");
   const next = /^\d{4}$/.test(current) ? sheetKey(plan) : dept;
   return current && current.replace(/^0+(?=\d)/, "") === next.replace(/^0+(?=\d)/, "") ? "" : (dept ? next : "");

@@ -9,7 +9,7 @@ import { parsePlanItems } from "../src/utils/planPdfParser";
 import { ownsSheet, sheetHomeCode, trackProgramOf } from "../src/server/sheetReconcile";
 import { englishPrefixOf } from "../src/utils/englishPrefix";
 import { buildReferenceRules } from "../src/utils/referenceApply";
-import { blockingWarnings, checkSheetScope, isNewSheet, sheetKey, sheetOwnKey, sheetSectionName, sheetToReference, correctedNames, dominantDepartment, ownCourses, printedTotalsNotes } from "../src/utils/planSheetImport";
+import { blockingWarnings, checkSheetScope, isNewSheet, sheetKey, sheetOwnKey, sheetSectionCode, sheetSectionName, sheetToReference, correctedNames, dominantDepartment, ownCourses, printedTotalsNotes } from "../src/utils/planSheetImport";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -86,6 +86,7 @@ const EXPECTED: Record<string, [string, number]> = {
   check(sheetHomeCode(dental) === "45" && ownsSheet(dental, at("45"), [at("45")]) && !ownsSheet(dental, at("42"), [at("42"), at("45")]), "فني عيادة أسنان (رمز 50) يتبع قسم صحة الفم والأسنان (45)");
   check(sheetHomeCode(lab) === "72" && ownsSheet(lab, at("72"), [at("72"), at("48")]) && !ownsSheet(lab, at("48"), [at("72"), at("48")]), "تكنولوجيا المختبرات (72) لقسمها لا للصيدلانية المطبوعة في ترويستها");
   check(sheetHomeCode(rt) === "42" && ownsSheet(rt, at("42"), [at("42")]), "العلاج التنفسي لقسم العلوم الطبية التطبيقية (42)");
+  check(sheetSectionName(rt, "قسم العلوم الطبية التطبيقية") === "" && sheetSectionName(completion, "قسم م") === "" && sheetSectionCode(rt, "42") === "", "المسار (DP/BC) لا يسمّي القسم ولا يرمّزه من ترويسته");
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);
 })();

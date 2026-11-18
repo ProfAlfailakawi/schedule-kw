@@ -1327,8 +1327,8 @@ export function registerPlanReviewRoutes(app: Express, deps: PlanReviewDeps): vo
         const cid = Number(site.AdCollegeId), sid = Number(site.AdSectionId);
         const era = await eraOf(sid), isNew = era.isNew;
         /* اسم القسم ورمزه من الصحيفة المعتمدة (ما كُتب يدوياً يُصحَّح إليها)، بعد قبول الكلية والقسم. */
-        const renamedTo = isNew && !umbrella && !trackProgram ? sheetSectionName(sheet, String(site.AdSectionName || "")) : "";
-        const recodedTo = isNew && !umbrella && !trackProgram ? sheetSectionCode(sheet, String(site.AdSectionCode || "")) : "";
+        const renamedTo = isNew && !umbrella ? sheetSectionName(sheet, String(site.AdSectionName || "")) : "";
+        const recodedTo = isNew && !umbrella ? sheetSectionCode(sheet, String(site.AdSectionCode || "")) : "";
         const renamed = renamedTo ? { before: String(site.AdSectionName || ""), after: renamedTo } : null;
         const recoded = recodedTo ? { before: String(site.AdSectionCode || ""), after: recodedTo } : null;
         if (renamed || recoded) await Repository.updateSection(sid, cid, recoded?.after ?? String(site.AdSectionCode || ""), renamed?.after ?? String(site.AdSectionName || ""));
