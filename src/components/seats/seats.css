@@ -82,6 +82,10 @@
 .seat-holder-text small{color:var(--muted);font-size:var(--t-xs);font-weight:600}
 .seat-holder-text strong{font-size:var(--ix-card);line-height:1.45}
 .seat-holder-text span{color:var(--muted);font-size:var(--t-sm)}
+.seat-passkeys,.seat-holder-text .seat-passkeys{justify-self:start;white-space:nowrap;font-style:normal;color:var(--muted);display:inline-flex;align-items:center;gap:5px;margin-top:4px;padding:2px 9px;border-radius:var(--r-full);background:var(--surface-2,var(--canvas));font-size:var(--t-xs);font-weight:700}
+.seat-holder-text .seat-passkeys.on,.seat-passkeys.on{background:var(--info-soft);color:var(--info)}
+.seat-passkeys svg{inline-size:13px;block-size:13px}
+.seat-member-text .seat-passkeys{margin-top:0}
 .seat-holder-actions{display:flex;flex-wrap:wrap;gap:8px}
 
 .seat-team,.seat-timeline{display:grid;gap:10px}

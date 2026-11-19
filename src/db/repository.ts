@@ -3593,9 +3593,11 @@ export const Repository = {
   /**
    * يُخرج كلَّ جلسةٍ مفتوحة على حساب — أو جلساتِ عضوٍ واحدٍ من فريقه — دفعةً واحدة.
    * التسليمُ وإنهاءُ العضوية يعنيان أن الجهاز الذي كان مفتوحاً لا يكمل، لا أن ينتظر خمس عشرة دقيقة.
+   * و`memberId = null`: جلساتُ الحساب نفسه وحدها (رئيس الفريق)، وتبقى جلساتُ الأعضاء بروابطهم.
    */
-  deleteSessionsForUser: async (userId: number, memberId?: string): Promise<number> => {
-    const matches = (session: StoredSession) => Number(session.userId) === Number(userId) && (memberId === undefined || session.memberId === memberId);
+  deleteSessionsForUser: async (userId: number, memberId?: string | null): Promise<number> => {
+    const matches = (session: StoredSession) => Number(session.userId) === Number(userId)
+      && (memberId === undefined || (memberId === null ? !session.memberId : session.memberId === memberId));
     let removed = 0;
     if (firestoreDb && !demoSandboxContext.getStore()) {
       const snap = await firestoreDb.collection("sessions").where("userId", "==", Number(userId)).get();

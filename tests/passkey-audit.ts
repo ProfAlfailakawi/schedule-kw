@@ -363,10 +363,10 @@ function groupG() {
   const auth = read("src/server/routes/authRoutes.ts"), passkeys = read("src/server/passkeys.ts"), users = read("src/server/routes/usersRoutes.ts"), server = read("server.ts");
   const loginRoute = auth.slice(auth.indexOf('app.post("/api/auth/login"'), auth.indexOf('app.post("/api/auth/change-password"'));
   check(/signInSession\(req, res, user, mustChange\)/.test(loginRoute) && !/createSession\(/.test(loginRoute), "G1 دخولُ كلمة السر يفتح الجلسةَ بالدالة المشتركة");
-  check(/registerPasskeyRoutes\(app, \{ signIn: \(req, res, user\) => signInSession\(req, res, user, false\)/.test(auth), "G2 الدخولُ بالبصمة يفتحها بالدالة نفسها");
+  check(/registerPasskeyRoutes\(app, \{ signIn: \(req, res, user, memberId\) => signInSession\(req, res, user, false, memberId\)/.test(auth), "G2 الدخولُ بالبصمة يفتحها بالدالة نفسها");
   check(/IsActive/.test(passkeys) && /IsLocked/.test(passkeys) && /IsDeleted/.test(passkeys) && /MustChangePassword/.test(passkeys), "G3 البصمةُ تفحص ما تفحصه كلمةُ السر: فعّال، مقفل، محذوف، تغييرُ الكلمة");
-  check(/passwordChanged \|\| \(before\.IsActive && !fields\.IsActive\) \|\| \(!before\.IsLocked && fields\.IsLocked\)\) await revokeUserPasskeys\(id\);\n\s+const updated = await Repository\.updateUser/.test(users), "G4 تغييرُ كلمة الحساب (من المسؤول أو من صاحبه) وإيقافُه وقفلُه يُسقطان المفاتيح قبل الكتابة وبلا ابتلاع");
-  check(/await revokeUserPasskeys\(id\);\n  await Repository\.deleteUser\(id\)/.test(users), "G5 حذفُ الحساب يُسقطها قبل الحذف");
+  check(/passwordChanged \|\| \(before\.IsActive && !fields\.IsActive\) \|\| \(!before\.IsLocked && fields\.IsLocked\)\) await revokeUserPasskeys\(id\);\n[^\n]*\n[^\n]*await revokeSeatMembersPasskeys\(id\);\n\s+const updated = await Repository\.updateUser/.test(users), "G4 تغييرُ كلمة الحساب (من المسؤول أو من صاحبه) وإيقافُه وقفلُه يُسقطان المفاتيح قبل الكتابة وبلا ابتلاع");
+  check(/await revokeUserPasskeys\(id\);\n  await revokeSeatMembersPasskeys\(id\);\n  await Repository\.deleteUser\(id\)/.test(users), "G5 حذفُ الحساب يُسقطها قبل الحذف");
   check(/revokeUserPasskeys/.test(read("src/server/staffRecoveryWiring.ts")) && /revokeUserPasskeys/.test(read("src/server/accountDeletionWiring.ts")), "G6 واستعادةُ كلمة السر وطلبُ حذف الحساب يُسقطانها");
   check(/routePath === "\/auth\/passkey\/login\/verify" \? "login"/.test(server), "G7 سجلُّ العمليات يعدّ الدخولَ بالبصمة «تسجيل دخول»");
   check(!/console\.(log|info|warn|debug)/.test(passkeys) && (passkeys.match(/console\.error\(/g) || []).every(() => true) && (passkeys.match(/console\.error\("\[passkeys\][^"$]*"\)/g) || []).length === (passkeys.match(/console\.error\(/g) || []).length, "G8 لا يُسجَّل في الطرفية شيءٌ من مادة الاعتماد: سطرُ خطأٍ ثابتٌ واحدٌ لفشل التنظيف");
@@ -385,7 +385,7 @@ function groupG() {
   check(/await revokeUserPasskeys\(Number\(user!\.SystemUserId\)\);\n\s+await Repository\.updateUser/.test(change), "R2 تغييرُ الكلمة بيد صاحبها يُسقط المفاتيح قبل الكتابة");
   check(/\.catch\(\(\) => 0\)/.test([users, read("src/server/staffRecoveryWiring.ts"), read("src/server/accountDeletionWiring.ts"), seats, auth].join("\n")) === false, "R4 لا ابتلاعَ لخطأ الإسقاط في أيّ موضع");
   check(/setPassword: async \(userId, fields\) => \{ await revokeUserPasskeys\(userId\)/.test(read("src/server/staffRecoveryWiring.ts")) && /await revokeUserPasskeys\(userId\);\n\s+await Repository\.deleteOtherSessionsForUser/.test(read("src/server/accountDeletionWiring.ts")), "R4 الاستعادةُ وطلبُ الحذف: إسقاطٌ قبل الكتابة بلا ابتلاع");
-  check(/createdAtMs \|\| 0\) <= Number\(state\?\.revokedAt/.test(passkeys) && /readState\(ctx\.store, userId/.test(passkeys), "R4 الدخولُ يفحص حدَّ الإسقاط لكل مفتاح، وتعذّرُ قراءته يردّ الدخول");
+  check(/createdAtMs \|\| 0\) <= Number\(state\?\.revokedAt/.test(passkeys) && /readState\(ctx\.store, principal/.test(passkeys), "R4 الدخولُ يفحص حدَّ الإسقاط لكل مفتاح، وتعذّرُ قراءته يردّ الدخول");
   check(!/listFeatureDocs/.test(passkeys), "R5 لا مسحَ كاملاً للمجموعة: القراءةُ بحالة الحساب وأرقام مفاتيحه (≤5)");
   check(/sessionHash: challengeKey\(sessionId\)/.test(passkeys) && !/sessionId,?\s*\}\)/.test(passkeys.slice(passkeys.indexOf("openChallenge(ctx.store, res, { kind: \"register\""), passkeys.indexOf("openChallenge(ctx.store, res, { kind: \"register\"") + 200)), "R7 التحدّي يحمل بصمةَ الجلسة لا معرّفَها");
   check(/passkeyChallenges\.expiresAtTtl/.test(read("docs/DELIVERY_OPERATIONS.md")), "R7 سياسةُ TTL مذكورةٌ في دليل التشغيل قراراً للمالك");
