@@ -1,10 +1,12 @@
 import PatternLibraryButton from "./PatternLibraryButton";
 import WeekHeat from "./WeekHeat";
 import { RoomsNowLine, RoomsRoomBoundary, RoomsTrackGrid, buildRoomsSlotGeo, objectId, type RoomsNowSource, type RoomsSlotHandlers } from "./RoomsBoard";
-import RoomsExplorer from "./RoomsExplorer";
+import RoomsExplorer, { needLabel, rowsOfRoom } from "./RoomsExplorer";
+import RoomsBoardBar from "./RoomsBoardBar";
+import { parseRoomQuery } from "../utils/roomQuery";
 import RoomsInfoBar from "./RoomsInfoBar";
 import { occupancyPercent, type RxBuilding, type RxRoom } from "../utils/roomsExplorerModel";
-import { roomFactsByKey, type RoomFacts } from "../utils/roomFacts";
+import { roomFactsByKey, roomMatchesNeed, type RoomFacts } from "../utils/roomFacts";
 import { WHY_META, whyNotCell } from "../utils/whyNot";
 import WipeScheduleButton from "./WipeScheduleButton";
 import { PATTERN_LIBRARY_CSS } from "../utils/patternLibraryView";
@@ -1035,6 +1037,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     [roomFilterQuery, setRoomFilterQuery] = useState(""),
     /* مستكشف القاعات: الموعد المحدد في شريط المعلومات، وطلبُ القفز إلى قاعةٍ بعد نقلٍ إليها. */
     [rxInfoId, setRxInfoId] = useState<number | null>(null),
+    /* لوحة القاعات: طيُّ القاعات التي لا تناسب الحاجة المكتوبة في البحث (عرضٌ فقط). */
+    [rxHideUnfit, setRxHideUnfit] = useState(false),
     [rxGoto, setRxGoto] = useState<{ key: string; n: number } | null>(null),
     [viewMode, setViewMode] = useState(
       isPhoneDevice() ? "list" : savedPrefs.viewMode === "week" ? "week" : savedPrefs.viewMode === "rooms" ? "rooms" : "list",
@@ -12595,15 +12599,29 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             const buildingScopedRooms = matrixBuildings.size
               ? roomsWithAfterglow.filter(room => matrixBuildings.has(room.buildingKey))
               : roomsWithAfterglow;
-            const roomFilterKey = normalizeRoomToken(roomFilterQuery);
+            /* البحث يفهم الحاجة («٤٠ مقعداً الأحد ١٠»): ما فهمه شرطٌ، وما بقي نصٌّ يُطابَق على رمز القاعة.
+               قاعةٌ لا تناسب الحاجة تخفت في اللوحة (أو تُطوى بزرٍّ) ولا تُحذف؛ والمجهولُ السعة/النوع يبقى مناسباً موسوماً. */
+            const boardNeed = parseRoomQuery(roomFilterQuery);
+            const boardNeedOn = Boolean(boardNeed.day || boardNeed.from || boardNeed.minCapacity || boardNeed.lab);
+            const rxDays = days.map(day => ({ key: day.key, label: day.label }));
+            const rxByKey = new Map<string, RxRoom>(rxModel.rooms.map(item => [item.key, item] as [string, RxRoom]));
+            const roomFilterKey = normalizeRoomToken(boardNeedOn ? boardNeed.rest : roomFilterQuery);
             const roomFilterMatches = roomFilterKey
               ? buildingScopedRooms.filter(room =>
                   normalizeRoomToken(`${room.building} ${room.hall} ${room.label}`).includes(roomFilterKey),
                 )
               : buildingScopedRooms;
-            const roomList = matrixRooms.size
+            const unfitKeys = new Set<string>();
+            if (boardNeedOn) {
+              for (const room of roomFilterMatches) {
+                const known = rxByKey.get(room.key);
+                if (!known || !roomMatchesNeed(known, rowsOfRoom(known, rxDays), boardNeed).match) unfitKeys.add(room.key);
+              }
+            }
+            const roomPicked = matrixRooms.size
               ? roomFilterMatches.filter(room => matrixRooms.has(room.key))
               : roomFilterMatches;
+            const roomList = boardNeedOn && rxHideUnfit ? roomPicked.filter(room => !unfitKeys.has(room.key)) : roomPicked;
             // The rooms board and dense week now literally share the same
             // horizontal clock geometry. There is no second formula to drift:
             // same hour width, same 19:30 terminal expansion, same pixel for
@@ -12750,7 +12768,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               return `${objectId(row)}|${pendingWriteIds.has(row.id) ? 1 : 0}${draggingId === row.id ? 1 : 0}${justChangedId === row.id ? 1 : 0}${liveClash.ids.has(row.id) ? 1 : 0}${outsideClash.notes[row.id] ? 1 : 0}${physicsActive && physicsOrigin?.id === row.id ? 1 : 0}${keyMove?.rowId === row.id ? 1 : 0}|${hueFor(code, title, instructor?.AdInstructorName, placeOf(row))}|${xrayClass(row)}|${physicsRelationClass(row)}|${hueFocusClass(row)}|${undoEntry ? undoEntry.id : ""}`;
             };
             const roomSig = (room: { key: string; building: string; hall: string; label: string; roomCode: string; roomHall: string }) => {
-              const parts: string[] = [roomsGlobalSig, room.key, room.building, room.hall, room.label, room.roomCode, room.roomHall];
+              const parts: string[] = [roomsGlobalSig, room.key, room.building, room.hall, room.label, room.roomCode, room.roomHall, unfitKeys.has(room.key) ? "unfit" : ""];
               for (const day of displayDays) {
                 const layout = byDayRoomLayout.get(`${day.key}|${room.key}`);
                 parts.push(String(layout ? objectId(layout) : 0), slotSigFor(room.roomCode, room.roomHall, day.key as DayKey));
@@ -12813,32 +12831,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 />
               );
             })() : null;
-            return (
-              <>
-                <RoomsExplorer
-                  buildings={rxModel.buildings}
-                  rooms={rxRooms}
-                  days={days.map(day => ({ key: day.key, label: day.label }))}
-                  windowStart={gridWindow.start}
-                  windowEnd={gridWindow.end}
-                  noRoomCount={rxModel.noRoomCount}
-                  readOnly={phoneReadOnly}
-                  goto={rxGoto}
-                  hint={!focusMode && !phoneReadOnly ? "اسحب لتنقل · اضغط فراغاً لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل" : ""}
-                  info={rxInfoNode}
-                  onNavigate={() => setRxInfoId(null)}
-                  onCreate={(room, dayIndex, from) => {
-                    const known = roomsWithAfterglow.find(item => item.key === room.key);
-                    openCreate({ day: days[dayIndex].key as DayKey, start: timeFromMins(from), roomCode: known?.roomCode || "", roomHall: known?.roomHall || "" });
-                  }}
-                  dragNote={physicsActive && dragComparison ? (
-                    <div className="rooms-drag-compare" aria-live="polite">
-                      <GripVertical aria-hidden="true" />
-                      <span><b dir="ltr">{dragComparison.before}</b><ChevronLeft aria-hidden="true" /><b dir="ltr">{dragComparison.after}</b></span>
-                      <em dir="ltr">{dragComparison.place}</em>
-                    </div>
-                  ) : null}
-                  tools={hueLegend.length > 1 || scheduledVisitingIds.size ? (
+            const boardTools = (hueLegend.length > 1 || scheduledVisitingIds.size ? (
                   <div className="week-legend rooms-legend" role="group" aria-label="مفتاح ألوان المباني والقاعات">
                     <div className="week-legend-basis" role="group" aria-label="معنى اللون">
                       {([
@@ -12921,8 +12914,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       </button>
                     ) : null}
                   </div>
-                ) : null}
-                  renderWeek={(weekKeys, includeNone) => {
+                ) : null);
+            const boardDragNote = (physicsActive && dragComparison ? (
+                    <div className="rooms-drag-compare" aria-live="polite">
+                      <GripVertical aria-hidden="true" />
+                      <span><b dir="ltr">{dragComparison.before}</b><ChevronLeft aria-hidden="true" /><b dir="ltr">{dragComparison.after}</b></span>
+                      <em dir="ltr">{dragComparison.place}</em>
+                    </div>
+                  ) : null);
+            const boardWeek = ((weekKeys, includeNone) => {
                     const weekRooms = weekKeys.map(key => roomsWithAfterglow.find(room => room.key === key)).filter(Boolean) as typeof roomsWithAfterglow;
                     return (
                 <>
@@ -12986,7 +12986,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   >
                   {weekRooms.map(room => (
                     <RoomsRoomBoundary key={room.key} sig={roomSig(room)} draw={() => (
-                    <section className="rooms-week-room" aria-label={`القاعة ${room.label}`} title={room.label}>
+                    <section className={`rooms-week-room ${unfitKeys.has(room.key) ? "is-unfit" : ""}`} aria-label={`القاعة ${room.label}${unfitKeys.has(room.key) ? " — لا تناسب الحاجة" : ""}`} title={room.label}>
                       <div className="rooms-week-days">
                         {displayDays.map((day, dayIndex) => {
                           const roomLayout = layoutFor(day.key as DayKey, room.key);
@@ -13102,7 +13102,82 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </div>
                 </>
                     );
+                  });
+            const boardHint = !focusMode && !phoneReadOnly ? "اسحب لتنقل · اضغط فراغاً لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل" : "";
+            /* الكمبيوتر: اللوحة التي ترى فيها كل قاعات المبنى معاً مقابل الأوقات. الهاتف (للقراءة): قاعةٌ واحدة في المستكشف. */
+            if (!phoneReadOnly) {
+              const rxBuildingBy = new Map<string, RxBuilding>(rxModel.buildings.map(item => [item.key, item] as [string, RxBuilding]));
+              const fitCount = boardNeedOn ? roomFilterMatches.filter(room => !unfitKeys.has(room.key)).length : null;
+              return (
+                <>
+                  <div className="rooms-head">
+                    <Segmented
+                      value={matrixDay}
+                      instant
+                      options={[{ value: "week", label: "الأسبوع كامل" }, ...days.map(day => ({ value: day.key, label: day.label }))]}
+                      onChange={(value) => setMatrixDay(value as DayKey | "week")}
+                    />
+                    {boardDragNote}
+                  </div>
+                  {boardHint ? (
+                    <div className={`week-note rooms-note ${physicsActive ? "gravity-note-active" : ""}`}>
+                      <GripVertical aria-hidden="true" />
+                      <span aria-live="polite">{boardHint}</span>
+                    </div>
+                  ) : null}
+                  <RoomsBoardBar
+                    buildings={allBuildings.map(building => ({ key: building.key, label: building.label, occupancy: rxBuildingBy.get(building.key)?.occupancy ?? 0, roomCount: rxBuildingBy.get(building.key)?.roomCount ?? 0 }))}
+                    chosenBuildings={matrixBuildings}
+                    onBuilding={(key) => setMatrixBuildings(current => {
+                      if (key == null) return new Set();
+                      const next = new Set(current);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      return next;
+                    })}
+                    rooms={roomFilterMatches.map(room => ({ key: room.key, label: displayRoomBadge(room), fits: !unfitKeys.has(room.key) }))}
+                    chosenRooms={matrixRooms}
+                    onRoom={(key) => setMatrixRooms(current => {
+                      if (key == null) return new Set();
+                      const next = new Set(current);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      return next;
+                    })}
+                    query={roomFilterQuery}
+                    onQuery={setRoomFilterQuery}
+                    needText={boardNeedOn ? needLabel(boardNeed, rxDays) : ""}
+                    fitCount={fitCount}
+                    hideUnfit={rxHideUnfit}
+                    onHideUnfit={setRxHideUnfit}
+                    readOnly={phoneReadOnly}
+                  />
+                  {boardTools}
+                  {roomList.length === 0 ? <p className="rooms-filter-empty">لا توجد قاعة مطابقة.</p> : null}
+                  {boardWeek(roomList.map(room => room.key), true)}
+                  {rxInfoNode}
+                </>
+              );
+            }
+            return (
+              <>
+                <RoomsExplorer
+                  buildings={rxModel.buildings}
+                  rooms={rxRooms}
+                  days={days.map(day => ({ key: day.key, label: day.label }))}
+                  windowStart={gridWindow.start}
+                  windowEnd={gridWindow.end}
+                  noRoomCount={rxModel.noRoomCount}
+                  readOnly={phoneReadOnly}
+                  goto={rxGoto}
+                  hint={!focusMode && !phoneReadOnly ? "اسحب لتنقل · اضغط فراغاً لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل" : ""}
+                  info={rxInfoNode}
+                  onNavigate={() => setRxInfoId(null)}
+                  onCreate={(room, dayIndex, from) => {
+                    const known = roomsWithAfterglow.find(item => item.key === room.key);
+                    openCreate({ day: days[dayIndex].key as DayKey, start: timeFromMins(from), roomCode: known?.roomCode || "", roomHall: known?.roomHall || "" });
                   }}
+                  dragNote={boardDragNote}
+                  tools={boardTools}
+                  renderWeek={boardWeek}
                 />
               </>
             );
