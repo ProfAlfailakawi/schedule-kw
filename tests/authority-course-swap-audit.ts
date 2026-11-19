@@ -42,5 +42,9 @@ console.log(`\n${passed} passed, 0 failed`);
   check(count(o, "changed") + count(o, "added") + count(o, "deleted") >= 1 && count(o, "deleted") <= 1, "حيّان بالمعرّف نفسه لا يُخمَّن بينهما بلا تاريخ لأحدهما");
   o = run2(new Map([[26370, [{ ...before, AdRoomCode: "011B17" }]]]));
   check(count(o, "deleted") === 1 && count(o, "added") === 1, "تاريخٌ من فرعٍ آخر لا يربط");
+  const codes3 = new Map<number, string>([[215, "0109215"], [334, "0109334"], [999, "0118215"]]);
+  const run3 = (history: Map<number, any[]>, l: any[]) => buildAuthorityPdfDiff([orig], l, { courseCodeById: codes3, instructorNameById: new Map(), identityHistory: history }) as any;
+  o = run3(new Map([[26370, [{ ...before, AdCourseId: 999 }]]]), [manual()]);
+  check(count(o, "deleted") === 1 && count(o, "added") === 1, "رمزان كاملان مختلفان بالآخر نفسه (0109215 و0118215): لا ربط تاريخي");
   console.log(`\n${passed} passed, 0 failed`);
 }

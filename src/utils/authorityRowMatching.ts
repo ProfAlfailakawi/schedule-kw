@@ -435,14 +435,14 @@ function linkHistoricalIdentities(baseline:readonly Row[],current:readonly Row[]
   if(!history||!history.size)return;
   const used=new Set(pairs.values());
   const keyOf=(row:Row)=>{const c=courseKey(row,codes),sec=number(row.SCode),st=site(row);return c&&sec&&st?[c,st,sec].join("|"):"";};
-  const sources=new Map<string,number[]>(),lives=new Map<string,Set<number>>();
+  const sources=new Map<string,number[]>(),lives=new Map<string,Set<number>>(),pastRows=new Map<string,Row[]>();
   baseline.forEach((row,i)=>{if(pairs.has(i))return;const k=keyOf(row);if(k)sources.set(k,[...(sources.get(k)||[]),i]);});
   current.forEach((row,j)=>{
     if(used.has(j))return;
     const id=Number(row.id),past=history.get(id);
     if(!past||!Number.isSafeInteger(id)||id<=0)return;
     /* ما كان عليه قبل التعديل لا ما هو عليه الآن: الحاليُّ لا يطابق الأصل (وإلا لارتبط). */
-    for(const old of past){const k=keyOf(old);if(k)lives.set(k,new Set([...(lives.get(k)||[]),j]));}
+    for(const old of past){const k=keyOf(old);if(k){lives.set(k,new Set([...(lives.get(k)||[]),j]));pastRows.set(k+"#"+j,[...(pastRows.get(k+"#"+j)||[]),old]);}}
   });
   const claimed=new Map<number,string[]>();
   for(const [k,set] of lives)for(const j of set)claimed.set(j,[...(claimed.get(j)||[]),k]);
@@ -452,6 +452,9 @@ function linkHistoricalIdentities(baseline:readonly Row[],current:readonly Row[]
     /* الحيُّ يدّعي هويةً واحدة من الأصول المتاحة وإلا غُمِّض. */
     if((claimed.get(l[0])||[]).filter(key=>sources.has(key)).length!==1)continue;
     const i=s[0],j=l[0];
+    /* مفتاحُ المقرر يختصر الرمز إلى آخر ثلاثة أرقام؛ فالرمزُ الكاملُ يُتحقَّق منه بـ sameCourse
+       (0109215 ليس 0118215) على الصفّ التاريخيّ نفسه قبل قبول الربط. */
+    if(!(pastRows.get(k+"#"+j)||[]).some(old=>sameCourse(baseline[i],old,codes)))continue;
     const originSite=site(baseline[i]),targetSite=site(current[j]);
     if(originSite&&targetSite&&originSite!==targetSite)continue;
     pairs.set(i,j);used.add(j);
