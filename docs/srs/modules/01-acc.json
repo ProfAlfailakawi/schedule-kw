@@ -55,7 +55,12 @@
     "src/server/userAdminGuards.ts",
     "src/server/accountDeletion.ts",
     "src/server/accountDeletionWiring.ts",
-    "src/components/AccountDeletion.tsx"
+    "src/components/AccountDeletion.tsx",
+    "src/server/passkeys.ts",
+    "src/utils/passkeys.ts",
+    "src/components/PasskeyEntry.tsx",
+    "src/components/PasskeyOffer.tsx",
+    "src/components/PasskeyManager.tsx"
   ],
   "screens": [
     { "name": { "ar": "تسجيل الدخول", "en": "Sign-in" }, "file": "src/components/Login.tsx", "note": { "ar": "اسم المستخدم وكلمة السر، ورابط الدعوة في جزء # الذي يملأ الاسم ولا يُرسل إلى الخادم، وزر الدخول التجريبي إن كان مفعّلاً.", "en": "User name and password, the invitation link fragment that pre-fills the name and is never sent to the server, and the demo entry button when enabled." } },
@@ -1449,6 +1454,86 @@
       "evidence": {
         "code": ["src/server/appHandoff.ts", "src/utils/nativeApp.ts", "src/components/GetAppSheet.tsx", "src/components/AppHandoffEntry.tsx"],
         "tests": ["tests/app-handoff-audit.ts", "tests/changes-honesty-audit.ts"]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-ACC-062",
+      "kind": "functional",
+      "title": {
+        "ar": "الدخول بالبصمة (مفاتيح المرور)",
+        "en": "Sign-in with a fingerprint (passkeys)"
+      },
+      "text": {
+        "ar": "يجب أن يتيح النظام لصاحب الحساب الدخول بالبصمة أو الوجه أو رمز الجهاز دون كتابة اسمٍ ولا كلمة سر، بمفاتيح مرور (WebAuthn) قابلةٍ للاكتشاف والتحقق من المستخدم فيها إلزامي: يحفظ الخادم المفتاح العامّ وحده (POST /api/auth/passkey/login/options ثم /login/verify). التحدّي عشوائيّ لمرة واحدة وخمس دقائق مربوطٌ بكوكي ما قبل الجلسة، والأصل والنطاق من قائمةٍ بيضاء (schedule-kw.com وlocalhost للتطوير وما يضبطه المشغّل)، ويُرفض العدّادُ الذي لا يتقدّم. ثم تُطبَّق على الدخول كلُّ قاعدةٍ تطبّقها كلمة السر: حسابٌ غير فعّال أو مقفل أو محذوف، ومن عليه تغيير كلمته (لا يدخل بالبصمة حتى يختارها)، وحدُّ المعدّل؛ وتُفتح الجلسةُ نفسها بالدالة نفسها، ويُسجَّل سطر «تسجيل دخول» بطريقته «الدخول بالبصمة». وتسقط مفاتيح الحساب بعلامة إسقاطٍ تُكتب قبل أيّ تغيير وتُفحص عند كل دخول (فإن تعذّرت كتابتها لم يُنفَّذ التغيير، وإن تعذّرت قراءتها رُفض الدخول): عند إعادة تعيين كلمته من المسؤول أو تغييرها من صاحبه أو استعادتها بالرقم المدني، وعند تسليم الكرسي لشاغلٍ جديد، وعند إيقافه أو قفله أو حذفه أو طلب حذفه. ولا تقرأ جلسةُ عضو الفريق أو نائبه المفاتيحَ ولا تزيلها، ويُسجَّل في العمليات فشلُ تأكيد كلمة السر عند تسجيل جهاز، وتُعدّ محاولاتُه (خمسٌ في الدقيقة لكل حساب). ولا تُسجَّل البصمة من جلسة عضو فريق، ولا يُحفظ أو يُكتب في السجلّ شيءٌ من مادة الاعتماد. في العرض المحلي (DATA_MODE=demo) تُحفظ المفاتيح في ذاكرة العملية بسقفٍ ومدّة لا في بيانات العرض، ولا تعمل الميزة داخل صندوق التجربة على الخادم الحقيقي.",
+        "en": "The system shall let an account owner sign in with a fingerprint, face or device code without typing a name or password, using discoverable passkeys (WebAuthn) with mandatory user verification: the server keeps the public key only (POST /api/auth/passkey/login/options then /login/verify). The challenge is random, single-use and five minutes long, bound to a pre-session cookie; origin and relying-party id come from an allowlist (schedule-kw.com, localhost for development, and operator-configured hosts); a signature counter that does not advance is refused. Every rule the password sign-in applies is then applied: inactive, locked or deleted accounts, accounts that must change their password (they cannot use the fingerprint until they have), and rate limiting; the same session is opened by the same function and a «sign-in» audit row records the method «fingerprint sign-in». An account's passkeys are dropped by a revocation mark that is written before any change and checked at every sign-in (if it cannot be written the change is not applied, and if it cannot be read sign-in is refused): when an administrator resets the password, when its owner changes it, when it is recovered by civil-id, when a seat is handed to a new holder, and when the account is suspended, locked, deleted or a deletion is requested. A team member's or deputy's session can neither read nor remove the passkeys, a failed password confirmation when registering a device is audited, and its attempts are counted (five per minute per account). A team member's session cannot register one, and no credential material is stored in logs. In the local demo (DATA_MODE=demo) keys live in process memory with a cap and an expiry, never in demo data, and the feature is off inside the demo sandbox on the real server."
+      },
+      "rationale": {
+        "ar": "كلمة السر تُنسى وتُكتب أمام الناس وتُعاد استعمالها؛ والبصمة على الجهاز لا تغادره ولا يُصطاد بها أحدٌ بصفحةٍ مزيّفة، وتختصر الدخول اليومي إلى لمسة.",
+        "en": "Passwords are forgotten, typed in front of others and reused; a device-bound key never leaves the device, cannot be phished and reduces daily sign-in to one touch."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["standard"],
+      "acceptance": [
+        {
+          "ar": "جهازٌ مسجَّل ← دخولٌ بلا اسم ولا كلمة بجلسةٍ مطابقةٍ للدخول بكلمة السر وسطر سجلّ «تسجيل دخول» بطريقته.",
+          "en": "A registered device signs in with no name or password, getting a session identical to a password sign-in and an audit row naming the method."
+        },
+        {
+          "ar": "عدّادٌ مكرَّر، أو أصلٌ خاطئ، أو تحدٍّ منتهٍ أو مستعمَل ← رفضٌ بلا جلسة.",
+          "en": "A repeated counter, a wrong origin, or an expired or used challenge is refused with no session."
+        },
+        {
+          "ar": "حسابٌ موقوفٌ أو مقفل أو عليه تغيير كلمته ← رفضٌ بلا جلسة ولا كوكي.",
+          "en": "A suspended, locked or must-change-password account is refused with no session and no cookie."
+        },
+        {
+          "ar": "إعادة تعيين المسؤول لكلمة الحساب أو تغييرُ صاحبه لها أو تسليمُ الكرسي أو إيقافُه ← يسقط دخوله بالبصمة ولو بقيت وثيقةُ المفتاح؛ والتجاوز بتكرار المحاولات ← 429.",
+          "en": "An administrator's reset, the owner's own password change, a seat hand-over or a suspension drops the account's fingerprint sign-in even if the key document remains; hammering the endpoint returns 429."
+        }
+      ],
+      "evidence": {
+        "code": ["src/server/passkeys.ts", "src/server/routes/authRoutes.ts#signInSession", "src/server/routes/usersRoutes.ts", "src/utils/passkeys.ts", "src/components/PasskeyEntry.tsx"],
+        "tests": ["tests/passkey-audit.ts", "tests/passkey-ui-audit.ts"]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-ACC-063",
+      "kind": "functional",
+      "title": {
+        "ar": "تفعيل البصمة وإدارة الأجهزة من الحساب",
+        "en": "Enabling the fingerprint and managing devices from the account"
+      },
+      "text": {
+        "ar": "يجب أن يعرض النظام مرةً بعد الدخول، لمن يدعم جهازه ذلك، «فعّل الدخول بالبصمة على هذا الجهاز» ويحفظ رفضه لهذا الجهاز، وأن يتيح من أزرار الحساب (بجوار الخروج وطلب الحذف) قائمةَ الأجهزة المسجَّلة (GET /api/passkeys) وتفعيلَ هذا الجهاز (POST /api/passkeys/register/options ثم /register/verify) وإزالةَ أيّ جهاز بتأكيد (DELETE /api/passkeys/:ref). السقف خمسةُ أجهزة لكل حساب، ومن مضى على دخوله عشر دقائق يُسأل عن كلمة سرّه قبل تسجيل جهازٍ جديد. ولا يظهر زر «الدخول بالبصمة» في شاشة الدخول إلا إذا دعمه المتصفح (PublicKeyCredential ومنصّةٌ تتحقق من صاحبها) وكان الجهاز مسجَّلاً من قبل (علامةٌ غير حسّاسة)، وإلا بقي النموذج العاديّ؛ وفي التطبيق الرسمي يُكشف الدعم بالميزة فلا يظهر الزر حيث لا يعرض الغلافُ WebAuthn. وتُكتب الأخطاء بالفصحى صادقةً (إلغاء، عدم دعم، جهاز غير مسجَّل، انتهاء المهلة).",
+        "en": "The system shall offer, once after sign-in and only where the device supports it, «enable fingerprint sign-in on this device» and remember a refusal for that device, and shall provide in the account buttons (beside sign-out and the deletion request) the list of registered devices (GET /api/passkeys), enabling this device (POST /api/passkeys/register/options then /register/verify) and removing any device with a confirmation (DELETE /api/passkeys/:ref). The cap is five devices per account, and anyone whose sign-in is ten minutes old is asked for their password before a new device is registered. The «fingerprint sign-in» button appears on the sign-in screen only when the browser supports it (PublicKeyCredential and a user-verifying platform authenticator) and the device was registered before (a non-sensitive flag); otherwise the normal form stays. In the official app support is feature-detected, so the button is absent where the shell does not expose WebAuthn. Errors are written honestly in Standard Arabic (cancelled, unsupported, device not registered, expired)."
+      },
+      "rationale": {
+        "ar": "الميزة لا تنفع إن لم تُعرض في وقتها ولم يستطع صاحبها أن يرى أجهزته ويسحب أيّاً منها؛ والسقفُ وإعادة الكلمة يمنعان جلسةً مسروقةً من زرع بابٍ دائم.",
+        "en": "The feature is useless unless offered at the right moment and unless the owner can see and revoke devices; the cap and the password re-check stop a stolen session from planting a permanent door."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": ["standard"],
+      "acceptance": [
+        {
+          "ar": "متصفحٌ بلا WebAuthn أو جهازٌ لم يُسجَّل ← لا يظهر زر الدخول بالبصمة وتبقى النماذج كما هي.",
+          "en": "A browser without WebAuthn, or a device never registered, shows no fingerprint button and the form is unchanged."
+        },
+        {
+          "ar": "السادس ← 409 بنصٍّ يقول الحدّ؛ والإزالةُ تُبطل دخولَ ذلك الجهاز، ولا يزيل أحدٌ جهازَ غيره.",
+          "en": "A sixth device returns 409 with a message naming the cap; removal invalidates that device's sign-in, and nobody can remove another's device."
+        },
+        {
+          "ar": "جلسةٌ مضى عليها وقتٌ بلا كلمة السر ← 403 بالرمز password-required؛ وجلسةُ عضو الفريق ← 403.",
+          "en": "An older session without the password returns 403 with code password-required; a team member's session returns 403."
+        }
+      ],
+      "evidence": {
+        "code": ["src/components/PasskeyOffer.tsx", "src/components/PasskeyManager.tsx", "src/components/PasskeyEntry.tsx", "src/utils/passkeys.ts", "src/server/passkeys.ts"],
+        "tests": ["tests/passkey-audit.ts", "tests/passkey-ui-audit.ts"]
       },
       "inferred": false
     }

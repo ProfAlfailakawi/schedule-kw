@@ -72,7 +72,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   check(server.indexOf('app.use("/api", passwordChangeGate') > server.indexOf('app.use("/api", authMiddleware'), "O1 البوّابة على ‎/api‎ بعد معرفة الهوية");
   const auth = fs.readFileSync("src/server/routes/authRoutes.ts", "utf8");
   const login = auth.slice(auth.indexOf('app.post("/api/auth/login"'), auth.indexOf('app.post("/api/auth/change-password"'));
-  check(/password === LEGACY_SHARED_PASSWORD[\s\S]*MustChangePassword: true/.test(login) && login.indexOf("MustChangePassword: true") < login.indexOf("createSession("),
+  check(/password === LEGACY_SHARED_PASSWORD[\s\S]*MustChangePassword: true/.test(login) && login.indexOf("MustChangePassword: true") < login.indexOf("signInSession("),
     "O1 الدخولُ بالكلمة الموحّدة يُعلِّم الحساب قبل فتح الجلسة (لا قفل)");
   const change = auth.slice(auth.indexOf('app.post("/api/auth/change-password"'), auth.indexOf('app.post("/api/auth/logout"'));
   /* الحاليةُ مشروطةٌ إلا لجلسةٍ فُتحت للتوّ بالكلمة الأولى (tests/first-login-password-audit.tsx). */

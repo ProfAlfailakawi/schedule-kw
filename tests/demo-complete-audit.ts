@@ -188,7 +188,8 @@ async function p4Stories() {
   check(seed.includes("judgeRequestItems(") && seed.includes("requestFullySettled(decidedItems)") && seed.includes("alternatives: offered"),
     "(c) طلبا أستاذين يحكم عليهما النظام نفسُه: واحدٌ ينتظر، وآخرُ رُفض ببدائل");
   check(seed.includes("Repository.saveDegreeRule({ ...rule, degreeUnits: 130"), "(d) قاعدةُ تخرّج الصحيفة القديمة محفوظةٌ قبل إنشاء الصحائف (وللجديدة قاعدتُها في seedDemoRadar)");
-  const demoRoute = body('app.post("/api/auth/demo"');
+  /* المسارُ يستدعي startDemoSession (تشاركه البصمةُ في العرض المحلي): الجسمان معاً هما «الدخول». */
+  const demoRoute = body('app.post("/api/auth/demo"') + body("async function startDemoSession(");
   check(demoRoute.includes("scheduleDemoExtras(sessionId)") && !demoRoute.includes("await seedDemoRadar"), "الدخول يفتح الصندوق ثم يجهّز القصص والرادار في الخلفية");
   const extras = server.slice(server.indexOf("function scheduleDemoExtras("), server.indexOf("async function seedDemoStories("));
   check(extras.includes("Repository.withDemoSandbox(sessionId") && extras.includes("seedDemoStories") && extras.includes("seedDemoRadar(") && extras.includes("seedDemoMasariDemand"),

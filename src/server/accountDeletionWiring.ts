@@ -5,6 +5,7 @@
 import { Repository } from "../db/repository";
 import { authCache, getCookies, isPowerUser, ROOT_ADMIN_USER_ID } from "./core/auth";
 import { pushHooks, type PushAccount } from "./pushRoutes";
+import { revokeUserPasskeys } from "./passkeys";
 import { pendingDeletionNotifications, type DeletionDeps, type DeletionRequest } from "./accountDeletion";
 
 const COLLECTION = "accountDeletionRequests" as const;
@@ -25,6 +26,7 @@ export function accountDeletionDeps(): DeletionDeps {
     endSessions: async (userId, req) => {
       const sessionId = getCookies(req)["session_id"];
       if (sessionId) await pushHooks.signedOut(sessionId).catch(() => undefined);
+      await revokeUserPasskeys(userId);
       await Repository.deleteOtherSessionsForUser(userId, undefined);
       authCache.clear();
     },

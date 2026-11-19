@@ -370,7 +370,8 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
    * sign-out, and derived the entity from "api" instead of the collection.
    */
   const routePath = req.path;
-  const authKind = routePath === "/auth/login" ? "login" : routePath === "/auth/logout" ? "logout" : null;
+  /* الدخولُ بالبصمة تسجيلُ دخولٍ كغيره: السطرُ نفسه، وطريقتُه في «التغييرات» (src/server/passkeys.ts). */
+  const authKind = routePath === "/auth/login" || routePath === "/auth/passkey/login/verify" ? "login" : routePath === "/auth/logout" ? "logout" : null;
   const authEvent = authKind !== null;
   /* «المقروء» في الجرس تفضيلٌ لا تعديل، ويُكتب مع كل ضغطة على إشعار: تسجيله
      يدفن السجلّ كما يدفنه النبض. */
@@ -385,6 +386,8 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
       || (authEvent ? { id: 0, name: String(req.body?.username || "مجهول") } : null);
     if (!actor) return;
     const refused = res.statusCode >= 400;
+    /* تسجيلُ جهازٍ للبصمة: يُسجَّل الفاشلُ الذي يستحقّ النظر (كلمةٌ خاطئة)، لا النجاحُ الأول ولا الرفضُ الهادئ (تطلب كلمةً، سقفٌ، عضو فريق). */
+    if (routePath === "/passkeys/register/options" && (!refused || res.locals?.quietRefusal)) return;
     // Everything that changed state is kept; of the refusals, only the ones
     // worth investigating — a rejected login, a permission wall, a conflict.
     if (refused && !authEvent && ![403, 409].includes(res.statusCode)) return;

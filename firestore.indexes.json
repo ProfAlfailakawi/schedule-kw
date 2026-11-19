@@ -308,6 +308,13 @@
       "indexes": []
     },
     {
+      "_comment": "Passkey sign-in challenges are single-use and live five minutes; an abandoned one deletes itself once this policy is enabled (an owner decision, like the others).",
+      "collectionGroup": "passkeyChallenges",
+      "fieldPath": "expiresAtTtl",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "_comment": "Operational telemetry expires automatically; it is for recent diagnostics, not permanent tracking.",
       "collectionGroup": "clientTelemetry",
       "fieldPath": "expiresAtTtl",

@@ -13,6 +13,7 @@
  */
 import type { Express, NextFunction, Request, Response } from "express";
 import { randomBytes } from "crypto";
+import { revokeUserPasskeys } from "./passkeys";
 import { rateLimit } from "express-rate-limit";
 import { Repository } from "../db/repository";
 import { type AuthenticatedRequest, getCookies, isPowerUser, requireAuth, requirePermission, requirePowerAdmin, SERVER_IDLE_SESSION_MS, DEMO_SESSION_TTL_MS, authCache } from "./core/auth";
@@ -227,6 +228,8 @@ const firstPasswordState = (seat: any) => ({
 /** يُطلق الكرسيَّ لشاغلٍ جديد: كلمةٌ أولى، وتغييرٌ إجباري عند الدخول، وإخراجُ كل جهازٍ مفتوح عليه. */
 async function resetSeatCredentials(seat: any, instructorId?: number) {
   const password = DEFAULT_FIRST_PASSWORD;
+  /* الشاغلُ السابق لا تبقى له بصمةٌ على الكرسي (تُسقط قبل الكتابة وبلا ابتلاع للخطأ). */
+  await revokeUserPasskeys(Number(seat.SystemUserId));
   await Repository.updateUser(Number(seat.SystemUserId), {
     ...firstPasswordFields(),
     ...(instructorId !== undefined ? { AdInstructorId: Number(instructorId) || 0 } : {}),
@@ -570,6 +573,7 @@ app.post("/api/seats/:id/password-reset", requirePowerAdmin, resetLimit, seatAdm
   const fields = temporaryPasswordFields(hash);
   const by = byName(req);
   /* في البيئة التجريبية لا دخولَ بكلمة ولا تغييرَ لها: تُعرض البطاقة، ولا تُقفل صفةٌ لا مخرج لها. */
+  await revokeUserPasskeys(Number(seat.SystemUserId));
   if (!Repository.isDemoRequest()) await Repository.applyPasswordReset(Number(seat.SystemUserId), fields as any, passwordResetRecord(seat.SystemUserId, hash, fields.InitialPasswordExpiresAt, by), passwordResetId(seat.SystemUserId));
   await Repository.deleteOtherSessionsForUser(Number(seat.SystemUserId), undefined);
   authCache.clear();

@@ -1,0 +1,68 @@
+/* ── «الدخول بالبصمة»: زرُّ الدخول، وعرضُ التفعيل، وإدارةُ الأجهزة ─────────────────
+   ألوانٌ من رموز النظام وحدها فتتبع الوضعَ الداكن؛ وكلُّ هدفٍ لمسيّ لا يقلّ عن 44px. */
+.passkey-entry{display:grid;gap:var(--s2);justify-items:center;text-align:center;margin-top:var(--s3)}
+.passkey-go{
+  min-height:44px;min-width:44px;padding:0 var(--s4);display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
+  border-radius:var(--r-full,999px);background:transparent;color:var(--accent);
+  font-size:var(--t-sm);font-weight:700;cursor:pointer;border:1px solid color-mix(in srgb,var(--accent) 38%,var(--line));
+}
+.passkey-go:hover:not(:disabled){background:var(--accent-soft)}
+.passkey-go:disabled{opacity:.7;cursor:progress}
+.passkey-go svg{width:18px;height:18px}
+.passkey-entry p{margin:0;padding:var(--s3) var(--s4);border-radius:var(--r-md,12px);background:var(--danger-soft);color:var(--danger);font-size:var(--t-sm);line-height:1.7;max-width:100%}
+
+.passkey-offer{
+  position:fixed;inset-inline:var(--s4);inset-block-end:var(--s4);z-index:60;max-width:420px;margin-inline:auto;
+  display:grid;gap:var(--s3);padding:var(--s4);padding-inline-end:calc(var(--s4) + 36px);
+  background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--r-md,14px);
+  box-shadow:0 12px 32px rgba(0,0,0,.18);
+}
+.passkey-offer-close{
+  position:absolute;inset-block-start:var(--s2);inset-inline-end:var(--s2);width:44px;height:44px;display:grid;place-items:center;
+  border:0;background:transparent;color:var(--ink-2);border-radius:var(--r-md,12px);cursor:pointer;
+}
+.passkey-offer-close:hover{background:var(--accent-softer)}
+.passkey-offer-close svg{width:18px;height:18px}
+.passkey-offer-text{margin:0;display:grid;grid-template-columns:auto 1fr;gap:var(--s2) var(--s3);align-items:start;line-height:1.7}
+.passkey-offer-text svg{width:22px;height:22px;color:var(--accent);margin-block-start:2px}
+.passkey-offer-text span{grid-column:2;color:var(--ink-2);font-size:var(--t-sm)}
+.passkey-offer-message{margin:0;padding:var(--s2) var(--s3);border-radius:var(--r-md,12px);background:var(--danger-soft);color:var(--danger);font-size:var(--t-sm);line-height:1.7}
+.passkey-offer-password,.passkey-add label{display:grid;gap:var(--s2);font-size:var(--t-sm);color:var(--ink-2)}
+.passkey-offer-password input,.passkey-add input{min-height:44px;width:100%;box-sizing:border-box}
+.passkey-offer-actions{display:flex;gap:var(--s2);flex-wrap:wrap}
+.passkey-offer-yes,.passkey-primary{
+  min-height:44px;padding:0 var(--s4);display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
+  border:0;border-radius:var(--r-full,999px);background:var(--accent);color:#fff;font-weight:700;font-size:var(--t-sm);cursor:pointer;
+}
+.passkey-offer-yes:disabled,.passkey-primary:disabled{opacity:.6;cursor:not-allowed}
+.passkey-primary svg{width:18px;height:18px}
+.passkey-offer-no,.passkey-plain{
+  min-height:44px;min-width:44px;padding:0 var(--s4);display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
+  border:1px solid var(--line);border-radius:var(--r-full,999px);background:transparent;color:var(--ink-2);font-size:var(--t-sm);cursor:pointer;
+}
+.passkey-offer-no:hover:not(:disabled),.passkey-plain:hover:not(:disabled){background:var(--accent-softer)}
+.passkey-danger{
+  min-height:44px;padding:0 var(--s4);border:0;border-radius:var(--r-full,999px);background:var(--danger);color:#fff;font-weight:700;font-size:var(--t-sm);cursor:pointer;
+}
+.passkey-danger:disabled{opacity:.6}
+
+.passkey-manager{display:grid;gap:var(--s3);padding:var(--s4);padding-block-start:56px;color:var(--ink);min-width:0}
+.passkey-manager h2,.passkey-manager h3{margin:0;display:flex;align-items:center;gap:var(--s2);color:var(--ink);font-size:1.15rem;flex-wrap:wrap}
+.passkey-manager h2 svg{width:22px;height:22px;color:var(--accent)}
+.passkey-manager>p{margin:0;color:var(--ink-2);line-height:1.8}
+.passkey-list{list-style:none;margin:0;padding:0;display:grid;gap:var(--s2)}
+.passkey-list li{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:var(--s3);border:1px solid var(--line);border-radius:var(--r-md,12px);background:var(--surface-2);min-width:0}
+.passkey-list-name{display:grid;gap:2px;min-width:0;overflow-wrap:anywhere;color:var(--ink)}
+.passkey-list-name small{color:var(--ink-2);font-size:var(--t-sm)}
+.passkey-list-confirm{display:flex;gap:var(--s2);flex-wrap:wrap;justify-content:flex-end}
+.passkey-remove{padding:0;width:44px;border-radius:var(--r-md,12px);color:var(--danger)}
+.passkey-remove svg{width:18px;height:18px}
+.passkey-empty{margin:0;color:var(--ink-2)}
+.passkey-add{display:grid;gap:var(--s3)}
+.passkey-manager-foot{display:flex;justify-content:flex-end}
+
+@media (max-width:480px){
+  .passkey-offer{inset-inline:var(--s3);inset-block-end:var(--s3)}
+  .passkey-list li{flex-wrap:wrap}
+}
+@media (prefers-reduced-motion:reduce){.passkey-go,.passkey-offer-yes,.passkey-primary{transition:none}}
