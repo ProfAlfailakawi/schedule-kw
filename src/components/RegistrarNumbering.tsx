@@ -12,6 +12,7 @@ import { AR, countOf } from "../utils/arabicCount";
 import type { NumberingCollision, NumberingSkip } from "../utils/registrarNumbering";
 import { applyWithOverwriteConfirm } from "../utils/scopeOverwrite";
 import { SecondaryButton, visualConfirm } from "./ui";
+import CourseTags from "./CourseTags";
 
 export interface NumberingOutcome {
   changed: number;
@@ -65,13 +66,13 @@ export function NumberingReviewCards({ outcome }: { outcome: NumberingOutcome })
     <>
       {collisions.map(item => (
         <li key={`c:${item.courseCode}/${item.section}`} className="rpc-card rpc-card-review" data-kind="numbering">
-          <header><div className="rpc-card-id"><strong><bdi dir="ltr">{item.courseCode}</bdi> {item.courseName}</strong><small><b>رقمٌ لم يُطابَق</b></small></div></header>
+          <header><div className="rpc-card-id"><strong><bdi dir="ltr">{item.courseCode}</bdi> {item.courseName} <CourseTags courseId={item.courseId} /></strong><small><b>رقمٌ لم يُطابَق</b></small></div></header>
           <p className="rpc-reason"><Info aria-hidden="true" />رقمها عند التسجيل <bdi dir="ltr">{item.section}</bdi> تحمله شعبةٌ أخرى عندكم؛ عدّل إحداهما ثم أعد الفحص.</p>
         </li>
       ))}
       {outcome.skipped.map(item => (
         <li key={`s:${item.ref}`} className="rpc-card rpc-card-review" data-kind="numbering">
-          <header><div className="rpc-card-id"><strong><bdi dir="ltr">{item.courseCode}</bdi> {item.courseName}</strong><small><b>رقمٌ لم يُطابَق</b><span>ش<bdi dir="ltr">{item.section}</bdi></span></small></div></header>
+          <header><div className="rpc-card-id"><strong><bdi dir="ltr">{item.courseCode}</bdi> {item.courseName} <CourseTags courseId={item.courseId} /></strong><small><b>رقمٌ لم يُطابَق</b><span>ش<bdi dir="ltr">{item.section}</bdi></span></small></div></header>
           <p className="rpc-reason"><Info aria-hidden="true" />{item.reason}</p>
         </li>
       ))}

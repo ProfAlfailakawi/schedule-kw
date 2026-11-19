@@ -276,7 +276,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
         <span className="rpc-head-icon" aria-hidden="true"><FileSearch /></span>
         <div>
           <h2 id="rpc-title">افحص جدول التسجيل</h2>
-          <p><ShieldCheck aria-hidden="true" /> يقارن ولا يغيّر شيئاً إلا أرقام الشعب لتطابق التسجيل (مع تراجع)</p>
+          <p><ShieldCheck aria-hidden="true" /> يقارن، ولا يغيّر إلا أرقام الشعب</p>
         </div>
         <button type="button" className="rpc-close" aria-label="إغلاق الفحص" data-guide-ignore="يغلق لوحة الفحص — لا يغيّر شيئاً" onClick={() => { abortRef.current?.abort(); onClose(); }}><X aria-hidden="true" /></button>
       </header>

@@ -81,8 +81,8 @@ export interface NumberingChange {
   /** شعبةٌ جديدة (بلا رقمٍ مرجعي) ظهرت عندهم. */
   isNew: boolean;
 }
-export interface NumberingSkip { ref: string; courseCode: string; courseName: string; section: string; reason: string; how: RegistrarIdentity["how"] }
-export interface NumberingCollision { courseCode: string; courseName: string; section: string; refs: string[] }
+export interface NumberingSkip { ref: string; courseId?: number; courseCode: string; courseName: string; section: string; reason: string; how: RegistrarIdentity["how"] }
+export interface NumberingCollision { courseId?: number; courseCode: string; courseName: string; section: string; refs: string[] }
 export interface NumberingPlan {
   changes: NumberingChange[];
   /** شعبٌ عُرفت بيقين وأرقامها مثل أرقامهم. */
@@ -114,7 +114,7 @@ export function planRegistrarNumbering(
     const differs = identity.ours.section !== identity.theirs.section || identity.ours.crn !== identity.theirs.crn;
     if (!identity.certain) {
       /* ما عُرف تقريباً (ظهر بخطأ، أو بالمفتاح وحده) بطاقتُه في الفحص نفسه؛ ويُسمّى هنا ما سواه. */
-      if (differs && identity.how !== "misplaced" && identity.how !== "key") skipped.push({ ref: identity.ref, courseCode: identity.courseCode, courseName: identity.courseName, section: identity.ours.section, reason: identity.reason || "لم تُعرف بيقين.", how: identity.how });
+      if (differs && identity.how !== "misplaced" && identity.how !== "key") skipped.push({ ref: identity.ref, courseId: identity.courseId, courseCode: identity.courseCode, courseName: identity.courseName, section: identity.ours.section, reason: identity.reason || "لم تُعرف بيقين.", how: identity.how });
       continue;
     }
     if (!differs) { aligned++; continue; }
@@ -152,7 +152,7 @@ export function planRegistrarNumbering(
       for (const ref of moving) {
         const change = changes.find(item => item.ref === ref)!;
         blocked.add(ref);
-        collisions.push({ courseCode: change.courseCode, courseName: change.courseName, section: key.split("|")[1], refs: [...refs] });
+        collisions.push({ courseId: change.courseId, courseCode: change.courseCode, courseName: change.courseName, section: key.split("|")[1], refs: [...refs] });
       }
     }
     if (!blocked.size) break;
