@@ -258,7 +258,10 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
      المستخدم ما في ملفه أصلاً. بـ dryRun=1 يُقرأ الملف بالفحوص نفسها كلّها
      (الفصل والكلية والقسم) ولا يُكتب شيء؛ والمقارنةُ بالجدول الحالي تُرسم في
      الواجهة. والحفظُ بعدها استبدالٌ مؤكَّد صراحةً فقط (replaceFilled في الإيصال). */
-  const dryRun=String(req.query.dryRun||"")==="1";
+  /* «فحص جدول التسجيل» (readOnly=1) قراءةٌ محضة: تُقرأ الصفوف بالفحوص نفسها كلها ولا يُكتب شيءٌ في أيّ موضع،
+     ولا حتى تسجيل مواقع الفرع في سجلّ المباني الذي تُجريه القراءةُ العادية. */
+  const readOnly=String(req.query.readOnly||"")==="1";
+  const dryRun=readOnly||String(req.query.dryRun||"")==="1";
 
   /* DOCUMENT PRE-FLIGHT MUST RUN BEFORE TABLE READING — for text PDFs AND
      image-only CamScanner PDFs. readAuthorityPdfHeader reads page 1 only. */
@@ -723,7 +726,7 @@ app.post("/api/intelligence/pdf-import", requirePermission(7), express.raw({ typ
      محسوم فيراجعها صاحبها، وهو أهون من ردّ المستند كله بخطأ. */
   let provisioned:{buildings:string[];rooms:string[]}={buildings:[],rooms:[]};
   try{
-    provisioned=await provisionBranchSiteLocationsFromAuthority(registry,parsed.rows as any[],{
+    if(!readOnly)provisioned=await provisionBranchSiteLocationsFromAuthority(registry,parsed.rows as any[],{
       branchRoot:academicDigits(headerPreflight.branch?.code).slice(0,3),baseSitePrefix:targetSitePrefix,
       colleges,sections,collegeId,sectionId,byUserId:Number(req.user?.SystemUserId||0),
     });

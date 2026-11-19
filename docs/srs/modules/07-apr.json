@@ -49,6 +49,7 @@
     "src/utils/lateness.ts",
     "src/utils/finality.ts",
     "src/utils/inboxAudience.ts",
+    "src/utils/registrarCheck.ts",
     "src/utils/reportStamp.ts",
     "src/utils/reportStampClient.ts",
     "src/utils/termSequence.ts",
@@ -60,13 +61,15 @@
     "src/components/TermFrozenRibbon.tsx",
     "src/components/PrintStamp.tsx",
     "src/components/ScheduleChanges.tsx",
+    "src/components/RegistrarPdfCheck.tsx",
     "src/components/ScheduleReview.tsx",
     "src/components/PeriodBalanceInfographic.tsx",
     "src/styles/11-approval.css",
     "src/styles/12-deadlines.css",
     "src/styles/25-term-freeze.css",
     "src/styles/31-approval-atlas.css",
-    "src/styles/33-approval-score.css"
+    "src/styles/33-approval-score.css",
+    "src/styles/72-registrar-check.css"
   ],
   "screens": [
     {
@@ -2993,6 +2996,56 @@
         ],
         "tests": [
           "tests/approval-review-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-APR-040",
+      "kind": "functional",
+      "title": {
+        "ar": "فحص جدول التسجيل المُعاد",
+        "en": "Checking the schedule returned by Registration"
+      },
+      "text": {
+        "ar": "يجب أن يتيح «تغييرات الجدول» لمن يملك صلاحية استيراد PDF (النموذج 7) داخل نطاقه، وبصفةٍ غير مقصورة على الاطّلاع، أن يرفع ملف PDF الذي أعاده التسجيل فيُقرأ في ذاكرة الخادم بالقارئ نفسه دون أي كتابة (readOnly=1)، ثم يُقارن بالجدول الحيّ وبنسخة آخر ما رآه التسجيل، ويُعرض في أربع مجموعات: «مطابق»، و«فيه خلل» (الوقت أو الأيام أو القاعة أو الأستاذ، أو شعبةٌ على طرفٍ واحد)، و«لم يُنفَّذ» (تعديلٌ بعد آخر إرسال ما زال الملف يعرض قديمه)، و«تحتاج نظرك». تُعرَف الشعبة بالرقم المرجعي (CRN) ثم برمز المقرر ورقم الشعبة المطبوع ثم المولَّد؛ وكل مطابقةٍ تقريبية أو التباسٍ أو خانةٍ لم تُقرأ بيقين تُوضع في «تحتاج نظرك» ولا تُحسب مطابقةً ولا خللاً، وتُذكر الخانات التي لم يطبعها الملف فلم تُقارَن. لكل بطاقة ما عندنا وما في الملف وزر «افتح الموعد».",
+        "en": "The changes screen shall let a user holding the PDF-import permission (form 7), within scope and not in a view-only capacity, upload the PDF Registration sent back; the file is read in server memory by the same reader with no write at all (readOnly=1), then compared with the live schedule and with the version Registration last saw, and shown in four groups: matched, faulty (time, days, room, instructor, or a section on one side only), not carried out (a change made after the last send that the file still shows in its old form), and needs your look. A section is identified by the reference number (CRN), then by course code plus the printed section number, then the generated one; every approximate match, ambiguity or cell not read with certainty goes to «needs your look» and is counted neither as matched nor as faulty, and the cells the file did not print are listed as not compared. Each card shows what we have and what the file shows, with an «open the appointment» action."
+      },
+      "rationale": {
+        "ar": "حين يعيد التسجيلُ الجدولَ للمراجعة يحتاج القسمُ جواباً في نظرةٍ: هل في ما طُبع خلل، وهل نُفِّذ ما عدّلناه؟ والحكمُ بالتخمين أسوأ من الصمت.",
+        "en": "When Registration returns the schedule for checking, the department needs an answer at a glance: is anything in the printout wrong, and was what we changed carried out? A guessed verdict is worse than silence."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "POST /api/schedules/registrar-check: ٤٠١ بلا دخول، و٤٠٣ بلا النموذج 7 أو خارج نطاق القسم، و٤٠٠ بلا قسمٍ وفصلٍ أو بلا صفوف أو فوق ٦٠٠ صف؛ وبعد القراءة تبقى الجداول والنُّسخ وسجلّ الاعتماد وملف القاعدة كما كانت بايتاً ببايت.",
+          "en": "POST /api/schedules/registrar-check: 401 when signed out, 403 without form 7 or outside the department scope, 400 without a section and term, without rows or above 600 rows; after the call the schedules, versions, approval record and database file are byte-for-byte unchanged."
+        },
+        {
+          "ar": "موعدٌ عدّله القسم بعد آخر إرسال والملف على قديمه يظهر في «لم يُنفَّذ» بالقديم والمطلوب وما في الملف؛ وملفٌ يخالف القديم والجديد معاً يظهر خللاً؛ وشعبةٌ برقمٍ مختلف أو برمزٍ مختلف بالاسم وحده تظهر «تحتاج نظرك» لا مطابقةً.",
+          "en": "An appointment the department edited after the last send, with the file still showing the old value, appears under «not carried out» with the old value, the requested one and the file's; a file that disagrees with both appears as faulty; a section with a different number, or a different code matched by name alone, appears under «needs your look», never as a match."
+        },
+        {
+          "ar": "العمود الفارغ في الملف (الأستاذ أو الأيام) وسجلّ «هيئة تدريسية» لا يُحسبان اختلافاً بل يُذكران «لم تُقارَن»؛ وفي المسح الضوئي لا يُحكم بخانةٍ لم تثبت قراءتها.",
+          "en": "An empty column in the file (instructor or days) and the shared «teaching staff» record are not counted as a difference but listed as not compared; in a scanned file no verdict is passed on a cell whose reading is not confirmed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/registrarCheck.ts",
+          "src/server/routes/scheduleImportRoutes.ts#/api/schedules/registrar-check",
+          "src/server/routes/pdfImportRoutes.ts",
+          "src/components/RegistrarPdfCheck.tsx",
+          "src/components/ScheduleChanges.tsx"
+        ],
+        "tests": [
+          "tests/registrar-check-audit.ts",
+          "tests/registrar-check-route-audit.ts"
         ]
       },
       "inferred": false

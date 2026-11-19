@@ -1849,8 +1849,20 @@
    "path": "/api/schedules/import-preflight",
    "name": "bound dispatch",
    "call": "eb99f797ba71a147",
-   "site": "src/server/routes/scheduleImportRoutes.ts:42",
+   "site": "src/server/routes/scheduleImportRoutes.ts:46",
    "regexp": "/^\\/api\\/schedules\\/import-preflight\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/schedules/registrar-check",
+   "name": "bound dispatch",
+   "call": "cdb2ea351b15d26a",
+   "site": "src/server/routes/scheduleImportRoutes.ts:119",
+   "regexp": "/^\\/api\\/schedules\\/registrar-check\\/?$/i",
    "end": true
   },
   {
@@ -1861,7 +1873,7 @@
    "path": "/api/schedules/export",
    "name": "bound dispatch",
    "call": "a29ffcf2d3385147",
-   "site": "src/server/routes/scheduleImportRoutes.ts:118",
+   "site": "src/server/routes/scheduleImportRoutes.ts:171",
    "regexp": "/^\\/api\\/schedules\\/export\\/?$/i",
    "end": true
   },
@@ -1873,7 +1885,7 @@
    "path": "/api/schedules/import",
    "name": "bound dispatch",
    "call": "24b565af6057dab1",
-   "site": "src/server/routes/scheduleImportRoutes.ts:214",
+   "site": "src/server/routes/scheduleImportRoutes.ts:267",
    "regexp": "/^\\/api\\/schedules\\/import\\/?$/i",
    "end": true
   },
@@ -3385,7 +3397,7 @@
    ],
    "path": "/api/intelligence/pdf-import",
    "name": "bound dispatch",
-   "call": "7056e801e7d1f044",
+   "call": "2f727ecf3db39f18",
    "site": "src/server/routes/pdfImportRoutes.ts:251",
    "regexp": "/^\\/api\\/intelligence\\/pdf-import\\/?$/i",
    "end": true
