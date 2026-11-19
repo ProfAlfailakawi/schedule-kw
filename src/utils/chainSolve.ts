@@ -74,6 +74,10 @@ export interface ChainSolveInput {
   holds?: ReadonlyArray<{ days: readonly string[]; start: string; end: string; roomCode?: string; roomHall?: string; instructorId?: number; editId?: number }>;
   placeholderInstructorIds?: Iterable<number>;
   courseHours?: (row: FSchedule) => number;
+  /** ملاءمةُ القاعة لمقرر الصف (نوعٌ وسعةٌ معروفة تكفي): قاعةٌ لا تلائمه لا يُنقل إليها صفٌّ في السلسلة. */
+  roomFits?: (row: FSchedule, room: { roomId: string; buildingId: string; code: string; hall: string }) => boolean;
+  /** مقرر الصف (النوع والمقاعد): تبني به الشاشةُ roomFits من سجلّ القاعات. */
+  courseOf?: (row: FSchedule) => { CourseRoomType?: string; CourseTeachingMode?: string; MaxStudent?: number | null } | undefined;
   courseLabel?: (row: FSchedule) => { code: string; name: string };
   maxMoves?: number;
 }
@@ -232,6 +236,9 @@ export function solveChain(input: ChainSolveInput): ChainSolution {
     const remaining = maxMoves - moves.length;
     if (remaining <= 0) return fail("too-long", remainingBlocks);
     const hitsBefore = collisionsOfDraft(board).length;
+    /* صفٌّ نُقل في نقلةٍ سابقة لا يُنقل ثانيةً: لا صفَّ مرتين في السلسلة، ولا ينقلب ما قيس أولاً. */
+    const movedAlready = new Set(moves.map(move => move.id));
+    const immovableNow = (row: FSchedule) => immovable(row) || movedAlready.has(row.id);
     const solved = (next: FSchedule[]) => {
       const mine = next.find(row => row.id === current.id);
       if (!mine || sharedBetween(draftRow, mine, placeholders).length) return false;
@@ -241,7 +248,7 @@ export function solveChain(input: ChainSolveInput): ChainSolution {
     /* الاتساع يتّسع عند العجز فقط: الجولةُ الأولى بالافتراضي السريع، والثانية تفتح خياراتٍ أكثر لكل بطاقة. */
     let chain: ReturnType<typeof findRepairChain> = null;
     for (const maxBranch of BRANCH_BUDGETS) {
-      chain = findRepairChain(current, board, { maxDepth: remaining, maxBranch, immovable, placeholderInstructorIds: placeholders, courseHours: input.courseHours, solved });
+      chain = findRepairChain(current, board, { maxDepth: remaining, maxBranch, immovable: immovableNow, placeholderInstructorIds: placeholders, courseHours: input.courseHours, roomFits: input.roomFits, solved });
       if (chain) break;
     }
     if (!chain) return fail(moves.length ? "too-long" : "no-chain", remainingBlocks);
@@ -314,8 +321,10 @@ export function solveChain(input: ChainSolveInput): ChainSolution {
 
 /** سطرُ الأثر على الطلبة من ردّ POST /api/time-machine/students (impact) — لا اختراع: عدٌّ من الرادار أو «—». */
 export interface ChainImpactLine { tone: "good" | "warn" | "idle"; count: number | null; text: string }
-export function chainImpactLine(impact: { helped?: number; harmed?: number; harmedOutside?: number } | null | undefined): ChainImpactLine {
+export function chainImpactLine(impact: { helped?: number; harmed?: number; harmedOutside?: number } | null | undefined, stale = false): ChainImpactLine {
   if (!impact) return { tone: "idle", count: null, text: "لا رادار" };
+  /* رادارٌ قديم: صفرُه لا يشهد بأن السلسلة لا تمسّ أحداً، فلا يُقال «لا يمسّ طلبة». */
+  if (stale && !(Number(impact.harmed) || 0) && !(Number(impact.harmedOutside) || 0) && !(Number(impact.helped) || 0)) return { tone: "idle", count: null, text: "الرادار قديم" };
   const harmed = Math.max(0, Number(impact.harmed) || 0) + Math.max(0, Number(impact.harmedOutside) || 0);
   const count = harmed + Math.max(0, Number(impact.helped) || 0);
   if (!count) return { tone: "good", count: 0, text: "لا يمسّ طلبة" };
