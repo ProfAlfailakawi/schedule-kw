@@ -33,10 +33,13 @@ document.documentElement.dataset.shell = isNativeApp() || isStandalonePwa() ? "a
 const isAppleHandheld = () => /iPhone|iPod/.test(navigator.userAgent) || Boolean((window as any).Capacitor?.getPlatform?.() === "ios");
 const nearSquare = (a: number, b: number) => { const lo = Math.min(a, b), hi = Math.max(a, b); return lo >= 400 && lo <= 720 && hi / lo <= 1.62; };
 const markDevice = () => {
-  const duo = isAppleHandheld() && (
+  /* كل iPad ضلعُ شاشته القصير ≥ 744 (وغلاف iOS يعمل على iPad أيضاً)، فلا قرينةَ تُقبل بشاشةٍ أعرض من 720. */
+  const shortScreen = Math.min(screen.width, screen.height);
+  const viewportShort = Math.min(window.innerWidth, window.innerHeight);
+  const duo = isAppleHandheld() && shortScreen <= 720 && (
     nearSquare(screen.width, screen.height) ||
     nearSquare(screen.availWidth, screen.availHeight) ||
-    Math.min(window.innerWidth, window.innerHeight) > 500
+    (viewportShort > 500 && viewportShort <= 720)
   );
   document.documentElement.dataset.device = duo ? "duo" : "other";
 };
