@@ -27,6 +27,8 @@ const WORDS: Record<string, string> = {
   قياس: "Measurement", تقويم: "Assessment", ارشاد: "Counseling", نفسي: "Psychology", عامه: "General", عام: "General",
   بيئه: "Environment", بيئيه: "Environment", زراعه: "Agriculture", غذائيه: "Food", طبيعيه: "Natural", حيويه: "Bio",
   احصاء: "Statistics", تطبيقيه: "Applied", تطبيقي: "Applied", معلم: "Teacher", الحاسب: "Computer",
+  /* كلية العلوم الصحية */
+  طبيه: "Medical", طبي: "Medical", سجلات: "Records", صيدلانيه: "Pharmaceutical", مختبرات: "Lab", اغذيه: "Food", تغذيه: "Nutrition", فم: "Oral", اسنان: "",
 };
 
 /* نقلٌ حرفيٌّ لما لا قاموس له */
@@ -46,7 +48,7 @@ const translit = (word: string) => cap(Array.from(word).map(ch => LETTERS[ch] ??
 /** البادئة (حروف وأرقام لاتينية)، أو سلسلة فارغة إن لم يبقَ من الاسم ما يُنقل. */
 export function englishPrefixOf(sectionName: string): string {
   const raw = normalize(sectionName).split(/[\s\-–—/،,()]+/).filter(Boolean).filter(word => !NOISE.has(word));
-  const words = raw.map(word => word.replace(/^(?:ال)(?=..)/, "").replace(/^(?:و)(?=...)/, "")).filter(word => !NOISE.has(word));
+  const words = raw.map(word => word.replace(/^(?:و)(?=...)/, "").replace(/^(?:ال)(?=..)/, "")).filter(word => !NOISE.has(word));
   /* كلماتٌ عامة تُسقط متى بقي في الاسم ما هو أخص منها («التربية الإسلامية» ← Islamic، «اللغة الفرنسية» ← French) */
   const specific = words.filter(word => !GENERIC.has(word));
   const kept = specific.length ? specific : words;
