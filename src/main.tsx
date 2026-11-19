@@ -8,6 +8,7 @@ import {BUILD_STAMP} from "./generated/buildStamp";
 import {toEnglishDigits} from "./utils/digits";
 import {primeUniversityDay,syncUniversityDay} from "./utils/universityDayClient";
 import {unregisterAppWorkers} from "./utils/pushClient";
+import {isNativeApp,isStandalonePwa} from "./utils/nativeApp";
 import {isPlatformUpdating, SERVER_BACK_EVENT, showUpdatingNotice, UPDATING_MESSAGE, UPDATING_WRITE_MESSAGE} from "./utils/updatingNotice";
 import "./index.css";
 /* The decision lab is shared by screens and its CSS belongs to the browser entry,
@@ -18,6 +19,32 @@ import "./components/academic-decision-lab.css";
    the journey page gets them within the same breath — the SPA cannot render
    anything before this module runs anyway, so the race is unlosable. */
 void import("./styles/deferred.css");
+
+/* أين تعمل الصفحة: «app» داخل التطبيق الرسمي أو تطبيق الشاشة الرئيسية، وإلا «browser».
+   يُقرأ في CSS (ركن ودجت الدوو في 01-foundation.css يُحجز داخل التطبيق وحده). */
+document.documentElement.dataset.shell = isNativeApp() || isStandalonePwa() ? "app" : "browser";
+/* «duo»: شاشةٌ شبه مربّعة (iPhone Duo: الخارجية 466×678، الداخلية 669×951؛ النسبة ≤1.48). كل iPhone نسبته ≥1.7،
+   وiPad أعرض من 700. فقواعد الدوو لا تمسّ الهاتف العادي ولا iPad. يُعاد عند تبدّل الشاشة (فتحٌ أو إغلاق). */
+const markDevice = () => {
+  const lo = Math.min(screen.width, screen.height), hi = Math.max(screen.width, screen.height);
+  document.documentElement.dataset.device = lo >= 440 && lo <= 700 && hi / lo <= 1.48 ? "duo" : "other";
+};
+markDevice();
+window.addEventListener("resize", markDevice);
+/* جهة عمود الودجت كما يبلغها iOS (safe-area): يمين في الطولي، ويتبدّل مع التدوير. صفرٌ في Safari. */
+const sideProbe = document.createElement("div");
+sideProbe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)";
+document.documentElement.appendChild(sideProbe);
+const markWidgetSide = () => {
+  const cs = getComputedStyle(sideProbe), l = parseFloat(cs.paddingLeft) || 0, r = parseFloat(cs.paddingRight) || 0;
+  document.documentElement.dataset.widgetSide = l > 20 && l > r ? "left" : r > 20 ? "right" : "none";
+};
+markWidgetSide();
+/* حشوة المسبار هي حدود النظام نفسها، فيتغيّر مقاسه متى تغيّرت (تدوير، فتح، إغلاق): يُراقَب مباشرة،
+   لأن حدث resize قد يسبق تحديث الحدود فتبقى العلامة على الجهة القديمة. */
+if (typeof ResizeObserver !== "undefined") new ResizeObserver(markWidgetSide).observe(sideProbe);
+window.addEventListener("resize", () => { requestAnimationFrame(markWidgetSide); window.setTimeout(markWidgetSide, 400); });
+window.addEventListener("orientationchange", () => window.setTimeout(markWidgetSide, 400));
 
 /* ?duo-debug=1: إطار ركن الودجت ولوحة القياس للمالك على الجهاز. لا يُحمَّل بلا المعامل. */
 if (new URLSearchParams(window.location.search).get("duo-debug") === "1") {

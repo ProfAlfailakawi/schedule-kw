@@ -1,0 +1,118 @@
+/* ==========================================================================
+   «موعد جديد» على iPhone Duo — تجربة (2026-11-19)
+   Safari على الدوو لا يُخبر الصفحة بمكان المفصل (viewport segments و device-posture
+   كلاهما غائب، قيس على المحاكي). فالقرار من شكل المساحة وحده:
+   - عرضيٌّ واسع (الكتاب/المفتوح عرضاً): المفصل عموديٌّ في المنتصف ← صفحتان (موجود في 55).
+   - طوليٌّ واسع (الكتاب/المفتوح طولاً): المفصل أفقيٌّ في المنتصف ← لا عمودان جنباً إلى جنب،
+     بل عمودٌ واحد بعرض الشاشة، وشريط الحفظ أسفل الصفحة السفلى بعيداً عن المفصل.
+   - ارتفاعٌ قصير (الشاشة الخارجية عرضاً): الشريط نحيف، والعنوان مضغوط، فيبقى للسؤال مكان.
+   كل القواعد تحت [data-device="duo"] (main.tsx): iPhone وiPad لا يتغيّران.
+   ========================================================================== */
+
+/* طوليٌّ واسع: الشاشة الداخلية طولاً (669 عرضاً). */
+@media screen and (orientation:portrait) and (min-width:600px) and (max-width:820px) and (min-height:700px){
+  [data-device="duo"] #root .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout,
+  [data-device="duo"] #root .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout.has-week:has(>.editor-side){
+    grid-template-columns:minmax(0,1fr);
+    row-gap:16px;
+  }
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout>.appt-form{grid-column:1;width:100%;max-width:none;margin-inline:0}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout>.editor-side{
+    grid-column:1;position:static;max-height:none;overflow:visible;margin-top:0;
+  }
+  /* الإطار الشبحي لا مكان له في عمودٍ واحد: «أسبوع الأستاذ» يظهر حين يُختار الأستاذ فقط. */
+}
+
+/* ارتفاعٌ قصير: الشاشة الخارجية عرضاً (≈600×350)، أو هاتفٌ عرضاً. */
+@media screen and (orientation:landscape) and (max-height:480px) and (max-width:1000px){
+  [data-device="duo"] .schedule-editor.is-studio{--appt-bar-h:54px}
+  [data-device="duo"] #root .schedule-editor.is-studio .page-eyebrow{display:none}
+  [data-device="duo"] #root .schedule-editor.is-studio .page-heading h1{font-size:20px;line-height:1.2}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-scope{min-height:32px;padding-block:4px;font-size:12.5px}
+  [data-device="duo"] #root .schedule-editor.is-studio .save-preview.appt-bar{
+    flex-wrap:nowrap;row-gap:0;gap:8px;
+    padding-block:5px;
+    padding-bottom:max(5px,env(safe-area-inset-bottom));
+    min-height:0;
+  }
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-bar .appt-status{min-height:44px;padding-block:0;flex:1 1 auto;min-width:0}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-bar .appt-status-more{display:none}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-bar .form-actions{flex:none;gap:6px}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-bar .form-actions button{min-height:44px;padding-inline:14px}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-step{padding:12px 14px}
+}
+
+/* الشاشة الداخلية عرضاً (مفتوحة أو كتاب): صفحتان مستقلتان، والمفصل بينهما.
+   - الصفحة اليسرى: أزرار «إغلاق» و«الإشعارات» و«المرشد» صفٌّ واحد بشكلٍ واحد (دوائر 44 بيضاء بحدٍّ خفيف)،
+     بدل ثلاثة أشكالٍ مختلفة تطفو.
+   - لا صفحة فارغة: ما دام «أسبوع الأستاذ» لم يظهر (لا أستاذ بعد)، يُوزَّع النموذج نفسه على الصفحتين:
+     اليمنى = النطاق والخطوة الأولى، واليسرى = بقية الخطوات، والفجوة بين العمودين على المفصل.
+     وحين يُختار الأستاذ يعود الأسبوع إلى الصفحة اليسرى والنموذج إلى اليمنى. */
+@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .schedule-editor-close,
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .notify-bell,
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .smart-guide-fab{
+    position:fixed;top:14px;right:auto;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;
+    display:grid;place-items:center;border-radius:50%;
+    background:var(--surface);color:var(--ink);border:1px solid var(--line);
+    box-shadow:0 1px 2px rgb(17 25 22 / .06),0 6px 16px rgb(17 25 22 / .06);
+  }
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .schedule-editor-close{left:16px;z-index:40}
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .notify-bell{left:70px}
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .smart-guide-fab{left:124px;background-image:none;color:var(--accent)}
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .smart-guide-fab svg{width:20px;height:20px}
+
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-week-ghost{
+    box-sizing:border-box;min-height:calc(100dvh - 150px);
+    display:grid;place-content:center;justify-items:center;gap:6px;text-align:center;padding:24px;
+    border:1px solid var(--line);border-radius:20px;
+    background:
+      linear-gradient(to bottom,var(--surface) 0,transparent 56px),
+      repeating-linear-gradient(to left,transparent 0 calc(20% - 1px),color-mix(in srgb,var(--line) 70%,transparent) calc(20% - 1px) 20%),
+      repeating-linear-gradient(to bottom,transparent 0 55px,color-mix(in srgb,var(--line) 55%,transparent) 55px 56px),
+      var(--surface);
+  }
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-week-ghost>*{
+    background:var(--surface);padding-inline:12px;border-radius:10px;
+  }
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-week-ghost svg{
+    width:40px;height:40px;padding:8px;color:var(--accent);border-radius:12px;
+    background:color-mix(in srgb,var(--accent) 10%,var(--surface));
+  }
+}
+@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+  /* علامة المرشد داخل الزر لها خلفيتها الداكنة: تصير شفّافة فيبقى الزر دائرةً بيضاء كأخويه. */
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .smart-guide-fab .smart-guide-fab-mark{
+    background:none;box-shadow:none;color:var(--accent);width:auto;height:auto;
+  }
+}
+
+@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+  [data-device="duo"] #root .schedule-editor.is-studio{--duo-hinge-gap:56px}
+  /* الإطار متناظر الحواف، فيقع منتصف الفجوة على منتصف الشاشة (المفصل). */
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .content-frame{padding-inline:20px;max-width:none;margin-inline:0}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:has(>.editor-side .appt-week-ghost){
+    display:block;
+  }
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:has(>.editor-side .appt-week-ghost)>.editor-side{display:none}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:has(>.editor-side .appt-week-ghost)>.appt-form{
+    width:100%;max-width:none;margin:0;
+  }
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:has(>.editor-side .appt-week-ghost) .appt-steps{
+    display:block;columns:2;column-gap:var(--duo-hinge-gap);
+  }
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:has(>.editor-side .appt-week-ghost) .appt-steps>*{
+    break-inside:avoid;margin-block-end:12px;
+  }
+  /* خطوة «الأستاذ» (مفتوحةً أو مقفلة) تبدأ الصفحة اليسرى. */
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:has(>.editor-side .appt-week-ghost) .appt-steps>section.appt-step:is([aria-label="الأستاذ"],[data-appt-step="teacher"]){
+    break-before:column;
+  }
+  /* شريط الحفظ: الحالة في الصفحة اليمنى، والأزرار في اليسرى؛ لا شيء يعبر المفصل. */
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:has(>.editor-side .appt-week-ghost) .save-preview.appt-bar{
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:var(--duo-hinge-gap);align-items:center;
+  }
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:has(>.editor-side .appt-week-ghost) .appt-bar .form-actions{justify-content:flex-end}
+  /* العنوان بعرض الصفحة اليمنى وحدها، لا يمتدّ إلى المفصل. */
+  [data-device="duo"] #root .schedule-editor.is-studio>.page-heading{max-width:calc(50% - var(--duo-hinge-gap) / 2)}
+}
