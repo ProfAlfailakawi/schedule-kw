@@ -39,6 +39,7 @@ import {
   X,
   CircleHelp,
   UserX,
+  Fingerprint,
 } from "lucide-react";
 import { controlLabel } from "./utils/controlLabel";
 
@@ -64,6 +65,8 @@ import { AR, countOf, nounFor } from "./utils/arabicCount";
 import { isInvitationHash } from "./utils/invitationLink";
 import ChangePassword from "./components/ChangePassword";
 import AccountDeletion from "./components/AccountDeletion";
+import PasskeyManager from "./components/PasskeyManager";
+import PasskeyOffer from "./components/PasskeyOffer";
 import SeatDrawer from "./components/seats/SeatDrawer";
 import TrailButton from "./components/trail/TrailButton";
 import { forgetTrailStamps, setTrailStampOwner } from "./components/trail/trailStampMemory";
@@ -1149,6 +1152,7 @@ export default function App() {
   /* «كرسيّي» (docs/SEATS.md): فريقُ الكرسي والتسليم وتاريخه، من بطاقة الحساب. */
   const [seatDrawerOpen, setSeatDrawerOpen] = useState(false);
   const [deletionOpen, setDeletionOpen] = useState(false);
+  const [passkeysOpen, setPasskeysOpen] = useState(false);
   /* «الرحلة» من مساري (/?journey=1&back=/me): تُفتح فوق التطبيق نفسه حين يكون الزائر داخلاً (حساب العرض مثلاً)، لا في شاشة الدخول وحدها. */
   const [journeyFromMasari, setJourneyFromMasari] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("journey") === "1");
   /* التطبيق يعيد كتابة العنوان عند الإقلاع فيضيع ?back=: يُلتقط مرةً عند أول رسم. */
@@ -2760,6 +2764,7 @@ export default function App() {
         {seatDrawerOpen ? (
           <SeatDrawer onClose={() => setSeatDrawerOpen(false)} canManage={!seatActor || seatActor.kind === "holder"} trail={sessionRole.id !== "viceDean"} />
         ) : null}
+        {passkeysOpen ? <PasskeyManager onClose={() => setPasskeysOpen(false)} /> : null}
         {deletionOpen ? (
           <AccountDeletion onClose={() => setDeletionOpen(false)} onDone={() => { setDeletionOpen(false); void logout(); }} />
         ) : null}
@@ -2822,6 +2827,15 @@ export default function App() {
               >
                 <Compass />
               </button>
+              <button
+                type="button"
+                onClick={() => setPasskeysOpen(true)}
+                title="الدخول بالبصمة"
+                aria-label="الدخول بالبصمة"
+                data-guide-ignore="يفتح قائمة الأجهزة المسجّلة للدخول بالبصمة؛ لا يغيّر شيئاً قبل أن تفعّل أو تزيل جهازاً"
+              >
+                <Fingerprint />
+              </button>
               {!user.IsDemo && !user.IsRootAdmin ? (
                 <button
                   type="button"
@@ -2854,6 +2868,7 @@ export default function App() {
         />
       ) : null}
       {health !== "online" ? connectionGate() : null}
+      <PasskeyOffer />
       {/* The last minute, said out loud. Any key, tap or scroll dismisses it —
           the same activity that keeps the session alive — so the button is a
           courtesy for a reader who has stopped touching anything, not a toll. */}

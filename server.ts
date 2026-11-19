@@ -370,11 +370,12 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
    * sign-out, and derived the entity from "api" instead of the collection.
    */
   const routePath = req.path;
-  const authKind = routePath === "/auth/login" ? "login" : routePath === "/auth/logout" ? "logout" : null;
+  /* الدخولُ بالبصمة تسجيلُ دخولٍ كغيره: السطرُ نفسه، وطريقتُه في «التغييرات» (src/server/passkeys.ts). */
+  const authKind = routePath === "/auth/login" || routePath === "/auth/passkey/login/verify" ? "login" : routePath === "/auth/logout" ? "logout" : null;
   const authEvent = authKind !== null;
   /* «المقروء» في الجرس تفضيلٌ لا تعديل، ويُكتب مع كل ضغطة على إشعار: تسجيله
      يدفن السجلّ كما يدفنه النبض. */
-  const skip = (routePath.startsWith("/auth/") && !authEvent) || routePath.endsWith("/check-conflicts") || routePath === "/telemetry/client" || routePath === "/notifications/seen" || QUIET_API_PATHS.has(routePath);
+  const skip = (routePath.startsWith("/auth/") && !authEvent) || routePath.endsWith("/check-conflicts") || routePath === "/passkeys/register/options" || routePath === "/telemetry/client" || routePath === "/notifications/seen" || QUIET_API_PATHS.has(routePath);
   if (!mutating || skip) { next(); return; }
   const startedUser = req.user ? { id: Number(req.user.SystemUserId), name: String(req.user.Name || req.user.SystemUserLogin || "") } : null;
   res.on("finish", () => {

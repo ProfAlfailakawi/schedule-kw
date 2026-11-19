@@ -42,6 +42,7 @@ import { shareLinkLabel } from "../core/shareLinks";
 import { placeholderInstructorIds } from "../core/smartImport";
 import { graduateThreshold, sealStudentIdentity, surveyFingerprint } from "../core/studentIdentity";
 import { loadCapOf } from "../../utils/teachingLoad";
+import { registerPasskeyRoutes } from "../passkeys";
 
 // Rate limiting for login (simple in-memory)
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -553,13 +554,8 @@ const cleanMarkPart = (value: unknown) => {
   return { rowId: row, rev: Number((value as { rev?: unknown })?.rev || 0) };
 };
 
-export function registerAuthRoutes(app: Express): void {
-
-app.post("/api/auth/demo", rateLimitLogin, async (_req: Request, res: Response) => {
-  if (process.env.SCHEDULE_DEMO_ENABLED === "false") {
-    res.status(404).json({ error: "الدخول التجريبي غير مفعّل." });
-    return;
-  }
+/** صندوقٌ تجريبيٌّ جديدٌ وجلستُه (زرّ «تجربة النظام»، والدخولُ بالبصمة في العرض المحلي). يرسل الردّ. */
+async function startDemoSession(res: Response): Promise<void> {
   const sessionId = `demo_${randomBytes(32).toString("hex")}`;
   Repository.createDemoSandbox(sessionId, DEMO_SESSION_TTL_MS);
   try {
@@ -575,6 +571,44 @@ app.post("/api/auth/demo", rateLimitLogin, async (_req: Request, res: Response) 
     await Repository.withDemoSandbox(sessionId, () => Repository.deleteSession(sessionId)).catch(() => undefined);
     res.status(500).json({ error: error instanceof Error ? error.message : "تعذر بدء البيئة التجريبية" });
   }
+}
+
+/**
+ * فتحُ جلسة الحساب بعد أن تحقّق الخادمُ من صاحبه — بكلمة السر أو بالبصمة، والجلسةُ واحدة لا تفرّق بينهما:
+ * المعرّفُ والكوكي والمدّة، وهويةُ الكرسي، والصلاحياتُ والنطاق، وحمولةُ الواجهة. يرسل الردّ.
+ * ما يُحكم به قبلها (حسابٌ فعّال، غيرُ مقفل، وكلمةٌ مؤقتة…) يبقى عند من يستدعيها.
+ */
+async function signInSession(req: Request, res: Response, user: any, mustChange: boolean): Promise<void> {
+  // Generate Session ID
+  const sessionId = `sess_${randomBytes(32).toString("hex")}`;
+  /* دخولٌ بالكلمة الأولى لحسابٍ عليه تغييرُها: تحمل الجلسةُ أثرَها، فيختار كلمته دون أن يُسأل عن
+     كلمةٍ لم يكتبها بنفسه (currentPasswordWaived). الأثرُ لا الكلمة، ولا يُعاد إلى المتصفح. */
+  await Repository.createSession(sessionId, user.SystemUserId, SERVER_IDLE_SESSION_MS, mustChange ? { initialPassMark: initialPasswordMark(user.SystemUserPass) } : {});
+
+  // Set Cookie
+  res.setHeader(
+    "Set-Cookie",
+    `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
+  );
+
+  const userPerms = await Repository.getSecurityByUser(user.SystemUserId);
+  /* الدخولُ بكلمة سرّ الكرسي دخولُ شاغله: يُقرأ اسمُه كما تقرؤه الجلساتُ بعده (docs/SEATS.md). */
+  const seated = (await seatIdentity(user, undefined, await Repository.getUserAssigns(user.SystemUserId), userPerms.map(p => Number(p.FormNameId))))!;
+  const safeUser = safeSystemUser(seated.user);
+  const permissions = seated.permissions;
+  const scopes = await clientScopeDetails(seated.scopes);
+
+  res.json({ user: { ...safeUser, IsRootAdmin: Number(user.SystemUserId) === ROOT_ADMIN_USER_ID, IsDemo: false }, role: roleDescriptor(seated.user), permissions, scopes, data: activeDataMode(), ...(mustChange ? { passwordChange: { currentRequired: false } } : {}) });
+}
+
+export function registerAuthRoutes(app: Express): void {
+
+app.post("/api/auth/demo", rateLimitLogin, async (_req: Request, res: Response) => {
+  if (process.env.SCHEDULE_DEMO_ENABLED === "false") {
+    res.status(404).json({ error: "الدخول التجريبي غير مفعّل." });
+    return;
+  }
+  await startDemoSession(res);
 });
 
 /*
@@ -690,28 +724,9 @@ app.post("/api/auth/login", rateLimitLogin, async (req: Request, res: Response) 
     (user as any).MustChangePassword = true;
   }
 
-  // Generate Session ID
-  const sessionId = `sess_${randomBytes(32).toString("hex")}`;
-  /* دخولٌ بالكلمة الأولى لحسابٍ عليه تغييرُها: تحمل الجلسةُ أثرَها، فيختار كلمته دون أن يُسأل عن
-     كلمةٍ لم يكتبها بنفسه (currentPasswordWaived). الأثرُ لا الكلمة، ولا يُعاد إلى المتصفح. */
   const mustChange = Boolean((user as any).MustChangePassword);
-  await Repository.createSession(sessionId, user.SystemUserId, SERVER_IDLE_SESSION_MS, mustChange ? { initialPassMark: initialPasswordMark(user.SystemUserPass) } : {});
-
-  // Set Cookie
-  res.setHeader(
-    "Set-Cookie",
-    `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`
-  );
-
   loginAttempts.delete(req.ip || "unknown");
-  const userPerms = await Repository.getSecurityByUser(user.SystemUserId);
-  /* الدخولُ بكلمة سرّ الكرسي دخولُ شاغله: يُقرأ اسمُه كما تقرؤه الجلساتُ بعده (docs/SEATS.md). */
-  const seated = (await seatIdentity(user, undefined, await Repository.getUserAssigns(user.SystemUserId), userPerms.map(p => Number(p.FormNameId))))!;
-  const safeUser = safeSystemUser(seated.user);
-  const permissions = seated.permissions;
-  const scopes = await clientScopeDetails(seated.scopes);
-
-  res.json({ user: { ...safeUser, IsRootAdmin: Number(user.SystemUserId) === ROOT_ADMIN_USER_ID, IsDemo: false }, role: roleDescriptor(seated.user), permissions, scopes, data: activeDataMode(), ...(mustChange ? { passwordChange: { currentRequired: false } } : {}) });
+  await signInSession(req, res, user, mustChange);
 });
 
 /* تغييرُ كلمة السر بيد صاحبها: بالكلمة الحالية، ولا تُقبل الموحّدةُ القديمة ولا الحاليةُ نفسها.
@@ -882,4 +897,7 @@ app.post("/api/auth/presence", requireAuth, (req: AuthenticatedRequest, res: Res
   markPresenceDirty(record.scopeKey);
   res.status(204).end();
 });
+
+/* «الدخول بالبصمة» (src/server/passkeys.ts): يفتح الجلسةَ نفسَها بالدالة نفسها، ويرفض ما ترفضه كلمةُ السر. */
+registerPasskeyRoutes(app, { signIn: (req, res, user) => signInSession(req, res, user, false), startDemo: startDemoSession });
 }

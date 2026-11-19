@@ -14,6 +14,7 @@ import { ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, isAcademicRole, roleDefinition,
 import { AR, countOf } from "../../utils/arabicCount";
 import { adminSetPasswordFields, newPasswordProblem } from "../accountPassword";
 import { authCache, type AuthenticatedRequest, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin, ROOT_ADMIN_USER_ID } from "../core/auth";
+import { revokeUserPasskeys } from "../passkeys";
 import { adminPasswordProblem, userEditDiff, userEditRefusal } from "../userAdminGuards";
 import { deleteBlockers, refuseWithBlocker } from "../deleteImpact";
 import { safeSystemUser } from "../core/scope";
@@ -455,6 +456,8 @@ app.put("/api/users/:id", requirePermission(11), async (req: Request, res: Respo
   try {
     const updated = await Repository.updateUser(id, fields);
     if (resetsAnotherUser) { await Repository.deleteSessionsForUser(id); authCache.clear(); }
+    /* مفاتيحُ «الدخول بالبصمة» تتبع الحساب: كلمةٌ عيّنها المسؤول، أو إيقافٌ أو قفلٌ جديد، تُسقطها ويُسجَّل الجهازُ من جديد. */
+    if (resetsAnotherUser || (before.IsActive && !updated.IsActive) || (!before.IsLocked && updated.IsLocked)) await revokeUserPasskeys(id).catch(() => 0);
     /**
      * ── القالب يُكتب عند تغيير الصفة، لا عند كل حفظ ───────────────────────
      *
@@ -539,6 +542,7 @@ app.delete("/api/users/:id", requirePermission(11), async (req: Request, res: Re
   if (blocked) { refuseWithBlocker(res, blocked); return; }
   await Repository.deleteUser(id);
   await Repository.deleteSessionsForUser(id);
+  await revokeUserPasskeys(id).catch(() => 0);
   authCache.clear();
   res.locals.auditChanges = `حذف الحساب «${target!.Name}» (${target!.SystemUserLogin})${target!.IsAdminUser ? "، كان مديراً" : ""}`;
   res.json({ success: true });

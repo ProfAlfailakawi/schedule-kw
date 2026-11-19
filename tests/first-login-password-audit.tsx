@@ -84,7 +84,9 @@ check(INITIAL_PASSWORD_WINDOW_MS <= 30 * 60 * 1000, "F1 النافذة قصير�
   await Repository.deleteSession(sessionId);
 
   const auth = fs.readFileSync("src/server/routes/authRoutes.ts", "utf8");
-  const login = auth.slice(auth.indexOf('app.post("/api/auth/login"'), auth.indexOf('app.post("/api/auth/change-password"'));
+  /* مسارُ كلمة السر ثم الدالةُ المشتركة التي تفتح الجلسة (signInSession): الأثرُ يُكتب فيها للدخولين معاً. */
+  const login = auth.slice(auth.indexOf('app.post("/api/auth/login"'), auth.indexOf('app.post("/api/auth/change-password"'))
+    + auth.slice(auth.indexOf("async function signInSession"), auth.indexOf("export function registerAuthRoutes"));
   check(/mustChange \? \{ initialPassMark: initialPasswordMark\(user\.SystemUserPass\) \} : \{\}/.test(login) && login.indexOf("MustChangePassword: true") < login.indexOf("initialPassMark"),
     "F3 الدخولُ يكتب الأثر للحساب المعلَّم وحده (وبعد تعليم الكلمة الموحّدة)");
   const change = auth.slice(auth.indexOf('app.post("/api/auth/change-password"'), auth.indexOf('app.post("/api/auth/logout"'));

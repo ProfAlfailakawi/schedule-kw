@@ -6,6 +6,7 @@ import { Repository } from "../db/repository";
 import { authCache, isPowerUser, ROOT_ADMIN_USER_ID } from "./core/auth";
 import { pushHooks, type PushAccount } from "./pushRoutes";
 import { readSeatLedger } from "./seats";
+import { revokeUserPasskeys } from "./passkeys";
 import { civilTailOf } from "../utils/seats";
 import { recoveryNotifications, type RecoveryAccount, type RecoveryDeps, type RecoveryEvent } from "./staffRecovery";
 
@@ -36,7 +37,8 @@ export function staffRecoveryDeps(): RecoveryDeps {
     vault: password => Repository.encryptPasswordForVault(password),
     verify: (password, stored) => Repository.verifyPassword(password, stored),
     setPassword: (userId, fields) => Repository.updateUser(userId, fields as any),
-    endSessions: async userId => { await Repository.deleteOtherSessionsForUser(userId, undefined); authCache.clear(); },
+    /* من استعاد كلمته فقد جهازَه غالباً: تسقط معها مفاتيحُ الدخول بالبصمة فيسجّل جهازَه من جديد. */
+    endSessions: async userId => { await Repository.deleteOtherSessionsForUser(userId, undefined); await revokeUserPasskeys(userId).catch(() => 0); authCache.clear(); },
     audit: entry => Repository.createAuditLog({
       SystemUserId: entry.userId, userName: entry.name, method: "POST", path: "/api/auth/recover",
       action: entry.action, entity: "auth", entityId: entry.userId ? String(entry.userId) : undefined, changes: entry.changes, status: entry.status,

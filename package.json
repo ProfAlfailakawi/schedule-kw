@@ -297,6 +297,8 @@
     "test:activity-trail": "tsx tests/activity-trail-audit.ts",
     "test:seat-access-card": "tsx tests/seat-access-card-audit.tsx",
     "test:app-handoff": "tsx tests/app-handoff-audit.ts",
+    "test:passkeys": "tsx tests/passkey-audit.ts",
+    "test:passkeys-ui": "tsx tests/passkey-ui-audit.ts",
     "test:first-login-password": "tsx tests/first-login-password-audit.tsx",
     "test:colleague-guard-measure": "tsx tests/colleague-guard-measure-audit.ts",
     "test:actual-demand": "tsx tests/actual-demand-audit.ts",
@@ -418,6 +420,7 @@
   "dependencies": {
     "@google-cloud/firestore": "^8.7.1",
     "@napi-rs/canvas": "^1.0.7",
+    "@simplewebauthn/server": "^13.2.2",
     "@types/compression": "^1.8.1",
     "@vitejs/plugin-react": "^5.0.4",
     "compression": "^1.8.1",

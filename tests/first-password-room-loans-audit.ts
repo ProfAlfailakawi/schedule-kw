@@ -37,7 +37,7 @@ const issuedAt = Date.parse("2026-11-05T08:00:00Z");
   check(Boolean(adminSetPasswordFields(DEFAULT_FIRST_PASSWORD, issuedAt).InitialPasswordExpiresAt), "P2 الافتراضية من «المستخدمون» لها مدتها أيضاً");
   const auth = read("src/server/routes/authRoutes.ts");
   const login = auth.slice(auth.indexOf('app.post("/api/auth/login"'), auth.indexOf('app.post("/api/auth/change-password"'));
-  check(login.indexOf("verifyPassword") < login.indexOf("initialPasswordExpired(") && login.indexOf("initialPasswordExpired(") < login.indexOf("createSession"), "P2 الرفض بعد التحقق وقبل الجلسة");
+  check(login.indexOf("verifyPassword") < login.indexOf("initialPasswordExpired(") && login.indexOf("initialPasswordExpired(") < login.indexOf("signInSession("), "P2 الرفض بعد التحقق وقبل الجلسة");
   const change = auth.slice(auth.indexOf('app.post("/api/auth/change-password"'), auth.indexOf('app.post("/api/auth/logout"'));
   check(change.includes('InitialPasswordExpiresAt: ""') && change.includes("deleteOtherSessionsForUser"), "P2 التغيير يمحو المدة ويغلق الجلسات الأخرى");
   const seats = read("src/server/seatsRoutes.ts");
