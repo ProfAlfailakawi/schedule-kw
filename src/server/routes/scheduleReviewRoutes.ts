@@ -476,7 +476,7 @@ app.post("/api/schedules/move-batch", requirePermission(7), async (req: Authenti
       }
     }
   }
-  if (exceptions.length && !regulationExceptionAccepted(req.body)) { res.status(409).json(regulationExceptionRefusal(exceptions)); return; }
+  if (exceptions.length && !regulationExceptionAccepted(req.body, exceptions)) { res.status(409).json(regulationExceptionRefusal(exceptions)); return; }
   let updated: FSchedule[];
   try {
     await pauseAfterCheckForTests();
@@ -510,7 +510,7 @@ app.post("/api/schedules/move-batch", requirePermission(7), async (req: Authenti
       return sentence ? `${before?.AdCourseName || `موعد ${row.id}`}: ${sentence}` : "";
     })
     .filter(Boolean).join(" || ") || undefined;
-  if (exceptions.length) res.locals.auditChanges = [res.locals.auditChanges, regulationExceptionAudit(exceptions)].filter(Boolean).join(" · ");
+  if (exceptions.length) res.locals.auditChanges = [res.locals.auditChanges, regulationExceptionAudit(exceptions, req.body)].filter(Boolean).join(" · ");
   /* النقل الجماعي تعديلٌ كأيِّ تعديل: جدولٌ مقبولٌ يعود جولةً جديدة بعده. */
   for (const scope of touchedScopes.values()) {
     await noteScheduleMutation(req, scope.collegeId, scope.sectionId, scope.termId, { kind: "edit" });

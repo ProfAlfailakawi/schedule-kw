@@ -7,6 +7,7 @@
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
 import { roomTypeIn } from "../../utils/roomTypeForSection";
+import { specialCourseIdsOf } from "../../utils/specialNature";
 import type { Express } from "express";
 import { roomSuitability } from "../../utils/roomSuitability";
 import { placeholderMatch } from "../../utils/placeholderMatch";
@@ -107,7 +108,7 @@ async function taConversionChecks(state: Awaited<ReturnType<typeof taConversionS
       if (from && chosen.has(from)) clashed.add(from);
     }
   }
-  const hours = teachingHoursByInstructor(universe as any, new Map<number, number>(courses.map(course => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number])));
+  const hours = teachingHoursByInstructor(universe as any, new Map<number, number>(courses.map(course => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number])), specialCourseIdsOf(courses));
   const context = loadTermContext(terms as any, termId);
   return [...chosen].map(([from, to]) => {
     const total = hours.get(to) || 0;

@@ -29,6 +29,10 @@ export const isSpecialNature = (course: CourseLike): boolean => Boolean(course) 
  *  مجموعُ ساعات الشعبة لا يمرّ من هنا: يبقى بـ effectiveCourseHours في حكم الحفظ. */
 export const patternHoursOf = (course: CourseLike): number => isSpecialNature(course) ? 0 : effectiveCourseHours(course as any);
 
+/** معرّفاتُ المقررات ذات الطبيعة الخاصة من قائمة مقررات (لحساب النصاب بساعات اللقاءات). */
+export const specialCourseIdsOf = (courses: Iterable<{ AdCourseId?: unknown; CourseSpecialNature?: unknown }>): Set<number> =>
+  new Set([...courses].filter(course => isSpecialNature(course as CourseLike)).map(course => Number(course.AdCourseId)));
+
 export const isPracticalRow = (row: object | null | undefined): boolean => Boolean(row) && (row as any).practical === true;
 
 const toMinutes = (value: unknown): number => {
@@ -82,6 +86,44 @@ export function practicalRequiredIssue(row: RowLike, siblings: readonly RowLike[
   const reading = sectionWeeklyHours(row, siblings, hours);
   if (reading.under) return "";
   return [row, ...siblings].some(isPracticalRow) ? "" : PRACTICAL_REQUIRED_TEXT;
+}
+
+/**
+ * ── شكلُ الشعبة كما يجري عند القسم (رد الدكتورة 2026-11-19) ─────────────────────────────
+ * النظريُّ لقاءٌ واحدٌ متصل، والعمليُّ لقاءٌ واحدٌ متصل، في يومين مختلفين (الأحد·الثلاثاء، الأحد·الخميس، الثلاثاء·الخميس…).
+ *   • التجزئة (النظري ساعةً الأحد وساعةً الثلاثاء): ليست الأصل، وقد تحتاجها أقسامٌ أخرى — فتُقال في ورقة الاستثناء
+ *     وتُحفظ بتأكيدٍ صريح وسببٍ يُكتب في سجل التدقيق (حالةٌ بعينها، لا قاعدةٌ ثابتة في النظام).
+ *   • النظريُّ والعمليُّ في يومٍ واحد: لا يُحفظ.
+ */
+const ROLE_NAME = (row: RowLike) => isPracticalRow(row) ? "العملي" : "النظري";
+
+/** «النظري مجزّأ…» إن كان دورُ هذا اللقاء أكثرَ من لقاءٍ واحد — على أيامٍ مختلفة، أو لقاءين منفصلين في اليوم نفسه؛
+ *  "" إن كان لقاءً واحداً متصلاً في يومٍ واحد. */
+export function specialSplitIssue(row: RowLike, siblings: readonly RowLike[]): string {
+  const sameRoleRows = [row, ...siblings.filter(other => sameRole(other as object, row as object))];
+  /* كلُّ (يومٍ × صفّ) لقاءٌ قائمٌ بنفسه: صفٌّ بيومين لقاءان، وصفّان في اليوم نفسه لقاءان منفصلان. */
+  const meetings = sameRoleRows.flatMap(item => daysOf(item).map(day => ({ day, start: String(item.fstarttime || "").slice(0, 5) })))
+    .sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day) || a.start.localeCompare(b.start));
+  if (meetings.length <= 1) return "";
+  const days = [...new Set(meetings.map(item => item.day))];
+  const where = days.length === meetings.length ? days.map(dayName).join(" · ") : meetings.map(item => `${dayName(item.day)} ${item.start}`).join(" · ");
+  const count = days.length === meetings.length ? (days.length === 2 ? "يومين" : countOf(days.length, AR.day)) : (meetings.length === 2 ? "لقاءين" : countOf(meetings.length, AR.meeting));
+  return `${ROLE_NAME(row)} مجزّأ على ${count} (${where}): المعتمد أن يكون كلٌّ من النظري والعملي لقاءً واحداً متصلاً.`;
+}
+
+/** «النظري والعملي في يومٍ واحد…» إن التقى الدوران في يوم؛ "" إن افترقا. */
+export function specialSameDayIssue(row: RowLike, siblings: readonly RowLike[]): string {
+  const mine = new Set(daysOf(row));
+  const shared = DAY_KEYS.filter(day => mine.has(day) && siblings.some(other => !sameRole(other as object, row as object) && Boolean(other[day])));
+  if (!shared.length) return "";
+  return `النظري والعملي في يومٍ واحد (${shared.map(dayName).join(" · ")}): يُجعل كلٌّ منهما في يومٍ غير يوم الآخر.`;
+}
+
+/** ساعاتُ اللقاء التدريسية من طوله (50د = ساعة، 80د = ساعة ونصف، 110د = ساعتان…) لكل يومٍ من أيامه. */
+export function meetingTeachingHours(row: RowLike): number {
+  const span = toMinutes(row.fendtime) - toMinutes(row.fstarttime);
+  if (!Number.isFinite(span) || span <= 0) return 0;
+  return Math.round((span + 10) / 60 * 2) / 2 * daysOf(row).length;
 }
 
 /** هل لقاءاتُ شعبةٍ خاصة قائمةٌ كاملة: ساعاتُها لا تنقص عن ساعات المقرر، وفيها لقاءٌ عمليّ؟

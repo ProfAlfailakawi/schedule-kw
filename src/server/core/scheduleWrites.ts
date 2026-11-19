@@ -65,7 +65,7 @@ function scheduleOriginOf(req: AuthenticatedRequest): import("../../types").Sche
 const skipsRegulation = (req: any) => Boolean(req.__internal) && !req.__regulationCollect;
 /* يُرفض بلا موافقة؛ والجمعُ لا يرفض: صاحبُه يسأل مرةً واحدة عن الخطوات كلها. */
 const regulationRefused = (req: any, issues: readonly RegulationExceptionIssue[]) =>
-  issues.length > 0 && !regulationExceptionAccepted(req.body) && !req.__regulationCollect;
+  issues.length > 0 && !regulationExceptionAccepted(req.body, issues) && !req.__regulationCollect;
 
 /* ── المدخلاتُ تُقرأ بصرامة ──────────────────────────────────────────────────── */
 export const SCODE_MAX_LENGTH = 6;
@@ -286,7 +286,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", row: newSched });
 
   res.locals.auditRowIds = [Number(newSched.id)];
-  if (createException.length) res.locals.auditChanges = `${trailTarget(newSched)} · ${trailSlot(newSched)} · ${regulationExceptionAudit(createException)}`;
+  if (createException.length) res.locals.auditChanges = `${trailTarget(newSched)} · ${trailSlot(newSched)} · ${regulationExceptionAudit(createException, req.body)}`;
   noteTrail(res, { target: trailTarget(newSched), after: trailSlot(newSched), scope: { collegeId, sectionId, termId }, row: Number(newSched.id) });
   res.status(201).json(createFixes.length ? { ...newSched, requestFix: createFixes } : newSched);
 };
@@ -390,7 +390,8 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     /* تبديلُ العلامة وحدها لا يغيّر الشكل فلا يمرّ بحكم الشكل (A6)؛ فيُسأل هنا: لا تبقى شعبةٌ مكتملةٌ بلا لقاءٍ عملي. */
     const flipped = nextPractical !== (existing.practical === true);
     if (flipped && !(req as any).__exactRestore) {
-      const issue = await specialShapeIssue({ ...req.body, id, practical: nextPractical }, (req as any).__hypotheticalWeek, { lengths: false });
+      /* والدورُ الجديد لا يلتقي بالدور الآخر في يوم (specialSameDayIssue مع المدّة)؛ وتجزئتُه تُسأل في ورقة الاستثناء. */
+      const issue = await specialShapeIssue({ ...req.body, id, practical: nextPractical }, (req as any).__hypotheticalWeek);
       if (issue) { res.status(400).json({ error: issue, issues: [{ type: "validation", severity: "high", message: issue }] }); return; }
     }
   }
@@ -489,7 +490,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
       }
     }
     // Hand the audit trail the sentence describing what actually moved.
-    res.locals.auditChanges = [describeScheduleChange(existing, updated), editException.length ? regulationExceptionAudit(editException) : ""].filter(Boolean).join(" · ") || undefined;
+    res.locals.auditChanges = [describeScheduleChange(existing, updated), editException.length ? regulationExceptionAudit(editException, req.body) : ""].filter(Boolean).join(" · ") || undefined;
     /* إعادةُ حفظٍ بلا فرقٍ ليست حركة: لا تُكتب في الأثر. */
     noteTrail(res, res.locals.auditChanges || Number(existing.AdCourseId) !== Number(updated.AdCourseId)
       ? { target: trailTarget(updated), before: trailSlot(existing), after: trailSlot(updated), scope: { collegeId, sectionId, termId }, row: Number(id) }
@@ -644,7 +645,6 @@ export interface RegulationGate {
 }
 
 export function regulationGate(req: AuthenticatedRequest): RegulationGate {
-  const accepted = regulationExceptionAccepted(req.body);
   const issues: RegulationExceptionIssue[] = [];
   const seen = new Set<string>();
   return {
@@ -655,8 +655,8 @@ export function regulationGate(req: AuthenticatedRequest): RegulationGate {
         if (!seen.has(key)) { seen.add(key); issues.push(issue); }
       }
     },
-    refusal: () => issues.length && !accepted ? regulationExceptionRefusal(issues) : null,
-    auditSuffix: () => issues.length ? ` · ${regulationExceptionAudit(issues)}` : "",
+    refusal: () => issues.length && !regulationExceptionAccepted(req.body, issues) ? regulationExceptionRefusal(issues) : null,
+    auditSuffix: () => issues.length ? ` · ${regulationExceptionAudit(issues, req.body)}` : "",
   };
 }
 

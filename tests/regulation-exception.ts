@@ -74,10 +74,11 @@ check("الموافقة صريحة فقط، والرسالة تذكر الماد
 check("الخادم يسأل قبل الحفظ والنقل، ويسجّل الاستثناء، والمسارات الداخلية لا تُسأل", () => {
   const writes = fs.readFileSync("src/server/core/scheduleWrites.ts", "utf8");
   const moves = fs.readFileSync("src/server/routes/scheduleReviewRoutes.ts", "utf8");
-  assert.equal((writes.match(/regulationExceptionAccepted\(req\.body\)/g) || []).length, 2, "الإنشاء والتعديل");
+  /* الموافقةُ تُقرأ مع المخالفات: ما يطلب منها سبباً (تجزئةُ مقررٍ نظريٍّ وعمليّ) لا يُقبل بالتأكيد وحده. */
+  assert.equal((writes.match(/regulationExceptionAccepted\(req\.body, issues\)/g) || []).length, 2, "الإنشاء والتعديل");
   assert.match(writes, /inner\.__internal = true/);
   assert.match(writes, /regulationExceptionAudit/);
-  assert.match(moves, /regulationExceptionAccepted\(req\.body\)/, "النقل الجماعي (السحب)");
+  assert.match(moves, /regulationExceptionAccepted\(req\.body, exceptions\)/, "النقل الجماعي (السحب)");
   const client = fs.readFileSync("src/components/Schedules.tsx", "utf8");
   assert.match(client, /askRegulationException/);
   assert.match(fs.readFileSync("src/components/QuickCreatePopover.tsx", "utf8"), /يُحفظ بتأكيد/, "البطاقة السريعة لا تقول «جاهز للحفظ» مع مخالفة");

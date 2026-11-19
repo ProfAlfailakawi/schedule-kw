@@ -21,6 +21,10 @@ import { DAY_KEYS, DAY_NAMES, consecutiveTeachingRuns, ladderStepForDays, lectur
 /** رمزُ الرفض الذي يفتح ورقةَ التأكيد في الواجهة، وحقلُ الطلب الذي يقول «وافقتُ استثناءً». */
 export const REGULATION_EXCEPTION_CODE = "regulation-exception";
 export const REGULATION_EXCEPTION_FLAG = "regulationException";
+/** حقلُ الطلب الذي يحمل سببَ الاستثناء حين تطلبه المخالفة (needsReason). */
+export const REGULATION_EXCEPTION_REASON = "regulationExceptionReason";
+/** أطولُ سببٍ يُحفظ في سجل التدقيق. */
+export const REGULATION_REASON_MAX = 200;
 
 export type RegulationExceptionRule = "lecture-length" | "pattern-days" | "start-ladder" | "fixed-start" | "consecutive-long" | "consecutive-one-hour";
 
@@ -32,6 +36,8 @@ export interface RegulationExceptionIssue {
   text: string;
   /** يومُ السلسلة المتتالية (م.6/2، م.6/3): السلسلةُ الواحدة تُقال مرةً لكل يوم مهما كثرت مواعيدها. */
   day?: DayKey;
+  /** لا تُقبل المتابعةُ إلا بسببٍ مكتوب يُحفظ في سجل التدقيق (تجزئةُ مقررٍ نظريٍّ وعمليّ: حالةٌ بعينها لا قاعدة). */
+  needsReason?: boolean;
 }
 
 export interface ExceptionRow {
@@ -142,9 +148,16 @@ export function regulationExceptionMessage(issues: readonly RegulationExceptionI
 }
 
 /** جملةُ سجلّ التدقيق لحفظٍ مضى استثناءً. */
-export function regulationExceptionAudit(issues: readonly RegulationExceptionIssue[]): string {
-  return `استثناء لائحي بتأكيد صريح (${[...new Set(issues.map(issue => issue.article))].join("، ")})`;
+export function regulationExceptionAudit(issues: readonly RegulationExceptionIssue[], body?: unknown): string {
+  const reason = regulationExceptionReason(body);
+  return `استثناء لائحي بتأكيد صريح (${[...new Set(issues.map(issue => issue.article))].join("، ")})${reason ? ` — السبب: ${reason}` : ""}`;
+}
+
+/** سببُ الاستثناء كما كتبه صاحبُه: سطرٌ واحد مقصوص، أو "". */
+export function regulationExceptionReason(body: unknown): string {
+  return String((body as any)?.[REGULATION_EXCEPTION_REASON] ?? "").replace(/\s+/g, " ").trim().slice(0, REGULATION_REASON_MAX);
 }
 
 /** هل وافق الطالبُ على الاستثناء صراحةً؟ قيمةٌ منطقية صريحة فقط. */
-export const regulationExceptionAccepted = (body: unknown) => (body as any)?.[REGULATION_EXCEPTION_FLAG] === true;
+export const regulationExceptionAccepted = (body: unknown, issues: readonly RegulationExceptionIssue[] = []) =>
+  (body as any)?.[REGULATION_EXCEPTION_FLAG] === true && (!issues.some(issue => issue.needsReason) || regulationExceptionReason(body).length >= 3);

@@ -35,6 +35,7 @@
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { negotiationClosed, type ThreadItem } from "./instructorRequestThread";
 import { AR, countOf } from "./arabicCount";
+import { isSpecialNature, meetingTeachingHours } from "./specialNature";
 import { sameCourseSectionClash,
   DAY_KEYS, DAY_NAMES, DECISION_1913_LABEL, daysApprovedForHours, expectedMinutesForDay, isDecision1912Finding, ladderStartsForDays, startLadderNote,
   LONG_LECTURE_MINUTES, SHORT_LECTURE_MINUTES, patternsForHours, requiredGapForDays, reviewSchedule, toMinutes,
@@ -437,10 +438,19 @@ export function weeklyLoadOf(rows: FSchedule[], courses: Map<number, AdCourse>):
   for (const row of rows) {
     const courseId = Number(row.AdCourseId || 0);
     if (!courseId) continue;
+    const course = courses.get(courseId);
+    /* المقررُ النظريُّ والعمليّ: لصاحب الصفوف ساعاتُ لقاءاته وحدها (ساعتا النظري لأستاذه، وساعتا العملي لمدرّبه) —
+       الحكمُ نفسُه في teachingHoursByInstructor (رد الدكتورة 2026-11-19). كلُّ لقاءٍ مرّةً واحدة بأيامه ووقته. */
+    if (isSpecialNature(course)) {
+      const meetingKey = `m|${courseId}|${String(row.SCode ?? "")}|${row.id ?? ""}|${String(row.fstarttime || "")}|${["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].map(day => (row as any)[day] ? 1 : 0).join("")}`;
+      if (seen.has(meetingKey)) continue;
+      seen.add(meetingKey);
+      hours += meetingTeachingHours(row as any);
+      continue;
+    }
     const key = `${courseId}|${String(row.SCode ?? "")}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const course = courses.get(courseId);
     hours += effectiveCourseHours(course);
   }
   return hours;

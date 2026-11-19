@@ -526,6 +526,12 @@ html[data-schedule-workspace="focus"] .teacher-week-dialog{z-index:1600}
 .regulation-exception-article{align-self:start;padding:2px 9px;border-radius:999px;background:var(--surface);border:1px solid color-mix(in srgb,var(--warning) 45%,var(--line));color:var(--warning);font-size:.78rem;font-weight:700;white-space:nowrap}
 .regulation-exception-ask{margin:0;color:var(--muted);font-size:.84rem}
 .regulation-exception-sheet .request-hold-actions button.regulation-exception-confirm{background:var(--warning);color:var(--surface)}
+.regulation-exception-sheet .request-hold-actions button.regulation-exception-confirm:disabled{opacity:.5;cursor:not-allowed}
+/* سببُ الاستثناء حين تطلبه المخالفة (تجزئةُ مقررٍ نظريٍّ وعمليّ). */
+.regulation-exception-reason{display:grid;gap:6px;font-size:.86rem;font-weight:700;color:var(--ink)}
+.regulation-exception-reason small{font-weight:500;color:var(--muted)}
+.regulation-exception-reason textarea{inline-size:100%;min-block-size:56px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-weight:500;resize:vertical}
+.regulation-exception-reason textarea:focus-visible{outline:2px solid var(--warning);outline-offset:1px}
 .qc-ladder{display:flex;flex-wrap:wrap;gap:6px;margin-block-start:8px}
 .qc-ladder button{min-block-size:30px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:.8rem;cursor:pointer}
 .qc-ladder button[aria-pressed="true"]{background:var(--accent);border-color:transparent;color:var(--accent-contrast)}
