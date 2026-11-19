@@ -3008,8 +3008,8 @@
         "en": "Checking the schedule returned by Registration"
       },
       "text": {
-        "ar": "يجب أن تتيح «أدوات الجدول ← الملفات» (زرّ «افحص جدول التسجيل») لمن يملك صلاحية استيراد PDF (النموذج 7) داخل نطاقه، وبصفةٍ غير مقصورة على الاطّلاع، أن يرفع ملف PDF الذي أعاده التسجيل فيُقرأ في ذاكرة الخادم بالقارئ نفسه دون أي كتابة (readOnly=1)، ثم يُقارن بالجدول الحيّ وبنسخة آخر ما رآه التسجيل، ويُعرض في أربع مجموعات: «مطابق»، و«فيه خلل» (الوقت أو الأيام أو القاعة أو الأستاذ، أو شعبةٌ على طرفٍ واحد)، و«لم يُنفَّذ» (تعديلٌ بعد آخر إرسال ما زال الملف يعرض قديمه)، و«تحتاج نظرك». تُعرَف الشعبة بالرقم المرجعي (CRN) ثم برمز المقرر ورقم الشعبة المطبوع ثم المولَّد؛ وكل مطابقةٍ تقريبية أو التباسٍ أو خانةٍ لم تُقرأ بيقين تُوضع في «تحتاج نظرك» ولا تُحسب مطابقةً ولا خللاً، وتُذكر الخانات التي لم يطبعها الملف فلم تُقارَن. لكل بطاقة ما عندنا وما في الملف وزر «افتح الموعد». وإن أعاد التسجيلُ ترقيمَ الشعب فبقي الموعدُ نفسه (المقرر والأيام والبداية والنهاية) برقمٍ آخر، عُرض في «تحتاج نظرك» برقمَيه ولم يُعدّ خللاً، مع تقديم ما اتفقت قاعتُه.",
-        "en": "The schedule tools, under Files (the «check the registrar schedule» button), shall let a user holding the PDF-import permission (form 7), within scope and not in a view-only capacity, upload the PDF Registration sent back; the file is read in server memory by the same reader with no write at all (readOnly=1), then compared with the live schedule and with the version Registration last saw, and shown in four groups: matched, faulty (time, days, room, instructor, or a section on one side only), not carried out (a change made after the last send that the file still shows in its old form), and needs your look. A section is identified by the reference number (CRN), then by course code plus the printed section number, then the generated one; every approximate match, ambiguity or cell not read with certainty goes to «needs your look» and is counted neither as matched nor as faulty, and the cells the file did not print are listed as not compared. Each card shows what we have and what the file shows, with an «open the appointment» action. When Registration renumbers sections and the same slot (course, days, start and end) appears under another number, it is shown under needs your look with both numbers and is not counted as a fault, preferring the section whose room matches."
+        "ar": "يجب أن تتيح «أدوات الجدول ← الملفات» (زرّ «افحص جدول التسجيل») لمن يملك صلاحية استيراد PDF (النموذج 7) داخل نطاقه، وبصفةٍ غير مقصورة على الاطّلاع، أن يرفع ملف PDF الذي أعاده التسجيل فيُقرأ في ذاكرة الخادم بالقارئ نفسه دون أي كتابة (readOnly=1)، ثم يُقارن بالجدول الحيّ وبنسخة آخر إرسال وبملف التسجيل الأصلي إن وُجد، وتُعرض **الفروق وحدها** في أربع مجموعات: «أرسلناه ولم يُنفَّذ»، و«تعديل جديد لم يُرسل بعد»، و«يخالف جدولكم» (ومنه «ظهرت بخطأ»)، و«تحتاج نظرك»، والمطابقُ سطرٌ واحد بعدده. تُعرَف الشعبة برمز المقرر والرقم المرجعي (CRN)، ورقمُ CRN لصفوفنا هو ما يطبعه «تقرير تغييرات الجدول» (اقتران ملف التسجيل الأصلي بالجدول: الرقم المرجعي للصف الأصلي، وإلا رقم الصف)؛ واختلافُ رقم الشعبة وحده ليس فرقاً ويُذكر الرقمان بهدوء. فإن غاب الرقم المرجعي عن أحد الطرفين رُجع إلى المقرر والموعد نفسه (إن انفرد)، ثم المقرر ورقم الشعبة، ثم المقرر وحده في «تحتاج نظرك»؛ وإضافةٌ ظهرت عندهم بمقررٍ آخر أو أيامٍ أخرى تُعرف بالوقت والأستاذ إن انفرد الشبيه، وإلا «تحتاج نظرك». تُقارن الأيام والوقت والمبنى والقاعة والأستاذ والمقرر، ويتسامح الأستاذ مع الاسم المقصوص والألقاب و«بو حمد/بوحمد». لكل بطاقة الرقم المرجعي والمقرر وخاناتٌ «عندهم ← المطلوب» بأيقوناتها.",
+        "en": "The schedule tools, under Files (the «check the registrar schedule» button), shall let a user holding the PDF-import permission (form 7), within scope and not in a view-only capacity, upload the PDF Registration sent back; the file is read in server memory by the same reader with no write at all (readOnly=1), compared with the live schedule, the last-sent version and the original registrar file when one exists, and **only the differences** are shown in four groups: sent but not applied, new change not yet sent, differs from your schedule (including «appeared wrongly»), and needs your look, with matched sections collapsed into one counted line. A section is identified by course code plus reference number (CRN); our rows' CRN is the one the schedule-changes report prints (the original registrar row paired with the live row, else the row's own number). A differing section number alone is not a difference and both numbers are shown quietly. When the CRN is missing on either side the check falls back to course plus the same slot (when unique), then course plus section number, then course alone under needs your look; an addition that appeared under another course or other days is recognised by time and teacher when the look-alike is unique, otherwise needs your look. Days, time, building and room, teacher and course are compared; teacher names tolerate truncation, titles and «بو حمد/بوحمد». Each card shows the CRN, the course and compact «theirs → required» fields with icons."
       },
       "rationale": {
         "ar": "حين يعيد التسجيلُ الجدولَ للمراجعة يحتاج القسمُ جواباً في نظرةٍ: هل في ما طُبع خلل، وهل نُفِّذ ما عدّلناه؟ والحكمُ بالتخمين أسوأ من الصمت.",
@@ -3027,8 +3027,16 @@
           "en": "POST /api/schedules/registrar-check: 401 when signed out, 403 without form 7 or outside the department scope, 400 without a section and term, without rows or above 600 rows; after the call the schedules, versions, approval record and database file are byte-for-byte unchanged."
         },
         {
-          "ar": "موعدٌ عدّله القسم بعد آخر إرسال والملف على قديمه يظهر في «لم يُنفَّذ» بالقديم والمطلوب وما في الملف؛ وملفٌ يخالف القديم والجديد معاً يظهر خللاً؛ وشعبةٌ برقمٍ مختلف أو برمزٍ مختلف بالاسم وحده تظهر «تحتاج نظرك» لا مطابقةً.",
-          "en": "An appointment the department edited after the last send, with the file still showing the old value, appears under «not carried out» with the old value, the requested one and the file's; a file that disagrees with both appears as faulty; a section with a different number, or a different code matched by name alone, appears under «needs your look», never as a match."
+          "ar": "بالرقم المرجعي: شعبةٌ أعاد التسجيلُ ترقيمها (501 عندنا و507 عندهم) مطابقة لا فرق؛ وحقلُ رقمٍ في صفّنا يخالف التسجيل (11064) لا يُستعمل حين يوجد ملف التسجيل الأصلي.",
+          "en": "With the CRN: a section Registration renumbered (501 here, 507 there) is matched, not a difference; a reference field on our row that disagrees with Registration (11064) is not used when the original registrar file exists."
+        },
+        {
+          "ar": "خانةٌ غيّرها القسم بعد آخر إرسال وملفُّهم على قديمها: «تعديل جديد لم يُرسل بعد»؛ وخانةٌ أرسلناها وملفُّهم على الأصل: «أرسلناه ولم يُنفَّذ»؛ وحذفٌ أرسلناه وما زال: «احذفوا» برقمه؛ وملفٌ يخالف القديم والجديد معاً: «يخالف جدولكم».",
+          "en": "A field the department changed after the last send while their file shows the old value: new change not yet sent; a field we sent while their file still shows the original: sent but not applied; a deletion we sent that still exists: delete with its CRN; a file disagreeing with both old and new: differs from your schedule."
+        },
+        {
+          "ar": "إضافتنا (112، الاثنين والأربعاء 11:00–12:20) ظهرت عندهم 114 برقم 10212 بالأستاذ نفسه: «ظهرت بخطأ» بالمقرر؛ وشبيهان بالوقت والأستاذ: «تحتاج نظرك»؛ واسمٌ مقصوص («عبدالله عبدالعزيز عبدالله ال») لا يُحسب فرقاً.",
+          "en": "Our addition (112, Mon/Wed 11:00–12:20) that appeared as their 114 with CRN 10212 and the same teacher: appeared wrongly, by course; two look-alikes by time and teacher: needs your look; a truncated name is not a difference."
         },
         {
           "ar": "العمود الفارغ في الملف (الأستاذ أو الأيام) وسجلّ «هيئة تدريسية» لا يُحسبان اختلافاً بل يُذكران «لم تُقارَن»؛ وفي المسح الضوئي لا يُحكم بخانةٍ لم تثبت قراءتها.",
@@ -3039,9 +3047,56 @@
         "code": [
           "src/utils/registrarCheck.ts",
           "src/server/routes/scheduleImportRoutes.ts#/api/schedules/registrar-check",
+          "src/server/core/authority.ts#authorityDraftForScope",
           "src/server/routes/pdfImportRoutes.ts",
-          "src/components/RegistrarPdfCheck.tsx",
-          "src/components/ScheduleChanges.tsx"
+          "src/components/RegistrarPdfCheck.tsx"
+        ],
+        "tests": [
+          "tests/registrar-check-audit.ts",
+          "tests/registrar-check-route-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-APR-041",
+      "kind": "functional",
+      "title": {
+        "ar": "طلب تعديل للتسجيل: يُحفظ ويصل التسجيل ويُشطب ويتحقق ذاتياً",
+        "en": "Change request to Registration: saved, delivered, ticked and self-verified"
+      },
+      "text": {
+        "ar": "يجب أن يحفظ «احفظ طلب التعديل» نتيجة الفحص على الخادم (يعيد الخادمُ الفحص بالصفوف نفسها) طلباً مؤرَّخاً مربوطاً بجولة الاعتماد الجارية، فيه التاريخ واسم الملف والأعداد والبنود وحدها: بندٌ لكل شعبة مفتاحُه الرقم المرجعي في ثلاث فئات «عدّلوا» (الرقم المرجعي والمقرر وشعبتهم والحالي عندهم ← المطلوب) و«أضيفوا» (المقرر والموعد والقاعة والأستاذ) و«احذفوا» (الرقم المرجعي)، بلا أرقام مدنية. يظهر كل طلب تحت «تغييرات الجدول» شريحةً بتاريخه وعدد بنوده تفتح الطلب، ويُطبع «طلب تعديل للتسجيل» صفحةً واحدة، ويحذفه القسم بعد تأكيد. ويرى التسجيلُ المراجع في وارده بطاقةً لكل قسمٍ «طلب تعديل · التاريخ · عدد البنود» لجولته الجارية، فيشطب كل بند «نُفّذ» ويُحفظ من شطب ومتى، ويرى القسمُ «٥ من ٧ نُفّذت». وحين يفحص القسمُ ملف التسجيل التالي يُقابَل كل بندٍ مشطوب به: ما زال فرقُه صار «تأكّد»، وما بقي عاد مفتوحاً «شُطب ولم يظهر في الملف». لا يراه الأستاذ.",
+        "en": "«Save the change request» shall store the check result on the server (the server re-runs the check from the same rows) as a dated request tied to the current approval round, holding only the date, file name, counts and items: one item per section keyed by CRN in three groups, edit (CRN, course, their section, current there → required), add (course, slot, room, teacher) and delete (CRN), with no civil IDs. Each request appears under schedule changes as a chip with its date and item count that opens it; «change request to Registration» prints as one page, and the department may delete it after confirmation. The reviewing registrar sees in the inbox one card per department, «change request · date · N items», for its current round, ticks each item done with who and when recorded, and the department sees «5 of 7 done». When the department checks Registration's next file, every ticked item is matched against it: one whose difference is gone becomes confirmed, one still present reopens as «ticked but not reflected in the file». Teachers never see it."
+      },
+      "rationale": {
+        "ar": "ما يُطلب من التسجيل يجب أن يصله داخل النظام ويُتابع حتى يثبت في الملف، لا أن يضيع في ورقة.",
+        "en": "What is asked of Registration must reach it inside the system and be followed until the file proves it, not lost on paper."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "registrarStaff"
+      ],
+      "acceptance": [
+        {
+          "ar": "POST /api/schedules/registrar-requests وverify وDELETE: ٤٠١ بلا دخول، و٤٠٣ بلا النموذج 7 أو خارج النطاق أو للتسجيل؛ وGET بالقسم للنموذج 7 والتسجيل المراجع بنطاقهما (٤٠٣ للأستاذ ولتسجيل قسمٍ آخر)؛ وinbox وtick للتسجيل المراجع وحده بنطاقه.",
+          "en": "POST /api/schedules/registrar-requests, verify and DELETE: 401 signed out, 403 without form 7, outside scope or for registrar staff; GET per department for form 7 holders and reviewing registrar within scope (403 for teachers and for another department's registrar); inbox and tick for reviewing registrar only, within scope."
+        },
+        {
+          "ar": "الشطب يحفظ الاسم والوقت ويُرفع؛ والتقدّم «من نُفّذ من الكل»؛ وملفٌ تالٍ يُثبت البند «تأكّد» ويعيد غيره مفتوحاً؛ وملفٌ لم يُقرأ منه شيء لا يغيّر بنداً؛ والطلبات لا تمسّ الجداول ولا النُّسخ ولا الاعتماد.",
+          "en": "A tick stores name and time and can be undone; progress counts done of total; a later file confirms an item or reopens it; a file with nothing read changes no item; requests never touch schedules, versions or the approval record."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/registrarRequest.ts",
+          "src/server/routes/scheduleImportRoutes.ts#/api/schedules/registrar-requests",
+          "src/components/RegistrarRequests.tsx",
+          "src/components/ScheduleChanges.tsx",
+          "src/styles/72-registrar-check.css"
         ],
         "tests": [
           "tests/registrar-check-audit.ts",

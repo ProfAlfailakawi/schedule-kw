@@ -34,11 +34,10 @@ import { REPORT_STAMP_KIND_LABEL, REPORT_STAMP_MAX_ROWS, compareReportStamp, nor
 import { reportStampPage, type ReportStampLine } from "../reportStampPage";
 import { publicPageNonce } from "../core/publicPages";
 import { isInvalidLocationToken, roomIdentityKey } from "../../utils/locationRegistry";
-import { siblingBranchScopes } from "../../utils/branchScope";
 import * as XLSX from "xlsx";
 import { countBlockingConflicts, readApproval, readDeadlineFor, regulationNoticesForScope } from "../core/approvals";
 import { type AuthenticatedRequest, getCookies, requireAnyPermission, requireAuth, requirePermission } from "../core/auth";
-import { authorityBaselineForScope, authorityCourseCodeMap, buildAuthorityPdfDiff, buildAuthorityPdfDiffWithHistory, inferAuthorityBranchCode } from "../core/authority";
+import { authorityBaselineForScope, authorityCourseCodeMap, authorityDraftForScope, buildAuthorityPdfDiff, buildAuthorityPdfDiffWithHistory, inferAuthorityBranchCode } from "../core/authority";
 import { notesWithState } from "../core/notes";
 import { courseNameCollator, sortTermsNewestServer, verifiedRoomKey } from "../core/ordering";
 import { finalRowsOnly, readSchedulesForRequest, readsFinalSchedulesOnly } from "../core/scheduleReads";
@@ -74,38 +73,6 @@ async function wholeCollegeSectionIds(req: AuthenticatedRequest, collegeId: numb
   const allowed = (c: number, s: number) => isScopeAllowed(req, c, s);
   if (!coversWholeCollege(sections, allowed, collegeId)) return [];
   return sections.filter(row => Number(row.AdCollegeId) === collegeId).map(row => Number(row.AdSectionId)).filter(Boolean);
-}
-
-/**
- * النسخة المعتمدة التي تخص النطاق، ولو كانت محفوظةً عند موقع شقيق للفرع.
- *
- * تقرير PDF وشاشة تغييرات الجدول يجب أن يبدآ من الوثيقة نفسها. إبقاء البحث
- * داخل مسار التقرير وحده جعل الشاشة تسقط إلى لقطات الجولات، وحين لا تجدها
- * تقارن بالعدم فتصف الجدول كله بأنه «مضاف». هذه الدالة هي الباب الواحد
- * للعثور على الوثيقة المعتمدة في الموضعين.
- */
-async function authorityDraftForScope(collegeId:number,sectionId:number,termId:number){
-  const authorityDrafts=(list:any[])=>list.filter((item:any)=>
-    item.importLayout==="authority-pdf"&&Array.isArray(item.baselineRows)&&item.baselineRows.length
-  );
-  const local=authorityDrafts(await Repository.getScheduleDrafts(collegeId,sectionId,termId));
-  let draft=local.find((item:any)=>item.status==="published")||local[0];
-  if(draft)return draft;
-
-  const [colleges,sections]=await Promise.all([Repository.getColleges(),Repository.getSections()]);
-  const siblings=siblingBranchScopes({colleges:colleges as any,sections:sections as any,baseCollegeId:collegeId,baseSectionId:sectionId})
-    .filter(scope=>!(Number(scope.collegeId)===collegeId&&Number(scope.sectionId)===sectionId));
-  for(const scope of siblings){
-    const candidates=authorityDrafts(await Repository.getScheduleDrafts(scope.collegeId,scope.sectionId,termId));
-    const owned=[] as any[];
-    for(const candidate of candidates){
-      const mine=await authorityBaselineForScope(candidate.baselineRows||[],candidate,collegeId,sectionId);
-      if(mine.length)owned.push(candidate);
-    }
-    draft=owned.find((item:any)=>item.status==="published")||owned[0];
-    if(draft)return draft;
-  }
-  return undefined;
 }
 
 /** السؤال عن قسمٍ واحد، حين لا يكون في اليد جدولُ الفصل أصلاً. */

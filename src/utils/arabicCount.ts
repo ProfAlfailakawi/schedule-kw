@@ -153,6 +153,7 @@ export const AR = {
   level:       { one: "مستوى", two: "مستويان", few: "مستويات", many: "مستوى" },
   move:        { one: "حركة", two: "حركتان", few: "حركات", many: "حركة" },
   change:      { one: "تغيير", two: "تغييران", few: "تغييرات", many: "تغييراً" },
+  difference:  { one: "فرق", two: "فرقان", few: "فروق", many: "فرقاً" },
   point:       { one: "نقطة", two: "نقطتان", few: "نقاط", many: "نقطة" },
   layer:       { one: "طبقة", two: "طبقتان", few: "طبقات", many: "طبقة" },
   meeting:     { one: "لقاء", two: "لقاءان", few: "لقاءات", many: "لقاءً" },
