@@ -35,6 +35,8 @@ import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { useScopedTerms } from "./useScopedTerms";
 import ScopeAskBar, { trimScopeSelects, type ScopeAskSelect } from "./ScopeAskBar";
 import ApplyProposal from "./ApplyProposal";
+import SpecialCaseOpening from "./SpecialCaseOpening";
+import type { SpecialMeeting } from "./SpecialSectionBuilder";
 import { withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import { usePageAwake } from "../utils/pageAwake";
@@ -104,6 +106,8 @@ interface CaseCourse {
   /** مالكُ المقرّر وقسمه (من الخادم). */
   sectionId?: number;
   sectionName?: string;
+  /** مقررٌ نظريٌّ وعمليّ (CourseSpecialNature): تُفتح شعبتُه بلقاءيها معاً (SpecialCaseOpening). */
+  special?: any;
 }
 
 interface CaseDecisionView {
@@ -471,6 +475,8 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
      لا يملك صلاحيةَ الجدول يُرفض الطلب فلا يُعرض زرٌّ — والتسجيلُ لا يرى منها شيئاً. */
   const { isVisiting } = useVisitingLookup(termId);
   const [openings, setOpenings] = useState<Map<number, { shortfall: number; slot: any }>>(new Map());
+  /* موافقةٌ تفتح شعبةً لمقررٍ نظريٍّ وعمليّ: ورقةُ منشئ الشعبة مفتوحةٌ لهذا الطالب وهذا المقرر. */
+  const [specialOpening, setSpecialOpening] = useState<{ row: CaseRow; course: CaseCourse } | null>(null);
   const loadOpenings = useCallback(async () => {
     if (!canReadDemand || !collegeId || !sectionId || !termId) { setOpenings(new Map()); return; }
     try {
@@ -760,7 +766,14 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
             </button> : null}
           </span>
         ) : null}
-            {!frozen && committeeActs && !course.settled && !course.readOnly && !course.droppedByStudent && openings.get(course.id) ? (() => {
+            {!frozen && committeeActs && !course.settled && !course.readOnly && !course.droppedByStudent && course.special ? (
+              <button type="button" className="changes-chip ssb-case-open" disabled={busyKey === key}
+                onClick={() => setSpecialOpening({ row, course })}
+                data-guide-ignore="يفتح منشئ شعبة المقرر النظري والعملي لهذا الطلب؛ لا يُسجَّل شيء قبل الحفظ">
+                <Check aria-hidden="true" /> موافقة + فتح شعبة (نظري + عملي)
+              </button>
+            ) : null}
+            {!frozen && committeeActs && !course.settled && !course.readOnly && !course.droppedByStudent && !course.special && openings.get(course.id) ? (() => {
               const proposal = openings.get(course.id)!, slot = proposal.slot;
               return (
                 <ApplyProposal
@@ -1124,6 +1137,35 @@ export default function StudentRegistration({ scopes, powerAdmin = false, onNavi
                 : await setState(row, course, target.committee ? "committee-rejected" : "rejected", { reasonCode: reason, note });
               if (saved) setRejecting(null);
             })();
+          }}
+        />
+      ) : null}
+      {specialOpening ? (
+        <SpecialCaseOpening
+          key={`${specialOpening.row.id}:${specialOpening.course.id}`}
+          course={specialOpening.course.special}
+          studentName={specialOpening.row.name}
+          termId={termId}
+          suggestedInstructorId={Number(openings.get(specialOpening.course.id)?.slot?.instructorId || 0) || undefined}
+          onClose={() => setSpecialOpening(null)}
+          onCheck={async (meetings: SpecialMeeting[], instructorId: number) => {
+            const course = specialOpening.course.special;
+            try {
+              const reply = await request("/api/schedules/special-section", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ AdCollegeId: course.AdCollegeId, AdSectionId: course.AdSectionId, AdTermId: termId, AdCourseId: course.AdCourseId, AdInstructorId: instructorId, meetings, dryRun: true }),
+              });
+              return { ok: true, notes: (Array.isArray(reply?.regulation) ? reply.regulation : []).map((issue: any) => String(issue?.text || "")).filter(Boolean) };
+            } catch (issue: any) { return { ok: false, error: String(issue?.message || "تعذّر الفحص") }; }
+          }}
+          onSave={async (meetings: SpecialMeeting[], instructorId: number) => {
+            const { row, course } = specialOpening;
+            await request(`/api/student-registration/${row.id}/course-state`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ courseId: course.id, state: "awaiting-registration", openSection: { meetings, instructorId }, expectedAt: course.at || "" }),
+            });
+            setSpecialOpening(null);
+            void load(); void loadOpenings();
           }}
         />
       ) : null}

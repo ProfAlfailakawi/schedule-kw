@@ -65,3 +65,13 @@
 .pr-line{display:inline-flex;align-items:center;gap:4px;color:var(--info);font-weight:700}
 .pr-line svg{width:1em;height:1em}
 @media print{.pr-mark,.course-special-badge,.pr-line{border-color:#000;background:#fff;color:#000}.week-event[data-practical="true"],.agenda-card[data-practical="true"]{background-image:none}}
+/* ورقةُ «موافقة + فتح شعبة» لمقررٍ نظريٍّ وعمليّ في كشف التسجيل */
+.ssb-case-card{width:min(980px,96vw);max-height:92vh;overflow:auto;display:grid;gap:12px}
+.ssb-case-card>header strong{display:inline-flex;align-items:center;gap:8px}
+.ssb-case-card>header strong svg{color:var(--info)}
+.ssb-case-lead,.ssb-case-hint{margin:0;color:var(--muted-text);font-size:.88rem}
+.ssb-case-teacher{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.ssb-case-teacher>span{font-weight:700}
+.ssb-case-teacher select{min-height:42px;min-width:min(320px,100%);border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:6px 10px;font:inherit}
+.ssb-case-error{margin:0;padding:8px 12px;border-radius:10px;background:var(--danger-soft);color:var(--danger);font-weight:650}
+.ssb-case-open svg{color:var(--info)}
