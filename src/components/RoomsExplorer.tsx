@@ -63,11 +63,11 @@ function useSlide(open: boolean) {
 }
 
 /** مجالاتُ القاعة كصفوفٍ بسيطة لمساعدَي roomNow/roomQuery. */
-const rowsOfRoom = (room: RxRoom, days: RxDay[]): Array<RoomNowRow & Record<string, any>> =>
+export const rowsOfRoom = (room: RxRoom, days: RxDay[]): Array<RoomNowRow & Record<string, any>> =>
   room.perDay.flatMap((list, index) => list.map(item => ({ fstarttime: clockText(item.from), fendtime: clockText(item.to), [days[index]?.key || ""]: true })));
 
 /** نصُّ الحاجة المفهومة شريحةً: سعة · مختبر · يوم · وقت. */
-const needLabel = (need: RoomQuery, days: RxDay[]): string => [
+export const needLabel = (need: RoomQuery, days: RxDay[]): string => [
   need.minCapacity ? `${countOf(need.minCapacity, AR.seat)} فأكثر` : "",
   need.lab ? "مختبر" : "",
   need.day ? days.find(day => day.key === need.day)?.label : "",

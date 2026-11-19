@@ -26,6 +26,7 @@
   ],
   "sources": [
     "src/components/LadderStartHint.tsx",
+    "src/components/RoomsBoardBar.tsx",
     "src/components/RoomsExplorer.tsx",
     "src/components/RoomsDropdown.tsx",
     "src/components/RoomsOverview.tsx",
@@ -5245,12 +5246,12 @@
       "id": "FR-SCH-087",
       "kind": "functional",
       "title": {
-        "ar": "المباني والقاعات: قاعة واحدة في الشاشة",
-        "en": "Buildings and rooms: one room on screen"
+        "ar": "المباني والقاعات: لوحة كل القاعات على الكمبيوتر وقاعة واحدة على الهاتف",
+        "en": "Buildings and rooms: the all-rooms board on desktop, one room on phone"
       },
       "text": {
-        "ar": "يجب على النظام أن يعرض عرض «المباني والقاعات» بقائمتين منسدلتين للمبنى والقاعة (فيهما بحث وحلقة إشغال)، وقاعةٍ واحدة في الشاشة برمزها وسعتها وحالتها الآن وأقرب فراغ فيها، وأسبوعها مطويّ في شريط واحد يُفتح بالضغط، ومقارنةً بقاعتين إضافيتين على الأكثر؛ وزرّ «نظرة المبنى» بخريطة لونية هادئة لكل قاعة في يومٍ مختار بلا نصوص؛ ونقلٌ إلى قاعة أخرى من قائمة تبيّن المتاحة وسبب غير المتاحة وبالمسار نفسه للنقل؛ وكل قدرة العرض السابق باقية.",
-        "en": "The system shall present the buildings-and-rooms view with building and room dropdowns (with search and an occupancy ring), one room on screen with its code, capacity, status now and nearest vacancy, its week folded into a single bar that opens on tap, a comparison of at most two extra rooms, and a building overview as a quiet colour map per room for a chosen day with no text; moving an appointment to another room from a list that shows which rooms are free and why the others are not, through the same move path; every capability of the previous view remains."
+        "ar": "يجب على النظام أن يعرض عرض «المباني والقاعات» على الكمبيوتر بلوحة تجمع كل قاعات المبنى مقابل ساعات اليوم، وفوقها شريطٌ فيه مربع بحث يفهم الحاجة المكتوبة («40 مقعداً الأحد 10») فتخفت القاعات غير المناسبة أو تُطوى بزرّ دون أن تُحذف، والمباني أزراراً بشريط إشغال تحت كل منها، والقاعات شرائح؛ وعلى الهاتف يعرض قاعةً واحدة في الشاشة بقائمتين منسدلتين للمبنى والقاعة (فيهما بحث وحلقة إشغال)، برمزها وسعتها وحالتها الآن وأقرب فراغ فيها، وأسبوعها مطويّ في شريط واحد يُفتح بالضغط، ومقارنةً بقاعتين إضافيتين على الأكثر، وزرّ «نظرة المبنى» بخريطة لونية لكل قاعة في يومٍ مختار؛ ونقلٌ إلى قاعة أخرى من قائمة تبيّن المتاحة وسبب غير المتاحة وبالمسار نفسه للنقل؛ وكل قدرة العرض السابق باقية.",
+        "en": "The system shall present the buildings-and-rooms view on desktop as a board gathering every room of the building against the hours of the day, with a bar above it holding a search box that understands a typed need (40 seats Sunday 10), so rooms that do not fit fade or fold away by one button without being removed, buildings as buttons each with an occupancy bar, and rooms as chips; on phone it shows one room on screen with building and room dropdowns (with search and an occupancy ring), its code, capacity, status now and nearest vacancy, its week folded into a single bar that opens on tap, a comparison of at most two extra rooms, and a building overview as a colour map per room for a chosen day; moving an appointment to another room from a list that shows which rooms are free and why the others are not, through the same move path; every capability of the previous view remains."
       },
       "priority": "must",
       "status": "implemented",
@@ -5266,10 +5267,15 @@
         {
           "ar": "«أقرب فراغ» يفتح محرّر الموعد مملوءاً بالقاعة واليوم والبداية.",
           "en": "The nearest-vacancy chip opens the appointment editor prefilled with room, day and start."
+        },
+        {
+          "ar": "على الكمبيوتر تظهر كل قاعات المبنى معاً في لوحة واحدة، وكتابة «الأحد 10» تخفّت القاعات المشغولة في ذلك الوقت.",
+          "en": "On desktop all rooms of the building show together in one board, and typing Sunday 10 fades the rooms busy at that time."
         }
       ],
       "evidence": {
         "code": [
+          "src/components/RoomsBoardBar.tsx",
           "src/components/RoomsExplorer.tsx",
           "src/components/RoomsDropdown.tsx",
           "src/components/RoomsOverview.tsx",
