@@ -89,7 +89,6 @@ const EXPECTED: Record<string, [string, number]> = {
   check(sheetHomeCode(lab) === "72" && ownsSheet(lab, at("72"), [at("72"), at("48")]) && !ownsSheet(lab, at("48"), [at("72"), at("48")]), "تكنولوجيا المختبرات (72) لقسمها لا للصيدلانية المطبوعة في ترويستها");
   check(sheetHomeCode(rt) === "42" && ownsSheet(rt, at("42"), [at("42")]), "العلاج التنفسي لقسم العلوم الطبية التطبيقية (42)");
   check(sheetSectionName(rt, "قسم العلوم الطبية التطبيقية") === "" && sheetSectionName(completion, "قسم م") === "" && sheetSectionCode(rt, "42") === "", "المسار (DP/BC) لا يسمّي القسم ولا يرمّزه من ترويسته");
-  const fixed = (name: string) => correctCourseName(name).name;
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);
 })();
