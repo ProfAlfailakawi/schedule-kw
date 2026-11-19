@@ -166,6 +166,7 @@ async function main() {
       { id: "sidebar-open", run: async (p) => { await go(p, "/Home/Index"); await p.evaluate(`[...document.querySelectorAll("button[aria-label='فتح القائمة']")].find((b) => b.offsetParent)?.click()`); await sleep(900); } },
       { id: "modal-search", run: async (p) => { await go(p, "/Home/Index"); await clickText(p, "/بحث شامل|فتح البحث الشامل/"); await sleep(900); } },
       { id: "modal-details", run: async (p) => { await go(p, "/FSchedule/Index"); await p.evaluate(`document.querySelector(".agenda-card")?.click()`); await sleep(900); } },
+      { id: "modal-tools", run: async (p) => { await go(p, "/FSchedule/Index"); if (!(await clickText(p, "/^أدوات الجدول$/"))) { await clickText(p, "/^المزيد$/"); await sleep(500); await clickText(p, "/^أدوات الجدول$/"); } await sleep(1100); } },
       { id: "trail-sheet", run: async (p) => { await go(p, "/Home/Index"); await p.evaluate(`document.querySelector(".user-card-tools .trail-open")?.click()`); await sleep(900); } },
       { id: "public-about", authed: false, run: async (p) => { await go(p, "/Public/Aboutus"); } },
       { id: "not-found", run: async (p) => { await go(p, "/no-such-page"); } },
