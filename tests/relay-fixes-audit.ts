@@ -459,8 +459,9 @@ async function revisionBehaviour() {
       check(unchanged.length === 5, "R7-review قراراتُ الاعتماد الخمسة بلا كتابة صفوف");
       /* +1: استبدال شعبة «هيئة تدريسية» الذرّي (placeholder-action) يلتقط ويسجّل كغيره.
          +1 لكلٍّ: اعتمادُ آلة الزمن واستعادتُها (timeMachineRoutes عبر الحقن في server.ts).
-         +1: التراجعُ عن تثبيتٍ من الوارد (undo-decision) يلتقط ويسجّل ما صار من صفوفه. */
-      check(callers.length - unchanged.length === 16 && (server.match(/await recordVersionAfter\(/g) || []).length === 17
+         +1: التراجعُ عن تثبيتٍ من الوارد (undo-decision) يلتقط ويسجّل ما صار من صفوفه.
+         +1: شعبةُ المقرر ذي الطبيعة الخاصة (special-section) تلتقط وتسجّل ما صار من لقاءاتها الذرّية. */
+      check(callers.length - unchanged.length === 17 && (server.match(/await recordVersionAfter\(/g) || []).length === 18
         && server.includes("recordVersionAfter(before, current => current.map(row => byId.get(Number(row.id)) || row))"),
         "R7-review كلُّ عمليةٍ تكتب صفوفاً تسجّل ما صار من صفوفها (الإضافة، التعديل ونقله، الحذف، الاستبدال، استبدال «هيئة تدريسية»، النسخ، النشر، الاسترجاع، التراجع، مسح الجدول بالكامل وإرجاعه، اعتماد آلة الزمن واستعادتها)");
       /* إضافةُ الموعد معالجٌ مسمّى (يستعمله «اعتماد الاقتراح» أيضاً): الجسمُ عند تعريفه لا عند تسجيل المسار. */

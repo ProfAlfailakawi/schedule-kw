@@ -4581,7 +4581,8 @@ export const Repository = {
     attachToActive = true,
     courseRoomType = "",
     courseTeachingMode?: AdCourse["CourseTeachingMode"] | null,
-    courseCompanionRoomType = ""
+    courseCompanionRoomType = "",
+    courseSpecialNature = false
   ): Promise<AdCourse> => {
     /* اسمٌ منسوخٌ من PDF يُحفظ حروفاً عادية لا «أشكال عرض» — لكل طريق كتابة. */
     name = normalizeArabicText(name);
@@ -4599,7 +4600,8 @@ export const Repository = {
         MaxStudent: maxStudent,
         ...(courseRoomType.trim() ? { CourseRoomType: courseRoomType.trim() } : {}),
         ...(courseTeachingMode ? { CourseTeachingMode: courseTeachingMode } : {}),
-        ...(courseCompanionRoomType ? { CourseCompanionRoomType: courseCompanionRoomType } : {})
+        ...(courseCompanionRoomType ? { CourseCompanionRoomType: courseCompanionRoomType } : {}),
+        ...(courseSpecialNature ? { CourseSpecialNature: true } : {})
       };
       /* The course code is unique within its department, and that uniqueness is
          claimed in the same transaction that writes the record. Two identical
@@ -4646,7 +4648,8 @@ export const Repository = {
       MaxStudent: maxStudent,
       ...(courseRoomType.trim() ? { CourseRoomType: courseRoomType.trim() } : {}),
       ...(courseTeachingMode ? { CourseTeachingMode: courseTeachingMode } : {}),
-        ...(courseCompanionRoomType ? { CourseCompanionRoomType: courseCompanionRoomType } : {})
+        ...(courseCompanionRoomType ? { CourseCompanionRoomType: courseCompanionRoomType } : {}),
+        ...(courseSpecialNature ? { CourseSpecialNature: true } : {})
     };
     db.courses.push(newCourse);
     saveDatabase();
@@ -4666,7 +4669,9 @@ export const Repository = {
     maxStudent: number,
     courseRoomType?: string,
     courseTeachingMode?: AdCourse["CourseTeachingMode"],
-    courseCompanionRoomType?: string
+    courseCompanionRoomType?: string,
+    /** undefined يُبقي ما هو قائم: المسارات التي لا تعرف هذا الحقل (الصحائف، المطابقة) لا تمحوه. */
+    courseSpecialNature?: boolean
   ): Promise<AdCourse> => {
     /* اسمٌ منسوخٌ من PDF يُحفظ حروفاً عادية لا «أشكال عرض» — لكل طريق كتابة. */
     name = normalizeArabicText(name);
@@ -4686,7 +4691,8 @@ export const Repository = {
         MaxStudent: maxStudent,
         ...((courseRoomType===undefined?String(doc.data()?.CourseRoomType||""):courseRoomType).trim() ? { CourseRoomType: (courseRoomType===undefined?String(doc.data()?.CourseRoomType||""):courseRoomType).trim() } : {}),
         ...((courseTeachingMode===undefined?doc.data()?.CourseTeachingMode:courseTeachingMode) ? { CourseTeachingMode: courseTeachingMode===undefined?doc.data()?.CourseTeachingMode:courseTeachingMode } : {}),
-        CourseCompanionRoomType: courseCompanionRoomType === undefined ? String(doc.data()?.CourseCompanionRoomType || "") : courseCompanionRoomType
+        CourseCompanionRoomType: courseCompanionRoomType === undefined ? String(doc.data()?.CourseCompanionRoomType || "") : courseCompanionRoomType,
+        ...((courseSpecialNature === undefined ? Boolean(doc.data()?.CourseSpecialNature) : courseSpecialNature) ? { CourseSpecialNature: true } : {})
       };
       await docRef.set(updated);
       invalidateScheduleRelationCache();
@@ -4707,7 +4713,8 @@ export const Repository = {
       MaxStudent: maxStudent,
       ...((courseRoomType===undefined?previousRoomType:courseRoomType).trim() ? { CourseRoomType: (courseRoomType===undefined?previousRoomType:courseRoomType).trim() } : {}),
       ...((courseTeachingMode===undefined?db.courses[idx].CourseTeachingMode:courseTeachingMode) ? { CourseTeachingMode: courseTeachingMode===undefined?db.courses[idx].CourseTeachingMode:courseTeachingMode } : {}),
-      CourseCompanionRoomType: courseCompanionRoomType === undefined ? String(db.courses[idx].CourseCompanionRoomType || "") : courseCompanionRoomType
+      CourseCompanionRoomType: courseCompanionRoomType === undefined ? String(db.courses[idx].CourseCompanionRoomType || "") : courseCompanionRoomType,
+      ...((courseSpecialNature === undefined ? Boolean(db.courses[idx].CourseSpecialNature) : courseSpecialNature) ? { CourseSpecialNature: true } : {})
     };
     saveDatabase();
     await markRegistrationRunsStale();

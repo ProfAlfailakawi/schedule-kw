@@ -97,7 +97,7 @@ export async function plannedWeek(profile: StudentProfile, termId: number, catal
     if (!offering?.slots.length || !context.signed.has(`${offering.collegeId}:${offering.sectionId}`) || offeringBlocked(states, Number(item.courseId))) continue;
     const course = catalog.courses.get(Number(item.courseId));
     for (const slot of offering.slots) {
-      meetings.push({ courseId: Number(item.courseId), day: slot.day, start: slot.start, end: slot.end, name: course?.name || `مقرر ${item.courseId}`, code: course?.code || "", section: offering.code });
+      meetings.push({ courseId: Number(item.courseId), day: slot.day, start: slot.start, end: slot.end, name: `${course?.name || `مقرر ${item.courseId}`}${slot.p ? " · عملي" : ""}`, code: course?.code || "", section: offering.code });
     }
   }
   return { meetings, planReady: (planA?.items || []).length > 0, window: Number(ticket.window) || 0, runId: String(run.runId) };

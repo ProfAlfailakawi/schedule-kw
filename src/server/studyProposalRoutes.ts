@@ -42,7 +42,7 @@ import {
   snapshotOf, STATUS_LABEL, daysOf, courseLayouts, type DecisionState, type GridItem,
 } from "../utils/studyProposal";
 import {
-  evaluateProposal, gridItem, keyOfNew, keyOfRow, loadWorld, ofPerson, rankVacancies, suggestAlternatives, type EngineDeps, type LoadedWorld,
+  evaluateProposal, gridItem, keyOfNew, keyOfRow, loadWorld, ofPerson, patternHoursOf, rankVacancies, suggestAlternatives, type EngineDeps, type LoadedWorld,
 } from "./studyProposalEngine";
 import { withoutProposalPlaces } from "../utils/proposalTeacherView";
 import { sheetTagOf } from "../utils/sheetTag";
@@ -739,7 +739,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     /* ── التنفيذ ─────────────────────────────────────────────────────────── */
     const applied = applyProposalOps(world.termRows, ops, {
       instructorId: proposal.AdInstructorId, termId: proposal.AdTermId, placeholderId, onlyOpIds: new Set(ready.opIds),
-      courseHoursOf: (id: number) => effectiveCourseHours(world.catalog.courseById.get(id) as any),
+      courseHoursOf: (id: number) => patternHoursOf(world.catalog.courseById.get(id)),
     });
     if (applied.errors.length) return void refuse(409, "proposal-stale", applied.errors[0].message);
     const liveById = new Map(world.termRows.map(row => [Number(row.id), row]));
@@ -911,7 +911,7 @@ export function registerStudyProposalRoutes(app: Express, deps: StudyProposalRou
     const placeholderId = [...world.placeholders].sort((a, b) => a - b)[0] || null;
     const applied = applyProposalOps(world.termRows, ops, {
       instructorId: proposal.AdInstructorId, termId: proposal.AdTermId, placeholderId,
-      courseHoursOf: (id: number) => effectiveCourseHours(world.catalog.courseById.get(id) as any),
+      courseHoursOf: (id: number) => patternHoursOf(world.catalog.courseById.get(id)),
       /* بعد التثبيت صارت الصفوف حيّة: لا تُعاد العمليات عليها، فيُعرض الجدول الفعلي كما هو. */
       onlyOpIds: proposal.commit ? new Set<string>() : undefined,
     });

@@ -912,6 +912,7 @@ export async function pinReview(request: InstructorRequest): Promise<{ blocks: P
   const regulationContext = {
     week: termWeek, placeholders: placeholderInstructorIds(instructors as any),
     hoursOf: (courseId: number) => effectiveCourseHours(courseById.get(Number(courseId))),
+    specialOf: courseId => (courseById.get(Number(courseId)) as any)?.CourseSpecialNature === true,
     nameOf: (other: FSchedule) => String(courseById.get(Number(other.AdCourseId))?.CourseName || other.AdCourseName || ""),
   };
   const seenRuns = new Set<string>();
@@ -1714,7 +1715,7 @@ app.get("/api/public/request/:token/fixed/:itemId.ics", rateLimitCheckTimes, asy
     res.status(404).json({ error: "لا يوجد موعدٌ مثبَّت بهذا المعرّف." }); return;
   }
   const course = await Repository.getCourseById(Number(row.AdCourseId));
-  const title = [course?.CourseCode, row.AdCourseName || course?.CourseName].filter(Boolean).join(" · ") || "محاضرة";
+  const title = [course?.CourseCode, row.AdCourseName || course?.CourseName, (row as any).practical === true ? "عملي" : ""].filter(Boolean).join(" · ") || "محاضرة";
   await sendCalendar(req, res, title, Number(row.AdTermId), [{
     id: row.id, title, code: course?.CourseCode || "", section: row.SCode || "",
     start: row.fstarttime, end: row.fendtime, days: shareDayIndexes(row), revision: Number(row.rev || 0),

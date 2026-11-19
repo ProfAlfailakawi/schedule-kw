@@ -14,6 +14,7 @@
  *
  * «هيئة تدريسية» ليست شخصاً فلا تُعدّ سلاسلُها (placeholderInstructorIds). وكرتُ الأستاذ يمنع بنفسه.
  */
+import { sameRole } from "./specialNature";
 import { AR, countOf } from "./arabicCount";
 import { DAY_KEYS, DAY_NAMES, consecutiveTeachingRuns, ladderStepForDays, lectureLengthProblem, startLadderNote, toMinutes, type DayKey } from "./scheduleRegulations";
 
@@ -102,7 +103,9 @@ export function regulationExceptionIssues(input: RegulationExceptionInput): Regu
       && String(other.SCode ?? "").trim() === String(row.SCode ?? "").trim()
       && Number(other.AdCollegeId || 0) === Number(row.AdCollegeId || 0)
       && Number(other.AdSectionId || 0) === Number(row.AdSectionId || 0)
-      && validSpan(other) && clockOf(other.fstarttime) !== start);
+      && validSpan(other) && clockOf(other.fstarttime) !== start
+      /* المقررُ الخاص: نظريُّه وعمليُّه وقتان مستقلان — البدايةُ الثابتة تُقارَن داخل الدور الواحد. */
+      && sameRole(other as any, row as any));
     if (sibling) issues.push({
       rule: "fixed-start",
       article: "م.7/9",

@@ -452,7 +452,7 @@ export function ticketContext(termId: number): Promise<TicketContext> {
       const start = parseClock(row.fstarttime), end = parseClock(row.fendtime);
       if (start === null || end === null || end <= start) continue;
       for (const [field, day] of DAYS) if ((row as any)[field]) {
-        if (!offering.slots.some(slot => slot.day === day && slot.start === start && slot.end === end)) offering.slots.push({ day, start, end, ...(row.buildingId ? { b: String(row.buildingId) } : {}), ...(remoteCampus.has(offering.collegeId) ? { c: remoteCampus.get(offering.collegeId)! } : {}) });
+        if (!offering.slots.some(slot => slot.day === day && slot.start === start && slot.end === end)) offering.slots.push({ day, start, end, ...(row.buildingId ? { b: String(row.buildingId) } : {}), ...((row as any).practical === true ? { p: true as const } : {}), ...(remoteCampus.has(offering.collegeId) ? { c: remoteCampus.get(offering.collegeId)! } : {}) });
       }
     }
     for (const [legacy, keys] of legacyKeys) if (new Set(keys).size === 1) {

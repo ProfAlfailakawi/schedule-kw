@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { isSpecialNature } from "../../utils/specialNature";
 import type { Express } from "express";
 import { sameScheduleShape } from "../../utils/appointmentRegulation";
 import { Response } from "express";
@@ -38,6 +39,8 @@ import { appointmentDemandFor } from "../actualDemand";
 async function scheduleLengthNotice(row:any):Promise<string|null>{
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
   const course=await Repository.getCourseById(courseId);
+  /* المقررُ ذو الطبيعة الخاصة: مددُ لقاءاته من اللائحة في حكم الحفظ (specialShapeIssue) لا بنمط ساعاتٍ كاملة. */
+  if(isSpecialNature(course))return null;
   /* طولُ المحاضرة يُقاس باللائحة ومكتبة الأنماط وحدهما: عادةُ القسم لا تصير مرجعاً يخالفهما (المالك 2026-10-30). */
   const hours=effectiveCourseHours(course);
   const mixedOutside=Boolean(await mixedPatternNotice(courseId,SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as any,Number(row?.AdTermId||0)));

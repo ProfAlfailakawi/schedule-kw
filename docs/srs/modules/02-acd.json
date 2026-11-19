@@ -3203,6 +3203,45 @@
           "tests/delete-impact-audit.ts"
         ]
       }
+    },
+    {
+      "id": "FR-ACD-058",
+      "kind": "functional",
+      "title": {
+        "ar": "علامة «طبيعة خاصة» على المقرر",
+        "en": "The special-nature flag on a course"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لصاحب بيانات المقررات تعليم المقرر مرةً واحدة بأنه نظري وعملي في شعبة واحدة (CourseSpecialNature) لمقرر ساعاته ساعتان فأكثر، وأن تبقى العلامة عند تعديل المقرر من مسار لا يذكرها، وألا تُرفع وعلى المقرر لقاءات عملية في الجداول.",
+        "en": "The system shall let the owner of course data mark a course once as theory plus practical in one section (CourseSpecialNature) when its hours are two or more, shall keep the mark when the course is edited through a path that does not name it, and shall not lift it while the course has practical meetings in the schedules."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر بساعة واحدة لا يقبل العلامة.",
+          "en": "A one-hour course does not accept the mark."
+        },
+        {
+          "ar": "رفع العلامة وعلى المقرر لقاء عملي يردّ 409 برمز special-nature-in-use.",
+          "en": "Lifting the mark while the course has a practical meeting answers 409 with the code special-nature-in-use."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/coursesRoutes.ts",
+          "src/components/Courses.tsx",
+          "src/db/repository.ts"
+        ],
+        "tests": [
+          "tests/special-nature-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [
