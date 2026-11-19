@@ -37,7 +37,7 @@ check(quickSwapMine({ fsunday: true, fstarttime: "08:00" }) === null, "U9 بلا
 
 const comp = read("src/components/AppointmentQuickSwap.tsx"), schedules = read("src/components/Schedules.tsx"), css = read("src/styles/71-quick-swap.css");
 check(/role="tablist"/.test(comp) && />تدريب</.test(comp) && />هيئة تدريسية</.test(comp) && /aria-label="تبديل سريع/.test(comp), "W1 تبويبان «تدريب» و«هيئة تدريسية» وأيقونةٌ بتسمية");
-check(/loadOf\?\.\(item\)/.test(comp) && /const quickSwapLoad = \(source: QuickSwapSource\) => \{\n    const teacherId = Number\(form\.AdInstructorId\)/.test(schedules) && !/trainee.*load|load.*trainee/i.test(comp), "W2 النصابُ المعروض للأستاذ المختار وحده لا للمدرّب");
+check(!/loadOf|qs-load|quickSwapLoad/.test(comp + schedules + css), "W2 بطاقة التبديل بلا شريحة نصاب (قرار المالك)");
 check(/studioWasMark\(studioTimeWas, "time"\)\}\n\s*<AppointmentQuickSwap/.test(schedules), "W3 الأيقونة بجانب عنوان خطوة الوقت");
 check(/data-guide-ignore/.test(comp) && /Escape/.test(comp) && /aria-expanded/.test(comp), "W4 إرشادٌ وإغلاقٌ بـEscape وحالةُ توسّع");
 check(/qs-panel\{position:fixed|\.qs-panel\{position:fixed/.test(css) && /prefers-reduced-motion|max-width:640px/.test(css), "W5 على الهاتف لوحةٌ سفليّة");

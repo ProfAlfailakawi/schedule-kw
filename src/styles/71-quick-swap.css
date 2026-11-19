@@ -35,9 +35,6 @@
 .qs-fact{display:inline-flex;align-items:center;gap:5px;font-size:var(--t-sm);color:var(--ink-2);font-variant-numeric:tabular-nums}
 .qs-fact svg{inline-size:14px;block-size:14px;color:var(--muted);flex:none}
 .qs-fact em{font-style:normal;color:var(--muted)}
-.qs-load{padding:1px 8px;border-radius:999px;background:color-mix(in srgb,var(--ink) 6%,transparent);font-weight:700}
-.qs-load.is-over{background:var(--warning-soft);color:var(--warning)}
-.qs-load.is-over svg{color:var(--warning)}
 .qs-acts{display:flex;flex-wrap:wrap;gap:8px}
 .qs-go{flex:1 1 120px;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-block-size:44px;padding:2px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:var(--t-sm);font-weight:800;cursor:pointer;transition:background .15s}
 .qs-go svg{inline-size:16px;block-size:16px}

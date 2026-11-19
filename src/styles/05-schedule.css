@@ -1195,7 +1195,7 @@ html[data-schedule-workspace="presentation"] .cinema-day-track time b{font-size:
   padding-bottom:var(--s4);
   border-bottom:1px solid var(--line);
 }
-.schedule-form-section>header>span{
+.schedule-form-section>header>span:not(.appt-was):not(.qs-wrap){
   width:30px;height:30px;display:grid;place-items:center;
   border-radius:var(--r-full);
   background:var(--surface-3);color:var(--muted);
