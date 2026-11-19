@@ -6,10 +6,10 @@
 import fs from "fs";
 import { extractPlanItems } from "../src/server/planPdfExtract";
 import { parsePlanItems } from "../src/utils/planPdfParser";
-import { trackProgramOf } from "../src/server/sheetReconcile";
+import { ownsSheet, sheetHomeCode, trackProgramOf } from "../src/server/sheetReconcile";
 import { englishPrefixOf } from "../src/utils/englishPrefix";
 import { buildReferenceRules } from "../src/utils/referenceApply";
-import { blockingWarnings, checkSheetScope, isNewSheet, sheetKey, sheetOwnKey, sheetSectionName, sheetToReference, correctedNames, dominantDepartment, ownCourses, printedTotalsNotes } from "../src/utils/planSheetImport";
+import { blockingWarnings, checkSheetScope, isNewSheet, sheetKey, sheetOwnKey, sheetSectionCode, sheetSectionName, sheetToReference, correctedNames, dominantDepartment, ownCourses, printedTotalsNotes } from "../src/utils/planSheetImport";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => {
@@ -75,6 +75,18 @@ const EXPECTED: Record<string, [string, number]> = {
   check(checkSheetScope(env, { ...envScope, collegeName: "كلية التربية الأساسية - بنات", collegeCode: "01", departmentKey: "0144" })?.kind === "college", "صحة البيئة: لا تُقبل في كليةٍ أخرى");
   check(isNewSheet(env) && !trackProgramOf(env), "صحة البيئة (2008): صحيفة القسم المعتمدة لا «السابقة»، وليست مساراً مزدوجاً");
   check(englishPrefixOf("قسم صحة البيئة") === "HealthEnvironment", "حسابات صحة البيئة: HealthEnvironment لا HealthByyh");
+  /* العلوم الصحية: دبلوم (DP) واستكمال (BC) وبكالوريوس (BA): صحائفُ معتمدةٌ لا «السابقة»، والبرامج مساراتٌ داخل قسمها */
+  const hs = async (file: string) => parsePlanItems(await extractPlanItems(fs.readFileSync(`tests/fixtures/plans/health-sciences/${file}.pdf`)));
+  const rt = await hs("dp-0317"), completion = await hs("bc-031401"), dental = await hs("dp-0315"), lab = await hs("dp-0309"), boysEnv = await hs("ba-031002");
+  check(rt.program === "DP-0317" && rt.programName === "العلاج التنفسي" && rt.degree === "دبلوم" && !rt.warnings.length, "الدبلوم: رمز البرنامج DP-0317 واسمه ودرجته تُقرأ بلا تحذير");
+  check(completion.program === "BC-031401" && completion.degree === "بكالوريوس" && blockingWarnings(completion).length === 0, "الاستكمال: BC-031401 يُقرأ، ودرجته بكالوريوس وإن طُبعت بلا قيمة");
+  check([rt, completion, dental, lab].every(sheet => isNewSheet(sheet) && trackProgramOf(sheet) === sheet.program), "الدبلوم والاستكمال: صحيفةٌ معتمدة ومسارٌ في قسمها");
+  check(boysEnv.program === "BA-031002" && isNewSheet(boysEnv) && !trackProgramOf(boysEnv), "BA-031002 (بنين): صحيفة القسم الرئيسية لا مسار");
+  const at = (code: string) => ({ AdCollegeId: 14, AdSectionCode: code, AdSectionName: "قسم" });
+  check(sheetHomeCode(dental) === "45" && ownsSheet(dental, at("45"), [at("45")]) && !ownsSheet(dental, at("42"), [at("42"), at("45")]), "فني عيادة أسنان (رمز 50) يتبع قسم صحة الفم والأسنان (45)");
+  check(sheetHomeCode(lab) === "72" && ownsSheet(lab, at("72"), [at("72"), at("48")]) && !ownsSheet(lab, at("48"), [at("72"), at("48")]), "تكنولوجيا المختبرات (72) لقسمها لا للصيدلانية المطبوعة في ترويستها");
+  check(sheetHomeCode(rt) === "42" && ownsSheet(rt, at("42"), [at("42")]), "العلاج التنفسي لقسم العلوم الطبية التطبيقية (42)");
+  check(sheetSectionName(rt, "قسم العلوم الطبية التطبيقية") === "" && sheetSectionName(completion, "قسم م") === "" && sheetSectionCode(rt, "42") === "", "المسار (DP/BC) لا يسمّي القسم ولا يرمّزه من ترويسته");
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);
 })();

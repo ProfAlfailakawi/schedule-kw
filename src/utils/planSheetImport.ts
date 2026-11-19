@@ -63,7 +63,9 @@ export function dominantDepartment(plan: Pick<ParsedPlan, "courses">, field: "de
 /** الصحيفة الجديدة تبدأ من هذه السنة؛ ما قبلها قديمةٌ تدخل «الصحيفة السابقة» ولا تمسّ الفعّالة.
  *  وهذا تجديدُ التربية الأساسية (BA-01…) وحدها: صحيفةُ كليةٍ أخرى هي المعتمدة لها مهما كانت سنتها (العلوم البيئية 2008). */
 export const NEW_PLAN_FROM_YEAR = 2026;
-export const isNewSheet = (plan: Pick<ParsedPlan, "startYear" | "program">) => plan.startYear >= NEW_PLAN_FROM_YEAR || /^BA-(?!01)\d{2}/.test(String(plan.program || ""));
+/** كليةُ البرنامج من رمزه («BA-031001» و«DP-0317» و«BC-031401» ← 03). */
+const programCollege = (program: string) => /^(?:BA|BC|DP)-(\d{2})/i.exec(String(program || ""))?.[1] || "";
+export const isNewSheet = (plan: Pick<ParsedPlan, "startYear" | "program">) => plan.startYear >= NEW_PLAN_FROM_YEAR || (programCollege(plan.program) !== "" && programCollege(plan.program) !== "01");
 
 /**
  * صحائفُ برامج التربية الخاصة ورياض الأطفال تُطبع باسم القسم الإداري («علم النفس»، «علم التربية») لا باسم القسم
@@ -147,7 +149,11 @@ export function checkSheetScope(plan: ParsedPlan, scope: SheetScope, opts: { for
  * اسمُ القسم يُؤخذ من الصحيفة المعتمدة: إن خالف ما عندنا («معلم الحاسب» و«حاسوب») ردّ الاسم الجديد
  * (بنمط التسمية الحالي: «قسم …» إن كان اسمه الحالي بها)، وإلا فارغاً. بعد قبول الرمزين فقط.
  */
-export function sheetSectionName(plan: Pick<ParsedPlan, "department">, currentName: string): string {
+/** برنامجٌ (دبلوم DP أو استكمال BC) مسارٌ داخل قسمٍ تحمل ترويستُه اسم قسمٍ آخر («الطوارئ الطبية» تحت 42): لا يسمّي القسم ولا يرمّزه. */
+const isProgramTrack = (plan: { program?: string }) => /^(?:DP|BC)-/i.test(String(plan.program || ""));
+
+export function sheetSectionName(plan: Pick<ParsedPlan, "department"> & { program?: string }, currentName: string): string {
+  if (isProgramTrack(plan)) return "";
   const a = matchKey(currentName), b = matchKey(plan.department);
   /* اسم «علم النفس/علم التربية» قسمٌ إداري لا اسم القسم المختص: لا يُسمّى به. */
   if (!b || a === b || isUmbrellaSheet(plan)) return "";
@@ -158,13 +164,14 @@ export function sheetSectionName(plan: Pick<ParsedPlan, "department">, currentNa
 
 /** رمز القسم من الصحيفة بنمط رمزه الحالي (أربع خانات إن كان بالهيئة، وإلا خانتان)؛ فارغ إن طابق. */
 export function sheetSectionCode(plan: Pick<ParsedPlan, "courses" | "department" | "program">, currentCode: string): string {
+  if (isProgramTrack(plan)) return "";
   const dept = authorityDept(plan), current = String(currentCode || "").replace(/\D/g, "");
   const next = /^\d{4}$/.test(current) ? sheetKey(plan) : dept;
   return current && current.replace(/^0+(?=\d)/, "") === next.replace(/^0+(?=\d)/, "") ? "" : (dept ? next : "");
 }
 
 /** أقسامٌ تشمل صحيفتُها رمزاً فرعياً ثانياً هو منها (الكهرباء 72 والإلكترونيات 73): كلُّه من الصحيفة. */
-export const DEPARTMENT_EXTRA_CODES: Readonly<Record<string, readonly string[]>> = { "72": ["73"] };
+export const DEPARTMENT_EXTRA_CODES: Readonly<Record<string, readonly string[]>> = { "72": ["73"], "45": ["50"] };
 
 /** مقررات القسم وحده: رمز القسم والكلية في رمز المقرر (ومعها رموزه الفرعية إن وُجدت). */
 export function ownCourses(plan: Pick<ParsedPlan, "courses">, departmentKey: string): PlanCourse[] {
