@@ -255,6 +255,17 @@ type Verdict = "same" | "diff" | "unknown" | "unsure";
  * الأستاذ فارغٌ كثيراً في ملفات الجهة) فلا يُحسب اختلافاً. «unsure»: الاسمُ
  * مطبوعٌ ولم يُربط بسجلٍّ، فلا يُحكم بشيء.
  */
+/** لقاءاتٌ بيومٍ ووقتٍ واحد على الطرفين (اليومُ المجهول -1 لا يُقرَن). */
+function sharedMeetings(a: Meeting[], b: Meeting[]): Array<[Meeting, Meeting]> {
+  const out: Array<[Meeting, Meeting]> = [];
+  for (const x of a) {
+    if (x.day < 0 || !x.start) continue;
+    const y = b.find(m => m.day === x.day && m.start === x.start && m.end === x.end);
+    if (y) out.push([x, y]);
+  }
+  return out;
+}
+
 function compareField(field: RegistrarField, a: readonly Row[], b: readonly Row[], names?: Map<number, string>, placeholders?: ReadonlySet<number>): Verdict {
   const ma = meetingsOf(a), mb = meetingsOf(b);
   switch (field) {
@@ -278,6 +289,9 @@ function compareField(field: RegistrarField, a: readonly Row[], b: readonly Row[
     case "room": {
       const ra = a.map(roomOf).filter(Boolean), rb = b.map(roomOf).filter(Boolean);
       if (!ra.length || !rb.length) return "unknown";
+      /* القاعةُ للقاءٍ لا للشعبة: تبديلُ قاعتَي يومين يُقرأ خللاً. */
+      const shared = sharedMeetings(ma, mb);
+      if (shared.length) return shared.every(([x, y]) => !x.room || !y.room || x.room === y.room) ? "same" : "diff";
       return [...new Set(ra)].sort().join("|") === [...new Set(rb)].sort().join("|") ? "same" : "diff";
     }
     case "instructor": {
@@ -285,7 +299,12 @@ function compareField(field: RegistrarField, a: readonly Row[], b: readonly Row[
       const ia = real(instructorIds(a)), ib = real(instructorIds(b));
       const textB = b.map(row => String(row.sourceInstructorText || "").trim()).filter(Boolean);
       const textA = a.map(row => String(row.sourceInstructorText || "").trim()).filter(Boolean);
-      if (ia.length && ib.length) return ia.join() === ib.join() ? "same" : "diff";
+      if (ia.length && ib.length) {
+        const own = (m: Meeting) => [...m.instructors].filter(id => !placeholders?.has(id)).sort().join();
+        const shared = sharedMeetings(ma, mb).filter(([x, y]) => own(x) && own(y));
+        if (shared.length) return shared.every(([x, y]) => own(x) === own(y)) ? "same" : "diff";
+        return ia.join() === ib.join() ? "same" : "diff";
+      }
       if (!ia.length && !textA.length) return "unknown";
       if (!ib.length && !textB.length) return "unknown";
       /* اسمٌ مطبوعٌ بلا سجلٍّ مربوط: يُقارَن باسم الجانب الآخر، والاحتواءُ تطابق، وما سواه «غير محسوم». */
@@ -459,12 +478,21 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
     consumedLive.add(key); consumedPdf.add(key);
     const prior = sent?.sections.get(key);
 
+    /* هويةٌ لم تُقرأ بيقين (مقرر أو شعبة) لا تُبنى عليها مطابقةٌ ولا خلل. */
+    if (!certain(theirs, "course") || !certain(theirs, "section")) {
+      uncertainRows++;
+      add({ group: "review", kind: "unreadable", key: `${key}|identity`, sec: ours, other: theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields: [], match: "exact",
+        reason: "قراءة رمز المقرر أو رقم الشعبة من الملف غير مؤكدة." });
+      continue;
+    }
     const hard: FieldDelta[] = [];
     const notCarried: FieldDelta[] = [];
     const unsure: Array<{ delta: FieldDelta; why: string }> = [];
     for (const field of DATA_FIELDS) {
       const verdict = compareField(field, ours.rows, theirs.rows, instructorNames, placeholders);
       if (verdict === "unknown") { notCompared[field as keyof typeof notCompared]++; continue; }
+      /* التساوي لا يكفي: خانةٌ لم تُقرأ بيقين تساوت صدفةً تبقى «تحتاج نظرك» لا «مطابق». */
+      if (verdict === "same" && !certain(theirs, field)) { unsure.push({ delta: delta(field, ours.rows, theirs.rows), why: "قراءة هذه الخانة من الملف غير مؤكدة" }); continue; }
       if (verdict === "same") continue;
       if (verdict === "unsure") { unsure.push({ delta: delta(field, ours.rows, theirs.rows), why: "الاسم المطبوع لم يُربط بأستاذٍ مسجّل" }); continue; }
       if (!certain(theirs, field)) { unsure.push({ delta: delta(field, ours.rows, theirs.rows), why: "قراءة هذه الخانة من الملف غير مؤكدة" }); continue; }

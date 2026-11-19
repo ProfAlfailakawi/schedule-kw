@@ -179,6 +179,26 @@ const only = (result: ReturnType<typeof run>, group: string) => result.findings.
   check(nameSame.counts.matched === 1, "اسمٌ مطبوعٌ يحتويه اسمنا: مطابق", nameSame.findings);
 }
 
+/* ٥-ب) الثقة قبل التساوي، والقاعة/الأستاذ لكل لقاء */
+{
+  const equalUncertain = run({
+    live: [live(1, "1", [0], "08:00", "09:00")],
+    pdf: [pdf(1, "1", [0], "08:00", "09:00", { sourceReadMode: "ocr-grid", importEvidence: { time: { confidence: "REVIEW_REQUIRED" } } })],
+  });
+  check(equalUncertain.counts.matched === 0 && equalUncertain.counts.review === 1 && equalUncertain.percent === 0, "وقتٌ مساوٍ لكن قراءته غير مؤكدة: تحتاج نظرك لا مطابق ولا ١٠٠٪", equalUncertain);
+  const badIdentity = run({
+    live: [live(1, "1", [0], "08:00", "09:00")],
+    pdf: [pdf(1, "1", [0], "08:00", "09:00", { sourceReadMode: "ocr-grid", importEvidence: { section: { confidence: "REVIEW_REQUIRED" }, time: { confidence: "CONFIRMED" } } })],
+  });
+  check(badIdentity.counts.matched === 0 && only(badIdentity, "review")[0]?.kind === "unreadable", "رقم شعبة غير مؤكد: لا هويةٌ دقيقة", badIdentity.findings);
+  const swapped = run({
+    live: [live(1, "1", [0], "08:00", "09:00", { AdRoomHall: "A1", AdInstructorId: 7 }), live(1, "1", [1], "08:00", "09:00", { AdRoomHall: "B2", AdInstructorId: 8 })],
+    pdf: [pdf(1, "1", [0], "08:00", "09:00", { AdRoomHall: "B2", AdInstructorId: 8 }), pdf(1, "1", [1], "08:00", "09:00", { AdRoomHall: "A1", AdInstructorId: 7 })],
+  });
+  const fields = only(swapped, "mismatch")[0]?.fields.map(x => x.field).sort().join();
+  check(swapped.counts.matched === 0 && fields === "instructor,room", "تبديل القاعة والأستاذ بين يومين خلل لا مطابق", swapped.findings);
+}
+
 /* ٦) الفراغ والنطاق */
 {
   const emptyPdf = run({ live: [live(1, "1", [0], "08:00", "09:00")], pdf: [] });
