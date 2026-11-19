@@ -13,6 +13,7 @@ import { Repository, ScheduleRevisionConflict } from "../../db/repository";
 import type { FSchedule, ScheduleOrigin } from "../../types";
 import { RequestHoldConflict, RequestReservationConflict } from "../../utils/instructorRequestReservations";
 import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
+import { readSectionNumberLedger } from "./sectionNumbers";
 import { sectionCodeKey } from "../../utils/sameSlot";
 import { isSpecialNature, meetingLengthIssue, specialShapeSummary } from "../../utils/specialNature";
 import { noteScheduleMutation } from "./approvals";
@@ -63,10 +64,12 @@ export async function createSpecialSection(req: AuthenticatedRequest, input: Spe
   if (!meetings.some(meeting => meeting?.practical === true)) return fail(400, { error: "حدّد اللقاء العملي ومكانه قبل الحفظ." });
 
   const termRows = await Repository.getSchedulesByScope({ termId });
-  const code = String(input.code ?? "").trim() || nextCourseSectionCode(termRows, courseId, termId, null);
+  /* سجلّ أرقام الفصل: رقمٌ حُذف لا يُقترح ثانيةً (sectionNumbers). */
+  const ledger = await readSectionNumberLedger(collegeId, sectionId, termId).catch(() => null);
+  const code = String(input.code ?? "").trim() || nextCourseSectionCode(termRows, courseId, termId, null, ledger);
   const taken = termRows.some(row => Number(row.AdCourseId) === courseId && Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId && sectionCodeKey(row.SCode) === sectionCodeKey(code));
   if (taken) {
-    const fresh = nextCourseSectionCode(termRows, courseId, termId, null);
+    const fresh = nextCourseSectionCode(termRows, courseId, termId, null, ledger);
     return { status: 409, json: { error: `الشعبة ${code} موجودةٌ لهذا المقرر في الفصل؛ عدّل لقاءاتها من الجدول، أو اختر شعبةً جديدة (${fresh}).`, code: "section-exists", freshSection: fresh, applied: false } };
   }
   /* مدةُ كل لقاءٍ أولاً: سطرٌ يسمّي اللقاءَ المخالف أصدقُ من «الساعات ناقصة» التي يسبّبها. */

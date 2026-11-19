@@ -16,6 +16,7 @@ import { periodBalanceFinding, reviewSchedule } from "../../utils/scheduleRegula
 import { capacityContextForSection } from "./capacityRules";
 import { isAcademicRole, signatureStage } from "../../utils/academicRoles";
 import type { AuthenticatedRequest } from "./auth";
+import { recordSectionNumberLedger } from "./sectionNumbers";
 
 /* The Authority-PDF report belongs to the normal inquiry/report centre. It is
    scoped by the header selections and always compares the latest imported
@@ -123,6 +124,8 @@ export async function noteScheduleMutation(
   collegeId: number, sectionId: number, termId: number,
   change: { kind: "add" | "edit" | "delete"; row?: any; rows?: any[] },
 ): Promise<void> {
+  /* كلُّ رقمٍ أُضيف أو حُذف يدخل سجلّ أرقام الفصل، فلا يعود رقمٌ حُذف (sectionNumbers). */
+  await recordSectionNumberLedger(collegeId, sectionId, termId, [...(change.rows || []), ...(change.row ? [change.row] : [])]);
   try {
     /**
      * ── على الطابور نفسه الذي تقف عليه قرارات الاعتماد ────────────────────

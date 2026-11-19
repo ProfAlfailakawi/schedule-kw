@@ -11,6 +11,7 @@
  *   ١) الموعدُ القديم والجديد لا يُحسبان معاً — الجدولُ الناتج يستبدل ولا يضيف.
  *   ٢) المقترحُ لا يلمس الجدول الفعلي: التطبيقُ هنا على نسخةٍ في الذاكرة.
  */
+import { nextSectionNumber } from "./registrarNumbering";
 import type {
   AdCourse, FSchedule, StudyProposal, StudyProposalDayKey, StudyProposalDecision, StudyProposalMetrics,
   StudyProposalOp, StudyProposalOpKind, StudyProposalResponseMode, StudyProposalRowSnapshot,
@@ -91,10 +92,9 @@ export function legacyDetailOf(days: readonly StudyProposalDayKey[]): string {
   return PROPOSAL_DAY_KEYS.map((key, index) => (days.includes(key) ? String(index + 1) : "")).filter(Boolean).join(",");
 }
 
-/** اقتراح رقم الشعبة التالي بالقاعدة نفسها: أكبر مستخدم بين 501 و999 زائد واحد، وإلا 501. */
-export function nextSectionCodeFrom(used: Iterable<number | string>): string {
-  const numbers = [...used].map(value => Number(value)).filter(value => Number.isInteger(value) && value >= 501 && value <= 999);
-  return String(numbers.length ? Math.max(...numbers) + 1 : 501);
+/** اقتراح رقم الشعبة التالي بالقاعدة نفسها (registrarNumbering): أكبر مستخدم بين 501 و999 زائد واحد، وإلا 501. */
+export function nextSectionCodeFrom(used: Iterable<number | string>, recordedMax?: number): string {
+  return nextSectionNumber(used, recordedMax);
 }
 
 /** نهاية صلاحية الرد: بعد `days` يوماً من الآن، ضمن الحدّين. */

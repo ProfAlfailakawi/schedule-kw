@@ -200,6 +200,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "
     "POST /api/schedules/registrar-check": "فحصُ ملف التسجيل: حارسُ النطاق (isScopeAllowed) في registrarCheckScope المشتركة بين طرق الفحص الثلاثة، قبل أي قراءة",
     "POST /api/schedules/registrar-requests": "حفظُ طلب التعديل: النموذج 7، وحارسُ النطاق في registrarCheckScope قبل أي قراءة أو كتابة",
     "POST /api/schedules/registrar-requests/verify": "التحقق الذاتي من البنود المشطوبة: النموذج 7، وحارسُ النطاق في registrarCheckScope",
+    "POST /api/schedules/registrar-numbering": "مطابقة ترقيم التسجيل بعد الفحص: النموذج 7، وحارسُ النطاق في registrarCheckScope قبل أي قراءة أو كتابة",
     "POST /api/schedules/pulse": "لسانٌ يُعلن رحيله عن النبضة: يحذف مدخلاً في الذاكرة يملكه الحساب نفسه — بلا بيانات (السؤالُ نفسه GET خلف isScopeAllowed)",
   };
   const routeHead = /\napp\.(get|post|put|delete|patch)\("([^"]+)"/g;

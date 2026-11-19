@@ -239,3 +239,15 @@
   .rrq-sheet th{background:#f4f6f5;color:#4e5954;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .rrq-sheet tr{break-inside:avoid}
 }
+
+/* ── مطابقة ترقيم التسجيل: سطرٌ واحدٌ هادئ، ومعه «تراجع» ─────────────── */
+.rnum-line-calm{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s2);margin:0;padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface-2);color:var(--ink-2);font-size:.9rem}
+.rnum-line-calm>svg{inline-size:16px;block-size:16px;color:var(--accent);flex:none}
+.rnum-line-calm>span{flex:1;min-inline-size:10rem}
+.rnum-undo{display:inline-flex;align-items:center;gap:6px;min-block-size:44px}
+.rnum-undo svg{inline-size:16px;block-size:16px}
+.rnum-error{display:inline-flex;align-items:center;gap:4px;color:var(--danger,#b42318);font-size:.8rem}
+.rnum-error svg{inline-size:14px;block-size:14px}
+
+/* ── شعبةٌ جديدة لم يظهر رقمها المرجعي بعد: علامةٌ هادئة بجانب رقمها ── */
+.awaiting-crn{display:inline-flex;align-items:center;padding:1px 8px;border:1px dashed var(--line-strong);border-radius:var(--r-full);color:var(--muted);font-size:.72rem;font-weight:600;white-space:nowrap;line-height:1.6}

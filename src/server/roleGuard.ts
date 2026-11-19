@@ -10,7 +10,7 @@
  * فلا يمكن أن يفترق ما يُختبر عمّا يُنفَّذ.
  */
 
-import { isAdvisorRole, isReadOnlyRole, isViewerOnlyRole, roleDefinition } from "../utils/academicRoles";
+import { canReviewSubmissions, isAdvisorRole, isReadOnlyRole, isViewerOnlyRole, roleDefinition } from "../utils/academicRoles";
 
 /** مسارات دورة الاعتماد: البابُ الضيّق الذي يمرّ منه القارئ دون أن يمسّ جدولاً. */
 /**
@@ -118,6 +118,9 @@ export function roleWriteDecision(input: RoleGuardInput): RoleGuardVerdict {
   /* سياسةُ التنقّل بين المواقع يضبطها المسجّل العام، وصفتُه قراءةٌ لبيانات الجدول. */
   if (input.path === "/campus-travel-policy" && input.method.toUpperCase() === "PUT" && roleDefinition(input.role).id === "registrarHead") return { allowed: true, reason: "approval" };
   if (isSectionRequestWritePath(input.path) && !isViewerOnlyRole(input.role)) return { allowed: true, reason: "approval" };
+  /* شطبُ بندٍ «نُفّذ» في طلب التعديل للتسجيل: عملُ التسجيل المراجع نفسه (صفته للاطّلاع على الجدول)،
+     لا يمسّ جدولاً؛ والمسارُ يحكم الصفة والنطاق (scheduleImportRoutes). */
+  if (input.method.toUpperCase() === "POST" && /^\/schedules\/registrar-requests\/[^/]+\/tick$/.test(input.path) && canReviewSubmissions(input.role)) return { allowed: true, reason: "approval" };
   /* المرشد يقرأ كشف التسجيل ولا يشارك في دورة الاعتماد: لا يمرّ من البابِ الضيّق. */
   if (isApprovalWritePath(input.path) && !isViewerOnlyRole(input.role) && !isAdvisorRole(input.role)) return { allowed: true, reason: "approval" };
   return { allowed: false, reason: "read-only-role" };
