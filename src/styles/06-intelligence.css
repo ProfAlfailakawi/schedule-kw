@@ -4739,6 +4739,7 @@ button.twin-delta{width:100%}
   background:var(--surface-2);color:var(--ink);font-weight:700;
   font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate;
 }
+.import-section-uncertain{display:block;margin-top:3px;color:var(--warning-ink,#8a5a00);font-size:.72rem;font-weight:600;white-space:nowrap}
 .import-locked-course{min-width:150px}
 .import-preview-table td[dir="ltr"],.import-preview-table td[dir="ltr"] *{white-space:nowrap}
 .lens-list>article>time,.lens-list>.agenda-rest>article>time,.query-detail-panel time,.time-slot-card time{white-space:nowrap!important}

@@ -97,6 +97,28 @@ export interface RegistrarCrnSource {
   byId: ReadonlyMap<number, string>;
   /** صفوف ملف التسجيل الأصلي: ما كان عليه كل رقمٍ مرجعي قبل أي تعديلٍ منّا. */
   original?: readonly Row[];
+  /** الرقم المرجعي الأصلي لموعدٍ اعتمد ترقيمَ التسجيل الأحدث: يبقى طريقَه إلى ملف التسجيل الأصلي. */
+  originalById?: ReadonlyMap<number, string>;
+}
+
+/**
+ * هويةُ شعبةٍ عندنا كما عرفها الفحص في ملفهم: منها يُبنى «اعتمد ترقيم التسجيل».
+ * certain: عُرفت بالرقم المرجعي، أو بالمقرر والموعد والأستاذ وانفردت من الطرفين،
+ * وقُرئ رقمها ومرجعيّها من طبقة النص. وما سواه لا يُعتمد ترقيمه (لا تخمين).
+ */
+export interface RegistrarIdentity {
+  ref: string;
+  ids: number[];
+  courseId?: number;
+  courseCode: string;
+  courseName: string;
+  /** المخزَّن عندنا الآن: رقم الشعبة والرقم المرجعي كما في الصف. */
+  ours: { section: string; crn: string };
+  /** ما طبعه ملفهم. */
+  theirs: { section: string; crn: string };
+  how: "crn" | "slot" | "key" | "misplaced";
+  certain: boolean;
+  reason?: string;
 }
 
 export interface RegistrarCheckInput {
@@ -124,6 +146,8 @@ export interface RegistrarCheckResult {
   };
   /** سببُ تعذّر المقارنة أصلاً. */
   empty: null | "pdfEmpty" | "liveEmpty" | "both";
+  /** هويةُ كل شعبةٍ عندنا عُرفت في ملفهم (لترقيم التسجيل). */
+  identities: RegistrarIdentity[];
 }
 
 /* ── التطبيع ──────────────────────────────────────────────────────────── */
@@ -471,6 +495,14 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
   /* الرقم المرجعي لصفّنا: من المصدر الممرَّر (كما في تقرير التغييرات)، وإلا من حقل الصف. */
   const crnSource = input.crn;
   const ourCrn = (row: Row) => normalizeCrn(crnSource ? crnSource.byId.get(Number(row.id)) : row.referenceNumber);
+  /* الرقم الذي يُقرأ به ملف التسجيل الأصلي: رقمُ الصف الأصلي إن اعتمد ترقيمَ ملفٍّ أحدث. */
+  const originalCrnOf = (section: { crn: string; rows: Row[] }) => {
+    for (const row of section.rows) {
+      const crn = normalizeCrn(crnSource?.originalById?.get(Number(row.id)));
+      if (crn) return crn;
+    }
+    return section.crn;
+  };
 
   const pdfAll = input.pdf.filter(row => row && typeof row === "object");
   const pdfRows = pdfAll.filter(row => !isCrossBranch(row));
@@ -681,7 +713,7 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
       continue;
     }
     const prior = priorOf(ours);
-    const original = ours.crn ? originalByCrn.get(ours.crn) : undefined;
+    const original = originalCrnOf(ours) ? originalByCrn.get(originalCrnOf(ours)) : undefined;
     const notSent: FieldDelta[] = [];
     const notApplied: FieldDelta[] = [];
     const hard: FieldDelta[] = [];
@@ -726,11 +758,45 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
       add({ ...common, group: "review", kind: "unreadable", key: `${ref}|${item.delta.field}`, fields: [item.delta], reason: item.why });
     }
     /* رقمُنا المرجعي الأصلي غاب عن ملفهم، ووُجدت الشعبة برقمٍ جديد: يُنبَّه إليه. */
-    const crnMoved = how !== "crn" && ours.crn && theirs.crn && ours.crn !== theirs.crn && originalByCrn.has(ours.crn);
+    const crnMoved = how !== "crn" && ours.crn && theirs.crn && ours.crn !== theirs.crn && originalByCrn.has(ours.crn) && !originalByCrn.has(theirs.crn);
     if (crnMoved) add({ ...common, group: "review", kind: "crnChanged", key: `${ref}|crn`, fields: [],
       reason: `رقمها المرجعي ${ours.crn} غاب عن ملفهم، ووُجدت بالموعد نفسه برقمٍ جديد ${theirs.crn}.` });
     if (how !== "misplaced" && !notApplied.length && !notSent.length && !hard.length && !unsure.length && !crnMoved) {
       add({ ...common, group: "matched", kind: "ok", key: ref, fields: [] });
+    }
+  }
+
+  /* ── هويةُ كل شعبةٍ عُرفت: أساسُ «اعتمد ترقيم التسجيل» ───────────────── */
+  const identities: RegistrarIdentity[] = [];
+  {
+    const sameSlot = <T extends Section>(list: Iterable<T>, target: Section) => [...list].filter(s => sameCourse(s, target) && signature(s) && signature(s) === signature(target)).length;
+    const printedSection = (theirs: Section) => {
+      const value = theirs.section;
+      return /^\d{3}$/.test(value) && Number(value) >= 501 && Number(value) <= 999 ? value : "";
+    };
+    const storedCrn = (ours: Section) => {
+      const set = new Set(ours.rows.map(row => normalizeCrn(row.referenceNumber)));
+      return set.size === 1 ? [...set][0] : [...set].filter(Boolean).join("/");
+    };
+    for (const { ours, theirs, how } of pairs) {
+      const ids = [...new Set(ours.rows.map(row => Number(row.id)).filter(id => id > 0))];
+      const readable = theirs.rows.every(row => String(row.sourceReadMode || "") === "pdf-text") && certain(theirs, "course") && certain(theirs, "section");
+      const unique = sameSlot(live.values(), theirs) === 1 && sameSlot(pdf.sections.values(), theirs) === 1;
+      const teacher = compareField("instructor", ours.rows, theirs.rows, instructorNames, placeholders) === "same";
+      let reason = "";
+      if (!ids.length) reason = "لا موعد عندكم يحمل هذه الشعبة.";
+      else if (!readable) reason = "رقم الشعبة في ملفهم لم يُقرأ من طبقة النص.";
+      else if (!printedSection(theirs) || !theirs.crn) reason = "ملفهم لم يطبع رقم شعبةٍ ورقماً مرجعياً صالحين.";
+      else if (how === "misplaced" || how === "key") reason = "عُرفت تقريباً لا بيقين.";
+      else if (how === "slot" && !unique) reason = "في الموعد نفسه أكثر من شعبةٍ للمقرر.";
+      else if (how === "slot" && !teacher) reason = "الأستاذ لا يوافق، فلا أحكم بأنها هي.";
+      identities.push({
+        ref: ours.key, ids, courseId: Number(ours.rows[0]?.AdCourseId || 0) || undefined,
+        courseCode: codeText(ours) || codeText(theirs), courseName: ours.name || theirs.name || "",
+        ours: { section: ours.section, crn: storedCrn(ours) },
+        theirs: { section: printedSection(theirs) || theirs.section, crn: theirs.crn },
+        how, certain: !reason, ...(reason ? { reason } : {}),
+      });
     }
   }
 
@@ -759,7 +825,7 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
   for (const ours of live.values()) {
     if (pairedLive.has(ours.key) || heldLive.has(ours.key)) continue;
     const prior = priorOf(ours);
-    const original = Boolean(ours.crn && originalByCrn.has(ours.crn));
+    const original = Boolean(originalCrnOf(ours) && originalByCrn.has(originalCrnOf(ours)));
     const fields = (["days", "time", "room", "instructor"] as const).map(field => ({ ...delta(field, ours.rows, []), pdf: "—" }));
     const common = { ours, scheduleId: liveId(ours), fields, match: (ours.crn ? "crn" : "exact") as RegistrarFinding["match"] };
     if (sent && !prior) {
@@ -768,7 +834,7 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
       add({ ...common, group: "notApplied", kind: "notAdded", key: ours.key, reason: "أرسلتم إضافتها ولم تظهر في ملفهم." });
     } else {
       add({ ...common, group: "mismatch", kind: "onlyOurs", key: ours.key,
-        reason: original ? `رقمها المرجعي ${ours.crn} غاب عن ملفهم.` : "في جدولكم وغابت عن ملفهم." });
+        reason: original && ours.crn ? `رقمها المرجعي ${ours.crn} غاب عن ملفهم.` : "في جدولكم وغابت عن ملفهم." });
     }
   }
 
@@ -798,6 +864,7 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
     baseline: { available: Boolean(input.sent), crn: Boolean(crnSource && originalByCrn.size) },
     reading: { pdfRows: pdfRows.length, liveRows: liveRows.length, outOfScopeRows, uncertainRows, notCompared },
     empty,
+    identities,
   };
 }
 
