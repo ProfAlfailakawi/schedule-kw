@@ -171,7 +171,7 @@ export function sheetSectionCode(plan: Pick<ParsedPlan, "courses" | "department"
 }
 
 /** أقسامٌ تشمل صحيفتُها رمزاً فرعياً ثانياً هو منها (الكهرباء 72 والإلكترونيات 73): كلُّه من الصحيفة. */
-export const DEPARTMENT_EXTRA_CODES: Readonly<Record<string, readonly string[]>> = { "72": ["73"], "45": ["50"] };
+export const DEPARTMENT_EXTRA_CODES: Readonly<Record<string, readonly string[]>> = { "72": ["73"] };
 
 /** مقررات القسم وحده: رمز القسم والكلية في رمز المقرر (ومعها رموزه الفرعية إن وُجدت). */
 export function ownCourses(plan: Pick<ParsedPlan, "courses">, departmentKey: string): PlanCourse[] {
