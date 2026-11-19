@@ -283,6 +283,7 @@ test:appointment-seats
 test:appointment-quick-swap
 test:changes-honesty
 test:authority-course-swap
+test:schedule-diff-patterns
 test:appointment-room-swap
 test:appointment-ideas2-1114
 test:graduate-drag-1114

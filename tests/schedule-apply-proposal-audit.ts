@@ -53,8 +53,10 @@ try {
       const everything = await termRows();
       const mins = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
       const clock = (value: number) => `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
-      for (const day of ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"]) {
-        for (let start = 8 * 60; start + duration <= 20 * 60; start += 15) {
+      /* الخانةُ على سُلّم اللائحة (أحد/ثلاثاء/خميس على رأس الساعة): خانةٌ بخطوة 15 دقيقة كانت تقع على 16:45 فيردّها الحفظُ بمخالفة اللائحة،
+         فيختلف الاختبارُ بحسب من يحمل الشعب في بيانات التجربة. */
+      for (const day of ["fsunday", "ftuesday", "fthursday"]) {
+        for (let start = 8 * 60; start + duration <= 20 * 60; start += 60) {
           const busy = everything.some(row => row[day] && mins(row.fstarttime) < start + duration && mins(row.fendtime) > start
             && (Number(row.AdInstructorId) === Number(teacherId) || rooms.some(room =>
               row.roomId && room.roomId ? row.roomId === room.roomId : row.AdRoomCode === room.AdRoomCode && row.AdRoomHall === room.AdRoomHall)));
