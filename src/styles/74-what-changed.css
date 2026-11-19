@@ -1,0 +1,134 @@
+/* ==========================================================================
+   ماذا غيّرنا؟ — حصيلةُ تعديلات القسم في فترة («أدوات الجدول ← الملفات»)
+   الألوان من رموز النظام وحدها فتتبع السمة الداكنة، والاتجاه منطقيٌّ،
+   والأهداف ٤٤ بكسل، ولا عرضَ ثابتاً يخرج عن الهاتف.
+   ========================================================================== */
+
+.transfer-body>.wc{justify-self:stretch;inline-size:100%;box-sizing:border-box}
+.wc{display:grid;gap:var(--s4);padding:var(--s5);border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--shadow-sm);min-inline-size:0}
+.wc-head{display:flex;align-items:center;gap:var(--s3)}
+.wc-head>div{flex:1;min-inline-size:0}
+.wc-head h2{margin:0;font-size:1.15rem;line-height:1.4;color:var(--ink)}
+.wc-head p{margin:2px 0 0;font-size:.85rem;color:var(--muted)}
+.wc-head-icon{display:grid;place-items:center;inline-size:44px;block-size:44px;border-radius:var(--r-md);background:var(--accent-soft);color:var(--accent-ink);flex:none}
+.wc-head-icon svg{inline-size:22px;block-size:22px}
+
+/* ── الفترة ─────────────────────────────────────────────────────────── */
+.wc-period{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center}
+.wc-period button{display:inline-flex;align-items:center;gap:6px;min-block-size:44px;padding:0 14px;border:1px solid var(--line);border-radius:var(--r-full);background:var(--surface-2);color:var(--ink-2);font:inherit;font-size:.9rem;font-weight:600;cursor:pointer}
+.wc-period button svg{inline-size:17px;block-size:17px;flex:none}
+.wc-period button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}
+.wc-period button:focus-visible,.wc-tile:focus-visible,.wc-toggle:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:2px}
+.wc-when{min-block-size:44px;max-inline-size:100%;padding:0 12px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);color:var(--ink);font:inherit;box-sizing:border-box}
+
+.wc-note{margin:0;color:var(--muted);font-size:.88rem}
+.wc-note.is-error{color:var(--danger)}
+.wc-body{display:grid;gap:var(--s4);min-inline-size:0;transition:opacity .15s}
+.wc-body.is-loading{opacity:.55}
+
+/* ── الفراغ ─────────────────────────────────────────────────────────── */
+.wc-empty{display:grid;justify-items:center;gap:var(--s2);padding:var(--s7) var(--s4);border:2px dashed var(--line);border-radius:var(--r-lg);background:var(--surface-2);text-align:center;color:var(--ink-2)}
+.wc-empty svg{inline-size:44px;block-size:44px;padding:10px;border-radius:var(--r-full);background:var(--success-soft);color:var(--success);box-sizing:border-box}
+
+/* ── البلاطات ───────────────────────────────────────────────────────── */
+.wc-tiles{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--s2)}
+@media (max-width:640px){.wc-tiles{grid-template-columns:repeat(auto-fit,minmax(54px,1fr));gap:6px}.wc-tile{min-block-size:72px;padding:6px 2px}.wc-tile svg{inline-size:18px;block-size:18px}.wc-tile b{font-size:1.4rem}.wc{padding:var(--s3)}}
+.wc-tile{--tone:var(--accent);--tone-soft:var(--accent-soft);display:grid;justify-items:center;align-content:center;gap:2px;min-block-size:96px;padding:var(--s3) var(--s2);border:1px solid color-mix(in srgb,var(--tone) 22%,var(--line));border-radius:var(--r-lg);background:linear-gradient(180deg,var(--tone-soft),var(--surface));color:var(--ink);font:inherit;cursor:pointer;transition:transform .12s,box-shadow .12s}
+.wc-tile svg{inline-size:22px;block-size:22px;color:var(--tone)}
+.wc-tile b{font-size:1.7rem;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--ink)}
+.wc-tile span{font-size:.82rem;color:var(--ink-2);font-weight:600}
+.wc-tile:not(:disabled):hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.wc-tile:disabled{opacity:.45;cursor:default}
+.wc-tile[aria-pressed="true"]{outline:3px solid color-mix(in srgb,var(--tone) 55%,transparent);outline-offset:1px}
+.wc-tile.is-total{--tone:var(--ink-2);--tone-soft:var(--surface-2);cursor:default}
+.wc-tile.is-moved{--tone:var(--info);--tone-soft:var(--info-soft)}
+.wc-tile.is-room{--tone:var(--accent);--tone-soft:var(--accent-soft)}
+.wc-tile.is-instructor{--tone:var(--warning);--tone-soft:var(--warning-soft)}
+.wc-tile.is-added{--tone:var(--success);--tone-soft:var(--success-soft)}
+.wc-tile.is-removed{--tone:var(--danger);--tone-soft:var(--danger-soft)}
+.wc-tile.is-course{--tone:var(--ink-2);--tone-soft:var(--surface-2)}
+
+/* ── الإجراءات ──────────────────────────────────────────────────────── */
+.wc-actions{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center}
+.wc-actions .btn{min-block-size:44px}
+.wc-actions .btn svg{inline-size:17px;block-size:17px}
+.wc-toggle{display:inline-flex;align-items:center;gap:6px;min-block-size:44px;padding:0 14px;margin-inline-end:auto;border:1px solid var(--line);border-radius:var(--r-full);background:var(--surface-2);color:var(--ink-2);font:inherit;font-size:.9rem;font-weight:600;cursor:pointer}
+.wc-toggle svg{inline-size:17px;block-size:17px}
+.wc-toggle[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+
+/* ── الأسبوع المصغّر ────────────────────────────────────────────────── */
+.wc-week{margin:0;display:grid;gap:var(--s2);padding:var(--s3);border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface-2)}
+.wc-week-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.wc-week-day{display:grid;grid-template-rows:auto 1fr;gap:4px;min-inline-size:0}
+.wc-week-day>b{text-align:center;font-size:.8rem;color:var(--muted)}
+.wc-week-col{position:relative;block-size:120px;border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--line)}
+.wc-week-block{position:absolute;inset-inline:3px;border-radius:4px;min-block-size:5px}
+.wc-week-block.is-before{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--danger) 30%,transparent) 0 4px,transparent 4px 7px);border:1.5px dashed var(--danger);inset-inline:8px 3px}
+.wc-week-block.is-after{background:var(--accent);opacity:.9;inset-inline:3px 8px}
+.wc-week figcaption{display:flex;gap:var(--s4);justify-content:center;font-size:.8rem;color:var(--muted)}
+.wc-week figcaption span{display:inline-flex;align-items:center;gap:6px}
+.wc-legend{display:inline-block;inline-size:14px;block-size:10px;border-radius:3px}
+.wc-legend.is-before{border:1.5px dashed var(--danger)}
+.wc-legend.is-after{background:var(--accent)}
+
+/* ── البطاقات ───────────────────────────────────────────────────────── */
+.wc-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:var(--s3)}
+.wc-card{--tone:var(--info);display:grid;gap:var(--s2);padding:var(--s3);border:1px solid var(--line);border-inline-start:4px solid var(--tone);border-radius:var(--r-md);background:var(--surface);min-inline-size:0}
+.wc-card.is-added{--tone:var(--success)}
+.wc-card.is-removed{--tone:var(--danger)}
+.wc-card header{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s2);min-inline-size:0}
+.wc-card h4{flex:1 1 10em;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0;font-size:.95rem;color:var(--ink);min-inline-size:0}
+.wc-code{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:600;flex:none}
+.wc-course{flex:1 1 7em;min-inline-size:0;overflow-wrap:break-word}
+.wc-kind{display:grid;place-items:center;inline-size:28px;block-size:28px;border-radius:var(--r-full);background:color-mix(in srgb,var(--tone) 14%,transparent);color:var(--tone);flex:none}
+.wc-kind svg{inline-size:16px;block-size:16px}
+.wc-section{padding:2px 8px;border-radius:var(--r-full);background:var(--surface-2);color:var(--ink-2);font-size:.8rem;font-weight:700;flex:none}
+.wc-who{display:inline-flex;flex:none}
+.wc-who i{display:grid;place-items:center;inline-size:26px;block-size:26px;margin-inline-start:-6px;border:2px solid var(--surface);border-radius:var(--r-full);background:var(--accent-soft);color:var(--accent-ink);font-style:normal;font-size:.75rem;font-weight:700}
+.wc-who i:first-child{margin-inline-start:0}
+.wc-deltas{display:grid;gap:6px}
+.wc-delta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-inline-size:0}
+.wc-delta-icon{inline-size:16px;block-size:16px;color:var(--muted);flex:none}
+.wc-arrow{inline-size:16px;block-size:16px;color:var(--muted);flex:none}
+.wc-chip{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:3px 8px;border-radius:var(--r-md);font-size:.85rem;max-inline-size:100%;min-inline-size:0;overflow-wrap:break-word}
+.wc-chip bdi[dir="ltr"],.wc-days{white-space:nowrap}
+.wc-chip svg{inline-size:14px;block-size:14px;flex:none}
+.wc-chip.is-before{background:var(--danger-soft);color:var(--ink-2);text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--danger) 60%,transparent)}
+.wc-chip.is-before .wc-days{text-decoration:none}
+.wc-chip.is-after{background:var(--success-soft);color:var(--ink);font-weight:600}
+.wc-chip.is-plain{background:var(--surface-2);color:var(--ink-2)}
+.wc-days{display:inline-flex;gap:2px}
+.wc-days i{display:grid;place-items:center;inline-size:18px;block-size:18px;border-radius:5px;font-style:normal;font-size:.7rem;font-weight:700;color:var(--muted-2);background:transparent;opacity:.55}
+.wc-days i[data-on]{opacity:1;color:var(--surface);background:var(--ink-2)}
+.wc-days.is-before i[data-on]{background:var(--danger)}
+.wc-days.is-after i[data-on]{background:var(--success)}
+.wc-card.is-compact{padding:var(--s2) var(--s3)}
+
+/* ── كل الخطوات ─────────────────────────────────────────────────────── */
+.wc-steps{display:grid;gap:var(--s3);margin:0;padding:0;list-style:none;border-inline-start:2px solid var(--line);padding-inline-start:var(--s3)}
+.wc-steps>li{display:grid;gap:var(--s2);position:relative}
+.wc-steps>li::before{content:"";position:absolute;inset-inline-start:calc(-1 * var(--s3) - 6px);inset-block-start:8px;inline-size:10px;block-size:10px;border-radius:var(--r-full);background:var(--accent)}
+.wc-step-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);font-size:.85rem;color:var(--ink-2)}
+.wc-step-time{font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
+.wc-step-by{display:inline-flex;align-items:center;gap:6px}
+.wc-step-label{color:var(--muted)}
+
+/* ── الورقة المطبوعة: منفذٌ معزول لا يظهر إلا حين تُطبع الحصيلة بعينها ── */
+.what-changed-print-host{display:none}
+@media print{
+  #app-print-root>.what-changed-print-host,
+  body.has-print-portal>#app-print-root>.what-changed-print-host,
+  .what-changed-print-host{display:none!important}
+  html[data-print-kind="what-changed"] #app-print-root>.print-only{display:none!important}
+  html[data-print-kind="what-changed"] #app-print-root>.what-changed-print-host{display:block!important;visibility:visible!important}
+  .what-changed-print{direction:rtl!important;padding:6mm 4mm!important;color:#1d2522!important}
+  .what-changed-print header{display:flex!important;align-items:baseline!important;justify-content:space-between!important;gap:8mm!important;margin-bottom:3mm!important;border-bottom:1.4pt solid #1f6b5c!important;padding-bottom:2.5mm!important}
+  .what-changed-print h1{font-size:14pt!important;margin:0!important;color:#12463c!important}
+  .what-changed-print header p{margin:0!important;color:#5d6966!important;font-size:9pt!important}
+  .what-changed-print-counts{margin:0 0 3mm!important;font-size:10pt!important;font-weight:700!important}
+  .what-changed-print table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important}
+  .what-changed-print th,.what-changed-print td{padding:1.8mm 2mm!important;border-bottom:.5pt solid #d7ddd9!important;text-align:start!important;vertical-align:top!important;font-size:8.5pt!important;overflow-wrap:anywhere!important}
+  .what-changed-print th{background:#f4f6f5!important;color:#4e5954!important;font-weight:800!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .what-changed-print th:nth-child(2),.what-changed-print td:nth-child(2){width:14mm!important}
+  .what-changed-print th:last-child,.what-changed-print td:last-child{width:28mm!important}
+}
