@@ -14413,6 +14413,15 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           onClose={() => { setTransferOpen(false); setTransferTab(undefined); }}
           initialTab={transferTab}
           canPublishSheets={isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair"}
+          canCheckRegistrarPdf={canEditSchedule}
+          onOpenAppointment={(id) => {
+            window.setTimeout(() => {
+              const target = document.querySelector<HTMLElement>(`[data-row-id="${Number(id)}"]`);
+              target?.scrollIntoView({ behavior: "smooth", block: "center" });
+              target?.classList.add("changes-row-focus");
+              window.setTimeout(() => target?.classList.remove("changes-row-focus"), 1800);
+            }, 120);
+          }}
           isAdmin={isPowerAdmin}
           visitingIds={visitingIds}
           visitingRosterIds={pickerVisitingRosterIds}

@@ -20,7 +20,7 @@ import { takeNotifyFocus, type NotifyFocus } from "../utils/notifyFocus";
 import { compareCourseSection } from "../utils/scheduleOrder";
 import {
   AlertTriangle, ArrowLeft, ArrowRight, CalendarDays, CalendarRange, Check, CheckCircle2, ChevronDown, ChevronLeft, ClipboardCheck, ClipboardList, Clock3,
-  CalendarPlus, CornerUpLeft, FileCheck, FileDiff, FileSearch, Inbox, Info, MapPin, MessageSquarePlus, Search, Send, ShieldCheck, Trash2,
+  CalendarPlus, CornerUpLeft, FileCheck, FileDiff, Inbox, Info, MapPin, MessageSquarePlus, Search, Send, ShieldCheck, Trash2,
   UsersRound, X, FilePenLine, Hourglass, OctagonAlert, MessageSquareWarning, MessageSquareReply, ListPlus,
 } from "lucide-react";
 import { DnaCount, DnaTimeline, useMotionScope } from "./dna";
@@ -47,7 +47,6 @@ import { singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeCont
 import { inboxAudience, multiSiteHeadline, type InboxAudience } from "../utils/inboxAudience";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
 import ApprovalDossier from "./ApprovalDossier";
-import RegistrarPdfCheck from "./RegistrarPdfCheck";
 import TermFrozenRibbon, { useTermFrozen } from "./TermFrozenRibbon";
 import { approvalScopeKey, authorityBaselineLabel, AUTHORITY_BASELINE_LABEL, createScopeGuard } from "../utils/approvalScope";
 
@@ -162,8 +161,6 @@ interface Props {
   onOpenDepartmentSchedule?: () => void;
   /** بعد التوقيع بنجاح: ينقله المضيفُ إلى «الاستعلامات والتقارير». */
   onSigned?: () => void;
-  /** يملك صلاحية استيراد PDF (النموذج 7): وحدها تفتح «افحص جدول التسجيل». */
-  canCheckRegistrarPdf?: boolean;
 }
 
 const request = async (url: string, init?: RequestInit) => {
@@ -687,10 +684,9 @@ const CROSS_KIND_LABEL: Record<string, string> = {
   doorway: "زمنُ الانتقال", cohort: "دفعةُ الطلبة",
 };
 
-function Report({ termId, termName, scope, role, onBack, onSigned, archive = false, frozen = false, canCheckRegistrarPdf = false }: {
+function Report({ termId, termName, scope, role, onBack, onSigned, archive = false, frozen = false }: {
   key?: React.Key;
   onSigned?: () => void;
-  canCheckRegistrarPdf?: boolean;
   /** فصلٌ صار أرشيفاً (termIsArchive): لا شريطَ اعتمادٍ ولا توقيع. */
   archive?: boolean;
   /** فصلٌ سابق: يُقرأ التقريرُ كلُّه، وكلُّ ما يكتب معطَّل (والخادم يرفض أيضاً). */
@@ -707,8 +703,6 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
   const [busy, setBusy] = useState(false);
   const [showRounds, setShowRounds] = useState(false);
   const [dossierOpen, setDossierOpen] = useState(false);
-  /* «افحص جدول التسجيل»: لوحةُ قراءةٍ تقارن ملفَّ التسجيل بالجدول ولا تكتب فيه. */
-  const [registrarCheckOpen, setRegistrarCheckOpen] = useState(false);
   /* «ما تحرّك» مدخلُ المراجعة السريعة، و«الجدول كامل» ما يطلبه القسم: أن يرى
      جدولَه كلَّه والملاحظات في مواضعها، لا الملاحظات وحدها. */
   const [view, setView] = useState<"changes" | "full">("changes");
@@ -779,7 +773,6 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
     setShowRounds(false);
     setView("changes");
     setDossierOpen(false);
-    setRegistrarCheckOpen(false);
     setNoteDraft(null);
     setRebutting(null);
     setMessage(null);
@@ -970,31 +963,8 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
           <button type="button" className="changes-note-add" data-guide-ignore="يفتح معاينة ملف الاعتماد للطباعة — قراءةٌ فقط" onClick={() => setDossierOpen(true)}>
             <FileCheck aria-hidden="true" /> ملف الاعتماد
           </button>
-          {canCheckRegistrarPdf && !archive && !role.canReview ? (
-            <button type="button" className="changes-note-add changes-registrar-check" aria-expanded={registrarCheckOpen} data-guide-ignore="يفتح فحص ملف التسجيل — قراءةٌ فقط ولا يغيّر الجدول" onClick={() => setRegistrarCheckOpen(open => !open)}>
-              <FileSearch aria-hidden="true" /> افحص جدول التسجيل
-            </button>
-          ) : null}
         </div>
       </header>
-      {registrarCheckOpen && canCheckRegistrarPdf && !role.canReview ? (
-        <RegistrarPdfCheck
-          collegeId={scope.collegeId}
-          sectionId={scope.sectionId}
-          termId={termId}
-          onClose={() => setRegistrarCheckOpen(false)}
-          onOpenAppointment={(id) => {
-            setRegistrarCheckOpen(false);
-            setView("full");
-            window.setTimeout(() => {
-              const target = document.getElementById(`schedule-row-${id}`);
-              target?.scrollIntoView({ behavior: "smooth", block: "center" });
-              target?.classList.add("changes-row-focus");
-              window.setTimeout(() => target?.classList.remove("changes-row-focus"), 1800);
-            }, 80);
-          }}
-        />
-      ) : null}
       {dossierOpen ? (
         <ApprovalDossier collegeId={scope.collegeId} sectionId={scope.sectionId} termId={termId} collegeName={scope.collegeName} sectionName={scope.sectionName} termName={termName} onClose={() => setDossierOpen(false)} />
       ) : null}
@@ -1273,7 +1243,7 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
 
 /* ── الشاشة ─────────────────────────────────────────────────────────────── */
 
-export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin = false, onOpenDepartmentSchedule, onSigned, canCheckRegistrarPdf = false }: Props) {
+export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin = false, onOpenDepartmentSchedule, onSigned }: Props) {
   const [terms, setTerms] = useState<AdTerm[] | null>(null);
   const [termId, setTermId] = useState(0);
   const [opened, setOpened] = useState<{ collegeId: number; sectionId: number; collegeName?: string; sectionName?: string } | null>(null);
@@ -1395,7 +1365,7 @@ export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin =
       {!termId ? (
         <EmptyState title="اختر الفصل" detail="تُعرض تغييرات الجداول لفصلٍ واحد في كل مرّة." />
       ) : active ? (
-        <Report key={reloadKey} termId={termId} termName={term?.AdTermName || ""} scope={active} role={role} archive={termIsArchive(term, terms || []) || frozenTerm} frozen={frozenTerm} onBack={opened ? () => setOpened(null) : undefined} onSigned={onSigned} canCheckRegistrarPdf={canCheckRegistrarPdf} />
+        <Report key={reloadKey} termId={termId} termName={term?.AdTermName || ""} scope={active} role={role} archive={termIsArchive(term, terms || []) || frozenTerm} frozen={frozenTerm} onBack={opened ? () => setOpened(null) : undefined} onSigned={onSigned} />
       ) : (
         <Surface>
           <Inbox_

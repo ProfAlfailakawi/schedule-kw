@@ -27,7 +27,7 @@ export type FindingGroup = "matched" | "mismatch" | "notCarried" | "review";
 export type FindingKind =
   | "ok" | "fields" | "onlyPdf" | "onlyOurs"
   | "notChanged" | "notAdded" | "notRemoved"
-  | "ambiguous" | "unreadable" | "fuzzy" | "noKey";
+  | "ambiguous" | "unreadable" | "fuzzy" | "noKey" | "renumbered";
 
 export interface FieldDelta {
   field: RegistrarField;
@@ -464,10 +464,44 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
     for (const [tail, fulls] of seen) if (fulls.size > 1) tailCollisions.add(tail);
   }
 
+  /* ── الموعد نفسه برقم شعبةٍ مختلف ──────────────────────────────────────
+     يعيد التسجيلُ ترقيمَ الشعب أحياناً (٥١٠ عندكم صارت ٥٠٧ عنده)، فيقع رقمٌ صدفةً على موعدٍ آخر ويُقرأ «خللاً» وهو
+     إزاحةُ ترقيمٍ لا غير. لذلك يُقدَّم الموعدُ على الرقم: ما اتفق رقمُه ووقتُه يبقى على المقارنة العادية، وما بقي
+     يُقرَن بالمقرر نفسه والأيام والبداية والنهاية نفسها (ويُقدَّم ما اتفقت قاعتُه)، ويُعرض في «تحتاج نظرك» برقمَيه:
+     لا يُحكم بالتطابق ولا بالخلل، فالرقمُ هو الذي اختلف. ما لا شريك له في الموعد يمضي إلى المقارنة بالرقم كما كان. */
+  {
+    const signature = (section: Section): string => {
+      const parts = meetingsOf(section.rows);
+      if (!parts.length || parts.some(m => m.day < 0 || !m.start || !m.end)) return "";
+      return parts.map(m => `${m.day}|${m.start}|${m.end}`).join(";");
+    };
+    const roomsOf = (section: Section) => meetingsOf(section.rows).map(m => m.room).join("|");
+    const usable = (section: Section) => !tailCollisions.has(section.tail) && section.fulls.size <= 1;
+    const stays = new Set<string>();
+    for (const [key, ours] of liveByKey) {
+      const theirs = pdf.sections.get(key);
+      if (theirs && usable(ours) && signature(ours) && signature(ours) === signature(theirs)) stays.add(key);
+    }
+    for (const [pKey, theirs] of pdf.sections) {
+      if (stays.has(pKey) || consumedPdf.has(pKey) || !usable(theirs) || !certain(theirs, "days") || !certain(theirs, "time")) continue;
+      const sig = signature(theirs);
+      if (!sig) continue;
+      const candidates = [...liveByKey.entries()].filter(([k, s]) => !stays.has(k) && !consumedLive.has(k) && usable(s) && s.tail === theirs.tail && signature(s) === sig);
+      if (!candidates.length) continue;
+      const wantRooms = roomsOf(theirs);
+      const [lKey, ours] = candidates.find(([, s]) => wantRooms && roomsOf(s) === wantRooms) || candidates[0];
+      consumedLive.add(lKey); consumedPdf.add(pKey);
+      const fields: FieldDelta[] = [{ field: "section", label: REGISTRAR_FIELD_LABEL.section, ours: ours.section, pdf: theirs.section }];
+      for (const field of ["room", "instructor"] as const) if (compareField(field, ours.rows, theirs.rows, instructorNames, placeholders) === "diff") fields.push(delta(field, ours.rows, theirs.rows));
+      add({ group: "review", kind: "renumbered", key: `${lKey}~${pKey}`, ref: lKey, sec: ours, other: theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields, match: "fuzzy",
+        reason: `الموعد نفسه برقم شعبةٍ مختلف: عندكم ${ours.section} وفي الملف ${theirs.section}.` });
+    }
+  }
+
   /* ── الشعب التي على الطرفين بمفتاحٍ كامل ─────────────────────────── */
   for (const [key, ours] of liveByKey) {
     const theirs = pdf.sections.get(key);
-    if (!theirs) continue;
+    if (!theirs || consumedLive.has(key) || consumedPdf.has(key)) continue;
     if (tailCollisions.has(ours.tail) || ours.fulls.size > 1) {
       /* رمزان بالنهاية نفسها (قسمان أو كتالوجان): المفتاح لا يكفي لإثبات هويةٍ، فيُسأل صاحبُ الجدول. */
       consumedLive.add(key); consumedPdf.add(key);
@@ -521,6 +555,7 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
   const usedLiveFuzzy = new Set<string>();
   const usedPdfFuzzy = new Set<string>();
   for (const [pKey, theirs] of leftoverPdf) {
+    if (usedPdfFuzzy.has(pKey)) continue;
     const sameCourse = leftoverLive.filter(([k, s]) => !usedLiveFuzzy.has(k) && s.tail === theirs.tail);
     const sameSection = leftoverLive.filter(([k, s]) => !usedLiveFuzzy.has(k) && s.section === theirs.section && foldName(s.name) && foldName(s.name) === foldName(theirs.name));
     const candidates = sameCourse.length ? sameCourse : sameSection;
