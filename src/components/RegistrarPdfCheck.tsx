@@ -5,7 +5,9 @@
  * **الفروق وحدها**: ما أرسلناه ولم يُنفَّذ، وما عدّلناه بعد آخر إرسال، وما يخالف
  * جدولنا، وما لا يُحكم فيه بيقين. والمطابقُ سطرٌ واحد بعدده — لا الجدول كله.
  *
- * الفحصُ قراءةٌ محضة (readOnly=1 ثم المقارنة). والكتابةُ فعلان صريحان وحدهما:
+ * الفحصُ قراءةٌ محضة (readOnly=1 ثم المقارنة). وبعده خطوةٌ تلقائية واحدة تكتب: مطابقةُ رقم
+ * الشعبة ومرجعيّها بما طبعه التسجيل (registrar-numbering، بنسخةٍ للتراجع)، ثم يُعاد الفحص.
+ * وما سواها فعلان صريحان وحدهما:
  * «احفظ طلب التعديل» (يصير طلباً مؤرَّخاً تحت «تغييرات الجدول» يصل التسجيل)،
  * والتحققُ الذاتي من بنودٍ شطبها التسجيل قبلُ (يجري بعد الفحص بطريقٍ مستقلّ).
  */
@@ -274,7 +276,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
         <span className="rpc-head-icon" aria-hidden="true"><FileSearch /></span>
         <div>
           <h2 id="rpc-title">افحص جدول التسجيل</h2>
-          <p><ShieldCheck aria-hidden="true" /> الفحص قراءةٌ فقط — لا يتغيّر شيءٌ في جدولكم</p>
+          <p><ShieldCheck aria-hidden="true" /> يقارن ولا يغيّر شيئاً إلا أرقام الشعب لتطابق التسجيل (مع تراجع)</p>
         </div>
         <button type="button" className="rpc-close" aria-label="إغلاق الفحص" data-guide-ignore="يغلق لوحة الفحص — لا يغيّر شيئاً" onClick={() => { abortRef.current?.abort(); onClose(); }}><X aria-hidden="true" /></button>
       </header>

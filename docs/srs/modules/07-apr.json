@@ -71,7 +71,10 @@
     "src/styles/25-term-freeze.css",
     "src/styles/31-approval-atlas.css",
     "src/styles/33-approval-score.css",
-    "src/styles/72-registrar-check.css"
+    "src/styles/72-registrar-check.css",
+    "src/utils/registrarNumbering.ts",
+    "src/server/core/sectionNumbers.ts",
+    "src/components/RegistrarNumbering.tsx"
   ],
   "screens": [
     {
@@ -3010,8 +3013,8 @@
         "en": "Checking the schedule returned by Registration"
       },
       "text": {
-        "ar": "يجب أن تتيح «أدوات الجدول ← الملفات» (زرّ «افحص جدول التسجيل») لمن يملك صلاحية استيراد PDF (النموذج 7) داخل نطاقه، وبصفةٍ غير مقصورة على الاطّلاع، أن يرفع ملف PDF الذي أعاده التسجيل فيُقرأ في ذاكرة الخادم بالقارئ نفسه دون أي كتابة (readOnly=1)، ثم يُقارن بالجدول الحيّ وبنسخة آخر إرسال وبملف التسجيل الأصلي إن وُجد، وتُعرض **الفروق وحدها** في أربع مجموعات: «أرسلناه ولم يُنفَّذ»، و«تعديل جديد لم يُرسل بعد»، و«يخالف جدولكم» (ومنه «ظهرت بخطأ»)، و«تحتاج نظرك»، والمطابقُ سطرٌ واحد بعدده. تُعرَف الشعبة برمز المقرر والرقم المرجعي (CRN)، ورقمُ CRN لصفوفنا هو ما يطبعه «تقرير تغييرات الجدول» (اقتران ملف التسجيل الأصلي بالجدول: الرقم المرجعي للصف الأصلي، وإلا رقم الصف)؛ واختلافُ رقم الشعبة وحده ليس فرقاً ويُذكر الرقمان بهدوء. فإن غاب الرقم المرجعي عن أحد الطرفين رُجع إلى المقرر والموعد نفسه (إن انفرد)، ثم المقرر ورقم الشعبة، ثم المقرر وحده في «تحتاج نظرك»؛ وإضافةٌ ظهرت عندهم بمقررٍ آخر أو أيامٍ أخرى تُعرف بالوقت والأستاذ إن انفرد الشبيه، وإلا «تحتاج نظرك». تُقارن الأيام والوقت والمبنى والقاعة والأستاذ والمقرر، ويتسامح الأستاذ مع الاسم المقصوص والألقاب وsplit family-name particles (for example Bu Hamad written as one word or two). لكل بطاقة الرقم المرجعي والمقرر وخاناتٌ «عندهم ← المطلوب» بأيقوناتها.",
-        "en": "The schedule tools, under Files (the «check the registrar schedule» button), shall let a user holding the PDF-import permission (form 7), within scope and not in a view-only capacity, upload the PDF Registration sent back; the file is read in server memory by the same reader with no write at all (readOnly=1), compared with the live schedule, the last-sent version and the original registrar file when one exists, and **only the differences** are shown in four groups: sent but not applied, new change not yet sent, differs from your schedule (including «appeared wrongly»), and needs your look, with matched sections collapsed into one counted line. A section is identified by course code plus reference number (CRN); our rows' CRN is the one the schedule-changes report prints (the original registrar row paired with the live row, else the row's own number). A differing section number alone is not a difference and both numbers are shown quietly. When the CRN is missing on either side the check falls back to course plus the same slot (when unique), then course plus section number, then course alone under needs your look; an addition that appeared under another course or other days is recognised by time and teacher when the look-alike is unique, otherwise needs your look. Days, time, building and room, teacher and course are compared; teacher names tolerate truncation, titles and split family-name particles (for example Bu Hamad written as one word or two). Each card shows the CRN, the course and compact «theirs → required» fields with icons."
+        "ar": "يجب أن تتيح «أدوات الجدول ← الملفات» (زرّ «افحص جدول التسجيل») لمن يملك صلاحية استيراد PDF (النموذج 7) داخل نطاقه، وبصفةٍ غير مقصورة على الاطّلاع، أن يرفع ملف PDF الذي أعاده التسجيل فيُقرأ في ذاكرة الخادم بالقارئ نفسه دون أي كتابة (readOnly=1)، ثم يُقارن بالجدول الحيّ وبنسخة آخر إرسال وبملف التسجيل الأصلي إن وُجد، وتُعرض **الفروق وحدها** في أربع مجموعات: «أرسلناه ولم يُنفَّذ»، و«تعديل جديد لم يُرسل بعد»، و«يخالف جدولكم» (ومنه «ظهرت بخطأ»)، و«تحتاج نظرك»، والمطابقُ سطرٌ واحد بعدده. تُعرَف الشعبة برمز المقرر والرقم المرجعي (CRN)، ورقمُ CRN لصفوفنا هو ما يطبعه «تقرير تغييرات الجدول» (اقتران ملف التسجيل الأصلي بالجدول: الرقم المرجعي للصف الأصلي، وإلا رقم الصف)؛ واختلافُ رقم الشعبة وحده ليس فرقاً ويُذكر الرقمان بهدوء. فإن غاب الرقم المرجعي عن أحد الطرفين رُجع إلى المقرر والموعد نفسه (إن انفرد)، ثم المقرر ورقم الشعبة، ثم المقرر وحده في «تحتاج نظرك»؛ وإضافةٌ ظهرت عندهم بمقررٍ آخر أو أيامٍ أخرى تُعرف بالوقت والأستاذ إن انفرد الشبيه، وإلا «تحتاج نظرك». تُقارن الأيام والوقت والمبنى والقاعة والأستاذ والمقرر، ويتسامح الأستاذ مع الاسم المقصوص والألقاب وsplit family-name particles (for example Bu Hamad written as one word or two). لكل بطاقة الرقم المرجعي والمقرر وخاناتٌ «عندهم ← المطلوب» بأيقوناتها. وبعد فحصٍ ناجح تُطابَق تلقائياً أرقامُ الشعب ومرجعيّاتها بما طبعه التسجيل (FR-APR-042)، ثم يُعاد الفحص بالأرقام الجديدة؛ والمقارنة نفسها تبقى قراءةً محضة.",
+        "en": "The schedule tools, under Files (the «check the registrar schedule» button), shall let a user holding the PDF-import permission (form 7), within scope and not in a view-only capacity, upload the PDF Registration sent back; the file is read in server memory by the same reader with no write at all (readOnly=1), compared with the live schedule, the last-sent version and the original registrar file when one exists, and **only the differences** are shown in four groups: sent but not applied, new change not yet sent, differs from your schedule (including «appeared wrongly»), and needs your look, with matched sections collapsed into one counted line. A section is identified by course code plus reference number (CRN); our rows' CRN is the one the schedule-changes report prints (the original registrar row paired with the live row, else the row's own number). A differing section number alone is not a difference and both numbers are shown quietly. When the CRN is missing on either side the check falls back to course plus the same slot (when unique), then course plus section number, then course alone under needs your look; an addition that appeared under another course or other days is recognised by time and teacher when the look-alike is unique, otherwise needs your look. Days, time, building and room, teacher and course are compared; teacher names tolerate truncation, titles and split family-name particles (for example Bu Hamad written as one word or two). Each card shows the CRN, the course and compact «theirs → required» fields with icons. After a successful check the section numbers and reference numbers are aligned automatically with the registrar's (FR-APR-042) and the check is run again with the new numbers; the comparison itself stays read-only."
       },
       "rationale": {
         "ar": "حين يعيد التسجيلُ الجدولَ للمراجعة يحتاج القسمُ جواباً في نظرةٍ: هل في ما طُبع خلل، وهل نُفِّذ ما عدّلناه؟ والحكمُ بالتخمين أسوأ من الصمت.",
@@ -3103,6 +3106,54 @@
         "tests": [
           "tests/registrar-check-audit.ts",
           "tests/registrar-check-route-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-APR-042",
+      "kind": "functional",
+      "title": {
+        "ar": "ترقيم التسجيل: الرقم المطبوع، والمطابقة التلقائية، والرقم التالي",
+        "en": "Registrar numbering: printed numbers, automatic alignment and the next number"
+      },
+      "text": {
+        "ar": "يجب أن يحفظ استيرادُ ملف PDF مقروءٍ من طبقة النص رقمَ الشعبة المطبوع (501–999) رقماً للشعبة والرقمَ المرجعي المطبوع، ومرجعيٌّ واحد بموعدين شعبةٌ واحدة؛ ورقمٌ مطبوع تكرّر في المقرر لشعبتين، أو ملفٌّ ممسوح، يُولَّد له 501… بعد أكبر رقمٍ مطبوع ويُعلَّم «رقم غير مؤكد». وبعد كل فحصٍ ناجح لملف التسجيل تطابق خطوةٌ تلقائية مستقلة (POST /api/schedules/registrar-numbering، النموذج 7 ونطاقه) رقمَ الشعبة ومرجعيَّها بأرقامهم لكل شعبةٍ عُرفت بيقين — بالرقم المرجعي، أو بالمقرر والموعد والأستاذ منفردةً من الطرفين (ومنها الشعبة الجديدة بلا مرجعي، والمحذوفة المُعادة) — كتابةً واحدة لا تمسّ الأيام ولا الأوقات ولا القاعات ولا الأساتذة، تسبقها نسخة «قبل مطابقة ترقيم التسجيل» ويُسجَّل أثرها؛ ويُعرض سطرٌ واحد «طابقنا أرقام N شعبة مع التسجيل» ومعه «تراجع». الملتبس والرقم الذي تحمله شعبةٌ أخرى عندنا لا يُكتبان ويظهران في «تحتاج نظرك»، والجدول المقفل لا يُكتب. والشعبة التي نفتحها رقمُها التالي بعد أكبر رقمٍ للمقرر في الفصل بلا ملء فراغ، ولا يعود رقمٌ حُذف في الفصل نفسه (سجلّ أرقام الفصل)، وتحمل حتى يظهر رقمها عندهم علامة «جديدة · بانتظار رقم التسجيل».",
+        "en": "Importing a PDF read from its text layer shall keep the printed section number (501 to 999) as the section number and the printed reference number as the reference number, one reference number on two meeting lines being one section; a printed number repeated for two sections of a course, or a scanned file, gets a generated 501-style number after the highest printed one and is marked as an uncertain number. After every successful check of a registrar file an automatic, separate step (POST /api/schedules/registrar-numbering, form 7 within scope) aligns the section number and reference number with theirs for every section identified with certainty, by reference number or by course, slot and teacher unique on both sides (including a new section without a reference number and a deleted and re-created one), in one write that never touches days, times, rooms or teachers, preceded by a version labelled before registrar numbering alignment and recorded in the audit trail; one calm line states how many sections were aligned and offers undo. Ambiguous sections and a number already held by another of our sections are not written and appear under needs your look, and a locked schedule is not written. A section we open gets the next number after the highest for that course in the term without filling gaps, a number deleted earlier in the same term never returns (the term's section-number ledger), and until its number appears in their file it carries a subtle new, awaiting registrar number badge."
+      },
+      "rationale": {
+        "ar": "التسجيل لا يغيّر رقماً طبعه، فاختلاف أرقامنا عن أرقامه ضجيجٌ يخفي الفروق الحقيقية ويُربك الطلبات.",
+        "en": "Registration never changes a number it printed, so our numbers differing from theirs is noise that hides real differences and confuses requests."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "POST /api/schedules/registrar-numbering: ٤٠١ بلا دخول، و٤٠٣ بلا النموذج 7 أو خارج النطاق، و٤٠٠ بلا صفوف؛ ولا يتغيّر إلا رقم الشعبة والرقم المرجعي، وتُحفظ نسخة «قبل مطابقة ترقيم التسجيل»، والملف نفسه ثانيةً لا يكتب، والمتصادم لا يُكتب.",
+          "en": "POST /api/schedules/registrar-numbering: 401 signed out, 403 without form 7 or outside scope, 400 without rows; only the section number and reference number change, a before-alignment version is stored, the same file again writes nothing, and a colliding number is not written."
+        },
+        {
+          "ar": "assignAuthoritySections يحفظ المطبوع من طبقة النص ويولّد للمسح والمتكرر؛ واقتراح الرقم التالي في النموذج والمقترح والخادم يمرّ بدالةٍ واحدة تضمّ سجلّ الفصل.",
+          "en": "assignAuthoritySections keeps text-layer printed numbers and generates for scans and repeats; the next-number suggestion in the form, proposals and the server goes through one function that includes the term ledger."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/registrarNumbering.ts",
+          "src/utils/authorityAcademicCodes.ts",
+          "src/server/core/sectionNumbers.ts",
+          "src/server/routes/scheduleImportRoutes.ts#/api/schedules/registrar-numbering",
+          "src/components/RegistrarNumbering.tsx",
+          "src/components/RegistrarPdfCheck.tsx",
+          "src/components/Schedules.tsx"
+        ],
+        "tests": [
+          "tests/registrar-numbering-audit.ts",
+          "tests/registrar-numbering-route-audit.ts"
         ]
       },
       "inferred": false

@@ -379,6 +379,9 @@ function compareField(field: RegistrarField, a: readonly Row[], b: readonly Row[
     case "instructor": {
       const real = (ids: number[]) => ids.filter(id => !placeholders?.has(id));
       const ia = real(instructorIds(a)), ib = real(instructorIds(b));
+      /* «هيئة تدريسية» على الطرفين: لا أستاذ مسمّى عند أحد، فلا فرق ولا حاجة لنظر. */
+      const rawA = instructorIds(a), rawB = instructorIds(b);
+      if (rawA.length && rawB.length && !ia.length && !ib.length) return "same";
       const textB = b.map(row => String(row.sourceInstructorText || "").trim()).filter(Boolean);
       const textA = a.map(row => String(row.sourceInstructorText || "").trim()).filter(Boolean);
       const namesOf = (ids: number[]) => ids.map(id => names?.get(id) || "").filter(Boolean);

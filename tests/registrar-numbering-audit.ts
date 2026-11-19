@@ -92,6 +92,8 @@ const pdf = (course: number, section: string, crn: string, day: number, start: s
   });
   check(recreated.identities.length === 1 && recreated.identities[0].certain && recreated.identities[0].theirs.crn === "3752", "المحذوفة المُعادة تُعرف برقمها القديم عندهم (لا «احذفوا» و«أضيفوا»)", recreated.findings);
   check(!recreated.findings.some(f => f.kind === "notRemoved" || f.kind === "onlyOurs" || f.kind === "onlyPdf"), "ولا تُطلب حذفاً ولا إضافة", recreated.findings.map(f => f.kind));
+  const staff = checkRegistrarPdf({ live: [live(1, "501", "2712", 0, "08:00", 99)], pdf: [pdf(1, "502", "2712", 0, "08:00", 98, { sourceInstructorText: "هيئة تدريسية" })], names: { ...names, placeholderIds: new Set([98, 99]) } });
+  check(staff.counts.matched === 1 && staff.counts.review === 0, "«هيئة تدريسية» على الطرفين: مطابقة، لا «قراءة غير مؤكدة»", staff.findings);
   const scanned = checkRegistrarPdf({ live: [live(1, "505", "2041", 1, "11:00")], pdf: [pdf(1, "506", "2041", 1, "11:00", 7, { sourceReadMode: "ocr-grid", importEvidence: { section: { confidence: "REVIEW_REQUIRED" } } })], names });
   check(scanned.identities.length === 1 && !scanned.identities[0].certain, "ملفٌّ ممسوح: رقمه لا يُعتمد", scanned.identities);
 }
