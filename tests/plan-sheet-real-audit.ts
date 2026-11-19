@@ -86,7 +86,7 @@ const EXPECTED: Record<string, [string, number]> = {
   check([rt, completion, dental, lab].every(sheet => isNewSheet(sheet) && trackProgramOf(sheet) === sheet.program), "الدبلوم والاستكمال: صحيفةٌ معتمدة ومسارٌ في قسمها");
   check(boysEnv.program === "BA-031002" && isNewSheet(boysEnv) && !trackProgramOf(boysEnv), "BA-031002 (بنين): صحيفة القسم الرئيسية لا مسار");
   const at = (code: string) => ({ AdCollegeId: 14, AdSectionCode: code, AdSectionName: "قسم" });
-  check(sheetHomeCode(dental) === "45" && ownsSheet(dental, at("45"), [at("45")]) && !ownsSheet(dental, at("42"), [at("42"), at("45")]), "فني عيادة أسنان (رمز 50) يتبع قسم صحة الفم والأسنان (45)");
+  check(sheetHomeCode(dental) === "50" && ownsSheet(dental, at("50"), [at("45"), at("50")]) && !ownsSheet(dental, at("45"), [at("45"), at("50")]), "فني عيادة أسنان (رمز 50) قسمٌ برمزه: أرقام مقرراته تتكرر مع 45 فلا تُحفظ معها");
   check(sheetHomeCode(lab) === "72" && ownsSheet(lab, at("72"), [at("72"), at("48")]) && !ownsSheet(lab, at("48"), [at("72"), at("48")]), "تكنولوجيا المختبرات (72) لقسمها لا للصيدلانية المطبوعة في ترويستها");
   check(sheetHomeCode(rt) === "42" && ownsSheet(rt, at("42"), [at("42")]), "العلاج التنفسي لقسم العلوم الطبية التطبيقية (42)");
   check(sheetSectionName(rt, "قسم العلوم الطبية التطبيقية") === "" && sheetSectionName(completion, "قسم م") === "" && sheetSectionCode(rt, "42") === "", "المسار (DP/BC) لا يسمّي القسم ولا يرمّزه من ترويسته");
