@@ -22,6 +22,10 @@ import { AR, countOf } from "../../utils/arabicCount";
 import { authorityCourseCode, authorityDepartmentKeys } from "../../utils/authorityAcademicCodes";
 import { SCHEDULE_DAY_KEYS, schedulePayloadIssues } from "../core/scheduleRules";
 import { filterByScope, isScopeAllowed } from "../core/scope";
+import { checkRegistrarPdf, slimPdfRow } from "../../utils/registrarCheck";
+import { roundBaselineVersionId } from "../../utils/approvalWorkflow";
+import { chooseCaptureBaseline } from "../../utils/changesBaseline";
+import { readApproval } from "../core/approvals";
 import { approvalBlockerOptions, blockingImportConflicts, branchOwnScopes, placeholderInstructorIds, safeDraftRows, validateSmartRows, visitingToFacultyPlan } from "../core/smartImport";
 
 export function registerScheduleImportRoutes(app: Express): void {
@@ -100,6 +104,55 @@ app.post("/api/schedules/import-preflight", requirePermission(7), async (req: Au
     rowIndex:positionOf(item?.rowId),otherIndex:positionOf(item?.otherId),
     otherLabel:describeOther(item?.otherId)||describeOther(item?.rowId),
   }))});
+});
+
+/**
+ * ── فحصُ جدول التسجيل: قراءةٌ محضة ──────────────────────────────────────────
+ *
+ * يعيد التسجيلُ الجدولَ بملف PDF ليراجعه القسم. تُقرأ صفحاتُ الملف بالقارئ نفسه
+ * (`/api/intelligence/pdf-import?readOnly=1`، وهي لا تكتب شيئاً)، وتصل صفوفُها
+ * إلى هنا لتُقارَن بالجدول الحيّ وبنسخة آخر ما رآه التسجيل: مطابق، وخلل، وما لم
+ * يُنفَّذ، وما يحتاج نظراً. الصلاحية والنطاق هما صلاحيةُ استيراد PDF ونطاقُه.
+ *
+ * لا كتابةَ هنا بأيّ وجه: لا جدولَ ولا نسخةً ولا سجلّاً ولا إشعاراً.
+ */
+app.post("/api/schedules/registrar-check", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control","no-store");
+  const collegeId=Number(req.body?.collegeId||0),sectionId=Number(req.body?.sectionId||0),termId=Number(req.body?.termId||0);
+  if(!collegeId||!sectionId||!termId){res.status(400).json({error:"حدد الكلية والقسم والفصل."});return;}
+  if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  if(!Array.isArray(req.body?.rows)){res.status(400).json({error:"لم تصل صفوف الملف المقروءة."});return;}
+  if(req.body.rows.length>600){res.status(400).json({error:"عدد الصفوف أكبر من الحد الآمن للفحص."});return;}
+  const pdfRows=req.body.rows.map(slimPdfRow);
+
+  const [liveRows,instructors,courses,approval]=await Promise.all([
+    Repository.getSchedulesByScope({collegeId,sectionId,termId}),Repository.getInstructors(),Repository.getCourses(),
+    readApproval(collegeId,sectionId,termId),
+  ]);
+
+  /* ما رآه التسجيل آخر مرّة: القاعدةُ نفسها التي يقرأ بها «تغييرات الجدول» أساسَ الجولة الجارية. */
+  let sent:any[]|undefined;
+  const baselineId=roundBaselineVersionId(approval,approval.currentRound);
+  if(baselineId){
+    sent=(await Repository.getScheduleVersionById(baselineId))?.rows as any[]|undefined;
+  }else{
+    const history=await Repository.getScheduleVersions(collegeId,sectionId,termId,100);
+    const choice=chooseCaptureBaseline(approval.rounds as any,approval.currentRound,history as any);
+    if(choice.kind==="capture")sent=(await Repository.getScheduleVersionById(choice.versionId))?.rows as any[]|undefined;
+    else if(choice.kind==="reviewed")sent=liveRows as any[];
+  }
+
+  const courseRows=(courses as any[]).filter(row=>Number(row.AdCollegeId)===collegeId&&Number(row.AdSectionId)===sectionId);
+  const result=checkRegistrarPdf({
+    live:liveRows as any[],pdf:pdfRows,sent,
+    names:{
+      instructorById:new Map((instructors as any[]).map(row=>[Number(row.AdInstructorId),String(row.AdInstructorName||"")])),
+      courseCodeById:new Map(courseRows.map(row=>[Number(row.AdCourseId),String(row.CourseCode||"").trim()])),
+      courseNameById:new Map(courseRows.map(row=>[Number(row.AdCourseId),String(row.CourseName||"").trim()])),
+      placeholderIds:placeholderInstructorIds(instructors as any),
+    },
+  });
+  res.json(result);
 });
 
 /**

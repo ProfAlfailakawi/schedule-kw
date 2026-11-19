@@ -90,6 +90,7 @@
 @import "./styles/70-appointment-redesign.css";
 @import "./styles/71-rooms-explorer.css";
 @import "./styles/71-quick-swap.css";
+@import "./styles/72-registrar-check.css";
 @import "./styles/71-official-app.css";
 @import "./styles/72-special-section.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the

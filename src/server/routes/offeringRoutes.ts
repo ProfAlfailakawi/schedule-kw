@@ -265,8 +265,16 @@ app.get("/api/ta-trainees", requireAnyPermission([3, 7, 8, 9, 10, 14, 16, 17]), 
   if (!collegeId || !sectionId || !termId || !isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج نطاق القسم والفصل." }); return; }
   const family = await staffFamilyScopes(collegeId, sectionId);
   const requests = (await Promise.all(family.map(scope => Repository.getInstructorRequests(scope.collegeId, scope.sectionId, termId)))).flat();
-  const ids = [...new Set(requests.filter(row => row.status !== "superseded" && isTaRequest(row)).map(row => Number(row.AdInstructorId)).filter(Boolean))];
+  const idSet = new Set(requests.filter(row => row.status !== "superseded" && isTaRequest(row)).map(row => Number(row.AdInstructorId)).filter(Boolean));
+  /* والمدرّبُ بتصنيفه (category «ta») ولو لم يكن له طلبٌ في مرحلة التدريب هذا الفصل: من يُدرّس شعبةً في عائلة القسم
+     مدرّبٌ يظهر وسمُه وتُعرض شعبُه في «التبديل السريع». المعرّفاتُ وحدها تُعاد — لا اسمَ ولا جوال. */
+  const taByCategory = new Set((await Repository.getInstructors()).filter(person => (person as any).AdInstructorCategory === "ta").map(person => Number(person.AdInstructorId)));
+  if (taByCategory.size) {
+    const termRows = (await Promise.all(family.map(scope => Repository.getSchedulesByScope({ collegeId: scope.collegeId, sectionId: scope.sectionId, termId })))).flat();
+    for (const row of termRows) if (taByCategory.has(Number(row.AdInstructorId))) idSet.add(Number(row.AdInstructorId));
+  }
   res.setHeader("Cache-Control", "no-store");
+  const ids = [...idSet];
   res.json({ ids });
 });
 

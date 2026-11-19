@@ -1849,8 +1849,20 @@
    "path": "/api/schedules/import-preflight",
    "name": "bound dispatch",
    "call": "eb99f797ba71a147",
-   "site": "src/server/routes/scheduleImportRoutes.ts:42",
+   "site": "src/server/routes/scheduleImportRoutes.ts:46",
    "regexp": "/^\\/api\\/schedules\\/import-preflight\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/schedules/registrar-check",
+   "name": "bound dispatch",
+   "call": "cdb2ea351b15d26a",
+   "site": "src/server/routes/scheduleImportRoutes.ts:119",
+   "regexp": "/^\\/api\\/schedules\\/registrar-check\\/?$/i",
    "end": true
   },
   {
@@ -1861,7 +1873,7 @@
    "path": "/api/schedules/export",
    "name": "bound dispatch",
    "call": "a29ffcf2d3385147",
-   "site": "src/server/routes/scheduleImportRoutes.ts:118",
+   "site": "src/server/routes/scheduleImportRoutes.ts:171",
    "regexp": "/^\\/api\\/schedules\\/export\\/?$/i",
    "end": true
   },
@@ -1873,7 +1885,7 @@
    "path": "/api/schedules/import",
    "name": "bound dispatch",
    "call": "24b565af6057dab1",
-   "site": "src/server/routes/scheduleImportRoutes.ts:214",
+   "site": "src/server/routes/scheduleImportRoutes.ts:267",
    "regexp": "/^\\/api\\/schedules\\/import\\/?$/i",
    "end": true
   },
@@ -3397,7 +3409,7 @@
    ],
    "path": "/api/intelligence/pdf-import",
    "name": "bound dispatch",
-   "call": "7056e801e7d1f044",
+   "call": "2f727ecf3db39f18",
    "site": "src/server/routes/pdfImportRoutes.ts:251",
    "regexp": "/^\\/api\\/intelligence\\/pdf-import\\/?$/i",
    "end": true
@@ -6017,7 +6029,7 @@
    ],
    "path": "/api/ta-trainees",
    "name": "bound dispatch",
-   "call": "256cb8b1e7a7f000",
+   "call": "d265f825b7c8815d",
    "site": "src/server/routes/offeringRoutes.ts:263",
    "regexp": "/^\\/api\\/ta-trainees\\/?$/i",
    "end": true
@@ -6030,7 +6042,7 @@
    "path": "/api/ta-phase/allowed",
    "name": "bound dispatch",
    "call": "c789c863487b9b3d",
-   "site": "src/server/routes/offeringRoutes.ts:274",
+   "site": "src/server/routes/offeringRoutes.ts:282",
    "regexp": "/^\\/api\\/ta-phase\\/allowed\\/?$/i",
    "end": true
   },
@@ -6042,7 +6054,7 @@
    "path": "/api/ta-phase/open",
    "name": "bound dispatch",
    "call": "564fa125691613e1",
-   "site": "src/server/routes/offeringRoutes.ts:291",
+   "site": "src/server/routes/offeringRoutes.ts:299",
    "regexp": "/^\\/api\\/ta-phase\\/open\\/?$/i",
    "end": true
   },
@@ -6054,7 +6066,7 @@
    "path": "/api/ta-phase/close",
    "name": "bound dispatch",
    "call": "f987905419afe70d",
-   "site": "src/server/routes/offeringRoutes.ts:314",
+   "site": "src/server/routes/offeringRoutes.ts:322",
    "regexp": "/^\\/api\\/ta-phase\\/close\\/?$/i",
    "end": true
   },
@@ -6066,7 +6078,7 @@
    "path": "/api/advisor-seats",
    "name": "bound dispatch",
    "call": "9629c3bbbd8567ea",
-   "site": "src/server/routes/offeringRoutes.ts:323",
+   "site": "src/server/routes/offeringRoutes.ts:331",
    "regexp": "/^\\/api\\/advisor-seats\\/?$/i",
    "end": true
   },
@@ -6078,7 +6090,7 @@
    "path": "/api/advisor-seats/config",
    "name": "bound dispatch",
    "call": "6c241eda7d680b1a",
-   "site": "src/server/routes/offeringRoutes.ts:356",
+   "site": "src/server/routes/offeringRoutes.ts:364",
    "regexp": "/^\\/api\\/advisor-seats\\/config\\/?$/i",
    "end": true
   },
@@ -6090,7 +6102,7 @@
    "path": "/api/advisor-seats/add",
    "name": "bound dispatch",
    "call": "48ee62b0d701ae24",
-   "site": "src/server/routes/offeringRoutes.ts:377",
+   "site": "src/server/routes/offeringRoutes.ts:385",
    "regexp": "/^\\/api\\/advisor-seats\\/add\\/?$/i",
    "end": true
   },
@@ -6102,7 +6114,7 @@
    "path": "/api/advisor-seats/undo",
    "name": "bound dispatch",
    "call": "2e5262264fcc9352",
-   "site": "src/server/routes/offeringRoutes.ts:413",
+   "site": "src/server/routes/offeringRoutes.ts:421",
    "regexp": "/^\\/api\\/advisor-seats\\/undo\\/?$/i",
    "end": true
   },
@@ -6114,7 +6126,7 @@
    "path": "/api/advisor-seats/exception",
    "name": "bound dispatch",
    "call": "72fa4d89697001d5",
-   "site": "src/server/routes/offeringRoutes.ts:441",
+   "site": "src/server/routes/offeringRoutes.ts:449",
    "regexp": "/^\\/api\\/advisor-seats\\/exception\\/?$/i",
    "end": true
   },
@@ -6126,7 +6138,7 @@
    "path": "/api/advisor-seats/exception/resolve",
    "name": "bound dispatch",
    "call": "1e305178baac56d4",
-   "site": "src/server/routes/offeringRoutes.ts:469",
+   "site": "src/server/routes/offeringRoutes.ts:477",
    "regexp": "/^\\/api\\/advisor-seats\\/exception\\/resolve\\/?$/i",
    "end": true
   },
