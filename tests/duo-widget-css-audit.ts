@@ -70,6 +70,28 @@ check(!/!important/.test(reserve), "قواعد الركن بلا !important");
 check(/ركن الودجت/.test(duoFile) && !/--duo-cutout/.test(duoFile + foundation) && !/display-mode/.test(strip(duoFile)),
   "لا بقايا للمستطيل القديم 116×116 ولا شرط display-mode");
 
+/* 3ب) النوافذ على الهاتف الطولي: الودجت ركنٌ علوي، فتُحجز فوقه بالارتفاع لا بالعرض.
+   الحجزُ الجانبي (‎--duo-widget-inset‎ في حشوة الخلفية) كان يترك لـ«أدوات الجدول» وكلِّ نافذةٍ ≈259px من 375. */
+const duoFlat = flat(duoFile);
+const mediaBlocks: Array<{ query: string; body: string }> = [];
+for (let i = duoFlat.indexOf("@media"); i !== -1; i = duoFlat.indexOf("@media", i + 1)) {
+  const open = duoFlat.indexOf("{", i);
+  let depth = 0, j = open;
+  for (; j < duoFlat.length; j++) { if (duoFlat[j] === "{") depth++; else if (duoFlat[j] === "}" && --depth === 0) break; }
+  mediaBlocks.push({ query: duoFlat.slice(i + 6, open), body: duoFlat.slice(open + 1, j) });
+}
+const dialogBackdrop = /:has\(>\[role="dialog"\],>\[aria-modal="true"\]\)/;
+const sideInsetDialogs = mediaBlocks.filter((b) => dialogBackdrop.test(b.body) && /padding-right:calc\([^;}]*var\(--duo-widget-inset\)\)/.test(b.body));
+check(sideInsetDialogs.length === 1 && !sideInsetDialogs.some((b) => /orientation:portrait/.test(b.query))
+  && /orientation:landscape/.test(sideInsetDialogs[0].query) && /horizontal-viewport-segments:2/.test(sideInsetDialogs[0].query),
+  "حجزُ النوافذ الجانبي (--duo-widget-inset) عرضيٌّ وعلى المفصل وحدهما، لا على الهاتف الطولي");
+const portraitDialogs = mediaBlocks.find((b) => /orientation:portrait/.test(b.query) && !/landscape|segments/.test(b.query) && dialogBackdrop.test(b.body));
+check(!!portraitDialogs && /padding-top:max\([^;}]*var\(--duo-widget-h\)\+var\(--duo-widget-gap\)/.test(portraitDialogs.body)
+  && /max-block-size:100%/.test(portraitDialogs.body) && !/padding-right/.test(portraitDialogs.body),
+  "طولياً: النافذة بعرض الشاشة وتبدأ تحت الودجت (padding-top بارتفاعه)، ولا تتجاوز المساحة تحته");
+check(!!portraitDialogs && /:not\(:has\(>:is\(\.schedule-context,[^)]*\.seat-drawer[^)]*\)\)\)/.test(portraitDialogs.body),
+  "طولياً: الأدراج الجانبية لا تُقصَّر بحجز الارتفاع (لها حدُّها بالعرض)");
+
 /* 4) صفحة التشخيص تُحمَّل بالمعامل وحده. */
 const main = read("src/main.tsx");
 check(/duo-debug/.test(main) && /import\(["']\.\/utils\/duoDebug["']\)/.test(main), "صفحة ?duo-debug=1 تُحمَّل ديناميكياً بوجود المعامل وحده");
