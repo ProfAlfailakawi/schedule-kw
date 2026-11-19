@@ -18,6 +18,8 @@ import { readApproval, refuseIfTermFrozen } from "../core/approvals";
 import { type AuthenticatedRequest, requireAnyPermission, requireAuth } from "../core/auth";
 import { curriculumLabelsFor } from "../core/planning";
 import { applyProposalCore, deleteScheduleHandler, type ProposalOutcome, runScheduleHandler } from "../core/scheduleWrites";
+import { createSpecialSection } from "../core/specialSection";
+import { isPracticalRow, isSpecialNature, specialSectionComplete } from "../../utils/specialNature";
 import { isScopeAllowed } from "../core/scope";
 import { studentIdentityFor } from "../core/studentIdentity";
 import { noteTrail } from "../activityTrail";
@@ -247,6 +249,13 @@ app.get("/api/student-registration", requireAnyPermission([7, 14]), async (req: 
           /* مالكُ المقرّر، ليقرأه السجلُّ المشترك «لهذا القسم» أو «لقسمٍ آخر». */
           sectionId: ownerOf(id),
           sectionName: sectionNameById.get(ownerOf(id)) || "",
+          /* مقررٌ نظريٌّ وعمليّ: فتحُ شعبته لطلبٍ يحتاج لقاءيه معاً ومكانَ العملي (createSpecialSection). */
+          special: isSpecialNature(course) ? {
+            AdCourseId: Number(course.AdCourseId), AdCollegeId: Number(course.AdCollegeId), AdSectionId: Number(course.AdSectionId),
+            CourseName: String(course.CourseName || ""), CourseHours: Number(course.CourseHours || 0), CourseCredit: Number(course.CourseCredit || 0),
+            CourseRoomType: course.CourseRoomType || "", MaxStudent: Number(course.MaxStudent || 0),
+            CourseCompanionRoomType: course.CourseCompanionRoomType || "", CourseSpecialNature: true,
+          } : undefined,
           state: String(state?.state || "awaiting-registration"),
           reasonCode: state?.reasonCode,
           note: state?.note,
@@ -420,6 +429,11 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
       return;
     }
     if (!owner) { res.status(400).json({ error: "مقرّرٌ زال من الكتالوج؛ لا شعبةَ تُفتح له." }); return; }
+    /* المقررُ الخاص لا يُفتح له لقاءٌ واحدٌ ناقص: لقاءاتُه (النظري والعملي) ومكانُ كلٍّ منها تأتي معاً. */
+    if (isSpecialNature(owner) && !Array.isArray(openSection?.meetings)) {
+      res.status(400).json({ error: "هذا مقرر نظري + عملي: حدّد لقاءاته ومكان العملي قبل فتح الشعبة.", code: "special-needs-meetings" });
+      return;
+    }
   }
   /* مرجعُ الشعبة المفتوحة لهذا الطلب وهذا المقرّر: يجعل التنفيذَ **متكرّرَ الأثر بلا ازدواج** — موافقتان متزامنتان
      (مستخدمان أو إعادةُ ضغطٍ أو إعادةُ محاولةٍ بعد فشل) تجدان الشعبةَ قد فُتحت فتتّفقان عليها ولا تفتحان ثانية. */
@@ -428,6 +442,7 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
   const commit = async (): Promise<{ status: number; json: any; audit?: string }> => {
     let opened: ProposalOutcome | null = null;
     let openedRow: any = null;
+    let openedRows: any[] = [];
     let createdNew = false;
     if (wantsOpening) {
       /* الحالةُ تُقرأ طازجةً داخل القفل: ما قرّره غيرُنا قبل لحظة يُحترم قبل أن يُكتب في الجدول شيء. */
@@ -436,8 +451,28 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
       const refusalNow = guardByState((fresh.courseStates || []).find((row: any) => Number(row.courseId) === courseId));
       if (refusalNow) return { status: 409, json: { error: refusalNow, ...(refusalNow === STALE_WRITE_MESSAGE ? { code: STALE_WRITE_CODE } : {}) } };
       const week = await Repository.getSchedulesByScope({ collegeId: Number(owner.AdCollegeId), sectionId: Number(owner.AdSectionId), termId: Number(need.AdTermId) });
-      openedRow = (week as any[]).find(row => row.origin?.refId === openingRef && Number(row.AdCourseId) === courseId) || null;
-      if (!openedRow) {
+      openedRows = (week as any[]).filter(row => row.origin?.refId === openingRef && Number(row.AdCourseId) === courseId);
+      /* بقايا شعبةٍ خاصة لم يكتمل حذفُها بعد فشلٍ سابق: لا تُعتمد ناقصة؛ تُحذف ثم تُفتح الشعبةُ كاملةً من جديد. */
+      if (openedRows.length && isSpecialNature(owner) && !specialSectionComplete(openedRows, owner)) {
+        for (const row of openedRows) {
+          const back = await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(row.id) }, body: {} }).catch(() => null);
+          if (!(back && back.status < 400)) return { status: 409, json: { error: "بقيت لقاءاتٌ ناقصة من محاولةٍ سابقة لهذه الشعبة وتعذّر حذفُها؛ احذفها من الجدول ثم أعد المحاولة.", code: "special-partial-leftover", stateSaved: false } };
+        }
+        openedRows = [];
+      }
+      openedRow = openedRows.find(isPracticalRow) || openedRows[0] || null;
+      if (!openedRow && isSpecialNature(owner)) {
+        const special = await createSpecialSection(req, {
+          collegeId: Number(owner.AdCollegeId), sectionId: Number(owner.AdSectionId), termId: Number(need.AdTermId), courseId,
+          code: String(openSection?.sectionCode || "").trim(), instructorId: Number(openSection?.instructorId || 0), meetings: openSection.meetings,
+          origin: { kind: "student-case", refId: openingRef, note: `موافقة اللجنة على طلب «${String(owner.CourseName || "")}»` } as any,
+        });
+        if (special.status >= 400) return { status: special.status, json: { ...special.json, stateSaved: false } };
+        openedRows = special.rows || [];
+        openedRow = openedRows.find(isPracticalRow) || openedRows[0] || null;
+        opened = { status: special.status, json: { amendment: null }, audit: special.audit };
+        createdNew = true;
+      } else if (!openedRow) {
         opened = await applyProposalCore(req, {
           kind: "opening", collegeId: Number(owner.AdCollegeId), sectionId: Number(owner.AdSectionId), termId: Number(need.AdTermId),
           courseId, placement: openSection,
@@ -445,6 +480,7 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
         });
         if (opened.status >= 400) return { status: opened.status, json: { ...opened.json, stateSaved: false } };
         openedRow = opened.json?.applied?.[0]?.row;
+        openedRows = openedRow ? [openedRow] : [];
         createdNew = true;
       }
     }
@@ -466,9 +502,13 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
       /* القرارُ لم يُسجَّل: الشعبةُ التي فُتحت لأجله في هذه العملية تُحذف حتى لا يبقى صفٌّ بلا قرار. وإن تعذّر حذفُها
          بقيت مرجعةً بـ openingRef فتلتقطها المحاولةُ التالية ولا تُنشئ ثانية. */
       let rolledBack = !createdNew;
-      if (createdNew && openedRow) {
-        const back = await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(openedRow.id) }, body: {} }).catch(() => null);
-        rolledBack = Boolean(back && back.status < 400);
+      if (createdNew && openedRows.length) {
+        /* الشعبةُ الخاصة لقاءان أو أكثر: تُحذف كلُّها، فلا يبقى نظريٌّ بلا عمليّ. */
+        rolledBack = true;
+        for (const row of openedRows) {
+          const back = await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(row.id) }, body: {} }).catch(() => null);
+          if (!(back && back.status < 400)) rolledBack = false;
+        }
       }
       if (error instanceof StudentCourseStateConflict) return { status: 409, json: { error: error.message, ...(error.message === STALE_WRITE_MESSAGE ? { code: STALE_WRITE_CODE } : {}), stateSaved: false, rolledBack } };
       console.error("[student-registration] تعذّر تسجيل القرار بعد فتح الشعبة:", error instanceof Error ? error.message : error);

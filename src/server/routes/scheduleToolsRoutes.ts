@@ -38,10 +38,7 @@ import { type AuthenticatedRequest, requirePermission, signInRequiredMessage } f
 import { canonicalizeHistoricalLocationForRuntime, canonicalizeLocationForWrite, confirmedDepartmentRoomIds, readLocationRegistry } from "../core/locations";
 import { applyRequestHoldOverride, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts } from "../core/scheduleConflicts";
 import { meetingExcludedIds, reassignmentExceptions, roomOwnership, SCHEDULE_DAY_KEYS, scheduleLengthIssue, sectionScheduleWindow, sectionShapeIssue, travelMinutesFor } from "../core/scheduleRules";
-import { isSpecialNature, meetingLengthIssue, specialShapeSummary } from "../../utils/specialNature";
-import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
-import { readSectionNumberLedger } from "../core/sectionNumbers";
-import { sectionCodeKey } from "../../utils/sameSlot";
+import { createSpecialSection } from "../core/specialSection";
 import { noteTrail } from "../activityTrail";
 import { fitScoresFor, type FitScore } from "../actualDemand";
 import { rankByFitBand } from "../../utils/studentFit";
@@ -770,95 +767,19 @@ app.post("/api/schedules/placeholder-action", requirePermission(7), async (req: 
 });
 
 /* ── شعبةٌ لمقررٍ بطبيعةٍ خاصة: نظريُّها وعمليُّها في حفظٍ واحدٍ ذرّي ──────────────────────
- * الأيامُ ومدّةُ كلِّ لقاءٍ بحرية بين مدد اللائحة، واللقاءُ العمليُّ لازمٌ بمكانه (src/utils/specialNature.ts).
- * شعبةٌ ناقصةُ الساعات لا يقبلها حفظُ صفٍّ واحد، فتُحفظ لقاءاتُها معاً: كلُّ لقاءٍ يمرّ فحصاً جافّاً من مسار الحفظ نفسه
- * (النطاق، القفل، المكان، المرفق، التعارض، الساعات، العملي) على الأسبوع كما سيصير بلقاءاتها كلِّها، ثم تُكتب
- * في معاملةٍ واحدة (Repository.commitScheduleChangeSet) أو لا يُكتب شيء. مخالفاتُ اللائحة التي تُسأل تُجمع في ردٍّ واحد (409). */
+ * الحكمُ كلُّه في core/specialSection.ts (createSpecialSection)، ويمرّ منه أيضاً فتحُ شعبةٍ لطلب طالب. */
 app.post("/api/schedules/special-section", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
-  const collegeId = Number(req.body?.AdCollegeId || 0), sectionId = Number(req.body?.AdSectionId || 0), termId = Number(req.body?.AdTermId || 0), courseId = Number(req.body?.AdCourseId || 0);
-  const code = String(req.body?.SCode ?? "").trim(), instructorId = Number(req.body?.AdInstructorId || 0);
-  const meetings: any[] = Array.isArray(req.body?.meetings) ? req.body.meetings : [];
-  if (![collegeId, sectionId, termId, courseId, instructorId].every(value => value > 0) || !code) { res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر" }); return; }
-  if (!isScopeAllowed(req, collegeId, sectionId) && !req.user?.IsAdminUser) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
-  if (meetings.length < 1 || meetings.length > 6) { res.status(400).json({ error: "لقاءات الشعبة من واحدٍ إلى ستة." }); return; }
-  const course = await Repository.getCourseById(courseId);
-  if (!course || Number(course.AdCollegeId) !== collegeId || Number(course.AdSectionId) !== sectionId) { res.status(400).json({ error: "المقرر المختار غير صالح" }); return; }
-  if (!isSpecialNature(course)) { res.status(400).json({ error: "هذا المقرر ليس بطبيعةٍ خاصة؛ احفظه من نموذج الموعد المعتاد." }); return; }
-  if (!meetings.some(meeting => meeting?.practical === true)) { res.status(400).json({ error: "حدّد اللقاء العملي ومكانه قبل الحفظ." }); return; }
-
-  const termRows = await Repository.getSchedulesByScope({ termId });
-  const taken = termRows.some(row => Number(row.AdCourseId) === courseId && Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId && sectionCodeKey(row.SCode) === sectionCodeKey(code));
-  if (taken) {
-    const fresh = nextCourseSectionCode(termRows, courseId, termId, null, await readSectionNumberLedger(collegeId, sectionId, termId).catch(() => null));
-    res.status(409).json({ error: `الشعبة ${code} موجودةٌ لهذا المقرر في الفصل؛ عدّل لقاءاتها من الجدول، أو اختر شعبةً جديدة (${fresh}).`, code: "section-exists", freshSection: fresh }); return;
-  }
-  /* مدةُ كل لقاءٍ أولاً: سطرٌ يسمّي اللقاءَ المخالف أصدقُ من «الساعات ناقصة» التي يسبّبها. */
-  for (const meeting of meetings) {
-    const days = SCHEDULE_DAY_KEYS.filter(day => meeting?.[day] === true);
-    if (!days.length) { res.status(400).json({ error: "كلُّ لقاءٍ يحتاج يوماً واحداً على الأقل." }); return; }
-    const issue = meetingLengthIssue(days as any, meeting?.fstarttime, meeting?.fendtime);
-    if (issue) { res.status(400).json({ error: issue, issues: [{ type: "validation", severity: "high", message: issue }], applied: false }); return; }
-  }
-  const overrideRequestHolds = Array.isArray(req.body?.overrideRequestHolds) ? req.body.overrideRequestHolds : undefined;
-  const overrides = await applyRequestHoldOverride(req);
-  const owners = (req as any).__requestReservationOwner || "";
-
-  const PLACE_KEYS = ["AdRoomCode", "AdRoomHall", "buildingId", "roomId", "locationStatus", "sourceBuildingText", "sourceRoomText", "companionRoomId", "companionRoomLabel"] as const;
-  const bodies = meetings.map((meeting, index) => {
-    const body: any = {
-      AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, AdCourseId: courseId, SCode: code,
-      AdInstructorId: Number(meeting?.AdInstructorId || instructorId) || instructorId,
-      fstarttime: meeting?.fstarttime, fendtime: meeting?.fendtime,
-      practical: meeting?.practical === true,
-    };
-    for (const day of SCHEDULE_DAY_KEYS) body[day] = meeting?.[day] === true;
-    for (const key of PLACE_KEYS) if (meeting?.[key] !== undefined) body[key] = meeting[key];
-    if (overrideRequestHolds) body.overrideRequestHolds = overrideRequestHolds;
-    return { body, tempId: -900200 - index };
+  /* في «موعد» رقمُ الشعبة يكتبه المستخدم (ويُقترح له): لا شعبةَ بلا رقم. */
+  if (!String(req.body?.SCode ?? "").trim() && req.body?.dryRun !== true) { res.status(400).json({ error: "الرجاء إدخال الحقول المطلوبة بالأحمر", applied: false }); return; }
+  const outcome = await createSpecialSection(req, {
+    collegeId: Number(req.body?.AdCollegeId || 0), sectionId: Number(req.body?.AdSectionId || 0), termId: Number(req.body?.AdTermId || 0),
+    courseId: Number(req.body?.AdCourseId || 0), code: String(req.body?.SCode ?? "").trim(), instructorId: Number(req.body?.AdInstructorId || 0),
+    meetings: Array.isArray(req.body?.meetings) ? req.body.meetings : [], dryRun: req.body?.dryRun === true,
   });
-  const finalWeek: FSchedule[] = [...termRows, ...bodies.map(item => ({ ...item.body, id: item.tempId } as FSchedule))];
-  const weekFor = (tempId: number) => finalWeek.filter(row => Number(row.id) !== tempId);
-  const gate = regulationGate(req);
-  const warnings: any[] = [];
-  const planned: any[] = [];
-  for (const item of bodies) {
-    const dry = await runScheduleHandler(createScheduleHandler, req, { body: item.body, hypotheticalWeek: weekFor(item.tempId), dryRun: true, regulation: true });
-    if (dry.status >= 400) { res.status(dry.status).json({ ...(dry.body && typeof dry.body === "object" ? dry.body : { error: "تعذّر التنفيذ." }), applied: false }); return; }
-    planned.push(dry.body.row);
-    warnings.push(...(dry.body?.warnings || []));
-    gate.note(dry);
-  }
-  /* فحصٌ جافّ يطلبه المنشئ ليرى الحالة قبل الحفظ: يمرّ كلُّ ما سبق، وتُعرض مخالفاتُ اللائحة التي ستُسأل بلا كتابة. */
-  if (req.body?.dryRun === true) { res.json({ ok: true, dryRun: true, warnings, regulation: gate.issues }); return; }
-  const exception = gate.refusal();
-  if (exception) { res.status(409).json({ ...exception, applied: false }); return; }
-
-  const version = await captureScopeVersion(req, collegeId, sectionId, termId, "قبل إضافة شعبةٍ بطبيعةٍ خاصة", "manual");
-  const registry = await readLocationRegistry();
-  const instructors = await Repository.getInstructors();
-  let committed: { rows: FSchedule[]; deletedIds: number[] };
-  try {
-    committed = await Repository.commitScheduleChangeSet(termId, planned.map(body => ({ kind: "create" as const, body })),
-      row => canonicalizeHistoricalLocationForRuntime(row, registry), placeholderInstructorIds(instructors as any), async (rows, week) => {
-        for (const row of rows) { const issue = await sectionShapeIssue(row, week, { skipPattern: true }); if (issue) throw new RequestReservationConflict(issue); }
-      }, owners);
-  } catch (error: any) {
-    if (error instanceof RequestHoldConflict) { res.status(409).json({ ...await requestHoldRefusal([error.holdRequestId], [error.holdItemId]), applied: false }); return; }
-    res.status(error instanceof ScheduleRevisionConflict || error instanceof RequestReservationConflict ? 409 : 503)
-      .json({ error: error?.message || "تعذّر التنفيذ. لم يُحفظ أي تغيير.", applied: false });
-    return;
-  }
-  try {
-    await recordVersionAfter(version, before => [...before, ...committed.rows.filter(row => Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId)]);
-    await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", rows: committed.rows } as any);
-  } catch { warnings.push({ message: "حُفظت الشعبة؛ تعذّر تحديث سجل النسخة أو الإشعار." }); }
-  if (overrides.length) await noteRequestHoldOverride(overrides, committed.rows[0] || null, String(req.user?.Name || "القسم"));
-  if (!(req as any).__requestReservationOwner) for (const row of committed.rows) await noteDepartmentAddition(row, String(req.user?.Name || "القسم")).catch(() => undefined);
-  const name = String(course.CourseName || "مقرر");
-  res.locals.auditChanges = `إضافة شعبة ${code} لـ«${name}» بطبيعةٍ خاصة: ${specialShapeSummary(committed.rows as any[])}${gate.auditSuffix()}`;
-  res.locals.auditRowIds = committed.rows.map(row => Number(row.id));
-  noteTrail(res, { target: `${name} · ش${code}`, after: specialShapeSummary(committed.rows as any[]), scope: { collegeId, sectionId, termId }, row: Number(committed.rows[0]?.id || 0) });
-  res.status(201).json({ ok: true, rows: committed.rows, undo: committed.rows.map(row => ({ method: "DELETE" as const, url: `/api/schedules/${row.id}` })), warnings });
+  if (outcome.audit) res.locals.auditChanges = outcome.audit;
+  if (outcome.rows) res.locals.auditRowIds = outcome.rows.map(row => Number(row.id));
+  if (outcome.trail) noteTrail(res, outcome.trail);
+  res.status(outcome.status).json(outcome.json);
 });
 
 app.get("/api/schedules/meeting-participants", requireMeetingAccess, async (req: AuthenticatedRequest, res: Response) => {

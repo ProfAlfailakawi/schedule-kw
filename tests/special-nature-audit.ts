@@ -11,7 +11,7 @@
  */
 import { startDemoServer, type LiveServer } from "./helpers/liveServer";
 import { waitForDemoSeed } from "./helpers/demoSeed";
-import { allowedLengthsForDays, allowedMeetingLengths, meetingLengthIssue, meetingRole, practicalRequiredIssue, PRACTICAL_REQUIRED_TEXT, sameRole, SPECIAL_MIN_HOURS } from "../src/utils/specialNature";
+import { allowedLengthsForDays, allowedMeetingLengths, meetingLengthIssue, meetingRole, patternHoursOf, practicalRequiredIssue, PRACTICAL_REQUIRED_TEXT, sameRole, SPECIAL_MIN_HOURS } from "../src/utils/specialNature";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, extra?: unknown) => {
@@ -37,6 +37,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   check(practicalRequiredIssue(theory, [], course) === "", "P9 شعبةٌ ناقصة الساعات: السطرُ للنقص لا للعملي");
   check(practicalRequiredIssue(theory, [labless], plain) === "", "P10 مقررٌ عادي: لا يُطلب شيء أبداً");
   check(meetingRole(lab, course) === "practical" && meetingRole(theory, course) === "theory" && meetingRole(lab, plain) === "", "P11 الدور للعرض: عملي ونظري، وما ليس خاصاً بلا دور");
+  check(patternHoursOf(course) === 0 && patternHoursOf(plain) === 4, "P13 ساعاتُ الأنماط: المقررُ الخاص بلا نمط (0)، والعاديُّ بساعاته");
   check(sameRole(theory, labless) && !sameRole(theory, lab), "P12 الدورُ نفسه نظريٌّ مع نظري، وعمليٌّ مع عملي");
 }
 
@@ -146,6 +147,56 @@ try {
   const ordinaryFull = await call("POST", "/api/schedules", { ...scope, AdCourseId: plain.AdCourseId, SCode: "995", AdInstructorId: teacher.AdInstructorId, ...theoryDays, fstarttime: "08:00", fendtime: "09:50", ...place(theoryRooms[0]) });
   check(ordinaryFull.status === 201, "L24 مقررٌ عاديٌّ: الأحد·الثلاثاء 110 (نمطٌ معتمد) يُحفظ كما كان", ordinaryFull);
   if (ordinaryFull.body?.id) await call("DELETE", `/api/schedules/${ordinaryFull.body.id}`);
+
+  /* ── البيانات الافتراضية: «تصميم وإنتاج المجسمات والعرائس» 0109334 مقررٌ خاص بشعبةٍ واحدة ── */
+  const D5 = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"];
+  const seeded = ((await call("GET", "/api/courses?collegeId=1&sectionId=1")).body as any[]).find(item => item.CourseCode === "0109334");
+  const seedRows = (await board()).filter(row => row.AdCourseId === seeded?.AdCourseId);
+  const seedLab = seedRows.find(row => row.practical === true), seedTheory = seedRows.find(row => row.practical !== true);
+  check(seeded?.CourseSpecialNature === true && seedRows.length === 2 && seedLab?.fthursday && seedLab.fstarttime < seedLab.fendtime && seedTheory?.fsunday && seedTheory?.ftuesday
+    && seedLab.AdInstructorId === seedTheory.AdInstructorId, "L26 الديمو: مقررٌ خاص بشعبة (أحد·ثلاثاء نظري، خميس عملي) لأستاذٍ واحد", seedRows);
+
+  /* ── موافقةُ اللجنة تفتح شعبة المقرر الخاص بلقاءيها: مقررٌ بأربع ساعات له طلبٌ ينتظر قرار اللجنة يُعلَّم خاصاً ── */
+  const allCourses = (await call("GET", "/api/courses?collegeId=1&sectionId=1")).body as any[];
+  const before = await call("GET", "/api/student-registration?collegeId=1&sectionId=1&termId=1");
+  let target: any = null;
+  for (const row of before.body?.rows || []) for (const course of row.courses || []) {
+    const meta = allCourses.find(item => item.AdCourseId === course.id);
+    if (!target && !course.settled && !course.readOnly && Number(meta?.CourseHours) === 4) target = meta;
+  }
+  if (target) await call("PUT", `/api/courses/${target.AdCourseId}`, { AdCollegeId: 1, AdSectionId: 1, CourseCode: target.CourseCode, CourseName: target.CourseName,
+    CourseCredit: target.CourseCredit, CourseHours: target.CourseHours, MaxStudent: target.MaxStudent, CourseSpecialNature: true });
+  const cases = (await call("GET", "/api/student-registration?collegeId=1&sectionId=1&termId=1")).body;
+  let pendingNeed: any = null, pendingCourse: any = null;
+  for (const row of cases?.rows || []) for (const course of row.courses || []) if (course.id === target?.AdCourseId && !course.settled) { pendingNeed = row; pendingCourse = course; }
+  check(Boolean(pendingCourse?.special?.CourseSpecialNature), "L27 كشفُ التسجيل يعلّم المقرر الخاص لطلبٍ ينتظر قرار اللجنة", pendingCourse);
+  if (pendingNeed) {
+    const freeAt = (days: string[], from: string, to: string) => people.find(person => !String(person.AdInstructorName || "").startsWith("هيئة")
+      && !(rows0 as any[]).concat(seedRows).some(row => Number(row.AdInstructorId) === Number(person.AdInstructorId) && days.some(day => row[day]) && row.fstarttime < to && row.fendtime > from));
+    const opener = freeAt(["fsunday", "ftuesday", "fthursday"], "12:00", "14:50");
+    const single = await call("POST", `/api/student-registration/${pendingNeed.id}/course-state`, { courseId: target.AdCourseId, state: "awaiting-registration",
+      openSection: { days: ["fsunday"], start: "12:00", end: "12:50", instructorId: opener?.AdInstructorId } });
+    check(single.status === 400 && single.body?.code === "special-needs-meetings", "L28 لقاءٌ واحدٌ ناقص لمقررٍ خاص يُرفض بسببه، ولا يُسجَّل القرار", single);
+    const roomAt = async (days: Record<string, boolean>, fstarttime: string, fendtime: string) => ((await call("POST", "/api/schedules/suggest-slots", { ...scope, ...days, fstarttime, fendtime, AdCourseId: target.AdCourseId, roomOnly: true })).body?.slots || [])[0];
+    const sunTue = { fsunday: true, fmonday: false, ftuesday: true, fwednesday: false, fthursday: false }, thu = { fsunday: false, fmonday: false, ftuesday: false, fwednesday: false, fthursday: true };
+    const tRoom = await roomAt(sunTue, "12:00", "12:50"), lRoom = await roomAt(thu, "13:00", "14:50");
+    const meetings = [{ ...sunTue, fstarttime: "12:00", fendtime: "12:50", ...place(tRoom) }, { ...thu, fstarttime: "13:00", fendtime: "14:50", practical: true, ...place(lRoom) }];
+    const dry = await call("POST", "/api/schedules/special-section", { ...scope, AdCourseId: target.AdCourseId, AdInstructorId: opener?.AdInstructorId, meetings, dryRun: true });
+    check(dry.status === 200 && /^\d{3}$/.test(String(dry.body?.sectionCode || "")), "L29 الفحصُ الجافّ بلا رقم شعبة يقترح الرقمَ الحرّ التالي", dry);
+    const approve = await call("POST", `/api/student-registration/${pendingNeed.id}/course-state`, { courseId: target.AdCourseId, state: "awaiting-registration", openSection: { meetings, instructorId: opener?.AdInstructorId } });
+    const opened = (await board()).filter(row => row.AdCourseId === target.AdCourseId && row.origin?.kind === "student-case");
+    check(approve.status === 200 && Boolean(approve.body?.opened?.sectionCode) && opened.length === 2 && opened.filter(row => row.practical === true).length === 1
+      && opened.every(row => row.SCode === approve.body.opened.sectionCode), "L30 الموافقة تفتح الشعبة بلقاءيها (مصدرهما «حالة طالب») وتسجّل القرار برقمها", { approve, opened: opened.map(row => [row.SCode, D5.filter(day => row[day]), row.practical]) });
+  }
+  {
+    const { specialSectionComplete } = await import("../src/utils/specialNature");
+    const course4 = { CourseSpecialNature: true, CourseHours: 4, CourseCredit: 3 };
+    const theoryOnly = { fsunday: true, ftuesday: true, fstarttime: "12:00", fendtime: "12:50" };
+    const lab = { fthursday: true, fstarttime: "13:00", fendtime: "14:50", practical: true };
+    const routeSource = (await import("node:fs")).readFileSync("src/server/routes/studentRegistrationRoutes.ts", "utf8");
+    check(!specialSectionComplete([theoryOnly], course4) && !specialSectionComplete([lab], course4) && specialSectionComplete([theoryOnly, lab], course4)
+      && /!specialSectionComplete\(openedRows, owner\)/.test(routeSource), "L31 بقايا شعبةٍ خاصة ناقصة من محاولةٍ سابقة لا تُعتمد عند إعادة الموافقة");
+  }
   const builderSource = (await import("node:fs")).readFileSync("src/components/SpecialSectionBuilder.tsx", "utf8");
   check(/CompanionFacilityPicker/.test(builderSource) && /companionRoomId: place\.companionRoomId/.test(builderSource) && /needsCompanion/.test(builderSource), "L25 المنشئ يدعم المرفق المرافق الإلزامي ويحمل معرّفه في كل لقاء");
 } catch (error: any) {

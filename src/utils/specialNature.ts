@@ -25,6 +25,10 @@ export const SPECIAL_MIN_HOURS = 2;
 
 export const isSpecialNature = (course: CourseLike): boolean => Boolean(course) && (course as any).CourseSpecialNature === true;
 
+/** ساعاتُ المقرر لأحكام الأنماط والسُّلّم: المقررُ الخاص شكلُه حرٌّ بين مدد اللائحة، فلا ساعاتَ نمطٍ له (0 = «لا يُحكم بنمط»).
+ *  مجموعُ ساعات الشعبة لا يمرّ من هنا: يبقى بـ effectiveCourseHours في حكم الحفظ. */
+export const patternHoursOf = (course: CourseLike): number => isSpecialNature(course) ? 0 : effectiveCourseHours(course as any);
+
 export const isPracticalRow = (row: object | null | undefined): boolean => Boolean(row) && (row as any).practical === true;
 
 const toMinutes = (value: unknown): number => {
@@ -78,6 +82,15 @@ export function practicalRequiredIssue(row: RowLike, siblings: readonly RowLike[
   const reading = sectionWeeklyHours(row, siblings, hours);
   if (reading.under) return "";
   return [row, ...siblings].some(isPracticalRow) ? "" : PRACTICAL_REQUIRED_TEXT;
+}
+
+/** هل لقاءاتُ شعبةٍ خاصة قائمةٌ كاملة: ساعاتُها لا تنقص عن ساعات المقرر، وفيها لقاءٌ عمليّ؟
+ *  (شعبةٌ فُتحت لطلب طالب ثم تعذّر حذفُ بعض لقاءاتها لا يُعاد استعمالُها ناقصة.) */
+export function specialSectionComplete(rows: readonly RowLike[], course: CourseLike): boolean {
+  if (!rows.length) return false;
+  const hours = effectiveCourseHours(course as any);
+  if (hours > 0 && sectionWeeklyHours(rows[0], rows.slice(1), hours).under) return false;
+  return rows.some(isPracticalRow);
 }
 
 /** دورُ لقاءٍ في مقررٍ خاص للعرض: «عملي»، وغيرُه «نظري»؛ وما ليس خاصاً لا دورَ له ("" فلا يُكتب شيء). */
