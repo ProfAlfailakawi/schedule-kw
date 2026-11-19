@@ -81,6 +81,7 @@
     "test:request-room-seat-rule": "tsx tests/request-room-seat-rule-audit.ts",
     "test:request-room-seat-http": "tsx tests/request-room-seat-http-audit.ts",
     "test:placeholder-action": "tsx tests/placeholder-action-audit.ts",
+    "test:special-nature": "tsx tests/special-nature-audit.ts",
     "test:schedule-write-integrity": "tsx tests/schedule-write-integrity-audit.ts",
     "test:course-spelling-merge": "tsx tests/course-spelling-merge-audit.ts",
     "test:teacher-mini-week": "tsx tests/teacher-mini-week-audit.ts",

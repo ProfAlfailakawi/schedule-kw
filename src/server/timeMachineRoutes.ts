@@ -75,6 +75,7 @@ const rowBodyOf = (row: any) => ({
   buildingId: row.buildingId, roomId: row.roomId, locationStatus: row.locationStatus,
   sourceBuildingText: row.sourceBuildingText, sourceRoomText: row.sourceRoomText,
   companionRoomId: row.companionRoomId, companionRoomLabel: row.companionRoomLabel,
+  ...(row.practical === true ? { practical: true } : {}),
 });
 
 /** بقيةُ الفصل بلا هوية: وقتٌ وقاعة، والأستاذُ يبقى فقط إن كان من أساتذة النطاق. */

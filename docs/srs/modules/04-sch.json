@@ -127,7 +127,10 @@
     "src/components/LectureStickChips.tsx",
     "src/components/schedulePresence.ts",
     "src/components/scheduleWorkspace.ts",
-    "src/components/SchedulePhysics/*"
+    "src/components/SchedulePhysics/*",
+    "src/utils/specialNature.ts",
+    "src/components/SpecialSectionBuilder.tsx",
+    "src/components/PracticalMark.tsx"
   ],
   "screens": [
     {
@@ -205,6 +208,17 @@
       "note": {
         "ar": "تصنّف أثر النقل قبل الإفلات: ممتاز، جيد، محايد، غير مفضّل، غير متاح.",
         "en": "Classifies a move before the drop: excellent, good, neutral, suboptimal, impossible."
+      }
+    },
+    {
+      "name": {
+        "ar": "شعبة المقرر ذي الطبيعة الخاصة",
+        "en": "Section builder for a special-nature course"
+      },
+      "file": "src/components/SpecialSectionBuilder.tsx",
+      "note": {
+        "ar": "بدل خطوتي الوقت والمكان في «موعد» حين يكون المقرر نظرياً وعملياً: أيام الشعبة ومدة كل يوم من مدد اللائحة، ثم تحديد اللقاء العملي ومكانه، وحفظ واحد.",
+        "en": "Replaces the time and place steps of the appointment form when the course is theory plus practical: the section's days and each day's length from the regulation's lengths, then the practical meeting and its place, in one save."
       }
     }
   ],
@@ -5303,6 +5317,89 @@
           "tests/room-now-audit.ts",
           "tests/room-query-audit.ts",
           "tests/rooms-capacity-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-089",
+      "kind": "functional",
+      "title": {
+        "ar": "مقرر بطبيعة خاصة: شكل الأسبوع حرّ بين مدد اللائحة",
+        "en": "Special-nature course: a free weekly shape within the regulation's lengths"
+      },
+      "text": {
+        "ar": "يجب على النظام، حين يُعلَّم المقرر بأنه ذو طبيعة خاصة (نظري وعملي في شعبة واحدة)، ألا يحكم على أيام شعبته بأنماط مكتبة الأنماط، وأن يقبل لكل لقاء مدةً من المدد التي تحملها المكتبة نفسها لليوم الذي يقع فيه، وأن يُبقي مجموع ساعات الشعبة هو الحكم كما لغيره: لا ينقص عن ساعات المقرر ولا يزيد على سقفها.",
+        "en": "The system shall, when a course is marked special-nature (theory and practical in one section), not judge its section's days against the pattern library, accept for each meeting a length that the library itself carries for the day it falls on, and keep the section's weekly total as the verdict as for any course: not below the course hours and not above their ceiling."
+      },
+      "rationale": {
+        "ar": "مقررات قليلة (مثل مقرر بأربع ساعات: الأحد ساعة والثلاثاء ساعة والخميس ساعتان) لا يمثّلها نمط واحد في المكتبة، ولا يدل شكل الأسبوع وحده على اللقاء العملي.",
+        "en": "A few courses (for example four hours: Sunday one hour, Tuesday one hour, Thursday two hours) have no single pattern in the library, and the shape of the week alone does not say which meeting is practical."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "مقرر بأربع ساعات: الأحد·الثلاثاء 50 دقيقة والخميس 110 دقائق تُحفظ شعبةً كاملة؛ والخميس 75 دقيقة يُرفض بسطر يذكر المدد المعتمدة ولا يُكتب شيء.",
+          "en": "A four-hour course: Sunday and Tuesday 50 minutes and Thursday 110 minutes are saved as a complete section; Thursday 75 minutes is refused with a line naming the approved lengths and nothing is written."
+        },
+        {
+          "ar": "مقرر عادي بالساعات نفسها لا يتغير فيه شيء: الأحد·الثلاثاء 50 وحدهما ناقصان كما كانا.",
+          "en": "An ordinary course with the same hours is unchanged: Sunday and Tuesday at 50 alone are still short."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/specialNature.ts",
+          "src/server/core/scheduleRules.ts#specialShapeIssue",
+          "src/utils/appointmentRegulation.ts#regulationHours"
+        ],
+        "tests": [
+          "tests/special-nature-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-090",
+      "kind": "functional",
+      "title": {
+        "ar": "اللقاء العملي: تحديده ومكانه وحفظ الشعبة دفعة واحدة",
+        "en": "The practical meeting: marking it, its place, and saving the section at once"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يُلزم من يُدخل موعد مقرر ذي طبيعة خاصة بتحديد لقاء عملي واحد على الأقل ومكانه قبل الحفظ، وأن يكتب لقاءات الشعبة كلها في معاملة واحدة بعد فحص جافّ لكل لقاء على الأسبوع كما سيصير، وأن يحفظ علامة العملي على صف اللقاء وحده، فلا تُقبل على مقرر عادي ولا تُرفع عن اللقاء الوحيد في شعبة مكتملة، ويراها الطالب والأستاذ والتقويم والطباعة بكلمة «عملي».",
+        "en": "The system shall require whoever enters an appointment of a special-nature course to mark at least one practical meeting and its place before saving, shall write all the section's meetings in one transaction after a dry check of each on the week as it will be, and shall store the practical mark on the meeting's own row, so that it is refused on an ordinary course and cannot be lifted from the only such meeting of a complete section, and so that students, instructors, calendars and printouts read the word practical."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "حفظ شعبة بلا لقاء عملي يُرفض، وكذلك ساعات ناقصة أو شعبة مكررة، ولا يُكتب أي صف.",
+          "en": "Saving a section with no practical meeting is refused, as are short hours or a repeated section, and no row is written."
+        },
+        {
+          "ar": "تعديل قاعة أو نقل لقاء عملي بلا ذكر العلامة في الطلب يُبقيها؛ ورفع الطبيعة الخاصة عن مقرر عليه لقاء عملي يُرفض.",
+          "en": "Editing a room or moving a practical meeting without naming the mark keeps it; lifting the special nature from a course that has a practical meeting is refused."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/scheduleToolsRoutes.ts",
+          "src/components/SpecialSectionBuilder.tsx",
+          "src/components/PracticalMark.tsx",
+          "src/server/core/scheduleWrites.ts"
+        ],
+        "tests": [
+          "tests/special-nature-audit.ts"
         ]
       },
       "inferred": false

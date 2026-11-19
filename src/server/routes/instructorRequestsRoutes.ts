@@ -127,6 +127,7 @@ const rowBodyOf = (row: any) => ({
   buildingId: row.buildingId, roomId: row.roomId, locationStatus: row.locationStatus,
   sourceBuildingText: row.sourceBuildingText, sourceRoomText: row.sourceRoomText,
   companionRoomId: row.companionRoomId, companionRoomLabel: row.companionRoomLabel,
+  ...(row.practical === true ? { practical: true } : {}),
 });
 
 export function registerInstructorRequestsRoutes(app: Express): void {
@@ -578,6 +579,7 @@ app.get("/api/instructor-requests/regulation-teachers", requirePermission(7), as
   const teachers = teachersWithRegulationIssues(familyRows.flat() as FSchedule[], {
     week: week as FSchedule[], placeholders: placeholderInstructorIds(instructors as any[]),
     hoursOf: courseId => effectiveCourseHours(courseById.get(Number(courseId))),
+    specialOf: courseId => (courseById.get(Number(courseId)) as any)?.CourseSpecialNature === true,
     nameOf: row => String(courseById.get(Number(row.AdCourseId))?.CourseName || row.AdCourseName || ""),
   });
   res.setHeader("Cache-Control", "no-store");

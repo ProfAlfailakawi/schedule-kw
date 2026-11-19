@@ -71,7 +71,8 @@ export async function buildSharePayload(link: ScheduleShareLink, options: { term
       .map(row => ({
         id: row.id,
         code: courseById.get(row.AdCourseId)?.CourseCode || "",
-        name: row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || "",
+        name: `${row.AdCourseName || courseById.get(row.AdCourseId)?.CourseName || ""}${(row as any).practical === true ? " · عملي" : ""}`,
+        practical: (row as any).practical === true,
         section: row.SCode || "",
         start: row.fstarttime,
         end: row.fendtime,

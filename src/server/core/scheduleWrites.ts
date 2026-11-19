@@ -9,6 +9,7 @@ import { newHoursIssueOnly } from "../../utils/hoursIssue";
 import { AR, countOf } from "../../utils/arabicCount";
 import { roomTypeIn } from "../../utils/roomTypeForSection";
 import { sameScheduleShape } from "../../utils/appointmentRegulation";
+import { isSpecialNature } from "../../utils/specialNature";
 import { RequestReservationConflict, RequestHoldConflict } from "../../utils/instructorRequestReservations";
 import { Response } from "express";
 import { Repository, ScheduleRevisionConflict } from "../../db/repository";
@@ -22,7 +23,7 @@ import { noteScheduleMutation, scheduleLockRefusal } from "./approvals";
 import type { AuthenticatedRequest } from "./auth";
 import { canonicalizeLocationForWrite, readLocationRegistry } from "./locations";
 import { applyRequestHoldOverride, forgetDepartmentAddition, noteDepartmentAddition, noteRequestHoldOverride, requestHoldRefusal, scheduleConflicts, scheduleConflictsForEdit, scheduleConflictsForRestore } from "./scheduleConflicts";
-import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, editShapeIssue, schedulePayloadIssues, sectionShapeIssue } from "./scheduleRules";
+import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regulationExceptionsFor, SCHEDULE_DAY_KEYS, editShapeIssue, schedulePayloadIssues, sectionShapeIssue, specialShapeIssue } from "./scheduleRules";
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
@@ -124,6 +125,15 @@ export async function companionBookingFor(course:AdCourse,body:any,canonical:any
   return {id:room.id,label:`${building.officialCode} / ${room.canonicalCode}`};
 }
 
+/** علامةُ اللقاء العملي تُفحص قبل حكم الشكل: رسالةُ «ليس مقرراً خاصاً» أصدقُ من «الساعات ناقصة». يعيد نصَّ المنع أو "". */
+async function practicalFlagIssue(body: any): Promise<string> {
+  if (body?.practical === undefined) return "";
+  if (typeof body.practical !== "boolean") return "علامة اللقاء العملي صحٌّ أو خطأ.";
+  if (body.practical !== true) return "";
+  const course = await Repository.getCourseById(Number(body?.AdCourseId || 0)).catch(() => null);
+  return isSpecialNature(course) ? "" : "اللقاء العملي لمقررٍ بطبيعةٍ خاصة فقط؛ فعّلها من بيانات المقرر أولاً.";
+}
+
 export const createScheduleHandler = async (req: AuthenticatedRequest, res: Response) => {
   /* النطاقُ أولاً، قبل أي فحصٍ لشكل الطلب: رسائلُ الشكل (الساعات، النمط) تقول شيئاً عن جدول القسم المقصود. */
   {
@@ -164,6 +174,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   {const codeIssue=sectionCodeIssue(SCode);if(codeIssue){res.status(400).json({ error: codeIssue });return;}}
   const payloadIssues=await schedulePayloadIssues(req.body);
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
+  {const flagIssue=await practicalFlagIssue(req.body);if(flagIssue){res.status(400).json({error:flagIssue,issues:[{type:"validation",severity:"high",message:flagIssue}]});return;}}
   /* ساعاتُ المقرّر والنمطُ المعتمد لكل من يُنشئ موعداً (المالك 2026-10-30) — الحكمُ الواحد sectionShapeIssue. */
   /* هنا ساعاتُ الشعبة وحدها تمنع؛ النمطُ المعتمد ونهايتُه تنبيهٌ بتأكيدٍ صريح (regulationExceptionsFor). */
   {const baseline:FSchedule[]|undefined=(req as any).__restoreBaselineWeek;
@@ -182,6 +193,8 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   ]);
   if (!section || section.AdCollegeId !== collegeId) { res.status(400).json({ error: "القسم العلمي المختار لا يتبع الكلية المختارة" }); return; }
   if (!course || course.AdCollegeId !== collegeId || course.AdSectionId !== sectionId) { res.status(400).json({ error: "المقرر المختار غير صالح" }); return; }
+  if (req.body?.practical !== undefined && typeof req.body.practical !== "boolean") { res.status(400).json({ error: "علامة اللقاء العملي صحٌّ أو خطأ." }); return; }
+  if (req.body?.practical === true && !isSpecialNature(course)) { res.status(400).json({ error: "اللقاء العملي لمقررٍ بطبيعةٍ خاصة فقط؛ فعّلها من بيانات المقرر أولاً." }); return; }
   const operationalCourseIds=await Repository.getOperationalCourseIds(sectionId);
   if(!operationalCourseIds.has(courseId)){res.status(409).json({error:"هذا المقرر مؤرشف أكاديمياً ولا يمكن إضافته إلى جدول جديد. يظهر فقط في السجل التاريخي."});return;}
   const [curriculumPlans,curriculumMemberships]=await Promise.all([Repository.getCurriculumPlans(sectionId),Repository.getCurriculumPlanCourses(sectionId)]);
@@ -242,6 +255,7 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     buildingId: canonicalBody.buildingId,
     roomId: canonicalBody.roomId,
     ...(companion.id?{companionRoomId:companion.id,companionRoomLabel:companion.label}:{}),
+    ...(req.body?.practical===true?{practical:true}:{}),
     locationStatus: canonicalBody.locationStatus,
     sourceBuildingText: cleanSourceText(req.body?.sourceBuildingText),
     sourceRoomText: cleanSourceText(req.body?.sourceRoomText),
@@ -341,6 +355,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   {const codeIssue=sectionCodeIssue(SCode);if(codeIssue){res.status(400).json({ error: codeIssue });return;}}
   const payloadIssues=await schedulePayloadIssues(req.body,{keptTime:Boolean((req as any).__exactRestore)||(existing.fstarttime===req.body.fstarttime&&existing.fendtime===req.body.fendtime)});
   if(payloadIssues.length){res.status(400).json({error:payloadIssues[0],issues:payloadIssues.map(message=>({type:"validation",severity:"high",message}))});return;}
+  {const flagIssue=await practicalFlagIssue(req.body);if(flagIssue){res.status(400).json({error:flagIssue,issues:[{type:"validation",severity:"high",message:flagIssue}]});return;}}
   /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) يبقى كما هو؛ ومن غيّر شيئاً منها فبنمطٍ معتمد. */
   /* وتغييرُ المقرّر أو الرمز وحده لا يُمنع بمخالفةٍ كانت قائمةً في الصفّ نفسه (editShapeIssue). */
   {const baseline:FSchedule[]|undefined=(req as any).__restoreBaselineWeek;
@@ -365,6 +380,18 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   ]);
   if (!section || section.AdCollegeId !== collegeId) { res.status(400).json({ error: "القسم العلمي المختار لا يتبع الكلية المختارة" }); return; }
   if (!course || course.AdCollegeId !== collegeId || course.AdSectionId !== sectionId) { res.status(400).json({ error: "المقرر المختار غير صالح" }); return; }
+  if (req.body?.practical !== undefined && typeof req.body.practical !== "boolean") { res.status(400).json({ error: "علامة اللقاء العملي صحٌّ أو خطأ." }); return; }
+  if (req.body?.practical === true && !isSpecialNature(course)) { res.status(400).json({ error: "اللقاء العملي لمقررٍ بطبيعةٍ خاصة فقط؛ فعّلها من بيانات المقرر أولاً." }); return; }
+  /* العلامةُ كما ستكون: ما لم يُرسل الطلب شيئاً (نقلٌ، تبديلُ قاعةٍ…) بقيت علامةُ الصف، إلا أن يصير المقرر عادياً فتسقط. */
+  const nextPractical = isSpecialNature(course) && (req.body?.practical === undefined ? existing.practical === true : req.body.practical === true);
+  {
+    /* تبديلُ العلامة وحدها لا يغيّر الشكل فلا يمرّ بحكم الشكل (A6)؛ فيُسأل هنا: لا تبقى شعبةٌ مكتملةٌ بلا لقاءٍ عملي. */
+    const flipped = nextPractical !== (existing.practical === true);
+    if (flipped && !(req as any).__exactRestore) {
+      const issue = await specialShapeIssue({ ...req.body, id, practical: nextPractical }, (req as any).__hypotheticalWeek, { lengths: false });
+      if (issue) { res.status(400).json({ error: issue, issues: [{ type: "validation", severity: "high", message: issue }] }); return; }
+    }
+  }
   const operationalIdsForEdit=await Repository.getOperationalCourseIds(sectionId);
   if(Number(existing.AdCourseId)!==courseId&&!operationalIdsForEdit.has(courseId)){res.status(409).json({error:"المقرر البديل مؤرشف أكاديمياً ولا يمكن إسناده إلى موعد حالي."});return;}
   const [editPlans,editMemberships]=await Promise.all([Repository.getCurriculumPlans(sectionId),Repository.getCurriculumPlanCourses(sectionId)]);
@@ -426,6 +453,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
       roomId: canonicalBody.roomId,
       companionRoomId: companion.id,
       companionRoomLabel: companion.label,
+      ...(nextPractical ? { practical: true } : existing.practical === true ? { practical: false } : {}),
       locationStatus: canonicalBody.locationStatus,
       sourceBuildingText: cleanSourceText(req.body?.sourceBuildingText),
       sourceRoomText: cleanSourceText(req.body?.sourceRoomText),

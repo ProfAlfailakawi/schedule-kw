@@ -216,11 +216,14 @@ export async function proposalSchedulePreflight(
     }
     if (reading.under) issues.push(sectionHoursShortfallText(row.SCode, reading));
     /* النهايةُ من النمط المعتمد، بالحكم الواحد نفسه الذي يقرؤه النموذج والخادم (patternLengthIssue). */
-    const lengthIssue = patternLengthIssue({ CourseHours: hours }, PROPOSAL_DAY_KEYS.filter(day => Boolean((row as any)[day])) as any, String(row.fstarttime), String(row.fendtime));
+    const lengthIssue = (course as any)?.CourseSpecialNature === true ? "" : patternLengthIssue({ CourseHours: hours }, PROPOSAL_DAY_KEYS.filter(day => Boolean((row as any)[day])) as any, String(row.fstarttime), String(row.fendtime));
     if (lengthIssue) issues.push(lengthIssue);
   }
   return issues;
 }
+
+/** ساعاتُ المقرر للأنماط: مقررٌ بطبيعةٍ خاصة (نظري + عملي) شكلُه حرٌّ بين مدد اللائحة، فلا ساعاتَ نمطٍ له (specialNature.ts). */
+export const patternHoursOf = (course: any): number => course?.CourseSpecialNature === true ? 0 : effectiveCourseHours(course);
 
 export async function evaluateProposal(deps: EngineDeps, req: any, input: EvaluateInput, preloaded?: LoadedWorld): Promise<ProposalEvaluation> {
   const world = withFamilyScopes(preloaded || await loadWorld(input.termId, input.instructorId), input.collegeId, input.sectionId);
@@ -238,7 +241,7 @@ export async function evaluateProposal(deps: EngineDeps, req: any, input: Evalua
   const driftOps = new Set(drift.map(d => d.opId));
 
   const applied = applyProposalOps(world.termRows, validOps.filter(op => !driftOps.has(op.id)), {
-    instructorId: input.instructorId, termId: input.termId, placeholderId, courseHoursOf: id => effectiveCourseHours(world.catalog.courseById.get(id) as any),
+    instructorId: input.instructorId, termId: input.termId, placeholderId, courseHoursOf: id => patternHoursOf(world.catalog.courseById.get(id)),
   });
   const appliedErrors = new Map(applied.errors.map(e => [e.opId, e]));
 
@@ -587,7 +590,7 @@ export async function suggestAlternatives(
   const baseDays = baseEval.after.metrics.attendanceDays;
   const without = applyProposalOps(w.termRows, input.ops.filter(o => o.id !== opId), {
     instructorId: input.instructorId, termId: input.termId, placeholderId: [...w.placeholders][0] || null,
-    courseHoursOf: id => effectiveCourseHours(w.catalog.courseById.get(id) as any),
+    courseHoursOf: id => patternHoursOf(w.catalog.courseById.get(id)),
   });
   // The source row of the operation is being moved/reassigned, so do not count
   // its old occupancy as a conflict in the quick prefilter.
@@ -622,7 +625,7 @@ export async function suggestAlternatives(
   const bounds = scheduleDayWindowMinutes(section);
   const course = w.catalog.courseById.get(Number(op.target.AdCourseId)) as any;
   /* الأيامُ البديلة من مكتبة الأنماط وحدها (لا الأحد·الخميس)، والبداياتُ من سُلّم اللائحة (المولّدُ الواحد، م.7/8). */
-  const courseHours = effectiveCourseHours(course);
+  const courseHours = patternHoursOf(course);
   const sectionSiblings = others.filter(row => Number(row.AdCourseId) === Number(op.target.AdCourseId) && sectionCodeKey(row.SCode) === sectionCodeKey(op.target.SCode)
     && Number(row.AdCollegeId) === Number(op.target.AdCollegeId) && Number(row.AdSectionId) === Number(op.target.AdSectionId) && Number(row.AdTermId) === Number(input.termId));
   const variants = sectionDayVariants(op.target, courseHours, sectionSiblings);
@@ -713,7 +716,7 @@ export async function rankVacancies(
 ): Promise<{ vacancies: VacancyVerdict[]; checked: number; total: number; partial: boolean }> {
   const maxChecks = Math.max(0, options.maxChecks ?? 24);
   const placeholderId = [...world.placeholders].sort((a, b) => a - b)[0] || null;
-  const applied = applyProposalOps(world.termRows, input.ops, { instructorId: input.instructorId, termId: input.termId, placeholderId, courseHoursOf: id => effectiveCourseHours(world.catalog.courseById.get(id) as any) });
+  const applied = applyProposalOps(world.termRows, input.ops, { instructorId: input.instructorId, termId: input.termId, placeholderId, courseHoursOf: id => patternHoursOf(world.catalog.courseById.get(id)) });
   const mine = applied.rows.filter(row => ofPerson(world, row));
   const used = new Set(input.ops.map(op => op.source?.id).filter((id): id is number => typeof id === "number"));
   const nameOf = (row: FSchedule) => String(world.catalog.courseById.get(Number(row.AdCourseId))?.CourseName || row.AdCourseName || "");

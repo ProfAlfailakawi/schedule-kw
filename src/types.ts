@@ -233,6 +233,11 @@ export interface AdCourse {
   CourseTeachingMode?: "theoretical" | "applied" | "practical" | "field_training" | "mixed";
   /** A required companion facility for every appointment, distinct from the primary room type. */
   CourseCompanionRoomType?: string;
+  /**
+   * طبيعةٌ خاصة: المقرر نظريٌّ وعمليٌّ في شعبةٍ واحدة، وشكلُ أسبوعه حرٌّ بين مدد اللائحة بدل أنماط المكتبة (src/utils/specialNature.ts).
+   * اختياريّ: كل مقرر قائم صالحٌ بدونه، وغيابُه يعني السلوك المعتاد حرفاً.
+   */
+  CourseSpecialNature?: boolean;
 }
 
 /** Academic curriculum version for one scientific section. */
@@ -377,6 +382,11 @@ export interface FSchedule {
    * is valid as it stands and takes its first number on its next write.
    */
   rev?: number;
+  /**
+   * اللقاءُ العملي من شعبةٍ لمقررٍ بطبيعةٍ خاصة (AdCourse.CourseSpecialNature). يحدّده من يُدخل الموعد، لا الشكلُ ولا اليوم.
+   * اختياريّ: غيابُه موعدٌ عادي، فلا يحتاج صفٌّ قائمٌ إلى ترحيل. لا يُكتب إلا على مقررٍ خاص.
+   */
+  practical?: boolean;
   /**
    * مصدرُ آخر تغييرٍ جاء من اقتراحٍ لا من يدٍ في الورشة: الرادار، أو حالة طالب، أو رغبة أستاذ.
    * اختياريّ: كل صفٍّ قائم صالحٌ بدونه، ويُكتب فقط حين يمرّ التغيير من «اعتماد الاقتراح».

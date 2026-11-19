@@ -19,6 +19,7 @@ export interface RegulationCourse {
   CourseHours?: unknown;
   CourseCredit?: unknown;
   CourseTeachingMode?: unknown;
+  CourseSpecialNature?: unknown;
 }
 
 export interface RegulationChoice {
@@ -44,6 +45,8 @@ const shortDay = (day: DayKey) => DAY_NAMES[DAY_KEYS.indexOf(day)].replace(/^ا�
 
 /** ساعات المقرر كما تقرؤها اللائحة (الساعات، وإلا الوحدات). */
 export function regulationHours(course: RegulationCourse | null | undefined): number {
+  /* مقررٌ بطبيعةٍ خاصة (نظري + عملي): شكلُ أسبوعه حرٌّ بين مدد اللائحة، فلا أنماطَ مكتبةٍ تُقترح له ولا تُكمَل (specialNature.ts). */
+  if (course?.CourseSpecialNature === true) return 0;
   const hours = Number(course?.CourseHours || 0);
   const credit = Number(course?.CourseCredit || 0);
   return Math.round(hours > 0 ? hours : credit > 0 ? credit : 0);

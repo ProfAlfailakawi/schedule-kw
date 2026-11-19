@@ -24,6 +24,7 @@ import { sectionCodeKey } from "../../utils/sameSlot";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { historicalOrigin } from "../../utils/courseNature";
+import { isSpecialNature, meetingLengthIssue, practicalRequiredIssue } from "../../utils/specialNature";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, interCampusMinutes } from "../../utils/campusTravel";
 import { clockRangesOverlap, departmentHoursNote, formatScheduleTimeRange, isValidClock, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, scheduleDayWindowMinutes, withinUniversityDay } from "../../utils/scheduleTime";
 import { isSharedRoom, resolveBuilding, resolveRoom } from "../../utils/locationRegistry";
@@ -74,6 +75,8 @@ export async function mixedPatternNotice(courseId:number,days:RequestDayKey[],te
   const shortDays=days.filter(d=>d==="fsunday"||d==="ftuesday"||d==="fthursday"),longDays=days.filter(d=>d==="fmonday"||d==="fwednesday");
   if(!courseId||!shortDays.length||!longDays.length)return null;
   const course=await Repository.getCourseById(courseId);const hours=effectiveCourseHours(course);
+  /* المقررُ ذو الطبيعة الخاصة شكلُه حرٌّ بين مدد اللائحة: لا نمطَ يُقال له. */
+  if(isSpecialNature(course))return null;
   if(hours>0&&daysFitLibrary(hours,days as DayKey[],true)===true)return null;
   void termId;
   const ordered=DAY_KEYS.filter(d=>days.includes(d));
@@ -108,6 +111,8 @@ export async function patternVerdict(row:any,hypothetical?:FSchedule[],options:{
   }
   const course=await Repository.getCourseById(courseId);const hours=effectiveCourseHours(course);
   if(!(hours>0))return null;
+  /* المقررُ ذو الطبيعة الخاصة لا يُحكم بأنماط المكتبة: مددُه ومجموعُ ساعاته وعمليُّه في specialShapeIssue. */
+  if(isSpecialNature(course))return null;
   const union=new Set<DayKey>(own);
   let siblings:any[]=[];
   if(Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
@@ -144,7 +149,7 @@ export async function regulationExceptionsFor(row:any,hypothetical?:FSchedule[],
   ]);
   const courseCode=new Map((courses as any[]).map(course=>[Number(course.AdCourseId),String(course.CourseName||course.CourseCode||"")]));
   const course=(courses as any[]).find(item=>Number(item.AdCourseId)===Number(row?.AdCourseId));
-  const issues=regulationExceptionIssues({row,week:week as any,placeholders:placeholderInstructorIds(instructors as any),shapeChanged:options.shapeChanged,sequenceChanged:options.sequenceChanged,courseHours:effectiveCourseHours(course),
+  const issues=regulationExceptionIssues({row,week:week as any,placeholders:placeholderInstructorIds(instructors as any),shapeChanged:options.shapeChanged,sequenceChanged:options.sequenceChanged,courseHours:isSpecialNature(course)?0:effectiveCourseHours(course),
     nameOf:(other:any)=>courseCode.get(Number(other?.AdCourseId))||String(other?.AdCourseName||"")});
   if(checkPattern){
     const verdict=await patternVerdict(row,hypothetical);
@@ -181,7 +186,10 @@ export const regulationExceptionRefusal=(issues:RegulationExceptionIssue[])=>({e
 export async function fitPatternEnd(row:any):Promise<string>{
   const end=String(row?.fendtime||"");
   if(!Number(row?.AdCourseId)||!isValidClock(row?.fstarttime)||!isValidClock(row?.fendtime))return end;
-  const hours=effectiveCourseHours(await Repository.getCourseById(Number(row.AdCourseId)).catch(()=>null));
+  const fitCourse=await Repository.getCourseById(Number(row.AdCourseId)).catch(()=>null);
+  /* لقاءاتُ المقرر الخاص مدةً بمدّتها: لا تُردّ إلى نمطٍ ليس له. */
+  if(isSpecialNature(fitCourse))return end;
+  const hours=effectiveCourseHours(fitCourse);
   if(!(hours>0))return end;
   const span=timeToMinutes(String(row.fendtime))-timeToMinutes(String(row.fstarttime));
   return regulationEnd({CourseHours:hours},SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as DayKey[],String(row.fstarttime),span,true)||end;
@@ -222,7 +230,32 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
  * ونقلُ صفٍّ واحد يكسر نمطها يُمنع. `skipPattern` لاستعادة آلة الزمن (ما كان بالضبط).
  */
 export async function sectionShapeIssue(row:any,hypothetical?:FSchedule[],options:{skipPattern?:boolean}={}):Promise<string|null>{
-  return await scheduleLengthIssue(row,hypothetical)||(options.skipPattern?null:await unapprovedPatternIssue(row,hypothetical));
+  /* مددُ لقاءات المقرر الخاص أولاً (تسمّي اللقاءَ المخالف)، ثم ساعاتُ الشعبة والنمط كما كانا، ثم لزومُ اللقاء العملي بعد اكتمال الساعات. */
+  const special=await specialShapeIssue(row,hypothetical,{practical:false});if(special)return special;
+  const generic=await scheduleLengthIssue(row,hypothetical)||(options.skipPattern?null:await unapprovedPatternIssue(row,hypothetical));
+  return generic||await specialShapeIssue(row,hypothetical,{lengths:false});
+}
+/**
+ * ── المقررُ ذو الطبيعة الخاصة: مدّةُ اللقاء من اللائحة، واللقاءُ العمليُّ لازم ─────────────────
+ * بلا أثرٍ على غيره: مقررٌ بلا الطبيعة الخاصة يرجع null فوراً. المدّةُ تُقاس بمكتبة الأنماط (specialNature.allowedMeetingLengths)،
+ * وساعاتُ الشعبة بالحكم الواحد (scheduleLengthIssue)، والعمليُّ لا يُطلب قبل أن تكتمل الساعات.
+ */
+export async function specialShapeIssue(row:any,hypothetical?:FSchedule[],options:{lengths?:boolean;practical?:boolean}={}):Promise<string|null>{
+  const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
+  const course=await Repository.getCourseById(courseId).catch(()=>null);
+  if(!isSpecialNature(course))return null;
+  if(options.lengths!==false){
+    const days=SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as DayKey[];
+    const text=meetingLengthIssue(days,row?.fstarttime,row?.fendtime);if(text)return text;
+  }
+  if(options.practical!==false&&Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
+    const week=hypothetical||await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)});
+    const siblings=week.filter((other:any)=>Number(other.AdCourseId)===courseId&&sectionCodeKey(other.SCode)===sectionCodeKey(row.SCode)
+      &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
+      &&!isSameRow(other,row));
+    return practicalRequiredIssue(row,siblings as any[],course)||null;
+  }
+  return null;
 }
 /** الموعدُ القائم بقي في شعبته: المقرّرُ ورمزُ الشعبة كما حُفظا. من غيّر أحدهما دخل شعبةً أخرى فيُحكم نمطُها من جديد. */
 export const sameSectionIdentity=(saved:any,next:any)=>Boolean(saved&&next)

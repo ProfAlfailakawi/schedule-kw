@@ -798,6 +798,8 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   for (const [courseId, list] of byCourse) {
     const course = courses.get(courseId);
     if (course?.CourseTeachingMode !== "theoretical") continue;
+    /* المقررُ ذو الطبيعة الخاصة (نظري + عملي) شكلُه حرٌّ بين مدد اللائحة (specialNature.ts): لا يُحكم بنمط مكتبةٍ لا يخصّه. */
+    if ((course as any)?.CourseSpecialNature === true) continue;
     const hours = effectiveCourseHours(course);
     if (hours !== 3 && hours !== 4) continue;
     const invalid: FSchedule[] = [];
@@ -828,8 +830,11 @@ export function reviewSchedule(context: RegulationContext): RegulationFinding[] 
   for (const [courseId, list] of byCourse) {
     for (const sectionRows of sectionsOf(list).values()) {
       const sectionCode = String(sectionRows[0]?.SCode ?? "").trim() || "—";
-      const starts = new Set(sectionRows.map(row => String(row.fstarttime || "")).filter(Boolean));
-      if (starts.size < 2) continue;
+      /* وقتُ البداية ثابتٌ داخل الدور الواحد: نظريُّ المقرر الخاص وعمليُّه وقتان مستقلان؛ وما لا علامةَ عملي عليه كلُّه دورٌ واحد كما كان. */
+      const startsOf = (list: FSchedule[]) => new Set(list.map(row => String(row.fstarttime || "")).filter(Boolean));
+      const unsteady = [sectionRows.filter(row => (row as any).practical !== true), sectionRows.filter(row => (row as any).practical === true)].map(startsOf).filter(set => set.size >= 2);
+      if (!unsteady.length) continue;
+      const starts = new Set(unsteady.flatMap(set => [...set]));
       findings.push({
         rule: "fixed-course-time",
         article: "م.7/9",

@@ -111,6 +111,9 @@ import TeacherMiniWeek, { MiniWeekToggle, forgetMiniWeekRows, useMiniWeekEnabled
 import LectureStickChips from "./LectureStickChips";
 import { isFacultyPlaceholder } from "../utils/placeholderInstructor";
 import RegulationPatternChips, { useAutofillFlash } from "./RegulationPatternChips";
+import SpecialSectionBuilder, { type SpecialCheck, type SpecialMeeting } from "./SpecialSectionBuilder";
+import { PracticalMark } from "./PracticalMark";
+import { isPracticalRow, isSpecialNature, specialShapeSummary } from "../utils/specialNature";
 import { appointmentSaveGaps, appointmentVerdict, missingAppointmentFields, type VerdictCheck } from "../utils/appointmentVerdict";
 import { bestRegulationChoice, completeRegulation, completeSectionEnd, endIsDeliberate, patternLengthIssue, pickDay, sameScheduleShape, regulationChoiceFor, regulationChoicesForDay, regulationEnd, regulationFit, regulationHours, usualRegulationChoice, wheelLengths, daysOfRow, type RegulationChoice } from "../utils/appointmentRegulation";
 import { fetchAlternatives, fetchSuggestions, forgetSuggestions, suggestionBody, type SuggestionReply } from "../utils/suggestionClient";
@@ -1183,6 +1186,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const normalSearchTrackedRef = useRef<{query:string;startedAt:number;completed?:boolean} | null>(null);
   const practiceSnapshotRef = useRef<FSchedule[] | null>(null);
   const [practiceMode, setPracticeMode] = useState(false);
+  /* يتجدّد بعد كل شعبةٍ خاصة تُحفظ: منشئُ الشعبة يبدأ فارغاً للتي بعدها (SpecialSectionBuilder). */
+  const [specialRun, setSpecialRun] = useState(0);
   /* نطاق بدء التجربة، وهل تغيّر الجدول الحقيقي أثناءها (شارة هادئة بدل محو التجربة). */
   const practiceScopeRef = useRef("");
   const [practiceRealChanged, setPracticeRealChanged] = useState(false);
@@ -3472,6 +3477,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     value.AdCollegeId, value.AdSectionId, value.AdTermId, value.AdCourseId, String(value.SCode || ""), value.AdInstructorId,
     ...days.map(day => Boolean((value as any)[day.key])), value.fstarttime || "", value.fendtime || "",
     value.AdRoomCode || "", value.AdRoomHall || "", value.roomId || "", value.locationStatus || "", (value as any).companionRoomId || "",
+    Boolean((value as any).practical),
   ]);
   const editorDirty = editor !== "index" && editorSnapshot.current !== null && editorSnapshot.current !== editorFormKey(form);
   /* أولُ صورةٍ يرسمها المحرّر بعد فتحه — قبل أن يكمل الإكمالُ الآلي شيئاً — هي الأصل. */
@@ -4507,6 +4513,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      مصدرٌ واحد: appointmentRegulation ← patternsForHours (قرار 1913/2016) — هو
      نفسه ما يقرأ به فحص الاعتماد وحكم طلبات الأساتذة. */
   const formCourse = courseById.get(Number(form.AdCourseId) || 0);
+  /* مقررٌ بطبيعةٍ خاصة (نظري + عملي) يُنشأ موعدُه بمنشئ الشعبة: الأيامُ ومدةُ كل يوم، ثم أين العملي، وحفظٌ واحد (SpecialSectionBuilder). */
+  const specialMode = editor === "create" && isSpecialNature(formCourse) && !practiceMode;
   const formDays = daysOfRow(form as any);
   /* G5: اسمٌ له إملاءٌ آخر في مقررات القسم نفسه → اقتراح دمج (لا حذف). */
   const courseSpellingTwins = useMemo(() => spellingTwinsOf(courseName, courseNames), [courseName, courseNames]);
@@ -5476,6 +5484,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   };
   const saveCore = async () => {
     if (showMobileReadOnlyGate()) return;
+    /* مقررٌ خاص: الحفظُ من منشئ الشعبة وحده؛ Enter في حقلٍ من النموذج لا يكتب صفاً ناقصاً. */
+    if (specialMode) return;
     setError(null);
     setSlotTaken(null);
     setMessage(null);
@@ -5766,6 +5776,47 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setSaving(false);
       if (carriedNotice) setError(carriedNotice);
     }
+  };
+  /* ── شعبةٌ بطبيعةٍ خاصة: الفحصُ الجافّ ثم الحفظُ الواحد ───────────────────────────────────────────
+     الجسمُ نفسُه للاثنين (النطاق، المقرر، الشعبة، الأستاذ، اللقاءات). الفحصُ لا يكتب ويقول التعارضَ قبل الحفظ؛ والحفظُ يمرّ
+     من fetchJson فتُسأل مخالفاتُ اللائحة وحجوزُ الطلبات كما في كل حفظٍ من هذه الشاشة، ثم تعود «الشعبة التالية» جاهزة. */
+  const specialBody = (meetings: SpecialMeeting[], extra: Record<string, unknown> = {}) => JSON.stringify({
+    AdCollegeId: form.AdCollegeId, AdSectionId: form.AdSectionId, AdTermId: form.AdTermId, AdCourseId: form.AdCourseId,
+    SCode: form.SCode, AdInstructorId: form.AdInstructorId, meetings, ...extra,
+  });
+  const checkSpecialSection = async (meetings: SpecialMeeting[]): Promise<SpecialCheck> => {
+    try {
+      const reply: any = await fetchJson("/api/schedules/special-section", { method: "POST", headers: { "Content-Type": "application/json" }, body: specialBody(meetings, { dryRun: true }) });
+      return { ok: true, notes: (Array.isArray(reply?.regulation) ? reply.regulation : []).map((issue: any) => String(issue?.text || "")).filter(Boolean) };
+    } catch (issue: any) { return { ok: false, error: friendlyError(issue) }; }
+  };
+  const saveSpecialSection = async (meetings: SpecialMeeting[]) => {
+    if (showMobileReadOnlyGate() || refuseInPractice()) return;
+    setError(null); setMessage(null); setSaving(true);
+    try {
+      const saved: any = await withRequestHoldPrompt(overrideRequestHolds => fetchJson("/api/schedules/special-section", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: specialBody(meetings, overrideRequestHolds ? { overrideRequestHolds } : {}),
+      }), "الحفظ", form as Partial<FSchedule>);
+      const created: FSchedule[] = Array.isArray(saved?.rows) ? saved.rows : [];
+      if (!created.length) throw new Error("لم يُحفظ شيء.");
+      const name = courseById.get(Number(form.AdCourseId))?.CourseName || "شعبة";
+      offerUndo(`إضافة ${name} · شعبة ${form.SCode} (نظري + عملي)`, Array.isArray(saved?.undo) ? saved.undo : created.map(row => ({ method: "DELETE" as const, url: `/api/schedules/${row.id}` })));
+      clearDraft();
+      markChanged(created.find(row => isPracticalRow(row))?.id || created[0].id);
+      if (form.AdCollegeId && form.AdCollegeId !== filterCollege) setFilterCollege(form.AdCollegeId);
+      if (form.AdSectionId && form.AdSectionId !== filterSection) setFilterSection(form.AdSectionId);
+      if (form.AdTermId && form.AdTermId !== filterTerm) setFilterTerm(form.AdTermId);
+      const scopeUnchanged = (!form.AdCollegeId || form.AdCollegeId === filterCollege) && (!form.AdSectionId || form.AdSectionId === filterSection) && (!form.AdTermId || form.AdTermId === filterTerm);
+      if (scopeUnchanged) setRows(current => [...current.filter(item => !created.some(row => row.id === item.id)), ...created].sort((a, b) => a.id - b.id));
+      setMessage(`تم إنشاء الشعبة ${form.SCode} · ${specialShapeSummary(created as any[])} · الشعبة التالية جاهزة`);
+      travelSavedCard(`${name} · ${form.SCode}`);
+      setSpecialRun(run => run + 1);
+      continueCreating(created[0]);
+    } catch (issue: any) {
+      const fresh = issue?.code === "section-exists" ? /\((\d{3,4})\)\.?\s*$/.exec(String(issue?.message || ""))?.[1] : "";
+      if (fresh) setForm(current => ({ ...current, SCode: fresh }));
+      setError(friendlyError(issue));
+    } finally { setSaving(false); }
   };
   /**
    * Saving the card that was drawn on the grid.
@@ -7624,8 +7675,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           // meaning it always had, so nothing a reader already knows changes.
           if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); pickUpWithKeyboard(r); }
         }}
-        aria-label={`${title} · ${code} · شعبة ${r.SCode || "—"} · ${withVisitingSuffix(who, visitingIds.has(r.AdInstructorId))} · ${arabicDays(r) || "بلا أيام"} · ${formatScheduleTimeRange(r.fstarttime, r.fendtime)}${place ? ` · قاعة ${place}` : ""}${liveClash.ids.has(r.id) ? " · يوجد تعارض" : ""}`}
+        aria-label={`${title} · ${code} · شعبة ${r.SCode || "—"} · ${withVisitingSuffix(who, visitingIds.has(r.AdInstructorId))} · ${arabicDays(r) || "بلا أيام"} · ${formatScheduleTimeRange(r.fstarttime, r.fendtime)}${place ? ` · قاعة ${place}` : ""}${(r as any).practical === true ? " · عملي" : ""}${liveClash.ids.has(r.id) ? " · يوجد تعارض" : ""}`}
         data-row-id={r.id}
+        data-practical={(r as any).practical === true ? "true" : undefined}
         /* «أشر لي» describes what it is pointed at. Without this the card fell
            back to the generic "an interactive element" sentence, which is the
            least useful thing to say about the object the whole screen is made
@@ -7647,13 +7699,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             data-code-row={denseCodeRow}
             data-terminal-stack={denseIdentityMode === "double" && mins(r.fstarttime) >= 19 * 60 ? "true" : undefined}
           >
-            <span className="week-course-title-wrap"><strong className="week-title" data-short={label.shortened ? "true" : undefined}>{label.text}</strong><CourseRoomTypeBadge type={roomType} compact/></span>
+            <span className="week-course-title-wrap"><strong className="week-title" data-short={label.shortened ? "true" : undefined}>{label.text}</strong><CourseRoomTypeBadge type={roomType} compact/>{(r as any).practical === true ? <PracticalMark compact /> : null}</span>
             <span className="week-who" title={who}>{who}{visitingIds.has(r.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
             <em className="week-code" dir="ltr">{code}</em>
           </div>
         ) : (
           <>
-            <span className="week-course-title-wrap"><strong className="week-title" data-short={label.shortened ? "true" : undefined}>{label.text}</strong><CourseRoomTypeBadge type={roomType} compact/></span>
+            <span className="week-course-title-wrap"><strong className="week-title" data-short={label.shortened ? "true" : undefined}>{label.text}</strong><CourseRoomTypeBadge type={roomType} compact/>{(r as any).practical === true ? <PracticalMark compact /> : null}</span>
             <span className="week-who" title={who}>{who}{visitingIds.has(r.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
             <small className="week-when"><time dir="ltr">{formatScheduleTimeRange(r.fstarttime, r.fendtime)}</time>{place ? <i>{place}</i> : null}</small>
             <em className="week-code" dir="ltr">{code}</em>
@@ -7719,7 +7771,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       // the row itself
       r.id, (r as any).rev ?? 0, r.AdCourseId, r.AdInstructorId, r.SCode,
       r.fstarttime, r.fendtime, r.AdRoomCode, r.AdRoomHall, r.AdCourseName,
-      r.fsunday, r.fmonday, r.ftuesday, r.fwednesday, r.fthursday,
+      r.fsunday, r.fmonday, r.ftuesday, r.fwednesday, r.fthursday, (r as any).practical === true,
       // what the row resolves to
       code, title, String(c?.CourseRoomType||""), who, placeOf(r), hueFor(code, title, i?.AdInstructorName, placeOf(r)),
       // geometry and layout mode
@@ -10441,7 +10493,17 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     onAssign={() => void assignVacantTo(seatAssignRow, seatPick)}
                   />
                 ) : null}
-                {studioTimeLocked ? studioLockedStep("time", 3, "متى؟ الأيام والوقت", "يُفتح بعد اختيار الأستاذ", studioTimeSeed, studioTimeRef) : (
+                {studioTimeLocked ? studioLockedStep("time", 3, "متى؟ الأيام والوقت", "يُفتح بعد اختيار الأستاذ", studioTimeSeed, studioTimeRef) : specialMode && formCourse ? (
+                  <SpecialSectionBuilder
+                    key={`${form.AdCourseId}:${specialRun}`}
+                    course={formCourse}
+                    scode={String(form.SCode || "")}
+                    busy={saving}
+                    collegeId={Number(form.AdCollegeId || 0)} sectionId={Number(form.AdSectionId || 0)} termId={Number(form.AdTermId || 0)}
+                    onCheck={checkSpecialSection}
+                    onSave={saveSpecialSection}
+                  />
+                ) : (
                 <section className="schedule-form-section appt-step is-time" aria-label="الأيام والوقت" ref={studioTimeRef} data-appt-step="time">
                   <header className="appt-step-head">
                     <span className="appt-num">3</span>
@@ -10471,6 +10533,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     autofilled={autofillFlash}
                   />
                 </Field>
+                {editor === "edit" && isSpecialNature(formCourse) ? (
+                  <label className="course-special-toggle ssb-edit-practical">
+                    <input type="checkbox" checked={Boolean((form as any).practical)} onChange={event => setForm(current => ({ ...current, practical: event.target.checked }))}
+                      aria-label="هذا اللقاء هو العملي من الشعبة" data-guide-ignore="يعلّم هذا اللقاء بأنه العملي من الشعبة؛ لا يحفظ شيئاً حتى تحفظ الموعد" />
+                    <span><PracticalMark />هذا اللقاء هو العملي من الشعبة</span>
+                  </label>
+                ) : null}
                   <div className="form-grid appt-fields appt-time-fields">
                 <Field label="بداية الوقت" required>
                   <div className="schedule-time-control" dir="ltr" ref={timeCounterAnchor}>
@@ -10735,7 +10804,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                   ) : null}
                 </section>
                 )}
-                {studioPlaceLocked ? studioLockedStep("place", 4, "أين؟ المبنى والقاعة", "يُفتح بعد الأيام والوقت", studioRoomSeed) : (
+                {specialMode ? null : studioPlaceLocked ? studioLockedStep("place", 4, "أين؟ المبنى والقاعة", "يُفتح بعد الأيام والوقت", studioRoomSeed) : (
                 <section className="schedule-form-section appt-step is-place" aria-label="المكان" data-appt-step="place">
                   <header className="appt-step-head">
                     <span className="appt-num">4</span>
@@ -10930,6 +10999,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </section>
                 )}
               </div>
+              {specialMode ? (
+                <div className="save-preview appt-bar ssb-bar" role="group" aria-label="إجراءات الشعبة">
+                  <div className="form-actions"><SecondaryButton data-guide-ignore="تراجع — لا يحفظ شيئاً" type="button" onClick={() => void requestClose()}>تراجع</SecondaryButton></div>
+                </div>
+              ) : (
               <div className="save-preview appt-bar" role="group" aria-label="ملخّص الموعد">
                 <button type="button" ref={studioStatusRef} className={`appt-status is-${studioTone}`} aria-expanded={studioChecksOpen} aria-controls="appt-checks"
                   onClick={() => setStudioChecksOpen(open => !open)}
@@ -10950,6 +11024,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 </button>
                 <FormActions onBack={() => void requestClose()} loading={saving} submitLabel="احفظ الموعد" submitDisabled={Boolean(!selectedFormDays.length||!editorVerdict.canSave||studioMissing.length>0||(editor==="edit"&&!editorDirty))} />
               </div>
+              )}
             </form>
           </Surface>
           <div className="editor-side appt-side">
@@ -12289,6 +12364,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 return (
                   <article
                     data-row-id={s.id}
+                    data-practical={(s as any).practical === true ? "true" : undefined}
                     className={`agenda-card ${xrayClass(s)} ${justChangedId === s.id ? "just-changed" : ""} ${liveClash.ids.has(s.id) ? "live-clash" : liveClash.warningIds?.has(s.id) ? "live-warn" : ""} ${outsideClash.notes[s.id] ? "live-clash-outside" : ""} ${liveNow.running.has(s.id) ? "agenda-running" : liveNow.next === s.id ? "agenda-next" : ""} ${hueFocusClass(s)}`}
                     key={s.id}
                     /* A ring the reader cannot explain by looking at the board
@@ -12317,6 +12393,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         </span>
                         <strong>{s.AdCourseName || c?.CourseName || ""}<CourseTags courseId={s.AdCourseId} /></strong>
                         <CourseRoomTypeBadge type={c?.CourseRoomType} compact />
+                        {(s as any).practical === true ? <PracticalMark /> : null}
                         {liveNow.running.has(s.id) ? (
                           <span className="agenda-live-tag">جارية الآن</span>
                         ) : liveNow.next === s.id ? (
@@ -14438,7 +14515,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <tr key={s.id}>
                 <td>{i + 1}</td>
                 <td className="print-wrap">
-                  {courseById.get(s.AdCourseId)?.CourseCode} — {s.AdCourseName}<CourseTags courseId={s.AdCourseId} />
+                  {courseById.get(s.AdCourseId)?.CourseCode} — {s.AdCourseName}<CourseTags courseId={s.AdCourseId} />{(s as any).practical === true ? <span className="pr-line"> · عملي</span> : null}
                 </td>
                 <td className="print-ltr">{s.SCode}</td>
                 <td className="print-wrap">
@@ -14534,6 +14611,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 <h2>
                   {context.selected.AdCourseName}<CourseTags courseId={context.selected.AdCourseId} />
                   <span className="context-section-label">شعبة <bdi>{context.selected.SCode}</bdi></span>
+                  {(context.selected as any).practical === true ? <PracticalMark /> : null}
                 </h2>
                 <div className="context-appointment-meta">
                   <span><UsersRound aria-hidden="true" /><span className="schedule-instructor-with-badge">{context.instructor?.AdInstructorName || "بدون أستاذ"}{visitingIds.has(context.selected.AdInstructorId) ? <VisitingBadge compact /> : null}</span></span>

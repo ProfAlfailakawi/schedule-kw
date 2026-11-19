@@ -235,6 +235,7 @@ test:request-room-seat-rule
 test:request-room-seat-http
 test:capacity-import
 test:placeholder-action
+test:special-nature
 test:course-spelling-merge
 test:teacher-mini-week
 test:schedule-stale-read
