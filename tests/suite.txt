@@ -273,6 +273,7 @@ test:seat-access-card
 test:first-login-password
 test:passkeys
 test:passkeys-ui
+test:passkey-seat-revoke
 test:colleague-guard-measure
 test:actual-demand
 test:actual-demand-supply
