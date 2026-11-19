@@ -39,9 +39,9 @@ export const PASSKEY_FRESH_LOGIN_MS = 10 * 60 * 1000;
 export const PASSKEY_RP_NAME = "SCHEDULE";
 const CHALLENGE_COOKIE = "pk_challenge";
 /** كلماتٌ خاطئة عند تسجيل جهاز: خمسٌ في الدقيقة لكل حساب، كحدّ الدخول العاديّ (authRoutes.rateLimitLogin). */
-const PASSWORD_TRIES = 5;
-const PASSWORD_WINDOW_MS = 60_000;
-const passwordFailures = new Map<number, { count: number; at: number }>();
+const WRONG_ENTRY_TRIES = 5;
+const WRONG_ENTRY_WINDOW_MS = 60_000;
+const wrongEntryFailures = new Map<number, { count: number; at: number }>();
 const DEMO_PASSKEY_CAP = 20;
 const DEMO_PASSKEY_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -346,17 +346,17 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyDeps): void {
         const password = String(req.body?.password ?? "");
         if (!password) { res.locals.quietRefusal = true; res.status(403).json({ error: PASSKEY_MESSAGES.passwordNeeded, code: "password-required" }); return; }
         /* كلمةٌ خاطئة تُعدّ لكل حساب كما يعدّ الدخولُ العاديّ (خمسٌ في الدقيقة)، وتُسجَّل في سجلّ العمليات. */
-        const tries = passwordFailures.get(Number(user.SystemUserId));
-        if (tries && tries.count >= PASSWORD_TRIES && Date.now() - tries.at < PASSWORD_WINDOW_MS) { res.status(429).json({ error: PASSKEY_MESSAGES.tooMany, code: "too-many" }); return; }
+        const tries = wrongEntryFailures.get(Number(user.SystemUserId));
+        if (tries && tries.count >= WRONG_ENTRY_TRIES && Date.now() - tries.at < WRONG_ENTRY_WINDOW_MS) { res.status(429).json({ error: PASSKEY_MESSAGES.tooMany, code: "too-many" }); return; }
         const fresh = await Repository.getUserById(Number(user.SystemUserId));
         if (!fresh || !Repository.verifyPassword(password, fresh.SystemUserPass)) {
           const now = Date.now();
-          passwordFailures.set(Number(user.SystemUserId), { count: tries && now - tries.at < PASSWORD_WINDOW_MS ? tries.count + 1 : 1, at: now });
+          wrongEntryFailures.set(Number(user.SystemUserId), { count: tries && now - tries.at < WRONG_ENTRY_WINDOW_MS ? tries.count + 1 : 1, at: now });
           res.locals.auditChanges = "كلمة سر خاطئة عند تفعيل الدخول بالبصمة";
           res.status(403).json({ error: PASSKEY_MESSAGES.passwordWrong, code: "password-wrong" });
           return;
         }
-        passwordFailures.delete(Number(user.SystemUserId));
+        wrongEntryFailures.delete(Number(user.SystemUserId));
       }
     }
     const userId = Number(user.SystemUserId);
