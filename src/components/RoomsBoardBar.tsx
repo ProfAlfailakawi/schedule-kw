@@ -107,7 +107,7 @@ export default function RoomsBoardBar(props: Props) {
           </div>
         </div>
       ) : null}
-      {rooms.length > 1 ? (
+      {rooms.length > 1 || chosenRooms.size > 0 ? (
         <div className="rb-group">
           <div className="rb-label"><MapPin aria-hidden="true" /><strong>القاعات</strong><small>{chosenRooms.size ? `اخترت ${chosenRooms.size} من ${rooms.length}` : `${rooms.length} ظاهرة`}</small></div>
           <div className="rooms-picker rb-picker" role="group" aria-label="اختيار قاعة واحدة أو عدة قاعات">
