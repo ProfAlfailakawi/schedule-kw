@@ -2536,8 +2536,8 @@
           "en": "An assistant with a training request on a live link is not sent again; his earlier unsent request is marked superseded and its keep items carried over; the link expires one day after closing or at term end, whichever is later."
         },
         {
-          "ar": "قائمة المقررات المسموحة الفارغة تعني «الكل»؛ وGET /api/ta-trainees يعيد أرقام من لهم طلب تدريب في عائلة القسم لحامل أي شاشة قراءة.",
-          "en": "An empty allowed-course list means all; GET /api/ta-trainees returns the numbers of those with a training request in the department family to a holder of any read screen."
+          "ar": "قائمة المقررات المسموحة الفارغة تعني «الكل»؛ وGET /api/ta-trainees يعيد أرقام من لهم طلب تدريب في عائلة القسم، ومن تصنيفه «مدرب» (ta) ممن يُدرّس شعبةً في عائلة القسم هذا الفصل ولو بلا طلب، لحامل أي شاشة قراءة؛ معرّفاتٌ وحدها بلا أسماء.",
+          "en": "An empty allowed-course list means all; GET /api/ta-trainees returns the numbers of those with a training request in the department family, plus those categorised «trainee» (ta) who teach a section in the department family this term even without a request, to a holder of any read screen; ids only, no names."
         }
       ],
       "evidence": {

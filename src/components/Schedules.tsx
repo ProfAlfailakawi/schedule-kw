@@ -10009,11 +10009,20 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   /* ── 🔁 التبديل السريع: شعبُ المقرر عند مدرّبٍ أو شاغرةً تنتقل إلى الأستاذ المختار (بوقتها أو بوقت موعدي) ── */
   const quickSwapMineNow = useMemo(() => quickSwapMine(form), [form]);
   const quickSwapList = useMemo(() => quickSwapSources({
-    rows, teacherId: Number(form.AdInstructorId) || 0, sectionId: Number(form.AdSectionId || filterSection) || 0, termId: studioTermId,
+    rows, teacherId: Number(form.AdInstructorId) || 0, sectionId: Number(form.AdSectionId || filterSection) || 0, termId: studioTermId, courseId: Number(form.AdCourseId) || 0,
     editId: editor === "edit" ? Number(editId || 0) : 0, traineeIds: formTrainees, placeholderIds: new Set(studioPlaceholderIds), mine: quickSwapMineNow,
-  }), [rows, form.AdInstructorId, form.AdSectionId, filterSection, studioTermId, editor, editId, formTrainees, studioPlaceholderIds, quickSwapMineNow]);
+  }), [rows, form.AdInstructorId, form.AdCourseId, form.AdSectionId, filterSection, studioTermId, editor, editId, formTrainees, studioPlaceholderIds, quickSwapMineNow]);
+  /* نصابُ الأستاذ المختار قبل نقل الشعبة وبعده (الحدُّ تنبيهٌ لا منع)، لتقليل المدرّبين والشواغر دون أن يُثقَل أستاذٌ بلا علم. */
+  const quickSwapLoad = (source: QuickSwapSource) => {
+    const teacherId = Number(form.AdInstructorId) || 0;
+    if (!teacherId) return null;
+    const mine = rows.filter(row => Number(row.AdInstructorId) === teacherId && Number(row.AdTermId) === studioTermId && Number(row.id) !== Number(editId || 0));
+    const limit = loadNisabOf(instructorById.get(teacherId)).nisab;
+    return { now: weeklyLoadOf(mine, courseById), after: weeklyLoadOf([...mine, source.row], courseById), limit: Number.isFinite(Number(limit)) ? Number(limit) : null };
+  };
   const applyQuickSwap = async (source: QuickSwapSource, mode: "its" | "mine") => {
     if (refuseInPractice()) return;
+    if (mode === "mine" && !source.sameCourse) return;
     const teacherId = Number(form.AdInstructorId) || 0;
     const before = rows.find(row => Number(row.id) === source.rowId);
     if (!teacherId || !before) { setError("تغيّر الجدول؛ أعد فتح التبديل السريع."); return; }
@@ -10032,7 +10041,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       await loadRows({ silent: true });
       markChanged(Number(saved?.id || changed.id));
       /* «بوقتي» استهلكت موعداً يُبنى الآن: تبقى مسودتُه فتُنشئ نسخةً مكررة. */
-      if (mode === "mine" && editor === "create") { clearDraft(); back(); }
+      if (mode === "mine" && source.sameCourse && editor === "create") { clearDraft(); back(); }
       requestAnimationFrame(() => setMessage(`انتقلت الشعبة ${changed.SCode || ""} إلى ${instructorById.get(teacherId)?.AdInstructorName || "الأستاذ"}.`));
     } catch (e: any) {
       setError(friendlyError(e));
@@ -10447,7 +10456,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <span className="appt-num">3</span>
                     <div className="appt-q"><strong>متى؟ الأيام والوقت</strong><small>اختر الأيام أو نمطاً من اللائحة، ثم البداية</small></div>
                     {studioWasMark(studioTimeWas, "time")}
-                    <AppointmentQuickSwap sources={quickSwapList} hasMine={Boolean(quickSwapMineNow)} busy={replaceBusy} onApply={(source, mode) => { void applyQuickSwap(source, mode); }} />
+                    <AppointmentQuickSwap sources={quickSwapList} hasMine={Boolean(quickSwapMineNow)} busy={replaceBusy} loadOf={quickSwapLoad} onApply={(source, mode) => { void applyQuickSwap(source, mode); }} />
                   </header>
                 <Field label="الأيام" hint={formRegulationChips.length ? undefined : dayPatternNote}>
                   <div className={`checkbox-row day-pills${autofillFlash ? " is-autofilled" : ""}`}>

@@ -23,6 +23,8 @@ export interface QuickSwapSource {
   rowId: number;
   kind: "trainee" | "vacant";
   row: FSchedule;
+  /** مقررُها هو مقررُ الموعد الذي يُبنى: وحدها يُعرض لها «بوقتي» (تحلّ محلّ الموعد الجاري). */
+  sameCourse: boolean;
   /** وقتُها هو وقتُ الموعد الذي يُبنى (فلا فرقَ بين الخيارين). */
   sameTime: boolean;
   /** الأستاذ حرٌّ في وقتها الحالي. */
@@ -55,12 +57,14 @@ export function quickSwapSources(opts: {
   teacherId: number;
   sectionId: number;
   termId: number;
+  /** مقررُ الموعد الجاري بناؤه (0: لم يُختر). */
+  courseId?: number;
   editId?: number | null;
   traineeIds: ReadonlySet<number>;
   placeholderIds: ReadonlySet<number>;
   mine: QuickSwapMine | null;
 }): QuickSwapSource[] {
-  const { rows, teacherId, sectionId, termId, editId, traineeIds, placeholderIds, mine } = opts;
+  const { rows, teacherId, sectionId, termId, courseId = 0, editId, traineeIds, placeholderIds, mine } = opts;
   if (!teacherId || placeholderIds.has(teacherId) || traineeIds.has(teacherId) || !sectionId || !termId) return [];
   const clashes = (candidate: FSchedule) => findConflicts([candidate], rows.filter(row => Number(row.id) !== Number(candidate.id)), { placeholderInstructorIds: placeholderIds })
     .some(issue => issue.type === "instructor");
@@ -73,11 +77,14 @@ export function quickSwapSources(opts: {
     const sameTime = !mine || (String(row.fstarttime) === mine.start && String(row.fendtime) === mine.end && QUICK_SWAP_DAY_KEYS.every(key => Boolean((row as any)[key]) === mine.days.includes(key))
       /* القاعةُ المختارة جزءٌ من «بوقتي»: قاعةٌ مختلفة تُبقي الخيارين غير متكافئين. */
       && (!mine.room || (String(row.AdRoomCode || "") === mine.room.AdRoomCode && String(row.AdRoomHall || "") === mine.room.AdRoomHall)));
+    const sameCourse = Boolean(courseId) && Number(row.AdCourseId) === courseId;
     out.push({
-      rowId: Number(row.id), kind, row, sameTime,
+      rowId: Number(row.id), kind, row, sameCourse, sameTime,
       freeAtIts: !clashes(quickSwapAfter(row, teacherId, "its", mine)),
-      freeAtMine: mine ? !clashes(quickSwapAfter(row, teacherId, "mine", mine)) : null,
+      /* «بوقتي» لمقرر الموعد نفسه وحده: نقلُ شعبةِ مقررٍ آخر إلى وقت موعدٍ لمقررٍ غيره ليس تبديلاً بل نقلٌ آخر. */
+      freeAtMine: mine && sameCourse ? !clashes(quickSwapAfter(row, teacherId, "mine", mine)) : null,
     });
   }
-  return out.sort((a, b) => Number(b.freeAtIts) - Number(a.freeAtIts) || Number(b.sameTime) - Number(a.sameTime) || Number(a.row.id) - Number(b.row.id));
+  return out.sort((a, b) => Number(b.sameCourse) - Number(a.sameCourse) || Number(b.freeAtIts) - Number(a.freeAtIts)
+    || String(a.row.AdCourseName || "").localeCompare(String(b.row.AdCourseName || ""), "ar") || Number(a.row.id) - Number(b.row.id));
 }
