@@ -16,6 +16,7 @@ import { importGateSettled, importGateState } from "../utils/importGate";
 import ImportNameFillPanel from "./ImportNameFillPanel";
 import SchedulePublish from "./SchedulePublish";
 const RegistrarPdfCheck = lazy(() => import("./RegistrarPdfCheck"));
+const WhatChanged = lazy(() => import("./WhatChanged"));
 import TAConversionPanel from "./TAConversionPanel";
 import PlanSheetPublisher from "./PlanSheetPublisher";
 import SectionPlan from "./SectionPlan";
@@ -83,7 +84,7 @@ interface Props {
 
 /* «محاكي الشعب» و«فرصة للتحسين» انتقلا إلى مركز الذكاء وحده («جرّب ← ماذا لو» وبطاقة «فرصة لتحسين الجدول»):
    أداةُ القرار لها بابٌ واحد، وأدواتُ البيانات للبيانات. */
-type Tab = "export" | "import" | "check" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses" | "ta";
+type Tab = "export" | "import" | "check" | "whatChanged" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses" | "ta";
 type ToolGroup = "planning" | "people" | "files";
 /** مجموعةُ كل أداة: التخطيط (تخطيط الشعب، كل المقررات، واستيرادُ مراجعة التخطيط)، الأساتذة، الملفات. */
 const toolGroupOf = (tab: Tab, planningImport: boolean): ToolGroup =>
@@ -1381,7 +1382,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               {([
                 { id: "planning", label: "التخطيط", Icon: Compass, count: 2 },
                 { id: "people", label: "الأساتذة", Icon: GraduationCap, count: 4 },
-                { id: "files", label: "الملفات", Icon: FolderOpen, count: termEnded || !canCheckRegistrarPdf ? 3 : 4 },
+                { id: "files", label: "الملفات", Icon: FolderOpen, count: termEnded || !canCheckRegistrarPdf ? 3 : 5 },
               ] as const).map(({ id, label, Icon, count }) => (
                 <button key={id} type="button" role="tab" id={`transfer-group-tab-${id}`} aria-selected={openToolGroup === id} aria-controls={`transfer-group-${id}`}
                   className={`transfer-group-chip is-${id}${openToolGroup === id ? " on" : ""}${activeToolGroup === id ? " has-active" : ""}`}
@@ -1414,6 +1415,9 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               )}
               {termEnded || !canCheckRegistrarPdf ? null : (
                 <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "check" ? "active" : ""} onClick={() => goTab("check")} title="افحص جدول التسجيل: يقارن ملفَّ التسجيل بجدولكم، ولا يغيّر فيه إلا أرقام الشعب لتطابق أرقامهم"><FileSearch />افحص جدول التسجيل</button>
+              )}
+              {termEnded || !canCheckRegistrarPdf ? null : (
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "whatChanged" ? "active" : ""} onClick={() => goTab("whatChanged")} title="ماذا غيّرنا؟ حصيلة تعديلات القسم في فترة"><History />ماذا غيّرنا؟</button>
               )}
               <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "export" ? "active" : ""} onClick={() => goTab("export")} title="تصدير"><Download />تصدير</button>
               <button type="button" data-guide-feature-id="schedule.tool.data" data-guide-tab="publish" className={tab === "publish" ? "active" : ""} onClick={() => goTab("publish")} title="نشر"><Link2 />نشر</button>
@@ -1875,6 +1879,12 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           {tab === "check" && canCheckRegistrarPdf && !termEnded ? (
             <Suspense fallback={<p className="transfer-note">جارٍ التحميل…</p>}>
               <RegistrarPdfCheck collegeId={collegeId} sectionId={sectionId} termId={termId} onClose={() => goTab("import")} onOpenAppointment={onOpenAppointment ? (id) => { onClose(); onOpenAppointment(id); } : undefined} />
+            </Suspense>
+          ) : null}
+
+          {tab === "whatChanged" && canCheckRegistrarPdf && !termEnded ? (
+            <Suspense fallback={<p className="transfer-note">جارٍ التحميل…</p>}>
+              <WhatChanged collegeId={collegeId} sectionId={sectionId} termId={termId} scopeLabel={collegeName} />
             </Suspense>
           ) : null}
 

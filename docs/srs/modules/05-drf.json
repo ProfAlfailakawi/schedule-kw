@@ -47,7 +47,11 @@
     "src/utils/smartSuggestions.ts",
     "src/components/PreviousPlansPanel.tsx",
     "src/components/SchedulePhysics/ScheduleDecisionPreview.tsx",
-    "src/styles/33-time-machine.css"
+    "src/styles/33-time-machine.css",
+    "src/utils/whatChanged.ts",
+    "src/server/routes/whatChangedRoutes.ts",
+    "src/components/WhatChanged.tsx",
+    "src/styles/74-what-changed.css"
   ],
   "screens": [
     {
@@ -1966,6 +1970,58 @@
         "tests": []
       },
       "inferred": true
+    },
+    {
+      "id": "FR-DRF-031",
+      "kind": "functional",
+      "title": {
+        "ar": "ماذا غيّرنا؟ حصيلة تعديلات القسم في فترة",
+        "en": "What did we change: the department's edits over a period"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض في «أدوات الجدول ← الملفات» زرّ «ماذا غيّرنا؟» لمن يعدّل الجدول (النموذج 7 بلا صفة اطّلاع) وحده، يقرأ عبر GET /api/schedules/what-changed حصيلة ما غيّره القسم في فترة يختارها (اليوم افتراضاً، أو منذ آخر إرسال للتسجيل من نسخة الإرسال، أو منذ وقت يحدّده): الصافي بين أقدم نسخة في الفترة والجدول الحي بمقارِن «ما تحرّك» نفسه، فما عُدّل ثم أُرجع يختفي وما نُقل مرتين يظهر من أوّله إلى آخره، ومعه «كل الخطوات» بترتيبها الزمني واسم من عدّل كل خطوة. يُعرض بلاطات عدّ بأيقونات (نُقلت، قاعة، أستاذ، أُضيفت، حُذفت، مقرر، والمجموع) وبطاقة لكل شعبة بشارات الأيام والوقت والقاعة والأستاذ قبل وبعد وأسبوع مصغّر قبل وبعد، مع «انسخ نصاً» سطراً لكل تغيير و«اطبع» في ورقة واحدة؛ والقراءة لا تكتب شيئاً.",
+        "en": "In the schedule tools under Files the system shall show a What did we change button to schedule editors only (form 7 without a view-only capacity), reading through GET /api/schedules/what-changed the department's changes over a chosen period (today by default, since the last send to Registration from the send snapshot, or since a chosen time): the net result between the oldest version in the period and the live schedule using the same comparer as the registrar changes report, so an edit that was undone disappears and a section moved twice shows only start to end, together with All steps in time order with the editor's name on each. It is shown as icon count tiles (moved, room, teacher, added, deleted, course, and the total), one card per section with day, time, room and teacher badges before and after and a mini before and after week, with Copy text giving one line per change and Print giving one page; the read writes nothing."
+      },
+      "rationale": {
+        "ar": "بعد جلسة عمل لم يستطع القسم أن يقول ماذا غيّر بالضبط؛ والنسخ التي تُلتقط قبل كل تعديل تحمل الجواب.",
+        "en": "After a working session the department could not say exactly what it had changed; the versions captured before every edit hold the answer."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "401 بلا دخول، و403 بلا النموذج 7 أو بصفة اطّلاع أو خارج النطاق، والأستاذ لا يراها؛ و400 بلا فصل أو بوقت غير صالح، و404 لقسم غير موجود؛ وبعد القراءة تبقى الجداول والنسخ والاعتماد وملف القاعدة كما كانت.",
+          "en": "401 when signed out, 403 without form 7, in a view-only capacity or outside scope, and a teacher never sees it; 400 without a term or with an invalid time, 404 for a missing department; after the read the schedules, versions, approval and database file are unchanged."
+        },
+        {
+          "ar": "نقلٌ ثم إرجاع، أو إضافةٌ ثم حذف: لا شيء في الصافي وتبقى الخطوتان؛ ونقلٌ مرتين: بطاقة واحدة من البداية إلى النهاية باسمي من عدّلها.",
+          "en": "A move then a move back, or an add then a delete: nothing in the net result while both steps remain; a move twice: one card from start to end naming both editors."
+        },
+        {
+          "ar": "حذفٌ ثم إعادة بمعرّف جديد: لا شيء إن بقيت كما هي، و«قاعة» إن تغيّرت قاعتها، لا حذف وإضافة.",
+          "en": "A delete then a re-add with a new id: nothing when unchanged, and room when only its room changed, never a delete plus an add."
+        },
+        {
+          "ar": "منذ آخر إرسال يبدأ من نسخة الإرسال فلا يُحسب ما قبله، وجدول لم يُرسل بعد يُقال ذلك صراحة؛ وفترة بلا تعديلات تعرض «لا تعديلات في هذه الفترة».",
+          "en": "Since the last send starts from the send snapshot so nothing before it counts, and a schedule never sent says so plainly; a period without edits shows no changes in this period."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/whatChanged.ts#summarizeWhatChanged",
+          "src/server/routes/whatChangedRoutes.ts#/api/schedules/what-changed",
+          "src/components/WhatChanged.tsx"
+        ],
+        "tests": [
+          "tests/what-changed-audit.ts",
+          "tests/what-changed-route-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [

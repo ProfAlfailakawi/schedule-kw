@@ -91,6 +91,7 @@ import { registerScheduleNotesRoutes } from "./src/server/routes/scheduleNotesRo
 import { registerScheduleReviewRoutes } from "./src/server/routes/scheduleReviewRoutes";
 import { registerSchedulesRoutes } from "./src/server/routes/schedulesRoutes";
 import { registerScheduleToolsRoutes } from "./src/server/routes/scheduleToolsRoutes";
+import { registerWhatChangedRoutes } from "./src/server/routes/whatChangedRoutes";
 import { registerShareRoutes } from "./src/server/routes/shareRoutes";
 import { registerSmartImportRoutes } from "./src/server/routes/smartImportRoutes";
 import { registerStudentRegistrationRoutes } from "./src/server/routes/studentRegistrationRoutes";
@@ -464,6 +465,7 @@ registerReportsRoutes(app);
 registerLocationsRoutes(app);
 registerDeleteImpactRoutes(app);
 registerScheduleToolsRoutes(app);
+registerWhatChangedRoutes(app);
 registerGuideRoutes(app);
 registerIntelligenceRoutes(app);
 registerDraftsRoutes(app);
