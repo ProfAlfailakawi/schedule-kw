@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, FlaskConical, Loader2, Save } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FlaskConical, Loader2, Save, Sparkles, UserRound } from "lucide-react";
 import LocationPicker from "./LocationPicker";
 import CompanionFacilityPicker from "./CompanionFacilityPicker";
 import { PracticalMark } from "./PracticalMark";
-import type { AdCourse, FSchedule } from "../types";
+import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import { DAY_KEYS, DAY_NAMES, effectiveCourseHours, ladderStartsForDays, sectionWeeklyHours, type DayKey } from "../utils/scheduleRegulations";
 import { allowedMeetingLengths } from "../utils/specialNature";
 import { AR, countOf } from "../utils/arabicCount";
@@ -20,6 +20,8 @@ export interface SpecialMeeting {
   fstarttime: string; fendtime: string; practical: boolean;
   buildingId?: string; roomId?: string; AdRoomCode?: string; AdRoomHall?: string; locationStatus?: string;
   companionRoomId?: string; companionRoomLabel?: string;
+  /** أستاذُ هذا اللقاء إن خالف أستاذَ الشعبة: العمليُّ يدرّسه عضوُ هيئة التدريب أو منتدب (رد الدكتورة 2026-11-19). */
+  AdInstructorId?: number;
 }
 export type SpecialCheck = { ok: true; notes: string[] } | { ok: false; error: string };
 
@@ -38,8 +40,39 @@ export const lengthLabel = (minutes: number) => {
 const flagsOf = (days: readonly DayKey[]) => Object.fromEntries(DAY_KEYS.map(day => [day, days.includes(day)])) as Pick<SpecialMeeting, DayKey>;
 const hasRoom = (place: Place | undefined) => Boolean(place && ((place.buildingId && place.roomId) || place.locationStatus === "PENDING_ROOM"));
 
-export default function SpecialSectionBuilder({ step = 3, course, scode, busy, onCheck, onSave, collegeId, sectionId, termId }: {
+/** مدرّبُ العملي: هيئةُ التدريب أولاً، ثم المنتدبون، ثم بقيةُ الأعضاء — وأستاذُ النظري معروفٌ باسمه في القائمة. */
+type LabPerson = { id: number; name: string };
+interface LabPeople { trainers: LabPerson[]; visiting: LabPerson[]; faculty: LabPerson[] }
+
+function useLabPeople(collegeId: number, sectionId: number, termId: number): LabPeople | null {
+  const [people, setPeople] = useState<LabPeople | null>(null);
+  useEffect(() => {
+    if (!collegeId || !sectionId || !termId) { setPeople({ trainers: [], visiting: [], faculty: [] }); return; }
+    let live = true;
+    const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
+    const read = (url: string) => fetch(url, { credentials: "include" }).then(response => response.ok ? response.json() : null).catch(() => null);
+    void Promise.all([read(`/api/instructors?${query}`), read(`/api/visiting-lookup?termId=${termId}`)]).then(([list, lookup]) => {
+      if (!live) return;
+      const visitingIds = new Set<number>(((lookup?.scopes || {})[`${collegeId}:${sectionId}`] || []).map(Number));
+      const out: LabPeople = { trainers: [], visiting: [], faculty: [] };
+      for (const person of (Array.isArray(list) ? list : []) as AdInstructor[]) {
+        const name = String(person.AdInstructorName || "").trim();
+        /* «هيئة تدريسية» ليست شخصاً، والمتقاعدُ والمتفرّغُ لا يُسند إليهما جديد. */
+        if (!name || name.startsWith("هيئة") || person.AdInstructorStatus) continue;
+        const entry = { id: Number(person.AdInstructorId), name };
+        (person.AdInstructorCategory === "ta" ? out.trainers : visitingIds.has(entry.id) ? out.visiting : out.faculty).push(entry);
+      }
+      setPeople(out);
+    });
+    return () => { live = false; };
+  }, [collegeId, sectionId, termId]);
+  return people;
+}
+
+export default function SpecialSectionBuilder({ step = 3, course, scode, busy, onCheck, onSave, collegeId, sectionId, termId, theoryInstructorId = 0 }: {
   key?: React.Key;
+  /** أستاذُ النظري (أستاذُ الشعبة): يُعلَّم في قائمة مدرّب العملي، ولا يُفرض عليه. */
+  theoryInstructorId?: number;
   /** رقمُ الخطوة في «موعد»؛ null خارجه (ورقة فتح الشعبة لطلب طالب). */
   step?: number | null;
   course: AdCourse;
@@ -55,6 +88,23 @@ export default function SpecialSectionBuilder({ step = 3, course, scode, busy, o
   const [starts, setStarts] = useState<Record<string, string>>({});
   const [places, setPlaces] = useState<Record<string, Place>>({});
   const [check, setCheck] = useState<{ state: "idle" | "checking" | "ok" | "bad"; text: string; notes: string[] }>({ state: "idle", text: "", notes: [] });
+  const [labTeacher, setLabTeacher] = useState(0);
+  const labPeople = useLabPeople(collegeId, sectionId, termId);
+  /** المدةُ التي تبدأ بها البطاقة: نصفُ ساعات المقرر لقاءً واحداً متصلاً (ساعتان لمقرر 2+2) إن اعتمدتها اللائحة لذلك اليوم. */
+  const usualLength = (day: DayKey) => {
+    const allowed = allowedMeetingLengths(day);
+    const half = hours / 2 * 60 - 10;
+    return allowed.includes(half) ? half : allowed[0] || 50;
+  };
+  /** الأشكالُ المعتادة عند القسم: النظريُّ يوماً والعمليُّ يوماً آخر، ساعتان لكلٍّ (الأحد·الثلاثاء، الأحد·الخميس، الثلاثاء·الخميس). */
+  const presets = useMemo(() => {
+    const pairs: Array<[DayKey, DayKey]> = [["fsunday", "ftuesday"], ["fsunday", "fthursday"], ["ftuesday", "fthursday"]];
+    return pairs.filter(([a, b]) => usualLength(a) === hours / 2 * 60 - 10 && usualLength(b) === hours / 2 * 60 - 10);
+  }, [hours]);
+  const applyPreset = ([theoryDay, labDay]: [DayKey, DayKey]) => {
+    setMinutes({ [theoryDay]: usualLength(theoryDay), [labDay]: usualLength(labDay) });
+    setPracticalDays([labDay]);
+  };
 
   const chosen = DAY_KEYS.filter(day => Boolean(minutes[day]));
   const roles = useMemo<Role[]>(() => {
@@ -81,15 +131,16 @@ export default function SpecialSectionBuilder({ step = 3, course, scode, busy, o
       ...flagsOf(days), fstarttime: start, fendtime: clock(Math.min(23 * 60 + 59, toMin(start) + length)), practical: role.practical,
       buildingId: place.buildingId, roomId: place.roomId, AdRoomCode: place.AdRoomCode || "", AdRoomHall: place.AdRoomHall || "", locationStatus: place.locationStatus,
       companionRoomId: place.companionRoomId || "", companionRoomLabel: place.companionRoomLabel || "",
+      ...(role.practical && labTeacher ? { AdInstructorId: labTeacher } : {}),
     }));
-  }), [roles, starts, places, JSON.stringify(minutes)]);
+  }), [roles, starts, places, JSON.stringify(minutes), labTeacher]);
 
   const reading = useMemo(() => meetings.length && hours > 0 ? sectionWeeklyHours(meetings[0] as any, meetings.slice(1) as any, hours) : null, [meetings, hours]);
   const complete = Boolean(reading && !reading.under && !reading.over);
   const hasPractical = roles.some(role => role.practical);
   const needsCompanion = Boolean(String(course.CourseCompanionRoomType || "").trim());
   const roomsDone = roles.length > 0 && roles.every(role => hasRoom(places[role.key]) && (!needsCompanion || Boolean(places[role.key]?.companionRoomId)));
-  const ready = complete && hasPractical && roomsDone;
+  const ready = complete && hasPractical && roomsDone && Boolean(labTeacher);
   const taughtHours = reading ? Math.round(reading.total / 50 * 10) / 10 : 0;
 
   /* أولُ ما ينقص بالترتيب الذي يُملأ به: الأيام ← الساعات ← العملي ← الأماكن. */
@@ -97,7 +148,8 @@ export default function SpecialSectionBuilder({ step = 3, course, scode, busy, o
     : reading?.under ? `الساعات ${taughtHours} من ${hours}`
       : reading?.over ? `الساعات ${taughtHours} تزيد على ${hours}`
         : !hasPractical ? "حدّد اللقاء العملي"
-          : !roomsDone ? "اختر القاعة لكل لقاء" : "";
+          : !labTeacher ? "اختر مدرّب العملي"
+            : !roomsDone ? "اختر القاعة لكل لقاء" : "";
 
   /* الفحصُ الجافّ: حين يكتمل الشكلُ يُسأل الخادم فيقول التعارضَ قبل الحفظ. آخرُ طلبٍ وحده يُقرأ. */
   const checker = useRef(onCheck); checker.current = onCheck;
@@ -123,7 +175,7 @@ export default function SpecialSectionBuilder({ step = 3, course, scode, busy, o
     if (minutes[day]) {
       setMinutes(current => { const next = { ...current }; delete next[day]; return next; });
       setPracticalDays(list => list.filter(item => item !== day));
-    } else setMinutes(current => ({ ...current, [day]: allowedMeetingLengths(day)[0] || 50 }));
+    } else setMinutes(current => ({ ...current, [day]: usualLength(day) }));
   };
   const togglePractical = (day: DayKey) => setPracticalDays(list => list.includes(day) ? list.filter(item => item !== day) : [...list, day]);
   const canSave = ready && !busy && check.state !== "bad" && check.state !== "checking";
@@ -138,6 +190,17 @@ export default function SpecialSectionBuilder({ step = 3, course, scode, busy, o
         </div>
       </header>
       <div className="ssb-chip-row"><span className="ssb-chip" title="الطبيعة الخاصة معلَّمة على المقرر في البيانات الأكاديمية"><FlaskConical aria-hidden="true" />مقرر نظري + عملي</span></div>
+
+      {presets.length && !chosen.length ? (
+        <div className="ssb-presets" role="group" aria-label="الأشكال المعتادة">
+          <span><Sparkles aria-hidden="true" />الشكل المعتاد: النظري يوم والعملي يوم آخر</span>
+          {presets.map(pair => (
+            <button type="button" key={pair.join("+")} onClick={() => applyPreset(pair)} data-guide-ignore="يملأ الأيام والمدد بشكلٍ معتاد؛ يمكن تعديله ولا يحفظ شيئاً">
+              {DAY_NAMES[DAY_KEYS.indexOf(pair[0])]} نظري · {DAY_NAMES[DAY_KEYS.indexOf(pair[1])]} عملي
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="ssb-days" role="group" aria-label="الأيام ومدة كل يوم">
         {DAY_KEYS.map((day, index) => {
@@ -194,6 +257,23 @@ export default function SpecialSectionBuilder({ step = 3, course, scode, busy, o
               {role.practical ? <PracticalMark /> : <span className="ssb-theory-mark">نظري</span>}
               <strong>{dayText}</strong>
             </header>
+            {role.days.length > 1 ? (
+              <p className="ssb-split-note" role="note">
+                <AlertTriangle aria-hidden="true" />
+                {name} مجزّأ على أكثر من يوم؛ المعتاد لقاءٌ واحد متصل. يُحفظ استثناءً بسببٍ تكتبه عند الحفظ.
+              </p>
+            ) : null}
+            {role.practical ? (
+              <label className="ssb-lab-teacher">
+                <span><UserRound aria-hidden="true" />مدرّب العملي</span>
+                <select value={labTeacher || ""} onChange={event => setLabTeacher(Number(event.target.value) || 0)} aria-label="مدرّب العملي">
+                  <option value="">{labPeople ? "اختر مدرّب العملي" : "يحمّل الأسماء…"}</option>
+                  {labPeople?.trainers.length ? <optgroup label="هيئة التدريب">{labPeople.trainers.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</optgroup> : null}
+                  {labPeople?.visiting.length ? <optgroup label="منتدبون">{labPeople.visiting.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</optgroup> : null}
+                  {labPeople?.faculty.length ? <optgroup label="أعضاء هيئة التدريس">{labPeople.faculty.map(person => <option key={person.id} value={person.id}>{person.name}{person.id === theoryInstructorId ? " (أستاذ النظري)" : ""}</option>)}</optgroup> : null}
+                </select>
+              </label>
+            ) : null}
             <label className="ssb-start">
               <span>بداية {name}</span>
               {ladder.length

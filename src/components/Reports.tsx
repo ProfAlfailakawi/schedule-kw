@@ -1,5 +1,6 @@
 import TermSelect from "./TermSelect";
 import SearchableSelect from "./SearchableSelect";
+import { specialCourseIdsOf } from "../utils/specialNature";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildingNumberLabel } from "../utils/locationCollegePrefixes";
 import { continuationIds } from "../utils/matrixRuns";
@@ -1670,7 +1671,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
         rows, count: rows.length,
         load: rows.reduce((total, row) => total + duration(row) * DAYS.filter(day => (row as any)[day.flag]).length, 0),
         /* J1: the hours beside a name are the teaching load (credit hours, each section once in its college), not contact minutes. */
-        teaching: teachingHoursByInstructor(rows, new Map([...courseById.values()].map(course => [Number(course.AdCourseId), effectiveCourseHours(course)]))).get(Number(id)) || 0,
+        teaching: teachingHoursByInstructor(rows, new Map([...courseById.values()].map(course => [Number(course.AdCourseId), effectiveCourseHours(course)])), specialCourseIdsOf(courseById.values())).get(Number(id)) || 0,
         days: new Set(rows.flatMap(row => DAYS.filter(day => (row as any)[day.flag]).map(day => day.key))).size,
         /* أطول انتظارٍ بين محاضرتين في اليوم نفسه (ساعةٌ فأكثر). */
         gap: longestWaitMinutes(rows),
@@ -2533,7 +2534,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   /* ── الجواب قبل العدسة (utils/reportInsights) ─────────────────────────── */
   const insights = useMemo(() => {
     if (!results.length) return null;
-    const hours = teachingHoursByInstructor(results, new Map([...courseById.values()].map(course => [Number(course.AdCourseId), effectiveCourseHours(course)])));
+    const hours = teachingHoursByInstructor(results, new Map([...courseById.values()].map(course => [Number(course.AdCourseId), effectiveCourseHours(course)])), specialCourseIdsOf(courseById.values()));
     const people = new Set(buildFairnessEngine(results, instructors).profiles.map(profile => Number(profile.id)));
     return buildReportInsights({
       rows: results,
@@ -5256,7 +5257,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
           const instructor = instructorOf(page.group.rows[0]);
           const instructorId = Number(page.group.rows[0]?.AdInstructorId || 0);
           /* التقرير يعلن النصاب المعتمد (ساعات المقررات الفريدة)، لا مجموع دقائق الاتصال؛ صفّا المقرر/شعبته لا يضاعفان الساعات. */
-          const load = teachingHoursByInstructor(page.group.rows, courseHours).get(instructorId) || 0;
+          const load = teachingHoursByInstructor(page.group.rows, courseHours, specialCourseIdsOf(courseById.values())).get(instructorId) || 0;
           const days = new Set(page.group.rows.flatMap(row => dayFlags(row).map(day => day.key))).size;
           return (
             /* ورقة كل أستاذ تُملأ بحجمها هي (printFit): أستاذٌ بمحاضرتين لا يُطبع بخطّ أستاذٍ بسبع. */

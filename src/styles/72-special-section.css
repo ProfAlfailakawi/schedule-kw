@@ -75,3 +75,17 @@
 .ssb-case-teacher select{min-height:42px;min-width:min(320px,100%);border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:6px 10px;font:inherit}
 .ssb-case-error{margin:0;padding:8px 12px;border-radius:10px;background:var(--danger-soft);color:var(--danger);font-weight:650}
 .ssb-case-open svg{color:var(--info)}
+
+/* ── الشكلُ المعتاد، والتجزئة، ومدرّبُ العملي (رد الدكتورة 2026-11-19) ── */
+.ssb-presets{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border:1px dashed color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:14px;background:var(--surface)}
+.ssb-presets>span{display:inline-flex;align-items:center;gap:6px;flex-basis:100%;font-size:.86rem;font-weight:700;color:var(--muted)}
+.ssb-presets>span svg{width:16px;height:16px;color:var(--accent)}
+.ssb-presets button{min-height:40px;padding:6px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-weight:650;cursor:pointer}
+.ssb-presets button:hover{border-color:var(--accent);color:var(--accent)}
+.ssb-presets button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ssb-split-note{display:flex;align-items:flex-start;gap:8px;margin:0;padding:8px 12px;border-radius:10px;background:var(--warning-soft);color:var(--ink);font-size:.86rem;line-height:1.7}
+.ssb-split-note svg{flex:none;width:16px;height:16px;margin-block-start:4px;color:var(--warning)}
+.ssb-lab-teacher{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.ssb-lab-teacher>span{display:inline-flex;align-items:center;gap:6px;font-weight:700}
+.ssb-lab-teacher>span svg{width:16px;height:16px;color:var(--info)}
+.ssb-lab-teacher select{min-height:42px;min-width:min(300px,100%);border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:6px 10px;font:inherit}
