@@ -7,7 +7,7 @@ import type { AdCourse } from "../types";
 /**
  * ── موافقةُ اللجنة + فتحُ شعبةٍ لمقررٍ نظريٍّ وعمليّ ──────────────────────────────────────────
  * طالبٌ متعثّرٌ في مقرر 2+2 (نظري + عملي): فتحُ شعبته لقاءٌ واحدٌ ناقص لا يُقبل. فتُفتح هنا بمنشئ الشعبة نفسه الذي في «موعد»
- * (الأيام ومدة كل يوم، ثم أين العملي ومكانه)، ويختار المنسّق الأستاذ، ويُرسل القرارُ واللقاءاتُ معاً في طلبٍ واحد:
+ * (الأيام ومدة كل يوم، ثم أين العملي ومكانه)، ويختار المنسّق أستاذَ النظري ومدرّبَ العملي، ويُرسل القرارُ واللقاءاتُ معاً في طلبٍ واحد:
  * POST /api/student-registration/:id/course-state بـ openSection.meetings — فإن رُفضت الشعبة لم تُسجَّل الموافقة.
  */
 export default function SpecialCaseOpening({ course, studentName, termId, suggestedInstructorId, onClose, onCheck, onSave }: {
@@ -48,9 +48,9 @@ export default function SpecialCaseOpening({ course, studentName, termId, sugges
         </header>
         <p className="ssb-case-lead">طلب {studentName}. المقرر نظري + عملي: تُفتح الشعبة بلقاءيها معاً، وتُسجَّل موافقة اللجنة معها أو لا يُكتب شيء.</p>
         <label className="ssb-case-teacher">
-          <span>الأستاذ</span>
-          <select value={instructorId || ""} onChange={event => setInstructorId(Number(event.target.value) || 0)} aria-label="أستاذ الشعبة">
-            <option value="">اختر الأستاذ</option>
+          <span>أستاذ النظري</span>
+          <select value={instructorId || ""} onChange={event => setInstructorId(Number(event.target.value) || 0)} aria-label="أستاذ النظري">
+            <option value="">اختر أستاذ النظري</option>
             {people.map(person => <option key={person.AdInstructorId} value={person.AdInstructorId}>{person.AdInstructorName}</option>)}
           </select>
         </label>
@@ -63,6 +63,7 @@ export default function SpecialCaseOpening({ course, studentName, termId, sugges
             scode="جديدة"
             busy={busy}
             collegeId={Number(course.AdCollegeId)} sectionId={Number(course.AdSectionId)} termId={termId}
+            theoryInstructorId={instructorId}
             onCheck={meetings => onCheck(meetings, instructorId)}
             onSave={async meetings => {
               setBusy(true); setError("");
@@ -71,7 +72,7 @@ export default function SpecialCaseOpening({ course, studentName, termId, sugges
               finally { setBusy(false); }
             }}
           />
-        ) : <p className="ssb-case-hint">اختر الأستاذ أولاً، ثم أيام الشعبة ومكان العملي.</p>}
+        ) : <p className="ssb-case-hint">اختر أستاذ النظري أولاً، ثم أيام الشعبة ومدرّب العملي ومكانه.</p>}
       </div>
     </div>
   );

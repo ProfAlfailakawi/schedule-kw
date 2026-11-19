@@ -721,7 +721,8 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     const regulationIssues = method !== "GET" ? regulationIssuesOf(r.status, d) : null;
     const marked = regulationIssues ? withRegulationException(options?.body) : null;
     if (regulationIssues && marked) {
-      if (await askRegulationException(regulationIssues)) return fetchJson(url, { ...options, body: marked });
+      const choice = await askRegulationException(regulationIssues);
+      if (choice) return fetchJson(url, { ...options, body: withRegulationException(options?.body, choice.reason) || marked });
       throw Object.assign(new Error(REGULATION_EXCEPTION_DECLINED), { code: d.code, status: r.status, url });
     }
     if (!r.ok)
