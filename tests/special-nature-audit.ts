@@ -56,6 +56,10 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
     { fsunday: true, ftuesday: true, fstarttime: "12:00", fendtime: "13:50", id: 3, AdInstructorId: 7, AdCourseId: 901, SCode: "01", AdCollegeId: 1, AdSectionId: 1 }];
   const load = teachingHoursByInstructor(loadRows as any, new Map([[900, 4], [901, 4]]), new Set([900]));
   check(load.get(7) === 6 && load.get(29) === 2, "P19 النصاب: نظري المقرر الخاص ساعتان لعضو هيئة التدريس، وعمليُّه ساعتان للمدرّب، والمقررُ العادي بساعاته", Object.fromEntries(load));
+  const { weeklyLoadOf } = await import("../src/utils/instructorRequestVerdict");
+  const courseMap = new Map<number, any>([[900, { AdCourseId: 900, CourseHours: 4, CourseSpecialNature: true }], [901, { AdCourseId: 901, CourseHours: 4 }]]);
+  check(weeklyLoadOf(loadRows.filter(row => row.AdInstructorId === 29) as any, courseMap) === 2 && weeklyLoadOf(loadRows.filter(row => row.AdInstructorId === 7) as any, courseMap) === 6,
+    "P19b حلقةُ النصاب في كرت الأستاذ وطلباته (weeklyLoadOf): المدرّب ساعتان، والأستاذ ساعتا النظري + المقرر العادي", { trainer: weeklyLoadOf(loadRows.filter(row => row.AdInstructorId === 29) as any, courseMap) });
   const splitIssue = { rule: "pattern-days" as const, article: "نظري + عملي", text: "x", needsReason: true };
   check(!regulationExceptionAccepted({ regulationException: true }, [splitIssue]) && !regulationExceptionAccepted({ regulationException: true, regulationExceptionReason: " " }, [splitIssue])
     && regulationExceptionAccepted({ regulationException: true, regulationExceptionReason: "طبيعة المختبر" }, [splitIssue])

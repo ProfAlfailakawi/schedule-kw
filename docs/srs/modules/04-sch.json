@@ -5532,12 +5532,17 @@
         {
           "ar": "نظري المقرر الخاص يُحسب ساعتين لأستاذه وعمليّه ساعتين لمدرّبه، والمقرر العادي بساعاته كما كان.",
           "en": "A special course's theory counts two hours for its instructor and its practical two hours for its trainer, and an ordinary course counts its hours as before."
+        },
+        {
+          "ar": "حلقة النصاب في كرت المدرّب وفحص النصاب في طلبات الأساتذة يقرآن الحكم نفسه: ساعتا العملي للمدرّب لا ساعات المقرر كلها.",
+          "en": "The load ring on the trainer's card and the load check on instructor requests read the same rule: two practical hours for the trainer, not the course's full hours."
         }
       ],
       "evidence": {
         "code": [
           "src/components/SpecialSectionBuilder.tsx",
           "src/utils/teachingLoad.ts#teachingHoursByInstructor",
+          "src/utils/instructorRequestVerdict.ts#weeklyLoadOf",
           "src/utils/specialNature.ts#meetingTeachingHours",
           "src/server/demoSpecialNatureSeed.ts"
         ],
