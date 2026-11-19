@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { interruptedImportMessage } from "../utils/importStreamFailure";
-import { slimPdfRow, type FieldDelta, type FindingGroup, type RegistrarCheckResult, type RegistrarFinding } from "../utils/registrarCheck";
+import { looksForeign, slimPdfRow, type FieldDelta, type FindingGroup, type RegistrarCheckResult, type RegistrarFinding } from "../utils/registrarCheck";
 import { PrimaryButton, SecondaryButton } from "./ui";
 import CourseTags from "./CourseTags";
 import { NumberingReviewCards, numberingReviewCount, RegistrarNumberingLine, type NumberingOutcome } from "./RegistrarNumbering";
@@ -219,7 +219,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
       const payload = JSON.stringify({ collegeId, sectionId, termId, rows });
       if (!rows.length && !notes.unreadable.length) notes.unreadable.push(String(data.message || "لم أتمكن من استخراج شعب من الملف"));
       let result = await compare(rows, controller.signal);
-      const numbering = rows.length && !result.empty ? await align(rows, controller.signal) : null;
+      const numbering = rows.length && !result.empty && !looksForeign(result) ? await align(rows, controller.signal) : null;
       /* الفروقُ تُعرض بالأرقام بعد المطابقة. */
       if (numbering?.changed) result = await compare(rows, controller.signal);
       setPhase({ kind: "done", result, notes, rows, numbering });
@@ -337,6 +337,13 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
             </div>
           </div>
 
+          {looksForeign(phase.result) ? (
+            <p className="rpc-alert" data-tone="error" role="alert">
+              <AlertTriangle aria-hidden="true" />
+              الملف لا يطابق أي شعبة في جدولكم؛ تأكّد أنه ملف قسمكم وفصلكم.
+            </p>
+          ) : null}
+
           {phase.result.empty ? (
             <p className="rpc-alert" data-tone="warning" role="status">
               <AlertTriangle aria-hidden="true" />
@@ -386,7 +393,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
           {saveError ? <p className="rpc-alert" data-tone="error" role="alert"><AlertTriangle aria-hidden="true" />{saveError}</p> : null}
           {saving === "saved" ? <p className="rpc-alert" data-tone="ok" role="status"><CheckCircle2 aria-hidden="true" />حُفظ الطلب في «تغييرات الجدول»، ويراه التسجيل في وارده.</p> : null}
           <footer className="rpc-foot">
-            {actionable && !phase.result.empty ? (
+            {actionable && !phase.result.empty && !looksForeign(phase.result) ? (
               <PrimaryButton type="button" disabled={saving !== "idle"} data-guide-ignore="يحفظ طلب التعديل للتسجيل تحت «تغييرات الجدول» — فعلٌ صريح لصاحب الجدول، والفحص نفسه لا يكتب" onClick={() => void save()}>
                 <Save aria-hidden="true" /> {saving === "saved" ? "حُفظ الطلب" : saving === "busy" ? "يحفظ…" : "احفظ طلب التعديل"}
               </PrimaryButton>

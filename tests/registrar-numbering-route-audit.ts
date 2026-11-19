@@ -117,6 +117,14 @@ const pdfRow = (course: string, section: string, crn: string, start: string, ext
     const now = (await live()).find(r => r.id === created.id);
     check(one.status === 200 && one.json.changed === 1 && now?.SCode === "545" && now?.referenceNumber === "10220", "الجديدة ظهرت عندهم: أخذت رقمهم 545 والمرجعي 10220", one.json);
 
+    /* الجدول بين يدي التسجيل (مُرسَل): لا تُكتب المطابقة، ويُقال السبب. */
+    await Repository.createSchedule(row(9011, 302, "541", "", "18:00") as any);
+    await Repository.saveScheduleApproval({ scopeKey: "1:11:5", AdCollegeId: 1, AdSectionId: 11, AdTermId: 5, status: "submitted", currentRound: 1, rounds: [{ number: 1, submittedAt: "2026-11-01T08:00:00Z" }], signatures: [], pendingAdditions: [], revision: 0 } as any);
+    const lockedRows = [...later, pdfRow("0109106", "550", "10230", "18:00")];
+    const locked = await call("POST", URL, "head", { ...body, rows: lockedRows });
+    check(locked.status === 200 && locked.json.changed === 0 && typeof locked.json.locked === "string" && locked.json.locked.length > 0, "جدولٌ مُرسَل للتسجيل: لا كتابة، والسبب في الردّ", locked.json);
+    await Repository.saveScheduleApproval({ scopeKey: "1:11:5", AdCollegeId: 1, AdSectionId: 11, AdTermId: 5, status: "draft", currentRound: 1, rounds: [{ number: 1, submittedAt: "2026-11-01T08:00:00Z", returnedAt: "2026-11-02T08:00:00Z" }], signatures: [], pendingAdditions: [], revision: 1 } as any);
+
     /* سجلّ أرقام الفصل: يحفظ أكبر رقم، ولا ينقص بالحذف. */
     const { recordSectionNumberLedger } = await import("../src/server/core/sectionNumbers");
     await recordSectionNumberLedger(1, 11, 5, [{ AdCourseId: 301, SCode: "560" }]);

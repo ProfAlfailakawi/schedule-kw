@@ -893,6 +893,14 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
   };
 }
 
+/**
+ * ملفٌّ لا يشبه جدولنا: قُرئت منه شعبٌ كثيرة ولم تطابق واحدةٌ منها شعبةً عندنا — ملفُّ قسمٍ آخر
+ * أو فصلٍ آخر في الغالب. يُقال ذلك صراحةً، ولا يُحفظ منه طلبٌ ولا تُطابَق به أرقام.
+ */
+export function looksForeign(result: Pick<RegistrarCheckResult, "empty" | "counts" | "reading">): boolean {
+  return !result.empty && result.counts.matched === 0 && result.reading.pdfRows >= 5 && result.reading.liveRows >= 5;
+}
+
 /* ── صفٌّ نحيف: ما يلزم للمقارنة وحده ─────────────────────────────────────
  * يُبنى في المتصفح قبل الإرسال (فحجمُ الطلب لا يتجاوز حدّ الخادم) وفي الخادم
  * عند الاستقبال (فلا يدخل المقارنةَ نصٌّ طويلٌ ولا حقلٌ لم يُطلب). */

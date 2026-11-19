@@ -4,9 +4,10 @@
  */
 import { assignAuthoritySections, authoritySectionUncertain, printedAuthoritySection } from "../src/utils/authorityAcademicCodes";
 import { awaitingRegistrarNumber, nextCourseSection, nextSectionNumber, planRegistrarNumbering, recordSectionNumbers, sectionNumberOf } from "../src/utils/registrarNumbering";
-import { checkRegistrarPdf, type RegistrarIdentity } from "../src/utils/registrarCheck";
+import { checkRegistrarPdf, looksForeign, type RegistrarIdentity } from "../src/utils/registrarCheck";
 import { nextCourseSectionCode } from "../src/utils/nextCourseSectionCode";
 import { nextSectionCodeFrom } from "../src/utils/studyProposal";
+import { roleWriteDecision } from "../src/server/roleGuard";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, detail?: unknown) => {
@@ -94,6 +95,8 @@ const pdf = (course: number, section: string, crn: string, day: number, start: s
   check(!recreated.findings.some(f => f.kind === "notRemoved" || f.kind === "onlyOurs" || f.kind === "onlyPdf"), "ولا تُطلب حذفاً ولا إضافة", recreated.findings.map(f => f.kind));
   const staff = checkRegistrarPdf({ live: [live(1, "501", "2712", 0, "08:00", 99)], pdf: [pdf(1, "502", "2712", 0, "08:00", 98, { sourceInstructorText: "هيئة تدريسية" })], names: { ...names, placeholderIds: new Set([98, 99]) } });
   check(staff.counts.matched === 1 && staff.counts.review === 0, "«هيئة تدريسية» على الطرفين: مطابقة، لا «قراءة غير مؤكدة»", staff.findings);
+  const foreign = checkRegistrarPdf({ live: [0, 1, 2, 3, 4].map(i => live(1, String(501 + i), String(100 + i), i % 5, "08:00")), pdf: [0, 1, 2, 3, 4].map(i => pdf(2, String(601 + i), String(900 + i), i % 5, "13:00")), names });
+  check(looksForeign(foreign) && !looksForeign(result), "ملفٌّ لا تطابق منه شعبةٌ واحدة: «لا يشبه جدولكم» (قسمٌ أو فصلٌ آخر)", foreign.counts);
   const scanned = checkRegistrarPdf({ live: [live(1, "505", "2041", 1, "11:00")], pdf: [pdf(1, "506", "2041", 1, "11:00", 7, { sourceReadMode: "ocr-grid", importEvidence: { section: { confidence: "REVIEW_REQUIRED" } } })], names });
   check(scanned.identities.length === 1 && !scanned.identities[0].certain, "ملفٌّ ممسوح: رقمه لا يُعتمد", scanned.identities);
 }
@@ -119,6 +122,13 @@ const pdf = (course: number, section: string, crn: string, day: number, start: s
   check(onlyOne.changes.length === 1 && onlyOne.changes[0].ref === "a" && onlyOne.changes[0].isNew, "«اعتمد» لشعبةٍ جديدة واحدة: تتغيّر وحدها", onlyOne);
   const fields = Object.keys(onlyOne.changes[0].to).sort().join();
   check(fields === "crn,section", "التغيير رقمُ الشعبة والمرجعي وحدهما");
+}
+
+/* ٥) حارس الصفات: موظف التسجيل (صفةُ اطّلاع) يشطب بنود طلب التعديل وحدها */
+{
+  const tick = (role: string, path = "/schedules/registrar-requests/107:6:7:ab/tick", method = "POST") => roleWriteDecision({ method, path, authenticated: true, powerUser: false, role }).allowed;
+  check(tick("registrarStaff") && tick("collegeRegistrar") && tick("registrarHead"), "التسجيل المراجع يشطب البنود رغم أن صفته للاطّلاع");
+  check(!tick("registrarStaff", "/schedules/registrar-requests") && !tick("registrarStaff", "/schedules/registrar-requests/x", "DELETE") && !tick("dean"), "ولا يحفظ طلباً ولا يحذفه، ولا يشطب غيرُ التسجيل");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

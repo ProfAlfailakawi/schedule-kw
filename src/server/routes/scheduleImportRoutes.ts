@@ -27,7 +27,7 @@ import { AR, countOf } from "../../utils/arabicCount";
 import { authorityCourseCode, authorityDepartmentKeys } from "../../utils/authorityAcademicCodes";
 import { SCHEDULE_DAY_KEYS, schedulePayloadIssues } from "../core/scheduleRules";
 import { filterByScope, isScopeAllowed } from "../core/scope";
-import { checkRegistrarPdf, slimPdfRow, type RegistrarCheckResult } from "../../utils/registrarCheck";
+import { checkRegistrarPdf, looksForeign, slimPdfRow, type RegistrarCheckResult } from "../../utils/registrarCheck";
 import { buildRequestItems, requestSummary, tickRequestItem, verifyRequestItems, type RegistrarRequestDoc } from "../../utils/registrarRequest";
 import { authorityBaselineForScope, authorityDraftForScope, buildAuthorityPdfDiff, buildAuthorityPdfDiffWithHistory } from "../core/authority";
 import { isPowerUser, requireAuth } from "../core/auth";
@@ -484,6 +484,7 @@ app.post("/api/schedules/registrar-requests", requirePermission(7), async (req: 
   const {collegeId,sectionId,termId}=scope;
   const result=await runRegistrarCheck(collegeId,sectionId,termId,scope.rows);
   if(result.empty){res.status(409).json({error:"لا مقارنةَ تُحفظ: الملف أو الجدول فارغ."});return;}
+  if(looksForeign(result)){res.status(409).json({error:"الملف لا يطابق أي شعبة في جدولكم؛ تأكّد أنه ملف قسمكم وفصلكم.",code:"foreign-file"});return;}
   const items=buildRequestItems(result);
   if(!items.length){res.status(409).json({error:"لا فروقَ تُطلب من التسجيل في هذا الملف."});return;}
   const prefix=requestPrefix(termId,collegeId,sectionId);
@@ -605,7 +606,7 @@ app.post("/api/schedules/registrar-numbering", requirePermission(7), async (req:
   const answer=(plan:ReturnType<typeof planRegistrarNumbering>|null,extra:Record<string,unknown>={})=>res.json({
     changed:0,rows:0,skipped:plan?.skipped||[],collisions:plan?.collisions||[],...extra,
   });
-  if(result.empty){answer(null);return;}
+  if(result.empty||looksForeign(result)){answer(null);return;}
   const live=await Repository.getSchedulesByScope({collegeId,sectionId,termId},{fresh:true});
   const plan=planRegistrarNumbering(result.identities,live as any[]);
   if(!plan.changes.length){answer(plan,{aligned:plan.aligned});return;}
