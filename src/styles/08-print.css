@@ -2149,8 +2149,19 @@
     margin:0 0 calc(297mm * var(--safari-comprehensive-scale) - 210mm) 0 !important;
     transform:translate(calc(210mm * var(--safari-comprehensive-scale) + (210mm - 210mm * var(--safari-comprehensive-scale))), calc((297mm - 297mm * var(--safari-comprehensive-scale)) / 2)) rotate(90deg) scale(var(--safari-comprehensive-scale)) !important;
   }
+  /* ── لا ورقة بيضاء بعد آخر صفحةٍ مدوَّرة ──────────────────────────────────
+     التدوير رسمٌ لا تخطيط، لكن المتصفّح يحسب أثره في طول الوثيقة: آخر صفحةٍ
+     تنتهي خانتها عند 210mm ورسمُها المدوَّر ينزل إلى 292.6mm (الإزاحة 4.455mm
+     + 297mm × المقياس). والحبرُ نفسه ينتهي قبل ذلك بحشوة الورقة الجانبية
+     (10mm × المقياس) — بياضٌ خالص. فإن زاد البياض عن ارتفاع الورقة المطبوعة
+     نزل وحده إلى ورقةٍ أخيرةٍ فارغة («صفحة 6» وتذييلها يقول 5).
+     فتحجز آخر صفحةٍ خانتها حتى نهاية الحبر بالضبط، ويُقصّ الحاوي ما بعدها:
+     لا يُقطع حرفٌ، ولا يبقى بياضٌ يصنع ورقة. وما قبلها كما كان. */
+  html[data-print-rotate="1"] .print-comprehensive-pages{
+    overflow:hidden !important;
+  }
   html[data-print-rotate="1"] .print-comprehensive-pages>.print-comprehensive-page:last-child{
-    margin-bottom:0 !important;
+    margin-bottom:calc((297mm - 297mm * var(--safari-comprehensive-scale)) / 2 + (297mm - 10mm) * var(--safari-comprehensive-scale) - 210mm) !important;
   }
 
   /* The comprehensive book wrapper must not re-impose landscape width around
