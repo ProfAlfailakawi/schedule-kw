@@ -66,12 +66,16 @@ export const ruleApplies = (rule, file) => !(rule.id === "owner-ids" && OWNER_ID
 /** يقرأ ناتجَ git diff -U0 ويعيد المخالفات: [{ file, line, rule, why, text }]. */
 export function scanDiffText(diff) {
   const found = [];
-  let file = "", line = 0;
+  let file = "", line = 0, inHunk = false, prev = "";
   for (const raw of diff.split("\n")) {
-    if (raw.startsWith("+++ ")) { file = diffPath(raw.slice(4)); continue; }
-    if (raw.startsWith("--- ")) continue;
+    const before = prev; prev = raw;
+    /* رأسُ الملف («--- » ثم «+++ ») لا يأتي إلا بعد «diff --git» وقبل أول مقطع؛ سطرٌ مضافٌ داخل مقطعٍ
+       يبدأ نصُّه بـ«++ » (ملفٌّ ثنائيٌّ يُقرأ نصاً) كان يُقرأ اسمَ ملفٍّ فيفلت من الاستثناء. */
+    if (raw.startsWith("diff --git ")) { inHunk = false; file = ""; continue; }
+    if (!inHunk && raw.startsWith("+++ ") && before.startsWith("--- ")) { file = diffPath(raw.slice(4)); continue; }
+    if (!inHunk && raw.startsWith("--- ")) continue;
     const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
-    if (hunk) { line = Number(hunk[1]); continue; }
+    if (hunk) { line = Number(hunk[1]); inHunk = true; continue; }
     if (!raw.startsWith("+") || !file || file === "/dev/null") continue;
     const text = raw.slice(1);
     const at = line++;

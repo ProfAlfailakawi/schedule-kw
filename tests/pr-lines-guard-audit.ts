@@ -27,6 +27,7 @@ const hunk = scanDiffText(diff("src/a.ts", "ok", `// ${tool}`));
 check(hunk.length === 1 && hunk[0].line === 2, "L10 رقم السطر صحيح");
 check(scanDiffText(`diff --git "a/x" "b/x"\n--- /dev/null\n+++ "b/tests/fixtures/\\330\\256\\330\\267\\330\\251.txt"\n@@ -0,0 +1 @@\n+// ${short}\n`).length === 0, "L12 مسار مقتبس بحروف عربية يُفكّ فيُستثنى المجلد");
 check(diffPath('"b/src/\\330\\256.ts"') === "src/خ.ts" && diffPath("b/src/a.ts") === "src/a.ts", "L13 فكّ المسار المقتبس وحذف البادئة");
+check(scanDiffText(`diff --git a/docs/srs/pdf/SRS-ar.pdf b/docs/srs/pdf/SRS-ar.pdf\n--- a/docs/srs/pdf/SRS-ar.pdf\n+++ b/docs/srs/pdf/SRS-ar.pdf\n@@ -1 +1,2 @@\n+++ binary\n+// ${tool}\n`).length === 0, "L14 سطرٌ ثنائيٌّ يبدأ بـ«++ » داخل مقطع لا يُقرأ اسمَ ملف فيبقى الاستثناء");
 check(/pr-lines-guard\.mjs HEAD\^1/.test(fs.readFileSync(".github/workflows/ci.yml", "utf8")), "L11 الحارس يعمل في CI على كل طلب");
 
 console.log(`\npr lines guard audit: ${passed} passed, ${failed} failed`);
