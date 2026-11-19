@@ -1448,7 +1448,7 @@
       ],
       "evidence": {
         "code": ["src/server/appHandoff.ts", "src/utils/nativeApp.ts", "src/components/GetAppSheet.tsx", "src/components/AppHandoffEntry.tsx"],
-        "tests": ["tests/app-handoff-audit.ts"]
+        "tests": ["tests/app-handoff-audit.ts", "tests/changes-honesty-audit.ts"]
       },
       "inferred": false
     }

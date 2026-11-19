@@ -2235,6 +2235,8 @@ html[data-schedule-workspace="presentation"] .cinema-day-track time b{font-size:
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .undo-log-when>em::before{content:"·";margin-inline-end:var(--s2);opacity:.7}
+.undo-log-when>.campus-chip{flex:none;padding:0 8px}
+.undo-log-retired{margin-inline-start:var(--s2);padding:0 6px;border-radius:var(--r-full);background:var(--warning-soft);color:var(--warning);font-size:10.5px;font-weight:700}
 .undo-log-panel>ul>li>button{
   flex:none;align-self:center;min-height:34px;padding:0 var(--s4);
   border-radius:var(--r-full);

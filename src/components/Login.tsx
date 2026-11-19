@@ -248,7 +248,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               <Notice inline>{error}</Notice>
             </div>
           ) : null}
-          {recovery ? null : <AppHandoffEntry />}
           {recovery ? null : (
           <form className="apex-login-form" onSubmit={submit}>
             <Field label="اسم المستخدم" required>
@@ -282,6 +281,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             </PrimaryButton>
           </form>
           )}
+          {recovery ? null : <AppHandoffEntry />}
           {recovery ? null : (
             <button type="button" className="demo-entry-link login-forgot-toggle" onClick={openRecovery} data-guide-ignore="يفتح استعادة كلمة السر بالرقم المدني">
               <KeyRound aria-hidden="true" /> نسيت كلمة السر؟

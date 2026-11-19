@@ -24,13 +24,37 @@ const AUTHORITY_PDF_COMPARE_FIELDS = [
 /** Compare the immutable source PDF with the LIVE timetable, not the saved
  * draft. sourceOrder is the stable trace carried from the PDF through publish;
  * ordinary rows created later live outside the imported source range. */
+/**
+ * المقارنة، ثم — إن بقي حذفٌ وإضافةٌ معاً — تاريخُ المعرّفات: صفٌّ بُدّل مقرّره يحتفظ بمعرّفه، ولقطاتُ ما قبل
+ * التعديل تدلّ على أنه هو الشعبةُ الأصلية نفسُها (فيظهر تعديلاً لا حذفاً وإضافة). تُقرأ اللقطاتُ عند الحاجة وحدها
+ * لأن كلَّ لقطةٍ نسخةٌ كاملة من الفصل.
+ */
+export async function buildAuthorityPdfDiffWithHistory(
+  baselineInput:any[],currentInput:any[],options:Parameters<typeof buildAuthorityPdfDiff>[2]={},
+  scope:{collegeId:number;sectionId:number;termId:number},
+){
+  const first=buildAuthorityPdfDiff(baselineInput,currentInput,options);
+  if(!first.counts.deleted||!first.counts.added)return first;
+  try{
+    const versions=await Repository.getScheduleVersionsWithRows(scope.collegeId,scope.sectionId,scope.termId,24);
+    const addedIds=new Set<number>(first.rows.filter((row:any)=>row.status==="added"&&row.current).map((row:any)=>Number(row.current.id)).filter((id:number)=>id>0));
+    const history=new Map<number,any[]>();
+    for(const version of versions)for(const row of (version.rows as any[])||[]){
+      const id=Number(row?.id);
+      if(addedIds.has(id))history.set(id,[...(history.get(id)||[]),row]);
+    }
+    if(!history.size)return first;
+    return buildAuthorityPdfDiff(baselineInput,currentInput,{...options,identityHistory:history});
+  }catch{return first;}
+}
+
 /** رمز المقرر الرسمي لكل رقم كتالوج — هوية المقرر التي تعبر الأقسام. */
 export async function authorityCourseCodeMap(){
   const courses=await Repository.getCourses();
   return new Map<number,string>(courses.map((course:any)=>[Number(course.AdCourseId),String(course.CourseCode||"").trim()]));
 }
 
-export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],options:{instructorNameById?:Map<number,string>;courseCodeById?:Map<number,string>;publishedRows?:any[]}={}){
+export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],options:{instructorNameById?:Map<number,string>;courseCodeById?:Map<number,string>;publishedRows?:any[];identityHistory?:Map<number,readonly any[]>}={}){
   const scanned=assignAuthoritySections([...(baselineInput||[])]).sort((a:any,b:any)=>Number(a.sourceOrder)-Number(b.sourceOrder));
   const current=[...(currentInput||[])];
   /* The SWRSCHA original often leaves the entire instructor column empty.
@@ -43,7 +67,7 @@ export function buildAuthorityPdfDiff(baselineInput:any[],currentInput:any[],opt
   /* Reconcile by Authority CRN first, then by unique academic identity.
      A changed/incorrectly imported reference must not create a fictitious
      deletion and addition. No saved schedule or baseline row is modified. */
-  const matches=matchAuthorityThroughPublication(baseline,published,current,options.courseCodeById);
+  const matches=matchAuthorityThroughPublication(baseline,published,current,options.courseCodeById,options.identityHistory);
   const consumed=new Set<number>(matches.values());
   const reportRows:any[]=[];
   baseline.forEach((source:any,sourceIndex:number)=>{
