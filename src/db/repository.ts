@@ -3440,7 +3440,9 @@ export type FeatureCollection =
   /* الدوام الشامل (src/server/core/universityDay.ts): وثيقةٌ واحدة للبرنامج كله. */
   | "universityDay"
   /* الطلب الفعلي (src/server/actualDemand.ts): تقرير التسجيل لكل فصل × عائلة قسم، وربطُ ما لم يُطابَق لكل عائلة. */
-  | "actualDemandReports" | "actualDemandLinks";
+  | "actualDemandReports" | "actualDemandLinks"
+  /* طلبُ التعديل للتسجيل (src/utils/registrarRequest.ts): وثيقةٌ لكل فحصٍ محفوظ، معرّفُها `${termId}:${collegeId}:${sectionId}:`. */
+  | "registrarRequests";
 /** «👣 الأثر»: ما يُقرأ من كل سطر (لا مفاتيحُ القراءة نفسها)، وحدُّ السجلّ المحلّي والتجريبي. */
 const ACTIVITY_TRAIL_FIELDS = ["id", "at", "term", "u", "tu", "m", "dk", "who", "seat", "role", "kind", "area", "target", "detail", "before", "after", "c", "s", "t", "row"];
 const ACTIVITY_TRAIL_LOCAL_LIMIT = 5000;

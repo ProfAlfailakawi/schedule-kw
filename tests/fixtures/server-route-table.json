@@ -1921,7 +1921,7 @@
    "path": "/api/schedules/import-preflight",
    "name": "bound dispatch",
    "call": "eb99f797ba71a147",
-   "site": "src/server/routes/scheduleImportRoutes.ts:46",
+   "site": "src/server/routes/scheduleImportRoutes.ts:122",
    "regexp": "/^\\/api\\/schedules\\/import-preflight\\/?$/i",
    "end": true
   },
@@ -1932,8 +1932,8 @@
    ],
    "path": "/api/schedules/registrar-check",
    "name": "bound dispatch",
-   "call": "cdb2ea351b15d26a",
-   "site": "src/server/routes/scheduleImportRoutes.ts:119",
+   "call": "ec5514fda137b70e",
+   "site": "src/server/routes/scheduleImportRoutes.ts:195",
    "regexp": "/^\\/api\\/schedules\\/registrar-check\\/?$/i",
    "end": true
   },
@@ -1945,7 +1945,7 @@
    "path": "/api/schedules/export",
    "name": "bound dispatch",
    "call": "a29ffcf2d3385147",
-   "site": "src/server/routes/scheduleImportRoutes.ts:171",
+   "site": "src/server/routes/scheduleImportRoutes.ts:214",
    "regexp": "/^\\/api\\/schedules\\/export\\/?$/i",
    "end": true
   },
@@ -1957,8 +1957,80 @@
    "path": "/api/schedules/import",
    "name": "bound dispatch",
    "call": "24b565af6057dab1",
-   "site": "src/server/routes/scheduleImportRoutes.ts:267",
+   "site": "src/server/routes/scheduleImportRoutes.ts:310",
    "regexp": "/^\\/api\\/schedules\\/import\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/schedules/registrar-requests",
+   "name": "bound dispatch",
+   "call": "3ee335416e8fde0c",
+   "site": "src/server/routes/scheduleImportRoutes.ts:470",
+   "regexp": "/^\\/api\\/schedules\\/registrar-requests\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/schedules/registrar-requests",
+   "name": "bound dispatch",
+   "call": "d72e00a20a616e39",
+   "site": "src/server/routes/scheduleImportRoutes.ts:491",
+   "regexp": "/^\\/api\\/schedules\\/registrar-requests\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/schedules/registrar-requests/inbox",
+   "name": "bound dispatch",
+   "call": "27b8220b304b44dd",
+   "site": "src/server/routes/scheduleImportRoutes.ts:502",
+   "regexp": "/^\\/api\\/schedules\\/registrar-requests\\/inbox\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/schedules/registrar-requests/:id/tick",
+   "name": "bound dispatch",
+   "call": "e92283ade85d46be",
+   "site": "src/server/routes/scheduleImportRoutes.ts:524",
+   "regexp": "/^\\/api\\/schedules\\/registrar-requests(?:\\/([^/]+?))\\/tick\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/schedules/registrar-requests/verify",
+   "name": "bound dispatch",
+   "call": "a6bab2bb52828653",
+   "site": "src/server/routes/scheduleImportRoutes.ts:548",
+   "regexp": "/^\\/api\\/schedules\\/registrar-requests\\/verify\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "delete"
+   ],
+   "path": "/api/schedules/registrar-requests/:id",
+   "name": "bound dispatch",
+   "call": "73879def99014971",
+   "site": "src/server/routes/scheduleImportRoutes.ts:569",
+   "regexp": "/^\\/api\\/schedules\\/registrar-requests(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
   {
@@ -2221,7 +2293,7 @@
    "path": "/api/reports/visiting-roster",
    "name": "bound dispatch",
    "call": "707c4204c710f202",
-   "site": "src/server/routes/reportsRoutes.ts:234",
+   "site": "src/server/routes/reportsRoutes.ts:201",
    "regexp": "/^\\/api\\/reports\\/visiting-roster\\/?$/i",
    "end": true
   },
@@ -2233,7 +2305,7 @@
    "path": "/api/reports/visiting-teaching",
    "name": "bound dispatch",
    "call": "dfef8088b5c7910c",
-   "site": "src/server/routes/reportsRoutes.ts:253",
+   "site": "src/server/routes/reportsRoutes.ts:220",
    "regexp": "/^\\/api\\/reports\\/visiting-teaching\\/?$/i",
    "end": true
   },
@@ -2245,7 +2317,7 @@
    "path": "/api/reports/visiting-history",
    "name": "bound dispatch",
    "call": "0a25152dbe5aefd6",
-   "site": "src/server/routes/reportsRoutes.ts:263",
+   "site": "src/server/routes/reportsRoutes.ts:230",
    "regexp": "/^\\/api\\/reports\\/visiting-history\\/?$/i",
    "end": true
   },
@@ -2257,7 +2329,7 @@
    "path": "/api/reports/schedule-changes/review",
    "name": "bound dispatch",
    "call": "c14a0b4749503a42",
-   "site": "src/server/routes/reportsRoutes.ts:343",
+   "site": "src/server/routes/reportsRoutes.ts:310",
    "regexp": "/^\\/api\\/reports\\/schedule-changes\\/review\\/?$/i",
    "end": true
   },
@@ -2269,7 +2341,7 @@
    "path": "/api/reports/schedule-changes",
    "name": "bound dispatch",
    "call": "688b9e7d51a9bb80",
-   "site": "src/server/routes/reportsRoutes.ts:358",
+   "site": "src/server/routes/reportsRoutes.ts:325",
    "regexp": "/^\\/api\\/reports\\/schedule-changes\\/?$/i",
    "end": true
   },
@@ -2281,7 +2353,7 @@
    "path": "/api/reports/authority-pdf-diff",
    "name": "bound dispatch",
    "call": "0a8053488d216432",
-   "site": "src/server/routes/reportsRoutes.ts:646",
+   "site": "src/server/routes/reportsRoutes.ts:613",
    "regexp": "/^\\/api\\/reports\\/authority-pdf-diff\\/?$/i",
    "end": true
   },
@@ -2293,7 +2365,7 @@
    "path": "/api/report-stamps",
    "name": "bound dispatch",
    "call": "ddeec4886ac207b8",
-   "site": "src/server/routes/reportsRoutes.ts:692",
+   "site": "src/server/routes/reportsRoutes.ts:659",
    "regexp": "/^\\/api\\/report-stamps\\/?$/i",
    "end": true
   },
@@ -2303,7 +2375,7 @@
    "path": "/v/:code",
    "name": "wrapped",
    "call": "1fbe68efc13457a5",
-   "site": "src/server/routes/reportsRoutes.ts:757",
+   "site": "src/server/routes/reportsRoutes.ts:724",
    "regexp": "/^\\/v(?:\\/([^/]+?))\\/?(?=\\/|$)/i",
    "end": false
   },
@@ -2318,7 +2390,7 @@
    ],
    "name": "bound dispatch",
    "call": "9c52702081b8045b",
-   "site": "src/server/routes/reportsRoutes.ts:762",
+   "site": "src/server/routes/reportsRoutes.ts:729",
    "regexp": "/^\\/v\\/?$|^\\/v(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2330,7 +2402,7 @@
    "path": "/api/reports/excel/:type",
    "name": "bound dispatch",
    "call": "cb7a1c5516a4403d",
-   "site": "src/server/routes/reportsRoutes.ts:842",
+   "site": "src/server/routes/reportsRoutes.ts:809",
    "regexp": "/^\\/api\\/reports\\/excel(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2342,7 +2414,7 @@
    "path": "/api/reports/saved",
    "name": "bound dispatch",
    "call": "b4159ee9512a9548",
-   "site": "src/server/routes/reportsRoutes.ts:993",
+   "site": "src/server/routes/reportsRoutes.ts:960",
    "regexp": "/^\\/api\\/reports\\/saved\\/?$/i",
    "end": true
   },
@@ -2354,7 +2426,7 @@
    "path": "/api/reports/saved",
    "name": "bound dispatch",
    "call": "498529ba5c4bb50c",
-   "site": "src/server/routes/reportsRoutes.ts:1003",
+   "site": "src/server/routes/reportsRoutes.ts:970",
    "regexp": "/^\\/api\\/reports\\/saved\\/?$/i",
    "end": true
   },
@@ -2366,7 +2438,7 @@
    "path": "/api/reports/saved/:id",
    "name": "bound dispatch",
    "call": "d5168a8af963dc9c",
-   "site": "src/server/routes/reportsRoutes.ts:1022",
+   "site": "src/server/routes/reportsRoutes.ts:989",
    "regexp": "/^\\/api\\/reports\\/saved(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2378,7 +2450,7 @@
    "path": "/api/reports/history-points",
    "name": "bound dispatch",
    "call": "ee01f1fc83a1b1c2",
-   "site": "src/server/routes/reportsRoutes.ts:1039",
+   "site": "src/server/routes/reportsRoutes.ts:1006",
    "regexp": "/^\\/api\\/reports\\/history-points\\/?$/i",
    "end": true
   },
@@ -2390,7 +2462,7 @@
    "path": "/api/reports/history-points/:id",
    "name": "bound dispatch",
    "call": "eda128e1da7967ff",
-   "site": "src/server/routes/reportsRoutes.ts:1049",
+   "site": "src/server/routes/reportsRoutes.ts:1016",
    "regexp": "/^\\/api\\/reports\\/history-points(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2402,7 +2474,7 @@
    "path": "/api/reports/department-balance",
    "name": "bound dispatch",
    "call": "35e16c0bb3271c70",
-   "site": "src/server/routes/reportsRoutes.ts:1057",
+   "site": "src/server/routes/reportsRoutes.ts:1024",
    "regexp": "/^\\/api\\/reports\\/department-balance\\/?$/i",
    "end": true
   },
@@ -2414,7 +2486,7 @@
    "path": "/api/reports/room-load",
    "name": "bound dispatch",
    "call": "fc4e4ba1f6ecda24",
-   "site": "src/server/routes/reportsRoutes.ts:1139",
+   "site": "src/server/routes/reportsRoutes.ts:1106",
    "regexp": "/^\\/api\\/reports\\/room-load\\/?$/i",
    "end": true
   },

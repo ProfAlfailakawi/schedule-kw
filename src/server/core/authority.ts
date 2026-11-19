@@ -11,7 +11,7 @@ import { instructorCleanName } from "../../utils/instructorIdentity";
 import { authorityFieldMatchesOriginal } from "../../utils/authorityNetChange";
 import { cleanBuildingCode, cleanHallCode } from "../../utils/documentOcr";
 import { assignAuthoritySections } from "../../utils/authorityAcademicCodes";
-import { splitRowsByBranch } from "../../utils/branchScope";
+import { siblingBranchScopes, splitRowsByBranch } from "../../utils/branchScope";
 import { foldHeaderIdentity } from "./ordering";
 import { isAuthorityImportedRow, matchAuthorityThroughPublication, withFirstPublishedAuthorityInstructors } from "../../utils/authorityRowMatching";
 
@@ -233,4 +233,36 @@ export async function authorityBaselineForScope(baseline:any[],draft:{AdCollegeI
   const split=splitRowsByBranch(rows,{colleges:colleges as any,sections:sections as any,baseCollegeId:draft.AdCollegeId,baseSectionId:draft.AdSectionId});
   /* وثيقةُ الموقع الشقيق لا تصير أساسَ هذا القسم إلا بصفوفه هو (approvalScope). */
   return authorityRowsForScope(rows,split,draft,collegeId,sectionId);
+}
+
+/**
+ * النسخة المعتمدة التي تخص النطاق، ولو كانت محفوظةً عند موقع شقيق للفرع.
+ *
+ * تقرير PDF وشاشة تغييرات الجدول يجب أن يبدآ من الوثيقة نفسها. إبقاء البحث
+ * داخل مسار التقرير وحده جعل الشاشة تسقط إلى لقطات الجولات، وحين لا تجدها
+ * تقارن بالعدم فتصف الجدول كله بأنه «مضاف». هذه الدالة هي الباب الواحد
+ * للعثور على الوثيقة المعتمدة في الموضعين.
+ */
+export async function authorityDraftForScope(collegeId:number,sectionId:number,termId:number){
+  const authorityDrafts=(list:any[])=>list.filter((item:any)=>
+    item.importLayout==="authority-pdf"&&Array.isArray(item.baselineRows)&&item.baselineRows.length
+  );
+  const local=authorityDrafts(await Repository.getScheduleDrafts(collegeId,sectionId,termId));
+  let draft=local.find((item:any)=>item.status==="published")||local[0];
+  if(draft)return draft;
+
+  const [colleges,sections]=await Promise.all([Repository.getColleges(),Repository.getSections()]);
+  const siblings=siblingBranchScopes({colleges:colleges as any,sections:sections as any,baseCollegeId:collegeId,baseSectionId:sectionId})
+    .filter(scope=>!(Number(scope.collegeId)===collegeId&&Number(scope.sectionId)===sectionId));
+  for(const scope of siblings){
+    const candidates=authorityDrafts(await Repository.getScheduleDrafts(scope.collegeId,scope.sectionId,termId));
+    const owned=[] as any[];
+    for(const candidate of candidates){
+      const mine=await authorityBaselineForScope(candidate.baselineRows||[],candidate,collegeId,sectionId);
+      if(mine.length)owned.push(candidate);
+    }
+    draft=owned.find((item:any)=>item.status==="published")||owned[0];
+    if(draft)return draft;
+  }
+  return undefined;
 }
