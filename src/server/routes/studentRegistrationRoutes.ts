@@ -19,7 +19,7 @@ import { type AuthenticatedRequest, requireAnyPermission, requireAuth } from "..
 import { curriculumLabelsFor } from "../core/planning";
 import { applyProposalCore, deleteScheduleHandler, type ProposalOutcome, runScheduleHandler } from "../core/scheduleWrites";
 import { createSpecialSection } from "../core/specialSection";
-import { isPracticalRow, isSpecialNature } from "../../utils/specialNature";
+import { isPracticalRow, isSpecialNature, specialSectionComplete } from "../../utils/specialNature";
 import { isScopeAllowed } from "../core/scope";
 import { studentIdentityFor } from "../core/studentIdentity";
 import { noteTrail } from "../activityTrail";
@@ -452,6 +452,14 @@ app.post("/api/student-registration/:id/course-state", requireAuth, async (req: 
       if (refusalNow) return { status: 409, json: { error: refusalNow, ...(refusalNow === STALE_WRITE_MESSAGE ? { code: STALE_WRITE_CODE } : {}) } };
       const week = await Repository.getSchedulesByScope({ collegeId: Number(owner.AdCollegeId), sectionId: Number(owner.AdSectionId), termId: Number(need.AdTermId) });
       openedRows = (week as any[]).filter(row => row.origin?.refId === openingRef && Number(row.AdCourseId) === courseId);
+      /* بقايا شعبةٍ خاصة لم يكتمل حذفُها بعد فشلٍ سابق: لا تُعتمد ناقصة؛ تُحذف ثم تُفتح الشعبةُ كاملةً من جديد. */
+      if (openedRows.length && isSpecialNature(owner) && !specialSectionComplete(openedRows, owner)) {
+        for (const row of openedRows) {
+          const back = await runScheduleHandler(deleteScheduleHandler, req, { params: { id: String(row.id) }, body: {} }).catch(() => null);
+          if (!(back && back.status < 400)) return { status: 409, json: { error: "بقيت لقاءاتٌ ناقصة من محاولةٍ سابقة لهذه الشعبة وتعذّر حذفُها؛ احذفها من الجدول ثم أعد المحاولة.", code: "special-partial-leftover", stateSaved: false } };
+        }
+        openedRows = [];
+      }
       openedRow = openedRows.find(isPracticalRow) || openedRows[0] || null;
       if (!openedRow && isSpecialNature(owner)) {
         const special = await createSpecialSection(req, {

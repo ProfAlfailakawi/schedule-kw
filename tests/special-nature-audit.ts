@@ -188,6 +188,15 @@ try {
     check(approve.status === 200 && Boolean(approve.body?.opened?.sectionCode) && opened.length === 2 && opened.filter(row => row.practical === true).length === 1
       && opened.every(row => row.SCode === approve.body.opened.sectionCode), "L30 الموافقة تفتح الشعبة بلقاءيها (مصدرهما «حالة طالب») وتسجّل القرار برقمها", { approve, opened: opened.map(row => [row.SCode, D5.filter(day => row[day]), row.practical]) });
   }
+  {
+    const { specialSectionComplete } = await import("../src/utils/specialNature");
+    const course4 = { CourseSpecialNature: true, CourseHours: 4, CourseCredit: 3 };
+    const theoryOnly = { fsunday: true, ftuesday: true, fstarttime: "12:00", fendtime: "12:50" };
+    const lab = { fthursday: true, fstarttime: "13:00", fendtime: "14:50", practical: true };
+    const routeSource = (await import("node:fs")).readFileSync("src/server/routes/studentRegistrationRoutes.ts", "utf8");
+    check(!specialSectionComplete([theoryOnly], course4) && !specialSectionComplete([lab], course4) && specialSectionComplete([theoryOnly, lab], course4)
+      && /!specialSectionComplete\(openedRows, owner\)/.test(routeSource), "L31 بقايا شعبةٍ خاصة ناقصة من محاولةٍ سابقة لا تُعتمد عند إعادة الموافقة");
+  }
   const builderSource = (await import("node:fs")).readFileSync("src/components/SpecialSectionBuilder.tsx", "utf8");
   check(/CompanionFacilityPicker/.test(builderSource) && /companionRoomId: place\.companionRoomId/.test(builderSource) && /needsCompanion/.test(builderSource), "L25 المنشئ يدعم المرفق المرافق الإلزامي ويحمل معرّفه في كل لقاء");
 } catch (error: any) {
