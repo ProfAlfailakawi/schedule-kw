@@ -161,7 +161,7 @@ const context: TmContext = {
   const unresolved = importDiff([meet("fsunday", "08:00", "09:15")] as any, [meet("fsunday", "08:00", "09:15", { AdInstructorId: 0, AdRoomHall: "" })] as any);
   check(unresolved.same === 1, "6.1d خانةٌ لم تُحسم في الملف ملاحظةُ معاينة لا تغيير");
   const server = readServerSource();
-  check(/const dryRun=String\(req\.query\.dryRun\|\|""\)==="1"/.test(server) && /if\(dryRun\)return true;/.test(server) && /!occupiedChecked&&!dryRun/.test(server),
+  check(/const dryRun=(?:readOnly\|\|)?String\(req\.query\.dryRun\|\|""\)==="1"/.test(server) && /if\(dryRun\)return true;/.test(server) && /!occupiedChecked&&!dryRun/.test(server),
     "6.2 القراءة التجريبية لا تُردّ لأن الفصل ممتلئ");
   check(/replaceFilled:true/.test(server) && /confirmTokens\(req\)\.has\("replace-filled"\)/.test(server) && /receipt\?\.replaceFilled/.test(server),
     "6.3 الاستبدال يحتاج إيصال تجربةٍ موقّعاً وطلباً صريحاً وتأكيد «replace-filled»");
