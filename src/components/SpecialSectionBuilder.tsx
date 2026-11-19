@@ -176,7 +176,7 @@ export default function SpecialSectionBuilder({ course, scode, busy, onCheck, on
             <strong>أين اللقاء العملي؟</strong>
             <span>اكتملت الساعات؛ اختر اليوم أو الأيام العملية من هذه الشعبة:</span>
             <div className="ssb-ask-chips">
-              {chosen.map(day => <button type="button" key={day} onClick={() => togglePractical(day)}>{DAY_NAMES[DAY_KEYS.indexOf(day)]} · {lengthLabel(Number(minutes[day]))}</button>)}
+              {chosen.map(day => <button type="button" key={day} onClick={() => togglePractical(day)} data-guide-ignore="يجعل لقاء هذا اليوم هو العملي من الشعبة؛ لا يحفظ شيئاً">{DAY_NAMES[DAY_KEYS.indexOf(day)]} · {lengthLabel(Number(minutes[day]))}</button>)}
             </div>
           </div>
         </div>
