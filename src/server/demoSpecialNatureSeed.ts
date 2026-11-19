@@ -52,11 +52,16 @@ export async function seedDemoSpecialNature(): Promise<void> {
   const faculty = [demoTeacher, ...instructors.map(person => Number(person.AdInstructorId))].filter(usable).filter(id => !trainers.has(id));
   const labStaff = [...trainers, ...instructors.map(person => Number(person.AdInstructorId))].filter(usable);
 
-  for (const theoryStart of [10, 11, 12, 13, 14, 15].map(hour => hour * 60)) {
+  /* مدرّبٌ (TA) في أيّ وقتٍ أولاً؛ ولا يُلجأ إلى أستاذٍ آخر للعملي إلا إن لم يخلُ مدرّبٌ في وقتٍ منها. */
+  for (const trainersOnly of [true, false]) for (const theoryStart of [10, 11, 12, 13, 14, 15].map(hour => hour * 60)) {
     for (const practicalStart of [10, 12, 14, 16].map(hour => hour * 60)) {
       const theoryEnd = theoryStart + theory.length, practicalEnd = practicalStart + practical.length;
       const teacher = faculty.find(id => teacherFree(id, theory.days, theoryStart, theoryEnd));
-      const trainer = labStaff.find(id => id !== teacher && teacherFree(id, practical.days, practicalStart, practicalEnd));
+      /* المدرّبُ (TA) لا يُعطى عملياً يلتقي وقتُه بشعبةٍ شاغرة («هيئة تدريسية»): تلك ما يختاره في «مرحلة التدريب»، فتبقى متاحةً له. */
+      const vacantFree = (days: readonly string[], start: number, end: number) =>
+        !week.some(row => placeholders.has(Number(row.AdInstructorId)) && overlaps(row, days, start, end));
+      const trainer = labStaff.find(id => id !== teacher && (!trainersOnly || trainers.has(id)) && teacherFree(id, practical.days, practicalStart, practicalEnd)
+        && (!trainers.has(id) || vacantFree(practical.days, practicalStart, practicalEnd)));
       const theoryHall = halls.find(hall => roomFree(hall, theory.days, theoryStart, theoryEnd));
       const practicalHall = halls.find(hall => hall !== theoryHall && roomFree(hall, practical.days, practicalStart, practicalEnd));
       if (!teacher || !trainer || !theoryHall || !practicalHall) continue;
