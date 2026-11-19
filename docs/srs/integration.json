@@ -689,6 +689,15 @@
         }
       },
       {
+        "name": "PASSKEY_EXTRA_HOSTS",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "عناوينُ إضافية (مفصولة بفواصل) يُقبل عليها الدخول بالبصمة غير schedule-kw.com؛ كلُّ عنوانٍ يصير نطاقَ المفاتيح عليه. بدونها لا يعمل الدخول بالبصمة إلا على النطاق الرسمي (وlocalhost في التطوير).",
+          "en": "Extra comma-separated hosts, besides schedule-kw.com, on which fingerprint sign-in is accepted; each becomes the relying-party id there. Without it fingerprint sign-in works only on the official domain (and localhost in development)."
+        }
+      },
+      {
         "name": "AD_MAIL_API_KEY",
         "group": "services",
         "default": "—",
