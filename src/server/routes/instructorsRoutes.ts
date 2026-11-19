@@ -7,6 +7,7 @@
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
 import { isTraineeRankName } from "../../utils/traineeRank";
+import { specialCourseIdsOf } from "../../utils/specialNature";
 import type { Express } from "express";
 import { Request, Response } from "express";
 import { Repository } from "../../db/repository";
@@ -445,7 +446,7 @@ app.get("/api/section-roster", requirePermission(7), async (req: AuthenticatedRe
     sectionRosterIds(collegeId, sectionId), Repository.getInstructors(), Repository.getTeachingLoadConfig(), Repository.getTerms(),
     Repository.getSchedulesByScope({ termId }), Repository.getCourses(),
   ]);
-  const hours = teachingHoursByInstructor(termRows, new Map<number, number>(courses.map(course => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number])));
+  const hours = teachingHoursByInstructor(termRows, new Map<number, number>(courses.map(course => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number])), specialCourseIdsOf(courses));
   const context = loadTermContext(terms as any, termId);
   const sorted = sortTermsNewestServer(terms);
   const people = sortArabicNamed((instructors as any[]).filter(person => ids.has(Number(person.AdInstructorId)) && !isFacultyPlaceholder(person)), (person: any) => person.AdInstructorName).map((person: any) => {

@@ -5,7 +5,9 @@
  * **الفروق وحدها**: ما أرسلناه ولم يُنفَّذ، وما عدّلناه بعد آخر إرسال، وما يخالف
  * جدولنا، وما لا يُحكم فيه بيقين. والمطابقُ سطرٌ واحد بعدده — لا الجدول كله.
  *
- * الفحصُ قراءةٌ محضة (readOnly=1 ثم المقارنة). والكتابةُ فعلان صريحان وحدهما:
+ * الفحصُ قراءةٌ محضة (readOnly=1 ثم المقارنة). وبعده خطوةٌ تلقائية واحدة تكتب: مطابقةُ رقم
+ * الشعبة ومرجعيّها بما طبعه التسجيل (registrar-numbering، بنسخةٍ للتراجع)، ثم يُعاد الفحص.
+ * وما سواها فعلان صريحان وحدهما:
  * «احفظ طلب التعديل» (يصير طلباً مؤرَّخاً تحت «تغييرات الجدول» يصل التسجيل)،
  * والتحققُ الذاتي من بنودٍ شطبها التسجيل قبلُ (يجري بعد الفحص بطريقٍ مستقلّ).
  */
@@ -16,9 +18,10 @@ import {
 } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { interruptedImportMessage } from "../utils/importStreamFailure";
-import { slimPdfRow, type FieldDelta, type FindingGroup, type RegistrarCheckResult, type RegistrarFinding } from "../utils/registrarCheck";
+import { looksForeign, slimPdfRow, type FieldDelta, type FindingGroup, type RegistrarCheckResult, type RegistrarFinding } from "../utils/registrarCheck";
 import { PrimaryButton, SecondaryButton } from "./ui";
 import CourseTags from "./CourseTags";
+import { NumberingReviewCards, numberingReviewCount, RegistrarNumberingLine, type NumberingOutcome } from "./RegistrarNumbering";
 
 interface Props {
   collegeId: number;
@@ -40,7 +43,7 @@ type Phase =
   | { kind: "idle" }
   | { kind: "reading"; pct: number; message: string; fileName: string }
   | { kind: "comparing"; fileName: string }
-  | { kind: "done"; result: RegistrarCheckResult; notes: ReadNotes; rows: any[] }
+  | { kind: "done"; result: RegistrarCheckResult; notes: ReadNotes; rows: any[]; numbering: NumberingOutcome | null }
   | { kind: "failed"; message: string };
 
 const MAX_BYTES = 24 * 1024 * 1024;
@@ -134,6 +137,31 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
   useEffect(() => () => abortRef.current?.abort(), []);
   useEffect(() => { if (phase.kind === "done") resultRef.current?.focus({ preventScroll: false }); }, [phase.kind]);
 
+  /* المقارنةُ وحدها: تُعاد بعد اعتماد ترقيم التسجيل أو التراجع عنه، بالصفوف المقروءة نفسها. */
+  const compare = useCallback(async (rows: any[], signal?: AbortSignal): Promise<RegistrarCheckResult> => {
+    const compared = await fetch("/api/schedules/registrar-check", { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId, sectionId, termId, rows }) });
+    const body = await compared.json().catch(() => ({}));
+    if (!compared.ok) throw new Error(String(body?.error || "تعذّر فحص الملف"));
+    return body as RegistrarCheckResult;
+  }, [collegeId, sectionId, termId]);
+  /* مطابقة ترقيم التسجيل: خطوةٌ تلقائية بعد فحصٍ ناجح (تكتب رقم الشعبة والمرجعي وحدهما، بنسخةٍ للتراجع).
+     تعذّرُها لا يُسقط الفحص: تبقى الفروق كما هي. */
+  const align = useCallback(async (rows: any[], signal?: AbortSignal): Promise<NumberingOutcome | null> => {
+    try {
+      const response = await fetch("/api/schedules/registrar-numbering", { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ collegeId, sectionId, termId, rows }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) return null;
+      return { changed: Number(body.changed) || 0, undoVersionId: body.undoVersionId, locked: body.locked, skipped: Array.isArray(body.skipped) ? body.skipped : [], collisions: Array.isArray(body.collisions) ? body.collisions : [] };
+    } catch (error: any) { if (error?.name === "AbortError") throw error; return null; }
+  }, [collegeId, sectionId, termId]);
+  /* بعد التراجع عن المطابقة: يُعاد الفحص وحده، بلا مطابقةٍ جديدة. */
+  const undone = useCallback(async () => {
+    if (phase.kind !== "done") return;
+    const { rows, notes, numbering } = phase;
+    try { const result = await compare(rows); setSaving("idle"); setPhase({ kind: "done", result, notes, rows, numbering: numbering ? { ...numbering, undone: true } : null }); }
+    catch (error: any) { setPhase({ kind: "failed", message: String(error?.message || "تعذّر فحص الملف") }); }
+  }, [phase, compare]);
+
   const readFile = useCallback(async (file: File) => {
     if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") { setPhase({ kind: "failed", message: "الملف ليس PDF. ارفع ملف الجدول الذي أعاده التسجيل بصيغة PDF." }); return; }
     if (file.size > MAX_BYTES) { setPhase({ kind: "failed", message: "حجم الملف أكبر من الحد المسموح (24 ميغابايت)." }); return; }
@@ -189,11 +217,12 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
       };
       setPhase({ kind: "comparing", fileName: file.name });
       const payload = JSON.stringify({ collegeId, sectionId, termId, rows });
-      const compared = await fetch("/api/schedules/registrar-check", { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" }, body: payload });
-      const body = await compared.json().catch(() => ({}));
-      if (!compared.ok) throw new Error(String(body?.error || "تعذّر فحص الملف"));
       if (!rows.length && !notes.unreadable.length) notes.unreadable.push(String(data.message || "لم أتمكن من استخراج شعب من الملف"));
-      setPhase({ kind: "done", result: body as RegistrarCheckResult, notes, rows });
+      let result = await compare(rows, controller.signal);
+      const numbering = rows.length && !result.empty && !looksForeign(result) ? await align(rows, controller.signal) : null;
+      /* الفروقُ تُعرض بالأرقام بعد المطابقة. */
+      if (numbering?.changed) result = await compare(rows, controller.signal);
+      setPhase({ kind: "done", result, notes, rows, numbering });
       /* التحقق الذاتي: بنودٌ شطبها التسجيل في طلبٍ سابق تُقابَل بهذا الملف («تأكّد» أو تعود مفتوحة). */
       if (rows.length) {
         fetch("/api/schedules/registrar-requests/verify", { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" }, body: payload })
@@ -204,7 +233,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
       if (error?.name === "AbortError") return;
       setPhase({ kind: "failed", message: String(error?.message || "تعذّرت قراءة الملف") });
     }
-  }, [collegeId, sectionId, termId]);
+  }, [collegeId, sectionId, termId, compare, align]);
 
   const pick = (files: FileList | null) => { const file = files?.[0]; if (file) void readFile(file); };
   const reset = () => { abortRef.current?.abort(); setPhase({ kind: "idle" }); setSaving("idle"); setSaveError(null); setVerified(null); if (inputRef.current) inputRef.current.value = ""; };
@@ -236,6 +265,9 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
     return by;
   }, [phase]);
   const actionable = phase.kind === "done" ? phase.result.findings.some(item => item.action) : false;
+  /* «تحتاج نظرك» يضمّ ما لم تُطابَق أرقامه مع التسجيل. */
+  const numberingReview = phase.kind === "done" ? numberingReviewCount(phase.numbering) : 0;
+  const countOfGroup = (group: DiffGroup) => (phase.kind === "done" ? phase.result.counts[group] + (group === "review" ? numberingReview : 0) : 0);
   const diffCount = phase.kind === "done" ? phase.result.counts.total - phase.result.counts.matched : 0;
 
   return (
@@ -244,7 +276,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
         <span className="rpc-head-icon" aria-hidden="true"><FileSearch /></span>
         <div>
           <h2 id="rpc-title">افحص جدول التسجيل</h2>
-          <p><ShieldCheck aria-hidden="true" /> الفحص قراءةٌ فقط — لا يتغيّر شيءٌ في جدولكم</p>
+          <p><ShieldCheck aria-hidden="true" /> يقارن، ولا يغيّر إلا أرقام الشعب</p>
         </div>
         <button type="button" className="rpc-close" aria-label="إغلاق الفحص" data-guide-ignore="يغلق لوحة الفحص — لا يغيّر شيئاً" onClick={() => { abortRef.current?.abort(); onClose(); }}><X aria-hidden="true" /></button>
       </header>
@@ -291,7 +323,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
             </p>
             <div className="rpc-chips" role="group" aria-label="تصفية الفروق">
               {GROUPS.map(({ group, title, icon }) => {
-                const count = phase.result.counts[group];
+                const count = countOfGroup(group);
                 if (!count) return null;
                 return (
                   <button
@@ -304,6 +336,13 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
               })}
             </div>
           </div>
+
+          {looksForeign(phase.result) ? (
+            <p className="rpc-alert" data-tone="error" role="alert">
+              <AlertTriangle aria-hidden="true" />
+              الملف لا يطابق أي شعبة في جدولكم؛ تأكّد أنه ملف قسمكم وفصلكم.
+            </p>
+          ) : null}
 
           {phase.result.empty ? (
             <p className="rpc-alert" data-tone="warning" role="status">
@@ -336,20 +375,25 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
             <div className="rpc-allgood" role="status"><CheckCircle2 aria-hidden="true" /><strong>الجدول مطابق تماماً</strong><span>كل ما في ملفهم كما في جدولكم.</span></div>
           ) : null}
 
-          {GROUPS.filter(({ group }) => grouped[group].length && (!filter || filter === group)).map(({ group, title, hint, icon }) => (
+          {phase.numbering ? <RegistrarNumberingLine outcome={phase.numbering} onUndone={() => void undone()} /> : null}
+
+          {GROUPS.filter(({ group }) => countOfGroup(group) && (!filter || filter === group)).map(({ group, title, hint, icon }) => (
             <section key={group} className={`rpc-group rpc-group-${group}`} aria-labelledby={`rpc-g-${group}`}>
               <header>
                 <span className="rpc-group-icon" aria-hidden="true">{icon}</span>
-                <div><h3 id={`rpc-g-${group}`}>{title} <bdi dir="ltr">({phase.result.counts[group]})</bdi></h3><small>{hint}</small></div>
+                <div><h3 id={`rpc-g-${group}`}>{title} <bdi dir="ltr">({countOfGroup(group)})</bdi></h3><small>{hint}</small></div>
               </header>
-              <ul className="rpc-cards">{grouped[group].map(item => <Card key={item.id} finding={item} onOpen={onOpenAppointment} />)}</ul>
+              <ul className="rpc-cards">
+                {grouped[group].map(item => <Card key={item.id} finding={item} onOpen={onOpenAppointment} />)}
+                {group === "review" && phase.numbering ? <NumberingReviewCards outcome={phase.numbering} /> : null}
+              </ul>
             </section>
           ))}
 
           {saveError ? <p className="rpc-alert" data-tone="error" role="alert"><AlertTriangle aria-hidden="true" />{saveError}</p> : null}
           {saving === "saved" ? <p className="rpc-alert" data-tone="ok" role="status"><CheckCircle2 aria-hidden="true" />حُفظ الطلب في «تغييرات الجدول»، ويراه التسجيل في وارده.</p> : null}
           <footer className="rpc-foot">
-            {actionable && !phase.result.empty ? (
+            {actionable && !phase.result.empty && !looksForeign(phase.result) ? (
               <PrimaryButton type="button" disabled={saving !== "idle"} data-guide-ignore="يحفظ طلب التعديل للتسجيل تحت «تغييرات الجدول» — فعلٌ صريح لصاحب الجدول، والفحص نفسه لا يكتب" onClick={() => void save()}>
                 <Save aria-hidden="true" /> {saving === "saved" ? "حُفظ الطلب" : saving === "busy" ? "يحفظ…" : "احفظ طلب التعديل"}
               </PrimaryButton>

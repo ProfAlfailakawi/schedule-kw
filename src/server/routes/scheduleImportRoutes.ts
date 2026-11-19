@@ -8,7 +8,12 @@
  */
 import type { Express } from "express";
 import { Response } from "express";
-import { Repository } from "../../db/repository";
+import { Repository, ScheduleRevisionConflict } from "../../db/repository";
+import { RequestHoldConflict, RequestReservationConflict } from "../../utils/instructorRequestReservations";
+import { requestHoldRefusal } from "../core/scheduleConflicts";
+import { captureScopeVersion, recordVersionAfter } from "../core/versions";
+import { planRegistrarNumbering } from "../../utils/registrarNumbering";
+import { readSectionNumberLedger, recordSectionNumberLedger } from "../core/sectionNumbers";
 import { normalizeCivilId } from "../../utils/civilId";
 import { DAY_FLAGS, DAY_LABELS } from "../../utils/naturalQuery";
 import { blockingConflicts } from "../../utils/scheduleBlockers";
@@ -22,7 +27,7 @@ import { AR, countOf } from "../../utils/arabicCount";
 import { authorityCourseCode, authorityDepartmentKeys } from "../../utils/authorityAcademicCodes";
 import { SCHEDULE_DAY_KEYS, schedulePayloadIssues } from "../core/scheduleRules";
 import { filterByScope, isScopeAllowed } from "../core/scope";
-import { checkRegistrarPdf, slimPdfRow, type RegistrarCheckResult } from "../../utils/registrarCheck";
+import { checkRegistrarPdf, looksForeign, slimPdfRow, type RegistrarCheckResult } from "../../utils/registrarCheck";
 import { buildRequestItems, requestSummary, tickRequestItem, verifyRequestItems, type RegistrarRequestDoc } from "../../utils/registrarRequest";
 import { authorityBaselineForScope, authorityDraftForScope, buildAuthorityPdfDiff, buildAuthorityPdfDiffWithHistory } from "../core/authority";
 import { isPowerUser, requireAuth } from "../core/auth";
@@ -68,15 +73,22 @@ async function runRegistrarCheck(collegeId:number,sectionId:number,termId:number
   }
 
   const instructorById=new Map((instructors as any[]).map(row=>[Number(row.AdInstructorId),String(row.AdInstructorName||"")]));
-  let crn:{byId:Map<number,string>;original:any[]}|undefined;
+  let crn:{byId:Map<number,string>;original:any[];originalById?:Map<number,string>}|undefined;
   if(authorityDraft){
     const scopedBaseline=await authorityBaselineForScope(authorityDraft.baselineRows||[],authorityDraft,collegeId,sectionId);
     const options={instructorNameById:instructorById,publishedRows:authorityDraft.rows||[],courseCodeById:new Map((courses as any[]).map(row=>[Number(row.AdCourseId),String(row.CourseCode||"").trim()]))};
     const byId=new Map<number,string>();
-    const take=(rows:any[])=>{for(const entry of rows)if(entry.current&&!byId.has(Number(entry.current.id)))byId.set(Number(entry.current.id),String(entry.source?.referenceNumber||entry.current.referenceNumber||""));};
+    const originalById=new Map<number,string>();
+    /* موعدٌ اعتمد ترقيمَ التسجيل يُعرف برقمه المرجعي الجديد، ويبقى رقمُ الملف الأصلي طريقَه إلى ما كان. */
+    const take=(rows:any[])=>{for(const entry of rows){
+      if(!entry.current||byId.has(Number(entry.current.id)))continue;
+      const id=Number(entry.current.id),adopted=entry.current.registrarNumberedAt&&entry.current.referenceNumber;
+      byId.set(id,String(adopted?entry.current.referenceNumber:entry.source?.referenceNumber||entry.current.referenceNumber||""));
+      if(adopted&&entry.source?.referenceNumber)originalById.set(id,String(entry.source.referenceNumber));
+    }};
     take((await buildAuthorityPdfDiffWithHistory(scopedBaseline,liveRows as any[],options,{collegeId,sectionId,termId})).rows);
     if(sent&&sent!==liveRows)take(buildAuthorityPdfDiff(scopedBaseline,sent,options).rows);
-    crn={byId,original:scopedBaseline};
+    crn={byId,original:scopedBaseline,originalById} as any;
   }
 
   const courseRows=(courses as any[]).filter(row=>Number(row.AdCollegeId)===collegeId&&Number(row.AdSectionId)===sectionId);
@@ -472,6 +484,7 @@ app.post("/api/schedules/registrar-requests", requirePermission(7), async (req: 
   const {collegeId,sectionId,termId}=scope;
   const result=await runRegistrarCheck(collegeId,sectionId,termId,scope.rows);
   if(result.empty){res.status(409).json({error:"لا مقارنةَ تُحفظ: الملف أو الجدول فارغ."});return;}
+  if(looksForeign(result)){res.status(409).json({error:"الملف لا يطابق أي شعبة في جدولكم؛ تأكّد أنه ملف قسمكم وفصلكم.",code:"foreign-file"});return;}
   const items=buildRequestItems(result);
   if(!items.length){res.status(409).json({error:"لا فروقَ تُطلب من التسجيل في هذا الملف."});return;}
   const prefix=requestPrefix(termId,collegeId,sectionId);
@@ -573,5 +586,58 @@ app.delete("/api/schedules/registrar-requests/:id", requirePermission(7), async 
   if(!isScopeAllowed(req,Number(doc.collegeId),Number(doc.sectionId))){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
   await Repository.deleteFeatureDoc("registrarRequests",id);
   res.json({ok:true});
+});
+
+/**
+ * ── مطابقة ترقيم التسجيل: خطوةٌ تلقائية بعد الفحص (قرار المالك 2026-11-19) ──────
+ *
+ * الفحصُ نفسه يبقى قراءةً محضة (/registrar-check). وبعد فحصٍ ناجح تستدعي الشاشةُ هذه
+ * الخطوةَ تلقائياً بالصفوف نفسها: تُعاد المقارنة هنا (لا تُصدَّق خطةٌ من المتصفح)، ولكل
+ * شعبةٍ عُرفت بيقين — بالرقم المرجعي، أو بالمقرر والموعد والأستاذ منفردةً — يصير رقمُها
+ * ومرجعيُّها رقمَيهم، ولا يُمسّ غيرهما. كتابةٌ واحدة تسبقها نسخة «قبل مطابقة ترقيم التسجيل»
+ * للتراجع، وأثرٌ في السجلّ. الملتبس والمتصادم يُتخطّيان ويعودان في الردّ لـ«تحتاج نظرك».
+ * جدولٌ مقفل (بين يدي التسجيل) لا يُكتب: يُقال ذلك ولا يُعدّ خطأً.
+ */
+app.post("/api/schedules/registrar-numbering", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control","no-store");
+  const scope=registrarCheckScope(req,res);if(!scope)return;
+  const {collegeId,sectionId,termId}=scope;
+  const result=await runRegistrarCheck(collegeId,sectionId,termId,scope.rows);
+  const answer=(plan:ReturnType<typeof planRegistrarNumbering>|null,extra:Record<string,unknown>={})=>res.json({
+    changed:0,rows:0,skipped:plan?.skipped||[],collisions:plan?.collisions||[],...extra,
+  });
+  if(result.empty||looksForeign(result)){answer(null);return;}
+  const live=await Repository.getSchedulesByScope({collegeId,sectionId,termId},{fresh:true});
+  const plan=planRegistrarNumbering(result.identities,live as any[]);
+  if(!plan.changes.length){answer(plan,{aligned:plan.aligned});return;}
+  const lock=await scheduleLockRefusal(req,collegeId,sectionId,termId);
+  if(lock){answer(plan,{locked:lock});return;}
+  const rowById=new Map((live as any[]).map(row=>[Number(row.id),row]));
+  const at=new Date().toISOString();
+  const fieldsOf=new Map<number,{SCode:string;referenceNumber:string;registrarNumberedAt:string}>();
+  for(const change of plan.changes)for(const id of change.ids)if(rowById.has(id))fieldsOf.set(id,{SCode:change.to.section,referenceNumber:change.to.crn,registrarNumberedAt:at});
+  const version=await captureScopeVersion(req,collegeId,sectionId,termId,"قبل مطابقة ترقيم التسجيل","manual");
+  let written:any[]=[];
+  try{
+    written=await Repository.moveSchedulesBatch([...fieldsOf].map(([id,fields])=>({id,expectedRev:Number(rowById.get(id)?.rev||0),fields:fields as any})));
+  }catch(error:any){
+    if(error instanceof RequestHoldConflict){res.status(409).json({...await requestHoldRefusal([error.holdRequestId],[error.holdItemId]),applied:false});return;}
+    if(error instanceof ScheduleRevisionConflict){res.status(409).json({error:"تغيّر أحد المواعيد أثناء مطابقة الترقيم؛ لم يُحفظ شيء. افحص الملف من جديد.",conflict:"revision",applied:false});return;}
+    if(error instanceof RequestReservationConflict){res.status(409).json({error:error.message,code:error.code,applied:false});return;}
+    throw error;
+  }
+  await recordVersionAfter(version,before=>before.map(row=>fieldsOf.has(Number(row.id))?{...row,...fieldsOf.get(Number(row.id))}:row));
+  await recordSectionNumberLedger(collegeId,sectionId,termId,written);
+  res.locals.auditChanges=`مطابقة ترقيم التسجيل: ${countOf(plan.changes.length,AR.section)}`;
+  answer(plan,{changed:plan.changes.length,rows:fieldsOf.size,aligned:plan.aligned,undoVersionId:version?.id});
+});
+
+/** سجلّ أرقام الشعب للفصل: أكبرُ رقمٍ استُعمل لكل مقرر، فلا يُقترح رقمٌ حُذف. */
+app.get("/api/schedules/section-numbers", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control","no-store");
+  const collegeId=Number(req.query.collegeId||0),sectionId=Number(req.query.sectionId||0),termId=Number(req.query.termId||0);
+  if(!collegeId||!sectionId||!termId){res.status(400).json({error:"حدد الكلية والقسم والفصل."});return;}
+  if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  res.json({courses:await readSectionNumberLedger(collegeId,sectionId,termId)});
 });
 }

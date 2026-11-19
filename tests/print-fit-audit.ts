@@ -130,6 +130,17 @@ check(printCss.includes('html[data-print-rotate="1"] .print-report.print-wide .p
   check(/\.print-comprehensive-pages>\.print-comprehensive-page:last-child\{\s*padding-block-end:0 !important;\s*margin-block-end:0 !important;\s*break-after:avoid !important;/.test(css),
     "آخر صفحةٍ من الشامل بلا حشوةٍ سفلى ولا فاصلٍ بعدها: لا ورقة بيضاء ثالثة");
   check(!/\.print-comprehensive-page\{[^}]*break-after:(page|always)/.test(css), "ولا صفحةٌ منطقية تفرض فاصلاً بعدها");
+
+  /* تقرير تغييرات الجدول والشامل مدوَّرَين (Safari): رسمُ آخر صفحةٍ ينزل 82.6mm تحت خانتها،
+     والمتصفّح يحسبه في طول الوثيقة؛ فبياضُ حشوتها الجانبية يصنع ورقةً أخيرةً فارغة.
+     الخانة تنتهي عند آخر الحبر بالضبط، والحاوي يقصّ ما بعدها. */
+  check(/html\[data-print-rotate="1"\] \.print-comprehensive-pages\{\s*overflow:hidden !important;\s*\}/.test(css),
+    "الحاوي المدوَّر يقصّ رسمَ آخر صفحةٍ بعد خانتها: لا يطول به المستند");
+  const lastRotated = css.match(/html\[data-print-rotate="1"\] \.print-comprehensive-pages>\.print-comprehensive-page:last-child\{\s*margin-bottom:([^;]+);/);
+  check(lastRotated && lastRotated[1].replace(/\s+/g, "") === "calc((297mm-297mm*var(--safari-comprehensive-scale))/2+(297mm-10mm)*var(--safari-comprehensive-scale)-210mm)!important",
+    "خانة آخر صفحةٍ مدوَّرة تمتد إلى نهاية الحبر (الإزاحة + 287mm × المقياس) — لا أقصر فيُقصّ حرف، ولا أطول فتُنشأ ورقة");
+  check(/\.print-comprehensive-page\{[^}]*padding:10mm 10mm 9mm !important;/.test(css),
+    "الحشوة الجانبية للصفحة 10mm — وهي ما يطرحه حساب نهاية الحبر أعلاه");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

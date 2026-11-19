@@ -13,7 +13,7 @@ import { cleanBuildingCode, cleanHallCode } from "../utils/cleanRoom";
 import { roomIdentityKey } from "../utils/locationRegistry";
 import { unlinkedCourseEvidence } from "../utils/authorityAcademicCodes";
 import { displayInstructorText, instructorIdentityTokens } from "../utils/instructorIdentity";
-import { authoritySectionCodeLooksPlausible } from "../utils/authorityAcademicCodes";
+import { authoritySectionCodeLooksPlausible, authoritySectionUncertain } from "../utils/authorityAcademicCodes";
 import { courseOptionBadge, usePlanBadges } from "../utils/planBadges";
 import { AR, countOf } from "../utils/arabicCount";
 import CourseTags from "./CourseTags";
@@ -495,6 +495,7 @@ export default function ImportPreviewTable({
                   </td>
                   <td className={cellClass("section",missing.scode(row))} title={cellTitle("section")}>
                     <span className="import-locked-section" title="رقم الشعبة مثبت من المصدر ولا يتغير هنا">{String(row.SCode || "").trim() || "—"}</span>
+                    {authoritySectionUncertain(row) ? <small className="import-section-uncertain" title="الرقم مولَّد لا مطبوع: الملف ممسوح أو تكرّر رقمه المطبوع في المقرر">رقم غير مؤكد</small> : null}
                   </td>
                   <td className={cellClass("days",missing.days(row))} title={cellTitle("days")}>
                     <span className="import-day-chips">{DAY_CHIPS.map(day => <button key={day.key} type="button" disabled={!open} data-guide-ignore="تبديل يوم داخل معاينة الاستيراد قبل أي حفظ" className={row[day.key] ? "on" : ""} onClick={() => toggleDay(index, day.key)}>{day.label}</button>)}</span>

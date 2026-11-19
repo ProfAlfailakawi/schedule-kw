@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { CalendarClock, Clock3, GraduationCap, Layers, ShieldAlert, X } from "lucide-react";
-import { REGULATION_EXCEPTION_CODE, REGULATION_EXCEPTION_FLAG, type RegulationExceptionIssue, type RegulationExceptionRule } from "../utils/regulationException";
+import { REGULATION_EXCEPTION_CODE, REGULATION_EXCEPTION_FLAG, REGULATION_EXCEPTION_REASON, REGULATION_REASON_MAX, type RegulationExceptionIssue, type RegulationExceptionRule } from "../utils/regulationException";
 
 /**
  * ── «هذا الموعد يخالف اللائحة» (ملاحظتا المالك 10 و20) ──────────────────────────
@@ -20,8 +20,15 @@ const RULE_ICON: Record<RegulationExceptionRule, typeof Clock3> = {
 /** وسمُ الملاحظة الليّنة (الخريجون): تُقال ولا تمنع. */
 const SOFT_NOTE = "ملاحظة · لا تمنع";
 
-function RegulationExceptionSheet({ issues, note, onChoose }: { issues: readonly RegulationExceptionIssue[]; note?: string; onChoose: (accepted: boolean) => void }) {
+/** قرارُ الورقة: false للتراجع، أو المتابعةُ استثناءً بسببها (فارغٌ حين لا تطلب المخالفةُ سبباً). */
+export type RegulationExceptionChoice = false | { reason: string };
+
+function RegulationExceptionSheet({ issues, note, onChoose }: { issues: readonly RegulationExceptionIssue[]; note?: string; onChoose: (choice: RegulationExceptionChoice) => void }) {
   const cancelRef = useRef<HTMLButtonElement | null>(null);
+  /* مخالفةٌ تطلب سبباً (تجزئةُ مقررٍ نظريٍّ وعمليّ): لا تُقبل المتابعة بلا سطرٍ يُحفظ في سجل التدقيق. */
+  const needsReason = issues.some(issue => issue.needsReason);
+  const [reason, setReason] = useState("");
+  const reasonReady = !needsReason || reason.trim().length >= 3;
   useEffect(() => {
     cancelRef.current?.focus();
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape") onChoose(false); };
@@ -49,8 +56,15 @@ function RegulationExceptionSheet({ issues, note, onChoose }: { issues: readonly
         </ul>
         {note ? <p className="regulation-exception-soft" role="note"><GraduationCap aria-hidden="true" />{note}<small>{SOFT_NOTE}</small></p> : null}
         <p className="regulation-exception-ask">هل تريد المتابعة استثناءً؟ يُسجَّل الاستثناء في سجل التدقيق.</p>
+        {needsReason ? (
+          <label className="regulation-exception-reason">
+            <span>سبب الاستثناء <small>(يُحفظ في سجل التدقيق)</small></span>
+            <textarea rows={2} maxLength={REGULATION_REASON_MAX} value={reason} onChange={event => setReason(event.target.value)}
+              placeholder="مثال: طبيعة المختبر في القسم تتطلب لقاءين قصيرين" aria-required="true" />
+          </label>
+        ) : null}
         <div className="request-hold-actions">
-          <button type="button" className="is-primary regulation-exception-confirm" data-guide-ignore="يحفظ الموعد استثناءً من اللائحة ويسجّله في سجل التدقيق" onClick={() => onChoose(true)}>
+          <button type="button" className="is-primary regulation-exception-confirm" disabled={!reasonReady} data-guide-ignore="يحفظ الموعد استثناءً من اللائحة ويسجّله في سجل التدقيق" onClick={() => onChoose({ reason: needsReason ? reason.trim() : "" })}>
             <ShieldAlert aria-hidden="true" />المتابعة استثناءً
           </button>
           <button type="button" ref={cancelRef} data-guide-ignore="تراجع — لا يحفظ شيئاً ويبقى النموذج كما هو" onClick={() => onChoose(false)}>تراجع</button>
@@ -60,13 +74,13 @@ function RegulationExceptionSheet({ issues, note, onChoose }: { issues: readonly
   );
 }
 
-/** يفتح الورقة ويعيد القرار: true للمتابعة استثناءً. مركّبٌ مستقل لأن السؤال يقع داخل مسار حفظ. */
-export function askRegulationException(issues: readonly RegulationExceptionIssue[], note?: string): Promise<boolean> {
+/** يفتح الورقة ويعيد القرار: false للتراجع، أو { reason } للمتابعة استثناءً. مركّبٌ مستقل لأن السؤال يقع داخل مسار حفظ. */
+export function askRegulationException(issues: readonly RegulationExceptionIssue[], note?: string): Promise<RegulationExceptionChoice> {
   return new Promise(resolve => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
-    root.render(<RegulationExceptionSheet issues={issues} note={note} onChoose={accepted => { root.unmount(); host.remove(); resolve(accepted); }} />);
+    root.render(<RegulationExceptionSheet issues={issues} note={note} onChoose={choice => { root.unmount(); host.remove(); resolve(choice); }} />);
   });
 }
 
@@ -82,17 +96,18 @@ export function regulationIssuesOf(status: number, data: any): RegulationExcepti
     فإن وافق أُعيد الطلبُ نفسه موسوماً (resend)، وإن تراجع رُمي «لم يُحفظ». ولردٍّ آخر null فيمضي النداءُ كما كان. */
 export async function settleRegulationException<T>(status: number, data: any, body: BodyInit | null | undefined, resend: (marked: string) => Promise<T>): Promise<{ value: T } | null> {
   const issues = regulationIssuesOf(status, data);
-  const marked = issues ? withRegulationException(body) : null;
-  if (!issues || !marked) return null;
-  if (await askRegulationException(issues)) return { value: await resend(marked) };
+  if (!issues || !withRegulationException(body)) return null;
+  const choice = await askRegulationException(issues);
+  const marked = choice ? withRegulationException(body, choice.reason) : null;
+  if (marked) return { value: await resend(marked) };
   throw Object.assign(new Error(REGULATION_EXCEPTION_DECLINED), { code: data?.code, regulation: issues });
 }
 
-/** جسمُ الطلب نفسه موسوماً بالموافقة الصريحة (JSON فقط؛ غيرُه لا يُعاد). */
-export function withRegulationException(body: BodyInit | null | undefined): string | null {
+/** جسمُ الطلب نفسه موسوماً بالموافقة الصريحة، وبسببها إن كُتب (JSON فقط؛ غيرُه لا يُعاد). */
+export function withRegulationException(body: BodyInit | null | undefined, reason = ""): string | null {
   if (typeof body !== "string") return null;
   try {
     const parsed = JSON.parse(body);
-    return parsed && typeof parsed === "object" ? JSON.stringify({ ...parsed, [REGULATION_EXCEPTION_FLAG]: true }) : null;
+    return parsed && typeof parsed === "object" ? JSON.stringify({ ...parsed, [REGULATION_EXCEPTION_FLAG]: true, ...(reason.trim() ? { [REGULATION_EXCEPTION_REASON]: reason.trim() } : {}) }) : null;
   } catch { return null; }
 }

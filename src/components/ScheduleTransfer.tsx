@@ -1414,7 +1414,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                 <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "import" && !fromPlanning ? "active" : ""} onClick={() => goTab("import")} title="استيراد"><Upload />استيراد</button>
               )}
               {termEnded || !canCheckRegistrarPdf ? null : (
-                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "check" ? "active" : ""} onClick={() => goTab("check")} title="افحص جدول التسجيل: قراءةٌ تقارن ملفَّ التسجيل بجدولكم ولا تكتب فيه"><FileSearch />افحص جدول التسجيل</button>
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "check" ? "active" : ""} onClick={() => goTab("check")} title="افحص جدول التسجيل: يقارن ملفَّ التسجيل بجدولكم، ولا يغيّر فيه إلا أرقام الشعب لتطابق أرقامهم"><FileSearch />افحص جدول التسجيل</button>
               )}
               {termEnded || !canCheckRegistrarPdf ? null : (
                 <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "whatChanged" ? "active" : ""} onClick={() => goTab("whatChanged")} title="ماذا غيّرنا؟ حصيلة تعديلات القسم في فترة"><History />ماذا غيّرنا؟</button>

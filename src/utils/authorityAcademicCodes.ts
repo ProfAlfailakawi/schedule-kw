@@ -251,20 +251,44 @@ export function authoritySectionCodeLooksPlausible(value: unknown): boolean {
 }
 
 /**
- * ترقيم شعب جدول الجهة — القاعدة المعتمدة عند المالك (أُعيدت 2026-09-26):
- * كل مقرر يبدأ من 501 ويتقدّم 502، 503… بترتيب ظهور صفوفه في المستند.
+ * رقم الشعبة المطبوع الذي يُحفظ كما هو: ملفٌّ مقروءٌ من طبقة النص (لا مسح)، ورقمٌ
+ * بثلاث خانات من 501 إلى 999 (المدى الذي يقبله الجدول). وما عداه فارغ.
+ */
+export function printedAuthoritySection(row: { sourceReadMode?: unknown; sourceSectionText?: unknown }): string {
+  if (String(row?.sourceReadMode || "") !== "pdf-text") return "";
+  const printed = normalizeAuthoritySectionCode(row?.sourceSectionText);
+  return /^\d{3}$/.test(printed) && Number(printed) >= 501 && Number(printed) <= 999 ? printed : "";
+}
+
+/**
+ * «رقم غير مؤكد»: صفٌّ من ملف الجهة رقمُ شعبته مولَّد لا مطبوع — ملفٌّ ممسوح، أو رقمٌ
+ * مطبوع تكرّر في المقرر نفسه. يراه المراجع علامةً بجانب الرقم.
+ */
+export function authoritySectionUncertain(row: { AdCourseId?: unknown; SCode?: unknown; sourceReadMode?: unknown; sourceSectionText?: unknown }): boolean {
+  if (!Number(row?.AdCourseId || 0) || row?.sourceSectionText === undefined || row?.sourceSectionText === null) return false;
+  const printed = printedAuthoritySection(row);
+  return !printed || printed !== String(row?.SCode ?? "").trim();
+}
+
+/**
+ * ترقيم شعب جدول الجهة — قرار المالك (2026-11-19) فوق قاعدة 2026-09-26:
  *
- * خلية الشعبة في المسح هي الأكثر التصاقاً بجيرانها (المرجعي ورقم المقاعد)،
- * فقراءتها الخام («1504»، «50»، «3150») كانت تدخل الجدول هويةً حين حُفظت كما
- * قُرئت (13 سبتمبر). ما طُبع يبقى شاهداً في sourceSectionText يراه المراجع؛
- * أما الرقم الذي يُنشر فمولَّد من هوية المقرر وترتيب الصفوف — لا من OCR.
- * مقررٌ لم تثبت هويته لا يُعطى شعبة.
+ * • ملفٌّ مقروءٌ من طبقة النص (ملفات التسجيل): الرقمُ المطبوع هو رقمُ الشعبة، والرقمُ
+ *   المرجعيّ المطبوع يبقى referenceNumber. التسجيل لا يغيّر رقماً طبعه، فلا يُعاد ترقيمه.
+ * • ملفٌّ ممسوح (OCR): خلية الشعبة الأكثرُ التصاقاً بجيرانها («1504»، «50»)، فيبقى
+ *   الترقيمُ المولَّد 501، 502… بترتيب الظهور، ويُعلَّم «رقم غير مؤكد».
+ * • رقمٌ مطبوع تكرّر في المقرر نفسه لشعبتين مختلفتين لا يُحفظ لأيٍّ منهما: يُولَّد
+ *   لهما بعد أكبر رقمٍ مطبوع في المقرر، ويبقى غير مؤكد للمراجعة.
+ * • مرجعيٌّ واحد لمقررٍ واحد شعبةٌ واحدة ولو طُبعت بموعدين.
+ *
+ * ما طُبع يبقى شاهداً في sourceSectionText. مقررٌ لم تثبت هويته لا يُعطى شعبة.
  */
 export function assignAuthoritySections<T extends {
   AdCourseId?: unknown;
   SCode?: unknown;
   sourceOrder?: unknown;
   sourceSectionText?: unknown;
+  sourceReadMode?: unknown;
   referenceNumber?: unknown;
   importEvidence?: { section?: { method?: unknown } } | unknown;
 }>(input: readonly T[]): T[] {
@@ -273,21 +297,47 @@ export function assignAuthoritySections<T extends {
     const numericOrder = Number((row as any).sourceOrder);
     return { row, index, order: Number.isFinite(numericOrder) ? numericOrder : index };
   }).sort((a, b) => a.order - b.order || a.index - b.index);
+  const courseOf = (row: T) => Number((row as any).AdCourseId || 0);
+  const referenceOf = (row: T) => String((row as any).referenceNumber ?? "").trim();
+  /* هوية الشعبة عند الجهة: المرجعيّ، وإلا الصفّ نفسه. */
+  const identityOf = (item: { row: T; index: number }) => (referenceOf(item.row) ? `#${referenceOf(item.row)}` : `@${item.index}`);
+
+  /* الرقم المطبوع يُحفظ إن انفرد بهويةٍ واحدة في مقرره. */
+  const owners = new Map<string, Set<string>>();
+  for (const item of ordered) {
+    const courseId = courseOf(item.row), printed = printedAuthoritySection(item.row as any);
+    if (courseId > 0 && printed) owners.set(`${courseId}|${printed}`, new Set([...(owners.get(`${courseId}|${printed}`) || []), identityOf(item)]));
+  }
+  const keepPrinted = (item: { row: T; index: number }) => {
+    const printed = printedAuthoritySection(item.row as any);
+    return printed && (owners.get(`${courseOf(item.row)}|${printed}`)?.size || 0) === 1 ? printed : "";
+  };
+  /* المولَّد يبدأ بعد أكبر رقمٍ مطبوع محفوظ في المقرر، فلا يصطدم به. */
   const nextByCourse = new Map<number, number>();
+  for (const item of ordered) {
+    const kept = keepPrinted(item);
+    if (kept) nextByCourse.set(courseOf(item.row), Math.max(nextByCourse.get(courseOf(item.row)) || 500, Number(kept)));
+  }
+
   /* شعبة بموعدين: الهيئة تطبع الموعد الثاني سطراً تحت الأول، والرقم المرجعي هو
      هوية الشعبة عندها، فمرجعيٌّ واحد لمقرر واحد شعبةٌ واحدة لا شعبتان. */
   const sectionByReference = new Map<string, string>();
   for (const item of ordered) {
-    const courseId = Number((item.row as any).AdCourseId || 0);
+    const courseId = courseOf(item.row);
     if (!Number.isFinite(courseId) || courseId <= 0) { (item.row as any).SCode = ""; continue; }
-    const reference = String((item.row as any).referenceNumber ?? "").trim();
+    const reference = referenceOf(item.row);
     const sectionKey = reference ? `${courseId}|${reference}` : "";
     const known = sectionKey ? sectionByReference.get(sectionKey) : "";
     if (known) { (item.row as any).SCode = known; continue; }
-    const next = (nextByCourse.get(courseId) || 500) + 1;
-    nextByCourse.set(courseId, next);
-    (item.row as any).SCode = String(next);
-    if (sectionKey) sectionByReference.set(sectionKey, String(next));
+    const kept = keepPrinted(item);
+    let code = kept;
+    if (!code) {
+      const next = (nextByCourse.get(courseId) || 500) + 1;
+      nextByCourse.set(courseId, next);
+      code = String(next);
+    }
+    (item.row as any).SCode = code;
+    if (sectionKey) sectionByReference.set(sectionKey, code);
   }
   return rows;
 }

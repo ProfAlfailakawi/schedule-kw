@@ -203,6 +203,7 @@ import SameSlotHint from "./SameSlotHint";
 import { conflictSkipIds, sectionCodeKey } from "../utils/sameSlot";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
 import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
+import { awaitingRegistrarNumber, mergeLedgers, mergeLedgersFromRows, type SectionNumberLedger } from "../utils/registrarNumbering";
 import { TimeCounterPopover } from "./TimeCounter";
 import CommandPalette, { type ScheduleCommand } from "./CommandPalette";
 import OneLinePreview from "./OneLinePreview";
@@ -1525,7 +1526,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const refusalIssues = mutating ? regulationIssuesOf(res.status, data) : null;
     if (refusalIssues) {
       const marked = withRegulationException(options?.body);
-      if (marked && await askRegulationException(refusalIssues, graduateNoteRef.current || undefined)) return fetchJson(url, { ...options, body: marked });
+      const choice = marked ? await askRegulationException(refusalIssues, graduateNoteRef.current || undefined) : false;
+      if (choice) return fetchJson(url, { ...options, body: withRegulationException(options?.body, choice.reason) || marked! });
       const declined: any = new Error(marked ? REGULATION_EXCEPTION_DECLINED : String(data.error || REGULATION_EXCEPTION_DECLINED));
       declined.code = data.code;
       declined.regulation = refusalIssues;
@@ -1710,11 +1712,43 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     return () => { alive = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formScopeKey, editor]);
+  /* ── سجلّ أرقام الفصل: رقمٌ حُذف لا يعود (registrarNumbering) ──────────────────
+     يُقرأ لنطاق النموذج ولنطاق اللوحة، ويُضمّ إلى صفوفهما عند اقتراح الرقم التالي. */
+  const [sectionLedgers, setSectionLedgers] = useState<Record<string, SectionNumberLedger>>({});
+  const boardScopeKey = filterCollege && filterSection && filterTerm ? `${filterCollege}|${filterSection}|${filterTerm}` : "";
+  /* السجلّ لا يُحفظ مرّةً ثم يُنسى: كلُّ تغيّرٍ في صفوف اللوحة (إضافةٌ وحذفٌ وتعديلٌ وتراجعٌ وعملياتٌ جماعية)
+     يضمّ أرقامها إليه محلياً فوراً — فرقمٌ رأته اللوحة لا يعود بعد حذفه — ثم يُقرأ السجلّ من الخادم من جديد. */
+  useEffect(() => {
+    setSectionLedgers(previous => mergeLedgersFromRows(previous, [...rows, ...formScopeRows.rows]));
+    const keys = [formScopeKey, boardScopeKey].filter(Boolean);
+    let alive = true;
+    for (const key of new Set(keys)) {
+      const [collegeId, sectionId, termId] = key.split("|");
+      fetchJson(`/api/schedules/section-numbers?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`)
+        .then((data: any) => { if (alive && data?.courses) setSectionLedgers(previous => mergeLedgers(previous, key, data.courses)); })
+        .catch(() => { /* بلا سجلّ يبقى الاقتراح من صفوف الجدول وحدها */ });
+    }
+    return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formScopeKey, boardScopeKey, rows, formScopeRows]);
+  const ledgerForTerm = (termId: number): SectionNumberLedger => {
+    const merged: SectionNumberLedger = {};
+    for (const [key, ledger] of Object.entries(sectionLedgers)) {
+      if (!key.endsWith(`|${termId}`)) continue;
+      for (const [course, max] of Object.entries(ledger)) merged[course] = Math.max(merged[course] || 0, Number(max) || 0);
+    }
+    return merged;
+  };
+  /* «جديدة · بانتظار رقم التسجيل»: شعبةٌ بلا رقمٍ مرجعي في نطاقٍ يحمل أرقام التسجيل (لا في جدولٍ لم يُستورد منه قط). */
+  const crnScopes = useMemo(() => new Set(rows.filter(row => String((row as any).referenceNumber || "").trim()).map(row => `${row.AdCollegeId}|${row.AdSectionId}|${row.AdTermId}`)), [rows]);
+  const awaitingNumber = (row: FSchedule) => crnScopes.has(`${row.AdCollegeId}|${row.AdSectionId}|${row.AdTermId}`) && awaitingRegistrarNumber(row as any);
+  const AwaitingBadge = ({ row }: { row: FSchedule }) => awaitingNumber(row)
+    ? <span className="awaiting-crn" title="أُضيفت عندكم، ولم يظهر رقمها المرجعي في ملف التسجيل بعد">جديدة · بانتظار رقم التسجيل</span> : null;
   const boardRowsForCode = rows;
   const nextSectionCode = (courseId: number, termId: number, excludeId?: number | null) => {
     /* «rows» هنا: اللوحة + جدول نطاق النموذج حين وصل لنطاقه نفسه. */
     const rows = formScopeRows.key && formScopeRows.key === formScopeKey ? [...boardRowsForCode, ...formScopeRows.rows] : boardRowsForCode;
-    return nextCourseSectionCode(rows, courseId, termId, excludeId);
+    return nextCourseSectionCode(rows, courseId, termId, excludeId, ledgerForTerm(termId));
   };
 
   const sectionAutofilled = useRef(false);
@@ -10543,6 +10577,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     scode={String(form.SCode || "")}
                     busy={saving}
                     collegeId={Number(form.AdCollegeId || 0)} sectionId={Number(form.AdSectionId || 0)} termId={Number(form.AdTermId || 0)}
+                    theoryInstructorId={Number(form.AdInstructorId || 0)}
                     onCheck={checkSpecialSection}
                     onSave={saveSpecialSection}
                   />
@@ -12447,6 +12482,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                         <div className="agenda-ident">
                           {/* الشعبة والأستاذ في سطر واحد ثابت تحت عنوان المقرر. */}
                           <Badge tone="neutral">شعبة {s.SCode}</Badge>
+                          <AwaitingBadge row={s} />
                           <span>
                             <UsersRound aria-hidden="true" />
                             {i?.AdInstructorName || "بدون أستاذ"}
@@ -14727,6 +14763,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 <h2>
                   {context.selected.AdCourseName}<CourseTags courseId={context.selected.AdCourseId} />
                   <span className="context-section-label">شعبة <bdi>{context.selected.SCode}</bdi></span>
+                  <AwaitingBadge row={context.selected} />
                   {(context.selected as any).practical === true ? <PracticalMark /> : null}
                 </h2>
                 <div className="context-appointment-meta">

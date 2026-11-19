@@ -169,7 +169,7 @@
     "test:outcome-story": "tsx tests/outcome-story-audit.ts",
     "test:registration-causes": "tsx tests/registration-causes-audit.ts",
     "test:plan-pdf": "tsx tests/plan-pdf-audit.ts",
-    "test:registrar-check": "tsx tests/registrar-check-audit.ts && tsx tests/registrar-check-route-audit.ts",
+    "test:registrar-check": "tsx tests/registrar-check-audit.ts && tsx tests/registrar-check-route-audit.ts && tsx tests/registrar-numbering-audit.ts && tsx tests/registrar-numbering-route-audit.ts",
     "test:plan-sheet-import": "tsx tests/course-name-relation-audit.ts && tsx tests/plan-sheet-import-audit.ts && tsx tests/plan-sheet-import-route-audit.ts && tsx tests/plan-sheet-real-audit.ts",
     "test:plan-review": "tsx tests/plan-review-audit.ts && tsx tests/department-course-catalog-audit.ts",
     "test:analytics-reports-review": "tsx tests/analytics-reports-review-audit.ts",
