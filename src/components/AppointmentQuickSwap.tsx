@@ -5,7 +5,7 @@
  * لا تحفظ هذه الواجهةُ شيئاً بنفسها؛ الحفظ في الأب.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeftRight, CalendarCheck, CalendarX2, Clock, DoorOpen, GraduationCap, Scale, Search, UserRoundX, X } from "lucide-react";
+import { ArrowLeftRight, CalendarCheck, CalendarX2, Clock, DoorOpen, GraduationCap, Search, UserRoundX, X } from "lucide-react";
 import type { QuickSwapSource } from "../utils/appointmentQuickSwap";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import CourseTags from "./CourseTags";
@@ -14,13 +14,11 @@ const DAYS: Array<[string, string, string]> = [["fsunday", "ح", "الأحد"], 
 const SHOWN = 60;
 const fold = (text: unknown) => String(text ?? "").normalize("NFKC").replace(/[ً-ٟـ]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").toLowerCase();
 
-export default function AppointmentQuickSwap({ sources, hasMine, busy, onApply, loadOf }: {
+export default function AppointmentQuickSwap({ sources, hasMine, busy, onApply }: {
   sources: QuickSwapSource[];
   hasMine: boolean;
   busy: boolean;
   onApply: (source: QuickSwapSource, mode: "its" | "mine") => void;
-  /** نصابُ الأستاذ المختار قبل نقل الشعبة وبعده (تنبيهٌ لا منع). */
-  loadOf?: (source: QuickSwapSource) => { now: number; after: number; limit: number | null } | null;
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"trainee" | "vacant">("trainee");
@@ -44,8 +42,6 @@ export default function AppointmentQuickSwap({ sources, hasMine, busy, onApply, 
   const take = (items: QuickSwapSource[]) => { const out = items.slice(0, Math.max(0, budget)); budget -= out.length; return out; };
   const sameShown = take(same), othersShown = take(others);
   const card = (item: QuickSwapSource) => {
-    const load = loadOf?.(item) || null;
-    const over = Boolean(load && load.limit !== null && load.after > load.limit);
     return <li key={item.rowId} className={`qs-item${item.sameCourse ? " is-same" : ""}`}>
       <div className="qs-top">
         <strong className="qs-course">{item.row.AdCourseName || `مقرر ${item.row.AdCourseId}`}<CourseTags courseId={Number(item.row.AdCourseId)} /></strong>
@@ -57,7 +53,6 @@ export default function AppointmentQuickSwap({ sources, hasMine, busy, onApply, 
         </span>
         <span className="qs-fact"><Clock aria-hidden="true" /><bdi dir="ltr">{formatScheduleTimeRange(item.row.fstarttime, item.row.fendtime)}</bdi></span>
         <span className="qs-fact is-room"><DoorOpen aria-hidden="true" />{item.row.AdRoomCode ? <bdi dir="ltr">{item.row.AdRoomCode}{item.row.AdRoomHall ? `/${item.row.AdRoomHall}` : ""}</bdi> : <em>بلا قاعة</em>}</span>
-        {load ? <span className={`qs-fact qs-load${over ? " is-over" : ""}`} title={over ? "يتجاوز نصاب الأستاذ (تنبيه لا منع)" : "نصاب الأستاذ قبل النقل وبعده"}><Scale aria-hidden="true" /><bdi dir="ltr">{load.now} ← {load.after}</bdi></span> : null}
       </div>
       <div className="qs-acts">
         <button type="button" className={`qs-go ${item.freeAtIts ? "good" : "bad"}`} disabled={busy} title={item.freeAtIts ? "الأستاذ حرٌّ في وقتها" : "يتداخل مع موعدٍ للأستاذ"}
