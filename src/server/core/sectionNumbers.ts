@@ -10,7 +10,20 @@
 import { Repository } from "../../db/repository";
 import { nextCourseSection, recordSectionNumbers, sectionNumberOf, type SectionNumberLedger } from "../../utils/registrarNumbering";
 
-export interface SectionNumberDoc { id: string; courses: SectionNumberLedger; updatedAt: string }
+/** courses: أكبر رقمٍ لكل مقرر (للرقم التالي). used: كلُّ رقمٍ رآه السجلّ لكل مقرر (لرفض العودة إليه). */
+export interface SectionNumberDoc { id: string; courses: SectionNumberLedger; used?: Record<string, number[]>; updatedAt: string }
+
+/** يضمّ أرقام صفوفٍ إلى قائمة المستعمل لكل مقرر (مرتّبةً بلا تكرار). */
+function recordUsed(used: Record<string, number[]> | undefined, rows: readonly Scoped[]): Record<string, number[]> {
+  const out: Record<string, number[]> = { ...(used || {}) };
+  for (const row of rows) {
+    const courseId = Number(row?.AdCourseId || 0), number = sectionNumberOf(row?.SCode);
+    if (!(courseId > 0) || number === null) continue;
+    const list = out[String(courseId)] || [];
+    if (!list.includes(number)) out[String(courseId)] = [...list, number].sort((a, b) => a - b);
+  }
+  return out;
+}
 
 export const sectionNumberDocId = (collegeId: number, sectionId: number, termId: number) => `${termId}:${collegeId}:${sectionId}`;
 
@@ -28,8 +41,9 @@ export async function recordSectionNumberLedger(collegeId: number, sectionId: nu
   try {
     await Repository.updateFeatureDoc<SectionNumberDoc, null>("sectionNumbers", id, current => {
       const courses = recordSectionNumbers(current?.courses, scoped);
-      if (current && JSON.stringify(courses) === JSON.stringify(current.courses)) return { refuse: null };
-      return { next: { id, courses, updatedAt: new Date().toISOString() }, result: null };
+      const used = recordUsed(current?.used, scoped);
+      if (current && JSON.stringify(courses) === JSON.stringify(current.courses) && JSON.stringify(used) === JSON.stringify(current.used || {})) return { refuse: null };
+      return { next: { id, courses, used, updatedAt: new Date().toISOString() }, result: null };
     });
   } catch (error) {
     console.error("[section-numbers] تعذّر تحديث سجلّ أرقام الشعب:", error instanceof Error ? error.message : error);
@@ -57,8 +71,8 @@ export async function readSectionNumberLedger(collegeId: number, sectionId: numb
 
 /**
  * شعبةٌ جديدة برقمٍ لا يُقبل: رقمٌ داخل المدى، لا تحمله شعبةٌ قائمة للمقرر (فليس لقاءً آخر
- * لشعبةٍ موجودة)، ولا يزيد على أكبر رقمٍ استُعمل للمقرر في الفصل — أي رقمٌ حُذف أو فراغٌ
- * تجاوزه الترقيم. يُرجع السببَ والرقمَ التالي، وإلا null.
+ * لشعبةٍ موجودة)، وقد استُعمل للمقرر في الفصل من قبل ثم حُذف. فراغٌ لم يُستعمل قط يُقبل
+ * إن كتبه المستخدم بيده. يُرجع السببَ والرقمَ التالي، وإلا null.
  */
 export async function reusedSectionNumber(collegeId: number, sectionId: number, termId: number, courseId: number, code: unknown): Promise<{ error: string; suggested: string } | null> {
   const number = sectionNumberOf(code);
@@ -66,7 +80,8 @@ export async function reusedSectionNumber(collegeId: number, sectionId: number, 
   const live = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
   if ((live as Scoped[]).some(row => Number(row.AdCourseId) === courseId && sectionNumberOf(row.SCode) === number)) return null;
   const ledger = await readSectionNumberLedger(collegeId, sectionId, termId).catch(() => null);
-  if (!ledger || number > Number(ledger[String(courseId)] || 0)) return null;
+  const doc = await Repository.getFeatureDoc<SectionNumberDoc>("sectionNumbers", sectionNumberDocId(collegeId, sectionId, termId)).catch(() => null);
+  if (!ledger || !(doc?.used?.[String(courseId)] || []).includes(number)) return null;
   const suggested = nextCourseSection(live as any[], courseId, termId, { ledger });
   return { error: `رقم الشعبة ${number} استُعمل لهذا المقرر في الفصل من قبل؛ الشعبة الجديدة تأخذ الرقم التالي ${suggested}.`, suggested };
 }
