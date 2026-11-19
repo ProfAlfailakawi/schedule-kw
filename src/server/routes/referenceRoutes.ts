@@ -7,6 +7,7 @@
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
 import type { Express } from "express";
+import { specialCourseIdsOf } from "../../utils/specialNature";
 import { Request, Response } from "express";
 import { Repository } from "../../db/repository";
 import { byRoom } from "../../utils/sorting";
@@ -65,7 +66,7 @@ async function duplicateTermProblem(name:string,exceptId=0):Promise<string|null>
 async function teachingLoadHoursForTerm(termId: number) {
   const [universe, courses] = await Promise.all([Repository.getSchedulesByScope({ termId }), Repository.getCourses()]);
   const courseHours = new Map<number, number>(courses.map((course: AdCourse) => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number]));
-  return teachingHoursByInstructor(universe, courseHours);
+  return teachingHoursByInstructor(universe, courseHours, specialCourseIdsOf(courses));
 }
 
 /* ── الفصول التي لها جدولٌ في النطاق ─────────────────────────────────────────

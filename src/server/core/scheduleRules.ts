@@ -24,7 +24,7 @@ import { sectionCodeKey } from "../../utils/sameSlot";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { historicalOrigin } from "../../utils/courseNature";
-import { isSpecialNature, meetingLengthIssue, practicalRequiredIssue } from "../../utils/specialNature";
+import { isSpecialNature, meetingLengthIssue, practicalRequiredIssue, specialSameDayIssue, specialSplitIssue } from "../../utils/specialNature";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, interCampusMinutes } from "../../utils/campusTravel";
 import { clockRangesOverlap, departmentHoursNote, formatScheduleTimeRange, isValidClock, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, scheduleDayWindowMinutes, withinUniversityDay } from "../../utils/scheduleTime";
 import { isSharedRoom, resolveBuilding, resolveRoom } from "../../utils/locationRegistry";
@@ -111,8 +111,7 @@ export async function patternVerdict(row:any,hypothetical?:FSchedule[],options:{
   }
   const course=await Repository.getCourseById(courseId);const hours=effectiveCourseHours(course);
   if(!(hours>0))return null;
-  /* المقررُ ذو الطبيعة الخاصة لا يُحكم بأنماط المكتبة: مددُه ومجموعُ ساعاته وعمليُّه في specialShapeIssue. */
-  if(isSpecialNature(course))return null;
+  const special=isSpecialNature(course);
   const union=new Set<DayKey>(own);
   let siblings:any[]=[];
   if(Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
@@ -122,6 +121,9 @@ export async function patternVerdict(row:any,hypothetical?:FSchedule[],options:{
         &&!isSameRow(other,row));
     for(const other of siblings)for(const day of SCHEDULE_DAY_KEYS)if((other as any)[day])union.add(day as DayKey);
   }
+  /* المقررُ ذو الطبيعة الخاصة لا يُحكم بأنماط المكتبة (مددُه وساعاتُه وعمليُّه في specialShapeIssue)؛ ما يُسأل عنه هنا
+     تجزئةُ النظري أو العملي على أكثر من يوم: ليست الأصل، فتُحفظ استثناءً بتأكيدٍ وسبب (specialSplitIssue). */
+  if(special){const text=specialSplitIssue(row,siblings);return text?{rule:"pattern-days",text}:null;}
   /* الشعبةُ كلُّها تُقرأ معاً (sectionDaysFitLibrary): المكتملةُ نمطٌ كامل بعينه، والناقصةُ جزءٌ من نمطٍ واحد بأطواله. */
   const fits=sectionDaysFitLibrary(hours,row,siblings);
   /* والطولُ أيضاً (المالك 2026-11-08): أيامٌ معتمدة بنهايةٍ تخالف نمطها تمنع، والسطرُ يقول النهاية الصحيحة.
@@ -155,7 +157,10 @@ export async function regulationExceptionsFor(row:any,hypothetical?:FSchedule[],
     const verdict=await patternVerdict(row,hypothetical);
     const known=verdict&&!(verdict.rule==="lecture-length"&&issues.some(issue=>issue.rule==="lecture-length"));
     const before=known&&existing&&sameScheduleShape(existing,row)?await patternVerdict(existing,hypothetical):null;
-    if(known&&!before)issues.unshift({rule:verdict!.rule,article:"م.7/8",text:verdict!.text});
+    /* تجزئةُ مقررٍ نظريٍّ وعمليّ ليست مادةً من اللائحة بل شكلُ الشعبة المعتاد عند القسم: تُقال باسمها، ولا تُقبل بلا سبب. */
+    if(known&&!before)issues.unshift(isSpecialNature(course)
+      ?{rule:verdict!.rule,article:"نظري + عملي",text:verdict!.text,needsReason:true}
+      :{rule:verdict!.rule,article:"م.7/8",text:verdict!.text});
   }
   return issues;
 }
@@ -244,17 +249,20 @@ export async function specialShapeIssue(row:any,hypothetical?:FSchedule[],option
   const courseId=Number(row?.AdCourseId||0);if(!courseId)return null;
   const course=await Repository.getCourseById(courseId).catch(()=>null);
   if(!isSpecialNature(course))return null;
+  const scoped=Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId);
+  const siblingsOf=async()=>{
+    const week=hypothetical||await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)});
+    return week.filter((other:any)=>Number(other.AdCourseId)===courseId&&sectionCodeKey(other.SCode)===sectionCodeKey(row.SCode)
+      &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
+      &&!isSameRow(other,row)) as any[];
+  };
   if(options.lengths!==false){
     const days=SCHEDULE_DAY_KEYS.filter(k=>Boolean(row?.[k])) as DayKey[];
     const text=meetingLengthIssue(days,row?.fstarttime,row?.fendtime);if(text)return text;
+    /* النظريُّ والعمليُّ لا يلتقيان في يوم: مانعٌ لا استثناء (قرار المالك 2026-11-19). */
+    if(scoped){const sameDay=specialSameDayIssue(row,await siblingsOf());if(sameDay)return sameDay;}
   }
-  if(options.practical!==false&&Number(row?.AdCollegeId)&&Number(row?.AdSectionId)&&Number(row?.AdTermId)){
-    const week=hypothetical||await Repository.getSchedulesByScope({collegeId:Number(row.AdCollegeId),sectionId:Number(row.AdSectionId),termId:Number(row.AdTermId)});
-    const siblings=week.filter((other:any)=>Number(other.AdCourseId)===courseId&&sectionCodeKey(other.SCode)===sectionCodeKey(row.SCode)
-      &&Number(other.AdCollegeId)===Number(row.AdCollegeId)&&Number(other.AdSectionId)===Number(row.AdSectionId)&&Number(other.AdTermId)===Number(row.AdTermId)
-      &&!isSameRow(other,row));
-    return practicalRequiredIssue(row,siblings as any[],course)||null;
-  }
+  if(options.practical!==false&&scoped)return practicalRequiredIssue(row,await siblingsOf(),course)||null;
   return null;
 }
 /** الموعدُ القائم بقي في شعبته: المقرّرُ ورمزُ الشعبة كما حُفظا. من غيّر أحدهما دخل شعبةً أخرى فيُحكم نمطُها من جديد. */

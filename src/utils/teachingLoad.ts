@@ -5,7 +5,8 @@
  * واجهة، ويقرؤه الخادمُ (الحفظ والتنبيه) والواجهةُ (شاشةُ الإعداد) بالتعريف نفسه.
  *
  *   العبء   = مجموعُ ساعات المقررات المسجَّلة للعضو في الفصل (CourseHours)، شعبةً واحدةً مرّة واحدة
- *             مهما تعدّدت صفوفُ مواعيدها.
+ *             مهما تعدّدت صفوفُ مواعيدها. والمقررُ النظريُّ والعمليّ (الطبيعة الخاصة) يُحسب لكلِّ عضوٍ بساعات
+ *             لقاءاته وحده: ساعتا النظري لعضو هيئة التدريس، وساعتا العملي لمدرّبه (رد الدكتورة 2026-11-19).
  *   السقف   = الحدُّ الأعلى + الإضافي، كلاهما من استثناء العضو إن وُجد وسرى، وإلا من درجته.
  *   الإضافي = ما بين الأعلى والسقف: حالةٌ هادئة («إضافي»)، لا خطأ.
  *   التجاوز = ما زاد على السقف. وهو تنبيهٌ يُقال ولا يمنع: لا يُرفض به حفظُ موعد.
@@ -17,6 +18,7 @@
 import { AR, countOf } from "./arabicCount";
 import type { AcademicRank, AdInstructor, FSchedule, InstructorLoadPolicy, LoadExceptionReason, TeachingLoadAssignment, TeachingLoadConfig } from "../types";
 import { termChronology } from "./termSequence";
+import { meetingTeachingHours } from "./specialNature";
 
 export const TEACHING_LOAD_DOC_ID = "main" as const;
 export const MAX_ACADEMIC_RANKS = 30;
@@ -131,14 +133,25 @@ export function teachingLoadProblem(raw: any): string | null {
 
 /** عبءُ كل عضو في الفصل: شعبةٌ (مقرر + رمز) تُحسب مرّةً لأستاذها، بساعات مقرّرها. */
 export function teachingHoursByInstructor(
-  rows: readonly Pick<FSchedule, "AdInstructorId" | "AdCourseId" | "SCode" | "AdCollegeId" | "AdSectionId">[],
+  rows: readonly (Pick<FSchedule, "AdInstructorId" | "AdCourseId" | "SCode" | "AdCollegeId" | "AdSectionId"> & Partial<FSchedule>)[],
   courseHours: ReadonlyMap<number, number>,
+  /** مقرراتٌ بطبيعةٍ خاصة: يُحسب لكلِّ عضوٍ فيها ساعاتُ لقاءاته (نظريُّه أو عمليُّه) لا ساعاتُ المقرر كلُّها. */
+  specialCourseIds: ReadonlySet<number> = new Set(),
 ): Map<number, number> {
   const counted = new Set<string>();
   const out = new Map<number, number>();
   for (const row of rows) {
     const instructorId = Number(row.AdInstructorId || 0), courseId = Number(row.AdCourseId || 0);
     if (!instructorId || !courseId) continue;
+    if (specialCourseIds.has(courseId)) {
+      /* كلُّ لقاءٍ مرّةً واحدة بأيامه ووقته: الصفُّ المكرَّر في القراءة لا يُضاعف الساعات. */
+      const meetingKey = `m|${instructorId}|${Number(row.AdCollegeId || 0)}|${Number(row.AdSectionId || 0)}|${courseId}|${String(row.SCode ?? "")}|${row.id ?? ""}|${String(row.fstarttime || "")}|${["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"].map(day => (row as any)[day] ? 1 : 0).join("")}`;
+      if (counted.has(meetingKey)) continue;
+      counted.add(meetingKey);
+      const share = meetingTeachingHours(row as any);
+      if (share > 0) out.set(instructorId, Math.round(((out.get(instructorId) || 0) + share) * 100) / 100);
+      continue;
+    }
     /* «01» يتكرر بين فروع القسم؛ نعدّ شعبة المقرر في نطاقها الأكاديمي، لا كل صف موعد ولا كل رمز شعبة متشابه. */
     const key = `${instructorId}|${Number(row.AdCollegeId || 0)}|${Number(row.AdSectionId || 0)}|${courseId}|${String(row.SCode ?? "")}`;
     if (counted.has(key)) continue;

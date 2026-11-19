@@ -1521,7 +1521,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const refusalIssues = mutating ? regulationIssuesOf(res.status, data) : null;
     if (refusalIssues) {
       const marked = withRegulationException(options?.body);
-      if (marked && await askRegulationException(refusalIssues, graduateNoteRef.current || undefined)) return fetchJson(url, { ...options, body: marked });
+      const choice = marked ? await askRegulationException(refusalIssues, graduateNoteRef.current || undefined) : false;
+      if (choice) return fetchJson(url, { ...options, body: withRegulationException(options?.body, choice.reason) || marked! });
       const declined: any = new Error(marked ? REGULATION_EXCEPTION_DECLINED : String(data.error || REGULATION_EXCEPTION_DECLINED));
       declined.code = data.code;
       declined.regulation = refusalIssues;
@@ -10539,6 +10540,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     scode={String(form.SCode || "")}
                     busy={saving}
                     collegeId={Number(form.AdCollegeId || 0)} sectionId={Number(form.AdSectionId || 0)} termId={Number(form.AdTermId || 0)}
+                    theoryInstructorId={Number(form.AdInstructorId || 0)}
                     onCheck={checkSpecialSection}
                     onSave={saveSpecialSection}
                   />

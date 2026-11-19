@@ -8,6 +8,7 @@
  * أعدادٌ فقط؛ لا اسم يخرج من هنا.
  */
 import { Repository } from "../db/repository";
+import { specialCourseIdsOf } from "../utils/specialNature";
 import { evaluateTeachingLoad, loadTermContext, teachingHoursByInstructor } from "../utils/teachingLoad";
 import { VISITOR_HOURS } from "../utils/sectionPlan";
 import { placeholderInstructorIds } from "./core/smartImport";
@@ -31,7 +32,7 @@ export async function teachingRoomFor(collegeId: number, sectionId: number, term
     Repository.getSchedulesByScope({ termId }), Repository.getCourses(), readVisitingStatus(collegeId, sectionId, termId),
   ]);
   const placeholders = placeholderInstructorIds(instructors as any[]);
-  const hours = teachingHoursByInstructor(termRows as any[], new Map<number, number>((courses as any[]).map(course => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number])));
+  const hours = teachingHoursByInstructor(termRows as any[], new Map<number, number>((courses as any[]).map(course => [Number(course.AdCourseId), Number(course.CourseHours) || 0] as [number, number])), specialCourseIdsOf(courses as any[]));
   const context = loadTermContext(terms as any, termId);
   const visitors = new Set<number>(visiting.instructorIds.map(Number));
   const byId = new Map((instructors as any[]).map(person => [Number(person.AdInstructorId), person] as const));
