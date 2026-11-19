@@ -79,6 +79,8 @@ export function mountDuoDebug() {
       `frame: ${Math.round(frameW)} x ${Math.round(measuredH || frameH)} px, physical top-right`,
       `safe-area t/r/b/l: ${sa.top} / ${sa.right} / ${sa.bottom} / ${sa.left}`,
       `inner: ${window.innerWidth} x ${window.innerHeight}`,
+      `screen: ${screen.width} x ${screen.height} · avail ${screen.availWidth} x ${screen.availHeight}`,
+      `device=${document.documentElement.dataset.device} shell=${document.documentElement.dataset.shell} side=${document.documentElement.dataset.widgetSide}`,
       `visualViewport: ${vv ? `${Math.round(vv.width)} x ${Math.round(vv.height)} @ ${vv.scale.toFixed(2)}x` : "n/a"}`,
       `dir: ${document.documentElement.dir || document.dir || "ltr"}  orient: ${window.matchMedia("(orientation:portrait)").matches ? "portrait" : "landscape"}`,
       `calibration: ${Object.keys(calibrated).length ? JSON.stringify(calibrated) : "none (add &duo-w=110&duo-h=270)"}`,
