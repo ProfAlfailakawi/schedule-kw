@@ -578,12 +578,13 @@ async function startDemoSession(res: Response): Promise<void> {
  * المعرّفُ والكوكي والمدّة، وهويةُ الكرسي، والصلاحياتُ والنطاق، وحمولةُ الواجهة. يرسل الردّ.
  * ما يُحكم به قبلها (حسابٌ فعّال، غيرُ مقفل، وكلمةٌ مؤقتة…) يبقى عند من يستدعيها.
  */
-async function signInSession(req: Request, res: Response, user: any, mustChange: boolean): Promise<void> {
+async function signInSession(req: Request, res: Response, user: any, mustChange: boolean, memberId?: string): Promise<void> {
   // Generate Session ID
   const sessionId = `sess_${randomBytes(32).toString("hex")}`;
   /* دخولٌ بالكلمة الأولى لحسابٍ عليه تغييرُها: تحمل الجلسةُ أثرَها، فيختار كلمته دون أن يُسأل عن
      كلمةٍ لم يكتبها بنفسه (currentPasswordWaived). الأثرُ لا الكلمة، ولا يُعاد إلى المتصفح. */
-  await Repository.createSession(sessionId, user.SystemUserId, SERVER_IDLE_SESSION_MS, mustChange ? { initialPassMark: initialPasswordMark(user.SystemUserPass) } : {});
+  /* وعضوُ الفريق بالبصمة: جلسةُ رابطه الشخصي نفسُها (memberId)، لا جلسةُ الرئيس. */
+  await Repository.createSession(sessionId, user.SystemUserId, SERVER_IDLE_SESSION_MS, memberId ? { memberId } : mustChange ? { initialPassMark: initialPasswordMark(user.SystemUserPass) } : {});
 
   // Set Cookie
   res.setHeader(
@@ -593,7 +594,13 @@ async function signInSession(req: Request, res: Response, user: any, mustChange:
 
   const userPerms = await Repository.getSecurityByUser(user.SystemUserId);
   /* الدخولُ بكلمة سرّ الكرسي دخولُ شاغله: يُقرأ اسمُه كما تقرؤه الجلساتُ بعده (docs/SEATS.md). */
-  const seated = (await seatIdentity(user, undefined, await Repository.getUserAssigns(user.SystemUserId), userPerms.map(p => Number(p.FormNameId))))!;
+  const seated = await seatIdentity(user, memberId, await Repository.getUserAssigns(user.SystemUserId), userPerms.map(p => Number(p.FormNameId)));
+  if (!seated) {
+    await Repository.deleteSession(sessionId).catch(() => undefined);
+    res.setHeader("Set-Cookie", `session_id=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`);
+    res.status(403).json({ error: "عضويتك في هذا الفريق لم تعد فعّالة.", code: "member-inactive" });
+    return;
+  }
   const safeUser = safeSystemUser(seated.user);
   const permissions = seated.permissions;
   const scopes = await clientScopeDetails(seated.scopes);
@@ -901,5 +908,5 @@ app.post("/api/auth/presence", requireAuth, (req: AuthenticatedRequest, res: Res
 });
 
 /* «الدخول بالبصمة» (src/server/passkeys.ts): يفتح الجلسةَ نفسَها بالدالة نفسها، ويرفض ما ترفضه كلمةُ السر. */
-registerPasskeyRoutes(app, { signIn: (req, res, user) => signInSession(req, res, user, false), startDemo: startDemoSession });
+registerPasskeyRoutes(app, { signIn: (req, res, user, memberId) => signInSession(req, res, user, false, memberId), startDemo: startDemoSession });
 }

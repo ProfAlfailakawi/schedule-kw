@@ -300,6 +300,7 @@
     "test:app-handoff": "tsx tests/app-handoff-audit.ts",
     "test:passkeys": "tsx tests/passkey-audit.ts",
     "test:passkeys-ui": "tsx tests/passkey-ui-audit.ts",
+    "test:passkey-seat-revoke": "tsx tests/passkey-seat-revoke-audit.ts",
     "test:first-login-password": "tsx tests/first-login-password-audit.tsx",
     "test:colleague-guard-measure": "tsx tests/colleague-guard-measure-audit.ts",
     "test:actual-demand": "tsx tests/actual-demand-audit.ts",
