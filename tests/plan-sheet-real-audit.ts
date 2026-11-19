@@ -76,6 +76,8 @@ const EXPECTED: Record<string, [string, number]> = {
   check(checkSheetScope(env, { ...envScope, collegeName: "كلية التربية الأساسية - بنات", collegeCode: "01", departmentKey: "0144" })?.kind === "college", "صحة البيئة: لا تُقبل في كليةٍ أخرى");
   check(isNewSheet(env) && !trackProgramOf(env), "صحة البيئة (2008): صحيفة القسم المعتمدة لا «السابقة»، وليست مساراً مزدوجاً");
   check(englishPrefixOf("قسم صحة البيئة") === "HealthEnvironment", "حسابات صحة البيئة: HealthEnvironment لا HealthByyh");
+  check([["قسم العلوم الطبية التطبيقية", "MedicalApplied"], ["قسم علوم الأغذية والتغذية", "FoodNutrition"], ["قسم صحة الفم والأسنان", "HealthOral"], ["قسم السجلات الطبية", "RecordsMedical"], ["قسم العلوم الصيدلانية", "Pharmaceutical"], ["قسم تكنولوجيا المختبرات الطبية", "TechLab"]].every(([name, login]) => englishPrefixOf(name) === login), "بادئات دخول أقسام العلوم الصحية");
+  check([["قسم التربية الإسلامية", "Islamic"], ["قسم رياض الأطفال", "Kinder"], ["قسم الأصول والإدارة التربية", "FoundationsAdmin"], ["قسم تكنولوجيا التعليم", "TechTalym"]].every(([name, login]) => englishPrefixOf(name) === login), "بادئات الأقسام القائمة لا تتغيّر");
   /* العلوم الصحية: دبلوم (DP) واستكمال (BC) وبكالوريوس (BA): صحائفُ معتمدةٌ لا «السابقة»، والبرامج مساراتٌ داخل قسمها */
   const hs = async (file: string) => parsePlanItems(await extractPlanItems(fs.readFileSync(`tests/fixtures/plans/health-sciences/${file}.pdf`)));
   const rt = await hs("dp-0317"), completion = await hs("bc-031401"), dental = await hs("dp-0315"), lab = await hs("dp-0309"), boysEnv = await hs("ba-031002");
