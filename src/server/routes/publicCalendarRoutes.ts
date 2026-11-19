@@ -151,7 +151,7 @@ async function sendInstructorCalendar(req: Request, res: Response, person: { AdI
     const course = courseById.get(row.AdCourseId);
     return {
       id: row.id,
-      title: [course?.CourseCode, row.AdCourseName || course?.CourseName].filter(Boolean).join(" · "),
+      title: [course?.CourseCode, row.AdCourseName || course?.CourseName, (row as any).practical === true ? "عملي" : ""].filter(Boolean).join(" · "),
       code: course?.CourseCode || "", section: row.SCode || "",
       room: [collegeById.get(Number(row.AdCollegeId))?.AdCollegeName, row.AdRoomCode, row.AdRoomHall].filter(Boolean).join(" / "),
       start: row.fstarttime, end: row.fendtime,

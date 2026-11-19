@@ -18,6 +18,8 @@ export interface PinRegulationContext {
   /** أسبوعُ الفصل كلُّه: التتالي يُقرأ على أسبوع الأستاذ في الجامعة كلها. */
   week: readonly FSchedule[];
   hoursOf: (courseId: number) => number;
+  /** مقررٌ بطبيعةٍ خاصة (نظري + عملي): شكلُه حرٌّ بين مدد اللائحة، فلا نمطَ مكتبةٍ يُحكم به (specialNature.ts). الساعاتُ تبقى محكومةً. */
+  specialOf?: (courseId: number) => boolean;
   placeholders?: ReadonlySet<number>;
   nameOf?: (row: FSchedule) => string;
 }
@@ -26,7 +28,7 @@ export interface PinRegulationContext {
 export function pinRegulationIssues(row: FSchedule, context: PinRegulationContext): RegulationExceptionIssue[] {
   return regulationExceptionIssues({
     row: row as any, week: context.week as any, placeholders: context.placeholders,
-    courseHours: context.hoursOf(Number(row.AdCourseId)), nameOf: context.nameOf as any,
+    courseHours: context.specialOf?.(Number(row.AdCourseId)) ? 0 : context.hoursOf(Number(row.AdCourseId)), nameOf: context.nameOf as any,
   }).filter(issue => issue.rule !== "lecture-length");
 }
 
@@ -58,7 +60,9 @@ export function pinRowIssues(row: FSchedule, context: PinRegulationContext): Pin
   const own = DAY_KEYS.filter(day => Boolean((row as any)[day])) as DayKey[];
   if (hours > 0 && own.length) {
     const siblings = context.week.filter(other => sameSectionRow(row, other));
-    if (sectionDaysFitLibrary(hours, row as any, siblings as any) === false) {
+    if (context.specialOf?.(Number(row.AdCourseId))) {
+      /* لا نمطَ ولا طولَ نمطٍ لمقررٍ خاص: مددُه من اللائحة في حكم الحفظ، وساعاتُه تُقرأ أدناه. */
+    } else if (sectionDaysFitLibrary(hours, row as any, siblings as any) === false) {
       issues.push({ rule: "pattern", article: "م.7/8", text: sectionPatternIssueText(hours, row as any, siblings as any) });
     } else {
       const length = patternLengthIssue({ CourseHours: hours }, own, String(row.fstarttime || ""), String(row.fendtime || ""));

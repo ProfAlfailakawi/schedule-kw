@@ -101,7 +101,7 @@ export function doorWeek(rows: readonly FSchedule[], courses: ReadonlyMap<number
       const stored = String(course?.CourseCode || row.CourseCodeSnapshot || "").trim();
       /* على الباب رقم الهيئة السباعي (0109105)، لا الرمز المخزَّن؛ والدمج بالمخزَّن كما كان. */
       const code = authorityCourseCode(stored, departments?.get(Number(course?.AdSectionId || row.AdSectionId)));
-      const title = String(row.AdCourseName || course?.CourseName || row.CourseNameSnapshot || "").trim();
+      const title = `${String(row.AdCourseName || course?.CourseName || row.CourseNameSnapshot || "").trim()}${(row as any).practical === true ? " · عملي" : ""}`;
       const key = `${stored || title}|${s}|${e}`;
       const cancelled = Boolean(date && cancels.get(Number(row.id))?.has(date));
       const entry = merged.get(key) || { s, e, start: String(row.fstarttime).slice(0, 5), end: String(row.fendtime).slice(0, 5), code, title, sec: "", sections: new Set<string>(), all: 0, off: 0 };

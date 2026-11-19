@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { SPECIAL_MIN_HOURS } from "../../utils/specialNature";
 import type { Express } from "express";
 import { Response } from "express";
 import { DuplicateResourceError, Repository } from "../../db/repository";
@@ -430,6 +431,8 @@ app.post("/api/courses", requirePermission(6), async (req: AuthenticatedRequest,
   if(CourseTeachingMode&&!['theoretical','applied','practical','field_training'].includes(CourseTeachingMode)){res.status(400).json({error:"طبيعة تدريس المقرر غير معروفة."});return;}
   const numberIssue = courseNumberIssue(CourseCredit, CourseHours, MaxStudent);
   if (numberIssue) { res.status(400).json({ error: numberIssue }); return; }
+  const CourseSpecialNature = req.body?.CourseSpecialNature === true;
+  if (CourseSpecialNature && !(Number(CourseHours) >= SPECIAL_MIN_HOURS)) { res.status(400).json({ error: `الطبيعة الخاصة (نظري + عملي) لمقررٍ ساعاتُه ${SPECIAL_MIN_HOURS} فأكثر.` }); return; }
   {
     const refusal = await capacityRefusal(CourseCode, sectionIdInput, CourseTeachingMode, Number(MaxStudent));
     if (refusal) { res.status(400).json({ error: refusal }); return; }
@@ -467,7 +470,8 @@ app.post("/api/courses", requirePermission(6), async (req: AuthenticatedRequest,
       true,
       CourseRoomType,
       CourseTeachingMode || undefined,
-      CourseCompanionRoomType
+      CourseCompanionRoomType,
+      CourseSpecialNature
     );
     res.status(201).json(newC);
   } catch (error) {
@@ -598,11 +602,22 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
   }
   const numberIssue = courseNumberIssue(CourseCredit, CourseHours, MaxStudent);
   if (numberIssue) { res.status(400).json({ error: numberIssue }); return; }
+  /* undefined يُبقي ما هو قائم؛ true/false قرارٌ صريح. */
+  const CourseSpecialNature = req.body?.CourseSpecialNature === undefined ? undefined : req.body.CourseSpecialNature === true;
 
   // Do not reject historical text/whitespace already present in CourseCode (legacy parity).
 
   const currentCourse = await Repository.getCourseById(id);
   if (!currentCourse) { res.status(404).json({ error: "المقرر الدراسي غير موجود" }); return; }
+  {
+    const nextSpecial = CourseSpecialNature === undefined ? Boolean(currentCourse.CourseSpecialNature) : CourseSpecialNature;
+    if (nextSpecial && !(Number(CourseHours) >= SPECIAL_MIN_HOURS)) { res.status(400).json({ error: `الطبيعة الخاصة (نظري + عملي) لمقررٍ ساعاتُه ${SPECIAL_MIN_HOURS} فأكثر.` }); return; }
+    /* لا تُرفع الطبيعةُ الخاصة وعليها لقاءاتٌ عملية: تبقى علاماتُها يتيمةً في الجدول وتُحكم الشعبةُ بنمطٍ ليس لها. */
+    if (Boolean(currentCourse.CourseSpecialNature) && !nextSpecial) {
+      const marked = (await Repository.getSchedules()).filter(row => Number(row.AdCourseId) === id && row.practical === true).length;
+      if (marked) { res.status(409).json({ error: `في جداول هذا المقرر ${countOf(marked, AR.meeting)} معلَّمة بالعملي؛ احذفها أو أعد تحديد شعبها قبل إلغاء الطبيعة الخاصة.`, code: "special-nature-in-use" }); return; }
+    }
+  }
   {
     const effectiveMode = CourseTeachingMode === undefined ? currentCourse.CourseTeachingMode : (CourseTeachingMode || undefined);
     const changed = Number(MaxStudent) !== Number(currentCourse.MaxStudent) || String(effectiveMode || "") !== String(currentCourse.CourseTeachingMode || "");
@@ -761,7 +776,8 @@ app.put("/api/courses/:id", requirePermission(6), async (req: AuthenticatedReque
       MaxStudent!,
       CourseRoomType,
       CourseTeachingMode === "" ? null : CourseTeachingMode,
-      CourseCompanionRoomType
+      CourseCompanionRoomType,
+      CourseSpecialNature
     );
     res.json({ ...updated, companionSynced, roomTypeSynced, roomTypeAligned, roomTypeChanged, roomTypeEvaluated, roomTypeSkipped: roomTypeSkipped.slice(0, 8), teachingModeSynced, teachingModeAligned, teachingModeChanged, teachingModeEvaluated, teachingModeSkipped: teachingModeSkipped.slice(0, 8) });
   } catch (e: any) {

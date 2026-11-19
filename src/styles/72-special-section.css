@@ -1,0 +1,67 @@
+/* ── المقرر ذو الطبيعة الخاصة: «موعد» بنظريٍّ وعمليّ، وعلامةُ «عملي» الواحدة ─────────────────────────────
+   لونٌ واحدٌ هادئ للعملي في كل الشاشات: --info (يتبدّل مع الوضع الداكن). لا زخرفةَ بلا معنى: التظليلُ المائل يقول «لقاءٌ آخر نوعُه عملي». */
+.pr-mark{display:inline-flex;flex:none;align-items:center;gap:4px;padding:2px 8px;border:1px solid color-mix(in srgb,var(--info) 34%,transparent);border-radius:999px;background:var(--info-soft);color:var(--info);font-size:.72rem;font-weight:700;line-height:1.4;white-space:nowrap}
+.pr-mark svg{width:1.05em;height:1.05em;stroke-width:1.9}
+.pr-mark.is-compact{padding:2px 5px}
+.course-special-badge{display:inline-flex;flex:none;align-items:center;gap:4px;padding:3px 8px;border:1px solid color-mix(in srgb,var(--info) 30%,transparent);border-radius:999px;background:var(--info-soft);color:var(--info);font-size:.68em;font-weight:650;line-height:1.35;white-space:nowrap}
+.course-special-badge svg{width:1em;height:1em;stroke-width:1.8}
+.course-special-toggle{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer}
+.course-special-toggle input{width:18px;height:18px;accent-color:var(--info)}
+.course-special-toggle span{display:inline-flex;align-items:center;gap:6px;font-weight:650}
+.course-special-toggle svg{width:1.1em;height:1.1em;color:var(--info)}
+
+.ssb-builder{display:grid;gap:14px}
+.ssb-chip-row{display:flex}
+.ssb-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:var(--info-soft);color:var(--info);font-size:.74rem;font-weight:700;white-space:nowrap}
+.ssb-chip svg{width:1em;height:1em}
+.ssb-days{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.ssb-day{display:grid;gap:6px;align-content:start;padding:8px;border:1px dashed var(--line-strong);border-radius:14px;background:var(--surface-2);transition:border-color .18s var(--ease),background .18s var(--ease)}
+.ssb-day.is-on{border-style:solid;border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:var(--surface)}
+.ssb-day.is-on.is-practical{border-color:color-mix(in srgb,var(--info) 55%,var(--line));background:repeating-linear-gradient(135deg,var(--info-soft) 0 7px,transparent 7px 14px),var(--surface)}
+.ssb-day-toggle{display:grid;gap:2px;width:100%;min-height:44px;padding:4px;border:0;border-radius:10px;background:transparent;color:var(--ink);text-align:center;cursor:pointer;font:inherit}
+.ssb-day-toggle b{font-size:.95rem}
+.ssb-day-toggle small{color:var(--muted-text);font-size:.74rem}
+.ssb-day-toggle:focus-visible,.ssb-lab-toggle:focus-visible,.ssb-ask-chips button:focus-visible,.ssb-save:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ssb-length{width:100%;min-height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:6px 8px;font:inherit}
+.ssb-lab-toggle{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--muted-text);font:inherit;font-weight:700;cursor:pointer}
+.ssb-lab-toggle svg{width:1.05em;height:1.05em}
+.ssb-lab-toggle[aria-pressed="true"]{border-color:color-mix(in srgb,var(--info) 55%,transparent);background:var(--info-soft);color:var(--info)}
+.ssb-total{display:grid;gap:6px}
+.ssb-total-bar{display:block;height:8px;border-radius:999px;background:var(--surface-3);overflow:hidden}
+.ssb-total-bar i{display:block;height:100%;border-radius:inherit;background:var(--accent);transition:width .25s var(--ease)}
+.ssb-total.is-over .ssb-total-bar i{background:var(--danger)}
+.ssb-total-text{display:inline-flex;align-items:center;gap:6px;color:var(--muted-text);font-size:.86rem;font-weight:650}
+.ssb-total.is-complete .ssb-total-text{color:var(--accent-ink)}
+.ssb-total-text svg{width:1.1em;height:1.1em}
+.ssb-ask{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid color-mix(in srgb,var(--info) 45%,transparent);border-radius:14px;background:var(--info-soft);color:var(--ink);animation:ssb-pulse 1.6s var(--ease) 2}
+.ssb-ask>svg{flex:none;width:26px;height:26px;color:var(--info)}
+.ssb-ask>div{display:grid;gap:6px}
+.ssb-ask strong{font-size:1rem}
+.ssb-ask-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ssb-ask-chips button{min-height:40px;padding:6px 14px;border:1px solid color-mix(in srgb,var(--info) 55%,transparent);border-radius:999px;background:var(--surface);color:var(--info);font:inherit;font-weight:700;cursor:pointer}
+@keyframes ssb-pulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--info) 22%,transparent)}}
+.ssb-group{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.ssb-group.is-practical{border-color:color-mix(in srgb,var(--info) 50%,var(--line));background:linear-gradient(var(--info-soft),var(--info-soft)) top/100% 3px no-repeat,var(--surface)}
+.ssb-group>header{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ssb-group>header small{margin-inline-start:auto;color:var(--muted-text)}
+.ssb-theory-mark{display:inline-flex;padding:2px 8px;border-radius:999px;background:var(--surface-3);color:var(--muted-text);font-size:.72rem;font-weight:700}
+.ssb-start{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.ssb-start>span{font-weight:700;font-size:.86rem}
+.ssb-start select,.ssb-start input{min-height:42px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:6px 10px;font:inherit}
+.ssb-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-top:4px}
+.ssb-status{display:inline-flex;align-items:center;gap:6px;color:var(--muted-text);font-weight:650;min-width:0}
+.ssb-status svg{flex:none;width:1.1em;height:1.1em}
+.ssb-status.is-ok{color:var(--accent-ink)}
+.ssb-status.is-bad{color:var(--danger)}
+.ssb-save{display:inline-flex;align-items:center;gap:8px;min-height:46px;padding:0 22px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-contrast);font:inherit;font-weight:800;cursor:pointer}
+.ssb-save:disabled{opacity:.45;cursor:not-allowed}
+.ssb-save svg{width:1.1em;height:1.1em}
+.ssb-notes{margin:0;padding:0 18px 0 0;color:var(--muted-text);font-size:.82rem}
+@media(max-width:760px){.ssb-days{grid-template-columns:repeat(2,minmax(0,1fr))}.ssb-foot{flex-direction:column;align-items:stretch}.ssb-save{justify-content:center}}
+@media(prefers-reduced-motion:reduce){.ssb-ask{animation:none}.ssb-total-bar i{transition:none}}
+/* عرضُ اللقاء العملي على الجداول: خطٌّ مائلٌ خفيف خلف البطاقة، وكلمةٌ في الطباعة */
+.week-event[data-practical="true"],.agenda-card[data-practical="true"]{background-image:repeating-linear-gradient(135deg,color-mix(in srgb,var(--info) 11%,transparent) 0 6px,transparent 6px 12px)}
+.week-event[data-practical="true"] .pr-mark.is-compact{margin-inline-start:4px;vertical-align:middle}
+.pr-line{display:inline-flex;align-items:center;gap:4px;color:var(--info);font-weight:700}
+.pr-line svg{width:1em;height:1em}
+@media print{.pr-mark,.course-special-badge,.pr-line{border-color:#000;background:#fff;color:#000}.week-event[data-practical="true"],.agenda-card[data-practical="true"]{background-image:none}}

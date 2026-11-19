@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
 import { resolveScopeSelection, singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeContext";
-import { BookOpen, Building2, DoorOpen, GraduationCap, Trash2, Users } from "lucide-react";
+import { BookOpen, Building2, DoorOpen, FlaskConical, GraduationCap, Trash2, Users } from "lucide-react";
 import { sortByName, byArabic } from "../utils/sorting";
 import CurriculumPlans from "./CurriculumPlans";
 import CourseTags from "./CourseTags";
@@ -46,6 +46,9 @@ const teachingModeBadge = (course: any) => {
   const label = TEACHING_MODE_LABEL[String(course?.CourseTeachingMode || "")];
   return label ? <span className="course-teaching-mode-badge" title="طبيعة التدريس"><GraduationCap aria-hidden="true"/>{label}</span> : null;
 };
+/** مقررٌ نظريٌّ وعمليٌّ في شعبةٍ واحدة (CourseSpecialNature): شارةٌ هادئةٌ بجانب اسمه. */
+const specialNatureBadge = (course: any) => course?.CourseSpecialNature === true
+  ? <span className="course-special-badge" title="طبيعة خاصة: نظري + عملي — يحدّد من يُدخل الموعد اللقاء العملي ومكانه"><FlaskConical aria-hidden="true"/>نظري + عملي</span> : null;
 const teachingModeValue = (course: any) => {
   const value = String(course?.CourseTeachingMode || "").trim();
   return TEACHING_MODE_LABEL[value] || value || "غير محدد";
@@ -222,6 +225,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     [courseRoomType, setCourseRoomType] = useState(""),
     [courseTeachingMode, setCourseTeachingMode] = useState(""),
     [courseCompanionRoomType, setCourseCompanionRoomType] = useState(""),
+    [courseSpecialNature, setCourseSpecialNature] = useState(false),
     [roomTypeOptions, setRoomTypeOptions] = useState<string[]>(["تدريسية", "مختبر", "مختبر حاسوب"]),
     [query, setQuery] = useState(""),
     [error, setError] = useState<string | null>(null),
@@ -354,7 +358,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setHours("");
       setCapacity("");
       setCourseRoomType("");
-      setCourseTeachingMode("");setCourseCompanionRoomType("");
+      setCourseTeachingMode("");setCourseCompanionRoomType("");setCourseSpecialNature(false);
       setError(null);
       setErrorCode(null);
       setCurriculumTarget(null);
@@ -394,6 +398,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
       setCourseRoomType(String(x.CourseRoomType || ""));
       setCourseTeachingMode(String(x.CourseTeachingMode || ""));
     setCourseCompanionRoomType(String(x.CourseCompanionRoomType || ""));
+      setCourseSpecialNature(x.CourseSpecialNature === true);
       setError(null);
       setErrorCode(null);
       setCurriculumTarget(null);
@@ -402,7 +407,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     };
   /* ما في النموذج لحظة فتحه: يُقارن به ما فيه الآن، فلا يُغلق نموذجٌ معدَّل بنقرةٍ خارجه دون سؤال. */
   const [captureNext, setCaptureNext] = useState(false);
-  const snapshot = JSON.stringify([collegeId, sectionId, code, name, credit, hours, capacity, courseRoomType, courseTeachingMode, courseCompanionRoomType]);
+  const snapshot = JSON.stringify([collegeId, sectionId, code, name, credit, hours, capacity, courseRoomType, courseTeachingMode, courseCompanionRoomType, courseSpecialNature]);
   useEffect(() => {
     if (!captureNext) return;
     setInitial(snapshot);
@@ -445,7 +450,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
     setHours(String(intent.hours ?? ""));
     setCapacity("");
     setCourseRoomType("");
-      setCourseTeachingMode("");setCourseCompanionRoomType("");
+      setCourseTeachingMode("");setCourseCompanionRoomType("");setCourseSpecialNature(false);
     /* ما جاء مملوءاً من شاشةٍ أخرى عملٌ لا يُرمى بنقرةٍ خارج النموذج: يُعدّ غير محفوظ منذ البداية. */
     setInitial("");
     setResumeCreate(false);
@@ -521,6 +526,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
               CourseRoomType: courseRoomType,
               CourseTeachingMode: courseTeachingMode,
               CourseCompanionRoomType: courseCompanionRoomType,
+              CourseSpecialNature: courseSpecialNature,
             }),
           },
         ),
@@ -809,6 +815,14 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
               </select>
               <small>إذا حُدد، يجب حجز مرفق من هذا النوع مع كل موعد طوال مدته.</small>
             </Field>
+            <Field label="طبيعة خاصة: نظري + عملي في شعبةٍ واحدة">
+              <label className="course-special-toggle">
+                <input type="checkbox" checked={courseSpecialNature} onChange={event => setCourseSpecialNature(event.target.checked)} aria-label="مقرر بطبيعة خاصة نظري وعملي"
+                  data-guide-ignore="يجعل شكل أسبوع هذا المقرر حراً بين مدد اللائحة، ويلزم من يُدخل موعده بتحديد اللقاء العملي ومكانه" />
+                <span><FlaskConical aria-hidden="true"/>يتضمن لقاءً عملياً يحدَّد عند إدخال الموعد</span>
+              </label>
+              <small>مثل «مقدمة في الأسنان»: الأحد ساعة والثلاثاء ساعة والخميس ساعتان. يختار من يُدخل الموعد أيامه ومدة كل يوم، ثم يحدّد أي لقاء عملي وأين.</small>
+            </Field>
             <Field label="طبيعة التدريس (للمراجعة اللائحية)">
               <select value={courseTeachingMode} onChange={event => setCourseTeachingMode(event.target.value)} aria-label="طبيعة تدريس المقرر">
                 <option value="">غير محددة</option>
@@ -908,7 +922,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
                   onClick={() => setSelectedId(x.AdCourseId)}
                   className={activeId === x.AdCourseId ? "selected" : ""}
                   icon={<BookOpen />}
-                  title={<span className="course-room-type-line"><span>{x.CourseName}<CourseTags courseId={x.AdCourseId} /></span>{teachingModeBadge(x)}<CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
+                  title={<span className="course-room-type-line"><span>{x.CourseName}<CourseTags courseId={x.AdCourseId} /></span>{teachingModeBadge(x)}{specialNatureBadge(x)}<CourseRoomTypeBadge type={x.CourseRoomType}/></span>}
                   subtitle={<span className="record-path"><Building2 />{sec(x.AdSectionId)} <i className="record-path-dot" aria-hidden="true" /> {coll(x.AdCollegeId)}</span>}
                   meta={<><MetaPill label={COURSE_NUMBER_LABEL} value={courseNumberOf(x)} dir="ltr" /><MetaPill label="الوحدات" value={x.CourseCredit} /><MetaPill label="الساعات" value={x.CourseHours} /></>}
                 />
@@ -934,7 +948,7 @@ export default function Courses({ embedded = false, actionSlot = null, scopes = 
             <>
               <div className="academic-inspector-icon"><BookOpen /></div>
               <span className="surface-kicker">تفاصيل المقرر</span>
-              <h2 className="course-room-type-line"><span>{selected.CourseName}<CourseTags courseId={selected.AdCourseId} /></span>{teachingModeBadge(selected)}<CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
+              <h2 className="course-room-type-line"><span>{selected.CourseName}<CourseTags courseId={selected.AdCourseId} /></span>{teachingModeBadge(selected)}{specialNatureBadge(selected)}<CourseRoomTypeBadge type={selected.CourseRoomType}/></h2>
               <p>{sec(selected.AdSectionId)} · {coll(selected.AdCollegeId)}</p>
               {serviceOf(selected).length ? <p className="course-service-for">متطلب في صحائف: {serviceOf(selected).join("، ")}</p> : null}
               <div className="inspector-facts inspector-facts-pairs">
