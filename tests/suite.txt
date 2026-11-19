@@ -209,6 +209,7 @@ test:approval-review
 test:decision-surfaces
 test:schedule-board-fixes
 test:schedule-versions-list
+test:what-changed
 test:time-machine-scope-escape
 test:visiting-badge-changes
 test:consistent-badges
