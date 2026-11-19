@@ -97,12 +97,18 @@ export function practicalRequiredIssue(row: RowLike, siblings: readonly RowLike[
  */
 const ROLE_NAME = (row: RowLike) => isPracticalRow(row) ? "العملي" : "النظري";
 
-/** «النظري مجزّأ…» إن كان دورُ هذا اللقاء أكثرَ من لقاءٍ واحد في يومٍ واحد؛ "" إن كان لقاءً واحداً متصلاً. */
+/** «النظري مجزّأ…» إن كان دورُ هذا اللقاء أكثرَ من لقاءٍ واحد — على أيامٍ مختلفة، أو لقاءين منفصلين في اليوم نفسه؛
+ *  "" إن كان لقاءً واحداً متصلاً في يومٍ واحد. */
 export function specialSplitIssue(row: RowLike, siblings: readonly RowLike[]): string {
   const sameRoleRows = [row, ...siblings.filter(other => sameRole(other as object, row as object))];
-  const days = [...new Set(sameRoleRows.flatMap(daysOf))].sort((a, b) => DAY_KEYS.indexOf(a) - DAY_KEYS.indexOf(b));
-  if (days.length <= 1) return "";
-  return `${ROLE_NAME(row)} مجزّأ على ${days.length === 2 ? "يومين" : countOf(days.length, AR.day)} (${days.map(dayName).join(" · ")}): المعتمد أن يكون كلٌّ من النظري والعملي لقاءً واحداً متصلاً.`;
+  /* كلُّ (يومٍ × صفّ) لقاءٌ قائمٌ بنفسه: صفٌّ بيومين لقاءان، وصفّان في اليوم نفسه لقاءان منفصلان. */
+  const meetings = sameRoleRows.flatMap(item => daysOf(item).map(day => ({ day, start: String(item.fstarttime || "").slice(0, 5) })))
+    .sort((a, b) => DAY_KEYS.indexOf(a.day) - DAY_KEYS.indexOf(b.day) || a.start.localeCompare(b.start));
+  if (meetings.length <= 1) return "";
+  const days = [...new Set(meetings.map(item => item.day))];
+  const where = days.length === meetings.length ? days.map(dayName).join(" · ") : meetings.map(item => `${dayName(item.day)} ${item.start}`).join(" · ");
+  const count = days.length === meetings.length ? (days.length === 2 ? "يومين" : countOf(days.length, AR.day)) : (meetings.length === 2 ? "لقاءين" : countOf(meetings.length, AR.meeting));
+  return `${ROLE_NAME(row)} مجزّأ على ${count} (${where}): المعتمد أن يكون كلٌّ من النظري والعملي لقاءً واحداً متصلاً.`;
 }
 
 /** «النظري والعملي في يومٍ واحد…» إن التقى الدوران في يوم؛ "" إن افترقا. */

@@ -24,7 +24,7 @@ import { sectionCodeKey } from "../../utils/sameSlot";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
 import { historicalOrigin } from "../../utils/courseNature";
-import { isSpecialNature, meetingLengthIssue, practicalRequiredIssue, specialSameDayIssue, specialSplitIssue } from "../../utils/specialNature";
+import { isPracticalRow, isSpecialNature, meetingLengthIssue, practicalRequiredIssue, specialSameDayIssue, specialSplitIssue } from "../../utils/specialNature";
 import { Campus, DEFAULT_TRAVEL_MINUTES, SAME_BUILDING_MINUTES, interCampusMinutes } from "../../utils/campusTravel";
 import { clockRangesOverlap, departmentHoursNote, formatScheduleTimeRange, isValidClock, SCHEDULE_DAY_END_TIME, SCHEDULE_DAY_START_TIME, scheduleDayWindowMinutes, withinUniversityDay } from "../../utils/scheduleTime";
 import { isSharedRoom, resolveBuilding, resolveRoom } from "../../utils/locationRegistry";
@@ -269,7 +269,8 @@ export async function specialShapeIssue(row:any,hypothetical?:FSchedule[],option
 export const sameSectionIdentity=(saved:any,next:any)=>Boolean(saved&&next)
   &&Number(saved.AdCourseId||0)===Number(next.AdCourseId||0)&&sectionCodeKey(saved.SCode)===sectionCodeKey(next.SCode);
 /** موعدٌ قائم لم يتغيّر شكلُه (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) — وحده يتخطّى مانعَي الشعبة (A6). */
-export const keepsSectionShape=(saved:any,next:any)=>sameScheduleShape(saved,next)&&sameSectionIdentity(saved,next);
+/* ودورُه أيضاً (نظري/عملي): تبديلُ الدور وحده قد يجزّئ جزءاً من مقررٍ نظريٍّ وعمليّ أو يجمعهما في يوم، فيُحكم كتغيير الشكل. */
+export const keepsSectionShape=(saved:any,next:any)=>sameScheduleShape(saved,next)&&sameSectionIdentity(saved,next)&&isPracticalRow(saved)===isPracticalRow(next);
 /**
  * ── مانعا الشعبة عند التعديل: لا يُمنع تعديلٌ بمخالفةٍ كانت قائمةً ولم يُنشئها ──────────────────
  *   • لم يتغيّر الشكلُ ولا الشعبة ← لا يُحكم (A6).

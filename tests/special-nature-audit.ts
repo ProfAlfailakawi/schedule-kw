@@ -49,6 +49,7 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   check(specialSplitIssue(sunTheory, [tueLab]) === "" && specialSplitIssue(tueLab, [sunTheory]) === "", "P14 الأحد نظري ساعتان + الثلاثاء عملي ساعتان: لا تجزئة");
   check(/النظري مجزّأ على يومين \(الأحد · الثلاثاء\)/.test(specialSplitIssue(theory, [lab])) && specialSplitIssue(lab, [theory]) === "", "P15 النظري ساعةً الأحد وساعةً الثلاثاء: «مجزّأ على يومين» للنظري وحده", specialSplitIssue(theory, [lab]));
   check(/العملي مجزّأ/.test(specialSplitIssue(tueLab, [sunTheory, { fthursday: true, fstarttime: "10:00", fendtime: "11:50", practical: true }])), "P16 عمليٌّ في لقاءين (الثلاثاء والخميس): مجزّأ");
+  check(/النظري مجزّأ على لقاءين \(الأحد 08:00 · الأحد 10:00\)/.test(specialSplitIssue(sunTheory, [{ fsunday: true, fstarttime: "10:00", fendtime: "10:50" }, tueLab])), "P16b لقاءان منفصلان للنظري في اليوم نفسه: مجزّأ أيضاً", specialSplitIssue(sunTheory, [{ fsunday: true, fstarttime: "10:00", fendtime: "10:50" }, tueLab]));
   check(/في يومٍ واحد \(الأحد\)/.test(specialSameDayIssue(sunTheory, [sunLab])) && specialSameDayIssue(sunTheory, [tueLab]) === "", "P17 النظري والعملي يوم الأحد معاً: يُقال، وفي يومين لا شيء");
   check(meetingTeachingHours(sunTheory) === 2 && meetingTeachingHours(theory) === 2 && meetingTeachingHours({ fmonday: true, fwednesday: true, fstarttime: "08:00", fendtime: "09:20" }) === 3, "P18 ساعاتُ اللقاء التدريسية: 110د=2، و50د×يومين=2، و80د×يومين=3");
   const loadRows = [{ ...sunTheory, id: 1, AdInstructorId: 7, AdCourseId: 900, SCode: "01", AdCollegeId: 1, AdSectionId: 1 }, { ...tueLab, id: 2, AdInstructorId: 29, AdCourseId: 900, SCode: "01", AdCollegeId: 1, AdSectionId: 1 },
@@ -170,8 +171,11 @@ try {
   check(keep.status === 200 && keep.body?.practical === true, "L16 تعديلٌ بلا علامةٍ في الطلب (قاعة/نقل) يُبقي العلامة", keep);
   const moved = await call("PUT", `/api/schedules/${labRow.id}`, bodyOf(keep.body, { fstarttime: "16:00", fendtime: "17:50" }));
   check(moved.status === 200 && moved.body?.practical === true, "L16b نقلُ اللقاء العملي الوحيد (الوقت) بلا علامةٍ في الطلب يمرّ ويُبقيها — لا يُحكم الصفُّ بدونها", moved);
-  const flipTheory = await call("PUT", `/api/schedules/${theoryRow.id}`, bodyOf(theoryRow, { practical: true }));
-  check(flipTheory.status === 200 && flipTheory.body?.practical === true, "L17 لقاءٌ نظريٌّ يُعلَّم عملياً ما دام في الشعبة عمليٌّ", flipTheory);
+  /* تبديلُ الدور وحده يُحكم كتغيير الشكل: النظريُّ الأحد يصير عملياً فيصير العمليُّ لقاءين (الأحد والثلاثاء) → استثناءٌ بسبب. */
+  const flipAsk = await call("PUT", `/api/schedules/${theoryRow.id}`, bodyOf(theoryRow, { practical: true }));
+  check(flipAsk.status === 409 && (flipAsk.body?.regulation || []).some((issue: any) => issue.needsReason && /العملي مجزّأ/.test(issue.text)), "L17a تبديلُ النظري إلى عملي يجزّئ العملي: يُسأل بسبب", flipAsk);
+  const flipTheory = await call("PUT", `/api/schedules/${theoryRow.id}`, bodyOf(theoryRow, { practical: true, regulationException: true, regulationExceptionReason: "تجربة" }));
+  check(flipTheory.status === 200 && flipTheory.body?.practical === true, "L17 وبسببٍ مكتوب يُعلَّم اللقاءُ النظريُّ عملياً", flipTheory);
   const flipBack = await call("PUT", `/api/schedules/${theoryRow.id}`, bodyOf(flipTheory.body, { practical: false }));
   check(flipBack.status === 200 && flipBack.body?.practical !== true, "L18 ويُرفع عنه بعد ذلك", flipBack);
 

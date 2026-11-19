@@ -390,7 +390,8 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
     /* تبديلُ العلامة وحدها لا يغيّر الشكل فلا يمرّ بحكم الشكل (A6)؛ فيُسأل هنا: لا تبقى شعبةٌ مكتملةٌ بلا لقاءٍ عملي. */
     const flipped = nextPractical !== (existing.practical === true);
     if (flipped && !(req as any).__exactRestore) {
-      const issue = await specialShapeIssue({ ...req.body, id, practical: nextPractical }, (req as any).__hypotheticalWeek, { lengths: false });
+      /* والدورُ الجديد لا يلتقي بالدور الآخر في يوم (specialSameDayIssue مع المدّة)؛ وتجزئتُه تُسأل في ورقة الاستثناء. */
+      const issue = await specialShapeIssue({ ...req.body, id, practical: nextPractical }, (req as any).__hypotheticalWeek);
       if (issue) { res.status(400).json({ error: issue, issues: [{ type: "validation", severity: "high", message: issue }] }); return; }
     }
   }
