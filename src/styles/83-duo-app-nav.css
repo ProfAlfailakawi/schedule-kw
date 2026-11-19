@@ -105,7 +105,7 @@ html[data-device="duo"][data-shell="app"] .mobile-bottom-dock .mobile-dock-icon 
 }
 
 /* ── الداخلية عرضاً (لوحان): كبسولة التنقّل في عمود الساعة، تحتها مباشرة. ── */
-@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body:has(.schedule-page) .mobile-bottom-dock{
     display:flex !important;position:fixed;z-index:55;top:var(--duo-clock-end-wide);bottom:auto;left:auto;
     right:max(8px,calc((env(safe-area-inset-right) - 60px) / 2));

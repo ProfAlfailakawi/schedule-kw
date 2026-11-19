@@ -5,7 +5,7 @@
    - الفهرس لا يأخذ صفحة: يُفتح من زرّ القائمة في شريط التطبيق. المفصل فجوةٌ بين اللوحين لا يقع عليها شيء.
    الدوو وحده ([data-device="duo"])؛ iPhone وiPad والوضعيات الأخرى لا تتغيّر.
    ========================================================================== */
-@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   html[data-device="duo"] body:has(.schedule-page){
     --pane-gap:44px;
     --pane-r:calc(50vw - var(--pane-gap) / 2 - env(safe-area-inset-right));
@@ -56,7 +56,7 @@
   html[data-device="duo"] #root .content-stack.schedule-page>.page-heading .page-heading-action{display:none}
   html[data-device="duo"] #root .content-stack.schedule-page>:last-child{margin-bottom:28px}
   /* اللوح الثاني: المواعيد بارتفاع الشاشة، تتمرّر وحدها. */
-  html[data-device="duo"] #root .content-stack.schedule-page>.schedule-agenda-surface{
+  html[data-device="duo"] #root .content-stack.schedule-page>:is(.schedule-agenda-surface,.week-surface,.rooms-surface){
     grid-column:2;grid-row:1 / span 40;position:sticky;top:0;
     height:100svh;overflow:auto;overscroll-behavior:contain;margin:0;
     border:0;border-radius:0;box-shadow:none;background:none;
@@ -89,25 +89,25 @@
     bottom:calc(16px + env(safe-area-inset-bottom)) !important;width:48px;height:48px;
   }
 }
-@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   html[data-device="duo"] #root .content-stack.schedule-page>.page-heading h1{text-align:start;width:100%}
   /* «تبادل القاعات» على خطّ شريط الأدوات نفسه. */
   html[data-device="duo"] body:has(.schedule-page) .hall-barter-inbox:not(.hall-barter-inbox-decision){bottom:calc(20px + env(safe-area-inset-bottom)) !important}
 }
-@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   html[data-device="duo"] #root .content-stack.schedule-page>.page-heading,
   html[data-device="duo"] #root .content-stack.schedule-page>.page-heading *{text-align:right !important;justify-content:flex-start !important;align-items:flex-start}
   /* الشريط العائم أقرب إلى الحافة: فوق مؤشّر الرئيسية بقليل لا بارتفاعه كاملاً. */
   html[data-device="duo"] body:has(.schedule-page) .schedule-dock{bottom:max(10px,calc(env(safe-area-inset-bottom) - 12px))}
   html[data-device="duo"] body:has(.schedule-page) .hall-barter-inbox:not(.hall-barter-inbox-decision){bottom:max(16px,calc(env(safe-area-inset-bottom) - 6px)) !important}
 }
-@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   /* العنوان سطرٌ صغير تحت شريط التطبيق مباشرة، والبطاقات متقاربة. */
   html[data-device="duo"] #root .content-stack.schedule-page{row-gap:12px}
   html[data-device="duo"] #root .content-stack.schedule-page>.page-heading{margin-top:calc(60px + env(safe-area-inset-top))}
   html[data-device="duo"] #root .content-stack.schedule-page>.page-heading h1{font-size:20px}
 }
-@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   /* بطاقة حالة الجدول في اللوح الأول: الشارات شبكةٌ من عمودين متساويين تملأ العرض، لا أسطرٌ متفاوتة. */
   html[data-device="duo"] #root .schedule-page .approval-bar .apb-visuals{
     display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:center;
@@ -117,12 +117,12 @@
   html[data-device="duo"] #root .schedule-page .approval-bar .apb-visuals>.apb-tip:has(.apb-badge){width:100%;justify-content:center}
   html[data-device="duo"] #root .schedule-page .approval-bar .apb-visuals>.apb-tip>.apb-badge{width:100%;justify-content:center}
   /* قائمة المواعيد تتلاشى قبل شريط الأدوات العائم، فلا يظهر نصٌّ خلفه. */
-  html[data-device="duo"] #root .content-stack.schedule-page>.schedule-agenda-surface{
+  html[data-device="duo"] #root .content-stack.schedule-page>:is(.schedule-agenda-surface,.week-surface,.rooms-surface){
     -webkit-mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 128px),transparent calc(100% - 84px));
     mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 128px),transparent calc(100% - 84px));
   }
 }
-@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   /* الشارة الطويلة («التخطيط» بأرقامها) صفٌّ كامل، والبقية تملأ الخانات حولها بلا فراغ؛ وكل شارةٍ سطرٌ واحد. */
   html[data-device="duo"] #root .schedule-page .approval-bar .apb-visuals{grid-auto-flow:row dense}
   html[data-device="duo"] #root .schedule-page .approval-bar .apb-visuals>.spl-badge,

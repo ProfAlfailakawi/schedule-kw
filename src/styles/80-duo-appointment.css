@@ -48,7 +48,7 @@
    - لا صفحة فارغة: ما دام «أسبوع الأستاذ» لم يظهر (لا أستاذ بعد)، يُوزَّع النموذج نفسه على الصفحتين:
      اليمنى = النطاق والخطوة الأولى، واليسرى = بقية الخطوات، والفجوة بين العمودين على المفصل.
      وحين يُختار الأستاذ يعود الأسبوع إلى الصفحة اليسرى والنموذج إلى اليمنى. */
-@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   [data-device="duo"] body:has(.schedule-editor.is-studio) .schedule-editor-close,
   [data-device="duo"] body:has(.schedule-editor.is-studio) .notify-bell,
   [data-device="duo"] body:has(.schedule-editor.is-studio) .smart-guide-fab{
@@ -80,14 +80,14 @@
     background:color-mix(in srgb,var(--accent) 10%,var(--surface));
   }
 }
-@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   /* علامة المرشد داخل الزر لها خلفيتها الداكنة: تصير شفّافة فيبقى الزر دائرةً بيضاء كأخويه. */
   [data-device="duo"] body:has(.schedule-editor.is-studio) .smart-guide-fab .smart-guide-fab-mark{
     background:none;box-shadow:none;color:var(--accent);width:auto;height:auto;
   }
 }
 
-@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   [data-device="duo"] #root .schedule-editor.is-studio{--duo-hinge-gap:56px}
   /* الإطار متناظر الحواف، فيقع منتصف الفجوة على منتصف الشاشة (المفصل). */
   [data-device="duo"] body:has(.schedule-editor.is-studio) .content-frame{padding-inline:20px;max-width:none;margin-inline:0}
