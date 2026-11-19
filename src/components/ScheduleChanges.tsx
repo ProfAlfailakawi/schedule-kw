@@ -47,6 +47,7 @@ import { singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeCont
 import { inboxAudience, multiSiteHeadline, type InboxAudience } from "../utils/inboxAudience";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
 import ApprovalDossier from "./ApprovalDossier";
+import RegistrarRequests, { RegistrarRequestInbox } from "./RegistrarRequests";
 import TermFrozenRibbon, { useTermFrozen } from "./TermFrozenRibbon";
 import { approvalScopeKey, authorityBaselineLabel, AUTHORITY_BASELINE_LABEL, createScopeGuard } from "../utils/approvalScope";
 
@@ -161,6 +162,8 @@ interface Props {
   onOpenDepartmentSchedule?: () => void;
   /** بعد التوقيع بنجاح: ينقله المضيفُ إلى «الاستعلامات والتقارير». */
   onSigned?: () => void;
+  /** صاحبُ الجدول (النموذج 7): يرى طلبات التعديل المحفوظة ويحذفها. */
+  canEditRequests?: boolean;
 }
 
 const request = async (url: string, init?: RequestInit) => {
@@ -219,8 +222,10 @@ export function ApprovalChip({ status, late }: { status: ScheduleApprovalStatus;
 
 /* ── صندوق الوارد ───────────────────────────────────────────────────────── */
 
-function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExtend, scopes = [], powerAdmin = false }: {
+function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExtend, scopes = [], powerAdmin = false, showRequests = false }: {
   termId: number;
+  /** طلبات التعديل من الأقسام (للتسجيل المراجع). */
+  showRequests?: boolean;
   /** ما يراه هذا القارئ من عُدّة الوارد — من القرار الواحد (inboxAudience). */
   audience: InboxAudience;
   /** نطاق القارئ: منه وحده يُقرّر أيُرسم منتقي القسم (singleDepartmentOf). */
@@ -382,6 +387,13 @@ function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExt
   return (
     <>
       {error ? <Notice type="error">{error}</Notice> : null}
+      {showRequests ? (
+        <RegistrarRequestInbox
+          termId={termId}
+          nameOf={(c, sct) => { const row = rows.find(item => item.collegeId === c && item.sectionId === sct); return { collegeName: row?.collegeName, sectionName: row?.sectionName }; }}
+          onOpen={(c, sct) => { const row = rows.find(item => item.collegeId === c && item.sectionId === sct); if (row) onOpen({ ...row, openRequest: true } as InboxRow); }}
+        />
+      ) : null}
       {/* الشريط نفسه الذي فوق مركز الاستعلام: سؤالٌ بالعربية أولاً، ثم الكلية
           والقسم والفصل، وما زاد عليها مطويٌّ خلف «المزيد». الشرائحُ لم تُلغَ —
           نزلت إلى داخله، لأنها تصف ما يُعرض لا ما يُسأل عنه. */}
@@ -684,8 +696,12 @@ const CROSS_KIND_LABEL: Record<string, string> = {
   doorway: "زمنُ الانتقال", cohort: "دفعةُ الطلبة",
 };
 
-function Report({ termId, termName, scope, role, onBack, onSigned, archive = false, frozen = false }: {
+function Report({ termId, termName, scope, role, onBack, onSigned, archive = false, frozen = false, canEditRequests = false, openRequest = false }: {
   key?: React.Key;
+  /** صاحبُ الجدول (النموذج 7): يرى طلبات التعديل للتسجيل ويحذفها. */
+  canEditRequests?: boolean;
+  /** فُتح من بطاقة طلبٍ في الوارد: يُفتح أحدثُ طلب. */
+  openRequest?: boolean;
   onSigned?: () => void;
   /** فصلٌ صار أرشيفاً (termIsArchive): لا شريطَ اعتمادٍ ولا توقيع. */
   archive?: boolean;
@@ -991,6 +1007,15 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
       {error ? <Notice type="error">{error}</Notice> : null}
       {message ? <Notice type="success">{message}</Notice> : null}
 
+      {canEditRequests || isRegistrar ? (
+        <RegistrarRequests
+          collegeId={scope.collegeId} sectionId={scope.sectionId} termId={termId}
+          scopeLine={[termName, scope.collegeName, scope.sectionName].filter(Boolean).join(" · ") || `قسم ${scope.sectionId}`}
+          canDelete={canEditRequests && !frozen}
+          focusLatest={openRequest}
+        />
+      ) : null}
+
       <TermStory
         scopeLine={[termName, scope.collegeName, scope.sectionName].filter(Boolean).join(" · ") || `قسم ${scope.sectionId}`}
         statusLabel={report.statusLabel}
@@ -1243,10 +1268,10 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
 
 /* ── الشاشة ─────────────────────────────────────────────────────────────── */
 
-export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin = false, onOpenDepartmentSchedule, onSigned }: Props) {
+export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin = false, onOpenDepartmentSchedule, onSigned, canEditRequests = false }: Props) {
   const [terms, setTerms] = useState<AdTerm[] | null>(null);
   const [termId, setTermId] = useState(0);
-  const [opened, setOpened] = useState<{ collegeId: number; sectionId: number; collegeName?: string; sectionName?: string } | null>(null);
+  const [opened, setOpened] = useState<{ collegeId: number; sectionId: number; collegeName?: string; sectionName?: string; openRequest?: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   /* الوارد يُقرأ مرّةً ويُسلَّم للوحة مواعيد التسليم فوقه. */
@@ -1365,7 +1390,7 @@ export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin =
       {!termId ? (
         <EmptyState title="اختر الفصل" detail="تُعرض تغييرات الجداول لفصلٍ واحد في كل مرّة." />
       ) : active ? (
-        <Report key={reloadKey} termId={termId} termName={term?.AdTermName || ""} scope={active} role={role} archive={termIsArchive(term, terms || []) || frozenTerm} frozen={frozenTerm} onBack={opened ? () => setOpened(null) : undefined} onSigned={onSigned} />
+        <Report key={reloadKey} termId={termId} termName={term?.AdTermName || ""} scope={active} role={role} archive={termIsArchive(term, terms || []) || frozenTerm} frozen={frozenTerm} onBack={opened ? () => setOpened(null) : undefined} onSigned={onSigned} canEditRequests={canEditRequests} openRequest={Boolean(opened?.openRequest)} />
       ) : (
         <Surface>
           <Inbox_
@@ -1379,7 +1404,8 @@ export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin =
             onExtend={deadlinesShown ? (row) => setExtendFor({ row, nonce: Date.now() }) : undefined}
             scopes={scopes}
             powerAdmin={powerAdmin}
-            onOpen={(row) => setOpened({ collegeId: row.collegeId, sectionId: row.sectionId, collegeName: row.collegeName, sectionName: row.sectionName })}
+            showRequests={role.canReview || powerAdmin}
+            onOpen={(row) => setOpened({ collegeId: row.collegeId, sectionId: row.sectionId, collegeName: row.collegeName, sectionName: row.sectionName, openRequest: Boolean((row as any).openRequest) })}
           />
         </Surface>
       )}

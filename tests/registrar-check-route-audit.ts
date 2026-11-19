@@ -66,6 +66,9 @@ const pdfRow = (course: string, section: string, start: string, end: string, ext
     admin: { user: { SystemUserId: 1, Role: "committeeChair", Name: "المدير", IsAdminUser: true }, scopes: [], permissions: [7] },
     head: { user: { SystemUserId: 2, Role: "departmentHead", Name: "رئيس القسم", IsAdminUser: false }, scopes: [{ AdCollegeId: 1, AdSectionId: 11 }], permissions: [7] },
     noPermission: { user: { SystemUserId: 3, Role: "departmentHead", Name: "بلا صلاحية", IsAdminUser: false }, scopes: [{ AdCollegeId: 1, AdSectionId: 11 }], permissions: [] },
+    registrar: { user: { SystemUserId: 4, Role: "registrarStaff", Name: "موظف التسجيل", IsAdminUser: false }, scopes: [{ AdCollegeId: 1, AdSectionId: 11 }], permissions: [] },
+    otherRegistrar: { user: { SystemUserId: 5, Role: "registrarStaff", Name: "تسجيل قسم آخر", IsAdminUser: false }, scopes: [{ AdCollegeId: 1, AdSectionId: 12 }], permissions: [] },
+    teacher: { user: { SystemUserId: 6, Role: "instructor", Name: "أستاذ", IsAdminUser: false }, scopes: [{ AdCollegeId: 1, AdSectionId: 11 }], permissions: [] },
   };
   const app = express();
   app.use(express.json({ limit: "1mb" }));
@@ -75,6 +78,10 @@ const pdfRow = (course: string, section: string, start: string, end: string, ext
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   const post = async (who: string, body: unknown) => {
     const res = await fetch(`${base}/api/schedules/registrar-check`, { method: "POST", headers: { "content-type": "application/json", "x-who": who }, body: JSON.stringify(body) });
+    return { status: res.status, json: await res.json().catch(() => ({})) as any };
+  };
+  const call = async (method: string, url: string, who: string | null, body?: unknown) => {
+    const res = await fetch(`${base}${url}`, { method, headers: { "content-type": "application/json", ...(who ? { "x-who": who } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: res.status, json: await res.json().catch(() => ({})) as any };
   };
   const fileHash = () => crypto.createHash("sha256").update(fs.readFileSync(path.join(dir, "db.json"))).digest("hex");
@@ -104,8 +111,8 @@ const pdfRow = (course: string, section: string, start: string, end: string, ext
       pdfRow("999", "1", "13:00", "14:15"),
     ] });
     check(found.status === 200 && found.json.baseline?.available === true, "قراءةٌ ناجحة ومعها نسخةُ آخر ما رآه التسجيل", found);
-    const notCarried = (found.json.findings || []).filter((item: any) => item.group === "notCarried");
-    check(notCarried.length === 1 && notCarried[0].fields[0].field === "time" && notCarried[0].fields[0].was === "08:00–09:15" && notCarried[0].fields[0].ours === "09:00–10:15", "تعديل بعد الإرسال لم يُنفَّذ", found.json.findings);
+    const notCarried = (found.json.findings || []).filter((item: any) => item.group === "notSent");
+    check(notCarried.length === 1 && notCarried[0].fields[0].field === "time" && notCarried[0].fields[0].was === "08:00–09:15" && notCarried[0].fields[0].ours === "09:00–10:15", "تعديل بعد الإرسال ما زال الملف على قديمه: «لم يُرسل بعد»", found.json.findings);
     check(typeof notCarried[0]?.scheduleId === "number" && notCarried[0].scheduleId === 9001, "ومعه معرّف الموعد لفتحه");
     const mismatch = (found.json.findings || []).filter((item: any) => item.group === "mismatch");
     check(mismatch.some((item: any) => item.kind === "fields" && item.fields[0].field === "room") && mismatch.some((item: any) => item.kind === "onlyPdf"), "خللٌ في القاعة وشعبةٌ على طرف الملف وحده", mismatch);
@@ -121,6 +128,61 @@ const pdfRow = (course: string, section: string, start: string, end: string, ext
     check(junk.status === 200 && Array.isArray(junk.json.findings), "صفوفٌ مشوّهة لا تُسقط المسار", junk);
 
     check(await state() === before && fileHash() === beforeFile, "قراءةٌ محضة: الجداول والنُّسخ والاعتماد وملفُّ القاعدة كما كانت بايتاً ببايت");
+
+    /* ── طلبُ التعديل للتسجيل: حفظٌ وقراءةٌ وشطبٌ وتحققٌ وحذف ── */
+    const fileRows = [pdfRow("105", "1", "08:00", "09:15"), pdfRow("106", "1", "11:00", "12:15", { AdRoomHall: "Z9" }), pdfRow("999", "1", "13:00", "14:15")];
+    const R = "/api/schedules/registrar-requests";
+    check((await call("POST", R, null, { ...body, rows: fileRows })).status === 401, "حفظ الطلب بلا دخول: ٤٠١");
+    check((await call("POST", R, "noPermission", { ...body, rows: fileRows })).status === 403, "حفظ الطلب بلا النموذج 7: ٤٠٣");
+    check((await call("POST", R, "registrar", { ...body, rows: fileRows })).status === 403, "التسجيل لا يحفظ طلباً باسم القسم: ٤٠٣");
+    check((await call("POST", R, "head", { ...body, sectionId: 12, rows: fileRows })).status === 403, "حفظ طلبٍ لقسمٍ خارج النطاق: ٤٠٣");
+    const saved = await call("POST", R, "head", { ...body, fileName: "جدول.pdf", rows: fileRows });
+    const doc = saved.json.request;
+    check(saved.status === 200 && doc?.items?.length >= 2 && doc.round === 2 && doc.fileName === "جدول.pdf", "حفظ الطلب: بنودٌ وجولةُ الاعتماد الجارية واسم الملف", saved.json);
+    check(!JSON.stringify(doc).match(/Civil|civil/), "لا رقمَ مدنيّاً في الطلب المحفوظ");
+    check(doc.items.some((item: any) => item.action === "delete") && doc.items.some((item: any) => item.action === "edit"), "البنود: عدّلوا واحذفوا", doc.items);
+
+    const listQ = `${R}?collegeId=1&sectionId=11&termId=5`;
+    check((await call("GET", listQ, null)).status === 401, "قراءة الطلبات بلا دخول: ٤٠١");
+    check((await call("GET", listQ, "teacher")).status === 403, "الأستاذ لا يرى طلبات التعديل: ٤٠٣");
+    check((await call("GET", listQ, "otherRegistrar")).status === 403, "تسجيلُ قسمٍ آخر لا يرى طلبات هذا القسم: ٤٠٣");
+    const listed = await call("GET", listQ, "head");
+    check(listed.status === 200 && listed.json.requests?.length === 1 && listed.json.canTick === false, "القسم يقرأ طلبه ولا يشطب", listed.json);
+    const listedRegistrar = await call("GET", listQ, "registrar");
+    check(listedRegistrar.status === 200 && listedRegistrar.json.canTick === true, "التسجيل يقرأ طلب القسم ويشطب", listedRegistrar.json);
+
+    check((await call("GET", `${R}/inbox?termId=5`, "head")).status === 403, "وارد الطلبات للتسجيل وحده: ٤٠٣ للقسم");
+    const inbox = await call("GET", `${R}/inbox?termId=5`, "registrar");
+    check(inbox.status === 200 && inbox.json.requests?.length === 1 && inbox.json.requests[0].progress.total === doc.items.length && inbox.json.requests[0].progress.done === 0, "وارد التسجيل: بطاقةٌ للقسم بتقدّمها", inbox.json);
+    const inboxOther = await call("GET", `${R}/inbox?termId=5`, "otherRegistrar");
+    check(inboxOther.status === 200 && inboxOther.json.requests.length === 0, "تسجيلُ قسمٍ آخر لا يرى بطاقته", inboxOther.json);
+
+    const tickUrl = `${R}/${encodeURIComponent(doc.id)}/tick`;
+    const target = doc.items.find((item: any) => item.action === "edit" && item.fields.some((f: any) => f.field === "room"));
+    check((await call("POST", tickUrl, null, { itemId: target.id })).status === 401, "الشطب بلا دخول: ٤٠١");
+    check((await call("POST", tickUrl, "head", { itemId: target.id })).status === 403, "القسم لا يشطب بنود طلبه: ٤٠٣");
+    check((await call("POST", tickUrl, "otherRegistrar", { itemId: target.id })).status === 403, "تسجيلُ قسمٍ آخر لا يشطب: ٤٠٣");
+    check((await call("POST", tickUrl, "registrar", { itemId: "edit:#nope" })).status === 404, "بندٌ غير موجود: ٤٠٤");
+    const ticked = await call("POST", tickUrl, "registrar", { itemId: target.id, done: true });
+    const tickedItem = ticked.json.request?.items?.find((item: any) => item.id === target.id);
+    check(ticked.status === 200 && tickedItem?.done?.byName === "موظف التسجيل" && typeof tickedItem.done.at === "string", "الشطب «نُفّذ» باسم الموظف ووقته", ticked.json);
+    const untick = await call("POST", tickUrl, "registrar", { itemId: target.id, done: false });
+    check(untick.status === 200 && !untick.json.request.items.find((item: any) => item.id === target.id).done, "رفع الشطب");
+    await call("POST", tickUrl, "registrar", { itemId: target.id, done: true });
+
+    /* الملف التالي: القاعة صُحّحت ⇒ البند المشطوب «تأكّد». */
+    check((await call("POST", `${R}/verify`, "registrar", { ...body, rows: fileRows })).status === 403, "التحقق الذاتي للقسم (النموذج 7): ٤٠٣ للتسجيل");
+    const verify = await call("POST", `${R}/verify`, "head", { ...body, rows: [pdfRow("105", "1", "08:00", "09:15"), pdfRow("106", "1", "11:00", "12:15"), pdfRow("999", "1", "13:00", "14:15")] });
+    check(verify.status === 200 && verify.json.confirmed === 1 && verify.json.reopened === 0, "ملفٌّ يُثبت البند المشطوب: «تأكّد»", verify.json);
+    const afterVerify = await call("GET", listQ, "head");
+    check(afterVerify.json.requests[0].items.find((item: any) => item.id === target.id)?.state === "confirmed", "والحالُ محفوظة");
+
+    const delUrl = `${R}/${encodeURIComponent(doc.id)}`;
+    check((await call("DELETE", delUrl, null)).status === 401, "الحذف بلا دخول: ٤٠١");
+    check((await call("DELETE", delUrl, "registrar")).status === 403, "التسجيل لا يحذف طلب القسم: ٤٠٣");
+    check((await call("DELETE", delUrl, "head")).status === 200 && (await call("GET", listQ, "head")).json.requests.length === 0, "القسم يحذف طلبه");
+
+    check(await state() === before, "الطلبات لا تمسّ الجداول ولا النُّسخ ولا الاعتماد");
   } finally {
     server.close();
   }
@@ -130,7 +192,8 @@ const pdfRow = (course: string, section: string, start: string, end: string, ext
   check(/const readOnly=String\(req\.query\.readOnly\|\|""\)==="1";/.test(reader) && /const dryRun=readOnly\|\|/.test(reader), "القارئ يعرف readOnly ويجعله تجربةً بلا حفظ");
   check(/if\(!readOnly\)provisioned=await provisionBranchSiteLocationsFromAuthority\(/.test(reader), "readOnly لا يسجّل مواقع الفرع في سجلّ المباني");
   const route = fs.readFileSync("src/server/routes/scheduleImportRoutes.ts", "utf8");
-  const handler = route.slice(route.indexOf('app.post("/api/schedules/registrar-check"'), route.indexOf("Carry a whole term out"));
+  const handler = route.slice(route.indexOf('app.post("/api/schedules/registrar-check"'), route.indexOf("Carry a whole term out"))
+    + route.slice(route.indexOf("function registrarCheckScope"), route.indexOf("/** طلباتُ التعديل للتسجيل"));
   check(handler.length > 200 && !/Repository\.(create|update|save|delete|upsert|set|insert|add|remove|wipe|copy)/.test(handler) && !/noteScheduleMutation/.test(handler), "مسار الفحص لا يستدعي أيّ كتابة");
 
   console.log(`\n${passed} passed, ${failed} failed`);

@@ -22,11 +22,87 @@ import { AR, countOf } from "../../utils/arabicCount";
 import { authorityCourseCode, authorityDepartmentKeys } from "../../utils/authorityAcademicCodes";
 import { SCHEDULE_DAY_KEYS, schedulePayloadIssues } from "../core/scheduleRules";
 import { filterByScope, isScopeAllowed } from "../core/scope";
-import { checkRegistrarPdf, slimPdfRow } from "../../utils/registrarCheck";
+import { checkRegistrarPdf, slimPdfRow, type RegistrarCheckResult } from "../../utils/registrarCheck";
+import { buildRequestItems, requestSummary, tickRequestItem, verifyRequestItems, type RegistrarRequestDoc } from "../../utils/registrarRequest";
+import { authorityBaselineForScope, authorityDraftForScope, buildAuthorityPdfDiff, buildAuthorityPdfDiffWithHistory } from "../core/authority";
+import { isPowerUser, requireAuth } from "../core/auth";
+import { canReviewSubmissions } from "../../utils/academicRoles";
+import { randomBytes } from "crypto";
 import { roundBaselineVersionId } from "../../utils/approvalWorkflow";
 import { chooseCaptureBaseline } from "../../utils/changesBaseline";
 import { readApproval } from "../core/approvals";
 import { approvalBlockerOptions, blockingImportConflicts, branchOwnScopes, placeholderInstructorIds, safeDraftRows, validateSmartRows, visitingToFacultyPlan } from "../core/smartImport";
+
+/**
+ * ── فحصُ جدول التسجيل: المقارنة نفسها لكل طريق (قراءةٌ محضة) ─────────────────
+ *
+ * الرقمُ المرجعي لصفوفنا يُشتقّ كما يشتقّه «تقرير تغييرات الجدول» حرفاً بحرف: اقترانُ
+ * ملف التسجيل الأصلي (وثيقة الهيئة) بالجدول الحيّ، ثم `source.referenceNumber ||
+ * row.referenceNumber`. ونسخةُ آخر إرسال تُقرن بالوثيقة نفسها، فيُعرف رقمُ ما حذفناه بعده.
+ */
+function registrarCheckScope(req: AuthenticatedRequest, res: Response) {
+  const collegeId=Number(req.body?.collegeId||0),sectionId=Number(req.body?.sectionId||0),termId=Number(req.body?.termId||0);
+  if(!collegeId||!sectionId||!termId){res.status(400).json({error:"حدد الكلية والقسم والفصل."});return null;}
+  if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return null;}
+  if(!Array.isArray(req.body?.rows)){res.status(400).json({error:"لم تصل صفوف الملف المقروءة."});return null;}
+  if(req.body.rows.length>600){res.status(400).json({error:"عدد الصفوف أكبر من الحد الآمن للفحص."});return null;}
+  return {collegeId,sectionId,termId,rows:req.body.rows.map(slimPdfRow) as any[]};
+}
+
+async function runRegistrarCheck(collegeId:number,sectionId:number,termId:number,pdfRows:any[]):Promise<RegistrarCheckResult>{
+  const [liveRows,instructors,courses,approval,authorityDraft]=await Promise.all([
+    Repository.getSchedulesByScope({collegeId,sectionId,termId}),Repository.getInstructors(),Repository.getCourses(),
+    readApproval(collegeId,sectionId,termId),authorityDraftForScope(collegeId,sectionId,termId),
+  ]);
+
+  /* ما رآه التسجيل آخر مرّة: القاعدةُ نفسها التي يقرأ بها «تغييرات الجدول» أساسَ الجولة الجارية. */
+  let sent:any[]|undefined;
+  const baselineId=roundBaselineVersionId(approval,approval.currentRound);
+  if(baselineId){
+    sent=(await Repository.getScheduleVersionById(baselineId))?.rows as any[]|undefined;
+  }else{
+    const history=await Repository.getScheduleVersions(collegeId,sectionId,termId,100);
+    const choice=chooseCaptureBaseline(approval.rounds as any,approval.currentRound,history as any);
+    if(choice.kind==="capture")sent=(await Repository.getScheduleVersionById(choice.versionId))?.rows as any[]|undefined;
+    else if(choice.kind==="reviewed")sent=liveRows as any[];
+  }
+
+  const instructorById=new Map((instructors as any[]).map(row=>[Number(row.AdInstructorId),String(row.AdInstructorName||"")]));
+  let crn:{byId:Map<number,string>;original:any[]}|undefined;
+  if(authorityDraft){
+    const scopedBaseline=await authorityBaselineForScope(authorityDraft.baselineRows||[],authorityDraft,collegeId,sectionId);
+    const options={instructorNameById:instructorById,publishedRows:authorityDraft.rows||[],courseCodeById:new Map((courses as any[]).map(row=>[Number(row.AdCourseId),String(row.CourseCode||"").trim()]))};
+    const byId=new Map<number,string>();
+    const take=(rows:any[])=>{for(const entry of rows)if(entry.current&&!byId.has(Number(entry.current.id)))byId.set(Number(entry.current.id),String(entry.source?.referenceNumber||entry.current.referenceNumber||""));};
+    take((await buildAuthorityPdfDiffWithHistory(scopedBaseline,liveRows as any[],options,{collegeId,sectionId,termId})).rows);
+    if(sent&&sent!==liveRows)take(buildAuthorityPdfDiff(scopedBaseline,sent,options).rows);
+    crn={byId,original:scopedBaseline};
+  }
+
+  const courseRows=(courses as any[]).filter(row=>Number(row.AdCollegeId)===collegeId&&Number(row.AdSectionId)===sectionId);
+  return checkRegistrarPdf({
+    live:liveRows as any[],pdf:pdfRows,sent,crn,
+    names:{
+      instructorById,
+      courseCodeById:new Map(courseRows.map(row=>[Number(row.AdCourseId),String(row.CourseCode||"").trim()])),
+      courseNameById:new Map(courseRows.map(row=>[Number(row.AdCourseId),String(row.CourseName||"").trim()])),
+      placeholderIds:placeholderInstructorIds(instructors as any),
+    },
+  });
+}
+
+/** طلباتُ التعديل للتسجيل: وثيقةٌ لكل فحصٍ محفوظ، معرّفُها يبدأ بنطاقه `${termId}:${collegeId}:${sectionId}:`. */
+const requestPrefix=(termId:number,collegeId:number,sectionId:number)=>`${termId}:${collegeId}:${sectionId}:`;
+const REQUESTS_PER_SCOPE=30;
+async function holdsPermission(req:AuthenticatedRequest,formId:number){
+  const granted=req.permissions??(await Repository.getSecurityByUser(Number(req.user?.SystemUserId||0))).map((item:any)=>Number(item.FormNameId));
+  return granted.includes(formId);
+}
+/** من يقرأ طلبات قسمٍ: صاحبُ الجدول (النموذج 7)، أو موظّفُ التسجيل المراجع، أو الإدارة — وكلٌّ بنطاقه. */
+async function mayReadRequests(req:AuthenticatedRequest){
+  return isPowerUser(req)||canReviewSubmissions(req.user?.Role)||await holdsPermission(req,7);
+}
+const mayTickRequests=(req:AuthenticatedRequest)=>isPowerUser(req)||canReviewSubmissions(req.user?.Role);
 
 export function registerScheduleImportRoutes(app: Express): void {
 
@@ -118,41 +194,8 @@ app.post("/api/schedules/import-preflight", requirePermission(7), async (req: Au
  */
 app.post("/api/schedules/registrar-check", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   res.setHeader("Cache-Control","no-store");
-  const collegeId=Number(req.body?.collegeId||0),sectionId=Number(req.body?.sectionId||0),termId=Number(req.body?.termId||0);
-  if(!collegeId||!sectionId||!termId){res.status(400).json({error:"حدد الكلية والقسم والفصل."});return;}
-  if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
-  if(!Array.isArray(req.body?.rows)){res.status(400).json({error:"لم تصل صفوف الملف المقروءة."});return;}
-  if(req.body.rows.length>600){res.status(400).json({error:"عدد الصفوف أكبر من الحد الآمن للفحص."});return;}
-  const pdfRows=req.body.rows.map(slimPdfRow);
-
-  const [liveRows,instructors,courses,approval]=await Promise.all([
-    Repository.getSchedulesByScope({collegeId,sectionId,termId}),Repository.getInstructors(),Repository.getCourses(),
-    readApproval(collegeId,sectionId,termId),
-  ]);
-
-  /* ما رآه التسجيل آخر مرّة: القاعدةُ نفسها التي يقرأ بها «تغييرات الجدول» أساسَ الجولة الجارية. */
-  let sent:any[]|undefined;
-  const baselineId=roundBaselineVersionId(approval,approval.currentRound);
-  if(baselineId){
-    sent=(await Repository.getScheduleVersionById(baselineId))?.rows as any[]|undefined;
-  }else{
-    const history=await Repository.getScheduleVersions(collegeId,sectionId,termId,100);
-    const choice=chooseCaptureBaseline(approval.rounds as any,approval.currentRound,history as any);
-    if(choice.kind==="capture")sent=(await Repository.getScheduleVersionById(choice.versionId))?.rows as any[]|undefined;
-    else if(choice.kind==="reviewed")sent=liveRows as any[];
-  }
-
-  const courseRows=(courses as any[]).filter(row=>Number(row.AdCollegeId)===collegeId&&Number(row.AdSectionId)===sectionId);
-  const result=checkRegistrarPdf({
-    live:liveRows as any[],pdf:pdfRows,sent,
-    names:{
-      instructorById:new Map((instructors as any[]).map(row=>[Number(row.AdInstructorId),String(row.AdInstructorName||"")])),
-      courseCodeById:new Map(courseRows.map(row=>[Number(row.AdCourseId),String(row.CourseCode||"").trim()])),
-      courseNameById:new Map(courseRows.map(row=>[Number(row.AdCourseId),String(row.CourseName||"").trim()])),
-      placeholderIds:placeholderInstructorIds(instructors as any),
-    },
-  });
-  res.json(result);
+  const scope=registrarCheckScope(req,res);if(!scope)return;
+  res.json(await runRegistrarCheck(scope.collegeId,scope.sectionId,scope.termId,scope.rows));
 });
 
 /**
@@ -415,5 +458,120 @@ app.post("/api/schedules/import", requirePermission(7), async (req: Authenticate
    * والباقي رحلاتٌ تُدفع بلا مقابل. فيُبلَّغ عن الدفعة دفعةً واحدة. */
   if (createdRows.length) await noteScheduleMutation(req, collegeId, sectionId, termId, { kind: "add", rows: createdRows });
   res.json({ preview: false, added, rejected, planted });
+});
+
+/**
+ * ── طلبُ التعديل للتسجيل: يُحفظ، ويصل التسجيلَ داخل النظام، ويُشطب بنداً بنداً ──
+ *
+ * الحفظ يعيد الفحص على الخادم بالصفوف نفسها (لا تُصدَّق نتيجةٌ أرسلها المتصفح)،
+ * ويحفظ ما يلزم وحده: التاريخ واسم الملف والأعداد والبنود بأرقامها المرجعية.
+ * الطلبُ يتبع جولة الاعتماد الجارية؛ والتسجيل يراه في وارده ويشطب ما نفّذه.
+ */
+app.post("/api/schedules/registrar-requests", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const scope=registrarCheckScope(req,res);if(!scope)return;
+  const {collegeId,sectionId,termId}=scope;
+  const result=await runRegistrarCheck(collegeId,sectionId,termId,scope.rows);
+  if(result.empty){res.status(409).json({error:"لا مقارنةَ تُحفظ: الملف أو الجدول فارغ."});return;}
+  const items=buildRequestItems(result);
+  if(!items.length){res.status(409).json({error:"لا فروقَ تُطلب من التسجيل في هذا الملف."});return;}
+  const prefix=requestPrefix(termId,collegeId,sectionId);
+  const existing=await Repository.listFeatureDocs<RegistrarRequestDoc>("registrarRequests",prefix);
+  if(existing.length>=REQUESTS_PER_SCOPE){res.status(409).json({error:`بلغت الطلبات المحفوظة لهذا الفصل حدّها (${countOf(REQUESTS_PER_SCOPE,AR.request)}). احذف قديماً.`});return;}
+  const approval=await readApproval(collegeId,sectionId,termId);
+  const doc:RegistrarRequestDoc={
+    id:`${prefix}${randomBytes(5).toString("hex")}`,collegeId,sectionId,termId,round:Number(approval.currentRound||0),
+    at:new Date().toISOString(),by:Number(req.user?.SystemUserId||0),byName:String(req.user?.Name||"").slice(0,80),
+    fileName:String(req.body?.fileName||"").replace(/[\u0000-\u001f]/g,"").slice(0,120)||"ملف التسجيل.pdf",
+    counts:result.counts,reviewCount:result.counts.review,items,
+  };
+  await Repository.saveFeatureDoc("registrarRequests",doc.id,doc);
+  res.json({request:doc});
+});
+
+app.get("/api/schedules/registrar-requests", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control","no-store");
+  const collegeId=Number(req.query.collegeId||0),sectionId=Number(req.query.sectionId||0),termId=Number(req.query.termId||0);
+  if(!collegeId||!sectionId||!termId){res.status(400).json({error:"حدد الكلية والقسم والفصل."});return;}
+  if(!await mayReadRequests(req)){res.status(403).json({error:"ليس لديك صلاحية للوصول إلى هذا القسم"});return;}
+  if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  const docs=await Repository.listFeatureDocs<RegistrarRequestDoc>("registrarRequests",requestPrefix(termId,collegeId,sectionId));
+  res.json({requests:docs.sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,REQUESTS_PER_SCOPE),canTick:mayTickRequests(req)});
+});
+
+/** وارد التسجيل: أحدثُ طلبٍ لكل قسمٍ في جولته الجارية، بنطاق القارئ وحده. */
+app.get("/api/schedules/registrar-requests/inbox", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control","no-store");
+  const termId=Number(req.query.termId||0);
+  if(!termId){res.status(400).json({error:"اختر الفصل أولاً."});return;}
+  if(!mayTickRequests(req)){res.status(403).json({error:"وارد طلبات التعديل للتسجيل وحده."});return;}
+  const docs=(await Repository.listFeatureDocs<RegistrarRequestDoc>("registrarRequests",`${termId}:`))
+    .filter(doc=>doc&&Number(doc.termId)===termId&&isScopeAllowed(req,Number(doc.collegeId),Number(doc.sectionId)));
+  const latest=new Map<string,RegistrarRequestDoc>();
+  for(const doc of docs){
+    const key=`${doc.collegeId}:${doc.sectionId}`;
+    const current=latest.get(key);
+    if(!current||String(doc.at)>String(current.at))latest.set(key,doc);
+  }
+  const fresh:RegistrarRequestDoc[]=[];
+  for(const doc of latest.values()){
+    const approval=await readApproval(Number(doc.collegeId),Number(doc.sectionId),termId);
+    if(Number(doc.round)===Number(approval.currentRound||0))fresh.push(doc);
+  }
+  res.json({requests:fresh.sort((a,b)=>String(b.at).localeCompare(String(a.at))).map(requestSummary)});
+});
+
+/** شطبُ بندٍ «نُفّذ» أو رفعُ شطبه: للتسجيل المراجع وحده، بنطاقه، باسمه ووقته. */
+app.post("/api/schedules/registrar-requests/:id/tick", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  if(!mayTickRequests(req)){res.status(403).json({error:"الشطب للتسجيل وحده."});return;}
+  const id=String(req.params.id||"");
+  const itemId=String(req.body?.itemId||"");
+  if(!itemId){res.status(400).json({error:"حدد البند."});return;}
+  const doc=await Repository.getFeatureDoc<RegistrarRequestDoc>("registrarRequests",id);
+  if(!doc){res.status(404).json({error:"الطلب غير موجود."});return;}
+  if(!isScopeAllowed(req,Number(doc.collegeId),Number(doc.sectionId))){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  const actor={by:Number(req.user?.SystemUserId||0),byName:String(req.user?.Name||req.user?.SystemUserLogin||""),at:new Date().toISOString()};
+  const out=await Repository.updateFeatureDoc<RegistrarRequestDoc,RegistrarRequestDoc|null>("registrarRequests",id,current=>{
+    if(!current)return{refuse:null};
+    const items=tickRequestItem(current.items||[],itemId,req.body?.done!==false,actor);
+    if(!items)return{refuse:null};
+    const next={...current,items};
+    return{next,result:next};
+  });
+  if(!out.ok||!out.result){res.status(404).json({error:"البند غير موجود."});return;}
+  res.json({request:out.result});
+});
+
+/**
+ * التحقق الذاتي: بعد فحص ملف التسجيل التالي، يُقابَل كلُّ بندٍ مشطوب بالنتيجة الجديدة
+ * («تأكّد» أو «شُطب ولم يظهر في الملف»). طريقٌ مستقلّ عن الفحص، فالفحصُ يبقى قراءةً محضة.
+ */
+app.post("/api/schedules/registrar-requests/verify", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const scope=registrarCheckScope(req,res);if(!scope)return;
+  const {collegeId,sectionId,termId}=scope;
+  const docs=(await Repository.listFeatureDocs<RegistrarRequestDoc>("registrarRequests",requestPrefix(termId,collegeId,sectionId)))
+    .filter(doc=>(doc.items||[]).some(item=>item.done&&item.state!=="confirmed"));
+  if(!docs.length){res.json({confirmed:0,reopened:0});return;}
+  const result=await runRegistrarCheck(collegeId,sectionId,termId,scope.rows);
+  const at=new Date().toISOString();
+  let confirmed=0,reopened=0;
+  for(const doc of docs){
+    const out=await Repository.updateFeatureDoc<RegistrarRequestDoc,{confirmed:number;reopened:number}>("registrarRequests",doc.id,current=>{
+      if(!current)return{refuse:{confirmed:0,reopened:0}};
+      const checked=verifyRequestItems(current.items||[],result,at);
+      if(!checked.confirmed&&!checked.reopened)return{refuse:{confirmed:0,reopened:0}};
+      return{next:{...current,items:checked.items},result:{confirmed:checked.confirmed,reopened:checked.reopened}};
+    });
+    confirmed+=out.result.confirmed;reopened+=out.result.reopened;
+  }
+  res.json({confirmed,reopened});
+});
+
+app.delete("/api/schedules/registrar-requests/:id", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
+  const id=String(req.params.id||"");
+  const doc=await Repository.getFeatureDoc<RegistrarRequestDoc>("registrarRequests",id);
+  if(!doc){res.status(404).json({error:"الطلب غير موجود."});return;}
+  if(!isScopeAllowed(req,Number(doc.collegeId),Number(doc.sectionId))){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
+  await Repository.deleteFeatureDoc("registrarRequests",id);
+  res.json({ok:true});
 });
 }
