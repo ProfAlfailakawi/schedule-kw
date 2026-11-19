@@ -146,11 +146,32 @@ const only = (result: ReturnType<typeof run>, group: string) => result.findings.
   const noCode = run({ live: [live(1, "1", [0], "08:00", "09:00")], pdf: [pdf(1, "1", [0], "08:00", "09:00"), pdf(2, "1", [2], "10:00", "11:00", { sourceCourseCode: "", AdCourseId: 0, AdCourseName: "غير مقروء" })] });
   check(only(noCode, "review")[0]?.kind === "noKey", "صفٌّ بلا رمز مقرر: تحتاج نظرك", noCode.findings);
 
+  /* الموعد نفسه برقم شعبةٍ آخر: نوعٌ مستقلٌّ في «تحتاج نظرك» بالرقمين، لا خللٌ ولا مطابقة. */
   const renumbered = run({ live: [live(1, "1", [0], "08:00", "09:00")], pdf: [pdf(1, "5", [0], "08:00", "09:00")] });
-  const fz = only(renumbered, "review")[0];
-  check(fz?.kind === "fuzzy" && fz.match === "fuzzy" && fz.fields.some(x => x.field === "section" && x.ours === "1" && x.pdf === "5") && renumbered.counts.matched === 0 && renumbered.counts.mismatch === 0, "شعبةٌ بالمقرر نفسه ورقمٍ مختلف: مطابقةٌ تقريبية في «تحتاج نظرك» لا مطابقٌ ولا خلل", renumbered.findings);
+  const rn = only(renumbered, "review")[0];
+  check(rn?.kind === "renumbered" && rn.match === "fuzzy" && rn.fields.some(x => x.field === "section" && x.ours === "1" && x.pdf === "5") && renumbered.counts.matched === 0 && renumbered.counts.mismatch === 0, "الموعد نفسه برقم شعبةٍ مختلف: «تحتاج نظرك» برقمَيه لا مطابقٌ ولا خلل", renumbered.findings);
 
-  const manySections = run({ live: [live(1, "1", [0], "08:00", "09:00"), live(1, "2", [1], "08:00", "09:00")], pdf: [pdf(1, "9", [0], "08:00", "09:00")] });
+  /* بلا اتفاقٍ في الموعد يبقى المطابقةُ التقريبية بالمقرر وحده كما كانت. */
+  const fuzzyOnly = run({ live: [live(1, "1", [0], "08:00", "09:00")], pdf: [pdf(1, "5", [1], "10:00", "11:00")] });
+  const fz = only(fuzzyOnly, "review")[0];
+  check(fz?.kind === "fuzzy" && fuzzyOnly.counts.matched === 0 && fuzzyOnly.counts.mismatch === 0, "شعبةٌ بالمقرر نفسه ورقمٍ ووقتٍ مختلفين: مطابقةٌ تقريبية في «تحتاج نظرك»", fuzzyOnly.findings);
+
+  /* إعادة ترقيمٍ متشابك: الأرقامُ تقع صدفةً على مواعيد غيرها، والمواعيدُ هي المعتبرة. */
+  const rotated = run({
+    live: [live(1, "6", [0, 2], "12:00", "12:50"), live(1, "7", [0, 2], "10:00", "10:50"), live(1, "10", [1, 3], "08:00", "09:20")],
+    pdf: [pdf(1, "5", [0, 2], "10:00", "10:50"), pdf(1, "6", [0, 2], "12:00", "12:50"), pdf(1, "7", [1, 3], "08:00", "09:20")],
+  });
+  check(rotated.counts.mismatch === 0 && only(rotated, "mismatch").length === 0 && only(rotated, "review").length === 2 && only(rotated, "matched").length === 1, "ترقيمٌ مزاح: لا خللَ كاذب؛ المتطابقُ مطابق والمزاحُ «تحتاج نظرك»", rotated.findings.map(x => `${x.kind}:${x.section}`));
+  const roomFirst = run({
+    live: [live(1, "1", [0], "08:00", "09:00", { AdRoomCode: "012B08", AdRoomHall: "G20" }), live(1, "2", [0], "08:00", "09:00", { AdRoomCode: "012B08", AdRoomHall: "G26" })],
+    pdf: [pdf(1, "8", [0], "08:00", "09:00", { AdRoomCode: "012B08", AdRoomHall: "G26" })],
+  });
+  const picked = only(roomFirst, "review").find(x => x.kind === "renumbered");
+  check(picked?.fields.length === 1 && picked.fields[0].ours === "2", "عند تساوي الموعد تُقدَّم الشعبةُ المتفقة القاعة", roomFirst.findings.map(x => `${x.kind}:${x.section}:${x.fields.map(f => f.field)}`));
+  const realChange = run({ live: [live(1, "6", [0, 2], "12:00", "12:50")], pdf: [pdf(1, "6", [0, 2], "14:00", "14:50")] });
+  check(only(realChange, "mismatch")[0]?.kind === "fields", "الرقم نفسه والوقت مختلف ولا موعدَ يوافقه: يبقى خللاً حقيقياً", realChange.findings);
+
+  const manySections = run({ live: [live(1, "1", [0], "08:00", "09:00"), live(1, "2", [1], "08:00", "09:00")], pdf: [pdf(1, "9", [3], "13:00", "14:00")] });
   check(only(manySections, "review")[0]?.kind === "ambiguous" && manySections.counts.mismatch === 0, "المقرر له شعبٌ كثيرة والرقم غير موجود: التباس", manySections.findings);
 
   const byName = run({ live: [live(1, "3", [0], "08:00", "09:00")], pdf: [pdf(1, "3", [0], "08:00", "09:00", { sourceCourseCode: "999", AdCourseId: 0, AdCourseName: "أسس التعلم" })] });

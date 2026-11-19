@@ -62,6 +62,7 @@ const KIND_TITLE: Record<string, string> = {
   ambiguous: "التباس في تحديد الشعبة",
   unreadable: "قراءةٌ غير مؤكدة",
   fuzzy: "مطابقةٌ تقريبية",
+  renumbered: "الموعد نفسه برقم شعبةٍ آخر",
   noKey: "صفٌّ لم تُحسم هويته",
 };
 
