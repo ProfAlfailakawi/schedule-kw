@@ -140,7 +140,7 @@ const pdfRow = (course: string, section: string, crn: string, start: string, ext
     check(Boolean(reused) && reused!.suggested === "561", "رقمٌ تحت أكبر ما استُعمل (550 ≤ 560): يُرفض والتالي 561", reused);
     check(await reusedSectionNumber(1, 11, 5, 301, "561") === null && await reusedSectionNumber(1, 11, 5, 301, "504") === null, "الرقم التالي يُقبل، ورقمُ شعبةٍ قائمة (لقاءٌ آخر لها) يُقبل");
     const writes = fs.readFileSync("src/server/core/scheduleWrites.ts", "utf8");
-    check(/reusedSectionNumber\(collegeId,sectionId,termId,courseId,SCode\)/.test(writes) && /code:"section-number-used"/.test(writes), "طريق إضافة الموعد يسأل السجلّ قبل الحفظ");
+    check(/if\(req\.body\?\.rev===undefined\)\{const reused=await reusedSectionNumber\(collegeId,sectionId,termId,courseId,SCode\)/.test(writes) && /code:"section-number-used"/.test(writes), "طريق إضافة الموعد يسأل السجلّ قبل الحفظ، إلا «تراجع» يعيد لقطة صفٍّ حُذف");
 
     /* ملفٌّ صحيح تغيّرت قاعاتُ شعبه الخمس كلها: يُحفظ منه طلبٌ وتُطابَق أرقامه (ليس «ملف قسمٍ آخر»). */
     const roomRows = [0, 1, 2, 3, 4].map(i => ({ ...pdfRow("0110105", String(511 + i), String(3100 + i), `0${8 + i}:00`.slice(-5)), AdRoomHall: "Z9" }));
