@@ -51,6 +51,8 @@ export interface RoomSwapOther {
   end: string;
   from: RoomSwapHall;
   to: RoomSwapHall;
+  /** مقاعد مقرر الشعبة (للشريط البصري: المقاعد مقابل سعة القاعة). */
+  seats: number;
 }
 
 export interface RoomSwap {
@@ -59,7 +61,7 @@ export interface RoomSwap {
   /** لماذا يُنصح بالتبديل (نوع القاعة · السعة) — رموزٌ تُرسم أيقونات. */
   reasons: RoomSwapReason[];
   /** موعدك أنت: من قاعته (قد لا تكون اختيرت) إلى القاعة الجديدة. */
-  mine: { from: RoomSwapHall | null; to: RoomSwapHall };
+  mine: { from: RoomSwapHall | null; to: RoomSwapHall; seats: number };
   other: RoomSwapOther;
 }
 
@@ -138,7 +140,7 @@ export function appointmentRoomSwaps(input: RoomSwapInput, max = 2): RoomSwapAns
   const asOther = (row: FSchedule, from: RoomSwapHall, to: RoomSwapHall): RoomSwapOther => ({
     rowId: Number(row.id), rev: row.rev === undefined ? undefined : Number(row.rev), courseId: Number(row.AdCourseId),
     courseName: String(courses.get(Number(row.AdCourseId))?.CourseName || (row as any).AdCourseName || ""), scode: String(row.SCode || ""),
-    days: activeDays(row), start: row.fstarttime, end: row.fendtime, from, to,
+    days: activeDays(row), start: row.fstarttime, end: row.fendtime, from, to, seats: seatsOf(courses.get(Number(row.AdCourseId))),
   });
 
   const found: Array<RoomSwap & { score: number }> = [];
@@ -156,7 +158,7 @@ export function appointmentRoomSwaps(input: RoomSwapInput, max = 2): RoomSwapAns
         if (busyIn(mineNow, activeDays(row), timeToMinutes(row.fstarttime), timeToMinutes(row.fendtime), new Set([Number(row.id)])).length) continue;
         found.push({
           id: `give-${row.id}-${mine.roomId || mine.hall}`, direction: "give", reasons: mineProblems,
-          mine: { from: mineNow, to: mine }, other: asOther(row, rowHall, mineNow),
+          mine: { from: mineNow, to: mine, seats: seatsOf(course) }, other: asOther(row, rowHall, mineNow),
           score: (mineProblems.includes("type") ? 0 : 10) + (sameSite(mineNow, mine) ? 0 : 3) + (sameSite(rowHall, mineNow) ? 0 : 2) + Math.min(5, tight(mine, course) / 20),
         });
       }
@@ -182,7 +184,7 @@ export function appointmentRoomSwaps(input: RoomSwapInput, max = 2): RoomSwapAns
     if (!exit) continue;
     found.push({
       id: `take-${row.id}-${target.roomId || target.hall}`, direction: "take", reasons,
-      mine: { from: mineNow, to: target }, other: asOther(row, target, exit),
+      mine: { from: mineNow, to: target, seats: seatsOf(course) }, other: asOther(row, target, exit),
       score: (reasons.includes("type") ? 0 : 10) + (sameSite(mineNow, target) ? 0 : 3) + (sameSite(target, exit) ? 0 : 2) + Math.min(5, tight(target, course) / 20),
     });
   }

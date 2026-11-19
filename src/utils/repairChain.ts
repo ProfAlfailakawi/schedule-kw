@@ -234,6 +234,8 @@ export function findRepairChain(
     courseHours?: (row: FSchedule) => number;
     /** صفوفٌ لا تُزاح أبداً (مجمّدة، معتمدة، قسمٌ آخر، حجزٌ جارٍ): موضعٌ يصطدم بها لا يُجرَّب. */
     immovable?: (row: FSchedule) => boolean;
+    /** هل تلائم هذه القاعةُ هذا الصفَّ (نوعاً وسعةً)؟ قاعتُه الحالية تبقى مسموحةً دائماً. */
+    roomFits?: (row: FSchedule, room: { roomId: string; buildingId: string; code: string; hall: string }) => boolean;
   },
 ): RepairChain | null {
   const placeholders = options?.placeholderInstructorIds ? [...options.placeholderInstructorIds] : undefined;
@@ -255,6 +257,7 @@ export function findRepairChain(
   ): RepairMove[] | null => {
     const tries = candidatesFor(card, board, estate, options?.courseHours?.(card) || 0)
       .filter(option => !options?.forbidRoom?.(option.room.code, option.room.hall))
+      .filter(option => !options?.roomFits || option.room.key === roomIdentityKey(card) || options.roomFits(card, option.room))
       /* موضعٌ يزيح أكثر من لقاء لا يُفتح أبداً (one domino at a time)، فلا يحجز مكاناً في النافذة: كانت مواضعُ
          أيام الأستاذ المزدحمة تملؤها، فلا يُجرَّب يومٌ فارغ تصلح له الكتلة. */
       .filter(option => collidesWith(option.row, board).length <= 1)

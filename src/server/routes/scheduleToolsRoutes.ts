@@ -601,6 +601,8 @@ app.post("/api/schedules/room-swap-ideas", requirePermission(7), async (req: Aut
   const dayKeys = SCHEDULE_DAY_KEYS.filter(key => Boolean(body[key]));
   if (!collegeId || !sectionId || !termId || !Number(body.AdCourseId || 0) || !dayKeys.length || !body.fstarttime || !body.fendtime) { res.json({ need: null, swaps: [] }); return; }
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  /* جدولٌ معتمدٌ مقفل أو فصلٌ منتهٍ: لا يُعرض تبديلٌ يردّه النقلُ بعد الضغط (move-batch يحكم بالقفل نفسه). */
+  if (await scheduleLockRefusal(req, collegeId, sectionId, termId)) { res.json({ need: null, swaps: [], locked: true }); return; }
   const [universe, registry, courses] = await Promise.all([Repository.getSchedulesByScope({ termId }), readLocationRegistry(), Repository.getCourses()]);
   const editedId = eligibleSuggestionEditId(universe, body.excludeId, collegeId, sectionId, termId);
   const halls: RoomSwapHall[] = eligibleHallsForSection(registry, sectionId).map(hall => {
