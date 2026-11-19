@@ -3,7 +3,7 @@
  * ولا عودةِ رقمٍ محذوف، وخطة «اعتمد ترقيم التسجيل» (اليقين، والتخطّي، والتصادم).
  */
 import { assignAuthoritySections, authoritySectionUncertain, printedAuthoritySection } from "../src/utils/authorityAcademicCodes";
-import { awaitingRegistrarNumber, nextCourseSection, nextSectionNumber, planRegistrarNumbering, recordSectionNumbers, sectionNumberOf } from "../src/utils/registrarNumbering";
+import { awaitingRegistrarNumber, mergeLedgersFromRows, nextCourseSection, nextSectionNumber, planRegistrarNumbering, recordSectionNumbers, sectionNumberOf } from "../src/utils/registrarNumbering";
 import { checkRegistrarPdf, looksForeign, type RegistrarIdentity } from "../src/utils/registrarCheck";
 import { nextCourseSectionCode } from "../src/utils/nextCourseSectionCode";
 import { nextSectionCodeFrom } from "../src/utils/studyProposal";
@@ -60,6 +60,12 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
   check(nextCourseSection(rows, 9, 2) === "503" && nextCourseSection(rows, 9, 2, { ledger: { "9": 510 } }) === "511", "مقررٌ في فصل: من صفوفه ومن سجلّه");
   check(nextCourseSectionCode(rows as any, 9, 2, null, { "9": 510 }) === "511" && nextSectionCodeFrom([501, 502], 510) === "511", "الأبواب كلها (النموذج والمقترح) تمرّ بالدالة نفسها");
   check(nextCourseSection(rows, 9, 3) === "501", "فصلٌ آخر لا يؤثر");
+  /* اللوحة: أُنشئت 502 ثم حُذفت دون مغادرة الصفحة — السجلّ المحلي يحفظها فلا تعود. */
+  const scopeKey = "6|7|107";
+  const withCreated = mergeLedgersFromRows({}, [{ AdCollegeId: 6, AdSectionId: 7, AdTermId: 107, AdCourseId: 9, SCode: "501" }, { AdCollegeId: 6, AdSectionId: 7, AdTermId: 107, AdCourseId: 9, SCode: "502" }]);
+  const afterDelete = mergeLedgersFromRows(withCreated, [{ AdCollegeId: 6, AdSectionId: 7, AdTermId: 107, AdCourseId: 9, SCode: "501" }]);
+  check(nextCourseSection([{ id: 1, AdCourseId: 9, AdTermId: 107, SCode: "501" }], 9, 107, { ledger: afterDelete[scopeKey] }) === "503", "إنشاء 502 ثم حذفها في الصفحة نفسها: المقترح 503 لا 502", afterDelete);
+  check(mergeLedgersFromRows(afterDelete, [{ AdCollegeId: 6, AdSectionId: 7, AdTermId: 107, AdCourseId: 9, SCode: "501" }]) === afterDelete, "صفوفٌ بلا رقمٍ جديد لا تغيّر السجلّ (لا إعادة رسمٍ بلا داعٍ)");
   check(awaitingRegistrarNumber({ referenceNumber: "" }) && !awaitingRegistrarNumber({ referenceNumber: "2041" }), "بلا رقمٍ مرجعي ⇒ «بانتظار رقم التسجيل»");
 }
 
@@ -96,6 +102,8 @@ const pdf = (course: number, section: string, crn: string, day: number, start: s
   const staff = checkRegistrarPdf({ live: [live(1, "501", "2712", 0, "08:00", 99)], pdf: [pdf(1, "502", "2712", 0, "08:00", 98, { sourceInstructorText: "هيئة تدريسية" })], names: { ...names, placeholderIds: new Set([98, 99]) } });
   check(staff.counts.matched === 1 && staff.counts.review === 0, "«هيئة تدريسية» على الطرفين: مطابقة، لا «قراءة غير مؤكدة»", staff.findings);
   const foreign = checkRegistrarPdf({ live: [0, 1, 2, 3, 4].map(i => live(1, String(501 + i), String(100 + i), i % 5, "08:00")), pdf: [0, 1, 2, 3, 4].map(i => pdf(2, String(601 + i), String(900 + i), i % 5, "13:00")), names });
+  const allRooms = checkRegistrarPdf({ live: [0, 1, 2, 3, 4].map(i => live(1, String(501 + i), String(200 + i), i % 5, "08:00")), pdf: [0, 1, 2, 3, 4].map(i => pdf(1, String(601 + i), String(200 + i), i % 5, "08:00", 7, { AdRoomHall: "Z9" })), names });
+  check(allRooms.counts.matched === 0 && !looksForeign(allRooms), "ملفٌّ صحيح تغيّرت قاعاتُ شعبه كلها: ليس «لا يشبه جدولكم» (عُرفت بالمرجعي)", allRooms.counts);
   check(looksForeign(foreign) && !looksForeign(result), "ملفٌّ لا تطابق منه شعبةٌ واحدة: «لا يشبه جدولكم» (قسمٌ أو فصلٌ آخر)", foreign.counts);
   const scanned = checkRegistrarPdf({ live: [live(1, "505", "2041", 1, "11:00")], pdf: [pdf(1, "506", "2041", 1, "11:00", 7, { sourceReadMode: "ocr-grid", importEvidence: { section: { confidence: "REVIEW_REQUIRED" } } })], names });
   check(scanned.identities.length === 1 && !scanned.identities[0].certain, "ملفٌّ ممسوح: رقمه لا يُعتمد", scanned.identities);

@@ -27,6 +27,7 @@ import { describeScheduleChange, fitPatternEnd, regulationExceptionRefusal, regu
 import { regulationExceptionAccepted, regulationExceptionAudit, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { isScopeAllowed, legacyFDetail } from "./scope";
 import { captureScopeVersion, recordVersionAfter } from "./versions";
+import { reusedSectionNumber } from "./sectionNumbers";
 import { makeSlotGuard, pauseAfterCheckForTests, SlotTakenError } from "./slotGuard";
 import { noteTrail } from "../activityTrail";
 
@@ -202,6 +203,8 @@ export const createScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   const schedulePlan=curriculumPlans.find(row=>row.status==="active"&&memberPlanIds.has(row.id))||curriculumPlans.find(row=>row.status==="transition"&&memberPlanIds.has(row.id));
   if (!term) { res.status(400).json({ error: "الفصل الدراسي المختار غير صالح" }); return; }
   if (!instructor) { res.status(400).json({ error: "أستاذ المقرر المختار غير صالح" }); return; }
+  /* رقمُ شعبةٍ جديدة لا يعود إلى رقمٍ استُعمل للمقرر في الفصل (سجلّ أرقام الفصل)، ولو أرسله متصفحٌ قديم. */
+  {const reused=await reusedSectionNumber(collegeId,sectionId,termId,courseId,SCode);if(reused){res.status(409).json({error:reused.error,code:"section-number-used",suggested:reused.suggested,issues:[{type:"validation",severity:"high",message:reused.error}]});return;}}
   const locationResult=await canonicalizeLocationForWrite({...req.body,AdCollegeId:collegeId,AdSectionId:sectionId},collegeId,sectionId);
   if(!locationResult.check.ok){res.status(400).json({error:locationResult.check.issues[0]?.message||"المكان غير صالح",issues:locationResult.check.issues});return;}
   const canonicalBody={...req.body,...locationResult.check.canonical,AdCollegeId:collegeId,AdSectionId:sectionId,AdTermId:termId,AdCourseId:courseId,AdInstructorId:instructorId};

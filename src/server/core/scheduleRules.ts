@@ -20,7 +20,7 @@ import { patternLengthIssue, regulationEnd, sameScheduleShape } from "../../util
 import { REGULATION_EXCEPTION_CODE, regulationExceptionIssues, regulationExceptionMessage, type RegulationExceptionIssue } from "../../utils/regulationException";
 import { placeholderInstructorIds } from "../../utils/instructorIdentity";
 import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
-import { readSectionNumberLedger } from "./sectionNumbers";
+import { readStoredSectionNumberLedger } from "./sectionNumbers";
 import { sectionCodeKey } from "../../utils/sameSlot";
 import { AR, countOf } from "../../utils/arabicCount";
 import type { RequestDayKey } from "../../utils/instructorRequestVerdict";
@@ -218,7 +218,7 @@ export async function scheduleLengthIssue(row:any,hypothetical?:FSchedule[]){
     if(existing&&reading.total<=sectionWeeklyHours(existing,siblings,hours).total)return null;
     /* الموعدُ وحده يتّسع لساعات المقرّر والشعبةُ نفسُها مكتملة: السببُ رقمُ الشعبة لا الموعد — فيُقال الرقمُ الحرّ
        التالي لهذا المقرّر في الفصل والقسم، ويعرضه النموذج زرّاً «شعبة جديدة» (المالك 2026-11-08). */
-    const freshCode=reading.others.length&&weeklyLectureMinutes(row,hours)<=maxWeeklyMinutesFor(hours)?nextCourseSectionCode([...scopeRows,row] as any,courseId,Number(row.AdTermId),null,await readSectionNumberLedger(Number(row.AdCollegeId),Number(row.AdSectionId),Number(row.AdTermId)).catch(()=>null)):"";
+    const freshCode=reading.others.length&&weeklyLectureMinutes(row,hours)<=maxWeeklyMinutesFor(hours)?nextCourseSectionCode([...scopeRows,row] as any,courseId,Number(row.AdTermId),null,await readStoredSectionNumberLedger(Number(row.AdCollegeId),Number(row.AdSectionId),Number(row.AdTermId)).catch(()=>null)):"";
     if(reading.total>maxWeeklyMinutesFor(hours))return `${overHoursMessage(hours,reading.total)}${reading.others.length?` — حُسب معه للشعبة ${String(row.SCode||"")} نفسها: ${reading.others.slice(0,3).map(meetingLabel).join("، ")}`:""}${freshCode&&freshCode!==String(row.SCode||"")?freshSectionTail(freshCode):""}`;
     if(reading.under)return sectionHoursShortfallText(row.SCode,reading);
   }

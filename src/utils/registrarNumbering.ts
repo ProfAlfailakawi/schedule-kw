@@ -49,6 +49,31 @@ export function recordSectionNumbers(ledger: SectionNumberLedger | null | undefi
   return out;
 }
 
+/** سجلّاتٌ لكل نطاق `college|section|term`: يُضمّ إليها سجلٌّ جديد دون أن ينقص رقم. */
+export function mergeLedgers(all: Record<string, SectionNumberLedger>, key: string, ledger: SectionNumberLedger): Record<string, SectionNumberLedger> {
+  const merged: SectionNumberLedger = { ...(all[key] || {}) };
+  for (const [course, max] of Object.entries(ledger || {})) merged[course] = Math.max(Number(merged[course] || 0), Number(max) || 0);
+  return { ...all, [key]: merged };
+}
+
+/** يضمّ أرقام صفوفٍ رآها المتصفح إلى سجلّ نطاق كلٍّ منها، فلا يعود رقمٌ حُذف ولو تأخّر السجلّ من الخادم. */
+export function mergeLedgersFromRows(
+  all: Record<string, SectionNumberLedger>,
+  rows: Iterable<{ AdCollegeId?: unknown; AdSectionId?: unknown; AdTermId?: unknown; AdCourseId?: unknown; SCode?: unknown }>,
+): Record<string, SectionNumberLedger> {
+  const byScope = new Map<string, Array<{ AdCourseId?: unknown; SCode?: unknown }>>();
+  for (const row of rows) {
+    const key = `${Number(row.AdCollegeId)}|${Number(row.AdSectionId)}|${Number(row.AdTermId)}`;
+    byScope.set(key, [...(byScope.get(key) || []), row]);
+  }
+  let next = all;
+  for (const [key, scoped] of byScope) {
+    const recorded = recordSectionNumbers(all[key], scoped);
+    if (JSON.stringify(recorded) !== JSON.stringify(all[key] || {})) next = { ...next, [key]: recorded };
+  }
+  return next;
+}
+
 /** الرقم التالي لمقررٍ في فصل: من صفوف الجدول + سجلّ الفصل. */
 export function nextCourseSection(
   rows: Iterable<{ id?: unknown; AdCourseId?: unknown; AdTermId?: unknown; SCode?: unknown }>,

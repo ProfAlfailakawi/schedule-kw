@@ -8,7 +8,7 @@
  * الجدول ومن آخر النسخ المحفوظة (ما حُذف قبل وجود السجلّ).
  */
 import { Repository } from "../../db/repository";
-import { recordSectionNumbers, type SectionNumberLedger } from "../../utils/registrarNumbering";
+import { nextCourseSection, recordSectionNumbers, sectionNumberOf, type SectionNumberLedger } from "../../utils/registrarNumbering";
 
 export interface SectionNumberDoc { id: string; courses: SectionNumberLedger; updatedAt: string }
 
@@ -36,6 +36,11 @@ export async function recordSectionNumberLedger(collegeId: number, sectionId: nu
   }
 }
 
+/** السجلّ المحفوظ وحده (قراءةٌ واحدة لوثيقته، بلا جدولٍ ولا نسخ): لمن معه صفوف النطاق أصلاً. */
+export async function readStoredSectionNumberLedger(collegeId: number, sectionId: number, termId: number): Promise<SectionNumberLedger | null> {
+  return (await Repository.getFeatureDoc<SectionNumberDoc>("sectionNumbers", sectionNumberDocId(collegeId, sectionId, termId)))?.courses || null;
+}
+
 /** سجلّ النطاق: المحفوظ، وإلا يُبنى مرّةً من الجدول وآخر النسخ ويُحفظ. */
 export async function readSectionNumberLedger(collegeId: number, sectionId: number, termId: number): Promise<SectionNumberLedger> {
   const id = sectionNumberDocId(collegeId, sectionId, termId);
@@ -48,4 +53,20 @@ export async function readSectionNumberLedger(collegeId: number, sectionId: numb
   const seen: Scoped[] = [...(live as Scoped[]), ...versions.flatMap(version => (version.rows || []) as Scoped[])];
   await recordSectionNumberLedger(collegeId, sectionId, termId, seen);
   return recordSectionNumbers(null, seen.filter(inScope(collegeId, sectionId, termId)));
+}
+
+/**
+ * شعبةٌ جديدة برقمٍ لا يُقبل: رقمٌ داخل المدى، لا تحمله شعبةٌ قائمة للمقرر (فليس لقاءً آخر
+ * لشعبةٍ موجودة)، ولا يزيد على أكبر رقمٍ استُعمل للمقرر في الفصل — أي رقمٌ حُذف أو فراغٌ
+ * تجاوزه الترقيم. يُرجع السببَ والرقمَ التالي، وإلا null.
+ */
+export async function reusedSectionNumber(collegeId: number, sectionId: number, termId: number, courseId: number, code: unknown): Promise<{ error: string; suggested: string } | null> {
+  const number = sectionNumberOf(code);
+  if (number === null) return null;
+  const live = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
+  if ((live as Scoped[]).some(row => Number(row.AdCourseId) === courseId && sectionNumberOf(row.SCode) === number)) return null;
+  const ledger = await readSectionNumberLedger(collegeId, sectionId, termId).catch(() => null);
+  if (!ledger || number > Number(ledger[String(courseId)] || 0)) return null;
+  const suggested = nextCourseSection(live as any[], courseId, termId, { ledger });
+  return { error: `رقم الشعبة ${number} استُعمل لهذا المقرر في الفصل من قبل؛ الشعبة الجديدة تأخذ الرقم التالي ${suggested}.`, suggested };
 }

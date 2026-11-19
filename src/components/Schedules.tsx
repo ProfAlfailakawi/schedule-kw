@@ -203,7 +203,7 @@ import SameSlotHint from "./SameSlotHint";
 import { conflictSkipIds, sectionCodeKey } from "../utils/sameSlot";
 import QuickCreatePopover, { type QuickDraft, type QuickSeed } from "./QuickCreatePopover";
 import { nextCourseSectionCode } from "../utils/nextCourseSectionCode";
-import { awaitingRegistrarNumber, type SectionNumberLedger } from "../utils/registrarNumbering";
+import { awaitingRegistrarNumber, mergeLedgers, mergeLedgersFromRows, type SectionNumberLedger } from "../utils/registrarNumbering";
 import { TimeCounterPopover } from "./TimeCounter";
 import CommandPalette, { type ScheduleCommand } from "./CommandPalette";
 import OneLinePreview from "./OneLinePreview";
@@ -1715,18 +1715,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      يُقرأ لنطاق النموذج ولنطاق اللوحة، ويُضمّ إلى صفوفهما عند اقتراح الرقم التالي. */
   const [sectionLedgers, setSectionLedgers] = useState<Record<string, SectionNumberLedger>>({});
   const boardScopeKey = filterCollege && filterSection && filterTerm ? `${filterCollege}|${filterSection}|${filterTerm}` : "";
+  /* السجلّ لا يُحفظ مرّةً ثم يُنسى: كلُّ تغيّرٍ في صفوف اللوحة (إضافةٌ وحذفٌ وتعديلٌ وتراجعٌ وعملياتٌ جماعية)
+     يضمّ أرقامها إليه محلياً فوراً — فرقمٌ رأته اللوحة لا يعود بعد حذفه — ثم يُقرأ السجلّ من الخادم من جديد. */
   useEffect(() => {
-    const keys = [formScopeKey, boardScopeKey].filter(key => key && !sectionLedgers[key]);
+    setSectionLedgers(previous => mergeLedgersFromRows(previous, [...rows, ...formScopeRows.rows]));
+    const keys = [formScopeKey, boardScopeKey].filter(Boolean);
     let alive = true;
     for (const key of new Set(keys)) {
       const [collegeId, sectionId, termId] = key.split("|");
       fetchJson(`/api/schedules/section-numbers?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`)
-        .then((data: any) => { if (alive && data?.courses) setSectionLedgers(previous => ({ ...previous, [key]: data.courses })); })
+        .then((data: any) => { if (alive && data?.courses) setSectionLedgers(previous => mergeLedgers(previous, key, data.courses)); })
         .catch(() => { /* بلا سجلّ يبقى الاقتراح من صفوف الجدول وحدها */ });
     }
     return () => { alive = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formScopeKey, boardScopeKey, rows.length]);
+  }, [formScopeKey, boardScopeKey, rows, formScopeRows]);
   const ledgerForTerm = (termId: number): SectionNumberLedger => {
     const merged: SectionNumberLedger = {};
     for (const [key, ledger] of Object.entries(sectionLedgers)) {

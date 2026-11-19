@@ -36,6 +36,7 @@ const pdfRow = (course: string, section: string, crn: string, start: string, ext
     courses: [
       { AdCourseId: 301, AdCollegeId: 1, AdSectionId: 11, CourseCode: "0109105", CourseName: "أسس التعلم", CourseCredit: 3, CourseHours: 3, MaxStudent: 40 },
       { AdCourseId: 302, AdCollegeId: 1, AdSectionId: 11, CourseCode: "0109106", CourseName: "تصميم التعليم", CourseCredit: 3, CourseHours: 3, MaxStudent: 40 },
+      { AdCourseId: 401, AdCollegeId: 1, AdSectionId: 12, CourseCode: "0110105", CourseName: "مقرر القسم ب", CourseCredit: 3, CourseHours: 3, MaxStudent: 40 },
     ],
     schedules: [
       row(9001, 301, "501", "11064", "08:00"),                       // ← 504 / 2026
@@ -44,6 +45,7 @@ const pdfRow = (course: string, section: string, crn: string, start: string, ext
       row(9004, 302, "503", "", "14:00"),                            // غائبةٌ عن ملفهم، تحمل 503
       row(9005, 302, "504", "11086", "08:00", { fmonday: true }),    // شعبةٌ بموعدين (صفّان) ← 506 / 2041
       row(9006, 302, "504", "11086", "08:00", { fsunday: false, ftuesday: false, fthursday: true }),
+      ...[0, 1, 2, 3, 4].map(i => row(9100 + i, 401, String(501 + i), String(3100 + i), `0${8 + i}:00`.slice(-5), { AdSectionId: 12 })),
     ],
     curriculumPlans: [], curriculumPlanCourses: [],
   }), { mode: 0o600 });
@@ -131,6 +133,24 @@ const pdfRow = (course: string, section: string, crn: string, start: string, ext
     const ledger = await call("GET", "/api/schedules/section-numbers?collegeId=1&sectionId=11&termId=5", "head");
     check(ledger.status === 200 && ledger.json.courses["301"] === 560 && ledger.json.courses["302"] >= 506, "سجلّ الفصل: 560 حُذفت فبقيت، و506 بعد الاعتماد", ledger.json);
     check((await call("GET", "/api/schedules/section-numbers?collegeId=1&sectionId=12&termId=5", "head")).status === 403, "سجلّ قسمٍ آخر: ٤٠٣");
+
+    /* حفظُ الشعبة الجديدة على الخادم: رقمٌ استُعمل للمقرر في الفصل يُرفض ويُقترح التالي، ولو أرسله متصفحٌ قديم. */
+    const { reusedSectionNumber } = await import("../src/server/core/sectionNumbers");
+    const reused = await reusedSectionNumber(1, 11, 5, 301, "550");
+    check(Boolean(reused) && reused!.suggested === "561", "رقمٌ تحت أكبر ما استُعمل (550 ≤ 560): يُرفض والتالي 561", reused);
+    check(await reusedSectionNumber(1, 11, 5, 301, "561") === null && await reusedSectionNumber(1, 11, 5, 301, "504") === null, "الرقم التالي يُقبل، ورقمُ شعبةٍ قائمة (لقاءٌ آخر لها) يُقبل");
+    const writes = fs.readFileSync("src/server/core/scheduleWrites.ts", "utf8");
+    check(/reusedSectionNumber\(collegeId,sectionId,termId,courseId,SCode\)/.test(writes) && /code:"section-number-used"/.test(writes), "طريق إضافة الموعد يسأل السجلّ قبل الحفظ");
+
+    /* ملفٌّ صحيح تغيّرت قاعاتُ شعبه الخمس كلها: يُحفظ منه طلبٌ وتُطابَق أرقامه (ليس «ملف قسمٍ آخر»). */
+    const roomRows = [0, 1, 2, 3, 4].map(i => ({ ...pdfRow("0110105", String(511 + i), String(3100 + i), `0${8 + i}:00`.slice(-5)), AdRoomHall: "Z9" }));
+    const roomBody = { collegeId: 1, sectionId: 12, termId: 5, rows: roomRows };
+    const roomCheck = await call("POST", "/api/schedules/registrar-check", "other", roomBody);
+    check(roomCheck.status === 200 && roomCheck.json.counts.matched === 0, "القاعات كلها مختلفة: لا شعبة مطابقة تماماً", roomCheck.json.counts);
+    const roomSave = await call("POST", "/api/schedules/registrar-requests", "other", { ...roomBody, fileName: "rooms.pdf" });
+    check(roomSave.status === 200 && roomSave.json.request?.items?.length === 5, "ومع ذلك يُحفظ طلب التعديل", roomSave.json);
+    const roomAlign = await call("POST", URL, "other", roomBody);
+    check(roomAlign.status === 200 && roomAlign.json.changed === 5, "وتُطابَق أرقام الشعب الخمس", roomAlign.json);
   } finally {
     server.close();
   }

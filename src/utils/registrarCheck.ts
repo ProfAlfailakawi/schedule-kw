@@ -894,11 +894,14 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
 }
 
 /**
- * ملفٌّ لا يشبه جدولنا: قُرئت منه شعبٌ كثيرة ولم تطابق واحدةٌ منها شعبةً عندنا — ملفُّ قسمٍ آخر
+ * ملفٌّ لا يشبه جدولنا: قُرئت منه شعبٌ كثيرة ولم تُعرف واحدةٌ منها شعبةً عندنا — ملفُّ قسمٍ آخر
  * أو فصلٍ آخر في الغالب. يُقال ذلك صراحةً، ولا يُحفظ منه طلبٌ ولا تُطابَق به أرقام.
  */
-export function looksForeign(result: Pick<RegistrarCheckResult, "empty" | "counts" | "reading">): boolean {
-  return !result.empty && result.counts.matched === 0 && result.reading.pdfRows >= 5 && result.reading.liveRows >= 5;
+export function looksForeign(result: Pick<RegistrarCheckResult, "empty" | "reading" | "identities">): boolean {
+  /* الحكم بالهوية لا بالتطابق: ملفٌّ صحيح تغيّرت فيه قاعاتُ الشعب كلّها يبقى ملفَّنا، ما دامت شعبُه
+     عُرفت عندنا (بالرقم المرجعي أو بمطابقةٍ مؤكدة). */
+  const paired = (result.identities || []).some(identity => identity.how === "crn" || identity.certain);
+  return !result.empty && !paired && result.reading.pdfRows >= 5 && result.reading.liveRows >= 5;
 }
 
 /* ── صفٌّ نحيف: ما يلزم للمقارنة وحده ─────────────────────────────────────
