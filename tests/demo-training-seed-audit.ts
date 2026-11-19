@@ -147,6 +147,21 @@ check(fileHash() === before, "D6 وملفُّ قاعدة البيانات على
   check(!/Math\.random/.test(seed.replace(/\/\*[\s\S]*?\*\//g, "")), "D7 ولا عشوائيةَ في البذر");
 }
 
+/* ── D9: للمدرّبَين شعبٌ في الجدول (تبويب «تدريب» في التبديل السريع)، بلا تداخل أوقات ولا مسّ بالشاغرة ── */
+{
+  const held = await Repository.withDemoSandbox(A, async () => {
+    const rows = await Repository.getSchedulesByScope(SCOPE);
+    const instructors = await Repository.getInstructors(SCOPE.termId);
+    return { rows, vacantIds: [...placeholderInstructorIds(instructors as any)] };
+  });
+  const [t1, t2] = DEMO_TA_INSTRUCTOR_IDS;
+  const mine1 = held.rows.filter((row: any) => Number(row.AdInstructorId) === t1), mine2 = held.rows.filter((row: any) => Number(row.AdInstructorId) === t2);
+  check(mine1.length === 1 && mine2.length === 1, "D9 لكلٍّ من المدرّبَين شعبة في جدول الفصل", { t1: mine1.length, t2: mine2.length });
+  const days = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"];
+  check(!mine1.some((a: any, i: number) => mine1.some((b: any, j: number) => i < j && days.some(d => a[d] && b[d]) && a.fstarttime < b.fendtime && b.fstarttime < a.fendtime)), "D9 ولا تداخلَ بين شعبتَي المدرّب");
+  check(held.rows.filter((row: any) => held.vacantIds.includes(Number(row.AdInstructorId))).length >= 2, "D9 والشعبُ الشاغرة باقية");
+}
+
 for (const id of [A, B, C]) Repository.dropDemoSandbox(id);
 fs.rmSync(dir, { recursive: true, force: true });
 console.log(`\n${passed} passed, ${failed} failed`);

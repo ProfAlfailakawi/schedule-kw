@@ -1694,7 +1694,8 @@
         {
           "ar": "حذف الصف الأخير والمقارنة مفتوحة ← لا قرار يشير إلى صف غير موجود.",
           "en": "Deleting the last row with the comparison open leaves no decision pointing at a missing row."
-        }
+        },
+        {"ar": "مقارنة اللقطتين (ما تحرّك منذ آخر نظرة) تربط شعبةً أُعيد إنشاؤها بمعرّفٍ جديد (تراجعٌ عن حذف أو إعادة إضافة) بأصلها بالمقرر ورقم الشعبة والقسم، ثم بالمقرر واليوم والوقت إن تغيّر رقم الشعبة وحده، بشرط أن يكون المفتاح وحيداً في اللقطتين كلتيهما؛ فتظهر «كما هي» أو «معدّلة» لا «محذوفة + مضافة»، وما التبس يبقى حذفاً وإضافة بلا تخمين.", "en": "The snapshot comparison (what moved since the last look) links a section recreated with a new id (undo of a deletion or re-adding) to its original by course, section number and department, then by course, days and time if only the section number changed, provided the key is unique in both snapshots; it then shows as unchanged or edited, not deleted + added, and an ambiguous one stays deleted and added with no guess."}
       ],
       "evidence": {
         "code": [
@@ -1773,6 +1774,7 @@
         "tests": [
           "tests/authority-recreated-section-audit.ts",
           "tests/authority-course-swap-audit.ts",
+          "tests/schedule-diff-patterns-audit.ts",
           "tests/authority-net-diff-audit.ts",
           "tests/authority-identity-reconciliation-audit.ts",
           "tests/authority-diff-cell-audit.ts",

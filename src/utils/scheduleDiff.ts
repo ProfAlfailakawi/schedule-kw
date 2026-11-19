@@ -132,6 +132,41 @@ export function diffSchedules(before: FSchedule[] | undefined, after: FSchedule[
     entries.push({ kind: "removed", scheduleId: id, row, changes: [] });
   }
 
+  /* ── الشعبةُ التي أُعيد إنشاؤها ───────────────────────────────────────────
+     «تراجع» عن حذفٍ وإعادةُ إضافة شعبةٍ يُنشئان صفاً بمعرّفٍ جديد: فيظهر الأصلُ «محذوفاً» والجديدُ «مضافاً» وهما
+     الشعبةُ نفسُها. يُربط من بين المحذوف والمضاف صفّان وحيدان من الجهتين بالمقرر ورقم الشعبة (ثم بالمقرر واليوم
+     والوقت إن تغيّر رقمُ الشعبة وحده)؛ وما تعدّد أو التبس يبقى حذفاً وإضافة بلا تخمين. */
+  const sectionNumber = (row: any) => String(row?.SCode ?? "").replace(/\D/g, "").replace(/^0+/, "") || String(row?.SCode ?? "").trim();
+  const meetingKey = (row: any) => `${DAY_FIELDS.map(field => (row?.[field] ? "1" : "0")).join("")}|${clock(row?.fstarttime)}|${clock(row?.fendtime)}`;
+  const pairKeyed = (keyOf: (row: any) => string) => {
+    const removedBy = new Map<string, DiffEntry[]>(), addedBy = new Map<string, DiffEntry[]>();
+    for (const entry of entries) {
+      const key = keyOf(entry.row);
+      if (!key) continue;
+      const bucket = entry.kind === "removed" ? removedBy : entry.kind === "added" ? addedBy : null;
+      if (bucket) bucket.set(key, [...(bucket.get(key) || []), entry]);
+    }
+    /* الفرادةُ في اللقطتين كلتيهما لا بين المحذوف والمضاف وحدهما: مفتاحٌ يحمله صفٌّ باقٍ (لم يتغيّر) ليس هويةً للشعبة. */
+    const countIn = (rows: readonly FSchedule[]) => { const out = new Map<string, number>(); for (const item of rows) { const k = keyOf(item); if (k) out.set(k, (out.get(k) || 0) + 1); } return out; };
+    const beforeCount = countIn(baseline), afterCount = countIn(after);
+    for (const [key, gone] of removedBy) {
+      const born = addedBy.get(key) || [];
+      if (gone.length !== 1 || born.length !== 1 || beforeCount.get(key) !== 1 || afterCount.get(key) !== 1) continue;
+      const before = gone[0].row, after = born[0].row;
+      const changes: DiffFieldChange[] = [];
+      for (const field of COMPARED_FIELDS) {
+        const from = fieldValue(before, field, names), to = fieldValue(after, field, names);
+        if (from !== to) changes.push({ field, label: DIFF_FIELD_LABEL[field], before: from, after: to });
+      }
+      entries.splice(entries.indexOf(gone[0]), 1);
+      entries.splice(entries.indexOf(born[0]), 1);
+      if (changes.length) entries.push({ kind: "changed", scheduleId: Number((after as any).id), row: after, changes });
+      else unchanged += 1;
+    }
+  };
+  pairKeyed(row => (Number(row?.AdCourseId) ? `${Number(row.AdCourseId)}|${sectionNumber(row)}|${Number(row?.AdSectionId) || 0}` : ""));
+  pairKeyed(row => (Number(row?.AdCourseId) ? `${Number(row.AdCourseId)}|${meetingKey(row)}|${Number(row?.AdSectionId) || 0}` : ""));
+
   /* الترتيب كما يُقرأ لا كما يُخزَّن: المحذوف أولاً لأنه أخطر ما يمرّ دون أن
      يُلحظ — الصفّ المضاف يراه الناظر في الجدول، والمحذوف لا أثر له فيه. */
   const order: Record<DiffEntry["kind"], number> = { removed: 0, added: 1, changed: 2 };
