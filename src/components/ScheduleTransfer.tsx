@@ -2,7 +2,7 @@ import TermSelect from "./TermSelect";
 import { VISITING_SUFFIX, withVisitingSuffix } from "./VisitingBadge";
 import { useVisitingLookup } from "../hooks/useVisitingLookup";
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GraduationCap, AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Library, ClipboardList, Replace, Compass, FolderOpen, BookMarked } from "lucide-react";
+import { GraduationCap, AlertTriangle, ArrowLeft, ArrowLeftRight, Ban, BookOpen, Building2, Check, CheckCircle2, Clock, Copy, DoorClosed, Download, FileCheck, FileX, History, Layers, Link2, Pencil, Plus, RotateCcw, Search, ShieldAlert, Sparkles, Trash2, Upload, UserMinus, UserPlus, UsersRound, X, Library, ClipboardList, Replace, Compass, FolderOpen, BookMarked, FileSearch } from "lucide-react";
 import { PrimaryButton, SecondaryButton, useDialogDismiss, visualConfirm } from "./ui";
 import { settleRegulationException } from "./RegulationExceptionSheet";
 import { validateCivilId } from "../utils/civilId";
@@ -15,6 +15,7 @@ import { useImportPreflight } from "../hooks/useImportPreflight";
 import { importGateSettled, importGateState } from "../utils/importGate";
 import ImportNameFillPanel from "./ImportNameFillPanel";
 import SchedulePublish from "./SchedulePublish";
+const RegistrarPdfCheck = lazy(() => import("./RegistrarPdfCheck"));
 import TAConversionPanel from "./TAConversionPanel";
 import PlanSheetPublisher from "./PlanSheetPublisher";
 import SectionPlan from "./SectionPlan";
@@ -74,11 +75,15 @@ interface Props {
   /** ما تعرفه شاشة الجدول من شارات «منتدب» — لـ«تحويل هيئة التدريب». */
   visitingIds?: Iterable<number>;
   visitingRosterIds?: Iterable<number>;
+  /** من يملك صلاحية استيراد PDF: وحده يرى «افحص جدول التسجيل» (قراءةٌ محضة). */
+  canCheckRegistrarPdf?: boolean;
+  /** يفتح موعداً وجده الفحص في جدول القسم. */
+  onOpenAppointment?: (scheduleId: number) => void;
 }
 
 /* «محاكي الشعب» و«فرصة للتحسين» انتقلا إلى مركز الذكاء وحده («جرّب ← ماذا لو» وبطاقة «فرصة لتحسين الجدول»):
    أداةُ القرار لها بابٌ واحد، وأدواتُ البيانات للبيانات. */
-type Tab = "export" | "import" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses" | "ta";
+type Tab = "export" | "import" | "check" | "publish" | "retire" | "visiting" | "roster" | "planning" | "courses" | "ta";
 type ToolGroup = "planning" | "people" | "files";
 /** مجموعةُ كل أداة: التخطيط (تخطيط الشعب، كل المقررات، واستيرادُ مراجعة التخطيط)، الأساتذة، الملفات. */
 const toolGroupOf = (tab: Tab, planningImport: boolean): ToolGroup =>
@@ -93,7 +98,7 @@ import { importDiff } from "../utils/importDiff";
 import ImportCatalogueGaps, { type GapDecisions } from "./ImportCatalogueGaps";
 import { gapKeyOf, withoutLinkedRowIssues } from "../utils/importCatalogueGaps";
 
-export default function ScheduleTransfer({ collegeId, collegeName, sectionId, termId, instructors, departmentIds, terms, onChanged, onSectionChange, onClose, initialTab, canPublishSheets = false, isAdmin = false, visitingIds, visitingRosterIds }: Props) {
+export default function ScheduleTransfer({ collegeId, collegeName, sectionId, termId, instructors, departmentIds, terms, onChanged, onSectionChange, onClose, initialTab, canPublishSheets = false, isAdmin = false, visitingIds, visitingRosterIds, canCheckRegistrarPdf = false, onOpenAppointment }: Props) {
   useDialogDismiss(true, onClose);
   /* فصلٌ منتهٍ: لا استيراد ولا تخطيط شعب ولا استبدال ولا منتدبون — يُقرأ ويُصدَّر فقط، كي لا يُكتب في أرشيف. */
   const termEnded = termIsArchive(terms.find(term => Number(term.AdTermId) === Number(termId)) as any, terms as any);
@@ -1376,7 +1381,7 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
               {([
                 { id: "planning", label: "التخطيط", Icon: Compass, count: 2 },
                 { id: "people", label: "الأساتذة", Icon: GraduationCap, count: 4 },
-                { id: "files", label: "الملفات", Icon: FolderOpen, count: 3 },
+                { id: "files", label: "الملفات", Icon: FolderOpen, count: termEnded || !canCheckRegistrarPdf ? 3 : 4 },
               ] as const).map(({ id, label, Icon, count }) => (
                 <button key={id} type="button" role="tab" id={`transfer-group-tab-${id}`} aria-selected={openToolGroup === id} aria-controls={`transfer-group-${id}`}
                   className={`transfer-group-chip is-${id}${openToolGroup === id ? " on" : ""}${activeToolGroup === id ? " has-active" : ""}`}
@@ -1406,6 +1411,9 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
           <div className="transfer-tab-row is-files" role="tabpanel" id="transfer-group-files" aria-labelledby="transfer-group-tab-files" hidden={!termEnded && openToolGroup !== "files"}>
               {termEnded ? null : (
                 <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "import" && !fromPlanning ? "active" : ""} onClick={() => goTab("import")} title="استيراد"><Upload />استيراد</button>
+              )}
+              {termEnded || !canCheckRegistrarPdf ? null : (
+                <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "check" ? "active" : ""} onClick={() => goTab("check")} title="افحص جدول التسجيل: قراءةٌ تقارن ملفَّ التسجيل بجدولكم ولا تكتب فيه"><FileSearch />افحص جدول التسجيل</button>
               )}
               <button type="button" data-guide-feature-id="schedule.tool.data" className={tab === "export" ? "active" : ""} onClick={() => goTab("export")} title="تصدير"><Download />تصدير</button>
               <button type="button" data-guide-feature-id="schedule.tool.data" data-guide-tab="publish" className={tab === "publish" ? "active" : ""} onClick={() => goTab("publish")} title="نشر"><Link2 />نشر</button>
@@ -1862,6 +1870,12 @@ export default function ScheduleTransfer({ collegeId, collegeName, sectionId, te
                 </div>
               ) : null}
             </>
+          ) : null}
+
+          {tab === "check" && canCheckRegistrarPdf && !termEnded ? (
+            <Suspense fallback={<p className="transfer-note">جارٍ التحميل…</p>}>
+              <RegistrarPdfCheck collegeId={collegeId} sectionId={sectionId} termId={termId} onClose={() => goTab("import")} onOpenAppointment={onOpenAppointment ? (id) => { onClose(); onOpenAppointment(id); } : undefined} />
+            </Suspense>
           ) : null}
 
           {tab === "publish" ? (
