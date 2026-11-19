@@ -64,14 +64,14 @@ export async function seedDemoTrainingPhase(): Promise<void> {
 }
 
 /**
- * وللمدرّبَين شعبٌ في الجدول (المدرّب 29: شعبتان، والمدرّب 30: شعبة) كي يظهر تبويب «تدريب» في «التبديل السريع»
+ * وللمدرّبَين شعبٌ في الجدول (لكلٍّ منهما شعبة واحدة؛ ولا شعبتان لمدرّبٍ واحد حتى لا تُنتج اختباراتُ التبديل زوجاً من شعبتَي أستاذٍ واحد) كي يظهر تبويب «تدريب» في «التبديل السريع»
  * ببطاقاتٍ حقيقية عند الشرح: تُختار صفوفٌ عاديةٌ بترتيبٍ ثابت (أحدثُ معرّفٍ أولاً) بلا تداخل أوقات المدرّب مع نفسه،
  * وتُترك الشعبُ الشاغرة كما هي. يُكتب في صندوق الزائر وحده كسائر هذا البذر.
  */
 async function assignDemoTraineeSections(rows: any[], placeholders: Set<number>, trainees: number[]): Promise<void> {
   const DAYS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"];
   const overlap = (a: any, b: any) => DAYS.some(day => a[day] && b[day]) && String(a.fstarttime) < String(b.fendtime) && String(b.fstarttime) < String(a.fendtime);
-  const quota = new Map<number, number>([[trainees[0], 2], [trainees[1], 1]]);
+  const quota = new Map<number, number>([[trainees[0], 1], [trainees[1], 1]]);
   const taken = new Map<number, any[]>();
   const candidates = rows.filter(row => !placeholders.has(Number(row.AdInstructorId)) && !trainees.includes(Number(row.AdInstructorId))).sort((a, b) => Number(b.id) - Number(a.id));
   for (const row of candidates) {
