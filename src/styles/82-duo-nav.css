@@ -58,3 +58,21 @@
   html[data-device="duo"] #root .content-stack.schedule-page{gap:10px;row-gap:10px}
   html[data-device="duo"] #root .content-stack.schedule-page>.page-heading{padding-block:6px 2px;margin:0}
 }
+
+/* قائمة التنقّل (الدرج) على الدوو: الدرج كلّه يتمرّر قطعةً واحدة، فتأخذ روابط الصفحات طولها كاملاً.
+   كانت الروابط تتقاسم ارتفاعاً ثابتاً مع الشعار والبحث وبطاقة الحساب فتنضغط إلى 24px،
+   وإلى صفرٍ في الشاشة الخارجية عرضاً تحت شريط Safari. */
+html[data-device="duo"] .sidebar.open{
+  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom));
+}
+html[data-device="duo"] .sidebar.open>*{flex-shrink:0}
+html[data-device="duo"] .sidebar.open .side-nav{flex:none;height:auto;max-height:none;overflow:visible;-webkit-mask-image:none;mask-image:none}
+html[data-device="duo"] .sidebar.open .side-nav .side-nav-link{opacity:1}
+html[data-device="duo"] .sidebar.open .side-nav::after,
+html[data-device="duo"] .sidebar.open .side-nav::before{display:none}
+/* في الارتفاع القصير: الشعار والبحث أصغر، والتعريف الثابت أسفل القائمة يختفي. */
+@media screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"] .sidebar.open .sidebar-brand{min-height:0;padding-block:4px}
+  html[data-device="duo"] .sidebar.open .command-search{min-height:40px}
+}
