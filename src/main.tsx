@@ -25,12 +25,27 @@ void import("./styles/deferred.css");
 document.documentElement.dataset.shell = isNativeApp() || isStandalonePwa() ? "app" : "browser";
 /* «duo»: شاشةٌ شبه مربّعة (iPhone Duo: الخارجية 466×678، الداخلية 669×951؛ النسبة ≤1.48). كل iPhone نسبته ≥1.7،
    وiPad أعرض من 700. فقواعد الدوو لا تمسّ الهاتف العادي ولا iPad. يُعاد عند تبدّل الشاشة (فتحٌ أو إغلاق). */
+/* الكشف على الجهاز الحقيقي: الشاشة الخارجية فيه نسبتها ≈1.484 (لقطات المالك 2026-11-20)، فحدّ 1.48 المقيس على
+   المحاكي أسقطها. فالقرار الآن من ثلاث قرائن، يكفي أيٌّ منها على آيفون/غلاف iOS:
+   ١) شاشةٌ شبه مربّعة: الضلع القصير 400–720 والنسبة ≤ 1.62 (كل iPhone ≥ 1.78، وكل iPad أعرض من 720)؛
+   ٢) ضلعُ النافذة القصير أعرض من 500 — لا iPhone يبلغه (أعرضها 440)، والداخلية في الدوو 669؛
+   ٣) الشيءُ نفسه بأبعاد screen.avail* (قد تختلف عن screen.* بعد الطيّ والفتح). */
+const isAppleHandheld = () => /iPhone|iPod/.test(navigator.userAgent) || Boolean((window as any).Capacitor?.getPlatform?.() === "ios");
+const nearSquare = (a: number, b: number) => { const lo = Math.min(a, b), hi = Math.max(a, b); return lo >= 400 && lo <= 720 && hi / lo <= 1.62; };
 const markDevice = () => {
-  const lo = Math.min(screen.width, screen.height), hi = Math.max(screen.width, screen.height);
-  document.documentElement.dataset.device = lo >= 440 && lo <= 700 && hi / lo <= 1.48 ? "duo" : "other";
+  /* كل iPad ضلعُ شاشته القصير ≥ 744 (وغلاف iOS يعمل على iPad أيضاً)، فلا قرينةَ تُقبل بشاشةٍ أعرض من 720. */
+  const shortScreen = Math.min(screen.width, screen.height);
+  const viewportShort = Math.min(window.innerWidth, window.innerHeight);
+  const duo = isAppleHandheld() && shortScreen <= 720 && (
+    nearSquare(screen.width, screen.height) ||
+    nearSquare(screen.availWidth, screen.availHeight) ||
+    (viewportShort > 500 && viewportShort <= 720)
+  );
+  document.documentElement.dataset.device = duo ? "duo" : "other";
 };
 markDevice();
 window.addEventListener("resize", markDevice);
+window.addEventListener("orientationchange", () => window.setTimeout(markDevice, 300));
 /* جهة عمود الودجت كما يبلغها iOS (safe-area): يمين في الطولي، ويتبدّل مع التدوير. صفرٌ في Safari. */
 const sideProbe = document.createElement("div");
 sideProbe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)";
