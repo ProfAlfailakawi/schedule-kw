@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, FlaskConical, Loader2, Save } from "lucide-react";
 import LocationPicker from "./LocationPicker";
+import CompanionFacilityPicker from "./CompanionFacilityPicker";
 import { PracticalMark } from "./PracticalMark";
 import type { AdCourse, FSchedule } from "../types";
 import { DAY_KEYS, DAY_NAMES, effectiveCourseHours, ladderStartsForDays, sectionWeeklyHours, type DayKey } from "../utils/scheduleRegulations";
@@ -18,10 +19,11 @@ export interface SpecialMeeting {
   fsunday: boolean; fmonday: boolean; ftuesday: boolean; fwednesday: boolean; fthursday: boolean;
   fstarttime: string; fendtime: string; practical: boolean;
   buildingId?: string; roomId?: string; AdRoomCode?: string; AdRoomHall?: string; locationStatus?: string;
+  companionRoomId?: string; companionRoomLabel?: string;
 }
 export type SpecialCheck = { ok: true; notes: string[] } | { ok: false; error: string };
 
-type Place = Partial<Pick<FSchedule, "AdRoomCode" | "AdRoomHall" | "buildingId" | "roomId" | "locationStatus">>;
+type Place = Partial<Pick<FSchedule, "AdRoomCode" | "AdRoomHall" | "buildingId" | "roomId" | "locationStatus" | "companionRoomId" | "companionRoomLabel">>;
 /** دورٌ واحد (نظري أو عملي): بدايةٌ ومكانٌ واحدان (م.7/9: وقتُ البداية ثابتٌ داخل الدور)، ولقاءاتٌ بمدّةٍ لكل يوم. */
 interface Role { key: "t" | "p"; practical: boolean; days: DayKey[]; longest: number }
 
@@ -76,13 +78,15 @@ export default function SpecialSectionBuilder({ course, scode, busy, onCheck, on
     return [...byLength.entries()].sort((a, b) => DAY_KEYS.indexOf(a[1][0]) - DAY_KEYS.indexOf(b[1][0])).map(([length, days]) => ({
       ...flagsOf(days), fstarttime: start, fendtime: clock(Math.min(23 * 60 + 59, toMin(start) + length)), practical: role.practical,
       buildingId: place.buildingId, roomId: place.roomId, AdRoomCode: place.AdRoomCode || "", AdRoomHall: place.AdRoomHall || "", locationStatus: place.locationStatus,
+      companionRoomId: place.companionRoomId || "", companionRoomLabel: place.companionRoomLabel || "",
     }));
   }), [roles, starts, places, JSON.stringify(minutes)]);
 
   const reading = useMemo(() => meetings.length && hours > 0 ? sectionWeeklyHours(meetings[0] as any, meetings.slice(1) as any, hours) : null, [meetings, hours]);
   const complete = Boolean(reading && !reading.under && !reading.over);
   const hasPractical = roles.some(role => role.practical);
-  const roomsDone = roles.length > 0 && roles.every(role => hasRoom(places[role.key]));
+  const needsCompanion = Boolean(String(course.CourseCompanionRoomType || "").trim());
+  const roomsDone = roles.length > 0 && roles.every(role => hasRoom(places[role.key]) && (!needsCompanion || Boolean(places[role.key]?.companionRoomId)));
   const ready = complete && hasPractical && roomsDone;
   const taughtHours = reading ? Math.round(reading.total / 50 * 10) / 10 : 0;
 
@@ -203,8 +207,21 @@ export default function SpecialSectionBuilder({ course, scode, busy, onCheck, on
               courseRoomType={String(course.CourseRoomType || "")}
               courseTeachingMode={role.practical ? "practical" : "theoretical"}
               seatsNeeded={Number(course.MaxStudent || 0)}
-              onChange={patch => setPlaces(current => ({ ...current, [role.key]: { ...(current[role.key] || {}), ...patch } }))}
+              onChange={patch => setPlaces(current => {
+                const before = current[role.key] || {};
+                /* المرفق المرافق يتبع المبنى: يُمحى إن تغيّر المبنى فعلاً (كما في النموذج المعتاد). */
+                const moved = "buildingId" in patch && String(patch.buildingId || "") !== String(before.buildingId || "");
+                return { ...current, [role.key]: { ...before, ...patch, ...(moved ? { companionRoomId: "", companionRoomLabel: "" } : {}) } };
+              })}
             />
+            {needsCompanion ? (
+              <CompanionFacilityPicker
+                course={course}
+                form={{ AdCollegeId: collegeId, AdSectionId: sectionId, AdTermId: termId, AdCourseId: course.AdCourseId, ...(places[role.key] || {}), ...flagsOf(role.days),
+                  fstarttime: start, fendtime: clock(Math.min(23 * 60 + 59, toMin(start) + role.longest)) }}
+                onChange={patch => setPlaces(current => ({ ...current, [role.key]: { ...(current[role.key] || {}), ...patch } }))}
+              />
+            ) : null}
           </div>
         );
       })}

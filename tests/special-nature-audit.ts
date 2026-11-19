@@ -121,6 +121,8 @@ try {
   check(unflag.status === 400 && /العملي/.test(unflag.body?.error || ""), "L15 رفعُ العلامة عن اللقاء الوحيد: تبقى الشعبةُ بلا عملي فيُرفض", unflag);
   const keep = await call("PUT", `/api/schedules/${labRow.id}`, bodyOf(labRow, { AdRoomCode: labRow.AdRoomCode }));
   check(keep.status === 200 && keep.body?.practical === true, "L16 تعديلٌ بلا علامةٍ في الطلب (قاعة/نقل) يُبقي العلامة", keep);
+  const moved = await call("PUT", `/api/schedules/${labRow.id}`, bodyOf(keep.body, { fstarttime: "16:00", fendtime: "17:50" }));
+  check(moved.status === 200 && moved.body?.practical === true, "L16b نقلُ اللقاء العملي الوحيد (الوقت) بلا علامةٍ في الطلب يمرّ ويُبقيها — لا يُحكم الصفُّ بدونها", moved);
   const flipTheory = await call("PUT", `/api/schedules/${theoryRow.id}`, bodyOf(theoryRow, { practical: true }));
   check(flipTheory.status === 200 && flipTheory.body?.practical === true, "L17 لقاءٌ نظريٌّ يُعلَّم عملياً ما دام في الشعبة عمليٌّ", flipTheory);
   const flipBack = await call("PUT", `/api/schedules/${theoryRow.id}`, bodyOf(flipTheory.body, { practical: false }));
@@ -144,6 +146,8 @@ try {
   const ordinaryFull = await call("POST", "/api/schedules", { ...scope, AdCourseId: plain.AdCourseId, SCode: "995", AdInstructorId: teacher.AdInstructorId, ...theoryDays, fstarttime: "08:00", fendtime: "09:50", ...place(theoryRooms[0]) });
   check(ordinaryFull.status === 201, "L24 مقررٌ عاديٌّ: الأحد·الثلاثاء 110 (نمطٌ معتمد) يُحفظ كما كان", ordinaryFull);
   if (ordinaryFull.body?.id) await call("DELETE", `/api/schedules/${ordinaryFull.body.id}`);
+  const builderSource = (await import("node:fs")).readFileSync("src/components/SpecialSectionBuilder.tsx", "utf8");
+  check(/CompanionFacilityPicker/.test(builderSource) && /companionRoomId: place\.companionRoomId/.test(builderSource) && /needsCompanion/.test(builderSource), "L25 المنشئ يدعم المرفق المرافق الإلزامي ويحمل معرّفه في كل لقاء");
 } catch (error: any) {
   failed++; console.log(`\x1b[31m✗ ${error?.stack || error}\x1b[0m`);
 } finally {

@@ -359,6 +359,8 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   /* موعدٌ محفوظ لم يتغيّر شكله (الأيام والوقت) ولا شعبتُه (المقرّر والرمز) يبقى كما هو؛ ومن غيّر شيئاً منها فبنمطٍ معتمد. */
   /* وتغييرُ المقرّر أو الرمز وحده لا يُمنع بمخالفةٍ كانت قائمةً في الصفّ نفسه (editShapeIssue). */
   {const baseline:FSchedule[]|undefined=(req as any).__restoreBaselineWeek;
+  /* علامةُ العملي كما ستكون (لا كما وصلت): طلبٌ بلا علامةٍ (نقلٌ، اقتراح) يُبقي علامةَ الصف، فيُحكم الصفُّ بها لا بدونها. */
+  if(req.body&&req.body.practical===undefined)req.body={...req.body,practical:existing.practical===true};
   let shapeIssue=await editShapeIssue(existing,{...req.body,id},(req as any).__hypotheticalWeek,{skipPattern:true});
   if(shapeIssue&&baseline)shapeIssue=newHoursIssueOnly(shapeIssue,await sectionShapeIssue({...req.body,id},baseline,{skipPattern:true}));
   if(shapeIssue){res.status(400).json({error:shapeIssue,issues:[{type:"validation",severity:"high",message:shapeIssue}]});return;}}
@@ -416,7 +418,7 @@ export const updateScheduleHandler = async (req: AuthenticatedRequest, res: Resp
   /* المخالفةُ التي لا تمنع تحتاج تأكيداً صريحاً (ملاحظتا المالك 10 و20): الشكلُ المحفوظ كما هو لا يُسأل عنه،
      وتغييرُ الأستاذ وحده يُسأل عن تتاليه. */
   const keptShape=sameScheduleShape(existing as any,req.body);
-  const editException=skipsRegulation(req)?[]:await regulationExceptionsFor({...canonicalBody,id},(req as any).__hypotheticalWeek,{
+  const editException=skipsRegulation(req)?[]:await regulationExceptionsFor({...canonicalBody,id,practical:nextPractical},(req as any).__hypotheticalWeek,{
     shapeChanged:!keptShape,sequenceChanged:!keptShape||Number(existing.AdInstructorId||0)!==instructorId,existing,skipPattern:Boolean((req as any).__exactRestore)});
   res.locals.regulationException=editException;
   if(regulationRefused(req,editException)){res.status(409).json(regulationExceptionRefusal(editException));return;}
