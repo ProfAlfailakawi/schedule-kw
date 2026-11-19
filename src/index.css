@@ -96,6 +96,11 @@
 @import "./styles/73-passkeys.css";
 @import "./styles/72-special-section.css";
 @import "./styles/74-what-changed.css";
+@import "./styles/80-duo-appointment.css";
+@import "./styles/81-duo-schedule.css";
+@import "./styles/82-duo-nav.css";
+@import "./styles/83-duo-app-nav.css";
+@import "./styles/84-duo-panes.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after
    everything else preserves the cascade order exactly as it stands here. */

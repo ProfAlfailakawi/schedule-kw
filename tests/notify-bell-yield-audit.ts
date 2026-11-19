@@ -297,6 +297,8 @@ const EXEMPT: Record<string, string> = {
   "appt-travel": "بطاقةُ انتقالٍ عابرة نحو ثانية بعد الحفظ (pointer-events:none، لا زرَّ فيها) تُنشأ بالسكربت وتُزال",
   "schedule-focus-exit": "لا يُرسم إلا في وضع التركيز، والجرسُ فيه مخفيّ",
   "apex-login": "شاشةُ الدخول: لا جرسَ قبل الدخول",
+  "mobile-topbar": "على iPhone Duo عرضاً وحده (84-duo-panes.css): شريطُ التطبيق فوق اللوح الأيمن، والجرسُ نفسه مثبَّتٌ داخله بموضعٍ محسوب بين البحث والمرشد، فلا يغطّي زرّاً",
+  "schedule-editor-close": "على iPhone Duo عرضاً وحده في «موعد جديد» (80-duo-appointment.css): الإغلاق والجرس والمرشد صفٌّ واحد بمواضع محسوبة لا تتداخل",
   "install-modal-backdrop": "على شاشة الدخول وحدها، وحوارُها المعرَّف في متغيّر يُعلن aria-modal=\"true\"",
 };
 type LayerReport = { problems: string[]; answered: string[]; exempt: string[]; bottom: string[]; inert: string[]; dead: string[]; stale: string[] };

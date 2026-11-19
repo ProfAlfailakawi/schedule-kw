@@ -468,6 +468,10 @@ time,.num,.code-chip{
        screen and (horizontal-viewport-segments:2){
   :root{--duo-widget-w:96px;--duo-widget-gap:8px;--duo-widget-h:clamp(64px,31vh,270px)}
 }
+/* الدوو (data-device="duo" من main.tsx): لا حجزٌ بمقاسٍ ثابت. في Safari الودجت في شريط Safari خارج الصفحة،
+   وفي التطبيق يُبلغ iOS عمودَ الودجت نفسه safe-area-inset-right (84pt، قيس على المحاكي 2026-11-19) فتحترمه الصفحة.
+   iPhone وiPad: كما هي. */
+:root[data-device="duo"]{--duo-widget-w:0px;--duo-widget-gap:0px;--duo-widget-h:0px}
 /* Latin numbers and time ranges must keep their visual order when they sit in
    Arabic sentences. `dir=ltr` already carries the semantics; isolation stops a
    neighbouring Arabic phrase from reordering the glyphs on screen. */

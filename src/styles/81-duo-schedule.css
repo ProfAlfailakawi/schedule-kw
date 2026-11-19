@@ -1,0 +1,104 @@
+/* ==========================================================================
+   صفحة «الجدول الدراسي» على iPhone Duo — الشاشة الداخلية عرضاً (مفتوحة أو كتاب)
+   كل القواعد تحت [data-device="duo"] (main.tsx): iPhone وiPad لا يتغيّران.
+   - الطافيات في أسفل الصفحة اليسرى صفٌّ واحد: «تبادل القاعات» في الزاوية، وشريط الأدوات في وسط الصفحة،
+     ولا يركب أيٌّ منهما على بطاقة.
+   - المحتوى ينتهي فوقهما بمسافةٍ كافية، فآخر زرٍّ يظهر كاملاً عند نهاية التمرير.
+   ========================================================================== */
+@media screen and (orientation:landscape) and (min-width:860px) and (min-height:500px) and (max-height:760px){
+  /* شريطٌ سفليٌّ ثابت بعرض الصفحة اليسرى (صفحة العمل)، بخلفيةٍ وحدٍّ علوي: الأدوات فيه، والمحتوى يمرّ تحته لا تطفو فوقه. */
+  [data-device="duo"] .schedule-dock{
+    left:0;right:auto;width:50vw;max-width:none;min-width:0;bottom:0;transform:none;margin:0;z-index:60;
+    border-radius:0;border:0;border-top:1px solid var(--line);
+    box-shadow:0 -6px 18px rgb(17 25 22 / .05);
+    background:color-mix(in srgb,var(--surface) 94%,transparent);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    padding:8px 16px calc(8px + env(safe-area-inset-bottom));
+    justify-content:center;box-sizing:border-box;
+  }
+  /* «تبادل القاعات» داخل الشريط، في زاويته. */
+  [data-device="duo"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    top:auto;right:auto;left:16px;bottom:calc(8px + env(safe-area-inset-bottom));
+    width:48px;height:48px;z-index:70;
+  }
+  /* آخر المحتوى ينتهي فوق الشريط. */
+  [data-device="duo"] body:has(.schedule-dock) .content-frame{padding-bottom:calc(64px + 24px + env(safe-area-inset-bottom))}
+}
+
+/* الطولي (الشاشة الخارجية والداخلية) والخارجية عرضاً: شريط الأدوات فوق شريط التنقل السفلي مباشرة،
+   بعرض الشاشة وبخلفيةٍ وحدّ، و«تبادل القاعات» في زاويته؛ فلا شيء يطفو فوق البطاقات. */
+@media screen and (orientation:portrait),screen and (orientation:landscape) and (max-height:480px){
+  [data-device="duo"] .schedule-dock{
+    /* الخلفية تنزل حتى حافة الشاشة خلف شريط التنقل (الذي فوقها)، فلا فجوة بينهما مهما كان ارتفاعه. */
+    left:0;right:0;width:auto;max-width:none;min-width:0;transform:none;margin:0;z-index:54;
+    bottom:0;padding-bottom:calc(var(--dock-h) + env(safe-area-inset-bottom) + 6px);
+    border-radius:0;border:0;border-top:1px solid var(--line);
+    box-shadow:none;
+    background:color-mix(in srgb,var(--surface) 94%,transparent);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    padding-top:6px;padding-inline:16px;justify-content:center;box-sizing:border-box;
+  }
+  [data-device="duo"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    top:auto;right:auto;left:16px;width:44px;height:44px;z-index:70;
+    bottom:calc(var(--dock-h) + env(safe-area-inset-bottom) + 8px);
+  }
+  [data-device="duo"] body:has(.schedule-dock) .content-frame{padding-bottom:calc(var(--dock-h) + 60px + 24px + env(safe-area-inset-bottom))}
+}
+
+/* الشريط العلوي على الدوو: أيقوناتٌ بشكلٍ واحد — البحث والجرس والمرشد والقائمة 44×44 بلا مربّعٍ داكن،
+   والمرشد بلون العلامة وحده. */
+html[data-device="duo"] .smart-guide-fab.icon-only,
+html[data-device="duo"] .smart-guide-fab .smart-guide-fab-mark{
+  background:none;box-shadow:none;border:0;color:var(--accent);
+}
+html[data-device="duo"] .smart-guide-fab.icon-only svg{width:22px;height:22px}
+/* حيث يظهر الشريط العلوي (الطولي والخارجية عرضاً): الجرس أيقونةٌ مسطّحة كأخواتها، لا دائرةٌ بيضاء بظل. */
+@media screen and (orientation:portrait),screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"] body:not(:has(.schedule-editor.is-studio)) .notify-bell{background:none;box-shadow:none;border:0}
+}
+
+/* الخارجية عرضاً (ارتفاعٌ قصير): لا شريطان فوق بعض. صفٌّ سفليٌّ واحد: التبويبات يميناً، والأدوات يساراً. */
+@media screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"] body:has(.schedule-dock) .mobile-bottom-dock{left:42%;right:0;width:auto;max-width:none}
+  html[data-device="duo"] .schedule-dock{
+    left:0;right:58%;bottom:0;z-index:56;border-top:1px solid var(--line);
+    padding:0 12px env(safe-area-inset-bottom) 68px;
+    height:calc(var(--dock-h) + env(safe-area-inset-bottom));
+    align-items:center;justify-content:center;gap:6px;
+  }
+  html[data-device="duo"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    left:12px;bottom:calc(env(safe-area-inset-bottom) + (var(--dock-h) - 44px) / 2);
+  }
+  html[data-device="duo"] body:has(.schedule-dock) .content-frame{padding-bottom:calc(var(--dock-h) + 24px + env(safe-area-inset-bottom))}
+}
+
+/* الخارجية طولاً (عرضٌ ضيّق ≤460): صفٌّ سفليٌّ واحد أيضاً — التبويبات الأربعة يميناً، و«موعد» و«تبادل القاعات» يساراً.
+   البحث في الشريط العلوي أصلاً، فلا يتكرّر في الأسفل. */
+@media screen and (orientation:portrait) and (max-width:460px){
+  html[data-device="duo"] body:has(.schedule-dock) .mobile-bottom-dock{left:30%;right:0;width:auto;max-width:none}
+  html[data-device="duo"] .schedule-dock{
+    left:0;right:70%;bottom:0;z-index:56;
+    padding:0 8px env(safe-area-inset-bottom) 56px;
+    height:calc(var(--dock-h) + env(safe-area-inset-bottom));
+    align-items:center;justify-content:center;gap:4px;
+  }
+  /* «موعد» وحده (dock-add)؛ البحث والتركيز والعرض في أماكن أخرى. */
+  html[data-device="duo"] .schedule-dock>:not(.dock-add):not(:has(.dock-add)){display:none}
+  html[data-device="duo"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    left:8px;bottom:calc(env(safe-area-inset-bottom) + (var(--dock-h) - 44px) / 2);
+  }
+  html[data-device="duo"] body:has(.schedule-dock) .content-frame{padding-bottom:calc(var(--dock-h) + 24px + env(safe-area-inset-bottom))}
+}
+
+/* Safari على الدوو: الشريط السفلي بلون الصفحة نفسه (لون شريط Safari)، فلا تظهر تحته لوحةٌ بيضاء
+   خلف شريط العنوان العائم — الأسفل كلّه سطحٌ واحد. */
+@media screen and (orientation:portrait),screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"][data-shell="browser"] .mobile-bottom-dock,
+  html[data-device="duo"][data-shell="browser"] .schedule-dock{
+    /* الظلّ السفلي المصمت يمدّ لون الشريط حتى حافة الشاشة خلف شريط Safari العائم، فلا يظهر المحتوى تحته. */
+    background:var(--canvas);box-shadow:0 140px 0 0 var(--canvas);-webkit-backdrop-filter:none;backdrop-filter:none;
+  }
+  html[data-device="duo"][data-shell="browser"] .mobile-bottom-dock{border-top:1px solid var(--line)}
+}
+/* ما يظهر خلف شريط Safari العائم هو خلفية الجذر: بلون الصفحة لا أبيض. */
+html[data-device="duo"],html[data-device="duo"] body{background-color:var(--canvas)}

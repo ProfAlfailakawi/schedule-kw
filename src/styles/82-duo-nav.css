@@ -1,0 +1,60 @@
+/* ==========================================================================
+   الدوو — الشاشة الخارجية: رأسٌ مضغوط، وتنقّلٌ على طريقة يوتيوب (تجربة للعرض على المالك).
+   كل القواعد تحت [data-device="duo"]؛ الخياران تحت [data-duonav="rail"|"bar"] للمقارنة فقط.
+   ========================================================================== */
+
+/* رأس الصفحة المضغوط (الشاشة الخارجية طولاً وعرضاً): العنوان والزر في سطرٍ واحد، بلا المسطرة الزخرفية
+   ولا السطر التعريفي، فيبدأ المحتوى فوراً. */
+@media screen and (orientation:portrait),screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"] #root .page-heading:not(.schedule-editor .page-heading){
+    display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;
+    padding-block:10px 6px;min-height:0;
+  }
+  html[data-device="duo"] #root .page-heading:not(.schedule-editor .page-heading)::after{display:none}
+  html[data-device="duo"] #root .page-heading:not(.schedule-editor .page-heading) .page-eyebrow,
+  html[data-device="duo"] #root .page-heading:not(.schedule-editor .page-heading) .page-heading-copy>p{display:none}
+  html[data-device="duo"] #root .page-heading:not(.schedule-editor .page-heading) h1{font-size:22px;line-height:1.3;margin:0;white-space:nowrap}
+  html[data-device="duo"] #root .page-heading:not(.schedule-editor .page-heading) .page-heading-action{flex:none;width:auto;margin:0}
+  html[data-device="duo"] #root .page-heading:not(.schedule-editor .page-heading) .page-heading-action .btn{
+    width:auto;min-height:40px;padding-inline:16px;border-radius:999px;font-size:14px;
+  }
+}
+
+/* الخيار «أ» — كبسولةٌ رأسية على الحافة اليسرى (Safari يشغل العمود الأيمن بأزراره). */
+@media screen and (orientation:portrait),screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"][data-duonav="rail"] body:has(.mobile-bottom-dock) .mobile-bottom-dock{
+    left:8px;right:auto;top:auto;bottom:calc(16px + env(safe-area-inset-bottom));
+    width:56px;max-width:56px;min-width:0;height:auto;min-height:0;padding:6px;gap:6px;
+    display:flex;flex-direction:column;align-items:center;
+    border:0;border-radius:28px;
+    background:color-mix(in srgb,var(--ink) 92%,transparent);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    box-shadow:0 10px 30px rgb(17 25 22 / .22);
+  }
+  html[data-device="duo"][data-duonav="rail"] .mobile-bottom-dock .mobile-dock-link{
+    width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;
+    display:grid;place-items:center;color:rgb(255 255 255 / .82);background:none;
+  }
+  html[data-device="duo"][data-duonav="rail"] .mobile-bottom-dock .mobile-dock-link.active{
+    background:rgb(255 255 255 / .16);color:#fff;
+  }
+  html[data-device="duo"][data-duonav="rail"] .mobile-bottom-dock .mobile-dock-link::before,
+  html[data-device="duo"][data-duonav="rail"] .mobile-bottom-dock .mobile-dock-link::after{display:none}
+  html[data-device="duo"][data-duonav="rail"] .mobile-bottom-dock .mobile-dock-label{
+    position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;
+  }
+  html[data-device="duo"][data-duonav="rail"] .mobile-bottom-dock .mobile-dock-icon svg{width:22px;height:22px}
+  /* المحتوى يترك عمود الكبسولة، ولا شريط سفلي. */
+  html[data-device="duo"][data-duonav="rail"] .content-frame{padding-left:76px !important;padding-bottom:24px !important}
+  html[data-device="duo"][data-duonav="rail"] .schedule-dock{display:none !important}
+  html[data-device="duo"][data-duonav="rail"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    left:14px !important;bottom:calc(16px + 4 * 50px + 12px + 20px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* الطولي والخارجية عرضاً: لا فراغ فوق رأس الصفحة ولا تحته — المحتوى يبدأ بعد الشريط مباشرة. */
+@media screen and (orientation:portrait),screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"] body:has(.schedule-page) .app-main{padding-top:4px}
+  html[data-device="duo"] #root .content-stack.schedule-page{gap:10px;row-gap:10px}
+  html[data-device="duo"] #root .content-stack.schedule-page>.page-heading{padding-block:6px 2px;margin:0}
+}
