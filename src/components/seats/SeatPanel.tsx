@@ -260,14 +260,14 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
   /* هاتفٌ ضاع: تسقط البصمة وحدها، وتبقى كلمة السر والجلسات. */
   const dropPasskeys = () => run(async () => {
     const name = detail?.holder?.name || detail?.seat.name || "";
-    if (!(await visualConfirm({ title: `إسقاط بصمة ${name}`, message: `تسقط مفاتيح الدخول بالبصمة على ${countOf(detail?.passkeys || 0, AR.device)}، وتبقى كلمة السر والجلسات.`, confirmLabel: "أسقط البصمة", tone: "warning" }))) return;
+    if (!(await visualConfirm({ title: `إسقاط بصمة ${name}`, message: `تسقط مفاتيح الدخول بالبصمة على ${countOf(detail?.passkeys || 0, AR.device)}، ويخرج من كل جهاز. تبقى كلمة السر.`, confirmLabel: "أسقط البصمة", tone: "warning" }))) return;
     const result = await call<{ passkeys: number }>(`/api/seats/${id}/passkeys/revoke`, { method: "POST" });
     setDetail(current => current ? { ...current, passkeys: result.passkeys } : current);
     onChanged?.();
     await load();
   });
   const dropMemberPasskeys = (member: Member) => run(async () => {
-    if (!(await visualConfirm({ title: `إسقاط بصمة ${member.name}`, message: `تسقط مفاتيح الدخول بالبصمة على ${countOf(member.passkeys || 0, AR.device)}، ويبقى رابطه وجلساته.`, confirmLabel: "أسقط البصمة", tone: "warning" }))) return;
+    if (!(await visualConfirm({ title: `إسقاط بصمة ${member.name}`, message: `تسقط مفاتيح الدخول بالبصمة على ${countOf(member.passkeys || 0, AR.device)}، ويخرج من كل جهاز. يبقى رابطه.`, confirmLabel: "أسقط البصمة", tone: "warning" }))) return;
     await call<{ passkeys: number }>(`/api/seats/${id}/members/${member.id}/passkeys/revoke`, { method: "POST" });
     await load();
   });
@@ -358,7 +358,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
           {typeof detail.passkeys === "number" ? <span className={`seat-passkeys ${detail.passkeys ? "on" : ""}`.trim()}><Fingerprint aria-hidden="true" />{passkeyChip(detail.passkeys)}</span> : null}
         </div>
         <div className="seat-holder-actions">
-          {detail.passkeys ? <button data-guide-ignore="إسقاط بصمة رئيس الفريق لهاتفٍ ضاع؛ لا يغيّر كلمة السر ولا الجلسات، لمدير النظام ويحرسه الخادم" type="button" className="btn btn-ghost" onClick={() => void dropPasskeys()} disabled={busy}><Fingerprint aria-hidden="true" /> أسقط البصمة</button> : null}
+          {detail.passkeys ? <button data-guide-ignore="إسقاط بصمة رئيس الفريق لهاتفٍ ضاع وإخراجه من كل جهاز؛ لا يغيّر كلمة السر، لمدير النظام ويحرسه الخادم" type="button" className="btn btn-ghost" onClick={() => void dropPasskeys()} disabled={busy}><Fingerprint aria-hidden="true" /> أسقط البصمة</button> : null}
           {detail.canResetPassword ? <button data-guide-ignore="إعادة تعيين كلمة سرّ رئيس الفريق؛ لمدير النظام ويحرسها الخادم" type="button" className="btn btn-ghost" onClick={() => void resetHolder()} disabled={busy}><RotateCcw aria-hidden="true" /> إعادة تعيين</button> : null}
           {detail.canHandOver ? <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary" onClick={() => setSheet({ kind: "handover" })} disabled={busy}><ArrowLeftRight aria-hidden="true" /> تسليم الرئاسة</button> : null}
           {detail.canManage && source === "seat" ? <button data-guide-ignore="يعرض بطاقة دخول رئيس الفريق لإرسالها إليه؛ لا يغيّر كلمة المرور ولا بيانات" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holderCard" })} disabled={busy}><IdCard aria-hidden="true" /> البطاقة</button> : null}
@@ -388,7 +388,7 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
                   </div>
                   {detail.canManage ? (
                     <div className="seat-member-actions">
-                      {member.passkeys ? <button data-guide-ignore="إسقاط بصمة عضو الفريق لهاتفٍ ضاع؛ لا يغيّر رابطه ولا جلساته، لمدير النظام ويحرسه الخادم" type="button" className="btn btn-ghost btn-sm" onClick={() => void dropMemberPasskeys(member)} disabled={busy}><Fingerprint aria-hidden="true" /> أسقط البصمة</button> : null}
+                      {member.passkeys ? <button data-guide-ignore="إسقاط بصمة عضو الفريق لهاتفٍ ضاع وإخراجه من كل جهاز؛ لا يغيّر رابطه، لمدير النظام ويحرسه الخادم" type="button" className="btn btn-ghost btn-sm" onClick={() => void dropMemberPasskeys(member)} disabled={busy}><Fingerprint aria-hidden="true" /> أسقط البصمة</button> : null}
                       {member.status === "frozen" ? (
                         <>
                           <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary btn-sm" onClick={() => void setStatus(member, "active")} disabled={busy}><UserCheck aria-hidden="true" /> مستمر</button>

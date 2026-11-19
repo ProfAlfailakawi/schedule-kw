@@ -14,7 +14,7 @@ import { ACADEMIC_ROLES, DEFAULT_MIGRATION_ROLE, isAcademicRole, roleDefinition,
 import { AR, countOf } from "../../utils/arabicCount";
 import { adminSetPasswordFields, newPasswordProblem } from "../accountPassword";
 import { authCache, type AuthenticatedRequest, requireAnyPermission, requireAuth, requirePermission, requirePowerAdmin, requireRootAdmin, ROOT_ADMIN_USER_ID } from "../core/auth";
-import { revokeUserPasskeys } from "../passkeys";
+import { revokeSeatMembersPasskeys, revokeUserPasskeys } from "../passkeys";
 import { adminPasswordProblem, userEditDiff, userEditRefusal } from "../userAdminGuards";
 import { deleteBlockers, refuseWithBlocker } from "../deleteImpact";
 import { safeSystemUser } from "../core/scope";
@@ -457,6 +457,8 @@ app.put("/api/users/:id", requirePermission(11), async (req: Request, res: Respo
     /* مفاتيحُ «الدخول بالبصمة» تتبع الحساب: أيُّ تغييرٍ لكلمته (من المسؤول أو من صاحبه)، وإيقافٌ أو قفلٌ جديد، تُسقطها ويُسجَّل الجهازُ من جديد.
        تُسقَط قبل الكتابة وبلا ابتلاعٍ للخطأ: إن تعذّر الإسقاطُ لا يُحفظ التغيير فلا يبقى باب. */
     if (passwordChanged || (before.IsActive && !fields.IsActive) || (!before.IsLocked && fields.IsLocked)) await revokeUserPasskeys(id);
+    /* وحسابُ رئيس فريقٍ يُقفل أو يُوقف أو يُعاد تعيينُ كلمته من المسؤول: تسقط بصمةُ أعضاء فريقه معه. */
+    if (resetsAnotherUser || (before.IsActive && !fields.IsActive) || (!before.IsLocked && fields.IsLocked)) await revokeSeatMembersPasskeys(id);
     const updated = await Repository.updateUser(id, fields);
     if (resetsAnotherUser) { await Repository.deleteSessionsForUser(id); authCache.clear(); }
     /**
@@ -542,6 +544,7 @@ app.delete("/api/users/:id", requirePermission(11), async (req: Request, res: Re
   const [blocked] = await deleteBlockers("user", id, { actor: { id: Number((req as AuthenticatedRequest).user?.SystemUserId), permissions: (req as AuthenticatedRequest).permissions || [] } });
   if (blocked) { refuseWithBlocker(res, blocked); return; }
   await revokeUserPasskeys(id);
+  await revokeSeatMembersPasskeys(id);
   await Repository.deleteUser(id);
   await Repository.deleteSessionsForUser(id);
   authCache.clear();

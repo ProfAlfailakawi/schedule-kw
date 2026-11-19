@@ -15,7 +15,7 @@ import express from "express";
 import type { AddressInfo } from "node:net";
 import { createHash, generateKeyPairSync, randomBytes, sign as ecSign, type KeyObject } from "node:crypto";
 import { Repository } from "../src/db/repository";
-import { PASSKEY_LIMIT, registerPasskeyRoutes } from "../src/server/passkeys";
+import { PASSKEY_LIMIT, countMemberPasskeys, registerPasskeyRoutes, revokeMemberPasskeys, revokeSeatMembersPasskeys } from "../src/server/passkeys";
 import { getCookies } from "../src/server/core/auth";
 import { registerSeatsRoutes, seatMemberGuard } from "../src/server/seatsRoutes";
 import { readSeatLedger, seatIdentity, updateSeatLedger } from "../src/server/seats";
@@ -168,7 +168,7 @@ async function main() {
   const admin = await t.session(ADMIN);
   const adminNoPerm = await t.session(ADMIN_NO_PERM);
   const other = await t.session(OTHER);
-  const holder = await t.session(SEAT);
+  let holder = await t.session(SEAT);
   const member1 = await t.session(SEAT, M1);
 
   /* ── S: الرئيس ── */
@@ -199,14 +199,16 @@ async function main() {
   check(byMember.status === 403 && byMember.json?.code === "seat-member", "S10 جلسةُ عضو الفريق تُرفض بحارس العضو", byMember.json);
   check((await t.call("GET", `/api/seats/${SEAT}`, undefined, admin)).json.passkeys === 1, "S11 والرفضُ لا يُسقط شيئاً");
 
-  const sessionsBefore = await Repository.getSession(holder.session_id);
+  const holderOther = await t.session(SEAT);
   const dropped = await t.call("POST", revokePath, {}, admin);
   check(dropped.status === 200 && dropped.json.passkeys === 0 && Object.keys(dropped.json).length === 1, "S12 مديرُ النظام يُسقطها ويُردّ العددُ الجديد وحده", dropped.json);
   check((await t.login(holderKey)).status === 400, "S13 الجهازُ المُسقَط لا يدخل");
   check(users[SEAT].SystemUserPass === PASSWORD_HASH && !users[SEAT].MustChangePassword, "S14 كلمةُ السر كما هي");
-  check(Boolean(sessionsBefore) && Boolean(await Repository.getSession(holder.session_id)) && (await t.call("GET", "/api/seats/mine", undefined, holder)).status === 200, "S15 وجلسةُ الرئيس باقية");
+  check(!(await Repository.getSession(holder.session_id)) && !(await Repository.getSession(holderOther.session_id)) && (await t.call("GET", "/api/seats/mine", undefined, holder)).status === 401, "S15 والرئيسُ يخرج من كل جهاز (هاتفٌ ضاع)");
+  check(Boolean(await Repository.getSession(member1.session_id)), "S15 وجلساتُ الأعضاء بروابطهم باقية");
+  holder = await t.session(SEAT);
   let event = await lastEvent();
-  check(event?.kind === "passkeys-revoked" && event.by === "مدير النظام" && event.detail.includes(countOf(1, AR.device)), "S16 سطرٌ في سجلّ الفريق بمن فعله", event);
+  check(event?.kind === "passkeys-revoked" && event.by === "مدير النظام" && event.detail.includes(countOf(1, AR.device)) && event.detail.includes("كل جهاز"), "S16 سطرٌ في سجلّ الفريق بمن فعله وأنه خرج من كل جهاز", event);
 
   /* ── M: العضو ── */
   const memberKey = new Authenticator();
@@ -254,10 +256,13 @@ async function main() {
   check(unknown.status === 404, "M10 عضوٌ ليس في الفريق: 404", unknown.status);
   const notSeat = await t.call("POST", `/api/seats/${OTHER}/members/${M1}/passkeys/revoke`, {}, admin);
   check(notSeat.status === 404, "M10 حسابٌ ليس فريقاً: 404", notSeat.status);
+  const member2Session = await t.session(SEAT, M2);
   const memberDropped = await t.call("POST", memberRevoke, {}, admin);
   check(memberDropped.status === 200 && memberDropped.json.passkeys === 0 && Object.keys(memberDropped.json).length === 1, "M11 مديرُ النظام يُسقط بصمةَ العضو، والردُّ العددُ وحده", memberDropped.json);
   check((await t.login(memberKey)).status === 400, "M11 والعضوُ لا يدخل بها بعدُ");
-  check(Boolean(await Repository.getSession(member1.session_id)), "M11 وجلستُه ورابطه باقيان");
+  check(!(await Repository.getSession(member1.session_id)) && !(await Repository.getSession(memberLogin.json.sessionId)), "M11 ويخرج العضوُ من كل جهاز");
+  check(Boolean(await Repository.getSession(holder.session_id)) && Boolean(await Repository.getSession(member2Session.session_id)), "M11 وتبقى جلساتُ الرئيس والأعضاء الآخرين");
+  check(Boolean((await readSeatLedger(SEAT))?.members.find(m => m.id === M1)?.linkToken), "M11 ورابطُه باقٍ");
   event = await lastEvent();
   check(event?.kind === "passkeys-revoked" && event.by === "مدير النظام" && event.detail.startsWith("عضو 1"), "M12 سطرٌ في سجلّ الفريق باسم العضو ومن فعله", event);
   check((await t.call("GET", "/api/passkeys", undefined, holder)).json.items.length === 1, "M12 وبصمةُ الرئيس لا تتأثّر");
@@ -294,6 +299,59 @@ async function main() {
   const over = await t.call("POST", "/api/passkeys/register/options", {}, fresh);
   check(results.every(status => status === 200) && over.status === 409 && over.json.code === "passkey-limit", `M17 سقفُ العضو ${countOf(PASSKEY_LIMIT, AR.device)}`, { results, over: over.json });
   check((await t.call("GET", "/api/passkeys", undefined, holder)).json.items.length === 1, "M17 وسقفُ العضو منفصلٌ عن الرئيس");
+
+  /* ── R: السباقات والفشل ── */
+  t.close(); t = boot();
+  /* M1 ممتلئ (السقف)؛ يُفرَّغ ليُختبر التسجيل من جديد. */
+  await revokeMemberPasskeys(SEAT, M1);
+  const realUpdate = Repository.updateFeatureDoc, realSave = Repository.saveFeatureDoc;
+  /* R1 تُغلق الجلسةُ بين كتابة المفتاح وإلحاقه بالحالة (إعادةُ تعيين أو انتهاءُ عضوية في الأثناء) */
+  let raceSession = await t.session(SEAT, M1);
+  (Repository as any).updateFeatureDoc = async (collection: string, id: string, fn: any) => {
+    const out = await (realUpdate as any)(collection, id, fn);
+    if (collection === "passkeyState" && String(id).includes(M1)) await Repository.deleteSessionsForUser(SEAT, M1);
+    return out;
+  };
+  const raced = await t.enroll(raceSession, new Authenticator());
+  (Repository as any).updateFeatureDoc = realUpdate;
+  check(raced.status === 401 && raced.json?.code === "session-ended" && (await countMemberPasskeys(SEAT, M1)) === 0, "R1 مفتاحٌ كُتب وجلستُه تُغلق في الأثناء يُسحب", raced.json);
+  /* R2 يُسقط المسؤولُ البصمةَ بين قراءة الحالة وإلحاق المفتاح */
+  raceSession = await t.session(SEAT, M1);
+  (Repository as any).updateFeatureDoc = async (collection: string, id: string, fn: any) => {
+    if (collection === "passkeys") { const out = await (realUpdate as any)(collection, id, fn); (Repository as any).updateFeatureDoc = realUpdate; await revokeMemberPasskeys(SEAT, M1); return out; }
+    return (realUpdate as any)(collection, id, fn);
+  };
+  const late = await t.enroll(raceSession, new Authenticator());
+  (Repository as any).updateFeatureDoc = realUpdate;
+  check(late.status === 409 && late.json?.code === "passkey-revoked" && (await countMemberPasskeys(SEAT, M1)) === 0, "R2 مفتاحٌ وُلد قبل الإسقاط لا يُلحق بعده", late.json);
+  /* R3 العدُّ بمرشّح القائمة والدخول: علامةُ الإسقاط وحدها تُصفّره ولو بقيت المعرّفات */
+  const countKey = new Authenticator();
+  check((await t.enroll(await t.session(SEAT, M1), countKey)).status === 200 && (await countMemberPasskeys(SEAT, M1)) === 1, "R3 جهازٌ يُعدّ");
+  await realUpdate.call(Repository, "passkeyState" as any, `${SEAT}~${M1}`, (current: any) => ({ next: { ...current, revokedAt: Date.now() + 60_000 }, result: true }));
+  const adminView = await t.call("GET", `/api/seats/${SEAT}`, undefined, admin);
+  check((await countMemberPasskeys(SEAT, M1)) === 0 && adminView.json.team.members.find((m: any) => m.id === M1)?.passkeys === 0, "R3 ما قبل حدّ الإسقاط لا يُعدّ (كما لا يدخل)");
+  await realUpdate.call(Repository, "passkeyState" as any, `${SEAT}~${M1}`, (current: any) => ({ next: { ...current, revokedAt: 0, credentialIds: [] }, result: true }));
+  /* R4 إعادةُ تعيين العضو والإسقاطُ يتعذّر: الجلساتُ خرجت قبله */
+  await updateSeatLedger(SEAT, ledger => ({ next: { ...ledger, members: ledger.members.map(m => m.id === M3 ? { ...m, status: "active" as const } : m) }, result: true }));
+  const m3Open = await t.session(SEAT, M3);
+  (Repository as any).updateFeatureDoc = async (collection: string, ...rest: any[]) => { if (collection === "passkeyState") throw new Error("boom"); return (realUpdate as any)(collection, ...rest); };
+  /* Express 4 لا يلتقط رفضَ الدالة غير المتزامنة: الخادمُ يسجّله (server.ts) والطلبُ لا يكتمل؛ المهمّ ما بقي مفتوحاً. */
+  const swallow = () => undefined; process.on("unhandledRejection", swallow);
+  const failedReset = await Promise.race([t.call("POST", `/api/seats/${SEAT}/members/${M3}/reset`, {}, admin), new Promise<{ status: number }>(resolve => setTimeout(() => resolve({ status: 599 }), 1500))]);
+  (Repository as any).updateFeatureDoc = realUpdate;
+  process.off("unhandledRejection", swallow);
+  check(failedReset.status >= 500 && !(await Repository.getSession(m3Open.session_id)), "R4 تعذّرُ الإسقاط لا يُبقي جلسةَ العضو مفتوحة (تخرج أولاً)", failedReset.status);
+  /* R5 إسقاطُ بصمة الفريق كلِّه: يحاول الجميع، ويرمي إن تعذّر أحدُهم */
+  const teamKey = new Authenticator();
+  await t.enroll(await t.session(SEAT, M3), teamKey);
+  check((await t.login(teamKey)).status === 200, "R5 عضوٌ يدخل ببصمته");
+  check((await revokeSeatMembersPasskeys(SEAT)) >= 1 && (await t.login(teamKey)).status === 400, "R5 إسقاطُ بصمة الفريق يُغلقها");
+  (Repository as any).updateFeatureDoc = async (collection: string, ...rest: any[]) => { if (collection === "passkeyState") throw new Error("boom"); return (realUpdate as any)(collection, ...rest); };
+  let threw = false;
+  try { await revokeSeatMembersPasskeys(SEAT); } catch { threw = true; }
+  (Repository as any).updateFeatureDoc = realUpdate;
+  void realSave;
+  check(threw, "R5 وتعذّرُه يُرمى ولا يُبتلع");
   t.close();
 
   /* ── G: تدقيقُ المصدر ── */
@@ -302,10 +360,21 @@ async function main() {
     "G1 الدخولُ الحقيقيُّ بالبصمة يفتح جلسةَ العضو نفسَها (memberId) ويقرأ هويته كما تُقرأ بعده");
   const seats = read("src/server/seatsRoutes.ts");
   const handover = seats.slice(seats.indexOf('app.post("/api/seats/:id/handover"'), seats.indexOf('app.post("/api/seats/:id/first-password"'));
-  check(handover.includes("revokeSeatTeamPasskeys("), "G2 تسليمُ الرئاسة يُسقط بصمةَ أعضاء الفريق");
+  check(handover.includes("revokeSeatMembersPasskeys(") && handover.indexOf("resetSeatCredentials(") < handover.indexOf("revokeSeatMembersPasskeys(") && /try \{ await revokeSeatMembersPasskeys/.test(handover),
+    "G2 التسليم: الرئيسُ السابق يخرج أولاً (كلمةٌ وبصمةٌ وجلسات)، ثم بصمةُ الفريق، وتعذّرُها يُبلَّغ ولا يُبقيه داخلاً");
   check(/"\/api\/seats\/:id\/passkeys\/revoke", requirePowerAdmin, resetLimit, seatAdmin/.test(seats) && /"\/api\/seats\/:id\/members\/:mid\/passkeys\/revoke", requirePowerAdmin, resetLimit, seatAdmin/.test(seats), "G3 المساران لمدير النظام بالشاشة 11 وبحدّ");
   const routes = seats.slice(seats.indexOf('app.post("/api/seats/:id/passkeys/revoke"'), seats.indexOf('app.post("/api/seats/:id/members", requireAuth'));
-  check(!/deleteSessions|applyPasswordReset|hashPassword|revokeSeatLink/.test(routes), "G4 الإسقاطُ لا يمسّ كلمةَ السر ولا الجلسات ولا الرابط");
+  check(!/applyPasswordReset|hashPassword|revokeSeatLink|issueMemberLink/.test(routes) && (routes.match(/dropPasskeysAndSessions\(/g) || []).length === 2, "G4 الإسقاطُ يُخرج صاحبه ولا يمسّ كلمةَ السر ولا الرابط");
+  const drop = seats.slice(seats.indexOf("async function dropPasskeysAndSessions"), seats.indexOf("async function resetSeatCredentials"));
+  check(/deleteSessionsForUser\(seatId, memberId\);\n\s+authCache\.clear\(\);\n\s+const dropped = [^\n]+\n\s+await Repository\.deleteSessionsForUser\(seatId, memberId\);\n\s+authCache\.clear\(\);/.test(drop), "G6 خروجٌ ثم إسقاطٌ ثم خروج: لا بابَ بين الخطوتين");
+  const resetRoute = seats.slice(seats.indexOf('app.post("/api/seats/:id/members/:mid/reset"'), seats.indexOf('app.post("/api/seats/:id/members/:mid/status"'));
+  const status = seats.slice(seats.indexOf('app.post("/api/seats/:id/members/:mid/status"'), seats.indexOf('app.post("/api/seats/:id/members/:mid/scopes"'));
+  check(resetRoute.indexOf("deleteSessionsForUser") < resetRoute.indexOf("revokeMemberPasskeys") && status.indexOf("deleteSessionsForUser") < status.indexOf("revokeMemberPasskeys"), "G7 إعادةُ التعيين وانتهاءُ العضوية: الجلساتُ تخرج قبل الإسقاط");
+  const usersRoutes = read("src/server/routes/usersRoutes.ts");
+  check(/if \(resetsAnotherUser \|\| \(before\.IsActive && !fields\.IsActive\) \|\| \(!before\.IsLocked && fields\.IsLocked\)\) await revokeSeatMembersPasskeys\(id\);/.test(usersRoutes) && /await revokeUserPasskeys\(id\);\n\s+await revokeSeatMembersPasskeys\(id\);\n\s+await Repository\.deleteUser/.test(usersRoutes),
+    "G8 شاشةُ المستخدمين: قفلُ حساب الرئيس أو إيقافُه أو إعادةُ تعيين كلمته أو حذفُه يُسقط بصمةَ فريقه");
+  const passkeysSource = read("src/server/passkeys.ts");
+  check(/if \(Number\(base\.revokedAt \|\| 0\) >= row\.createdAtMs\) return \{ refuse: false \};/.test(passkeysSource) && /await stillEntitled\(principal, sessionId\)/.test(passkeysSource), "G9 التسجيلُ يرفض الإلحاق بعد إسقاط، ويتحقّق من الجلسة بعد الكتابة");
   check(!/listUserPasskeys|credentialId|passkeyRef|publicView/.test(seats), "G5 «الفرق» لا تقرأ إلا العدد (لا معرّفاتٍ ولا أسماء أجهزة)");
 
   /* ── U: الواجهة ── */

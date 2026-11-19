@@ -244,9 +244,9 @@ export const listUserPasskeys = (userId: number, sessionId = "") => listPasskeys
  * لا معرّفاتٌ ولا أسماءُ أجهزة. الإسقاطُ يفرّغ القائمة، فما فيها هو الصالح.
  */
 async function countPasskeys(p: Principal): Promise<number> {
-  const store = storeNow();
-  if (!store || !Number(p.userId)) return 0;
-  return (await readState(store, p)).credentialIds.length;
+  if (!Number(p.userId)) return 0;
+  /* بالمرشّح نفسه الذي يقرأ به الدخولُ والقائمة: ما قبل حدّ الإسقاط لا يُعدّ. */
+  return (await listPasskeys(p)).length;
 }
 export const countUserPasskeys = (userId: number) => countPasskeys({ userId: Number(userId) });
 /** عددُ أجهزة عضوٍ في فريق الكرسي seatId — عددٌ فقط كذلك. */
@@ -279,10 +279,34 @@ export const revokeUserPasskeys = (userId: number) => revokePasskeys({ userId: N
  */
 export const revokeMemberPasskeys = (seatId: number, memberId: string) => (MEMBER_ID.test(String(memberId)) ? revokePasskeys({ userId: Number(seatId), memberId: String(memberId) }) : Promise.resolve(0));
 
+/**
+ * يُسقط بصمةَ كلِّ عضوٍ لم تنتهِ عضويته في فريق الكرسي (قفلُ حساب الرئيس أو إيقافُه أو إعادةُ تعيين كلمته من
+ * شاشة المستخدمين، وحذفُه، وتسليمُ الرئاسة). يحاول الجميعَ ثم يرمي إن تعذّر أحدُهم: لا يُبتلع الخطأ.
+ */
+export async function revokeSeatMembersPasskeys(seatId: number, members?: Array<{ id: string; status: string }>): Promise<number> {
+  const list = members ?? (await readSeatLedger(Number(seatId)))?.members ?? [];
+  const results = await Promise.allSettled(list.filter(member => member.status !== "ended").map(member => revokeMemberPasskeys(Number(seatId), member.id)));
+  const failures = results.filter(row => row.status === "rejected");
+  if (failures.length) throw new Error(`تعذّر إسقاط بصمة ${failures.length} من أعضاء الفريق`);
+  return results.reduce((sum, row) => sum + (row.status === "fulfilled" ? row.value : 0), 0);
+}
+
 const publicView = (row: PasskeyDoc) => ({
   ref: passkeyRef(row.credentialId), label: row.label, createdAt: row.createdAt,
   lastUsedAt: row.lastUsedAt || null, synced: Boolean(row.backedUp),
 });
+
+/** الجلسةُ ما زالت قائمةً لصاحبها، والحسابُ فعّال، والعضويةُ (إن كان عضواً) فعّالة. العرضُ المحلي لا يُفحص. */
+async function stillEntitled(p: Principal, sessionId: string): Promise<boolean> {
+  if (Repository.isDemoMode()) return true;
+  const session = sessionId ? await Repository.getSession(sessionId) : undefined;
+  if (!session || Number(session.userId) !== Number(p.userId) || String(session.memberId || "") !== String(p.memberId || "")) return false;
+  const user = await Repository.getUserById(p.userId);
+  if (!user || user.IsDeleted || !user.IsActive || user.IsLocked) return false;
+  if (!p.memberId) return true;
+  const member = (await readSeatLedger(p.userId))?.members.find(row => row.id === p.memberId);
+  return Boolean(member && member.status === "active");
+}
 
 /** صاحبُ المفاتيح في هذه الجلسة: عضوُ الفريق (أو نائبُه) برابطه، أو صاحبُ الحساب. */
 function principalOfRequest(req: AuthenticatedRequest): Principal {
@@ -494,12 +518,27 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyDeps): void {
     const added = await ctx.store.update<StateDoc, boolean>("passkeyState", stateIdOf(principal, owner), current => {
       const base: StateDoc = current || emptyState(principal, owner);
       const ids = (base.credentialIds || []).filter(id => id !== row.credentialId);
+      /* أُسقطت المفاتيح بين قراءة الحالة وهذه الكتابة: لا يُلحق مفتاحٌ وُلد قبل الإسقاط. */
+      if (Number(base.revokedAt || 0) >= row.createdAtMs) return { refuse: false };
       if (ids.length >= PASSKEY_LIMIT) return { refuse: false };
       return { next: { ...base, credentialIds: [...ids, row.credentialId] }, result: true };
     });
     if (!added.ok) {
       await ctx.store.remove("passkeys", docId).catch(() => undefined);
+      const revoked = Number((await readState(ctx.store, principal, owner)).revokedAt || 0) >= row.createdAtMs;
+      if (revoked) { res.status(409).json({ error: PASSKEY_MESSAGES.expired, code: "passkey-revoked" }); return; }
       res.status(409).json({ error: PASSKEY_MESSAGES.limit, code: "passkey-limit" });
+      return;
+    }
+    /* سباقٌ مع إخراجٍ أو إنهاءِ عضوية: بعد الكتابة يُعاد التحقّق أن الجلسةَ قائمة وصاحبَها ما زال يعمل،
+       وإلا يُسحب المفتاحُ الذي كُتب للتوّ. */
+    if (!(await stillEntitled(principal, sessionId))) {
+      await ctx.store.update<StateDoc, boolean>("passkeyState", stateIdOf(principal, owner), current => {
+        const base: StateDoc = current || emptyState(principal, owner);
+        return { next: { ...base, credentialIds: (base.credentialIds || []).filter(id => id !== row.credentialId) }, result: true };
+      });
+      await ctx.store.remove("passkeys", docId);
+      res.status(401).json({ error: "انتهت الجلسة. ادخل من جديد ثم فعّل البصمة.", code: "session-ended" });
       return;
     }
     res.locals.auditChanges = `تفعيل الدخول بالبصمة على جهاز «${label}»`;
