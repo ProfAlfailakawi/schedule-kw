@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Fingerprint, Trash2 } from "lucide-react";
 import { CatalogFormDrawer, Notice } from "./ui";
 import { fetchPasskeys, forgetPasskeyDevice, passkeySupported, PasskeyError, registerPasskey, removePasskey, suggestedDeviceLabel, type PasskeyList } from "../utils/passkeys";
+import { AR, countOf } from "../utils/arabicCount";
 
 /**
  * ── «الدخول بالبصمة» في حسابي ────────────────────────────────────────────────
@@ -98,7 +99,7 @@ export default function PasskeyManager({ onClose }: { onClose: () => void }) {
             {supported === false ? (
               <Notice type="info" inline>هذا المتصفح أو الجهاز لا يدعم الدخول بالبصمة، فلا يمكن تسجيله من هنا. افتح الحساب من جهازٍ يدعمها.</Notice>
             ) : full ? (
-              <Notice type="info" inline>بلغتَ الحدّ الأقصى ({list.limit} أجهزة). أزل جهازاً لتضيف غيره.</Notice>
+              <Notice type="info" inline>بلغتَ الحدّ الأقصى ({countOf(list?.limit || 5, AR.device)}). أزل جهازاً لتضيف غيره.</Notice>
             ) : (
               <form className="passkey-add" onSubmit={add}>
                 <label>

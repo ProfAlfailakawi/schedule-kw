@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, Crown, Plus, Search, Snowflake, UsersRound } from "lucide-react";
-import SeatPanel from "./SeatPanel";
+import { Building2, Crown, Fingerprint, Plus, Search, Snowflake, UsersRound } from "lucide-react";
+import SeatPanel, { passkeyChip } from "./SeatPanel";
 import SeatLinkCard from "./SeatLinkCard";
 import { visualConfirm } from "../ui";
 import { AR, countOf } from "../../utils/arabicCount";
@@ -23,6 +23,7 @@ type SeatRow = {
   scopeLabel: string; holder: { name: string; since: string } | null; deputy: { name: string } | null;
   team: { active: number; pending: number; frozen: number; ended: number } | null;
   lastEvent: { at: string; kind: string; detail: string } | null;
+  passkeys?: number | null;
 };
 type Listing = { seats: SeatRow[]; missingCollegeRegistrars: CampusFamily[]; roles: Array<{ id: string; label: string; order: number }> };
 
@@ -193,6 +194,7 @@ export default function SeatsAdmin({ header }: { header?: React.ReactNode }) {
                     </span>
                     <span className="seats-row-tags">
                       {row.team ? <em title="الفريق"><UsersRound aria-hidden="true" />{row.team.active + row.team.pending}</em> : null}
+                      {row.passkeys ? <em title={passkeyChip(row.passkeys)} aria-label={passkeyChip(row.passkeys)}><Fingerprint aria-hidden="true" />{row.passkeys}</em> : null}
                       {row.team?.frozen ? <em className="cool" title="مجمَّد"><Snowflake aria-hidden="true" />{row.team.frozen}</em> : null}
                       {row.mustChangePassword ? <em className="warn" title={row.firstPasswordExpired ? "انتهت الكلمة الأولى: أعد إصدارها من البطاقة" : "ينتظر اختيار كلمة السر"}>{row.firstPasswordExpired ? "منتهية" : "جديد"}</em> : null}
                     </span>

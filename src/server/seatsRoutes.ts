@@ -2,6 +2,8 @@
  * ── مسارات الكراسي (docs/SEATS.md) ──────────────────────────────────────────
  *
  *   مدير النظام:  GET /api/seats · POST /api/seats/:id/holder · POST /api/seats/:id/password-reset · POST /api/seats/college-registrar
+ *                 POST /api/seats/:id/passkeys/revoke · POST /api/seats/:id/members/:mid/passkeys/revoke
+ *                 (إسقاط البصمة وحدها: لا كلمةَ سرّ ولا جلسات ولا رابط)
  *   من يدير الكرسي (شاغله، أو مدير النظام):
  *                 GET /api/seats/:id · GET /api/seats/:id/handover-candidates?q= · POST /api/seats/:id/handover
  *                 POST /api/seats/:id/members · …/members/:mid/link · …/reset · …/status · …/scopes
@@ -13,7 +15,7 @@
  */
 import type { Express, NextFunction, Request, Response } from "express";
 import { randomBytes } from "crypto";
-import { revokeUserPasskeys } from "./passkeys";
+import { countMemberPasskeys, countUserPasskeys, revokeMemberPasskeys, revokeUserPasskeys } from "./passkeys";
 import { rateLimit } from "express-rate-limit";
 import { Repository } from "../db/repository";
 import { type AuthenticatedRequest, getCookies, isPowerUser, requireAuth, requirePermission, requirePowerAdmin, SERVER_IDLE_SESSION_MS, DEMO_SESSION_TTL_MS, authCache } from "./core/auth";
@@ -183,11 +185,17 @@ async function seatView(seat: any, ledger: SeatLedger | null, req: Authenticated
     },
     holder: ledger?.holder || null,
     deputy: deputy || null,
-    team: rule ? { ...rule, members: (ledger?.members || []).map(member => ({ ...memberView(member, manage), scopeNames: (member.scopes || []).map(nameOf) })) } : null,
+    team: rule ? { ...rule, members: await Promise.all((ledger?.members || []).map(async member => ({
+      ...memberView(member, manage), scopeNames: (member.scopes || []).map(nameOf),
+      /* لمدير النظام وحده: عددُ أجهزة بصمة العضو، بلا معرّفاتٍ ولا أسماء. */
+      ...(isPowerUser(req) && member.status !== "ended" ? { passkeys: await countMemberPasskeys(Number(seat.SystemUserId), member.id).catch(() => null) } : {}),
+    }))) } : null,
     history: [...(ledger?.history || [])].reverse(),
     canManage: manage,
     canReissuePassword: isPowerUser(req) && Boolean(seat.MustChangePassword),
     canResetPassword: isPowerUser(req),
+    /* لمدير النظام وحده: عددُ أجهزة البصمة لرئيس الفريق، بلا معرّفاتٍ ولا أسماء. */
+    passkeys: isPowerUser(req) ? await countUserPasskeys(Number(seat.SystemUserId)).catch(() => null) : null,
     canHandOver: await handsOverSeat(req, seat),
     holderSource: seatHolderSource(seat.Role),
     scopeTree: manage && rule && rule.scope !== "seat" ? await scopeTreeFor(seat, rule.scope) : [],
@@ -226,6 +234,11 @@ const firstPasswordState = (seat: any) => ({
 });
 
 /** يُطلق الكرسيَّ لشاغلٍ جديد: كلمةٌ أولى، وتغييرٌ إجباري عند الدخول، وإخراجُ كل جهازٍ مفتوح عليه. */
+/** بصمةُ كلِّ عضوٍ لم تنتهِ عضويته تسقط (تسليمُ الرئاسة). */
+async function revokeSeatTeamPasskeys(seatId: number, members: SeatMember[]) {
+  for (const member of members) if (member.status !== "ended") await revokeMemberPasskeys(seatId, member.id);
+}
+
 async function resetSeatCredentials(seat: any, instructorId?: number) {
   const password = DEFAULT_FIRST_PASSWORD;
   /* الشاغلُ السابق لا تبقى له بصمةٌ على الكرسي (تُسقط قبل الكتابة وبلا ابتلاع للخطأ). */
@@ -402,9 +415,12 @@ app.get("/api/seats", requirePowerAdmin, seatAdmin, async (_req: AuthenticatedRe
   const [users, ledgers, assigns, colleges] = await Promise.all([Repository.getUsers(), listSeatLedgers(), Repository.getCollegeUserAssigns(), Repository.getColleges()]);
   const nameOf = await scopeNames();
   const ledgerOf = new Map(ledgers.map(row => [Number(row.userId), row]));
+  const seatUsers = users.filter(user => !user.IsDeleted && !user.IsAdminUser && isSeatRole((user as any).Role));
+  /* عددُ أجهزة البصمة لكل كرسيّ: عددٌ فقط، لا معرّفاتٌ ولا أسماءُ أجهزة. */
+  const passkeysOf = new Map(await Promise.all(seatUsers.map(async user => [Number(user.SystemUserId), await countUserPasskeys(Number(user.SystemUserId)).catch(() => null)] as const)));
   const assignsOf = new Map<number, SeatScope[]>();
   for (const row of assigns) assignsOf.set(Number(row.SystemUserId), [...(assignsOf.get(Number(row.SystemUserId)) || []), row]);
-  const seats = users.filter(user => !user.IsDeleted && !user.IsAdminUser && isSeatRole((user as any).Role)).map(user => {
+  const seats = seatUsers.map(user => {
     const ledger = ledgerOf.get(Number(user.SystemUserId));
     const members = ledger?.members || [];
     const count = (badge: string) => members.filter(member => seatMemberBadge(member) === badge).length;
@@ -419,6 +435,7 @@ app.get("/api/seats", requirePowerAdmin, seatAdmin, async (_req: AuthenticatedRe
       deputy: activeDeputy(ledger) || null,
       team: seatTeamRule(role.id) ? { active: count("active"), pending: count("pending"), frozen: count("frozen"), ended: count("ended") } : null,
       lastEvent: ledger?.history[ledger.history.length - 1] || null,
+      passkeys: passkeysOf.get(Number(user.SystemUserId)) ?? null,
     };
   }).sort((a, b) => a.order - b.order || String(a.name).localeCompare(String(b.name), "ar"));
   /* الحرمُ بلا رئيس تسجيل، مجموعةً بكليتها: «التربية الأساسية (بنين · بنات · الفحيحيل)» زرٌّ واحد. */
@@ -545,6 +562,8 @@ app.post("/api/seats/:id/handover", requireAuth, async (req: AuthenticatedReques
   }
   const out = await updateSeatLedger(seat.SystemUserId, ledger => ({ next: handOverLedger(ledger, holder, by), result: true }));
   if ("error" in out) { res.status(409).json({ error: out.error }); return; }
+  /* الفريقُ يُجمَّد بالتسليم: لا تبقى لأعضائه بصمةٌ على الكرسي حتى يعيدهم الرئيسُ الجديد ويسجّلوا من جديد. */
+  await revokeSeatTeamPasskeys(Number(seat.SystemUserId), out.ledger.members);
   const password = await resetSeatCredentials(seat, person.instructorId ?? 0);
   res.locals.auditChanges = `تسليم ${seat.Name}${before?.holder ? `: ${before.holder.name} ← ${holder.name}` : ` إلى ${holder.name}`}`;
   res.json({ handedOver: true, login: seat.SystemUserLogin, seatName: seat.Name, password, holder, selfHandover: Number(req.user?.SystemUserId) === Number(seat.SystemUserId) });
@@ -580,6 +599,40 @@ app.post("/api/seats/:id/password-reset", requirePowerAdmin, resetLimit, seatAdm
   await updateSeatLedger(Number(seat.SystemUserId), ledger => ({ next: withSeatEvent(ledger, { at: new Date().toISOString(), kind: "password-reset", by, detail: "كلمةٌ مؤقتة لأربعٍ وعشرين ساعة" }), result: true }));
   res.locals.auditChanges = `إعادة تعيين كلمة السر: ${seat.Name}`;
   res.json({ login: seat.SystemUserLogin, password, expiresAt: fields.InitialPasswordExpiresAt, seatName: seat.Name, roleLabel: roleLabel(seat.Role) });
+});
+
+/**
+ * إسقاطُ البصمة لرئيس الفريق: لهاتفٍ ضاع. لمدير النظام، ويُسقط كلَّ مفاتيح الحساب (revokeUserPasskeys)
+ * ولا يمسّ كلمةَ السر ولا الجلسات؛ ويُكتب في سجلّ الفريق بمن فعله. يردّ العددَ الجديد وحده.
+ */
+app.post("/api/seats/:id/passkeys/revoke", requirePowerAdmin, resetLimit, seatAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const seat = await seatUser(Number(req.params.id));
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  const by = byName(req);
+  const dropped = await revokeUserPasskeys(Number(seat.SystemUserId));
+  await updateSeatLedger(Number(seat.SystemUserId), ledger => ({ next: withSeatEvent(ledger, { at: new Date().toISOString(), kind: "passkeys-revoked", by, detail: dropped ? `أُسقط ${countOf(dropped, AR.device)}` : "لا أجهزة مسجّلة" }), result: true }));
+  res.locals.auditChanges = `إسقاط البصمة: ${seat.Name}`;
+  res.json({ passkeys: await countUserPasskeys(Number(seat.SystemUserId)) });
+});
+
+/**
+ * إسقاطُ بصمة عضوٍ في الفريق: لمدير النظام، وبفحوص مسارات العضو المجاورة (الكرسي، ومن يديره، والعضو).
+ * لا يمسّ رابطَه ولا جلساتِه؛ ويُكتب في سجلّ الفريق بمن فعله. يردّ العددَ الجديد وحده.
+ */
+app.post("/api/seats/:id/members/:mid/passkeys/revoke", requirePowerAdmin, resetLimit, seatAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const seatId = Number(req.params.id), memberId = String(req.params.mid);
+  const seat = await seatUser(seatId);
+  if (!seat) { res.status(404).json({ error: "الفريق غير موجود." }); return; }
+  if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يدير الفريقَ رئيسُه." }); return; }
+  const member = (await readSeatLedger(seatId))?.members.find(row => row.id === memberId);
+  if (!member) { res.status(404).json({ error: "العضو غير موجود." }); return; }
+  const by = byName(req);
+  const dropped = await revokeMemberPasskeys(seatId, memberId);
+  await updateSeatLedger(seatId, ledger => ({ next: withSeatEvent(ledger, { at: new Date().toISOString(), kind: "passkeys-revoked", by, detail: `${member.name}: ${dropped ? `أُسقط ${countOf(dropped, AR.device)}` : "لا أجهزة مسجّلة"}` }), result: true }));
+  res.locals.auditChanges = `إسقاط بصمة ${member.name} في ${seat.Name}`;
+  res.json({ passkeys: await countMemberPasskeys(seatId, memberId) });
 });
 
 app.post("/api/seats/:id/members", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
@@ -642,6 +695,7 @@ app.post("/api/seats/:id/members/:mid/reset", requireAuth, resetLimit, async (re
   if (!managesSeat(req, seatId)) { res.status(403).json({ error: "يعيد التعيينَ رئيسُ الفريق أو مدير النظام." }); return; }
   const link = await issueMemberLink(seatId, memberId, byName(req), true);
   if ("error" in link) { res.status(409).json({ error: link.error }); return; }
+  await revokeMemberPasskeys(seatId, memberId);
   await Repository.deleteSessionsForUser(seatId, memberId);
   authCache.clear();
   const member = (await readSeatLedger(seatId))?.members.find(row => row.id === memberId);
@@ -672,7 +726,7 @@ app.post("/api/seats/:id/members/:mid/status", requireAuth, async (req: Authenti
     return { next: withSeatEvent({ ...ledger, members, deputy }, { at, kind: status === "active" ? "member-continued" : "member-ended", by, detail: member.name }), result: member.name };
   });
   if ("error" in out) { res.status(409).json({ error: out.error }); return; }
-  if (status === "ended") { await revokeSeatLink(token); await Repository.deleteSessionsForUser(seatId, memberId); authCache.clear(); }
+  if (status === "ended") { await revokeSeatLink(token); await revokeMemberPasskeys(seatId, memberId); await Repository.deleteSessionsForUser(seatId, memberId); authCache.clear(); }
   res.locals.auditChanges = `${status === "active" ? "استمرار" : "انتهاء عضوية"} ${out.result} في ${seat.Name}`;
   res.json(await seatView(seat, out.ledger, req));
 });

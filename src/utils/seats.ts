@@ -61,7 +61,7 @@ export interface SeatDeputy {
 export type SeatEventKind =
   | "seat-created" | "seat-colleges" | "holder-set" | "handover"
   | "member-added" | "member-continued" | "member-ended" | "member-frozen" | "member-scopes"
-  | "link-issued" | "link-locked" | "deputy-set" | "deputy-ended" | "password-reset";
+  | "link-issued" | "link-locked" | "deputy-set" | "deputy-ended" | "password-reset" | "passkeys-revoked";
 
 export interface SeatEvent {
   at: string;

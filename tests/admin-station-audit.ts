@@ -49,7 +49,7 @@ check(/userEditRefusal\(\{/.test(usersRoutes) && /deleteBlockers\("user", id/.te
 check(usersRoutes.includes('code: "current-password-required"') && usersRoutes.includes("Repository.verifyPassword(current"), "G9 كلمتك أنت لا تُغيَّر من الشاشة بلا الحالية");
 check(usersRoutes.includes("IsRootAccount: Number(user.SystemUserId) === ROOT_ADMIN_USER_ID"), "G10 الواجهة تعرف الحساب الرئيسي لتُطفئ ما يرفضه الخادم");
 const seats = read("src/server/seatsRoutes.ts");
-check((seats.match(/requirePowerAdmin, (resetLimit, )?seatAdmin,/g) || []).length === 7 &&seats.includes("const seatAdmin = requirePermission(11)"), "G11 إدارة الفرق بالشاشة 11 كما في الواجهة");
+check((seats.match(/requirePowerAdmin, (resetLimit, )?seatAdmin,/g) || []).length === 9 &&seats.includes("const seatAdmin = requirePermission(11)"), "G11 إدارة الفرق بالشاشة 11 كما في الواجهة");
 check(read("src/server/routes/schedulesRoutes.ts").includes("Number(req.user.SystemUserId) !== ROOT_ADMIN_USER_ID") && !read("src/server/routes/schedulesRoutes.ts").includes("SystemUserId !== 1"), "G12 نسخ الفصل للحساب الرئيسي ROOT_ADMIN_USER_ID لا للرقم 1");
 
 /* P */

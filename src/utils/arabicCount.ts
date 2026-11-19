@@ -224,6 +224,8 @@ export const AR = {
   shareLink:   { one: "رابط مشاركة", two: "رابطا مشاركة", few: "روابط مشاركة", many: "رابط مشاركة" },
   approval:    { one: "اعتماد", two: "اعتمادان", few: "اعتمادات", many: "اعتماداً" },
   publication: { one: "نشر", two: "نشران", few: "عمليات نشر", many: "نشراً" },
+  /* جهازٌ مسجَّلٌ للدخول بالبصمة — «البصمة: جهازان». */
+  device:      { one: "جهاز", two: "جهازان", few: "أجهزة", many: "جهازاً" },
 
   /* ── Agreement forms, read with nounFor(n, …) after a counted noun ──────
    * A verb or adjective that follows a counted non-human noun is singular for

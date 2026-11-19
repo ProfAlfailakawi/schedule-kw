@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeftRight, BadgeCheck, Building2, CalendarClock, Crown, History, IdCard, KeyRound, Link2, RotateCcw, Search, Snowflake,
+  ArrowLeftRight, BadgeCheck, Building2, CalendarClock, Crown, Fingerprint, History, IdCard, KeyRound, Link2, RotateCcw, Search, Snowflake,
   UserCheck, UserMinus, UserPlus, UsersRound, X,
 } from "lucide-react";
 import SeatLinkCard, { SeatHolderCard } from "./SeatLinkCard";
@@ -8,6 +8,7 @@ import { visualConfirm } from "../ui";
 import { invitationHref } from "../../utils/invitationLink";
 import { memberCardModel, seatCaption, temporaryPasswordCardModel } from "../../utils/seatAccessCard";
 import { handoverSearchTokens } from "../../utils/handoverPick";
+import { AR, countOf } from "../../utils/arabicCount";
 import { SEAT_MEMBER_BADGE_LABEL, type SeatEventKind, type SeatMemberBadge } from "../../utils/seats";
 import "../account-invitation.css";
 import "./seats.css";
@@ -25,6 +26,8 @@ type Member = Person & {
   id: string; status: "active" | "frozen" | "ended"; badge: SeatMemberBadge; civilTail?: string;
   scopeNames?: string[]; scopes?: Array<{ AdCollegeId: number; AdSectionId: number }>;
   hasLink: boolean; linkToken?: string; linkExpiresAt?: string; firstEnteredAt?: string; lastEnteredAt?: string; addedAt: string;
+  /** لمدير النظام: عددُ أجهزة بصمة العضو. */
+  passkeys?: number | null;
 };
 type Candidate = { id: number; name: string; hasMobile: boolean };
 type Found = { id: number; name: string; department: string; hasPhone: boolean };
@@ -33,6 +36,8 @@ export interface SeatDetail {
   seat: { id: number; login: string; name: string; role: string; roleLabel: string; active: boolean; mustChangePassword: boolean; firstPasswordExpiresAt?: string; firstPasswordExpired?: boolean; scopes: string[] };
   canReissuePassword?: boolean;
   canResetPassword?: boolean;
+  /** لمدير النظام: عددُ أجهزة البصمة لرئيس الفريق (null لغيره). */
+  passkeys?: number | null;
   holder: Person | null;
   deputy: { memberId: string; name: string; until: string } | null;
   team: null | { teamLabel: string; memberLabel: string; source: "department" | "manual"; scope: "seat" | "college" | "any"; members: Member[] };
@@ -59,18 +64,20 @@ const DAY = new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: 
 const STAMP = new Intl.DateTimeFormat("ar-KW-u-nu-latn", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const dayOf = (iso?: string) => { if (!iso) return ""; const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : DAY.format(d); };
 const stampOf = (iso?: string) => { if (!iso) return ""; const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : STAMP.format(d); };
+/** «البصمة: جهازان» أو «البصمة: غير مفعّلة». */
+export const passkeyChip = (count: number) => `البصمة: ${count > 0 ? countOf(count, AR.device) : "غير مفعّلة"}`;
 const initialOf = (name?: string) => String(name || "").trim().replace(/^(د|أ|م)\.\s*/, "").charAt(0) || "؟";
 const origin = () => (typeof window !== "undefined" ? window.location.origin : "https://schedule-kw.com");
 
 const EVENT_ICON: Record<SeatEventKind, React.ReactNode> = {
   "seat-created": <UsersRound />, "seat-colleges": <Building2 />, "holder-set": <Crown />, handover: <ArrowLeftRight />,
   "member-added": <UserPlus />, "member-continued": <UserCheck />, "member-ended": <UserMinus />, "member-frozen": <Snowflake />,
-  "member-scopes": <UsersRound />, "link-issued": <Link2 />, "link-locked": <KeyRound />, "deputy-set": <BadgeCheck />, "deputy-ended": <CalendarClock />, "password-reset": <KeyRound />,
+  "member-scopes": <UsersRound />, "link-issued": <Link2 />, "link-locked": <KeyRound />, "deputy-set": <BadgeCheck />, "deputy-ended": <CalendarClock />, "password-reset": <KeyRound />, "passkeys-revoked": <Fingerprint />,
 };
 const EVENT_LABEL: Record<SeatEventKind, string> = {
   "seat-created": "أُنشئ الفريق", "seat-colleges": "تغيير الحرم", "holder-set": "سُجّل الرئيس", handover: "تسليم الرئاسة",
   "member-added": "عضوٌ جديد", "member-continued": "استمرار عضو", "member-ended": "انتهاء عضوية", "member-frozen": "تجميد الأعضاء",
-  "member-scopes": "نطاق موظف", "link-issued": "رابطٌ جديد", "link-locked": "أُقفل رابط", "deputy-set": "تكليف نائب", "deputy-ended": "انتهاء النيابة", "password-reset": "إعادة تعيين كلمة السر",
+  "member-scopes": "نطاق موظف", "link-issued": "رابطٌ جديد", "link-locked": "أُقفل رابط", "deputy-set": "تكليف نائب", "deputy-ended": "انتهاء النيابة", "password-reset": "إعادة تعيين كلمة السر", "passkeys-revoked": "إسقاط البصمة",
 };
 
 type Sheet =
@@ -250,6 +257,20 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
     onChanged?.();
     await load();
   });
+  /* هاتفٌ ضاع: تسقط البصمة وحدها، وتبقى كلمة السر والجلسات. */
+  const dropPasskeys = () => run(async () => {
+    const name = detail?.holder?.name || detail?.seat.name || "";
+    if (!(await visualConfirm({ title: `إسقاط بصمة ${name}`, message: `تسقط مفاتيح الدخول بالبصمة على ${countOf(detail?.passkeys || 0, AR.device)}، وتبقى كلمة السر والجلسات.`, confirmLabel: "أسقط البصمة", tone: "warning" }))) return;
+    const result = await call<{ passkeys: number }>(`/api/seats/${id}/passkeys/revoke`, { method: "POST" });
+    setDetail(current => current ? { ...current, passkeys: result.passkeys } : current);
+    onChanged?.();
+    await load();
+  });
+  const dropMemberPasskeys = (member: Member) => run(async () => {
+    if (!(await visualConfirm({ title: `إسقاط بصمة ${member.name}`, message: `تسقط مفاتيح الدخول بالبصمة على ${countOf(member.passkeys || 0, AR.device)}، ويبقى رابطه وجلساته.`, confirmLabel: "أسقط البصمة", tone: "warning" }))) return;
+    await call<{ passkeys: number }>(`/api/seats/${id}/members/${member.id}/passkeys/revoke`, { method: "POST" });
+    await load();
+  });
   const linkExpired = (member: Member) => Boolean(member.linkExpiresAt) && Date.parse(member.linkExpiresAt!) <= Date.now();
   const showLink = (member: Member) => member.linkToken && !linkExpired(member) ? showMemberLink(member.name, member.linkToken, member.mobile, Boolean(member.civilTail)) : void reissue(member);
   const setStatus = (member: Member, status: "active" | "ended") => run(async () => {
@@ -334,8 +355,10 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
           <small>رئيس الفريق</small>
           <strong>{detail.holder ? detail.holder.name : "لم يُسجَّل رئيس هذا الفريق بعد"}</strong>
           {detail.holder?.since ? <span>منذ {dayOf(detail.holder.since)}</span> : null}
+          {typeof detail.passkeys === "number" ? <span className={`seat-passkeys ${detail.passkeys ? "on" : ""}`.trim()}><Fingerprint aria-hidden="true" />{passkeyChip(detail.passkeys)}</span> : null}
         </div>
         <div className="seat-holder-actions">
+          {detail.passkeys ? <button data-guide-ignore="إسقاط بصمة رئيس الفريق لهاتفٍ ضاع؛ لا يغيّر كلمة السر ولا الجلسات، لمدير النظام ويحرسه الخادم" type="button" className="btn btn-ghost" onClick={() => void dropPasskeys()} disabled={busy}><Fingerprint aria-hidden="true" /> أسقط البصمة</button> : null}
           {detail.canResetPassword ? <button data-guide-ignore="إعادة تعيين كلمة سرّ رئيس الفريق؛ لمدير النظام ويحرسها الخادم" type="button" className="btn btn-ghost" onClick={() => void resetHolder()} disabled={busy}><RotateCcw aria-hidden="true" /> إعادة تعيين</button> : null}
           {detail.canHandOver ? <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary" onClick={() => setSheet({ kind: "handover" })} disabled={busy}><ArrowLeftRight aria-hidden="true" /> تسليم الرئاسة</button> : null}
           {detail.canManage && source === "seat" ? <button data-guide-ignore="يعرض بطاقة دخول رئيس الفريق لإرسالها إليه؛ لا يغيّر كلمة المرور ولا بيانات" type="button" className="btn btn-secondary" onClick={() => setSheet({ kind: "holderCard" })} disabled={busy}><IdCard aria-hidden="true" /> البطاقة</button> : null}
@@ -359,12 +382,13 @@ export default function SeatPanel({ seatId, source = "seat", onChanged, compact 
                 <li key={member.id} data-badge={member.badge}>
                   <i className="seat-member-avatar" aria-hidden="true">{initialOf(member.name)}</i>
                   <div className="seat-member-text">
-                    <strong>{member.name}{detail.deputy?.memberId === member.id ? <em className="seat-deputy-tag">نائب حتى {detail.deputy.until}</em> : null}</strong>
+                    <strong>{member.name}{detail.deputy?.memberId === member.id ? <em className="seat-deputy-tag">نائب حتى {detail.deputy.until}</em> : null}{typeof member.passkeys === "number" ? <em className={`seat-passkeys ${member.passkeys ? "on" : ""}`.trim()}><Fingerprint aria-hidden="true" />{passkeyChip(member.passkeys)}</em> : null}</strong>
                     <span className="seat-badge" data-badge={member.badge}><b aria-hidden="true" />{SEAT_MEMBER_BADGE_LABEL[member.badge]}{member.lastEnteredAt ? ` · آخر دخول ${stampOf(member.lastEnteredAt)}` : ""}</span>
                     {member.scopeNames?.length ? <span className="seat-member-scopes">{member.scopeNames.join("، ")}</span> : null}
                   </div>
                   {detail.canManage ? (
                     <div className="seat-member-actions">
+                      {member.passkeys ? <button data-guide-ignore="إسقاط بصمة عضو الفريق لهاتفٍ ضاع؛ لا يغيّر رابطه ولا جلساته، لمدير النظام ويحرسه الخادم" type="button" className="btn btn-ghost btn-sm" onClick={() => void dropMemberPasskeys(member)} disabled={busy}><Fingerprint aria-hidden="true" /> أسقط البصمة</button> : null}
                       {member.status === "frozen" ? (
                         <>
                           <button data-guide-ignore="إجراء في لوحة الفريق (الرئيس والأعضاء والنائب)؛ يحرسه الخادم بصلاحية رئيس الفريق أو مدير النظام" type="button" className="btn btn-primary btn-sm" onClick={() => void setStatus(member, "active")} disabled={busy}><UserCheck aria-hidden="true" /> مستمر</button>
