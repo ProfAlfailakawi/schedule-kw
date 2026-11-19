@@ -1937,7 +1937,6 @@ export default function App() {
             powerAdmin={isPowerAdmin}
             onOpenDepartmentSchedule={sessionRole.id === "departmentHead" ? () => go("departmentSchedule") : undefined}
             onSigned={queryCentreView ? () => go(queryCentreView) : undefined}
-            canCheckRegistrarPdf={permissions.includes(7) && !sessionRole.readOnly}
             scope={(() => {
               /* القسم الواحد يفتح على تقريره مباشرةً — بالقاعدة الواحدة نفسها
                  التي تُخفي منتقي القسم في كل شاشة (singleDepartmentOf). */
