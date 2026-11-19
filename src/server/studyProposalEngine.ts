@@ -10,6 +10,7 @@
  * ما يُكشف للمستخدم محدودٌ بصلاحيته: موعدُ أستاذٍ في قسمٍ خارج نطاقه يظهر
  * إشغالاً وحسب — لا مقرّر ولا شعبة ولا كلية.
  */
+import { meetingLengthIssue } from "../utils/specialNature";
 import { sectionCodeKey } from "../utils/sameSlot";
 import { overHoursMessage } from "../utils/hoursIssue";
 import { roomTypeIn } from "../utils/roomTypeForSection";
@@ -208,6 +209,11 @@ export async function proposalSchedulePreflight(
       && Number(item.AdSectionId) === Number(row.AdSectionId)
       && Number(item.AdTermId) === Number(row.AdTermId));
     /* المصدر الواحد نفسه الذي يقرأ به الحفظ: الكتلة بنمط ساعات المقرر، والنسخة المطابقة لا تضاعف. */
+    /* المقررُ الخاص (نظري + عملي): مدّةُ اللقاء من مدد اللائحة لليوم أولاً — سطرٌ يسمّي اللقاءَ المخالف أصدقُ من «الساعات ناقصة». */
+    if ((course as any)?.CourseSpecialNature === true) {
+      const lengthText = meetingLengthIssue(PROPOSAL_DAY_KEYS.filter(day => Boolean((row as any)[day])) as any, row.fstarttime, row.fendtime);
+      if (lengthText) return [...issues, lengthText];
+    }
     const reading = sectionWeeklyHours(row, siblings, hours);
     const total = reading.total;
     /* لا يُعفي تاريخُ المقرّر من سقف الساعات — كبوابة الحفظ (المالك 2026-10-30 و2026-11-08): كان «طبعُ» المقرّر يُسقط المنع هنا وحده. */

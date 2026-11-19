@@ -131,7 +131,9 @@
     "src/components/SchedulePhysics/*",
     "src/utils/specialNature.ts",
     "src/components/SpecialSectionBuilder.tsx",
-    "src/components/PracticalMark.tsx"
+    "src/components/PracticalMark.tsx",
+    "src/server/core/specialSection.ts",
+    "src/server/demoSpecialNatureSeed.ts"
   ],
   "screens": [
     {
@@ -5399,10 +5401,51 @@
       ],
       "evidence": {
         "code": [
-          "src/server/routes/scheduleToolsRoutes.ts",
-          "src/components/SpecialSectionBuilder.tsx",
           "src/components/PracticalMark.tsx",
-          "src/server/core/scheduleWrites.ts"
+          "src/components/SpecialSectionBuilder.tsx",
+          "src/server/core/scheduleWrites.ts",
+          "src/server/core/specialSection.ts#createSpecialSection",
+          "src/server/routes/scheduleToolsRoutes.ts"
+        ],
+        "tests": [
+          "tests/special-nature-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-091",
+      "kind": "functional",
+      "title": {
+        "ar": "أدوات الجدول على المقرر ذي الطبيعة الخاصة",
+        "en": "Schedule tools on a special-nature course"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعامل لقاءات المقرر ذي الطبيعة الخاصة في آلة الزمن و«حلّ بسلسلة» والمقترح الدراسي بمدد اللائحة لا بأنماط المكتبة: ينقل اللقاء بطوله (العملي 110 دقائق يبقى 110) ويُبقي علامة العملي، ويرفض مدةً خارج اللائحة بسطرٍ يسمّي اللقاء، وأن يبذر صندوق التجربة مقرراً بأربع ساعات معلّماً بشعبةٍ واحدة (أحد·ثلاثاء نظري، خميس عملي) ليُجرَّب ذلك بلا إعداد.",
+        "en": "The system shall treat the meetings of a special-nature course in the time machine, the chain repair and the study proposal by the regulation's lengths rather than the pattern library: a meeting moves with its length (a 110-minute practical stays 110) and keeps its practical mark, a length outside the regulation is refused with a line naming the meeting, and the demo sandbox seeds a four-hour course so marked with one section (Sunday·Tuesday theory, Thursday practical) so this can be tried without setup."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "تطبيق سيناريو آلة الزمن ينقل العملي من الخميس 10:00 إلى 12:00 بطول 110 وعلامته، والاستعادة تعيده.",
+          "en": "Applying a time-machine scenario moves the practical from Thursday 10:00 to 12:00 at 110 minutes with its mark, and restoring returns it."
+        },
+        {
+          "ar": "مقترحٌ يجعل العملي 75 دقيقة يُمنع بسطر «مدة اللقاء 75 دقيقة لا توافق اللائحة».",
+          "en": "A proposal making the practical 75 minutes is blocked with the line that a 75-minute meeting does not match the regulation."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/specialNature.ts#patternHoursOf",
+          "src/utils/timeMachine.ts",
+          "src/server/studyProposalEngine.ts",
+          "src/server/demoSpecialNatureSeed.ts"
         ],
         "tests": [
           "tests/special-nature-audit.ts"

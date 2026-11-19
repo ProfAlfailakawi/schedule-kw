@@ -3594,6 +3594,36 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     };
     seek();
   };
+  /**
+   * «افتح الموعد» من فحص جدول التسجيل: الموعدُ قد لا يكون مرسوماً — القائمةُ تعرض أوّل
+   * صفحةٍ منها، والبحثُ والمفتاحُ و«المنتدبون فقط» و«بانتظار التثبيت» تخفي غيرها. فيُكشف
+   * أولاً كما يكشف «من يشغل القاعة؟» (revealHallOccupant): تُرفع المرشّحات التي تخفيه،
+   * ويُفتح الأسبوع حيث كل موعدٍ مرسوم، ثم يُنتظر بطاقته حتى تُرسم فيُمرَّر إليها وتُميَّز.
+   */
+  const revealAppointment = (rowId: number) => {
+    if (!rowId || !rows.some(row => Number(row.id) === rowId)) return;
+    back();
+    setQuickSearch("");
+    setHueHidden(new Set());
+    setVisitingOnly(false);
+    setPendingOnly(false);
+    setVisibleLimit(limit => Math.max(limit, rows.length));
+    setViewMode("week");
+    setReviewFocus(new Set([rowId]));
+    let attempts = 0;
+    const seek = () => {
+      window.requestAnimationFrame(() => {
+        const weekReady = Boolean(document.querySelector(".week-surface"));
+        const card = weekReady ? document.querySelector<HTMLElement>(`.week-event[data-row-id="${rowId}"], [data-row-id="${rowId}"]`) : null;
+        if (!card && attempts++ < 30) { window.setTimeout(seek, 35); return; }
+        if (!card) return;
+        card.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+        card.classList.add("changes-row-focus");
+        window.setTimeout(() => card.classList.remove("changes-row-focus"), 1800);
+      });
+    };
+    seek();
+  };
   const setNumber = (key: keyof typeof form, raw: string) =>
     setForm((prev) => ({ ...prev, [key]: Number(raw) || 0 }));
   const englishDigits = (v: string) => /^\d*$/.test(normalizeArabicDigits(v));
@@ -14489,14 +14519,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
           initialTab={transferTab}
           canPublishSheets={isPowerAdmin || roleDefinition((user as any)?.Role).id === "committeeChair"}
           canCheckRegistrarPdf={canEditSchedule}
-          onOpenAppointment={(id) => {
-            window.setTimeout(() => {
-              const target = document.querySelector<HTMLElement>(`[data-row-id="${Number(id)}"]`);
-              target?.scrollIntoView({ behavior: "smooth", block: "center" });
-              target?.classList.add("changes-row-focus");
-              window.setTimeout(() => target?.classList.remove("changes-row-focus"), 1800);
-            }, 120);
-          }}
+          onOpenAppointment={(id) => revealAppointment(Number(id))}
           isAdmin={isPowerAdmin}
           visitingIds={visitingIds}
           visitingRosterIds={pickerVisitingRosterIds}

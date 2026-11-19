@@ -115,7 +115,8 @@
     "src/server/liveBoard.ts",
     "src/components/LiveRegistrationBoard.tsx",
     "src/styles/62-live-board.css",
-    "tests/live-board-audit.ts"
+    "tests/live-board-audit.ts",
+    "src/components/SpecialCaseOpening.tsx"
   ],
   "screens": [
     {
@@ -5012,6 +5013,45 @@
           "tests/critical-courses-audit.ts"
         ]
       }
+    },
+    {
+      "id": "FR-STU-086",
+      "kind": "functional",
+      "title": {
+        "ar": "موافقة اللجنة تفتح شعبة مقررٍ نظريٍّ وعمليّ",
+        "en": "Committee approval opens a section of a theory-plus-practical course"
+      },
+      "text": {
+        "ar": "يجب على النظام، حين توافق اللجنة على طلب طالبٍ في مقررٍ ذي طبيعةٍ خاصة، أن يفتح شعبته بلقاءيها معاً (النظري والعملي ومكان كلٍّ منهما وأستاذها) من منشئ الشعبة نفسه، وأن يكتب اللقاءات والقرار معاً أو لا شيء، وأن يرفض فتح لقاءٍ واحدٍ ناقص بسببٍ صريح بدل «الساعات ناقصة».",
+        "en": "The system shall, when the committee approves a student's request for a special-nature course, open its section with both meetings together (theory and practical, each with its place, and the instructor) from the same section builder, write the meetings and the decision together or nothing, and refuse to open a single incomplete meeting with an explicit reason instead of short hours."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "فتحٌ بلقاءٍ واحد لمقررٍ خاص يردّ 400 برمز special-needs-meetings ولا يُسجَّل القرار.",
+          "en": "An opening with a single meeting for a special course answers 400 with code special-needs-meetings and the decision is not recorded."
+        },
+        {
+          "ar": "فتحٌ بلقاءين (أحد·ثلاثاء 50 وخميس 110 عملي) يكتب صفّين مصدرهما «حالة طالب» ويسجّل الموافقة برقم الشعبة.",
+          "en": "An opening with two meetings (Sunday·Tuesday 50 and Thursday 110 practical) writes two rows with the student-case origin and records the approval with the section number."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/routes/studentRegistrationRoutes.ts",
+          "src/components/SpecialCaseOpening.tsx",
+          "src/server/core/specialSection.ts"
+        ],
+        "tests": [
+          "tests/special-nature-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [

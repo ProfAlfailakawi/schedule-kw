@@ -4,17 +4,21 @@
  * يعيد التسجيلُ أحياناً جدولَ القسم بملف PDF جديد ليراجعه القسم. السؤالان:
  *   ١) هل في ما طُبع خللٌ — موعدٌ أو أستاذٌ أو قاعةٌ تخالف جدولنا، أو شعبةٌ
  *      على طرفٍ دون الآخر؟
- *   ٢) هل نُفِّذ ما غيّره القسم بعد آخر إرسال، أم ما زال الملف يعرض القديم؟
+ *   ٢) هل نُفِّذ ما أرسلناه، وما الذي عدّلناه بعد آخر إرسال فلم يصلهم بعد؟
  *
- * مقارنةٌ نقيّة بين ثلاث صور: الجدول الحيّ (ما عندنا)، وصفوف الملف المقروءة (ما
- * طبعه التسجيل)، ونسخةُ آخر إرسال (ما رآه التسجيل قبل أن نعدّل). لا كتابةَ ولا
- * شبكةَ ولا مسّ بالجدول: الدالةُ تُرجع نتيجةً فقط.
+ * مقارنةٌ نقيّة بين أربع صور: الجدول الحيّ (ما عندنا)، وصفوف الملف المقروءة (ما
+ * طبعه التسجيل)، ونسخةُ آخر إرسال (ما رآه التسجيل قبل أن نعدّل)، وملفُّ التسجيل
+ * الأصلي إن وُجد (ما كان عليه كل رقمٍ مرجعي قبل أي تعديل). لا كتابةَ ولا شبكةَ.
  *
- * وقاعدتها الثابتة: **لا تخمين**. الشعبة تُعرف بـ(رمز المقرر + رقم الشعبة)؛ فإن لم
- * يثبت هذا المفتاح — رقمٌ غائب، أو مقرران بالرمز نفسه، أو مطابقةٌ بالاسم وحده،
- * أو خانةٌ لم تُقرأ بيقين — فالصفُّ يُوضع في «تحتاج نظرك» ولا يُحسب مطابقاً ولا
- * خللاً. والخانةُ الفارغة في الملف «غير معروفة» لا «تغيّرت».
+ * **هوية الشعبة: رمز المقرر + الرقم المرجعي (CRN).** التسجيل يعيد ترقيم الشعب
+ * كما يشاء، فاختلافُ رقم الشعبة وحده ليس فرقاً. الرقمُ المرجعي لصفوفنا يُؤخذ من
+ * المصدر نفسه الذي يطبعه «تقرير تغييرات الجدول» (اقتران ملف التسجيل الأصلي بالجدول)
+ * ويُمرَّر هنا جاهزاً. فإن غاب الرقم المرجعي عن أحد الطرفين رُجع إلى المقرر والموعد
+ * نفسه، ثم المقرر وحده في «تحتاج نظرك». وقاعدتها الثابتة: **لا تخمين** — التباسٌ
+ * أو قراءةٌ غير مؤكدة تُوضع في «تحتاج نظرك» ولا تُحسب مطابقةً ولا خللاً.
  */
+
+import { AR, countOf } from "./arabicCount";
 
 type Row = Record<string, any>;
 
@@ -23,20 +27,27 @@ export const REGISTRAR_FIELD_LABEL: Record<RegistrarField, string> = {
   days: "الأيام", time: "الوقت", room: "القاعة", instructor: "الأستاذ", course: "المقرر", section: "الشعبة",
 };
 
-export type FindingGroup = "matched" | "mismatch" | "notCarried" | "review";
+/**
+ * notApplied: أرسلناه ولم يُنفَّذ. notSent: تعديلٌ جديد لم يُرسل بعد (ليس تقصيراً منهم).
+ * mismatch: يخالف جدولنا. review: لا يُحكم فيه بيقين. matched: مطابق.
+ */
+export type FindingGroup = "notApplied" | "notSent" | "mismatch" | "review" | "matched";
 export type FindingKind =
-  | "ok" | "fields" | "onlyPdf" | "onlyOurs"
+  | "ok" | "fields" | "onlyPdf" | "onlyOurs" | "misplaced"
   | "notChanged" | "notAdded" | "notRemoved"
-  | "ambiguous" | "unreadable" | "fuzzy" | "noKey" | "renumbered";
+  | "ambiguous" | "unreadable" | "fuzzy" | "noKey" | "crnChanged";
+
+/** ما يُطلب من التسجيل في «طلب التعديل»: عدّلوا، أضيفوا، احذفوا. */
+export type RequestAction = "edit" | "add" | "delete";
 
 export interface FieldDelta {
   field: RegistrarField;
   label: string;
-  /** ما عندنا الآن. */
+  /** ما عندنا الآن (المطلوب). */
   ours: string;
   /** ما طُبع في ملف التسجيل. */
   pdf: string;
-  /** لـ«لم يُنفَّذ»: ما كان في النسخة المرسلة (القديم الذي ما زال الملف يعرضه). */
+  /** ما كان في النسخة المرسلة (لـ«لم يُرسل بعد»). */
   was?: string;
 }
 
@@ -47,19 +58,26 @@ export interface RegistrarFinding {
   key: string;
   /** هوية الشعبة التي يخصّها (تُعدّ مرّةً واحدة في الإجمالي ولو ظهرت في أكثر من مجموعة). */
   ref: string;
+  /** الرقم المرجعي عند التسجيل (من ملفهم، وإلا ما عندنا). */
+  crn?: string;
   courseCode: string;
   courseName: string;
   /** رقم المقرر في الكتالوج (لوسومه)؛ غائبٌ حين لم يُربط. */
   courseId?: number;
+  /** رقم الشعبة عندنا (وإلا عندهم). */
   section: string;
+  /** رقم الشعبة في ملفهم حين يختلف: يُعرض بهدوء، ولا يُعدّ فرقاً. */
+  pdfSection?: string;
   /** موعدٌ عندنا يُفتح من البطاقة (غائبٌ حين لا موعد عندنا). */
   scheduleId?: number;
   page?: number;
   fields: FieldDelta[];
   /** سببُ وضعه في «تحتاج نظرك»، أو شرحٌ قصير. */
   reason?: string;
-  /** المطابقة بالمفتاح الكامل، أو تقريبية. */
-  match: "exact" | "fuzzy" | "none";
+  /** كيف عُرفت الشعبة: بالرقم المرجعي، أو بالمقرر والموعد، أو تقريبياً. */
+  match: "crn" | "exact" | "fuzzy" | "none";
+  /** ما يُطلب من التسجيل؛ غائبٌ لما لا يُطلب (المطابق وما يحتاج نظراً). */
+  action?: RequestAction;
 }
 
 export interface RegistrarCheckNames {
@@ -70,20 +88,35 @@ export interface RegistrarCheckNames {
   placeholderIds?: ReadonlySet<number>;
 }
 
+/**
+ * مصدر الرقم المرجعي لصفوفنا — هو نفسه ما يطبعه «تقرير تغييرات الجدول»:
+ * `source.referenceNumber || row.referenceNumber` من اقتران ملف التسجيل الأصلي بالجدول.
+ */
+export interface RegistrarCrnSource {
+  /** الرقم المرجعي لكل موعدٍ عندنا (الحيّ ونسخةُ آخر إرسال) بمعرّفه. */
+  byId: ReadonlyMap<number, string>;
+  /** صفوف ملف التسجيل الأصلي: ما كان عليه كل رقمٍ مرجعي قبل أي تعديلٍ منّا. */
+  original?: readonly Row[];
+}
+
 export interface RegistrarCheckInput {
   live: readonly Row[];
   pdf: readonly Row[];
   /** نسخة آخر ما رآه التسجيل؛ غائبةٌ إن لم يُرسَل شيء بعد. */
   sent?: readonly Row[];
   names?: RegistrarCheckNames;
+  /** غائبٌ: يُقرأ الرقم المرجعي من حقل الصف نفسه. */
+  crn?: RegistrarCrnSource;
 }
+
+export type RegistrarCounts = { matched: number; mismatch: number; notSent: number; notApplied: number; review: number; total: number };
 
 export interface RegistrarCheckResult {
   findings: RegistrarFinding[];
-  counts: { matched: number; mismatch: number; notCarried: number; review: number; total: number };
+  counts: RegistrarCounts;
   /** نسبة الشعب المطابقة من الكل (0–100)، أو null إن لم يوجد ما يُقارَن. */
   percent: number | null;
-  baseline: { available: boolean };
+  baseline: { available: boolean; crn: boolean };
   reading: {
     pdfRows: number; liveRows: number; outOfScopeRows: number; uncertainRows: number;
     /** خاناتٌ لم يطبعها الملف (أو لم تُقرأ) فلم تُقارَن: عددُ الشعب لكل خانة. */
@@ -109,15 +142,37 @@ const clock = (value: unknown): string => {
   return match ? `${match[1].padStart(2, "0")}:${match[2]}` : "";
 };
 
-const foldName = (value: unknown) => String(value ?? "")
+/* ── الأسماء: التسجيل يقصّ الاسم الطويل («عبدالله عبدالعزيز عبدالله ال») ويكتب
+   «بو حمد» و«بوحمد» كيفما اتفق، ويسبقه بـ«د.» أو «أ.د.». فالمقارنة بالكلمات بالترتيب،
+   وآخرُ كلمةٍ من الأقصر يكفي أن تكون بدايةَ نظيرتها. ─────────────────────────── */
+const NAME_TITLES = new Set(["د", "ا", "م", "دكتور", "دكتوره", "الدكتور", "الدكتوره", "استاذ", "استاذه", "الاستاذ", "الاستاذه", "منتدب", "مساعد", "محاضر"]);
+const NAME_JOINERS = new Set(["عبد", "ابو", "بو", "ال", "ابن", "بن"]);
+const foldLetters = (value: unknown) => String(value ?? "")
   .normalize("NFKC")
   .replace(/[ً-ْـ]/g, "")
-  .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه")
-  .replace(/(^|\s)(د|أ|ا)\.?(?=\s)/g, " ")
-  .replace(/(^|\s)(الدكتور|الدكتورة|دكتور|دكتورة|الأستاذ|الاستاذ|الأستاذة|أستاذ|استاذ|منتدب|مساعد|محاضر)(?=\s|$)/g, " ")
-  .replace(/[^؀-ۿa-zA-Z0-9 ]/g, " ")
-  .replace(/\s+/g, " ")
-  .trim();
+  .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه");
+export function nameTokens(value: unknown): string[] {
+  const words = foldLetters(value).replace(/[^؀-ۿa-zA-Z0-9 ]/g, " ").split(/\s+/).filter(Boolean).filter(word => !NAME_TITLES.has(word));
+  const out: string[] = [];
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    if (NAME_JOINERS.has(word) && i + 1 < words.length) { out.push(word + words[i + 1]); i++; }
+    else out.push(word);
+  }
+  return out;
+}
+const foldName = (value: unknown) => nameTokens(value).join(" ");
+/** اسمان لشخصٍ واحد؟ يتسامح مع القصّ والألقاب و«بو حمد/بوحمد»، ولا يكفيه اسمٌ أول وحده. */
+export function namesAgree(a: unknown, b: unknown): boolean {
+  const ta = nameTokens(a), tb = nameTokens(b);
+  if (!ta.length || !tb.length) return false;
+  if (ta.join(" ") === tb.join(" ")) return true;
+  const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  if (short.length < 2) return false;
+  return short.every((word, i) => i < short.length - 1
+    ? word === long[i]
+    : word === long[i] || long[i].startsWith(word) || word.startsWith(long[i]));
+}
 
 const sectionOf = (value: unknown): string => {
   const digits = asciiDigits(value).replace(/\D/g, "").replace(/^0+/, "");
@@ -133,6 +188,9 @@ const courseFull = (code: unknown): string => {
   const digits = asciiDigits(code).replace(/\D/g, "");
   return digits.length === 7 ? digits : "";
 };
+
+/** الرقم المرجعي (CRN) كما يُقارَن: أرقامٌ بلا أصفار بادئة. */
+export const normalizeCrn = (value: unknown): string => asciiDigits(value).replace(/\D/g, "").replace(/^0+/, "");
 
 /* المبنى والقاعة كما حسمهما النظام، وإلا كما طُبعا في الملف (قاعةٌ غير مسجّلة تبقى مطبوعةً لا فراغاً). */
 const roomParts = (row: Row) => ({
@@ -250,11 +308,6 @@ const valueText = (field: RegistrarField, rows: readonly Row[], names?: Map<numb
 
 type Verdict = "same" | "diff" | "unknown" | "unsure";
 
-/**
- * اتفاقُ خانةٍ بين جانبين. «unknown»: أحد الجانبين فارغٌ لم يُطبع أصلاً (عمودُ
- * الأستاذ فارغٌ كثيراً في ملفات الجهة) فلا يُحسب اختلافاً. «unsure»: الاسمُ
- * مطبوعٌ ولم يُربط بسجلٍّ، فلا يُحكم بشيء.
- */
 /** لقاءاتٌ بيومٍ ووقتٍ واحد على الطرفين (اليومُ المجهول -1 لا يُقرَن). */
 function sharedMeetings(a: Meeting[], b: Meeting[]): Array<[Meeting, Meeting]> {
   const out: Array<[Meeting, Meeting]> = [];
@@ -266,6 +319,11 @@ function sharedMeetings(a: Meeting[], b: Meeting[]): Array<[Meeting, Meeting]> {
   return out;
 }
 
+/**
+ * اتفاقُ خانةٍ بين جانبين. «unknown»: أحد الجانبين فارغٌ لم يُطبع أصلاً (عمودُ
+ * الأستاذ فارغٌ كثيراً في ملفات الجهة) فلا يُحسب اختلافاً. «unsure»: الاسمُ
+ * مطبوعٌ ولم يُربط بسجلٍّ ولا يوافق الاسم الآخر، فلا يُحكم بشيء.
+ */
 function compareField(field: RegistrarField, a: readonly Row[], b: readonly Row[], names?: Map<number, string>, placeholders?: ReadonlySet<number>): Verdict {
   const ma = meetingsOf(a), mb = meetingsOf(b);
   switch (field) {
@@ -299,26 +357,30 @@ function compareField(field: RegistrarField, a: readonly Row[], b: readonly Row[
       const ia = real(instructorIds(a)), ib = real(instructorIds(b));
       const textB = b.map(row => String(row.sourceInstructorText || "").trim()).filter(Boolean);
       const textA = a.map(row => String(row.sourceInstructorText || "").trim()).filter(Boolean);
+      const namesOf = (ids: number[]) => ids.map(id => names?.get(id) || "").filter(Boolean);
+      /* الاسمُ المطبوع المقصوص قد يُربط بسجلّ شخصٍ آخر يشاركه البداية؛ فإن وافق المطبوعُ اسمَ الطرف الآخر فهو هو. */
+      const printedAgrees = () => textB.some(text => namesOf(ia).some(name => namesAgree(text, name)))
+        || textA.some(text => namesOf(ib).some(name => namesAgree(text, name)));
       if (ia.length && ib.length) {
         const own = (m: Meeting) => [...m.instructors].filter(id => !placeholders?.has(id)).sort().join();
         const shared = sharedMeetings(ma, mb).filter(([x, y]) => own(x) && own(y));
-        if (shared.length) return shared.every(([x, y]) => own(x) === own(y)) ? "same" : "diff";
-        return ia.join() === ib.join() ? "same" : "diff";
+        const verdict = shared.length ? (shared.every(([x, y]) => own(x) === own(y)) ? "same" : "diff") : (ia.join() === ib.join() ? "same" : "diff");
+        return verdict === "diff" && printedAgrees() ? "same" : verdict;
       }
       if (!ia.length && !textA.length) return "unknown";
       if (!ib.length && !textB.length) return "unknown";
-      /* اسمٌ مطبوعٌ بلا سجلٍّ مربوط: يُقارَن باسم الجانب الآخر، والاحتواءُ تطابق، وما سواه «غير محسوم». */
-      const label = (rows: readonly Row[], ids: number[], texts: string[]) =>
-        foldName(ids.length ? ids.map(id => names?.get(id) || "").join(" ") : texts.join(" "));
-      const na = label(a, ia, textA), nb = label(b, ib, textB);
-      if (!na || !nb) return "unknown";
-      return na === nb || na.includes(nb) || nb.includes(na) ? "same" : "unsure";
+      /* اسمٌ مطبوعٌ بلا سجلٍّ مربوط: يُقارَن باسم الجانب الآخر بالتسامح نفسه، وما سواه «غير محسوم». */
+      const label = (ids: number[], texts: string[]) => (ids.length ? namesOf(ids).join(" ") : texts.join(" "));
+      const na = label(ia, textA), nb = label(ib, textB);
+      if (!foldName(na) || !foldName(nb)) return "unknown";
+      const fa = foldName(na), fb = foldName(nb);
+      return fa === fb || fa.includes(fb) || fb.includes(fa) || namesAgree(na, nb) ? "same" : "unsure";
     }
     default: return "same";
   }
 }
 
-const DATA_FIELDS: RegistrarField[] = ["days", "time", "room", "instructor"];
+const DATA_FIELDS: Array<"days" | "time" | "room" | "instructor"> = ["days", "time", "room", "instructor"];
 
 /* ── الفهرسة ──────────────────────────────────────────────────────────── */
 
@@ -329,76 +391,65 @@ interface Section {
   /** رموزٌ كاملة مختلفة التقت على المفتاح نفسه (مقرران بنهايةٍ واحدة): التباس. */
   fulls: Set<string>;
   section: string;
+  /** الرقم المرجعي الواحد للشعبة، أو فارغ (غائبٌ أو متعارض). */
+  crn: string;
   rows: Row[];
   name: string;
   code: string;
 }
 
-interface Index { sections: Map<string, Section>; keyless: Row[]; byCrn: Map<string, string | null> }
-
-/** الرقم المرجعي (CRN): هويةُ الشعبة عند جهة التسجيل نفسها، فهو أقوى من أيّ رقمٍ طُبع. */
-const crnOf = (row: Row): string => asciiDigits(row?.referenceNumber).replace(/\D/g, "").replace(/^0+/, "");
-
-function indexRows(rows: readonly Row[], codeOf: (row: Row) => string, nameOf: (row: Row) => string, sectionKey: (row: Row) => string): Index {
+function indexSections(rows: readonly Row[], codeOf: (row: Row) => string, nameOf: (row: Row) => string, crnOfRow: (row: Row) => string) {
   const sections = new Map<string, Section>();
-  const keyless: Row[] = [];
-  const byCrn = new Map<string, string | null>();
+  const crnSets = new Map<string, Set<string>>();
   for (const row of rows) {
     const code = codeOf(row);
     const tail = courseTail(code);
-    const section = sectionKey(row);
-    if (!tail || !section) { keyless.push(row); continue; }
+    const section = sectionOf(row.SCode);
+    if (!tail || !section) continue;
     const key = `${tail}|${section}`;
     const found = sections.get(key);
     const full = courseFull(code);
     if (found) { found.rows.push(row); if (full) found.fulls.add(full); }
-    else sections.set(key, { key, tail, full, fulls: new Set(full ? [full] : []), section, rows: [row], name: nameOf(row), code: String(code || "") });
-    const crn = crnOf(row);
-    if (crn) byCrn.set(crn, byCrn.has(crn) && byCrn.get(crn) !== key ? null : key);
+    else sections.set(key, { key, tail, full, fulls: new Set(full ? [full] : []), section, crn: "", rows: [row], name: nameOf(row), code: String(code || "") });
+    const crn = crnOfRow(row);
+    if (crn) crnSets.set(key, new Set([...(crnSets.get(key) || []), crn]));
   }
-  return { sections, keyless, byCrn };
+  for (const [key, set] of crnSets) if (set.size === 1) sections.get(key)!.crn = [...set][0];
+  /* رقمٌ مرجعيّ واحد على شعبتين عندنا: لا يُثبت هويةَ أيٍّ منهما. */
+  const owners = new Map<string, number>();
+  for (const s of sections.values()) if (s.crn) owners.set(s.crn, (owners.get(s.crn) || 0) + 1);
+  for (const s of sections.values()) if (s.crn && (owners.get(s.crn) || 0) > 1) s.crn = "";
+  return sections;
 }
 
-/**
- * يوزّع صفوف الملف على شعب الجدول بهوية الشعبة، بالترتيب:
- *   ١) الرقم المرجعي (CRN) إن وُجد عند الطرفين ووافق المقرر؛
- *   ٢) رمز المقرر + رقم الشعبة المطبوع؛
- *   ٣) رمز المقرر + الرقم المولَّد للشعبة (ترقيم الاستيراد 501، 502…).
- * ما لم يقع على شعبةٍ عندنا جرّب بها نسخةَ آخر إرسال (لاكتشاف ما حذفناه)، وإلا بقي
- * بمفتاحه. وما لا مفتاحَ له (رمزٌ أو رقمٌ لم يُقرأ ولا مرجعيّ) يُعاد منفصلاً.
- */
-function groupPdfRows(rows: readonly Row[], codeOf: (row: Row) => string, nameOf: (row: Row) => string, targets: Index[]) {
+/** صفوف الملف تُجمع بالرقم المرجعي إن طُبع، وإلا برمز المقرر ورقم الشعبة المطبوع (أو المولَّد). */
+function groupPdfRows(rows: readonly Row[], codeOf: (row: Row) => string, nameOf: (row: Row) => string) {
   const sections = new Map<string, Section>();
   const keyless: Row[] = [];
   for (const row of rows) {
     const code = codeOf(row);
     const tail = courseTail(code);
-    const printed = sectionOf(row.sourceSectionText);
-    const generated = sectionOf(row.SCode);
-    const crn = crnOf(row);
-    let key = "";
-    for (const target of targets) {
-      const viaCrn = crn ? target.byCrn.get(crn) : undefined;
-      const crnSection = viaCrn ? target.sections.get(viaCrn) : undefined;
-      if (crnSection && (!tail || crnSection.tail === tail)) { key = crnSection.key; break; }
-      if (!tail) continue;
-      const printedKey = printed ? `${tail}|${printed}` : "";
-      const generatedKey = generated ? `${tail}|${generated}` : "";
-      if (printedKey && target.sections.has(printedKey)) { key = printedKey; break; }
-      if (generatedKey && target.sections.has(generatedKey)) { key = generatedKey; break; }
-    }
-    if (!key && tail && (printed || generated)) key = `${tail}|${printed || generated}`;
+    const section = sectionOf(row.sourceSectionText) || sectionOf(row.SCode);
+    const crn = normalizeCrn(row.referenceNumber);
+    const key = crn ? `#${crn}` : tail && section ? `${tail}|${section}` : "";
     if (!key) { keyless.push(row); continue; }
-    const [keyTail, keySection] = key.split("|");
     const found = sections.get(key);
     const full = courseFull(code);
-    if (found) { found.rows.push(row); if (full) found.fulls.add(full); }
-    else sections.set(key, { key, tail: keyTail, full, fulls: new Set(full ? [full] : []), section: keySection, rows: [row], name: nameOf(row), code: String(code || "") });
+    if (found) { found.rows.push(row); if (full) found.fulls.add(full); if (!found.tail && tail) { found.tail = tail; found.code = String(code || ""); } }
+    else sections.set(key, { key, tail, full, fulls: new Set(full ? [full] : []), section, crn, rows: [row], name: nameOf(row), code: String(code || "") });
   }
   return { sections, keyless };
 }
 
 const isCrossBranch = (row: Row) => String(row?.scopeMismatchType || "") === "CROSS_BRANCH";
+
+/** ما يُطلب من التسجيل لهذه النتيجة. */
+export function requestActionOf(finding: Pick<RegistrarFinding, "group" | "kind">): RequestAction | undefined {
+  if (finding.group === "matched" || finding.group === "review") return undefined;
+  if (finding.kind === "onlyOurs" || finding.kind === "notAdded") return "add";
+  if (finding.kind === "onlyPdf" || finding.kind === "notRemoved") return "delete";
+  return "edit";
+}
 
 /* ── الفحص ────────────────────────────────────────────────────────────── */
 
@@ -408,32 +459,60 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
   const placeholders = names.placeholderIds;
   const liveCode = (row: Row) => String(names.courseCodeById?.get(Number(row.AdCourseId || 0)) || row.CourseCodeSnapshot || row.CourseCode || "");
   const liveName = (row: Row) => String(names.courseNameById?.get(Number(row.AdCourseId || 0)) || row.AdCourseName || row.CourseNameSnapshot || "");
-  const pdfCode = (row: Row) => String(row.sourceCourseCode || names.courseCodeById?.get(Number(row.AdCourseId || 0)) || row.CourseCodeSnapshot || "");
-  const pdfName = (row: Row) => String(row.AdCourseName || row.sourceCourseText || "");
+  /* رمزُ ملفهم كما طُبع؛ وإن طُبع مختصراً (112) وربطه القارئ بمقررٍ بالنهاية نفسها فبرمزه الكامل. */
+  const pdfCode = (row: Row) => {
+    const printed = String(row.sourceCourseCode || "");
+    const catalogue = String(names.courseCodeById?.get(Number(row.AdCourseId || 0)) || "");
+    if (courseFull(printed)) return printed;
+    if (catalogue && (!printed || courseTail(catalogue) === courseTail(printed))) return catalogue;
+    return printed || String(row.CourseCodeSnapshot || "");
+  };
+  const pdfName = (row: Row) => String(row.AdCourseName || row.sourceCourseText || names.courseNameById?.get(Number(row.AdCourseId || 0)) || "");
+  /* الرقم المرجعي لصفّنا: من المصدر الممرَّر (كما في تقرير التغييرات)، وإلا من حقل الصف. */
+  const crnSource = input.crn;
+  const ourCrn = (row: Row) => normalizeCrn(crnSource ? crnSource.byId.get(Number(row.id)) : row.referenceNumber);
 
   const pdfAll = input.pdf.filter(row => row && typeof row === "object");
   const pdfRows = pdfAll.filter(row => !isCrossBranch(row));
   const outOfScopeRows = pdfAll.length - pdfRows.length;
   const liveRows = input.live.filter(row => row && typeof row === "object");
+  const sentRows = input.sent ? input.sent.filter(row => row && typeof row === "object") : null;
 
-  const live = indexRows(liveRows, liveCode, liveName, row => sectionOf(row.SCode));
-  const sent = input.sent ? indexRows(input.sent, liveCode, liveName, row => sectionOf(row.SCode)) : null;
-  const pdf = groupPdfRows(pdfRows, pdfCode, pdfName, sent ? [live, sent] : [live]);
+  const live = indexSections(liveRows, liveCode, liveName, ourCrn);
+  const sent = sentRows ? indexSections(sentRows, liveCode, liveName, ourCrn) : null;
+  const sentById = new Map<number, Row>((sentRows || []).filter(row => Number(row.id) > 0).map(row => [Number(row.id), row]));
+  const sentByCrn = new Map<string, Section>([...(sent?.values() || [])].filter(s => s.crn).map(s => [s.crn, s]));
+  const originalByCrn = new Map<string, Row[]>();
+  for (const row of crnSource?.original || []) {
+    const crn = normalizeCrn(row?.referenceNumber);
+    if (crn) originalByCrn.set(crn, [...(originalByCrn.get(crn) || []), row]);
+  }
+  const pdf = groupPdfRows(pdfRows, pdfCode, pdfName);
+
+  const liveCrns = new Set([...live.values()].map(s => s.crn).filter(Boolean));
+  const knownCrns = new Set<string>([...liveCrns, ...sentByCrn.keys(), ...originalByCrn.keys()]);
+  const pdfByCrn = new Map<string, Section>([...pdf.sections.values()].filter(s => s.crn).map(s => [s.crn, s]));
 
   const findings: RegistrarFinding[] = [];
   let uncertainRows = 0;
   const notCompared = { days: 0, time: 0, room: 0, instructor: 0 };
 
-  const base = (section: Section | undefined, other: Section | undefined) => ({
-    courseCode: (section?.code || other?.code || "").replace(/\D/g, "") || section?.code || other?.code || "",
-    courseName: section?.name || other?.name || "",
-    courseId: Number(section?.rows[0]?.AdCourseId || other?.rows[0]?.AdCourseId || 0) || undefined,
-    section: section?.section || other?.section || "",
-  });
-  const add = (finding: Omit<RegistrarFinding, "id" | "ref" | "courseCode" | "courseName" | "courseId" | "section"> & { sec?: Section; other?: Section; ref?: string }) => {
-    const { sec, other, ref, ...rest } = finding;
+  const codeText = (section?: Section) => (section?.code || "").replace(/\D/g, "") || section?.code || "";
+  const add = (finding: Omit<RegistrarFinding, "id" | "ref" | "courseCode" | "courseName" | "courseId" | "section" | "pdfSection" | "crn" | "action"> & { ours?: Section; theirs?: Section; ref?: string }) => {
+    const { ours, theirs, ref, ...rest } = finding;
     const id = `${rest.group}:${rest.kind}:${rest.key}`;
-    findings.push({ id, ref: ref || rest.key.split("|").slice(0, 2).join("|"), ...base(sec, other), ...rest });
+    const lead = ours || theirs;
+    const crn = theirs?.crn || ours?.crn || "";
+    const section = ours?.section || theirs?.section || "";
+    const pdfSection = ours && theirs && theirs.section && theirs.section !== ours.section ? theirs.section : undefined;
+    const item: RegistrarFinding = {
+      id, ref: ref || rest.key, ...(crn ? { crn } : {}),
+      courseCode: codeText(lead) || codeText(theirs), courseName: lead?.name || theirs?.name || "",
+      courseId: Number(ours?.rows[0]?.AdCourseId || theirs?.rows[0]?.AdCourseId || 0) || undefined,
+      section, ...(pdfSection ? { pdfSection } : {}), ...rest,
+    };
+    const action = requestActionOf(item);
+    findings.push(action ? { ...item, action } : item);
   };
   const liveId = (section?: Section) => {
     const id = Number(section?.rows.find(row => Number(row.id) > 0)?.id || section?.rows[0]?.id || 0);
@@ -446,161 +525,250 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
     pdf: valueText(field, theirs, instructorNames),
     ...(was ? { was: valueText(field, was, instructorNames) } : {}),
   });
+  const courseDelta = (ours: Section, theirs: Section): FieldDelta => ({
+    field: "course", label: REGISTRAR_FIELD_LABEL.course,
+    ours: [codeText(ours), ours.name].filter(Boolean).join(" "), pdf: [codeText(theirs), theirs.name].filter(Boolean).join(" ") || "—",
+  });
+  const sameCourse = (a: Section, b: Section) => (a.full && b.full ? a.full === b.full : !a.tail || !b.tail || a.tail === b.tail);
   /* خانةٌ غير مؤكدة القراءة في أيّ صفٍّ من الشعبة. */
   const certain = (section: Section, field: RegistrarField) => section.rows.every(row => pdfCellCertain(row, field));
+  /* النسخة المرسلة من شعبتنا: بمعرّفات صفوفها، ثم برقمها المرجعي، ثم بمفتاحها. */
+  const priorOf = (ours: Section): Row[] | undefined => {
+    if (!sent) return undefined;
+    const byId = ours.rows.map(row => sentById.get(Number(row.id))).filter(Boolean) as Row[];
+    if (byId.length) return byId;
+    if (ours.crn && sentByCrn.get(ours.crn)) return sentByCrn.get(ours.crn)!.rows;
+    return sent.get(ours.key)?.rows;
+  };
 
   /* ── المفتاح الملتبس: مقرران عندنا بالرمز نفسه ───────────────────── */
-  const liveByKey = live.sections;
-  const consumedLive = new Set<string>();
-  const consumedPdf = new Set<string>();
   const tailCollisions = new Set<string>();
   {
     const seen = new Map<string, Set<string>>();
-    for (const section of liveByKey.values()) {
+    for (const section of live.values()) {
       const fullSet = seen.get(section.tail) || new Set<string>();
       fullSet.add(section.full || section.code);
       seen.set(section.tail, fullSet);
     }
     for (const [tail, fulls] of seen) if (fulls.size > 1) tailCollisions.add(tail);
   }
+  const usable = (section: Section) => !tailCollisions.has(section.tail) && section.fulls.size <= 1;
 
-  /* ── الموعد نفسه برقم شعبةٍ مختلف ──────────────────────────────────────
-     يعيد التسجيلُ ترقيمَ الشعب أحياناً (٥١٠ عندكم صارت ٥٠٧ عنده)، فيقع رقمٌ صدفةً على موعدٍ آخر ويُقرأ «خللاً» وهو
-     إزاحةُ ترقيمٍ لا غير. لذلك يُقدَّم الموعدُ على الرقم: ما اتفق رقمُه ووقتُه يبقى على المقارنة العادية، وما بقي
-     يُقرَن بالمقرر نفسه والأيام والبداية والنهاية نفسها (ويُقدَّم ما اتفقت قاعتُه)، ويُعرض في «تحتاج نظرك» برقمَيه:
-     لا يُحكم بالتطابق ولا بالخلل، فالرقمُ هو الذي اختلف. ما لا شريك له في الموعد يمضي إلى المقارنة بالرقم كما كان. */
-  {
-    const signature = (section: Section): string => {
-      const parts = meetingsOf(section.rows);
-      if (!parts.length || parts.some(m => m.day < 0 || !m.start || !m.end)) return "";
-      return parts.map(m => `${m.day}|${m.start}|${m.end}`).join(";");
-    };
-    const roomsOf = (section: Section) => meetingsOf(section.rows).map(m => m.room).join("|");
-    const usable = (section: Section) => !tailCollisions.has(section.tail) && section.fulls.size <= 1;
-    const stays = new Set<string>();
-    for (const [key, ours] of liveByKey) {
-      const theirs = pdf.sections.get(key);
-      if (theirs && usable(ours) && signature(ours) && signature(ours) === signature(theirs)) stays.add(key);
-    }
-    for (const [pKey, theirs] of pdf.sections) {
-      if (stays.has(pKey) || consumedPdf.has(pKey) || !usable(theirs) || !certain(theirs, "days") || !certain(theirs, "time")) continue;
-      const sig = signature(theirs);
-      if (!sig) continue;
-      const candidates = [...liveByKey.entries()].filter(([k, s]) => !stays.has(k) && !consumedLive.has(k) && usable(s) && s.tail === theirs.tail && signature(s) === sig);
-      if (!candidates.length) continue;
-      const wantRooms = roomsOf(theirs);
-      const [lKey, ours] = candidates.find(([, s]) => wantRooms && roomsOf(s) === wantRooms) || candidates[0];
-      consumedLive.add(lKey); consumedPdf.add(pKey);
-      const fields: FieldDelta[] = [{ field: "section", label: REGISTRAR_FIELD_LABEL.section, ours: ours.section, pdf: theirs.section }];
-      for (const field of ["room", "instructor"] as const) if (compareField(field, ours.rows, theirs.rows, instructorNames, placeholders) === "diff") fields.push(delta(field, ours.rows, theirs.rows));
-      add({ group: "review", kind: "renumbered", key: `${lKey}~${pKey}`, ref: lKey, sec: ours, other: theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields, match: "fuzzy",
-        reason: `الموعد نفسه برقم شعبةٍ مختلف: عندكم ${ours.section} وفي الملف ${theirs.section}.` });
-    }
+  type How = "crn" | "slot" | "key" | "misplaced";
+  const pairs: Array<{ ours: Section; theirs: Section; how: How }> = [];
+  const pairedLive = new Set<string>();
+  const pairedPdf = new Set<string>();
+  /* شعبٌ عندنا ذُكرت في التباسٍ: لا تُعدّ «غابت عن ملفهم»، ولا تُحجب عن صفٍّ لاحقٍ من ملفهم يلتبس بها أيضاً. */
+  const heldLive = new Set<string>();
+  const pair = (ours: Section, theirs: Section, how: How) => { pairs.push({ ours, theirs, how }); pairedLive.add(ours.key); pairedPdf.add(theirs.key); };
+
+  /* ١) الرقم المرجعي: هويةُ الشعبة عند التسجيل نفسه. */
+  for (const ours of live.values()) {
+    const theirs = ours.crn ? pdfByCrn.get(ours.crn) : undefined;
+    if (theirs && !pairedPdf.has(theirs.key)) pair(ours, theirs, "crn");
   }
 
-  /* ── الشعب التي على الطرفين بمفتاحٍ كامل ─────────────────────────── */
-  for (const [key, ours] of liveByKey) {
-    const theirs = pdf.sections.get(key);
-    if (!theirs || consumedLive.has(key) || consumedPdf.has(key)) continue;
-    if (tailCollisions.has(ours.tail) || ours.fulls.size > 1) {
+  /* ما بعد الرقم المرجعي لا يجري إلا بين شعبتين لا يملك أيٌّ منهما رقماً يقرنه بغيرها:
+     رقمُنا غائبٌ عن ملفهم، ورقمُهم لا نعرفه. */
+  const looseOurs = () => [...live.values()].filter(s => !pairedLive.has(s.key) && (!s.crn || !pdfByCrn.has(s.crn)));
+  const loosePdf = () => [...pdf.sections.values()].filter(s => !pairedPdf.has(s.key) && (!s.crn || !knownCrns.has(s.crn)));
+
+  /* ٢) المقرر والموعد نفسه (التسجيل يعيد الترقيم، فالموعدُ قبل الرقم). */
+  const signature = (section: Section): string => {
+    const parts = meetingsOf(section.rows);
+    if (!parts.length || parts.some(m => m.day < 0 || !m.start || !m.end)) return "";
+    return [...new Set(parts.map(m => `${m.day}|${m.start}|${m.end}`))].sort().join(";");
+  };
+  const roomsOf = (section: Section) => meetingsOf(section.rows).map(m => m.room).join("|");
+  const slotReady = (theirs: Section) => usable(theirs) && certain(theirs, "days") && certain(theirs, "time") && Boolean(signature(theirs));
+  /* أ) الرقم نفسه والموعد نفسه. */
+  for (const theirs of loosePdf()) {
+    if (!slotReady(theirs)) continue;
+    const ours = looseOurs().find(s => usable(s) && sameCourse(s, theirs) && s.section === theirs.section && signature(s) === signature(theirs));
+    if (ours) pair(ours, theirs, "slot");
+  }
+  /* ب) الموعد نفسه برقمٍ آخر: إن انفرد مرشّحٌ واحد (أو انفرد بالقاعة)، وإلا لا تخمين. */
+  for (const theirs of loosePdf()) {
+    if (!slotReady(theirs)) continue;
+    const candidates = looseOurs().filter(s => usable(s) && sameCourse(s, theirs) && signature(s) === signature(theirs));
+    const rivals = loosePdf().filter(p => p.key !== theirs.key && slotReady(p) && sameCourse(p, theirs) && signature(p) === signature(theirs));
+    const byRoom = candidates.filter(s => roomsOf(s) && roomsOf(s) === roomsOf(theirs));
+    const pick = candidates.length === 1 && !rivals.length ? candidates[0] : byRoom.length === 1 ? byRoom[0] : undefined;
+    if (pick) pair(pick, theirs, "slot");
+  }
+  /* ج) المقرر ورقم الشعبة نفسه، والموعدُ مختلف: مطابقةٌ بالمفتاح كما كانت. */
+  for (const theirs of loosePdf()) {
+    if (!theirs.tail || !theirs.section) continue;
+    const ours = looseOurs().find(s => s.tail === theirs.tail && s.section === theirs.section);
+    if (!ours) continue;
+    if (!usable(ours) || theirs.fulls.size > 1) {
       /* رمزان بالنهاية نفسها (قسمان أو كتالوجان): المفتاح لا يكفي لإثبات هويةٍ، فيُسأل صاحبُ الجدول. */
-      consumedLive.add(key); consumedPdf.add(key);
-      add({ group: "review", kind: "ambiguous", key, sec: ours, other: theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields: [], match: "exact",
+      pairedLive.add(ours.key); pairedPdf.add(theirs.key);
+      add({ group: "review", kind: "ambiguous", key: ours.key, ours, theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields: [], match: "exact",
         reason: "مقرران عندكم برمزٍ ينتهي بالرقم نفسه؛ لا أستطيع إثبات أيّهما المقصود." });
       continue;
     }
-    consumedLive.add(key); consumedPdf.add(key);
-    const prior = sent?.sections.get(key);
+    pair(ours, theirs, "key");
+  }
 
-    /* هويةٌ لم تُقرأ بيقين (مقرر أو شعبة) لا تُبنى عليها مطابقةٌ ولا خلل. */
-    if (!certain(theirs, "course") || !certain(theirs, "section")) {
+  /* ٣) ما أضفناه فظهر عندهم بخطأ: الوقت نفسه والأستاذ نفسه، ومعهما المقرر نفسه أو الأيام نفسها.
+     لا يُقرن إلا إن انفرد من الجهتين، وإلا «تحتاج نظرك». */
+  {
+    const daysKey = (section: Section) => [...new Set(meetingsOf(section.rows).filter(m => m.day >= 0).map(m => m.day))].sort().join();
+    const timesKey = (section: Section) => [...new Set(meetingsOf(section.rows).filter(m => m.start && m.end).map(m => `${m.start}-${m.end}`))].sort().join();
+    const evidence = (ours: Section, theirs: Section) => {
+      if (!certain(theirs, "days") || !certain(theirs, "time") || !timesKey(theirs) || timesKey(ours) !== timesKey(theirs)) return false;
+      const course = sameCourse(ours, theirs) && Boolean(ours.tail && theirs.tail);
+      const days = Boolean(daysKey(theirs)) && daysKey(ours) === daysKey(theirs);
+      if (!(course || days) || (course && days)) return false;
+      return compareField("instructor", ours.rows, theirs.rows, instructorNames, placeholders) === "same" && instructorIds(theirs.rows).concat(theirs.rows.filter(r => String(r.sourceInstructorText || "").trim()).map(() => 1)).length > 0;
+    };
+    const oursList = looseOurs();
+    const pdfList = loosePdf();
+    const claims = new Map<string, Section[]>();
+    for (const ours of oursList) {
+      const candidates = pdfList.filter(theirs => evidence(ours, theirs));
+      if (!candidates.length) continue;
+      if (candidates.length > 1) {
+        heldLive.add(ours.key);
+        add({ group: "review", kind: "ambiguous", key: `${ours.key}~misplaced`, ours, scheduleId: liveId(ours), fields: [], match: "fuzzy",
+          reason: `لم أجدها بمقررها وموعدها، ويشبهها في ملفهم ${countOf(candidates.length, AR.section)} بالوقت والأستاذ؛ لا أستطيع إثبات أيّها.` });
+        continue;
+      }
+      claims.set(candidates[0].key, [...(claims.get(candidates[0].key) || []), ours]);
+    }
+    for (const [pKey, owners] of claims) {
+      const theirs = pdf.sections.get(pKey)!;
+      if (owners.length === 1 && !pairedLive.has(owners[0].key)) { pair(owners[0], theirs, "misplaced"); continue; }
+      pairedPdf.add(pKey);
+      owners.forEach(o => pairedLive.add(o.key));
+      add({ group: "review", kind: "ambiguous", key: `${pKey}~misplaced`, theirs, page: pageOf(theirs), fields: [], match: "fuzzy",
+        reason: "شعبةٌ في ملفهم تشبه أكثر من إضافةٍ عندكم بالوقت والأستاذ؛ لا أستطيع إثبات أيّها." });
+    }
+  }
+
+  /* ٤) المقرر وحده: مطابقةٌ تقريبية لا تُحسب إلا في «تحتاج نظرك». */
+  for (const theirs of loosePdf()) {
+    const sameCourseList = looseOurs().filter(s => s.tail && s.tail === theirs.tail);
+    const sameSection = looseOurs().filter(s => s.section === theirs.section && foldName(s.name) && foldName(s.name) === foldName(theirs.name));
+    const candidates = sameCourseList.length ? sameCourseList : sameSection;
+    if (!candidates.length) continue;
+    pairedPdf.add(theirs.key);
+    if ((candidates.length > 1 || heldLive.has(candidates[0].key)) && sameCourseList.length) {
+      add({ group: "review", kind: "ambiguous", key: theirs.key, theirs, page: pageOf(theirs), fields: [], match: "fuzzy",
+        reason: `لم أجد لها نظيراً بالرقم المرجعي ولا بالموعد، وللمقرر عندكم ${countOf(candidates.length, AR.section)}؛ لا أستطيع إثبات أيّها.` });
+      candidates.forEach(s => heldLive.add(s.key));
+      continue;
+    }
+    const ours = candidates[0];
+    pairedLive.add(ours.key);
+    const fields: FieldDelta[] = [];
+    if (ours.tail !== theirs.tail) fields.push(courseDelta(ours, theirs));
+    for (const field of DATA_FIELDS) if (compareField(field, ours.rows, theirs.rows, instructorNames, placeholders) === "diff") fields.push(delta(field, ours.rows, theirs.rows));
+    add({ group: "review", kind: "fuzzy", key: `${ours.key}~${theirs.key}`, ref: ours.key, ours, theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields, match: "fuzzy",
+      reason: ours.tail === theirs.tail ? "لا رقمَ مرجعيّاً يجمعهما ولا موعدَ؛ وقعت مطابقةٌ بالمقرر وحده." : "المطابقة بالاسم وحده، والرمز لا يوافق." });
+  }
+
+  /* ── المقارنة الحقلية لكل زوج ─────────────────────────────────────── */
+  for (const { ours, theirs, how } of pairs) {
+    const ref = ours.key;
+    const match = how === "crn" ? "crn" : how === "misplaced" ? "fuzzy" : "exact";
+    /* هويةٌ لم تُقرأ بيقين لا تُبنى عليها مطابقةٌ ولا خلل (الرقم المرجعي وحده يكفي هويةً). */
+    if (how !== "crn" && (!certain(theirs, "course") || (how === "key" && !certain(theirs, "section")))) {
       uncertainRows++;
-      add({ group: "review", kind: "unreadable", key: `${key}|identity`, sec: ours, other: theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields: [], match: "exact",
+      add({ group: "review", kind: "unreadable", key: `${ref}|identity`, ref, ours, theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields: [], match,
         reason: "قراءة رمز المقرر أو رقم الشعبة من الملف غير مؤكدة." });
       continue;
     }
+    const prior = priorOf(ours);
+    const original = ours.crn ? originalByCrn.get(ours.crn) : undefined;
+    const notSent: FieldDelta[] = [];
+    const notApplied: FieldDelta[] = [];
     const hard: FieldDelta[] = [];
-    const notCarried: FieldDelta[] = [];
     const unsure: Array<{ delta: FieldDelta; why: string }> = [];
+    const cmp = (field: RegistrarField, a: readonly Row[], b: readonly Row[]) => compareField(field, a, b, instructorNames, placeholders);
+    /* فرقٌ ثابت: هل غيّرناه بعد آخر إرسال (فلم يصلهم)، أم أرسلناه ولم يُنفَّذ، أم يخالف جدولنا؟ */
+    const place = (field: RegistrarField, item: FieldDelta, priorSame: Verdict | null, priorTheirs: Verdict | null) => {
+      if (prior && priorSame === "diff" && priorTheirs === "same") { notSent.push({ ...item, was: item.pdf }); return; }
+      if (prior && priorSame === "same" && original && field !== "course"
+        && cmp(field, original, theirs.rows) === "same" && cmp(field, original, ours.rows) === "diff") { notApplied.push(item); return; }
+      hard.push(item);
+    };
+    if (!sameCourse(ours, theirs) && how !== "misplaced") {
+      const priorCode = prior ? courseTail(liveCode(prior[0] || {})) : "";
+      const item = courseDelta(ours, theirs);
+      if (prior && priorCode && priorCode !== ours.tail && priorCode === theirs.tail) notSent.push({ ...item, was: item.pdf });
+      else hard.push(item);
+    }
+    const misplacedFields: FieldDelta[] = [];
+    if (how === "misplaced" && !sameCourse(ours, theirs)) misplacedFields.push(courseDelta(ours, theirs));
     for (const field of DATA_FIELDS) {
-      const verdict = compareField(field, ours.rows, theirs.rows, instructorNames, placeholders);
-      if (verdict === "unknown") { notCompared[field as keyof typeof notCompared]++; continue; }
+      const verdict = cmp(field, ours.rows, theirs.rows);
+      if (verdict === "unknown") { notCompared[field]++; continue; }
       /* التساوي لا يكفي: خانةٌ لم تُقرأ بيقين تساوت صدفةً تبقى «تحتاج نظرك» لا «مطابق». */
       if (verdict === "same" && !certain(theirs, field)) { unsure.push({ delta: delta(field, ours.rows, theirs.rows), why: "قراءة هذه الخانة من الملف غير مؤكدة" }); continue; }
       if (verdict === "same") continue;
-      if (verdict === "unsure") { unsure.push({ delta: delta(field, ours.rows, theirs.rows), why: "الاسم المطبوع لم يُربط بأستاذٍ مسجّل" }); continue; }
+      if (verdict === "unsure") { unsure.push({ delta: delta(field, ours.rows, theirs.rows), why: "الاسم المطبوع لم يُربط بأستاذٍ مسجّل ولا يوافق اسمكم" }); continue; }
       if (!certain(theirs, field)) { unsure.push({ delta: delta(field, ours.rows, theirs.rows), why: "قراءة هذه الخانة من الملف غير مؤكدة" }); continue; }
-      /* هل غيّره القسم بعد الإرسال، وما زال الملف يعرض القديم؟ */
-      if (prior) {
-        const changedSince = compareField(field, prior.rows, ours.rows, instructorNames, placeholders) === "diff";
-        const stillOld = compareField(field, prior.rows, theirs.rows, instructorNames, placeholders) === "same";
-        if (changedSince && stillOld) { notCarried.push(delta(field, ours.rows, theirs.rows, prior.rows)); continue; }
-      }
-      hard.push(delta(field, ours.rows, theirs.rows));
+      if (how === "misplaced") { misplacedFields.push(delta(field, ours.rows, theirs.rows)); continue; }
+      place(field, delta(field, ours.rows, theirs.rows), prior ? cmp(field, prior, ours.rows) : null, prior ? cmp(field, prior, theirs.rows) : null);
     }
-    if (notCarried.length) add({ group: "notCarried", kind: "notChanged", key, sec: ours, other: theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields: notCarried, match: "exact" });
-    if (hard.length) add({ group: "mismatch", kind: "fields", key, sec: ours, other: theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields: hard, match: "exact" });
+    const common = { ours, theirs, ref, scheduleId: liveId(ours), page: pageOf(theirs), match } as const;
+    if (how === "misplaced") {
+      add({ ...common, group: "mismatch", kind: "misplaced", key: `${ref}~${theirs.key}`, fields: misplacedFields,
+        reason: "أضفتموها فظهرت في ملفهم بخطأ؛ عُرفت بالوقت والأستاذ." });
+    }
+    if (notApplied.length) add({ ...common, group: "notApplied", kind: "notChanged", key: ref, fields: notApplied });
+    if (notSent.length) add({ ...common, group: "notSent", kind: "notChanged", key: ref, fields: notSent });
+    if (hard.length) add({ ...common, group: "mismatch", kind: "fields", key: ref, fields: hard });
     for (const item of unsure) {
       uncertainRows++;
-      add({ group: "review", kind: "unreadable", key: `${key}|${item.delta.field}`, sec: ours, other: theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields: [item.delta], match: "exact", reason: item.why });
+      add({ ...common, group: "review", kind: "unreadable", key: `${ref}|${item.delta.field}`, fields: [item.delta], reason: item.why });
     }
-    if (!notCarried.length && !hard.length && !unsure.length) add({ group: "matched", kind: "ok", key, sec: ours, other: theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields: [], match: "exact" });
+    /* رقمُنا المرجعي الأصلي غاب عن ملفهم، ووُجدت الشعبة برقمٍ جديد: يُنبَّه إليه. */
+    const crnMoved = how !== "crn" && ours.crn && theirs.crn && ours.crn !== theirs.crn && originalByCrn.has(ours.crn);
+    if (crnMoved) add({ ...common, group: "review", kind: "crnChanged", key: `${ref}|crn`, fields: [],
+      reason: `رقمها المرجعي ${ours.crn} غاب عن ملفهم، ووُجدت بالموعد نفسه برقمٍ جديد ${theirs.crn}.` });
+    if (how !== "misplaced" && !notApplied.length && !notSent.length && !hard.length && !unsure.length && !crnMoved) {
+      add({ ...common, group: "matched", kind: "ok", key: ref, fields: [] });
+    }
   }
 
-  /* ── ما بقي عندنا وحدنا ───────────────────────────────────────────── */
-  const leftoverLive = [...liveByKey.entries()].filter(([key]) => !consumedLive.has(key));
-  const leftoverPdf = [...pdf.sections.entries()].filter(([key]) => !consumedPdf.has(key));
-
-  /* مطابقةٌ تقريبية: المقرر نفسه بشعبةٍ مختلفة، أو الشعبة نفسها بمقررٍ مختلف. لا تُحسب إلا في «تحتاج نظرك». */
-  const usedLiveFuzzy = new Set<string>();
-  const usedPdfFuzzy = new Set<string>();
-  for (const [pKey, theirs] of leftoverPdf) {
-    if (usedPdfFuzzy.has(pKey)) continue;
-    const sameCourse = leftoverLive.filter(([k, s]) => !usedLiveFuzzy.has(k) && s.tail === theirs.tail);
-    const sameSection = leftoverLive.filter(([k, s]) => !usedLiveFuzzy.has(k) && s.section === theirs.section && foldName(s.name) && foldName(s.name) === foldName(theirs.name));
-    const candidates = sameCourse.length ? sameCourse : sameSection;
-    if (!candidates.length) continue;
-    usedPdfFuzzy.add(pKey);
-    if (candidates.length > 1 && sameCourse.length) {
-      add({ group: "review", kind: "ambiguous", key: pKey, sec: undefined, other: theirs, page: pageOf(theirs), fields: [], match: "fuzzy",
-        reason: `الشعبة ${theirs.section} غير موجودة عندكم، وللمقرر عدةُ شعبٍ أخرى؛ لا أستطيع إثبات أيّها المقصود.` });
-      candidates.forEach(([k]) => usedLiveFuzzy.add(k));
-      continue;
-    }
-    const [lKey, ours] = candidates[0];
-    usedLiveFuzzy.add(lKey);
-    const fields: FieldDelta[] = [];
-    if (ours.section !== theirs.section) fields.push({ field: "section", label: REGISTRAR_FIELD_LABEL.section, ours: ours.section, pdf: theirs.section });
-    if (ours.tail !== theirs.tail) fields.push({ field: "course", label: REGISTRAR_FIELD_LABEL.course, ours: ours.code.replace(/\D/g, "") || ours.name, pdf: theirs.code.replace(/\D/g, "") || theirs.name });
-    for (const field of DATA_FIELDS) if (compareField(field, ours.rows, theirs.rows, instructorNames, placeholders) === "diff") fields.push(delta(field, ours.rows, theirs.rows));
-    add({ group: "review", kind: "fuzzy", key: `${lKey}~${pKey}`, ref: lKey, sec: ours, other: theirs, scheduleId: liveId(ours), page: pageOf(theirs), fields, match: "fuzzy",
-      reason: ours.tail === theirs.tail ? "الشعبة بالرقم المطبوع غير موجودة؛ وقعت مطابقةٌ بالمقرر وحده." : "المطابقة بالاسم وحده، والرمز لا يوافق." });
-  }
-
-  for (const [key, theirs] of leftoverPdf) {
-    if (usedPdfFuzzy.has(key)) continue;
-    const prior = sent?.sections.get(key);
-    if (prior) {
-      /* كانت في النسخة المرسلة وحذفناها بعد الإرسال، وما زالت في الملف. */
-      add({ group: "notCarried", kind: "notRemoved", key, sec: prior, other: theirs, page: pageOf(theirs), fields: [], match: "exact",
-        reason: "حذفتموها بعد الإرسال وما زالت مطبوعةً في الملف." });
+  /* ── ما في ملفهم وحده ─────────────────────────────────────────────── */
+  for (const theirs of pdf.sections.values()) {
+    if (pairedPdf.has(theirs.key)) continue;
+    const known = theirs.crn && knownCrns.has(theirs.crn);
+    const sentAgain = theirs.crn ? sentByCrn.get(theirs.crn) : sent?.get(theirs.key);
+    const deletedByUs = known || (!theirs.crn && sentAgain && !live.has(theirs.key));
+    if (deletedByUs && sent) {
+      if (sentAgain) add({ group: "notSent", kind: "notRemoved", key: theirs.key, ours: sentAgain, theirs, page: pageOf(theirs), fields: [], match: theirs.crn ? "crn" : "exact",
+        reason: "حذفتموها بعد آخر إرسال، وما زالت في ملفهم." });
+      else add({ group: "notApplied", kind: "notRemoved", key: theirs.key, theirs, page: pageOf(theirs), fields: [], match: "crn",
+        reason: "طلبتم حذفها وما زالت في ملفهم." });
+    } else if (deletedByUs) {
+      add({ group: "mismatch", kind: "notRemoved", key: theirs.key, theirs, page: pageOf(theirs), fields: [], match: "crn",
+        reason: "حذفتموها من جدولكم وما زالت في ملفهم." });
     } else {
-      add({ group: "mismatch", kind: "onlyPdf", key, other: theirs, page: pageOf(theirs), fields: [
+      add({ group: "mismatch", kind: "onlyPdf", key: theirs.key, theirs, page: pageOf(theirs), fields: [
         delta("days", [], theirs.rows), delta("time", [], theirs.rows),
-      ].map(item => ({ ...item, ours: "—" })), match: "exact", reason: "شعبةٌ في الملف ليست في جدولكم." });
+      ].map(item => ({ ...item, ours: "—" })), match: theirs.crn ? "crn" : "exact", reason: "في ملفهم وليست في جدولكم." });
     }
   }
 
-  for (const [key, ours] of leftoverLive) {
-    if (usedLiveFuzzy.has(key)) continue;
-    const prior = sent?.sections.get(key);
+  /* ── ما عندنا وحدنا ──────────────────────────────────────────────── */
+  for (const ours of live.values()) {
+    if (pairedLive.has(ours.key) || heldLive.has(ours.key)) continue;
+    const prior = priorOf(ours);
+    const original = Boolean(ours.crn && originalByCrn.has(ours.crn));
+    const fields = (["days", "time", "room", "instructor"] as const).map(field => ({ ...delta(field, ours.rows, []), pdf: "—" }));
+    const common = { ours, scheduleId: liveId(ours), fields, match: (ours.crn ? "crn" : "exact") as RegistrarFinding["match"] };
     if (sent && !prior) {
-      add({ group: "notCarried", kind: "notAdded", key, sec: ours, scheduleId: liveId(ours), fields: [], match: "exact",
-        reason: "أضفتموها بعد الإرسال ولم تظهر في الملف." });
+      add({ ...common, group: "notSent", kind: "notAdded", key: ours.key, reason: "أضفتموها بعد آخر إرسال، ولم تظهر في ملفهم." });
+    } else if (sent && !original) {
+      add({ ...common, group: "notApplied", kind: "notAdded", key: ours.key, reason: "أرسلتم إضافتها ولم تظهر في ملفهم." });
     } else {
-      add({ group: "mismatch", kind: "onlyOurs", key, sec: ours, scheduleId: liveId(ours), fields: [
-        delta("days", ours.rows, []), delta("time", ours.rows, []),
-      ].map(item => ({ ...item, pdf: "—" })), match: "exact", reason: "شعبةٌ في جدولكم غابت عن الملف." });
+      add({ ...common, group: "mismatch", kind: "onlyOurs", key: ours.key,
+        reason: original ? `رقمها المرجعي ${ours.crn} غاب عن ملفهم.` : "في جدولكم وغابت عن ملفهم." });
     }
   }
 
@@ -609,25 +777,25 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
     uncertainRows++;
     const code = pdfCode(row);
     add({ group: "review", kind: "noKey", key: `nokey:${row.sourceOrder ?? findings.length}`, page: Number(row.sourcePage || 0) || undefined, fields: [], match: "none",
-      other: { key: "", tail: "", full: "", fulls: new Set<string>(), section: sectionOf(row.sourceSectionText || row.SCode), rows: [row], name: pdfName(row), code },
+      theirs: { key: "", tail: "", full: "", fulls: new Set<string>(), section: sectionOf(row.sourceSectionText || row.SCode), crn: "", rows: [row], name: pdfName(row), code },
       reason: courseTail(code) ? "رقم الشعبة لم يُقرأ بوضوح." : "رمز المقرر لم يُقرأ بوضوح." });
   }
 
-  const order: Record<FindingGroup, number> = { notCarried: 0, mismatch: 1, review: 2, matched: 3 };
+  const order: Record<FindingGroup, number> = { notApplied: 0, notSent: 1, mismatch: 2, review: 3, matched: 4 };
   findings.sort((a, b) => order[a.group] - order[b.group]
     || a.courseCode.localeCompare(b.courseCode, "en", { numeric: true })
     || a.section.localeCompare(b.section, "en", { numeric: true }));
 
   const count = (group: FindingGroup) => findings.filter(item => item.group === group).length;
-  /* الشعبة تُحسب مرّةً واحدة في الإجمالي ولو ظهرت في أكثر من مجموعة. */
+  /* الشعبة تُحسب مرّةً واحدة في المجموعة ولو حملت أكثر من بطاقة. */
   const distinct = (group: FindingGroup) => new Set(findings.filter(item => item.group === group).map(item => item.ref)).size;
-  const counts = { matched: count("matched"), mismatch: distinct("mismatch"), notCarried: distinct("notCarried"), review: distinct("review"), total: 0 };
+  const counts: RegistrarCounts = { matched: count("matched"), mismatch: distinct("mismatch"), notSent: distinct("notSent"), notApplied: distinct("notApplied"), review: distinct("review"), total: 0 };
   counts.total = new Set(findings.map(item => item.ref)).size;
   const empty = !pdfRows.length && !liveRows.length ? "both" : !pdfRows.length ? "pdfEmpty" : !liveRows.length ? "liveEmpty" : null;
   return {
     findings, counts,
     percent: empty || !counts.total ? null : Math.round((counts.matched / counts.total) * 100),
-    baseline: { available: Boolean(input.sent) },
+    baseline: { available: Boolean(input.sent), crn: Boolean(crnSource && originalByCrn.size) },
     reading: { pdfRows: pdfRows.length, liveRows: liveRows.length, outOfScopeRows, uncertainRows, notCompared },
     empty,
   };

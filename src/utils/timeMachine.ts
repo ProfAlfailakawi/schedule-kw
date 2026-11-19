@@ -19,13 +19,14 @@
  * ولا يخترع رقماً: عددُ الطلبة يأتي من الرادار (مقاعدُ جُلست وطلبٌ قائم) وإلا
  * يبقى «—»؛ وسعةُ الشعبة من سعة المقرر المسجّلة؛ والنصابُ من سجلّ الأستاذ.
  */
+import { patternHoursOf } from "./specialNature";
 import type { AdCourse, AdInstructor, FSchedule } from "../types";
 import {
   SCHEDULE_DAYS, activeDays, autoScheduleProposal, findConflicts, instructorGapStats, isBlockingConflict,
   minutesToTime, timeToMinutes, type ConflictInsight, type DayKey,
 } from "./scheduleIntelligence";
 import { weeklyLoadOf } from "./instructorRequestVerdict";
-import { effectiveCourseHours, reviewSchedule, sectionDaysFitLibrary, type DayKey as RegulationDay } from "./scheduleRegulations";
+import { reviewSchedule, sectionDaysFitLibrary, type DayKey as RegulationDay } from "./scheduleRegulations";
 import { findRepairChain, planDisruption, type RepairMove } from "./repairChain";
 import { regulationDaySwaps, regulationPlacementIssues, regulationShapes, regulationStarts, regulationStartsNear } from "./regulationCandidates";
 import { parseNaturalQuery, toEnglishDigits } from "./naturalQuery";
@@ -558,7 +559,7 @@ export function changedRowsFitPatterns(before: FSchedule[], after: FSchedule[], 
   return after.every(row => {
     const was = old.get(Number(row.id));
     if (was && sameShape(was, row)) return true;
-    const hours = effectiveCourseHours(courses.get(Number(row.AdCourseId)));
+    const hours = patternHoursOf(courses.get(Number(row.AdCourseId)) as any);
     if (!(hours > 0) || !activeDays(row).length) return true;
     const siblings = after.filter(other => Number(other.id) !== Number(row.id) && Number(other.AdCourseId) === Number(row.AdCourseId) && String(other.SCode || "") === String(row.SCode || "")
       && Number(other.AdCollegeId) === Number(row.AdCollegeId) && Number(other.AdSectionId) === Number(row.AdSectionId) && Number(other.AdTermId) === Number(row.AdTermId));
@@ -579,7 +580,7 @@ export function changedRowsFollowRegulation(before: FSchedule[], after: FSchedul
     if (was && was.fstarttime === row.fstarttime && was.fendtime === row.fendtime && activeDays(was).join() === activeDays(row).join()) return true;
     const days = activeDays(row) as RegulationDay[];
     if (!days.length) return true;
-    return regulationPlacementIssues({ days, start: row.fstarttime, end: row.fendtime, hours: effectiveCourseHours(courses.get(Number(row.AdCourseId))) })
+    return regulationPlacementIssues({ days, start: row.fstarttime, end: row.fendtime, hours: patternHoursOf(courses.get(Number(row.AdCourseId)) as any) })
       .every(issue => issue.rule === "pattern");
   });
 }
@@ -992,7 +993,7 @@ function relocateRow(row: FSchedule, index: BusyIndex, context: TmContext, optio
   const options2: Array<{ days: DayKey[]; start: number; minutes: number; hall: TmHall; cost: number }> = [];
   /* الأيامُ البديلة والطولُ من مكتبة الأنماط، والبداياتُ من سُلّم اللائحة (regulationCandidates): نقلُ الاثنين·الأربعاء 80
      إلى الأحد لا يحمل الثمانين معه، ولا يُقترح 9:30 على الأحد. */
-  const hours = effectiveCourseHours(course);
+  const hours = patternHoursOf(course as any);
   const siblings = options.board.filter(other => Number(other.id) !== Number(row.id) && sectionKey(other) === sectionKey(row)
     && Number(other.AdCollegeId) === Number(row.AdCollegeId) && Number(other.AdSectionId) === Number(row.AdSectionId) && Number(other.AdTermId) === Number(row.AdTermId))
     .map(other => ({ days: activeDays(other) as RegulationDay[], minutes: durationOf(other) }));
@@ -1042,7 +1043,7 @@ export function solveProblem(problem: TmProblem, base: FSchedule[], context: TmC
       if (changes.length === affected.length && changes.length) drafts.push({ philosophy: prefer === "fit" ? "students" : "rooms", changes, why: prefer === "fit" ? ["الوقت لا يتغيّر للطلبة", "قاعة بسعةٍ ونوعٍ ملائمين"] : ["قاعاتٌ مشغولة أصلاً", "لا تُفتح قاعة جديدة"] });
     }
     try {
-      const chain = planDisruption(affected, base, { maxDepth: 3, courseHours: row => effectiveCourseHours(courseMapOf(context).get(Number(row.AdCourseId))), forbidRoom: (code, hall) => hallKey({ code, hall }) === key || (Boolean(problem.hall.roomId) && context.halls.some(h => h.roomId === problem.hall.roomId && h.code === code && h.hall === hall)) });
+      const chain = planDisruption(affected, base, { maxDepth: 3, courseHours: row => patternHoursOf(courseMapOf(context).get(Number(row.AdCourseId)) as any), forbidRoom: (code, hall) => hallKey({ code, hall }) === key || (Boolean(problem.hall.roomId) && context.halls.some(h => h.roomId === problem.hall.roomId && h.code === code && h.hall === hall)) });
       if (chain?.moves.length) {
         const ids: string[] = [];
         const changes = chain.moves.map((move, index) => { const change = moveFromRepair(move, index ? ids[index - 1] : undefined); ids.push(change.id); return change; });
