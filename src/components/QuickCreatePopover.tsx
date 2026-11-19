@@ -156,7 +156,7 @@ export default function QuickCreatePopover({
   onReplaceable?: (section: ReplaceableSection, action: "assign" | "swap" | "replace", appointment: Record<string, unknown>) => void;
   replaceBusy?: boolean;
   /** «بدّل القاعتين»: ينقل الشعبة الأخرى (بتأكيد وتراجع) ويعيد true إن نُقلت، فتأخذ المسوّدةُ قاعتَها. */
-  onSwapRooms?: (swap: RoomSwap) => Promise<boolean>;
+  onSwapRooms?: (swap: RoomSwap, mineLabel?: string) => Promise<boolean>;
   swapBusy?: boolean;
   /** مقرّرٌ معروفٌ سلفاً — كإضافةٍ طلبها أستاذ — فتُفتح البطاقةُ وهو مختار. */
   initialCourseId?: number;
@@ -366,7 +366,7 @@ export default function QuickCreatePopover({
   /* «بدّل القاعتين»: لا يُسأل الخادم إلا والمقرر والأستاذ مختاران، ولا تظهر البطاقة بلا تبديلٍ آمن. */
   const roomSwapIdeas = useRoomSwaps(onSwapRooms && draft.courseId && draft.instructorId && !hasDifferentTimes ? roomSwapBody(payload, 0) : null);
   const takeRoomSwap = async (swap: RoomSwap) => {
-    if (!onSwapRooms || !(await onSwapRooms(swap))) return;
+    if (!onSwapRooms || !(await onSwapRooms(swap, selectedCourse?.CourseName))) return;
     setDraft(current => {
       const to = swap.mine.to;
       return {

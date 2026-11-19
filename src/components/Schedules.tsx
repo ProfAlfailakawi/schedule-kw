@@ -89,7 +89,7 @@ import { DnaCount, DnaStatusHeader } from "./dna";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
-import RoomSwapCard from "./RoomSwapCard";
+import RoomSwapCard, { RoomSwapConfirmBody } from "./RoomSwapCard";
 import { roomSwapBody, useRoomSwaps } from "./useRoomSwaps";
 import type { RoomSwap } from "../utils/appointmentRoomSwap";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
@@ -3982,17 +3982,28 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
      الخادم حكم على الشعبتين بمانع الحفظ قبل العرض؛ وهنا تأكيدٌ بصورة «قبل/بعد»، وتنفيذٌ بتراجع.
      يعيد true إن نُقلت الشعبة الأخرى، فيضع المستدعي القاعة في موعده (النموذج الكامل أو «موعد جديد»). */
   const [roomSwapBusy, setRoomSwapBusy] = useState(false);
-  const applyRoomSwapMove = async (swap: RoomSwap): Promise<boolean> => {
+  const [roomSwapNonce, setRoomSwapNonce] = useState(0);
+  const applyRoomSwapMove = async (swap: RoomSwap, mineLabel?: string): Promise<boolean> => {
     if (refuseInPractice()) return false;
     const before = rows.find(row => Number(row.id) === Number(swap.other.rowId));
     if (!before) { setError("تغيّر الجدول؛ أعد البحث عن التبديل."); return false; }
+    /* المعاينةُ هي المحفوظ: الصفّ كما رآه الخادم عند الاقتراح (النسخة والقاعة والوقت) أو لا نقل. */
+    const sameRoom = (swap.other.from.roomId && before.roomId) ? String(swap.other.from.roomId) === String(before.roomId)
+      : normalizeRoomToken(before.AdRoomCode) === normalizeRoomToken(swap.other.from.room) && normalizeRoomToken(before.AdRoomHall) === normalizeRoomToken(swap.other.from.hall);
+    const sameTime = before.fstarttime === swap.other.start && before.fendtime === swap.other.end && swap.other.days.every(day => Boolean((before as any)[day]));
+    if ((swap.other.rev !== undefined && Number(before.rev || 0) !== Number(swap.other.rev)) || !sameRoom || !sameTime) {
+      setError("تغيّر هذا الموعد بعد الاقتراح؛ لم يُنقل شيء. أعد البحث عن التبديل.");
+      setRoomSwapNonce(count => count + 1);
+      return false;
+    }
     const hallText = (hall: { room: string; hall: string } | null) => (hall ? `${hall.room}/${hall.hall}` : "بلا قاعة");
     const name = swap.other.courseName || "الشعبة الأخرى";
     const confirmed = await visualConfirm({
       title: "بدّل القاعتين",
-      message: `الشعبة ${swap.other.scode} من ${name}: ${hallText(swap.other.from)} ← ${hallText(swap.other.to)}\nموعدك: ${hallText(swap.mine.from)} ← ${hallText(swap.mine.to)}\nتُنقل الشعبة الأخرى الآن بفحصٍ كامل ويمكنك التراجع؛ وموعدك يأخذ القاعة عند حفظه.`,
+      message: `الشعبة ${swap.other.scode} من ${name}: ${hallText(swap.other.from)} ← ${hallText(swap.other.to)}. موعدك: ${hallText(swap.mine.from)} ← ${hallText(swap.mine.to)}.`,
+      body: <RoomSwapConfirmBody swap={swap} mineLabel={mineLabel} />,
       confirmLabel: "بدّل القاعتين",
-      compact: true,
+      tone: "info",
     });
     if (!confirmed) return false;
     setRoomSwapBusy(true);
@@ -4097,10 +4108,13 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const selectedDaySummary = selectedFormDays.map(day => day.label).join(" / ");
   const hallAvailabilityReady = Boolean(selectedFormDays.length && form.fstarttime && form.fendtime && !timeRangeInvalid);
   /* «بدّل القاعتين»: يُسأل الخادم حين يكتمل الموعد؛ ولا بطاقةَ إلا إن كان له تبديلٌ آمن. */
-  const roomSwapIdeas = useRoomSwaps(editor !== "index" && hallAvailabilityReady && !practiceMode ? roomSwapBody(form as any, editor === "edit" ? Number(editId || 0) : 0) : null, rows.length);
+  const roomSwapIdeas = useRoomSwaps(editor !== "index" && hallAvailabilityReady && !practiceMode ? roomSwapBody(form as any, editor === "edit" ? Number(editId || 0) : 0) : null, `${rows.length}:${roomSwapNonce}`);
   const takeRoomSwap = async (swap: RoomSwap) => {
-    if (!(await applyRoomSwapMove(swap))) return;
+    const signature = JSON.stringify(roomSwapBody(form as any, editor === "edit" ? Number(editId || 0) : 0));
+    if (!(await applyRoomSwapMove(swap, courseById.get(Number(form.AdCourseId || 0))?.CourseName))) return;
     setForm(current => {
+      /* غيّر المستخدم المقرر أو الوقت أو القاعة أثناء التأكيد: لا تُكتب قاعةُ تبديلٍ لموعدٍ آخر (والنقلُ تمّ وفيه تراجع). */
+      if (JSON.stringify(roomSwapBody(current as any, editor === "edit" ? Number(editId || 0) : 0)) !== signature) return current;
       const to = swap.mine.to;
       const buildingChanged = String(to.buildingId || "") !== String(current.buildingId || "");
       return {
@@ -11113,6 +11127,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 holds: studioHolds.holds.map((hold: any) => ({ days: hold.days, start: hold.start, end: hold.end, roomCode: hold.roomCode, roomHall: hold.roomHall, instructorId: hold.instructorId, editId: hold.editId })),
                 placeholderInstructorIds: studioPlaceholderIds,
                 courseHours: repairCourseHours,
+                courseOf: row => courseById.get(Number(row.AdCourseId)) as any,
               }}
               onApplied={() => { forgetSuggestions(); checkCache.current.clear(); lastCheckFormKey.current = ""; void loadRows({ silent: true }).catch(() => undefined); }}
               onUndone={() => { forgetSuggestions(); checkCache.current.clear(); lastCheckFormKey.current = ""; void loadRows({ silent: true }).catch(() => undefined); }}
