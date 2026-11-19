@@ -38,8 +38,10 @@ export const lengthLabel = (minutes: number) => {
 const flagsOf = (days: readonly DayKey[]) => Object.fromEntries(DAY_KEYS.map(day => [day, days.includes(day)])) as Pick<SpecialMeeting, DayKey>;
 const hasRoom = (place: Place | undefined) => Boolean(place && ((place.buildingId && place.roomId) || place.locationStatus === "PENDING_ROOM"));
 
-export default function SpecialSectionBuilder({ course, scode, busy, onCheck, onSave, collegeId, sectionId, termId }: {
+export default function SpecialSectionBuilder({ step = 3, course, scode, busy, onCheck, onSave, collegeId, sectionId, termId }: {
   key?: React.Key;
+  /** رقمُ الخطوة في «موعد»؛ null خارجه (ورقة فتح الشعبة لطلب طالب). */
+  step?: number | null;
   course: AdCourse;
   scode: string;
   busy: boolean;
@@ -129,7 +131,7 @@ export default function SpecialSectionBuilder({ course, scode, busy, onCheck, on
   return (
     <section className="schedule-form-section appt-step is-time ssb-builder" aria-label="الأيام والوقت والمكان — مقرر بطبيعة خاصة" data-appt-step="time" data-special-nature="true">
       <header className="appt-step-head">
-        <span className="appt-num">3</span>
+        {step != null ? <span className="appt-num">{step}</span> : null}
         <div className="appt-q">
           <strong>متى وأين؟ شعبةٌ نظريّها وعمليّها</strong>
           <small>اختر الأيام ومدة كل يوم، ثم حدّد اللقاء العملي ومكانه</small>

@@ -25,6 +25,10 @@ export const SPECIAL_MIN_HOURS = 2;
 
 export const isSpecialNature = (course: CourseLike): boolean => Boolean(course) && (course as any).CourseSpecialNature === true;
 
+/** ساعاتُ المقرر لأحكام الأنماط والسُّلّم: المقررُ الخاص شكلُه حرٌّ بين مدد اللائحة، فلا ساعاتَ نمطٍ له (0 = «لا يُحكم بنمط»).
+ *  مجموعُ ساعات الشعبة لا يمرّ من هنا: يبقى بـ effectiveCourseHours في حكم الحفظ. */
+export const patternHoursOf = (course: CourseLike): number => isSpecialNature(course) ? 0 : effectiveCourseHours(course as any);
+
 export const isPracticalRow = (row: object | null | undefined): boolean => Boolean(row) && (row as any).practical === true;
 
 const toMinutes = (value: unknown): number => {
