@@ -5213,7 +5213,7 @@
    ],
    "path": "/api/student-registration/:id/course-state",
    "name": "bound dispatch",
-   "call": "8e3d2936b5e6e2a5",
+   "call": "a62a4f8f2829c1f9",
    "site": "src/server/routes/studentRegistrationRoutes.ts:303",
    "regexp": "/^\\/api\\/student-registration(?:\\/([^/]+?))\\/course-state\\/?$/i",
    "end": true
@@ -5226,7 +5226,7 @@
    "path": "/api/student-registration/:id/case-state",
    "name": "bound dispatch",
    "call": "37ef1718a0db2a9a",
-   "site": "src/server/routes/studentRegistrationRoutes.ts:531",
+   "site": "src/server/routes/studentRegistrationRoutes.ts:539",
    "regexp": "/^\\/api\\/student-registration(?:\\/([^/]+?))\\/case-state\\/?$/i",
    "end": true
   },
@@ -5238,7 +5238,7 @@
    "path": "/api/student-registration/:id/close-opened-section",
    "name": "bound dispatch",
    "call": "06ea40323dde620d",
-   "site": "src/server/routes/studentRegistrationRoutes.ts:605",
+   "site": "src/server/routes/studentRegistrationRoutes.ts:613",
    "regexp": "/^\\/api\\/student-registration(?:\\/([^/]+?))\\/close-opened-section\\/?$/i",
    "end": true
   },
