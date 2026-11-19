@@ -3,7 +3,7 @@
  *
  * قرار المالك (2026-11-19):
  *  ١) التسجيل يطبع لكل شعبةٍ رقماً ثابتاً ورقماً مرجعياً (CRN) لا يغيّرهما بين ملفاته.
- *     «اعتمد ترقيم التسجيل» يجعل رقم شعبتنا ومرجعيّها رقمَيهم، لكل شعبةٍ عُرفت بيقين
+ *     بعد كل فحصٍ لملفهم تُطابَق تلقائياً (بلا زرّ) أرقامُ شعبنا ومرجعيّاتها بأرقامهم، لكل شعبةٍ عُرفت بيقين
  *     (بالرقم المرجعي، أو بالمقرر والموعد والأستاذ منفردةً من الطرفين). لا يمسّ الأيام
  *     ولا الأوقات ولا القاعات ولا الأساتذة، ويتخطّى الملتبس، ويرفض أن تحمل شعبتان
  *     عندنا رقماً واحداً.
@@ -68,7 +68,7 @@ export function awaitingRegistrarNumber(row: { referenceNumber?: unknown } | nul
   return Boolean(row) && !String(row?.referenceNumber ?? "").replace(/\D/g, "");
 }
 
-/* ── خطة «اعتمد ترقيم التسجيل» ──────────────────────────────────────────── */
+/* ── خطة «مطابقة ترقيم التسجيل» ──────────────────────────────────────────── */
 
 export interface NumberingChange {
   ref: string;
@@ -81,7 +81,7 @@ export interface NumberingChange {
   /** شعبةٌ جديدة (بلا رقمٍ مرجعي) ظهرت عندهم. */
   isNew: boolean;
 }
-export interface NumberingSkip { ref: string; courseCode: string; courseName: string; section: string; reason: string }
+export interface NumberingSkip { ref: string; courseCode: string; courseName: string; section: string; reason: string; how: RegistrarIdentity["how"] }
 export interface NumberingCollision { courseCode: string; courseName: string; section: string; refs: string[] }
 export interface NumberingPlan {
   changes: NumberingChange[];
@@ -89,7 +89,7 @@ export interface NumberingPlan {
   aligned: number;
   skipped: NumberingSkip[];
   collisions: NumberingCollision[];
-  /** ما يُكتب، أو null إن رُفضت الخطة. */
+  /** في الخطة ما يُكتب (التغييرات المتصادمة أُخرجت إلى collisions ولا تُكتب). */
   writable: boolean;
 }
 
@@ -100,7 +100,7 @@ const sectionText = (value: unknown) => String(value ?? "").trim();
 /**
  * الخطة: لكل هويةٍ مؤكدة يختلف رقمها أو مرجعيّها عن ملفهم تغييرٌ واحد. `only` يحصرها
  * في شعبٍ بعينها (اعتمادُ رقم شعبةٍ جديدة ظهرت عندهم). والتصادم يُحسب على الجدول كله:
- * رقمٌ يصير لشعبتين مختلفتين من المقرر نفسه يرفض الخطة كلها.
+ * رقمٌ يصير لشعبتين مختلفتين من المقرر نفسه لا يُكتب لأيٍّ منهما.
  */
 export function planRegistrarNumbering(
   identities: readonly RegistrarIdentity[], live: readonly LiveRow[], options: { only?: readonly string[] } = {},
@@ -113,7 +113,8 @@ export function planRegistrarNumbering(
     if (only && !only.has(identity.ref)) continue;
     const differs = identity.ours.section !== identity.theirs.section || identity.ours.crn !== identity.theirs.crn;
     if (!identity.certain) {
-      if (differs) skipped.push({ ref: identity.ref, courseCode: identity.courseCode, courseName: identity.courseName, section: identity.ours.section, reason: identity.reason || "لم تُعرف بيقين." });
+      /* ما عُرف تقريباً (ظهر بخطأ، أو بالمفتاح وحده) بطاقتُه في الفحص نفسه؛ ويُسمّى هنا ما سواه. */
+      if (differs && identity.how !== "misplaced" && identity.how !== "key") skipped.push({ ref: identity.ref, courseCode: identity.courseCode, courseName: identity.courseName, section: identity.ours.section, reason: identity.reason || "لم تُعرف بيقين.", how: identity.how });
       continue;
     }
     if (!differs) { aligned++; continue; }
@@ -123,35 +124,39 @@ export function planRegistrarNumbering(
     });
   }
 
-  /* الجدول كما سيصير: رقمُ كل صفٍّ بعد التغيير، وكلُّ رقمٍ لمقررٍ لا يحمله إلا شعبةٌ واحدة. */
-  const target = new Map<number, { section: string; ref: string }>();
-  for (const change of changes) for (const id of change.ids) target.set(id, { section: change.to.section, ref: change.ref });
-  const owners = new Map<string, Set<string>>();
-  const names = new Map<string, { courseCode: string; courseName: string }>();
-  const codeOf = new Map<number, { courseCode: string; courseName: string }>();
-  for (const identity of identities) if (identity.courseId) codeOf.set(identity.courseId, { courseCode: identity.courseCode, courseName: identity.courseName });
-  for (const row of live) {
-    const id = Number(row.id), courseId = Number(row.AdCourseId || 0);
-    if (!(courseId > 0)) continue;
-    const moved = target.get(id);
-    const section = moved ? moved.section : sectionText(row.SCode);
-    if (!section) continue;
-    /* الشعبة عندنا تُعرف بمقررها ورقمها الحالي (شعبةٌ بموعدين صفّان برقمٍ واحد). */
-    const ref = moved ? moved.ref : `${courseId}|${sectionText(row.SCode)}`;
-    const key = `${courseId}|${Number(section)}`;
-    owners.set(key, new Set([...(owners.get(key) || []), ref]));
-    if (!names.has(key)) names.set(key, codeOf.get(courseId) || { courseCode: "", courseName: String(row.AdCourseName || "") });
-  }
-  /* شعبةٌ لم تتغيّر يُعرَف مفتاحها بطريقتين (مرجعُ الفحص، ومقرّرها+رقمها): تُوحَّد قبل العدّ. */
+  /* الجدول كما سيصير: رقمُ كل صفٍّ بعد التغيير. رقمٌ يصير لشعبتين مختلفتين من المقرر نفسه
+     لا يُعتمد: يُخرَج التغييرُ الذي أوصل إليه (ويُسمّى)، ويُعاد الحساب حتى يثبت — فإخراجُ
+     تغييرٍ يُبقي رقمه القديم، وقد يصطدم به تغييرٌ آخر. */
   const unchangedRef = new Map<string, string>();
-  for (const identity of identities) if (identity.courseId && !changes.some(c => c.ref === identity.ref)) unchangedRef.set(`${identity.courseId}|${identity.ours.section}`, identity.ref);
+  for (const identity of identities) if (identity.courseId) unchangedRef.set(`${identity.courseId}|${identity.ours.section}`, identity.ref);
   const collisions: NumberingCollision[] = [];
-  for (const [key, refs] of owners) {
-    const distinct = new Set([...refs].map(ref => unchangedRef.get(ref) || ref));
-    if (distinct.size < 2) continue;
-    if (![...distinct].some(ref => changes.some(change => change.ref === ref))) continue; // تصادمٌ قائمٌ قبل الخطة ليس منها
-    const name = names.get(key)!;
-    collisions.push({ courseCode: name.courseCode, courseName: name.courseName, section: key.split("|")[1], refs: [...distinct] });
+  for (let round = 0; round < 50; round++) {
+    const target = new Map<number, { section: string; ref: string }>();
+    for (const change of changes) for (const id of change.ids) target.set(id, { section: change.to.section, ref: change.ref });
+    const owners = new Map<string, Set<string>>();
+    for (const row of live) {
+      const id = Number(row.id), courseId = Number(row.AdCourseId || 0);
+      if (!(courseId > 0)) continue;
+      const moved = target.get(id);
+      const section = moved ? moved.section : sectionText(row.SCode);
+      if (!section) continue;
+      const ref = moved ? moved.ref : unchangedRef.get(`${courseId}|${sectionText(row.SCode)}`) || `${courseId}|${sectionText(row.SCode)}`;
+      const key = `${courseId}|${Number(section)}`;
+      owners.set(key, new Set([...(owners.get(key) || []), ref]));
+    }
+    const blocked = new Set<string>();
+    for (const [key, refs] of owners) {
+      if (refs.size < 2) continue;
+      const moving = [...refs].filter(ref => changes.some(change => change.ref === ref));
+      if (!moving.length) continue; // تصادمٌ قائمٌ قبل الخطة ليس منها
+      for (const ref of moving) {
+        const change = changes.find(item => item.ref === ref)!;
+        blocked.add(ref);
+        collisions.push({ courseCode: change.courseCode, courseName: change.courseName, section: key.split("|")[1], refs: [...refs] });
+      }
+    }
+    if (!blocked.size) break;
+    for (let i = changes.length - 1; i >= 0; i--) if (blocked.has(changes[i].ref)) changes.splice(i, 1);
   }
-  return { changes, aligned, skipped, collisions, writable: changes.length > 0 && collisions.length === 0 };
+  return { changes, aligned, skipped, collisions, writable: changes.length > 0 };
 }

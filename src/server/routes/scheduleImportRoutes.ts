@@ -588,47 +588,47 @@ app.delete("/api/schedules/registrar-requests/:id", requirePermission(7), async 
 });
 
 /**
- * ── «اعتمد ترقيم التسجيل»: رقمُ الشعبة ومرجعيُّها كما يطبعهما التسجيل ──────────
+ * ── مطابقة ترقيم التسجيل: خطوةٌ تلقائية بعد الفحص (قرار المالك 2026-11-19) ──────
  *
- * معاينةٌ بلا commit، وكتابةٌ واحدة به. الخطة تُعاد على الخادم من ملفهم (لا تُصدَّق خطةٌ
- * أرسلها المتصفح): لكل شعبةٍ عُرفت بيقين رقمُها ومرجعيُّها، ولا يُمسّ غيرهما. ملتبسٌ
- * يُتخطّى ويُسمّى، وشعبتان عندنا برقمٍ واحد ترفض الكتابة كلها. قبلها نسخةٌ للتراجع
- * («قبل اعتماد ترقيم التسجيل»)، والتراجع بطريق الاسترجاع المعروف. `only` يحصرها في شعبٍ
- * بعينها: شعبةٌ جديدة ظهرت عندهم برقمٍ ومرجعيّ.
+ * الفحصُ نفسه يبقى قراءةً محضة (/registrar-check). وبعد فحصٍ ناجح تستدعي الشاشةُ هذه
+ * الخطوةَ تلقائياً بالصفوف نفسها: تُعاد المقارنة هنا (لا تُصدَّق خطةٌ من المتصفح)، ولكل
+ * شعبةٍ عُرفت بيقين — بالرقم المرجعي، أو بالمقرر والموعد والأستاذ منفردةً — يصير رقمُها
+ * ومرجعيُّها رقمَيهم، ولا يُمسّ غيرهما. كتابةٌ واحدة تسبقها نسخة «قبل مطابقة ترقيم التسجيل»
+ * للتراجع، وأثرٌ في السجلّ. الملتبس والمتصادم يُتخطّيان ويعودان في الردّ لـ«تحتاج نظرك».
+ * جدولٌ مقفل (بين يدي التسجيل) لا يُكتب: يُقال ذلك ولا يُعدّ خطأً.
  */
 app.post("/api/schedules/registrar-numbering", requirePermission(7), async (req: AuthenticatedRequest, res: Response) => {
   res.setHeader("Cache-Control","no-store");
   const scope=registrarCheckScope(req,res);if(!scope)return;
   const {collegeId,sectionId,termId}=scope;
-  const only=Array.isArray(req.body?.only)?req.body.only.map((ref:unknown)=>String(ref).slice(0,40)).slice(0,400):undefined;
-  const commit=req.body?.commit===true;
   const result=await runRegistrarCheck(collegeId,sectionId,termId,scope.rows);
-  if(result.empty){res.status(409).json({error:"لا ترقيمَ يُعتمد: الملف أو الجدول فارغ."});return;}
+  const answer=(plan:ReturnType<typeof planRegistrarNumbering>|null,extra:Record<string,unknown>={})=>res.json({
+    changed:0,rows:0,skipped:plan?.skipped||[],collisions:plan?.collisions||[],...extra,
+  });
+  if(result.empty){answer(null);return;}
   const live=await Repository.getSchedulesByScope({collegeId,sectionId,termId},{fresh:true});
-  const plan=planRegistrarNumbering(result.identities,live as any[],{only});
-  if(!commit){res.json({preview:true,plan});return;}
-  if(plan.collisions.length){res.status(409).json({error:`لم يُكتب شيء: ${countOf(plan.collisions.length,AR.section)} عندكم ستحمل رقماً واحداً.`,code:"numbering-collision",plan});return;}
-  if(!plan.changes.length){res.status(409).json({error:"أرقامكم مثل أرقامهم، فلا شيء يتغيّر.",plan});return;}
+  const plan=planRegistrarNumbering(result.identities,live as any[]);
+  if(!plan.changes.length){answer(plan,{aligned:plan.aligned});return;}
   const lock=await scheduleLockRefusal(req,collegeId,sectionId,termId);
-  if(lock){res.status(409).json({error:lock,code:"schedule-locked"});return;}
+  if(lock){answer(plan,{locked:lock});return;}
   const rowById=new Map((live as any[]).map(row=>[Number(row.id),row]));
   const at=new Date().toISOString();
   const fieldsOf=new Map<number,{SCode:string;referenceNumber:string;registrarNumberedAt:string}>();
   for(const change of plan.changes)for(const id of change.ids)if(rowById.has(id))fieldsOf.set(id,{SCode:change.to.section,referenceNumber:change.to.crn,registrarNumberedAt:at});
-  const version=await captureScopeVersion(req,collegeId,sectionId,termId,only?"قبل اعتماد رقم شعبةٍ من التسجيل":"قبل اعتماد ترقيم التسجيل","manual");
+  const version=await captureScopeVersion(req,collegeId,sectionId,termId,"قبل مطابقة ترقيم التسجيل","manual");
   let written:any[]=[];
   try{
     written=await Repository.moveSchedulesBatch([...fieldsOf].map(([id,fields])=>({id,expectedRev:Number(rowById.get(id)?.rev||0),fields:fields as any})));
   }catch(error:any){
     if(error instanceof RequestHoldConflict){res.status(409).json({...await requestHoldRefusal([error.holdRequestId],[error.holdItemId]),applied:false});return;}
-    if(error instanceof ScheduleRevisionConflict){res.status(409).json({error:"تغيّر أحد المواعيد أثناء الاعتماد؛ لم يُحفظ شيء. افحص الملف من جديد.",conflict:"revision",applied:false});return;}
+    if(error instanceof ScheduleRevisionConflict){res.status(409).json({error:"تغيّر أحد المواعيد أثناء مطابقة الترقيم؛ لم يُحفظ شيء. افحص الملف من جديد.",conflict:"revision",applied:false});return;}
     if(error instanceof RequestReservationConflict){res.status(409).json({error:error.message,code:error.code,applied:false});return;}
     throw error;
   }
   await recordVersionAfter(version,before=>before.map(row=>fieldsOf.has(Number(row.id))?{...row,...fieldsOf.get(Number(row.id))}:row));
   await recordSectionNumberLedger(collegeId,sectionId,termId,written);
-  res.locals.auditChanges=`اعتماد ترقيم التسجيل: ${countOf(plan.changes.length,AR.section)}`;
-  res.json({preview:false,changed:plan.changes.length,rows:fieldsOf.size,skipped:plan.skipped.length,undoVersionId:version?.id});
+  res.locals.auditChanges=`مطابقة ترقيم التسجيل: ${countOf(plan.changes.length,AR.section)}`;
+  answer(plan,{changed:plan.changes.length,rows:fieldsOf.size,aligned:plan.aligned,undoVersionId:version?.id});
 });
 
 /** سجلّ أرقام الشعب للفصل: أكبرُ رقمٍ استُعمل لكل مقرر، فلا يُقترح رقمٌ حُذف. */

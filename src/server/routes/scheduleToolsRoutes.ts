@@ -40,6 +40,7 @@ import { applyRequestHoldOverride, noteDepartmentAddition, noteRequestHoldOverri
 import { meetingExcludedIds, reassignmentExceptions, roomOwnership, SCHEDULE_DAY_KEYS, scheduleLengthIssue, sectionScheduleWindow, sectionShapeIssue, travelMinutesFor } from "../core/scheduleRules";
 import { isSpecialNature, meetingLengthIssue, specialShapeSummary } from "../../utils/specialNature";
 import { nextCourseSectionCode } from "../../utils/nextCourseSectionCode";
+import { readSectionNumberLedger } from "../core/sectionNumbers";
 import { sectionCodeKey } from "../../utils/sameSlot";
 import { noteTrail } from "../activityTrail";
 import { fitScoresFor, type FitScore } from "../actualDemand";
@@ -788,7 +789,7 @@ app.post("/api/schedules/special-section", requirePermission(7), async (req: Aut
   const termRows = await Repository.getSchedulesByScope({ termId });
   const taken = termRows.some(row => Number(row.AdCourseId) === courseId && Number(row.AdCollegeId) === collegeId && Number(row.AdSectionId) === sectionId && sectionCodeKey(row.SCode) === sectionCodeKey(code));
   if (taken) {
-    const fresh = nextCourseSectionCode(termRows, courseId, termId, null);
+    const fresh = nextCourseSectionCode(termRows, courseId, termId, null, await readSectionNumberLedger(collegeId, sectionId, termId).catch(() => null));
     res.status(409).json({ error: `الشعبة ${code} موجودةٌ لهذا المقرر في الفصل؛ عدّل لقاءاتها من الجدول، أو اختر شعبةً جديدة (${fresh}).`, code: "section-exists", freshSection: fresh }); return;
   }
   /* مدةُ كل لقاءٍ أولاً: سطرٌ يسمّي اللقاءَ المخالف أصدقُ من «الساعات ناقصة» التي يسبّبها. */

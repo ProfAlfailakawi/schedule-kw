@@ -625,9 +625,28 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
     const candidates = looseOurs().filter(s => usable(s) && sameCourse(s, theirs) && signature(s) === signature(theirs));
     const rivals = loosePdf().filter(p => p.key !== theirs.key && slotReady(p) && sameCourse(p, theirs) && signature(p) === signature(theirs));
     const byRoom = candidates.filter(s => roomsOf(s) && roomsOf(s) === roomsOf(theirs));
-    const pick = candidates.length === 1 && !rivals.length ? candidates[0] : byRoom.length === 1 ? byRoom[0] : undefined;
+    /* شعبتان للمقرر في الموعد نفسه بأستاذين: الأستاذ يفرّقهما إن انفرد من الطرفين. */
+    const teacher = (a: Section, b: Section) => compareField("instructor", a.rows, b.rows, instructorNames, placeholders) === "same";
+    const byTeacher = candidates.filter(s => teacher(s, theirs));
+    const teacherRivals = byTeacher.length === 1 ? rivals.filter(p => teacher(byTeacher[0], p)) : [];
+    const pick = candidates.length === 1 && !rivals.length ? candidates[0] : byRoom.length === 1 ? byRoom[0]
+      : byTeacher.length === 1 && !teacherRivals.length ? byTeacher[0] : undefined;
     if (pick) pair(pick, theirs, "slot");
   }
+  /* ب٢) شعبةٌ حذفناها ثم أعدناها، أو أعاد التسجيلُ إنشاءها برقمٍ مرجعيٍّ آخر: ملفُّهم يطبعها برقمٍ
+     لا تحمله شعبةٌ عندنا، ورقمُنا (إن وُجد) غائبٌ عن ملفهم. تُعرف بالمقرر والموعد والأستاذ إن انفردت
+     من الطرفين — فلا يُطلب منهم حذفُها وإضافتُها. */
+  {
+    const teacherSame = (a: Section, b: Section) => compareField("instructor", a.rows, b.rows, instructorNames, placeholders) === "same";
+    const orphans = [...pdf.sections.values()].filter(t => !pairedPdf.has(t.key) && t.crn && knownCrns.has(t.crn) && !liveCrns.has(t.crn) && slotReady(t));
+    for (const theirs of orphans) {
+      const candidates = looseOurs().filter(s => usable(s) && sameCourse(s, theirs) && signature(s) === signature(theirs) && teacherSame(s, theirs));
+      if (candidates.length !== 1) continue;
+      const rivals = orphans.filter(t => t !== theirs && !pairedPdf.has(t.key) && sameCourse(t, theirs) && signature(t) === signature(theirs) && teacherSame(candidates[0], t));
+      if (!rivals.length) pair(candidates[0], theirs, "slot");
+    }
+  }
+
   /* ج) المقرر ورقم الشعبة نفسه، والموعدُ مختلف: مطابقةٌ بالمفتاح كما كانت. */
   for (const theirs of loosePdf()) {
     if (!theirs.tail || !theirs.section) continue;
@@ -781,15 +800,18 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
     for (const { ours, theirs, how } of pairs) {
       const ids = [...new Set(ours.rows.map(row => Number(row.id)).filter(id => id > 0))];
       const readable = theirs.rows.every(row => String(row.sourceReadMode || "") === "pdf-text") && certain(theirs, "course") && certain(theirs, "section");
-      const unique = sameSlot(live.values(), theirs) === 1 && sameSlot(pdf.sections.values(), theirs) === 1;
-      const teacher = compareField("instructor", ours.rows, theirs.rows, instructorNames, placeholders) === "same";
+      /* الانفراد بالمقرر والموعد والأستاذ معاً: شعبتان للمقرر في الموعد نفسه بأستاذين تُعرف كلٌّ بأستاذها. */
+      const teacherAgrees = (a: Section, b: Section) => compareField("instructor", a.rows, b.rows, instructorNames, placeholders) === "same";
+      const teacher = teacherAgrees(ours, theirs);
+      const unique = [...live.values()].filter(s => sameSlot([s], theirs) && teacherAgrees(s, theirs)).length === 1
+        && [...pdf.sections.values()].filter(p => sameSlot([p], ours) && teacherAgrees(ours, p)).length === 1;
       let reason = "";
       if (!ids.length) reason = "لا موعد عندكم يحمل هذه الشعبة.";
       else if (!readable) reason = "رقم الشعبة في ملفهم لم يُقرأ من طبقة النص.";
       else if (!printedSection(theirs) || !theirs.crn) reason = "ملفهم لم يطبع رقم شعبةٍ ورقماً مرجعياً صالحين.";
       else if (how === "misplaced" || how === "key") reason = "عُرفت تقريباً لا بيقين.";
-      else if (how === "slot" && !unique) reason = "في الموعد نفسه أكثر من شعبةٍ للمقرر.";
       else if (how === "slot" && !teacher) reason = "الأستاذ لا يوافق، فلا أحكم بأنها هي.";
+      else if (how === "slot" && !unique) reason = "في الموعد نفسه أكثر من شعبةٍ للمقرر بالأستاذ نفسه.";
       identities.push({
         ref: ours.key, ids, courseId: Number(ours.rows[0]?.AdCourseId || 0) || undefined,
         courseCode: codeText(ours) || codeText(theirs), courseName: ours.name || theirs.name || "",

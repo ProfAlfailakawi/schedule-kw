@@ -22,7 +22,7 @@ assert.equal(nextCourseSectionCode(sample, 2, 10), "504");
 assert.equal(nextCourseSectionCode(sample, 2, 10, 2), "502");
 assert.equal(nextCourseSectionCode([], 2, 10), "501");
 assert.equal(nextCourseSectionCode(sample, 2, 9), "701");
-assert.match(schedule, /nextCourseSectionCode\(rows, courseId, termId, excludeId\)/);
+assert.match(schedule, /nextCourseSectionCode\(rows, courseId, termId, excludeId, ledgerForTerm\(termId\)\)/);
 assert.match(inbox, /nextCourseSectionCode\(currentRows\.values\(\), courseId, Number\(termId\)\)/);
 
 for (const key of ["scode", "buildingId", "roomId", "room", "hall", "locationStatus"]) {
