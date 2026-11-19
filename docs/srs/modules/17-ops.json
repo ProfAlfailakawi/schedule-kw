@@ -1525,7 +1525,8 @@
         {
           "ar": "أنواع القاعات في الديمو: «قاعة تدريسية» و«مختبر حاسوب» عامّان لكل الأقسام، و«ورشة» و«استوديو إنتاج» لقسم الديمو وحده.",
           "en": "Demo hall types: «lecture hall» and «computer lab» are general for every department, and «workshop» and «production studio» belong to the demo department alone."
-        }
+        },
+        {"ar": "في صندوق التجربة يحمل المدرّبان (29 و30) شعباً في جدول الفصل (شعبتان وشعبة، بلا تداخل أوقات، وتبقى الشعب الشاغرة كما هي) كي يظهر تبويب «تدريب» في التبديل السريع ببطاقات حقيقية.", "en": "In the demo sandbox the two trainees (29 and 30) hold sections in the term schedule (two and one, with no time overlap, and the vacant sections stay as they are) so the «trainee» tab of the quick swap shows real cards."}
       ],
       "evidence": {
         "code": [

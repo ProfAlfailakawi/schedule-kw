@@ -310,6 +310,7 @@
     "test:appointment-quick-swap": "tsx tests/appointment-quick-swap-audit.ts",
     "test:changes-honesty": "tsx tests/changes-honesty-audit.ts",
     "test:authority-course-swap": "tsx tests/authority-course-swap-audit.ts",
+    "test:schedule-diff-patterns": "tsx tests/schedule-diff-patterns-audit.ts",
     "test:appointment-room-swap": "tsx tests/appointment-room-swap-audit.ts",
     "test:appointment-ideas-1114": "tsx tests/appointment-ideas-1114-audit.ts",
     "test:appointment-ideas2-1114": "tsx tests/appointment-ideas2-1114-audit.ts",

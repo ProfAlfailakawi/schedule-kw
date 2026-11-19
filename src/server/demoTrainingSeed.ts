@@ -60,4 +60,26 @@ export async function seedDemoTrainingPhase(): Promise<void> {
       } as any);
     }
   }
+  await assignDemoTraineeSections(rows as any[], placeholderInstructorIds(instructors as any), [firstTa, secondTa]);
+}
+
+/**
+ * وللمدرّبَين شعبٌ في الجدول (المدرّب 29: شعبتان، والمدرّب 30: شعبة) كي يظهر تبويب «تدريب» في «التبديل السريع»
+ * ببطاقاتٍ حقيقية عند الشرح: تُختار صفوفٌ عاديةٌ بترتيبٍ ثابت (أحدثُ معرّفٍ أولاً) بلا تداخل أوقات المدرّب مع نفسه،
+ * وتُترك الشعبُ الشاغرة كما هي. يُكتب في صندوق الزائر وحده كسائر هذا البذر.
+ */
+async function assignDemoTraineeSections(rows: any[], placeholders: Set<number>, trainees: number[]): Promise<void> {
+  const DAYS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"];
+  const overlap = (a: any, b: any) => DAYS.some(day => a[day] && b[day]) && String(a.fstarttime) < String(b.fendtime) && String(b.fstarttime) < String(a.fendtime);
+  const quota = new Map<number, number>([[trainees[0], 2], [trainees[1], 1]]);
+  const taken = new Map<number, any[]>();
+  const candidates = rows.filter(row => !placeholders.has(Number(row.AdInstructorId)) && !trainees.includes(Number(row.AdInstructorId))).sort((a, b) => Number(b.id) - Number(a.id));
+  for (const row of candidates) {
+    const trainee = trainees.find(id => (quota.get(id) || 0) > 0 && !(taken.get(id) || []).some(other => overlap(other, row)));
+    if (!trainee) continue;
+    await Repository.updateSchedule(Number(row.id), { AdInstructorId: trainee } as any);
+    taken.set(trainee, [...(taken.get(trainee) || []), row]);
+    quota.set(trainee, (quota.get(trainee) || 0) - 1);
+    if ([...quota.values()].every(left => left <= 0)) break;
+  }
 }
