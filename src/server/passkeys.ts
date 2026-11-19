@@ -38,6 +38,10 @@ export const PASSKEY_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 export const PASSKEY_FRESH_LOGIN_MS = 10 * 60 * 1000;
 export const PASSKEY_RP_NAME = "SCHEDULE";
 const CHALLENGE_COOKIE = "pk_challenge";
+/** كلماتٌ خاطئة عند تسجيل جهاز: خمسٌ في الدقيقة لكل حساب، كحدّ الدخول العاديّ (authRoutes.rateLimitLogin). */
+const PASSWORD_TRIES = 5;
+const PASSWORD_WINDOW_MS = 60_000;
+const passwordFailures = new Map<number, { count: number; at: number }>();
 const DEMO_PASSKEY_CAP = 20;
 const DEMO_PASSKEY_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -47,6 +51,7 @@ export const PASSKEY_MESSAGES = {
   expired: "انتهت مهلة الطلب. اضغط الزر وأعد المحاولة.",
   verifyFailed: "تعذّر التحقق من البصمة. أعد المحاولة، أو ادخل بالاسم وكلمة السر.",
   notRegistered: "هذا الجهاز غير مسجَّل للدخول بالبصمة. ادخل بكلمة السر ثم فعّل البصمة من حسابك.",
+  duplicate: "هذا الجهاز مسجَّل لحسابك من قبل.",
   limit: `بلغتَ الحدّ الأقصى (${PASSKEY_LIMIT} أجهزة). أزل جهازاً لتضيف غيره.`,
   passwordNeeded: "أكّد كلمة السر لتفعيل الدخول بالبصمة على هذا الجهاز.",
   passwordWrong: "كلمة السر غير صحيحة.",
@@ -76,24 +81,22 @@ export function relyingPartyFor(hostHeader: string, env: Record<string, string |
 }
 
 /* ── المخزن: وثائق الميزات في القاعدة، أو ذاكرةُ العملية في العرض المحلي ───────── */
-type Collection = Extract<FeatureCollection, "passkeys" | "passkeyChallenges">;
+type Collection = Extract<FeatureCollection, "passkeys" | "passkeyChallenges" | "passkeyState">;
 type Outcome<T, R> = { next: T; result: R } | { refuse: R };
 type Store = {
   get<T>(collection: Collection, id: string): Promise<T | null>;
-  list<T>(collection: Collection, prefix: string): Promise<T[]>;
   save<T>(collection: Collection, id: string, row: T): Promise<void>;
   update<T, R>(collection: Collection, id: string, fn: (current: T | null) => Outcome<T, R>): Promise<{ ok: true; result: R } | { ok: false; result: R }>;
   remove(collection: Collection, id: string): Promise<void>;
 };
 
-const demoMemory: Record<Collection, Map<string, any>> = { passkeys: new Map(), passkeyChallenges: new Map() };
+const demoMemory: Record<Collection, Map<string, any>> = { passkeys: new Map(), passkeyChallenges: new Map(), passkeyState: new Map() };
 function sweepDemoMemory(now = Date.now()) {
   for (const [id, row] of demoMemory.passkeyChallenges) if (Number(row?.expiresAt || 0) <= now) demoMemory.passkeyChallenges.delete(id);
   for (const [id, row] of demoMemory.passkeys) if (Number(row?.expiresAt || 0) <= now) demoMemory.passkeys.delete(id);
 }
 const memoryStore: Store = {
   async get(collection, id) { sweepDemoMemory(); return (demoMemory[collection].get(id) ?? null) as any; },
-  async list(collection, prefix) { sweepDemoMemory(); return [...demoMemory[collection]].filter(([id]) => id.startsWith(prefix)).map(([, row]) => row) as any; },
   async save(collection, id, row) {
     sweepDemoMemory();
     if (collection === "passkeys" && !demoMemory.passkeys.has(id) && demoMemory.passkeys.size >= DEMO_PASSKEY_CAP) {
@@ -113,7 +116,6 @@ const memoryStore: Store = {
 };
 const repositoryStore: Store = {
   get: (collection, id) => Repository.getFeatureDoc(collection, id),
-  list: (collection, prefix) => Repository.listFeatureDocs(collection, prefix),
   async save(collection, id, row) { await Repository.saveFeatureDoc(collection, id, row); },
   async update(collection, id, fn) {
     const out = await Repository.updateFeatureDoc(collection, id, fn as any);
@@ -133,10 +135,12 @@ function storeNow(): Store | null {
 type PasskeyDoc = {
   id: string; credentialId: string; userId: number; publicKey: string; counter: number;
   transports: string[]; deviceType: string; backedUp: boolean; label: string;
-  createdAt: string; lastUsedAt?: string; expiresAt?: number;
+  createdAt: string; createdAtMs: number; lastUsedAt?: string; expiresAt?: number; demoOwner?: string;
 };
+/** حالةُ مفاتيح حساب: ما سُجّل منها (السقفُ يُحسب هنا ذرّياً)، و«حدُّ الإسقاط»: كلُّ مفتاحٍ أقدمُ منه ساقط ولو بقيت وثيقتُه. */
+type StateDoc = { id: string; userId: number; revokedAt: number; credentialIds: string[] };
 type ChallengeDoc = {
-  id: string; kind: "login" | "register"; challenge: string; userId?: number; sessionId?: string;
+  id: string; kind: "login" | "register"; challenge: string; userId?: number; sessionHash?: string;
   expiresAt: number; expiresAtTtl: Date; usedAt?: number;
 };
 
@@ -160,13 +164,13 @@ function clearChallengeCookie(res: Response) {
   res.append("Set-Cookie", `${CHALLENGE_COOKIE}=; Path=/api; HttpOnly; SameSite=Lax; Max-Age=0${secure()}`);
 }
 
-async function openChallenge(store: Store, res: Response, fields: Pick<ChallengeDoc, "kind" | "challenge" | "userId" | "sessionId">): Promise<void> {
+async function openChallenge(store: Store, res: Response, fields: Pick<ChallengeDoc, "kind" | "challenge" | "userId" | "sessionHash">): Promise<void> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = Date.now() + PASSKEY_CHALLENGE_TTL_MS;
   const id = challengeKey(token);
   const row: ChallengeDoc = { id, ...fields, expiresAt, expiresAtTtl: new Date(expiresAt) };
   if (row.userId === undefined) delete row.userId;
-  if (row.sessionId === undefined) delete row.sessionId;
+  if (row.sessionHash === undefined) delete row.sessionHash;
   await store.save("passkeyChallenges", id, row);
   issueChallengeCookie(res, token);
 }
@@ -186,19 +190,44 @@ async function takeChallenge(store: Store, req: Request, res: Response, kind: Ch
   return taken.result;
 }
 
-export async function listUserPasskeys(userId: number): Promise<PasskeyDoc[]> {
-  const store = storeNow();
-  if (!store) return [];
-  return (await store.list<PasskeyDoc>("passkeys", userPrefix(userId))).filter(row => Number(row.userId) === Number(userId));
+/** مَن يملك المفاتيح في العرض المحلي: جلسةُ الزائر نفسُها، فلا يرى زائرٌ أسماءَ غيره (الصناديق تتشارك رقمَ الحساب). */
+const demoOwnerOf = (sessionId: string): string => (Repository.isDemoMode() ? challengeKey(sessionId || "-") : "");
+const stateIdOf = (userId: number, owner = "") => (owner ? `${userId}.${owner}` : String(userId));
+
+async function readState(store: Store, userId: number, owner = ""): Promise<StateDoc> {
+  const row = await store.get<StateDoc>("passkeyState", stateIdOf(userId, owner));
+  return row ? { ...row, credentialIds: Array.isArray(row.credentialIds) ? row.credentialIds : [] } : { id: stateIdOf(userId, owner), userId, revokedAt: 0, credentialIds: [] };
 }
 
-/** يُسقط كلَّ مفاتيح حسابٍ (إعادة تعيين كلمة السر، إيقافٌ، قفلٌ، حذف). يُرجع عددَ ما أُسقط. */
+/** مفاتيحُ الحساب الصالحة: المسجَّلةُ في حالته، وما بعد حدّ الإسقاط. تكلفتُها بعددها (≤5) لا بحجم المجموعة. */
+export async function listUserPasskeys(userId: number, sessionId = ""): Promise<PasskeyDoc[]> {
+  const store = storeNow();
+  if (!store) return [];
+  const owner = demoOwnerOf(sessionId);
+  const state = await readState(store, userId, owner);
+  const rows = await Promise.all(state.credentialIds.map(id => store.get<PasskeyDoc>("passkeys", docIdOf(userId, id))));
+  return rows.filter((row): row is PasskeyDoc => Boolean(row) && Number(row!.userId) === Number(userId) && Number(row!.createdAtMs || 0) > state.revokedAt);
+}
+
+/**
+ * يُسقط كلَّ مفاتيح حسابٍ (إعادة تعيين كلمة السر، تغييرُها، إيقافٌ، قفلٌ، حذف، تسليمُ كرسي، استعادة).
+ * الإسقاطُ علامةٌ تُكتب أولاً وتُفحص عند كل دخول — فإن تعذّرت الكتابةُ يُرمى الخطأ ولا يُبتلع (يُغلق الباب لا يُفتح)،
+ * وحذفُ الوثائق بعدها تنظيفٌ يُسجَّل فشلُه ولا يغيّر الحكم. في العرض المحلي لا حسابَ يُسقط (الصناديقُ تتبدّد).
+ */
 export async function revokeUserPasskeys(userId: number): Promise<number> {
+  if (Repository.isDemoMode()) return 0;
   const store = storeNow();
   if (!store) return 0;
-  const rows = await listUserPasskeys(userId);
-  for (const row of rows) await store.remove("passkeys", docIdOf(userId, row.credentialId));
-  return rows.length;
+  const out = await store.update<StateDoc, string[]>("passkeyState", stateIdOf(userId), current => {
+    const base: StateDoc = current || { id: stateIdOf(userId), userId, revokedAt: 0, credentialIds: [] };
+    return { next: { ...base, revokedAt: Math.max(Date.now(), Number(base.revokedAt || 0) + 1), credentialIds: [] }, result: base.credentialIds || [] };
+  });
+  if (!out.ok) throw new Error("تعذّر إسقاط مفاتيح الدخول بالبصمة");
+  for (const id of out.result) {
+    try { await store.remove("passkeys", docIdOf(userId, id)); }
+    catch { console.error("[passkeys] cleanup of a revoked credential failed; it stays invalid by the revocation mark"); }
+  }
+  return out.result.length;
 }
 
 const publicView = (row: PasskeyDoc) => ({
@@ -227,16 +256,20 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyDeps): void {
   };
 
   /* ── الدخول ──────────────────────────────────────────────────────────────── */
-  app.post("/api/auth/passkey/login/options", optionsLimit, async (req: Request, res: Response) => {
+  /* الدخولُ بلا جلسة: يجري خارج أيّ صندوق تجربةٍ يحمله كوكي قديمٌ في المتصفح (demo_…)، فلا يُردّ «غير متاح» لمن يريد الدخول الحقيقي. */
+  const outside = (handler: (req: Request, res: Response) => Promise<void>) => (req: Request, res: Response, next: (error?: unknown) => void) => {
+    void Repository.outsideDemoSandbox(() => handler(req, res)).catch(next);
+  };
+  app.post("/api/auth/passkey/login/options", optionsLimit, outside(async (req: Request, res: Response) => {
     const ctx = context(req, res);
     if (!ctx) return;
     const options = await generateAuthenticationOptions({ rpID: ctx.rp.rpID, userVerification: "required", allowCredentials: [], timeout: 60_000 });
     await openChallenge(ctx.store, res, { kind: "login", challenge: options.challenge });
     res.setHeader("Cache-Control", "no-store");
     res.json(options);
-  });
+  }));
 
-  app.post("/api/auth/passkey/login/verify", verifyLimit, async (req: Request, res: Response) => {
+  app.post("/api/auth/passkey/login/verify", verifyLimit, outside(async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     const ctx = context(req, res);
     if (!ctx) return;
@@ -251,7 +284,9 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyDeps): void {
     if (!response || !CREDENTIAL_ID.test(credentialId) || !owner) { refuse(400, PASSKEY_MESSAGES.verifyFailed, "verify-failed"); return; }
     const userId = Number(owner[1]);
     const stored = await ctx.store.get<PasskeyDoc>("passkeys", docIdOf(userId, credentialId));
-    if (!stored || Number(stored.userId) !== userId || stored.credentialId !== credentialId) { refuse(400, PASSKEY_MESSAGES.notRegistered, "not-registered"); return; }
+    /* مفتاحٌ أسقطه الحساب (حدُّ الإسقاط) لا يدخل ولو بقيت وثيقتُه؛ وقراءةُ الحدّ إن تعذّرت تُردّ الدخولَ لا تفتحه. */
+    const state = stored ? await readState(ctx.store, userId, String(stored.demoOwner || "")) : null;
+    if (!stored || Number(stored.userId) !== userId || stored.credentialId !== credentialId || Number(stored.createdAtMs || 0) <= Number(state?.revokedAt || 0)) { refuse(400, PASSKEY_MESSAGES.notRegistered, "not-registered"); return; }
 
     let outcome;
     try {
@@ -291,7 +326,7 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyDeps): void {
     if (user.IsLocked) { refuse(403, PASSKEY_MESSAGES.locked, "account-locked"); return; }
     if ((user as any).MustChangePassword) { refuse(403, PASSKEY_MESSAGES.changePasswordFirst, "password-change-required"); return; }
     await deps.signIn(req, res, user);
-  });
+  }));
 
   /* ── التسجيل (بجلسةٍ قائمة) ─────────────────────────────────────────────── */
   app.post("/api/passkeys/register/options", optionsLimit, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
@@ -305,18 +340,28 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyDeps): void {
       const session = await Repository.getSession(sessionId);
       if (!session) { res.status(401).json({ error: "الرجاء تسجيل الدخول أولاً" }); return; }
       /* جلسةُ عضو الفريق برابطه ليست صاحبَ الحساب: لا تُربط بالحساب بصمةٌ منها. */
-      if (session.memberId) { res.status(403).json({ error: PASSKEY_MESSAGES.memberLink, code: "member-session" }); return; }
+      if (session.memberId) { res.locals.quietRefusal = true; res.status(403).json({ error: PASSKEY_MESSAGES.memberLink, code: "member-session" }); return; }
       /* جلسةٌ مسروقةٌ لا تزرع بصمةً دائمة: من لم يدخل للتوّ يُعيد كتابة كلمة سرّه. */
       if (Date.now() - Number(session.createdAt || 0) > PASSKEY_FRESH_LOGIN_MS) {
         const password = String(req.body?.password ?? "");
-        if (!password) { res.status(403).json({ error: PASSKEY_MESSAGES.passwordNeeded, code: "password-required" }); return; }
+        if (!password) { res.locals.quietRefusal = true; res.status(403).json({ error: PASSKEY_MESSAGES.passwordNeeded, code: "password-required" }); return; }
+        /* كلمةٌ خاطئة تُعدّ لكل حساب كما يعدّ الدخولُ العاديّ (خمسٌ في الدقيقة)، وتُسجَّل في سجلّ العمليات. */
+        const tries = passwordFailures.get(Number(user.SystemUserId));
+        if (tries && tries.count >= PASSWORD_TRIES && Date.now() - tries.at < PASSWORD_WINDOW_MS) { res.status(429).json({ error: PASSKEY_MESSAGES.tooMany, code: "too-many" }); return; }
         const fresh = await Repository.getUserById(Number(user.SystemUserId));
-        if (!fresh || !Repository.verifyPassword(password, fresh.SystemUserPass)) { res.status(403).json({ error: PASSKEY_MESSAGES.passwordWrong, code: "password-wrong" }); return; }
+        if (!fresh || !Repository.verifyPassword(password, fresh.SystemUserPass)) {
+          const now = Date.now();
+          passwordFailures.set(Number(user.SystemUserId), { count: tries && now - tries.at < PASSWORD_WINDOW_MS ? tries.count + 1 : 1, at: now });
+          res.locals.auditChanges = "كلمة سر خاطئة عند تفعيل الدخول بالبصمة";
+          res.status(403).json({ error: PASSKEY_MESSAGES.passwordWrong, code: "password-wrong" });
+          return;
+        }
+        passwordFailures.delete(Number(user.SystemUserId));
       }
     }
     const userId = Number(user.SystemUserId);
-    const existing = await listUserPasskeys(userId);
-    if (existing.length >= PASSKEY_LIMIT) { res.status(409).json({ error: PASSKEY_MESSAGES.limit, code: "passkey-limit" }); return; }
+    const existing = await listUserPasskeys(userId, sessionId);
+    if (existing.length >= PASSKEY_LIMIT) { res.locals.quietRefusal = true; res.status(409).json({ error: PASSKEY_MESSAGES.limit, code: "passkey-limit" }); return; }
     const options = await generateRegistrationOptions({
       rpName: PASSKEY_RP_NAME, rpID: ctx.rp.rpID,
       userName: String(user.SystemUserLogin || `u${userId}`), userDisplayName: String(user.Name || user.SystemUserLogin || `u${userId}`),
@@ -325,7 +370,7 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyDeps): void {
       authenticatorSelection: { residentKey: "required", userVerification: "required" },
       supportedAlgorithmIDs: [-7, -257],
     });
-    await openChallenge(ctx.store, res, { kind: "register", challenge: options.challenge, userId, sessionId });
+    await openChallenge(ctx.store, res, { kind: "register", challenge: options.challenge, userId, sessionHash: challengeKey(sessionId) });
     res.json(options);
   });
 
@@ -333,10 +378,11 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyDeps): void {
     res.setHeader("Cache-Control", "no-store");
     const ctx = context(req, res);
     if (!ctx) return;
+    if (await memberRefused(req, res)) return;
     const userId = Number(req.user.SystemUserId);
     const sessionId = String(getCookies(req)["session_id"] || "");
     const challenge = await takeChallenge(ctx.store, req, res, "register");
-    if (!challenge || Number(challenge.userId) !== userId || challenge.sessionId !== sessionId) { res.status(400).json({ error: PASSKEY_MESSAGES.expired, code: "challenge-expired" }); return; }
+    if (!challenge || Number(challenge.userId) !== userId || challenge.sessionHash !== challengeKey(sessionId)) { res.status(400).json({ error: PASSKEY_MESSAGES.expired, code: "challenge-expired" }); return; }
     let verified;
     try {
       verified = await verifyRegistrationResponse({
@@ -351,34 +397,67 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyDeps): void {
     const info = verified.registrationInfo;
     const label = cleanLabel(req.body?.label);
     const docId = docIdOf(userId, info.credential.id);
+    const owner = demoOwnerOf(sessionId);
+    const state = await readState(ctx.store, userId, owner);
+    const now = new Date();
     const row: PasskeyDoc = {
       id: docId, credentialId: info.credential.id, userId, publicKey: Buffer.from(info.credential.publicKey).toString("base64url"),
       counter: Number(info.credential.counter) || 0, transports: (info.credential.transports || []) as string[],
-      deviceType: String(info.credentialDeviceType), backedUp: Boolean(info.credentialBackedUp), label, createdAt: new Date().toISOString(),
-      ...(Repository.isDemoMode() ? { expiresAt: Date.now() + DEMO_PASSKEY_TTL_MS } : {}),
+      deviceType: String(info.credentialDeviceType), backedUp: Boolean(info.credentialBackedUp), label, createdAt: now.toISOString(),
+      /* بعد حدّ الإسقاط دائماً: مفتاحٌ يُسجَّل بعد إسقاطٍ لا يسقط به. */
+      createdAtMs: Math.max(now.getTime(), state.revokedAt + 1),
+      ...(Repository.isDemoMode() ? { expiresAt: Date.now() + DEMO_PASSKEY_TTL_MS, demoOwner: owner } : {}),
     };
-    /* السقفُ يُفحص عند الحفظ أيضاً: خياران متزامنان لا يتجاوزان خمسةً. */
-    const current = await listUserPasskeys(userId);
-    if (current.length >= PASSKEY_LIMIT && !current.some(item => item.credentialId === row.credentialId)) { res.status(409).json({ error: PASSKEY_MESSAGES.limit, code: "passkey-limit" }); return; }
-    await ctx.store.save("passkeys", docId, row);
+    /* لا يُكتب فوق اعتمادٍ قائم (يصفّر عدّاده)؛ والسقفُ يُحجز ذرّياً في حالة الحساب، فخياران متزامنان لا يتجاوزانه. */
+    const created = await ctx.store.update<PasskeyDoc, boolean>("passkeys", docId, current => (current ? { refuse: false } : { next: row, result: true }));
+    if (!created.ok) { res.status(409).json({ error: PASSKEY_MESSAGES.duplicate, code: "passkey-duplicate" }); return; }
+    const added = await ctx.store.update<StateDoc, boolean>("passkeyState", stateIdOf(userId, owner), current => {
+      const base: StateDoc = current || { id: stateIdOf(userId, owner), userId, revokedAt: 0, credentialIds: [] };
+      const ids = (base.credentialIds || []).filter(id => id !== row.credentialId);
+      if (ids.length >= PASSKEY_LIMIT) return { refuse: false };
+      return { next: { ...base, credentialIds: [...ids, row.credentialId] }, result: true };
+    });
+    if (!added.ok) {
+      await ctx.store.remove("passkeys", docId).catch(() => undefined);
+      res.status(409).json({ error: PASSKEY_MESSAGES.limit, code: "passkey-limit" });
+      return;
+    }
     res.locals.auditChanges = `تفعيل الدخول بالبصمة على جهاز «${label}»`;
     res.json({ ok: true, passkey: publicView(row) });
   });
 
   /* ── قائمتي وإزالة جهاز ─────────────────────────────────────────────────── */
+  /** جلسةُ عضو الفريق أو نائبه (برابطه) ليست صاحبَ الحساب: لا تقرأ مفاتيحه ولا تزيلها. */
+  const memberRefused = async (req: AuthenticatedRequest, res: Response): Promise<boolean> => {
+    if (Repository.isDemoMode()) return false;
+    const sessionId = String(getCookies(req)["session_id"] || "");
+    const session = sessionId ? await Repository.getSession(sessionId) : undefined;
+    if (!session?.memberId) return false;
+    res.status(403).json({ error: PASSKEY_MESSAGES.memberLink, code: "member-session" });
+    return true;
+  };
+
   app.get("/api/passkeys", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
+    if (await memberRefused(req, res)) return;
     const available = Boolean(storeNow() && relyingPartyFor(String(req.get("host") || "")));
-    const items = available ? (await listUserPasskeys(Number(req.user.SystemUserId))).map(publicView) : [];
+    const items = available ? (await listUserPasskeys(Number(req.user.SystemUserId), String(getCookies(req)["session_id"] || ""))).map(publicView) : [];
     res.json({ available, limit: PASSKEY_LIMIT, items });
   });
 
   app.delete("/api/passkeys/:ref", verifyLimit, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     const store = storeNow();
     if (!store) { res.status(403).json({ error: PASSKEY_MESSAGES.unavailableDemo, code: "passkey-unavailable" }); return; }
+    if (await memberRefused(req, res)) return;
     const userId = Number(req.user.SystemUserId);
-    const target = (await listUserPasskeys(userId)).find(row => passkeyRef(row.credentialId) === String(req.params.ref));
+    const sessionId = String(getCookies(req)["session_id"] || "");
+    const target = (await listUserPasskeys(userId, sessionId)).find(row => passkeyRef(row.credentialId) === String(req.params.ref));
     if (!target) { res.status(404).json({ error: "هذا الجهاز غير موجود في قائمتك." }); return; }
+    const owner = demoOwnerOf(sessionId);
+    await store.update<StateDoc, boolean>("passkeyState", stateIdOf(userId, owner), current => {
+      const base: StateDoc = current || { id: stateIdOf(userId, owner), userId, revokedAt: 0, credentialIds: [] };
+      return { next: { ...base, credentialIds: (base.credentialIds || []).filter(id => id !== target.credentialId) }, result: true };
+    });
     await store.remove("passkeys", docIdOf(userId, target.credentialId));
     res.locals.auditChanges = `إزالة الدخول بالبصمة من جهاز «${target.label}»`;
     res.json({ ok: true });

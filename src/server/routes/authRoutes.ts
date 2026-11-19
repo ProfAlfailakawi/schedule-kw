@@ -42,7 +42,7 @@ import { shareLinkLabel } from "../core/shareLinks";
 import { placeholderInstructorIds } from "../core/smartImport";
 import { graduateThreshold, sealStudentIdentity, surveyFingerprint } from "../core/studentIdentity";
 import { loadCapOf } from "../../utils/teachingLoad";
-import { registerPasskeyRoutes } from "../passkeys";
+import { registerPasskeyRoutes, revokeUserPasskeys } from "../passkeys";
 
 // Rate limiting for login (simple in-memory)
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -741,6 +741,8 @@ app.post("/api/auth/change-password", rateLimitLogin, requireAuth, async (req: A
   const session = !current && sessionId ? await Repository.getSession(sessionId) : undefined;
   const outcome = decidePasswordChange({ user, session, current, next, verify: Repository.verifyPassword, hash: Repository.hashPassword, vault: Repository.encryptPasswordForVault });
   if ("error" in outcome) { res.status(outcome.status).json({ error: outcome.error, ...(outcome.code ? { code: outcome.code } : {}) }); return; }
+  /* من عرف الكلمة القديمة وسجّل بصمةً بها لا تبقى له بعد تغييرها (تُسقط قبل الكتابة وبلا ابتلاع للخطأ). */
+  await revokeUserPasskeys(Number(user!.SystemUserId));
   await Repository.updateUser(Number(user!.SystemUserId), {
     SystemUserPass: outcome.hash,
     SystemUserPassVault: outcome.vault,

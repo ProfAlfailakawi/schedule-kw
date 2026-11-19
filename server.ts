@@ -375,7 +375,7 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
   const authEvent = authKind !== null;
   /* «المقروء» في الجرس تفضيلٌ لا تعديل، ويُكتب مع كل ضغطة على إشعار: تسجيله
      يدفن السجلّ كما يدفنه النبض. */
-  const skip = (routePath.startsWith("/auth/") && !authEvent) || routePath.endsWith("/check-conflicts") || routePath === "/passkeys/register/options" || routePath === "/telemetry/client" || routePath === "/notifications/seen" || QUIET_API_PATHS.has(routePath);
+  const skip = (routePath.startsWith("/auth/") && !authEvent) || routePath.endsWith("/check-conflicts") || routePath === "/telemetry/client" || routePath === "/notifications/seen" || QUIET_API_PATHS.has(routePath);
   if (!mutating || skip) { next(); return; }
   const startedUser = req.user ? { id: Number(req.user.SystemUserId), name: String(req.user.Name || req.user.SystemUserLogin || "") } : null;
   res.on("finish", () => {
@@ -386,6 +386,8 @@ app.use("/api", (req: AuthenticatedRequest, res: Response, next: NextFunction) =
       || (authEvent ? { id: 0, name: String(req.body?.username || "مجهول") } : null);
     if (!actor) return;
     const refused = res.statusCode >= 400;
+    /* تسجيلُ جهازٍ للبصمة: يُسجَّل الفاشلُ الذي يستحقّ النظر (كلمةٌ خاطئة)، لا النجاحُ الأول ولا الرفضُ الهادئ (تطلب كلمةً، سقفٌ، عضو فريق). */
+    if (routePath === "/passkeys/register/options" && (!refused || res.locals?.quietRefusal)) return;
     // Everything that changed state is kept; of the refusals, only the ones
     // worth investigating — a rejected login, a permission wall, a conflict.
     if (refused && !authEvent && ![403, 409].includes(res.statusCode)) return;

@@ -47,7 +47,7 @@ The production database is Firestore **Enterprise** edition. Nothing is indexed 
 - `firestore.indexes.json` is the record of every index in production (19 on 2026-10-29). It is **not deployed** — `firebase.json` points at the `(default)` database, not the production one — so an index is created by hand: Console → Firestore → the production database → Indexes → Create index (query scope Collection, leave Sparse and Unique unchecked).
 - Add the index to the file in the same change as the query that needs it. `npm run test:firestore-indexes` fails when a query on a large collection starts with a field no index leads, and names the line.
 - After a release, Firestore → Query insights (7 days, by Read units) shows what still scans: compare *Docs scanned* with *Results returned*.
-- The TTL policies the file declares (`sessions.expiresAtTtl`, `clientTelemetry.expiresAtTtl`) are **not enabled** in production. Enabling one (Firestore → Time-to-live → Create policy) permanently deletes the expired documents of that collection, so it is the owner's decision.
+- The TTL policies the file declares (`sessions.expiresAtTtl`, `clientTelemetry.expiresAtTtl`, `passkeyChallenges.expiresAtTtl`) are **not enabled** in production. Enabling one (Firestore → Time-to-live → Create policy) permanently deletes the expired documents of that collection, so it is the owner's decision. For `passkeyChallenges` (fingerprint sign-in challenges, single-use, five minutes) an abandoned document stays harmless until the policy is enabled: it is expired by its own `expiresAt` and never accepted.
 
 ## Cost decisions (October 2026)
 

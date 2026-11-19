@@ -89,14 +89,20 @@ type Booted = ReturnType<typeof boot>;
 function boot() {
   const app = express();
   app.use(express.json());
+  /* كوكي تجربةٍ قديمٌ في المتصفح: الطلبُ يجري في صندوقها كما في server.ts. */
+  app.use((req, _res, next) => {
+    const sessionId = getCookies(req)["session_id"];
+    if (sessionId?.startsWith("demo_") && Repository.runDemoSandbox(sessionId, next)) return;
+    next();
+  });
   app.use(async (req: any, _res, next) => {
     const sessionId = getCookies(req)["session_id"];
     const session = sessionId ? await Repository.getSession(sessionId) : undefined;
     if (session) req.user = users[session.userId];
     next();
   });
-  const audits: Array<{ user?: unknown; changes?: unknown }> = [];
-  app.use((req, res, next) => { res.on("finish", () => { if (req.path.startsWith("/api/auth/passkey/login")) audits.push({ user: res.locals.auditUser, changes: res.locals.auditChanges }); }); next(); });
+  const audits: Array<{ user?: unknown; changes?: unknown; quiet?: unknown; status?: number }> = [];
+  app.use((req, res, next) => { res.on("finish", () => { if (req.path.startsWith("/api/auth/passkey/login") || req.path === "/api/passkeys/register/options") audits.push({ user: res.locals.auditUser, changes: res.locals.auditChanges, quiet: res.locals.quietRefusal, status: res.statusCode } as any); }); next(); });
   registerPasskeyRoutes(app, {
     signIn: async (_req, res, user) => {
       const sessionId = `sess_${randomBytes(32).toString("hex")}`;
@@ -121,9 +127,9 @@ function boot() {
     let json: any = null; try { json = JSON.parse(text); } catch { /* not json */ }
     return { status: res.status, json, headers: res.headers };
   };
-  const signedIn = async (userId: number, age = 0) => {
+  const signedIn = async (userId: number, age = 0, memberId = "") => {
     const sessionId = `sess_${randomBytes(32).toString("hex")}`;
-    await Repository.createSession(sessionId, userId, 600_000);
+    await Repository.createSession(sessionId, userId, 600_000, memberId ? { memberId } : {});
     if (age) { const session = await Repository.getSession(sessionId); if (session) session.createdAt = Date.now() - age; }
     return { session_id: sessionId };
   };
@@ -359,15 +365,33 @@ function groupG() {
   check(/signInSession\(req, res, user, mustChange\)/.test(loginRoute) && !/createSession\(/.test(loginRoute), "G1 دخولُ كلمة السر يفتح الجلسةَ بالدالة المشتركة");
   check(/registerPasskeyRoutes\(app, \{ signIn: \(req, res, user\) => signInSession\(req, res, user, false\)/.test(auth), "G2 الدخولُ بالبصمة يفتحها بالدالة نفسها");
   check(/IsActive/.test(passkeys) && /IsLocked/.test(passkeys) && /IsDeleted/.test(passkeys) && /MustChangePassword/.test(passkeys), "G3 البصمةُ تفحص ما تفحصه كلمةُ السر: فعّال، مقفل، محذوف، تغييرُ الكلمة");
-  check(/revokeUserPasskeys\(id\)/.test(users) && /resetsAnotherUser \|\| \(before\.IsActive && !updated\.IsActive\) \|\| \(!before\.IsLocked && updated\.IsLocked\)/.test(users), "G4 إعادةُ تعيين كلمةٍ بيد المسؤول وإيقافُ الحساب وقفلُه يُسقطان المفاتيح");
-  check(/deleteSessionsForUser\(id\);\n  await revokeUserPasskeys\(id\)/.test(users), "G5 حذفُ الحساب يُسقطها");
+  check(/passwordChanged \|\| \(before\.IsActive && !fields\.IsActive\) \|\| \(!before\.IsLocked && fields\.IsLocked\)\) await revokeUserPasskeys\(id\);\n\s+const updated = await Repository\.updateUser/.test(users), "G4 تغييرُ كلمة الحساب (من المسؤول أو من صاحبه) وإيقافُه وقفلُه يُسقطان المفاتيح قبل الكتابة وبلا ابتلاع");
+  check(/await revokeUserPasskeys\(id\);\n  await Repository\.deleteUser\(id\)/.test(users), "G5 حذفُ الحساب يُسقطها قبل الحذف");
   check(/revokeUserPasskeys/.test(read("src/server/staffRecoveryWiring.ts")) && /revokeUserPasskeys/.test(read("src/server/accountDeletionWiring.ts")), "G6 واستعادةُ كلمة السر وطلبُ حذف الحساب يُسقطانها");
   check(/routePath === "\/auth\/passkey\/login\/verify" \? "login"/.test(server), "G7 سجلُّ العمليات يعدّ الدخولَ بالبصمة «تسجيل دخول»");
-  check(!/console\.(log|info|warn|error|debug)/.test(passkeys), "G8 لا يُسجَّل في الطرفية شيءٌ من وحدة المفاتيح");
+  check(!/console\.(log|info|warn|debug)/.test(passkeys) && (passkeys.match(/console\.error\(/g) || []).every(() => true) && (passkeys.match(/console\.error\("\[passkeys\][^"$]*"\)/g) || []).length === (passkeys.match(/console\.error\(/g) || []).length, "G8 لا يُسجَّل في الطرفية شيءٌ من مادة الاعتماد: سطرُ خطأٍ ثابتٌ واحدٌ لفشل التنظيف");
   check(/residentKey: "required", userVerification: "required"/.test(passkeys) && /requireUserVerification: true/.test(passkeys) && !/requireUserVerification: false/.test(passkeys), "G9 اعتمادٌ قابلٌ للاكتشاف وتحقّقٌ إلزامي");
   check(!/req\.hostname|x-forwarded-host/i.test(passkeys), "G10 العنوانُ من ترويسة Host المفحوصة بالقائمة البيضاء، لا من ترويسةٍ يضعها الوسيط");
   check(/isDemoMode\(\)\) return memoryStore/.test(passkeys) && /isDemoRequest\(\)\) return null/.test(passkeys), "G11 العرضُ المحلي في ذاكرة العملية وصندوقُ التجربة في الخادم الحقيقي بلا ميزة");
   check(/PASSKEY_FRESH_LOGIN_MS/.test(passkeys) && /session\.memberId/.test(passkeys), "G12 التسجيلُ: كلمةٌ لمن مضى على دخوله وقت، ولا عضوُ فريق");
+  /* ── تدقيق المراجعة المستقلة ── */
+  const seats = read("src/server/seatsRoutes.ts");
+  const reset = seats.slice(seats.indexOf("async function resetSeatCredentials"), seats.indexOf("/** نطاقُ موظف التسجيل"));
+  check(/revokeUserPasskeys\(Number\(seat\.SystemUserId\)\);\n\s+await Repository\.updateUser/.test(reset), "R1 تسليمُ الكرسي (شاغلٌ جديد، كلمةٌ أولى) يُسقط بصمةَ الشاغل السابق قبل الكتابة");
+  const pr = seats.slice(seats.indexOf('app.post("/api/seats/:id/password-reset"'));
+  check(/revokeUserPasskeys\(Number\(seat\.SystemUserId\)\);\n\s+if \(!Repository\.isDemoRequest\(\)\) await Repository\.applyPasswordReset/.test(pr), "R1 إعادةُ تعيين كلمة الكرسي تُسقطها");
+  check(/seats\/:id\/first-password[\s\S]{0,400}resetSeatCredentials\(seat\)/.test(seats), "R1 إعادةُ إصدار الكلمة الأولى تمرّ بالدالة نفسها");
+  const change = auth.slice(auth.indexOf('app.post("/api/auth/change-password"'), auth.indexOf('app.post("/api/auth/logout"'));
+  check(/await revokeUserPasskeys\(Number\(user!\.SystemUserId\)\);\n\s+await Repository\.updateUser/.test(change), "R2 تغييرُ الكلمة بيد صاحبها يُسقط المفاتيح قبل الكتابة");
+  check(/\.catch\(\(\) => 0\)/.test([users, read("src/server/staffRecoveryWiring.ts"), read("src/server/accountDeletionWiring.ts"), seats, auth].join("\n")) === false, "R4 لا ابتلاعَ لخطأ الإسقاط في أيّ موضع");
+  check(/setPassword: async \(userId, fields\) => \{ await revokeUserPasskeys\(userId\)/.test(read("src/server/staffRecoveryWiring.ts")) && /await revokeUserPasskeys\(userId\);\n\s+await Repository\.deleteOtherSessionsForUser/.test(read("src/server/accountDeletionWiring.ts")), "R4 الاستعادةُ وطلبُ الحذف: إسقاطٌ قبل الكتابة بلا ابتلاع");
+  check(/createdAtMs \|\| 0\) <= Number\(state\?\.revokedAt/.test(passkeys) && /readState\(ctx\.store, userId/.test(passkeys), "R4 الدخولُ يفحص حدَّ الإسقاط لكل مفتاح، وتعذّرُ قراءته يردّ الدخول");
+  check(!/listFeatureDocs/.test(passkeys), "R5 لا مسحَ كاملاً للمجموعة: القراءةُ بحالة الحساب وأرقام مفاتيحه (≤5)");
+  check(/sessionHash: challengeKey\(sessionId\)/.test(passkeys) && !/sessionId,?\s*\}\)/.test(passkeys.slice(passkeys.indexOf("openChallenge(ctx.store, res, { kind: \"register\""), passkeys.indexOf("openChallenge(ctx.store, res, { kind: \"register\"") + 200)), "R7 التحدّي يحمل بصمةَ الجلسة لا معرّفَها");
+  check(/passkeyChallenges\.expiresAtTtl/.test(read("docs/DELIVERY_OPERATIONS.md")), "R7 سياسةُ TTL مذكورةٌ في دليل التشغيل قراراً للمالك");
+  const server2 = read("server.ts");
+  check(/routePath === "\/passkeys\/register\/options" && \(!refused \|\| res\.locals\?\.quietRefusal\)\) return;/.test(server2) && !/const skip = [^\n]*passkeys\/register\/options/.test(server2), "R6 فشلُ تسجيل الجهاز يُسجَّل في العمليات، والنجاحُ والرفضُ الهادئ لا");
+  check(/outsideDemoSandbox\(\(\) => handler\(req, res\)\)/.test(passkeys), "R9 الدخولُ بالبصمة يجري خارج صندوق التجربة");
 }
 
 async function groupDemo() {
@@ -400,6 +424,152 @@ async function groupDemo() {
   } finally { (Repository as any).isDemoRequest = realRequest; }
 }
 
+async function groupR() {
+  /* ── حدُّ الإسقاط: علامةٌ تُفحص عند كل دخول ── */
+  let t: Booted = boot();
+  addUser(601);
+  const key = new SoftwareAuthenticator();
+  await t.enroll(601, key);
+  const baseline = await t.loginWith(key, 601);
+  check(baseline.verify.status === 200, "R10 الجهاز يدخل قبل الإسقاط");
+  /* العلامةُ وحدها (وثيقةُ المفتاح باقية): تكفي لرفض الدخول */
+  await Repository.updateFeatureDoc<any, boolean>("passkeyState", "601", current => ({ next: { ...current, revokedAt: Date.now() + 5000 }, result: true }));
+  const marked = await t.loginWith(key, 601);
+  check(marked.verify.status === 400 && marked.verify.json.code === "not-registered" && !marked.verify.headers.get("set-cookie")?.includes("sess_"), "R10 علامةُ الإسقاط وحدها تُغلق الدخول ولو بقيت وثيقةُ المفتاح", marked.verify.json);
+  check((await listUserPasskeys(601)).length === 0, "R10 والقائمةُ لا تُظهر المُسقَط");
+  await Repository.updateFeatureDoc<any, boolean>("passkeyState", "601", current => ({ next: { ...current, revokedAt: 0 }, result: true }));
+  t.close(); t = boot();
+  /* بعد إسقاطٍ حقيقيّ يسجَّل جهازٌ جديدٌ فيصحّ دخولُه */
+  const before = (await listUserPasskeys(601)).length;
+  await revokeUserPasskeys(601);
+  const fresh = new SoftwareAuthenticator();
+  const re = await t.enroll(601, fresh);
+  const ok = await t.loginWith(fresh, 601);
+  check(before === 1 && re.verify.status === 200 && ok.verify.status === 200, "R10 مفتاحٌ يُسجَّل بعد الإسقاط يعمل");
+  const old = await t.loginWith(key, 601);
+  check(old.verify.status === 400, "R10 والقديمُ لا يعود");
+  t.close(); t = boot();
+
+  /* ── الفشلُ يُغلق ولا يُفتح ── */
+  const realUpdate = Repository.updateFeatureDoc, realGet = Repository.getFeatureDoc;
+  (Repository as any).updateFeatureDoc = async (collection: string, ...rest: any[]) => { if (collection === "passkeyState") throw new Error("boom"); return (realUpdate as any)(collection, ...rest); };
+  let threw = false;
+  try { await revokeUserPasskeys(601); } catch { threw = true; }
+  (Repository as any).updateFeatureDoc = realUpdate;
+  check(threw, "R4 تعذّرُ كتابة علامة الإسقاط يُرمى ولا يُبتلع");
+  (Repository as any).getFeatureDoc = async (collection: string, ...rest: any[]) => { if (collection === "passkeyState") throw new Error("boom"); return (realGet as any)(collection, ...rest); };
+  let failedOpen = true;
+  try {
+    const down = await t.loginWith(fresh, 601);
+    failedOpen = down.verify.status === 200 || Boolean(down.verify.headers.get("set-cookie")?.includes("sess_"));
+  } catch { failedOpen = false; }
+  (Repository as any).getFeatureDoc = realGet;
+  check(!failedOpen, "R4 تعذّرُ قراءة حدّ الإسقاط يردّ الدخولَ لا يفتحه");
+  t.close();
+
+  /* ── جلسةُ عضو الفريق ── */
+  t = boot();
+  addUser(602);
+  const owner = new SoftwareAuthenticator();
+  await t.enroll(602, owner);
+  const member = await t.signedIn(602, 0, "m1");
+  const memberList = await t.call("GET", "/api/passkeys", undefined, member);
+  check(memberList.status === 403 && memberList.json.code === "member-session", "R3 عضو الفريق لا يقرأ مفاتيح الكرسي", memberList.status);
+  const ref = passkeyRef(b64u(owner.credentialId));
+  const memberDelete = await t.call("DELETE", `/api/passkeys/${ref}`, undefined, member);
+  check(memberDelete.status === 403 && (await listUserPasskeys(602)).length === 1, "R3 ولا يزيل منها", memberDelete.status);
+  const memberOptions = await t.call("POST", "/api/passkeys/register/options", {}, member);
+  check(memberOptions.status === 403, "R3 ولا يسجّل");
+  const own = await t.signedIn(602);
+  check((await t.call("GET", "/api/passkeys", undefined, own)).json.items.length === 1, "R3 وصاحبُ الحساب يقرأ");
+  t.close();
+
+  /* ── تكلفةُ القراءة، وعدمُ الكتابة فوق اعتماد، والسقفُ الذرّي، وبصمةُ الجلسة ── */
+  t = boot();
+  addUser(603);
+  let scans = 0;
+  const realList = Repository.listFeatureDocs;
+  (Repository as any).listFeatureDocs = async (...args: any[]) => { scans++; return (realList as any)(...args); };
+  const k1 = new SoftwareAuthenticator();
+  const cookies = await t.signedIn(603);
+  const opt = await t.call("POST", "/api/passkeys/register/options", {}, cookies);
+  const challengeDocs = JSON.stringify(await realList.call(Repository, "passkeyChallenges"));
+  check(!challengeDocs.includes(cookies.session_id), "R7 وثيقةُ التحدّي لا تحمل معرّف الجلسة الخام");
+  await t.call("POST", "/api/passkeys/register/verify", { response: k1.register(opt.json, t.origin), label: "أول" }, cookies);
+  await t.loginWith(k1, 603);
+  const counterBefore = (await listUserPasskeys(603))[0].counter;
+  const opt2 = await t.call("POST", "/api/passkeys/register/options", {}, cookies);
+  const dup = await t.call("POST", "/api/passkeys/register/verify", { response: k1.register(opt2.json, t.origin), label: "نسخة" }, cookies);
+  const after = (await listUserPasskeys(603))[0];
+  check(dup.status === 409 && dup.json.code === "passkey-duplicate" && after.counter === counterBefore && after.label === "أول", "R8 اعتمادٌ قائمٌ لا يُكتب فوقه ولا يُصفَّر عدّاده", dup.json);
+  await t.call("GET", "/api/passkeys", undefined, cookies);
+  await revokeUserPasskeys(603);
+  (Repository as any).listFeatureDocs = realList;
+  check(scans === 0, "R5 التسجيل والقائمة والدخول والإسقاط بلا مسحٍ كاملٍ للمجموعة", scans);
+  t.close();
+
+  t = boot();
+  addUser(604);
+  const jobs = Array.from({ length: PASSKEY_LIMIT + 3 }, () => new SoftwareAuthenticator());
+  const c604 = await t.signedIn(604);
+  const tokens: string[] = [], optionsList: any[] = [];
+  for (let i = 0; i < jobs.length; i++) {
+    /* السقفُ يُفحص عند الخيارات أيضاً، فتُؤخذ كلُّها قبل أيّ تسجيل */
+    const o = await t.call("POST", "/api/passkeys/register/options", {}, c604);
+    tokens.push(t.jar.get("pk_challenge")!); optionsList.push(o.json);
+  }
+  const results = await Promise.all(jobs.map((job, i) => t.call("POST", "/api/passkeys/register/verify", { response: job.register(optionsList[i], t.origin) }, { ...c604, pk_challenge: tokens[i] })));
+  const accepted = results.filter(r => r.status === 200).length;
+  check(accepted === PASSKEY_LIMIT && (await listUserPasskeys(604)).length === PASSKEY_LIMIT, "R8 تسجيلاتٌ متزامنة لا تتجاوز السقف", results.map(r => r.status));
+  t.close();
+
+  /* ── كلمةٌ خاطئة: معدودةٌ ومسجَّلة ── */
+  t = boot();
+  addUser(605);
+  const stale = await t.signedIn(605, 30 * 60_000);
+  const needs = await t.call("POST", "/api/passkeys/register/options", {}, stale);
+  const wrongs: number[] = [];
+  for (let i = 0; i < 6; i++) wrongs.push((await t.call("POST", "/api/passkeys/register/options", { password: "wrong-password-1" }, stale)).status);
+  const correctAfter = await t.call("POST", "/api/passkeys/register/options", { password: PASSWORD }, stale);
+  check(needs.status === 403 && wrongs.slice(0, 5).every(code => code === 403) && wrongs[5] === 429 && correctAfter.status === 429, "R6 خمسُ كلماتٍ خاطئة ثم 429 حتى للصحيحة", { wrongs, correctAfter: correctAfter.status });
+  check(t.audits.filter((a: any) => a.changes === "كلمة سر خاطئة عند تفعيل الدخول بالبصمة").length === 5 && t.audits.some((a: any) => a.quiet === true && a.status === 403), "R6 الخاطئةُ تُسجَّل في السجلّ بنصّها، والرفضُ الهادئ (يطلب كلمةً) مُعلَّمٌ فلا يُسجَّل");
+  t.close();
+
+  /* ── كوكي تجربةٍ قديمٌ على الخادم الحقيقي ── */
+  t = boot();
+  Repository.createDemoSandbox("demo_stalecookie", 60_000);
+  const viaDemo = await t.call("POST", "/api/auth/passkey/login/options", {}, { session_id: "demo_stalecookie" });
+  check(viaDemo.status === 200 && Boolean(viaDemo.json.challenge), "R9 كوكي demo_ قديمٌ لا يمنع خياراتِ الدخول الحقيقي", viaDemo.json);
+  addUser(606);
+  const real606 = new SoftwareAuthenticator();
+  await t.enroll(606, real606);
+  const optionsDemo = await t.call("POST", "/api/auth/passkey/login/options", {}, { session_id: "demo_stalecookie" });
+  const verifyDemo = await t.call("POST", "/api/auth/passkey/login/verify", { response: real606.assert(optionsDemo.json, t.origin, 606) }, { session_id: "demo_stalecookie" });
+  check(verifyDemo.status === 200 && verifyDemo.json.user?.SystemUserId === 606, "R9 ويكتمل الدخولُ الحقيقيُّ بالكوكي نفسه", verifyDemo.json);
+  t.close();
+
+  /* ── العرض المحلي: زائران يتشاركان رقم الحساب ولا يتشاركان المفاتيح ── */
+  const realMode = Repository.isDemoMode;
+  (Repository as any).isDemoMode = () => true;
+  try {
+    t = boot();
+    addUser(1);
+    const ka = new SoftwareAuthenticator(), kb = new SoftwareAuthenticator();
+    const A = await t.signedIn(1), B = await t.signedIn(1);
+    for (const [who, keyOf, label] of [[A, ka, "جهاز أ"], [B, kb, "جهاز ب"]] as const) {
+      const o = await t.call("POST", "/api/passkeys/register/options", {}, who);
+      await t.call("POST", "/api/passkeys/register/verify", { response: keyOf.register(o.json, t.origin), label }, who);
+    }
+    const la = (await t.call("GET", "/api/passkeys", undefined, A)).json.items, lb = (await t.call("GET", "/api/passkeys", undefined, B)).json.items;
+    check(la.length === 1 && la[0].label === "جهاز أ" && lb.length === 1 && lb[0].label === "جهاز ب", "R11 زائرا العرض لا يريان أسماءَ بعضهما", { la, lb });
+    const cross = await t.call("DELETE", `/api/passkeys/${lb[0].ref}`, undefined, A);
+    check(cross.status === 404, "R11 ولا يزيل أحدُهما جهازَ الآخر");
+    const loginA = await t.loginWith(ka, 1);
+    check(loginA.verify.status === 200, "R11 والدخولُ بأيٍّ منهما يعمل");
+    t.close();
+  } finally { (Repository as any).isDemoMode = realMode; }
+}
+
 async function main() {
   await groupA();
   await groupB();
@@ -408,6 +578,7 @@ async function main() {
   groupF();
   groupG();
   await groupDemo();
+  await groupR();
   await groupE();
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);

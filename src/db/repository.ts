@@ -3427,7 +3427,7 @@ export type FeatureCollection =
   /* تسليمُ الجلسة من المتصفح إلى التطبيق الرسمي (src/server/appHandoff.ts): رمزٌ لمرةٍ واحدة ودقيقتين، بلا كلمة سر. */
   | "appHandoffs"
   /* «الدخول بالبصمة» (src/server/passkeys.ts): مفتاحٌ عامّ لكل جهاز `<userId>.<credentialId>` بلا أيّ سرّ، وتحدٍّ لمرةٍ واحدةٍ وخمس دقائق. */
-  | "passkeys" | "passkeyChallenges"
+  | "passkeys" | "passkeyChallenges" | "passkeyState"
   /* «نسيت كلمة السر؟» للموظفين (src/server/staffRecovery.ts): حارسٌ على بصمة الاسم، وتذكرةٌ لمرةٍ واحدة، وأثرٌ لمدير النظام. */
   | "staffRecovery"
   /* طلبُ حذف الحساب من التطبيق (src/server/accountDeletion.ts): وثيقةٌ لكل حساب `u<id>`، بلا كلمة سر. */

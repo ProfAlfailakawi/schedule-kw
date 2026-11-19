@@ -26,8 +26,8 @@ export function accountDeletionDeps(): DeletionDeps {
     endSessions: async (userId, req) => {
       const sessionId = getCookies(req)["session_id"];
       if (sessionId) await pushHooks.signedOut(sessionId).catch(() => undefined);
+      await revokeUserPasskeys(userId);
       await Repository.deleteOtherSessionsForUser(userId, undefined);
-      await revokeUserPasskeys(userId).catch(() => 0);
       authCache.clear();
     },
     notifyAdmins: async request => {

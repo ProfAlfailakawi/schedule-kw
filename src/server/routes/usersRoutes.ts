@@ -454,10 +454,11 @@ app.put("/api/users/:id", requirePermission(11), async (req: Request, res: Respo
   }
 
   try {
+    /* مفاتيحُ «الدخول بالبصمة» تتبع الحساب: أيُّ تغييرٍ لكلمته (من المسؤول أو من صاحبه)، وإيقافٌ أو قفلٌ جديد، تُسقطها ويُسجَّل الجهازُ من جديد.
+       تُسقَط قبل الكتابة وبلا ابتلاعٍ للخطأ: إن تعذّر الإسقاطُ لا يُحفظ التغيير فلا يبقى باب. */
+    if (passwordChanged || (before.IsActive && !fields.IsActive) || (!before.IsLocked && fields.IsLocked)) await revokeUserPasskeys(id);
     const updated = await Repository.updateUser(id, fields);
     if (resetsAnotherUser) { await Repository.deleteSessionsForUser(id); authCache.clear(); }
-    /* مفاتيحُ «الدخول بالبصمة» تتبع الحساب: كلمةٌ عيّنها المسؤول، أو إيقافٌ أو قفلٌ جديد، تُسقطها ويُسجَّل الجهازُ من جديد. */
-    if (resetsAnotherUser || (before.IsActive && !updated.IsActive) || (!before.IsLocked && updated.IsLocked)) await revokeUserPasskeys(id).catch(() => 0);
     /**
      * ── القالب يُكتب عند تغيير الصفة، لا عند كل حفظ ───────────────────────
      *
@@ -540,9 +541,9 @@ app.delete("/api/users/:id", requirePermission(11), async (req: Request, res: Re
   /* الحارسُ واحدٌ مع خريطة «لو حذفت؟» (server/deleteImpact.ts). */
   const [blocked] = await deleteBlockers("user", id, { actor: { id: Number((req as AuthenticatedRequest).user?.SystemUserId), permissions: (req as AuthenticatedRequest).permissions || [] } });
   if (blocked) { refuseWithBlocker(res, blocked); return; }
+  await revokeUserPasskeys(id);
   await Repository.deleteUser(id);
   await Repository.deleteSessionsForUser(id);
-  await revokeUserPasskeys(id).catch(() => 0);
   authCache.clear();
   res.locals.auditChanges = `حذف الحساب «${target!.Name}» (${target!.SystemUserLogin})${target!.IsAdminUser ? "، كان مديراً" : ""}`;
   res.json({ success: true });

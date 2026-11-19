@@ -36,9 +36,9 @@ export function staffRecoveryDeps(): RecoveryDeps {
     hash: password => Repository.hashPassword(password),
     vault: password => Repository.encryptPasswordForVault(password),
     verify: (password, stored) => Repository.verifyPassword(password, stored),
-    setPassword: (userId, fields) => Repository.updateUser(userId, fields as any),
-    /* من استعاد كلمته فقد جهازَه غالباً: تسقط معها مفاتيحُ الدخول بالبصمة فيسجّل جهازَه من جديد. */
-    endSessions: async userId => { await Repository.deleteOtherSessionsForUser(userId, undefined); await revokeUserPasskeys(userId).catch(() => 0); authCache.clear(); },
+    /* من استعاد كلمته فقد جهازَه غالباً: تسقط معها مفاتيحُ الدخول بالبصمة (قبل الكتابة وبلا ابتلاع للخطأ) فيسجّل جهازَه من جديد. */
+    setPassword: async (userId, fields) => { await revokeUserPasskeys(userId); return Repository.updateUser(userId, fields as any); },
+    endSessions: async userId => { await Repository.deleteOtherSessionsForUser(userId, undefined); authCache.clear(); },
     audit: entry => Repository.createAuditLog({
       SystemUserId: entry.userId, userName: entry.name, method: "POST", path: "/api/auth/recover",
       action: entry.action, entity: "auth", entityId: entry.userId ? String(entry.userId) : undefined, changes: entry.changes, status: entry.status,
