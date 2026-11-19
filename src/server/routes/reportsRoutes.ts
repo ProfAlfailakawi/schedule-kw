@@ -38,7 +38,7 @@ import { siblingBranchScopes } from "../../utils/branchScope";
 import * as XLSX from "xlsx";
 import { countBlockingConflicts, readApproval, readDeadlineFor, regulationNoticesForScope } from "../core/approvals";
 import { type AuthenticatedRequest, getCookies, requireAnyPermission, requireAuth, requirePermission } from "../core/auth";
-import { authorityBaselineForScope, authorityCourseCodeMap, buildAuthorityPdfDiff, inferAuthorityBranchCode } from "../core/authority";
+import { authorityBaselineForScope, authorityCourseCodeMap, buildAuthorityPdfDiff, buildAuthorityPdfDiffWithHistory, inferAuthorityBranchCode } from "../core/authority";
 import { notesWithState } from "../core/notes";
 import { courseNameCollator, sortTermsNewestServer, verifiedRoomKey } from "../core/ordering";
 import { finalRowsOnly, readSchedulesForRequest, readsFinalSchedulesOnly } from "../core/scheduleReads";
@@ -478,11 +478,11 @@ app.get("/api/reports/schedule-changes", rateLimitHeavyReport, requireAuth, asyn
   let authorityReviewCount = 0;
   if(authorityDraft){
     const scopedBaseline=await authorityBaselineForScope(authorityDraft.baselineRows||[],authorityDraft,collegeId,sectionId);
-    const authorityComparison=buildAuthorityPdfDiff(scopedBaseline,live as any,{
+    const authorityComparison=await buildAuthorityPdfDiffWithHistory(scopedBaseline,live as any,{
       instructorNameById:names.instructorById,
       publishedRows:authorityDraft.rows||[],
       courseCodeById:new Map((courses as any[]).map(row=>[Number(row.AdCourseId),String(row.CourseCode||"").trim()])),
-    });
+    },{collegeId,sectionId,termId});
     authorityReviewCount=Number(authorityComparison.counts.review||0);
     const rawFieldGroups: Array<["course"|"sectionCode"|"days"|"time"|"room"|"instructor",string[]]> = [
       ["course",["AdCourseId"]],
@@ -663,7 +663,7 @@ app.get("/api/reports/authority-pdf-diff", requireAnyPermission([7,8,9,10,14,16,
      baseline and let buildAuthorityPdfDiff classify every original row as
      `deleted` instead of suppressing the report. */
   const scopedBaseline=await authorityBaselineForScope(draft.baselineRows||[],draft,collegeId,sectionId);
-  const comparison=buildAuthorityPdfDiff(scopedBaseline,live,{instructorNameById,courseCodeById:await authorityCourseCodeMap(),publishedRows:draft.rows||[]});
+  const comparison=await buildAuthorityPdfDiffWithHistory(scopedBaseline,live,{instructorNameById,courseCodeById:await authorityCourseCodeMap(),publishedRows:draft.rows||[]},{collegeId,sectionId,termId});
   res.json({
     draftId:draft.id,name:draft.name,sourceFileName:draft.sourceFileName||"الجدول المعتمد.pdf",
     sourceBranchCode:inferAuthorityBranchCode(draft,[...scopedBaseline,...live]),

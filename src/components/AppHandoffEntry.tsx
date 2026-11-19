@@ -5,8 +5,9 @@ import { nativeHandoffAvailable, runNativeHandoff, type HandoffFailure } from ".
 /**
  * ── «ادخل بحسابك»: داخل التطبيق الرسمي فقط ─────────────────────────────────
  *
- * من دخل ببطاقته في Safari ثم فتح التطبيق يجد زراً واحداً كبيراً: يضغطه فتسأله آبل «متابعة؟»
- * ويدخل بحسابه، بلا اسم مستخدم ولا كلمة سر. في المتصفح لا يظهر شيء.
+ * من دخل ببطاقته في Safari ثم فتح التطبيق يجد خياراً هادئاً تحت النموذج لا زراً رئيسياً فوقه (المالك 2026-11-19: كان يطلع
+ * لكل من يفتح التطبيق بزرٍّ كبير فوق الاسم وكلمة السر ورسالةِ خطأٍ لمن لم يدخل من Safari قط): يضغطه فتسأله آبل «متابعة؟»
+ * ويدخل بحسابه. والرسالةُ تظهر بعد الضغط وحده. في المتصفح لا يظهر شيء.
  */
 const MESSAGES: Record<Exclude<HandoffFailure, "cancelled">, string> = {
   "no-session": "لم نجد دخولاً سابقاً على هذا الجهاز. افتح بطاقتك من Safari أولاً، ثم ارجع واضغط الزر.",
@@ -27,9 +28,8 @@ export default function AppHandoffEntry() {
   return (
     <div className="app-handoff" data-guide-ignore="ينقل دخول Safari إلى التطبيق بإذنٍ من آبل؛ لا يغيّر كلمة سر ولا بيانات">
       <button type="button" className="app-handoff-go" onClick={go} disabled={busy} data-guide-ignore="ينقل دخول Safari إلى التطبيق بإذنٍ من آبل؛ لا يغيّر كلمة سر ولا بيانات">
-        {busy ? <span className="button-spinner" /> : <><LogIn aria-hidden="true" /> ادخل بحسابك</>}
+        {busy ? <span className="button-spinner" /> : <><LogIn aria-hidden="true" /> دخلتُ من Safari — انتقل بلمسة</>}
       </button>
-      <small>إن كنت داخلاً في Safari، تنتقل إلى هنا بلمسة.</small>
       {message ? <p role="alert">{message}</p> : null}
     </div>
   );

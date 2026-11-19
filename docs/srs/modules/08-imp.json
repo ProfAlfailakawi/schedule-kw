@@ -1755,7 +1755,8 @@
         {
           "ar": "شعبة حُذفت في معاينة الاستيراد فأُعيد ترقيم ما بعدها عند النشر ← تُربط الشعبة المُعادة بأصلها الذي نُشر (مرجعه 1002 برقم 501) لا بالمحذوف (مرجعه 1001).",
           "en": "A section deleted in the import preview so that later ones were renumbered at publication ← the recreated section is linked to its published original (reference 1002 published as 501) and not to the deleted one (reference 1001)."
-        }
+        },
+        {"ar": "صفٌّ بُدّل مقرّرُه (المعرّفُ نفسه) فصار الأصلُ «محذوفاً» والحيُّ «مضافاً» ← يُربطان تعديلاً أصفر في خانة المقرر: بالمعرّف نفسه حين يكون الصفُّ منشوراً، وبتاريخ المعرّف (لقطات ما قبل التعديل) حين يكون صفاً يدوياً كان بهوية الأصل (المقرر والشعبة والموقع) قبل التعديل؛ ولا يُخمَّن بين صفّين، ولا يُربط فرعٌ بفرعٍ آخر.", "en": "A row whose course was swapped (same id) so that the original became «deleted» and the live row «added» ← they are linked as one yellow edit in the course cell: by the same id when the row was published, and by id history (the pre-edit snapshots) when it is a manual row that held the original identity (course, section, site) before the edit; no guess between two rows and no link across branches."}
       ],
       "evidence": {
         "code": [
@@ -1764,11 +1765,14 @@
           "src/utils/authorityRowMatching.ts",
           "src/utils/authorityRowMatching.ts#linkRecreatedSections",
           "src/utils/authorityRowMatching.ts#linkRenumberedSections",
+          "src/utils/authorityRowMatching.ts#linkHistoricalIdentities",
+          "src/server/core/authority.ts#buildAuthorityPdfDiffWithHistory",
           "src/utils/authorityNetChange.ts",
           "src/utils/authorityReportOrdering.ts"
         ],
         "tests": [
           "tests/authority-recreated-section-audit.ts",
+          "tests/authority-course-swap-audit.ts",
           "tests/authority-net-diff-audit.ts",
           "tests/authority-identity-reconciliation-audit.ts",
           "tests/authority-diff-cell-audit.ts",

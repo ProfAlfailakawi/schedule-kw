@@ -279,6 +279,8 @@ test:appointment-review-1114
 test:appointment-ideas-1114
 test:appointment-seats
 test:appointment-quick-swap
+test:changes-honesty
+test:authority-course-swap
 test:appointment-room-swap
 test:appointment-ideas2-1114
 test:graduate-drag-1114

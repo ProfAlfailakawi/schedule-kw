@@ -3595,7 +3595,7 @@
           "en": "Undoing an entry that is not the newest asks «undo an older change» first; an entry whose steps are all placement only (days, time and hall) is restored through the atomic batch move without strict mode, otherwise it is restored step by step against the current revision, and a failure midway says «partial undo: N of M restored»."
         },
         {
-          "ar": "يحمل كل بند وقته واسم الأستاذ وشارة «منتدب»، وما تُراجع عنه يُكتب «تُراجع عنه HH:MM»؛ ويُطوى السجل كل دقيقة من بنود الأمس، ويحتفظ بآخر 60 بنداً.",
+          "ar": "يحمل كل بند وقته وشارة «بنين» أو «بنات» (من اسم الكلية) واسم الأستاذ الذي يملك الموعد الآن لا الذي كان (جسم خطوة التراجع هو الحال السابقة) وشارة «منتدب»، وشارةَ «متقاعد» إن كان المسجَّل عليه متقاعداً، وما تُراجع عنه يُكتب «تُراجع عنه HH:MM»؛ ويُطوى السجل كل دقيقة من بنود الأمس، ويحتفظ بآخر 60 بنداً.",
           "en": "Each entry carries its time, the instructor's name and the «visiting» badge, an undone one reads «undone at HH:MM»; the log prunes yesterday's entries every minute and keeps the latest 60."
         },
         {

@@ -6,6 +6,7 @@
  * و`state.x` لمتغيّرٍ مشترك يُكتب من أكثر من وحدة.
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
+import { isTraineeRankName } from "../../utils/traineeRank";
 import type { Express } from "express";
 import { Request, Response } from "express";
 import { Repository } from "../../db/repository";
@@ -322,7 +323,9 @@ app.post("/api/instructors", requireAnyPermission([3, 7]), async (req: Authentic
     return;
   }
 
-  const category = req.body?.AdInstructorCategory === "ta" ? "ta" : null;
+  /* «مدرب» تُقرأ من الدرجة المختارة (درجاتُ النصاب «مدرب …»)؛ والحقلُ القديم يبقى مقبولاً. */
+  const pickedRank = rosterLoad?.rankId ? (await Repository.getTeachingLoadConfig()).ranks.find(rank => rank.id === String(rosterLoad!.rankId)) : null;
+  const category = req.body?.AdInstructorCategory === "ta" || isTraineeRankName(pickedRank?.name) ? "ta" : null;
   let newIns = await Repository.createInstructor(AdInstructorCivil, AdInstructorName, AdInstructorMobile || "", category);
   if (createStatus || loadInput.load) {
     newIns = await Repository.updateInstructor(Number(newIns.AdInstructorId), AdInstructorCivil, AdInstructorName, AdInstructorMobile || "", createStatus, loadInput.load, category);

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { validateCivilId } from "../utils/civilId";
 import { numericText } from "../utils/digits";
+import { isTraineeRankName } from "../utils/traineeRank";
 
 /**
  * ── «أستاذ جديد»: نموذجٌ واحد لأدوات الجدول ولوحة «موعد» (المالك 2026-11-14) ──────
@@ -40,10 +41,11 @@ export default function NewInstructorForm({ collegeId, sectionId, initialName = 
   const [civil, setCivil] = useState("");
   const [mobile, setMobile] = useState("");
   const [rankId, setRankId] = useState("");
-  const [trainee, setTrainee] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const picked = ranks?.ranks.find(rank => rank.id === rankId) || null;
+  /* «مدرب» تُقرأ من الدرجة المختارة؛ لا خانةَ ثانية تُنسى أو تخالف الدرجة. */
+  const trainee = isTraineeRankName(picked?.name);
 
   const submit = async () => {
     setError(null);
@@ -85,13 +87,9 @@ export default function NewInstructorForm({ collegeId, sectionId, initialName = 
             <option value="" disabled>الدرجة العلمية *</option>
             {ranks.ranks.map(rank => <option key={rank.id} value={rank.id}>{rank.name} · {rank.minHours}–{rank.maxHours} س</option>)}
           </select>
-          {picked ? <small>نصابُه {picked.minHours}–{picked.maxHours} س{picked.overtimeHours ? ` · +${picked.overtimeHours} إضافي` : ""}</small> : <small>لازمة: منها تُحسب ساعاتُه</small>}
+          {picked ? <small>نصابُه {picked.minHours}–{picked.maxHours} س{picked.overtimeHours ? ` · +${picked.overtimeHours} إضافي` : ""}{trainee ? " · يُضاف إلى المدربين" : ""}</small> : <small>لازمة: منها تُحسب ساعاتُه</small>}
         </label>
       ) : ranks ? <small className="instructor-new-norank">لم تُعرَّف درجات علمية في النصاب بعد؛ يعرّفها المدير الرئيسي من «النصاب التدريسي».</small> : null}
-      <label className="instructor-new-trainee">
-        <input type="checkbox" checked={trainee} onChange={event => setTrainee(event.target.checked)} />
-        <span>مدرب <small>يُضاف إلى قائمة المدربين</small></span>
-      </label>
       {error ? <em>{error}</em> : null}
       <div>
         <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy || Boolean(ranks?.ranks.length && !rankId)} data-guide-ignore="يحفظ أستاذاً جديداً في القسم بعد التأكيد في النموذج؛ الإضافة نفسها موثقة في schedule.action.change-instructor">{busy ? "يحفظ…" : submitLabel}</button>
