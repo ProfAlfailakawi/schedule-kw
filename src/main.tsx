@@ -57,7 +57,12 @@ const markWidgetSide = () => {
 markWidgetSide();
 /* حشوة المسبار هي حدود النظام نفسها، فيتغيّر مقاسه متى تغيّرت (تدوير، فتح، إغلاق): يُراقَب مباشرة،
    لأن حدث resize قد يسبق تحديث الحدود فتبقى العلامة على الجهة القديمة. */
-if (typeof ResizeObserver !== "undefined") new ResizeObserver(markWidgetSide).observe(sideProbe);
+/* المسبار 0×0 والحدود حشوته، فيُراقَب صندوقه الخارجي (border-box): مراقبة المحتوى لا تتغيّر أبداً، فكانت الجهة
+   تبقى «none» داخل التطبيق على الجهاز الحقيقي — iOS يبلغ الحدود بعد أول رسم — فينزل التنقّل إلى شريطٍ سفلي
+   ويُقصّ عنوان الدخول تحت الساعة (لقطات المالك 2026-11-20). وقراءاتٌ مؤجَّلة احتياطاً. */
+if (typeof ResizeObserver !== "undefined") new ResizeObserver(markWidgetSide).observe(sideProbe, { box: "border-box" });
+for (const ms of [120, 600, 1500, 3000]) window.setTimeout(markWidgetSide, ms);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) markWidgetSide(); });
 window.addEventListener("resize", () => { requestAnimationFrame(markWidgetSide); window.setTimeout(markWidgetSide, 400); });
 window.addEventListener("orientationchange", () => window.setTimeout(markWidgetSide, 400));
 
