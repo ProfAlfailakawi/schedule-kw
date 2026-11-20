@@ -101,6 +101,8 @@
 @import "./styles/82-duo-nav.css";
 @import "./styles/83-duo-app-nav.css";
 @import "./styles/84-duo-panes.css";
+@import "./styles/85-duo-pages-panes.css";
+@import "./styles/86-duo-overlays.css";
 /* 10-journey and 08-print moved to deferred.css — loaded in parallel, off the
    render-blocking path. They were the LAST two imports, so loading them after
    everything else preserves the cascade order exactly as it stands here. */
