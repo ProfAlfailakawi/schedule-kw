@@ -61,7 +61,12 @@ export async function seedDemoWhatChanged(): Promise<void> {
       if (Number(row.id) === Number(laterRoom.id)) return withoutRoomRefs(row, "ق 207");
       return copy(row);
     });
-  first.push({ ...copy(removedRow), id: Number(removedRow.id) + 100000 } as FSchedule);
+  /* موعدٌ حُذف: شعبةٌ أخرى بيومٍ ووقتٍ لا يطابقان موعداً جارياً، فلا يُقابِله المقارنُ بموعدٍ قائم. */
+  first.push({
+    ...copy(laterRoom), id: Number(laterRoom.id) + 100000, SCode: "599",
+    fsunday: false, fmonday: false, ftuesday: false, fwednesday: false, fthursday: true,
+    fstarttime: "16:00", fendtime: "17:50",
+  } as FSchedule);
   /* اللقطة الثانية: صُحّح الوقتُ والقاعةُ الأولى، وبقي الأستاذُ، وما زالت قاعةٌ أخرى قديمة. */
   const second = first.map(row => {
     if (Number(row.id) === Number(timeRow.id)) return copy(timeRow);

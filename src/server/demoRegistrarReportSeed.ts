@@ -57,7 +57,7 @@ export async function seedDemoRegistrarReports(): Promise<void> {
   /* التقرير الثاني: بعضُه نُفِّذ، وبندٌ أُعيد فتحُه، وبندٌ ينتظر. */
   const second: RegistrarRequestItem[] = [
     { ...edit(a, "41055", "1", daysAndTime("إثنين · أربعاء", "أحد · ثلاثاء", "09:00 – 10:15", "09:00 – 10:15")), done: done(9, 10), state: "confirmed", stateAt: at(2, 9) },
-    { ...edit(d, "41067", "3", who("د. نورة العنزي", "د. فيصل المطيري")), done: done(9, 11), lastDone: done(9, 11), state: "reopened", stateAt: at(2, 9) },
+    { ...edit(d, "41067", "3", who("د. نورة العنزي", "د. فيصل المطيري")), lastDone: done(9, 11), state: "reopened", stateAt: at(2, 9) },
     edit(e, "41072", "2", room("ق 301", "ق 212")),
     { ...add(g, "2", daysAndTime("ثلاثاء · خميس", "—", "11:00 – 12:15", "—")), done: done(9, 12), state: "confirmed", stateAt: at(2, 9) },
   ];
