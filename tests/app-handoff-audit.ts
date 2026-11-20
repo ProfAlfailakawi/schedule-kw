@@ -98,7 +98,7 @@ async function main() {
   check(/<GetAppSheet\s*\/>/.test(read("src/components/Dashboard.tsx")), "H5 الدعوة في Dashboard");
   check(/isAppleBrowser\(\)\) return null/.test(read("src/components/InstallApp.tsx")), "H5 InstallApp تُخفى على آبل");
   check(/startsWith\("\/app-handoff\/"\)/.test(read("public/sw.js")), "H5 SW لا يعترض /app-handoff/");
-  check(!/AppHandoffEntry/.test(read("src/components/Login.tsx")), "H5 لا زرّ «دخلتُ من Safari» في شاشة الدخول (يفتح الرابطُ التطبيقَ مباشرة)");
+  check(/<AppHandoffEntry\s*\/>/.test(read("src/components/Login.tsx")), "H5 «ادخل بحسابك» في الدخول (يبقى حتى يُنشر تحديث التطبيق)");
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
