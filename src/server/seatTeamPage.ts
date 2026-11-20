@@ -72,7 +72,7 @@ form.addEventListener("submit",function(e){e.preventDefault();if(go.disabled)ret
 `;
 
 export function seatTeamPage(input: { nonce?: string; token: string; error?: string; memberName?: string; seatName?: string; caption?: string; needsTail?: boolean; demo?: boolean }): string {
-  const head = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><meta name="theme-color" content="#f2f3ef"><title>دخول الفريق · SCHEDULE</title><style>${PUBLIC_FONT_FACES}:root{${PUBLIC_LIGHT_VARS}}@media (prefers-color-scheme:dark){:root{${PUBLIC_DARK_VARS}}}${CSS}</style></head><body>`;
+  const head = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><meta name="apple-itunes-app" content="app-id=6834584330"><meta name="theme-color" content="#f2f3ef"><title>دخول الفريق · SCHEDULE</title><style>${PUBLIC_FONT_FACES}:root{${PUBLIC_LIGHT_VARS}}@media (prefers-color-scheme:dark){:root{${PUBLIC_DARK_VARS}}}${CSS}</style></head><body>`;
   const brand = `<div class="brand"><i aria-hidden="true"></i>SCHEDULE</div>`;
   if (input.error || !input.memberName) {
     return `${head}<main class="card">${brand}<div class="gone"><div class="mark" aria-hidden="true">⌁</div><h1>تعذّر فتح الرابط</h1><p>${esc(input.error || "هذا الرابط لم يعد صالحاً.")}</p></div></main></body></html>`;

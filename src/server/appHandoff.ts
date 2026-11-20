@@ -38,7 +38,42 @@ const sameText = (a: string, b: string) => {
 
 const back = (res: Response, query: string) => { res.setHeader("Cache-Control", "no-store"); res.redirect(302, `${APP_HANDOFF_SCHEME}://handoff?${query}`); };
 
+/** التطبيق الرسمي في App Store: يفتح رابطُ البطاقة والدعوة داخله إن كان مثبّتاً. */
+export const APP_STORE_ID = "6834584330";
+export const APP_BUNDLE_ID = "com.dralfailakawi.schedule";
+export const APP_TEAM_ID = "55V8UB9X3H";
+
+/**
+ * ملفُّ ربط الروابط العامة (Universal Links) الذي يقرؤه iOS: لا يصحّ إلا JSON خاماً بلا امتداد
+ * وبلا إعادة توجيه. المسارات: بطاقة العضو ‎/k/*‎ ودعوة الرئيس ‎/i/*‎ والدعوة المعبّأة ‎/#invite…‎ فقط،
+ * فلا يخطف التطبيقُ بقيةَ صفحات الموقع من Safari.
+ */
+export function appleAppSiteAssociation() {
+  const appID = `${APP_TEAM_ID}.${APP_BUNDLE_ID}`;
+  return {
+    applinks: {
+      details: [{
+        appIDs: [appID],
+        components: [
+          { "/": "/k/*", comment: "member card" },
+          { "/": "/i/*", comment: "head invitation" },
+          { "/": "/", "#": "invite*", comment: "prefilled invitation" },
+        ],
+      }],
+    },
+    webcredentials: { apps: [appID] },
+  };
+}
+
+/** شارةُ تطبيق Safari الذكيّة لصفحات البطاقة والدعوة فقط. */
+export const appBannerMeta = `<meta name="apple-itunes-app" content="app-id=${APP_STORE_ID}">`;
+
 export function registerAppHandoffRoutes(app: Express): void {
+  app.get("/.well-known/apple-app-site-association", (_req: Request, res: Response) => {
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.type("application/json").send(JSON.stringify(appleAppSiteAssociation()));
+  });
+
   const limiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false, message: "محاولات كثيرة، أعد المحاولة بعد قليل." });
 
   app.get("/app-handoff/start", limiter, async (req: Request, res: Response) => {

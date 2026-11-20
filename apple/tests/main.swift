@@ -1,4 +1,4 @@
-// Run: swiftc -o /tmp/handoff-test apple/ios/App/App/AppHandoffLogic.swift apple/tests/main.swift && /tmp/handoff-test
+// Run: swiftc -o /tmp/handoff-test apple/ios/App/App/AppHandoffLogic.swift apple/ios/App/App/AppLinkLogic.swift apple/tests/main.swift && /tmp/handoff-test
 import Foundation
 import AuthenticationServices
 
@@ -36,5 +36,23 @@ let js = AppHandoffLogic.script(for: .error(evil))
 check(js.hasPrefix("window.dispatchEvent(new CustomEvent('app-handoff',{detail:{\"error\":\"") && js.hasSuffix("\"}}))"), "script shape with hostile text")
 check(!js.contains("\u{2028}") && js.contains("\\u2028"), "line separator escaped")
 check(js.contains("\\\"") && js.contains("\\\\"), "quotes and backslash escaped")
+
+// Universal Links
+func link(_ s: String) -> Bool { AppLinkLogic.destination(for: URL(string: s)) != nil }
+check(link("https://schedule-kw.com/k/abc123"), "card link accepted")
+check(link("https://schedule-kw.com/i/someone"), "short invite accepted")
+check(link("https://schedule-kw.com/#invite=username%3Da%26password%3Db"), "prefilled invite accepted")
+check(link("https://schedule-kw.com/#invite&username=a"), "legacy prefilled invite accepted")
+check(!link("https://schedule-kw.com/"), "home not intercepted")
+check(!link("https://schedule-kw.com/k/"), "empty card token rejected")
+check(!link("https://schedule-kw.com/#other"), "other fragment rejected")
+check(!link("https://schedule-kw.com/api/auth/login"), "api rejected")
+check(!link("https://evil.com/k/abc"), "other host rejected")
+check(!link("https://schedule-kw.com.evil.com/k/abc"), "lookalike host rejected")
+check(!link("http://schedule-kw.com/k/abc"), "http rejected")
+check(!link("https://user@schedule-kw.com/k/abc"), "userinfo rejected")
+check(!link("https://schedule-kw.com:8443/k/abc"), "port rejected")
+check(!link("schedulekw://k/abc"), "custom scheme rejected")
+check(AppLinkLogic.destination(for: nil) == nil, "nil rejected")
 print(failures == 0 ? "ALL PASSED" : "\(failures) FAILED")
 exit(failures == 0 ? 0 : 1)

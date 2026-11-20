@@ -48,7 +48,20 @@ final class MainViewController: CAPBridgeViewController {
         }
         network.start()
         registerAppHandoff(on: webView)
-        restoreLastPage()
+        AppLinkRouter.open = { [weak self] url in self?.openUniversalLink(url) }
+        if let url = AppLinkRouter.pending {
+            AppLinkRouter.pending = nil
+            openUniversalLink(url)
+        } else {
+            restoreLastPage()
+        }
+    }
+
+    /// Universal Link (member card, invitation): load the same address inside the
+    /// web view, so the page runs exactly the flow it runs in Safari.
+    private func openUniversalLink(_ url: URL) {
+        guard let url = AppLinkLogic.destination(for: url) else { return }
+        webView?.load(URLRequest(url: url))
     }
 
     /// Safari → app login handoff: the page posts { challenge } to `appHandoff`.
@@ -181,6 +194,7 @@ final class MainViewController: CAPBridgeViewController {
     }
 
     deinit {
+        AppLinkRouter.open = nil
         appHandoff?.cancel()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: AppHandoffLogic.handlerName)
         webView?.removeObserver(self, forKeyPath: #keyPath(WKWebView.url))

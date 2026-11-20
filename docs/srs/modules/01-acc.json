@@ -1544,6 +1544,47 @@
         "tests": ["tests/passkey-audit.ts", "tests/passkey-ui-audit.ts", "tests/passkey-seat-revoke-audit.ts"]
       },
       "inferred": false
+    },
+    {
+      "id": "FR-ACC-064",
+      "kind": "functional",
+      "title": {
+        "ar": "فتح روابط البطاقة والدعوة في التطبيق مباشرةً",
+        "en": "Opening card and invitation links directly in the app"
+      },
+      "text": {
+        "ar": "يجب أن يُقدّم الموقع ملف ربط الروابط العامة ‎/.well-known/apple-app-site-association‎ (JSON بلا إعادة توجيه) لمسارات بطاقة العضو ‎/k/*‎ ودعوة الرئيس ‎/i/*‎ والدعوة المعبّأة فقط، وأن يعلن التطبيق نطاق الموقع، فإذا مُسح رمز البطاقة أو لُمس رابط الدعوة والتطبيق مثبّتٌ على الجهاز فُتح التطبيق وحُمّل المسارُ نفسه داخله بالتدفق ذاته الذي في Safari، وإلا بقي الرابط في Safari مع شارة التطبيق في صفحة البطاقة. ولا يعترض التطبيق أي مسار آخر.",
+        "en": "The system shall serve the Universal Links association file /.well-known/apple-app-site-association (plain JSON, no redirect) for the member card path /k/*, the head invitation path /i/* and the prefilled invitation link only, and the app shall declare the site domain, so that when a card QR code is scanned or an invitation link is tapped on a device that has the app, the app opens and loads the same path inside its web view with the same flow as Safari; otherwise the link stays in Safari, with the app banner on the card page. The app shall not intercept any other path."
+      },
+      "rationale": {
+        "ar": "من مسح بطاقته والتطبيق مثبّت لا ينبغي أن يُرمى إلى Safari ثم يُطلب منه الانتقال.",
+        "en": "A person who scans a card with the app installed should not be thrown into Safari and then asked to switch."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "standard"
+      ],
+      "acceptance": [
+        {
+          "ar": "الملف يُقدَّم JSON بحالة 200 وفيه المسارات الثلاثة وحدها ومعرّف الفريق والتطبيق.",
+          "en": "The file is served as JSON with status 200 and contains only the three paths and the team and app identifiers."
+        },
+        {
+          "ar": "رابطٌ من نطاق آخر أو مسارٌ غير الثلاثة لا يُحمَّل داخل التطبيق.",
+          "en": "A link from another host, or any path other than the three, is not loaded inside the app."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/appHandoff.ts",
+          "src/server/seatTeamPage.ts"
+        ],
+        "tests": [
+          "tests/app-handoff-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [
