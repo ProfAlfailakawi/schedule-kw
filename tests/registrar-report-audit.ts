@@ -24,7 +24,7 @@ check(/downloadSheets\(exportFileName\(\["مطابقة التسجيل"/.test(com
 check(/previous|drift/.test(comp) && /زالت/.test(comp) && /جديدة/.test(comp), "U4 مقارنةٌ بالتقرير السابق (زالت وبقيت وجديدة)");
 const checkCss = read("src/styles/72-registrar-check.css");
 check(/printRegistrarRequest/.test(comp) && /export function printRegistrarRequest/.test(requests) && /print-color-adjust:exact/.test(checkCss) && /--rq-edit:#9a6a12/.test(checkCss), "P1 الطباعةُ بثلاثة ألوانٍ تحمل المعنى");
-check(/<PrintLetterhead\b/.test(requests) && /className="rrq-meta"/.test(requests) && /className="rrq-foot"/.test(requests) && /@page rrequest\{size:A4 portrait/.test(checkCss), "P3 الورقة بأسلوب بقية التقارير: ترويسةُ الكلية، شريطُ ملخّص، تذييل، وورقٌ طوليّ");
+check(/<PrintLetterhead\b/.test(requests) && /className="print-report print-wide print-query-report print-registrar-report rrq-sheet"/.test(requests) && /className="print-explicit-page"/.test(requests) && /className="print-explicit-page-meta"/.test(requests), "P3 الورقة كبقية تقارير الاستعلام: صفحاتٌ عرضية صريحة، لكل صفحةٍ ترويستُها وترقيمُها");
 check(/\.query-canvas-head\[data-lens="registrar"\]\{display:none\}/.test(css) && /data-lens=\{lens\}/.test(reports), "P2 رأسُ القائمة المشترك مخفيٌّ فوق التقرير");
 check(!/<RegistrarRequests\b|<RegistrarRequestInbox\b/.test(changes), "C1 لا شريطَ طلباتٍ ولا واردَ للتسجيل في «تغييرات الجدول»");
 check(/75-registrar-report\.css/.test(index), "C2 ملف التنسيق مستورد");
@@ -47,7 +47,7 @@ check(/RegistrarFollowUp/.test(changes) && /!isRegistrar \? <RegistrarFollowUp/.
 check(/notesCohort/.test(follow) && !/fetch\([^)]*,\s*\{[^}]*method/.test(follow), "N5 البطاقةُ تقرأ ولا تكتب: الفحصُ التالي هو الدليل");
 
 /* الورقة على الجوال: عرضٌ بالمليمتر لا بعرض الشاشة، وسجلُّ الفحوص، و«باقٍ منذ» */
-check(/width:186mm!important/.test(checkCss) && /html\[data-print-kind="registrar-request"\] body/.test(checkCss), "P4 الورقة بعرضٍ ثابتٍ بالمليمتر فلا تنضغط في Safari الجوال");
+check(/stampPrintEngine\(root\)/.test(requests) && /fitPrintPages\(scope\)/.test(requests) && /packPrintLines\(/.test(requests) && !/@page rrequest/.test(checkCss), "P4 تُطبع بمطبعة الاستعلام نفسها: تدويرُ Safari وهندسةُ Chromium والملءُ والتصفيح");
 check(/className="rrq-trail"/.test(requests) && /سجلّ الفحوص/.test(requests) && /history=\{docs \|\| \[\]\}/.test(comp), "P5 سجلُّ الفحوص: كلُّ رفعٍ بتاريخه وما زال وما بقي وما جدّ");
 check(/باقٍ منذ/.test(requests) && /firstSeen/.test(requests), "P6 البندُ المتكرّر يُعلَّم «باقٍ منذ» أولِ فحصٍ ظهر فيه");
 
