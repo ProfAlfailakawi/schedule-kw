@@ -13,8 +13,7 @@ import { AR, countOf } from "../utils/arabicCount";
 import { isTheirs, REQUEST_ACTION_LABEL, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
 import type { FieldDelta, RequestAction } from "../utils/registrarCheck";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
-import { clearPrintFit, fitPrintPages, packPrintLines } from "../utils/printFit";
-import { isSafariPrint, stampPrintEngine } from "../utils/printEngine";
+import { clearPrintFit, fitPrintPages, packPrintLines } from "../utils/printFit";import { isSafariPrint, stampPrintEngine } from "../utils/printEngine";
 import { GhostButton, Notice, PrintLetterhead, PrintPortal, SecondaryButton, visualConfirm } from "./ui";
 
 const call = async (url: string, init?: RequestInit) => {
@@ -108,6 +107,18 @@ export function ItemLine({ item, canTick, busy, onTick }: { key?: React.Key; ite
  */
 export function printRegistrarRequest() {
   if (showPwaPrintHelp()) return;
+  const done = armRegistrarPrint();
+  let invoked = false;
+  if (isSafariPrint() && typeof document.execCommand === "function") { try { invoked = document.execCommand("print"); } catch { invoked = false; } }
+  if (!invoked) { try { window.print(); } catch { done(); } }
+}
+
+/**
+ * يضع سمات طباعة ورقة المطابقة ويُرجع دالّة رفعها. لا تُرفع عند `afterprint` نفسه: Safari على iPhone قد
+ * يبعثه ومعاينةُ الطباعة لم تُرسم بعد، فتخرج الورقة بلا تدوير عموداً ضيقاً بعرض الشاشة. تُرفع عند أول لمسةٍ
+ * أو مفتاحٍ بعد الطباعة (القارئ عاد إلى الصفحة)، وهي سماتُ طباعةٍ لا أثر لها على الشاشة.
+ */
+export function armRegistrarPrint(): () => void {
   const root = document.documentElement;
   const scope = document.getElementById("app-print-root") || document;
   root.dataset.printKind = "registrar-request";
@@ -117,15 +128,19 @@ export function printRegistrarRequest() {
   const done = () => {
     if (finished) return;
     finished = true;
-    delete root.dataset.printKind;
+    window.removeEventListener("afterprint", later);
+    window.removeEventListener("pointerdown", done, true);
+    window.removeEventListener("keydown", done, true);
+    if (root.dataset.printKind === "registrar-request") delete root.dataset.printKind;
     unstamp();
     clearPrintFit(scope);
-    window.removeEventListener("afterprint", done);
   };
-  window.addEventListener("afterprint", done, { once: true });
-  let invoked = false;
-  if (isSafariPrint() && typeof document.execCommand === "function") { try { invoked = document.execCommand("print"); } catch { invoked = false; } }
-  if (!invoked) { try { window.print(); } catch { done(); } }
+  const later = () => {
+    window.addEventListener("pointerdown", done, { capture: true, once: true });
+    window.addEventListener("keydown", done, { capture: true, once: true });
+  };
+  window.addEventListener("afterprint", later, { once: true });
+  return done;
 }
 
 const ACTIONS: RequestAction[] = ["edit", "add", "delete"];
