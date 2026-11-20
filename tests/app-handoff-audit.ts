@@ -4,6 +4,7 @@
  *  H2  بجلسة ← رمزٌ في schedulekw://handoff، والرمز يُبدَّل بجلسةٍ جديدة (كوكي HttpOnly) مرةً واحدة.
  *  H3  verifier خاطئ ← يُرفض ولا يُستهلك الرمز؛ وإعادة الاستعمال تُرفض؛ والمنتهي يُرفض.
  *  H4  من لم يغيّر كلمته الأولى لا تُسلَّم جلسته؛ وعضوُ الفريق تنتقل صفتُه (memberId).
+ *  H6  ملفُّ الروابط العامة: JSON بلا إعادة توجيه، مساراتُه /k/* و/i/* والدعوة المعبّأة فقط، وشارةُ التطبيق في صفحة البطاقة.
  *  H5  الواجهة: الدعوة في Dashboard مرةً، وInstallApp تُخفى على أجهزة آبل، وSW لا يعترض المسار.
  */
 import fs from "node:fs";
@@ -81,13 +82,23 @@ async function main() {
   res = await get(`/app-handoff/redeem?code=${codeOf(res)}&verifier=${v3}`);
   const msid = /session_id=(sess_[a-f0-9]+)/.exec(res.headers.get("set-cookie") || "")?.[1] || "";
   check((await Repository.getSession(msid))?.memberId === "m-42", "H4 عضو الفريق تنتقل صفتُه");
+  /* H6: ملفُّ apple-app-site-association */
+  const aasaRes = await get("/.well-known/apple-app-site-association");
+  const aasa: any = await aasaRes.json().catch(() => ({}));
+  const appId = "55V8UB9X3H.com.dralfailakawi.schedule";
+  check(aasaRes.status === 200 && (aasaRes.headers.get("content-type") || "").startsWith("application/json"), "H6 AASA: 200 وJSON بلا تحويل");
+  check(aasa.applinks?.details?.[0]?.appIDs?.[0] === appId && aasa.webcredentials?.apps?.[0] === appId, "H6 AASA: المعرّف والبصمة", aasa);
+  const comps: any[] = aasa.applinks?.details?.[0]?.components || [];
+  check(comps.some(c => c["/"] === "/k/*") && comps.some(c => c["/"] === "/i/*") && comps.some(c => c["/"] === "/" && c["#"] === "invite*"), "H6 AASA: /k/* و/i/* والدعوة المعبّأة", comps);
+  check(comps.length === 3, "H6 AASA: لا مسارات أخرى");
+  check(/apple-itunes-app" content="app-id=6834584330"/.test(fs.readFileSync("src/server/seatTeamPage.ts", "utf8")), "H6 شارة التطبيق في صفحة البطاقة");
   server.close();
 
   const read = (f: string) => fs.readFileSync(f, "utf8");
   check(/<GetAppSheet\s*\/>/.test(read("src/components/Dashboard.tsx")), "H5 الدعوة في Dashboard");
   check(/isAppleBrowser\(\)\) return null/.test(read("src/components/InstallApp.tsx")), "H5 InstallApp تُخفى على آبل");
   check(/startsWith\("\/app-handoff\/"\)/.test(read("public/sw.js")), "H5 SW لا يعترض /app-handoff/");
-  check(/<AppHandoffEntry\s*\/>/.test(read("src/components/Login.tsx")), "H5 «ادخل بحسابك» في الدخول");
+  check(!/AppHandoffEntry/.test(read("src/components/Login.tsx")), "H5 لا زرّ «دخلتُ من Safari» في شاشة الدخول (يفتح الرابطُ التطبيقَ مباشرة)");
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

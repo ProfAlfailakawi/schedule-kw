@@ -4691,10 +4691,22 @@
    "methods": [
     "get"
    ],
+   "path": "/.well-known/apple-app-site-association",
+   "name": "bound dispatch",
+   "call": "00d96ab7b8d12cd5",
+   "site": "src/server/appHandoff.ts:72",
+   "regexp": "/^\\/\\.well-known\\/apple-app-site-association\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
    "path": "/app-handoff/start",
    "name": "bound dispatch",
    "call": "08eb6ba12969ce4a",
-   "site": "src/server/appHandoff.ts:44",
+   "site": "src/server/appHandoff.ts:79",
    "regexp": "/^\\/app-handoff\\/start\\/?$/i",
    "end": true
   },
@@ -4706,7 +4718,7 @@
    "path": "/app-handoff/redeem",
    "name": "bound dispatch",
    "call": "0fab819d053141e1",
-   "site": "src/server/appHandoff.ts:63",
+   "site": "src/server/appHandoff.ts:98",
    "regexp": "/^\\/app-handoff\\/redeem\\/?$/i",
    "end": true
   },

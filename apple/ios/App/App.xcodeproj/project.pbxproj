@@ -21,6 +21,7 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		A1D0C0DE0000000000000002 /* AppHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0C0DE0000000000000001 /* AppHandoff.swift */; };
+		A1D0C0DE0000000000000006 /* AppLinkLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0C0DE0000000000000005 /* AppLinkLogic.swift */; };
 		A1D0C0DE0000000000000004 /* AppHandoffLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0C0DE0000000000000003 /* AppHandoffLogic.swift */; };
 /* End PBXBuildFile section */
 
@@ -41,6 +42,8 @@
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		A1D0C0DE0000000000000001 /* AppHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHandoff.swift; sourceTree = "<group>"; };
+		A1D0C0DE0000000000000005 /* AppLinkLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLinkLogic.swift; sourceTree = "<group>"; };
+		A1D0C0DE0000000000000007 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		A1D0C0DE0000000000000003 /* AppHandoffLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppHandoffLogic.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -80,6 +83,8 @@
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				2047B674A9A0E164288AD79D /* MainViewController.swift */,
 				A1D0C0DE0000000000000003 /* AppHandoffLogic.swift */,
+				A1D0C0DE0000000000000005 /* AppLinkLogic.swift */,
+				A1D0C0DE0000000000000007 /* App.entitlements */,
 				A1D0C0DE0000000000000001 /* AppHandoff.swift */,
 				02EF54D2459FC995898D20A8 /* NetworkWatcher.swift */,
 				0CEE3A01CC0DC2267B3D9593 /* OfflineBanner.swift */,
@@ -181,6 +186,7 @@
 				66970D0902F466AF04B45B56 /* NetworkWatcher.swift in Sources */,
 				6CA183D59E46AD669B8E7186 /* MainViewController.swift in Sources */,
 				A1D0C0DE0000000000000004 /* AppHandoffLogic.swift in Sources */,
+				A1D0C0DE0000000000000006 /* AppLinkLogic.swift in Sources */,
 				A1D0C0DE0000000000000002 /* AppHandoff.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
@@ -323,7 +329,7 @@
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 55V8UB9X3H;
 				SUPPORTS_MACCATALYST = NO;
@@ -349,7 +355,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 55V8UB9X3H;
 				SUPPORTS_MACCATALYST = NO;

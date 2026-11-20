@@ -15,7 +15,6 @@ import InstallApp from "./InstallApp";
 import ScheduleJourney from "./ScheduleJourney";
 import BrandMark from "./BrandMark";
 import { parseInvitationHash } from "../utils/invitationLink";
-import AppHandoffEntry from "./AppHandoffEntry";
 import PasskeyEntry from "./PasskeyEntry";
 interface LoginProps {
   onLoginSuccess: (data: {
@@ -283,7 +282,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           </form>
           )}
           {recovery ? null : <PasskeyEntry onSuccess={onLoginSuccess} />}
-          {recovery ? null : <AppHandoffEntry />}
           {recovery ? null : (
             <button type="button" className="demo-entry-link login-forgot-toggle" onClick={openRecovery} data-guide-ignore="يفتح استعادة كلمة السر بالرقم المدني">
               <KeyRound aria-hidden="true" /> نسيت كلمة السر؟
