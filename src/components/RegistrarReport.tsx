@@ -285,7 +285,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
             );
           })}
           {open.reviewCount ? <p className="rpr-note">{countOf(open.reviewCount, AR.section)} احتاجت نظر القسم فلم تُدرج في التقرير.</p> : null}
-          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} /></PrintPortal>
+          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} history={docs || []} /></PrintPortal>
         </div>
       ) : null}
     </section>

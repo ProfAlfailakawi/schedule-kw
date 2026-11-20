@@ -13,6 +13,8 @@ import { AR, countOf } from "../utils/arabicCount";
 import { isTheirs, REQUEST_ACTION_LABEL, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
 import type { FieldDelta, RequestAction } from "../utils/registrarCheck";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
+import { clearPrintFit, fitPrintPages, packPrintLines } from "../utils/printFit";
+import { isSafariPrint, stampPrintEngine } from "../utils/printEngine";
 import { GhostButton, Notice, PrintLetterhead, PrintPortal, SecondaryButton, visualConfirm } from "./ui";
 
 const call = async (url: string, init?: RequestInit) => {
@@ -97,15 +99,31 @@ export function ItemLine({ item, canTick, busy, onTick }: { key?: React.Key; ite
   );
 }
 
-/** يطبع «طلب تعديل للتسجيل» الموجودَ في الصفحة (PrintPortal) بصفحةٍ واحدة. */
+/**
+ * يطبع ورقة المطابقة الموجودةَ في الصفحة (PrintPortal) كما يطبع «مركز الاستعلام» تقاريره: سماتُ المحرّك
+ * (التدوير في Safari، وهندسة A4 في Chromium)، ثم ملءُ كل صفحةٍ إلى حدود A4 (fitPrintPages)، وأمرُ الطباعة
+ * في اللمسة نفسها، ولا تُرفع السمات إلا بعد الطباعة فعلاً.
+ */
 export function printRegistrarRequest() {
   if (showPwaPrintHelp()) return;
   const root = document.documentElement;
+  const scope = document.getElementById("app-print-root") || document;
   root.dataset.printKind = "registrar-request";
-  const done = () => { delete root.dataset.printKind; window.removeEventListener("afterprint", done); };
+  const unstamp = stampPrintEngine(root);
+  fitPrintPages(scope);
+  let finished = false;
+  const done = () => {
+    if (finished) return;
+    finished = true;
+    delete root.dataset.printKind;
+    unstamp();
+    clearPrintFit(scope);
+    window.removeEventListener("afterprint", done);
+  };
   window.addEventListener("afterprint", done, { once: true });
-  window.setTimeout(() => { try { window.print(); } catch { done(); } }, 30);
-  window.setTimeout(done, 4000);
+  let invoked = false;
+  if (isSafariPrint() && typeof document.execCommand === "function") { try { invoked = document.execCommand("print"); } catch { invoked = false; } }
+  if (!invoked) { try { window.print(); } catch { done(); } }
 }
 
 const ACTIONS: RequestAction[] = ["edit", "add", "delete"];
@@ -114,8 +132,27 @@ const ACTIONS: RequestAction[] = ["edit", "add", "delete"];
  * الورقة المطبوعة: بأسلوب بقية التقارير (ترويسةُ الكلية، شريطُ ملخّص، جداول، تذييل)، على ورقٍ طوليّ،
  * وبثلاثة ألوانٍ تحمل المعنى: كهرمانيّ عدّلوا، أخضر أضيفوا، أحمر احذفوا.
  */
-export function RequestSheet({ doc, scopeLine, college, theirsOnly = false }: { doc: RegistrarRequestDoc; scopeLine: string; college?: string; theirsOnly?: boolean }) {
+/** سجلُّ الفحوص على الورقة: كلُّ فحصٍ محفوظ بتاريخه، وما زال عن الذي قبله وما بقي وما جدّ. */
+function checkTrail(history: readonly RegistrarRequestDoc[], theirsOnly: boolean) {
+  const pick = (d: RegistrarRequestDoc) => (theirsOnly ? d.items.filter(isTheirs) : d.items).map(item => item.id);
+  const ordered = [...history].sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  return ordered.map((d, index) => {
+    const now = new Set(pick(d));
+    const before = index ? new Set(pick(ordered[index - 1])) : null;
+    let gone = 0, kept = 0, fresh = 0;
+    if (before) { for (const id of before) (now.has(id) ? kept++ : gone++); for (const id of now) if (!before.has(id)) fresh++; }
+    return { id: d.id, at: d.at, fileName: d.fileName, total: now.size, first: !before, gone, kept, fresh };
+  });
+}
+
+export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, history = [] }: { doc: RegistrarRequestDoc; scopeLine: string; college?: string; theirsOnly?: boolean; history?: readonly RegistrarRequestDoc[] }) {
   /* «ملاحظات على ملف التسجيل»: ما أُرسل ولم يظهر في ملفهم وحده، فلا يُحمَّلون ما عدّلناه نحن بعد الإرسال. */
+  /* البندُ المتكرّر: أولُ فحصٍ ظهر فيه، فيُرى أنه باقٍ منذ ذلك اليوم. */
+  const firstSeen = new Map<string, string>();
+  for (const d of [...history].filter(d => String(d.at) <= String(doc.at)).sort((a, b) => String(a.at).localeCompare(String(b.at))))
+    for (const item of d.items) if (!firstSeen.has(item.id)) firstSeen.set(item.id, d.at);
+  const since = (item: RegistrarRequestItem) => { const at = firstSeen.get(item.id); return at && at < doc.at ? <em className="rrq-since">باقٍ منذ {requestDay(at)}</em> : null; };
+  const trail = checkTrail(history.length ? history : [doc], theirsOnly);
   const items = (theirsOnly
     ? doc.items.filter(isTheirs).map(item => item.action === "edit" ? { ...item, fields: theirFields(item) } : item)
     : doc.items);
@@ -128,70 +165,107 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false }: { 
     { action: "add", title: "أضيفوا", note: "شعبٌ عندنا ولم تظهر في ملفهم" },
     { action: "delete", title: "احذفوا", note: "شعبٌ في ملفهم ليست في جدولنا" },
   ];
+  /* ── الصفحات: كما تُصفَّح بقية التقارير (صفحاتٌ صريحة، لكل صفحةٍ ترويستُها وتذييلُها) ──
+     البنودُ تُحزَم بكلفة ارتفاعها (بندُ تعديلٍ بحقولٍ كثيرة أطول)، والصفحةُ الأولى تحمل الملخّص وسجلَّ الفحوص. */
+  type Line = { item: RegistrarRequestItem; action: RequestAction };
+  const lines: Line[] = groups.flatMap(({ action }) => by(action).map(item => ({ item, action })));
+  const cost = (line: Line) => 1 + Math.max(0, (line.action === "edit" ? line.item.fields.length : 1) - 1) * 0.55;
+  const firstBudget = Math.max(3, 8 - (trail.length > 1 ? Math.min(4, 1 + trail.length * 0.6) : 0) - (theirsOnly ? 0.8 : 0));
+  const pages = lines.length ? packPrintLines(lines, cost, firstBudget, 10) : [[] as Line[]];
+  const groupOf = (action: RequestAction) => groups.find(g => g.action === action)!;
+  const editRow = (item: RegistrarRequestItem) => (
+    <tr key={item.id}>
+      <td><bdi dir="ltr">{item.crn || "—"}</bdi></td>
+      <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi></small>{since(item)}</td>
+      <td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td>
+      <td>{item.fields.map(f => <div key={f.field} className="rrq-delta"><i>{f.label}</i><s><Value field={f.field} text={f.pdf} /></s><span aria-hidden="true">←</span><b><Value field={f.field} text={f.ours} /></b></div>)}</td>
+    </tr>
+  );
+  const addRow = (item: RegistrarRequestItem) => (
+    <tr key={item.id}>
+      <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi> · شعبة <bdi dir="ltr">{item.section}</bdi></small>{since(item)}</td>
+      <td>{value(item, "days")}<small><bdi dir="ltr">{value(item, "time")}</bdi></small></td>
+      <td><bdi dir="ltr">{value(item, "room")}</bdi></td>
+      <td>{value(item, "instructor")}</td>
+    </tr>
+  );
+  const delRow = (item: RegistrarRequestItem) => (
+    <tr key={item.id}><td><bdi dir="ltr">{item.crn || "—"}</bdi></td><td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi></small>{since(item)}</td><td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td></tr>
+  );
+  const head: Record<RequestAction, React.ReactNode> = {
+    edit: <tr><th>الرقم المرجعي</th><th>المقرر</th><th>شعبتكم</th><th>ما عندكم ← المطلوب</th></tr>,
+    add: <tr><th>المقرر والشعبة</th><th>الأيام والوقت</th><th>القاعة</th><th>الأستاذ</th></tr>,
+    delete: <tr><th>الرقم المرجعي</th><th>المقرر</th><th>الشعبة</th></tr>,
+  };
+  const rowOf = { edit: editRow, add: addRow, delete: delRow } as const;
+  const tableClass = { edit: "rrq-t-edit", add: "rrq-t-add", delete: "rrq-t-del" } as const;
   return (
-    <article className="rrq-sheet" dir="rtl">
-      <PrintLetterhead title={theirsOnly ? "ملاحظات على ملف التسجيل" : "مطابقة التسجيل"} scope={scopeLine} college={college} footer={false} />
-      <div className="rrq-meta">
-        <span><i>التاريخ</i><b>{requestDay(doc.at)}</b></span>
-        <span className="rrq-meta-file"><i>الملف</i><b><bdi dir="auto">{doc.fileName}</bdi></b></span>
-        {doc.round ? <span><i>الجولة</i><b>{doc.round}</b></span> : null}
-        <span className="rrq-meta-total"><i>المجموع</i><b>{items.length}</b></span>
-        {groups.map(({ action, title }) => by(action).length ? <span key={action} className="rrq-meta-chip" data-action={action}><i>{title}</i><b>{by(action).length}</b></span> : null)}
-      </div>
-      {theirsOnly ? (
-        <p className="rrq-proof">
-          {doc.sent ? <>أُرسل الجدول في <b>الجولة {doc.sent.round}</b> بتاريخ <b>{requestDay(doc.sent.at)}</b>، وهذه البنود لم تظهر في ملفكم.</> : <>هذه البنود أُرسلت في الجدول ولم تظهر في ملفكم.</>}
-        </p>
-      ) : null}
-      {by("edit").length ? (
-        <section data-action="edit">
-          <h2><b>{groups[0].title}</b><span>{groups[0].note}</span><em>{by("edit").length}</em></h2>
-          <table className="rrq-t-edit">
-            <thead><tr><th>الرقم المرجعي</th><th>المقرر</th><th>شعبتكم</th><th>ما عندكم ← المطلوب</th></tr></thead>
-            <tbody>{by("edit").map(item => (
-              <tr key={item.id}>
-                <td><bdi dir="ltr">{item.crn || "—"}</bdi></td>
-                <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi></small></td>
-                <td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td>
-                <td>{item.fields.map(f => <div key={f.field} className="rrq-delta"><i>{f.label}</i><s><Value field={f.field} text={f.pdf} /></s><span aria-hidden="true">←</span><b><Value field={f.field} text={f.ours} /></b></div>)}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        </section>
-      ) : null}
-      {by("add").length ? (
-        <section data-action="add">
-          <h2><b>{groups[1].title}</b><span>{groups[1].note}</span><em>{by("add").length}</em></h2>
-          <table className="rrq-t-add">
-            <thead><tr><th>المقرر والشعبة</th><th>الأيام والوقت</th><th>القاعة</th><th>الأستاذ</th></tr></thead>
-            <tbody>{by("add").map(item => (
-              <tr key={item.id}>
-                <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi> · شعبة <bdi dir="ltr">{item.section}</bdi></small></td>
-                <td>{value(item, "days")}<small><bdi dir="ltr">{value(item, "time")}</bdi></small></td>
-                <td><bdi dir="ltr">{value(item, "room")}</bdi></td>
-                <td>{value(item, "instructor")}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        </section>
-      ) : null}
-      {by("delete").length ? (
-        <section data-action="delete">
-          <h2><b>{groups[2].title}</b><span>{groups[2].note}</span><em>{by("delete").length}</em></h2>
-          <table className="rrq-t-del">
-            <thead><tr><th>الرقم المرجعي</th><th>المقرر</th><th>الشعبة</th></tr></thead>
-            <tbody>{by("delete").map(item => (
-              <tr key={item.id}><td><bdi dir="ltr">{item.crn || "—"}</bdi></td><td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi></small></td><td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td></tr>
-            ))}</tbody>
-          </table>
-        </section>
-      ) : null}
-      <footer className="rrq-foot">
-        <span>{college || "الجدول الأكاديمي"}</span>
-        <span>نظام الجدول الأكاديمي</span>
-        <time dir="ltr">{stamp}</time>
-      </footer>
-    </article>
+    <div className="print-report print-wide print-query-report print-registrar-report rrq-sheet" dir="rtl">
+      {pages.map((pageLines, pageIndex) => {
+        /* البنودُ على الصفحة مجموعاتٍ متصلة، ومجموعةٌ تبدأ في صفحةٍ سابقة تُكمَل بعنوانها «(تابع)». */
+        const runs: Array<{ action: RequestAction; rows: RegistrarRequestItem[]; continued: boolean }> = [];
+        pageLines.forEach((line, index) => {
+          const last = runs[runs.length - 1];
+          if (last && last.action === line.action) last.rows.push(line.item);
+          else runs.push({ action: line.action, rows: [line.item], continued: index === 0 && pageIndex > 0 && pages[pageIndex - 1].some(l => l.action === line.action) });
+        });
+        return (
+          <section className="print-explicit-page" key={`rrq-page-${pageIndex + 1}`}>
+            <PrintLetterhead title={theirsOnly ? "ملاحظات على ملف التسجيل" : "مطابقة التسجيل"} scope={scopeLine} college={college} footer={false} />
+            {pageIndex === 0 ? (
+              <>
+                <div className="print-query-summaryline rrq-meta">
+                  <span><i>التاريخ</i> <b>{requestDay(doc.at)}</b></span>
+                  <span className="rrq-meta-file"><i>الملف</i> <b><bdi dir="auto">{doc.fileName}</bdi></b></span>
+                  {doc.round ? <span><i>الجولة</i> <b>{doc.round}</b></span> : null}
+                  <span className="rrq-meta-total"><i>المجموع</i> <b>{items.length}</b></span>
+                  {groups.map(({ action, title }) => by(action).length ? <span key={action} className="rrq-meta-chip" data-action={action}><i>{title}</i> <b>{by(action).length}</b></span> : null)}
+                </div>
+                {theirsOnly ? (
+                  <p className="rrq-proof">
+                    {doc.sent ? <>أُرسل الجدول في <b>الجولة {doc.sent.round}</b> بتاريخ <b>{requestDay(doc.sent.at)}</b>، وهذه البنود لم تظهر في ملفكم.</> : <>هذه البنود أُرسلت في الجدول ولم تظهر في ملفكم.</>}
+                  </p>
+                ) : null}
+                {trail.length > 1 ? (
+                  <section className="rrq-trail">
+                    <h3>سجلّ الفحوص</h3>
+                    <table>
+                      <thead><tr><th>التاريخ</th><th>الملف</th><th>البنود</th><th>عن الفحص السابق</th></tr></thead>
+                      <tbody>{trail.map(row => (
+                        <tr key={row.id} data-current={row.id === doc.id ? "" : undefined}>
+                          <td>{requestDay(row.at)}{row.id === doc.id ? <small>هذا التقرير</small> : null}</td>
+                          <td><bdi dir="auto">{row.fileName}</bdi></td>
+                          <td><b>{row.total}</b></td>
+                          <td>{row.first ? "أول فحص" : <><span data-tone="ok">زالت {row.gone}</span> · <span data-tone="warn">بقيت {row.kept}</span> · <span data-tone="new">جديدة {row.fresh}</span></>}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </section>
+                ) : null}
+              </>
+            ) : null}
+            {!lines.length ? <p className="print-empty">لا فروق في هذا الفحص.</p> : null}
+            {runs.map(run => {
+              const g = groupOf(run.action);
+              return (
+                <section key={`${pageIndex}-${run.action}`} className="rrq-group" data-action={run.action}>
+                  <h2><b>{g.title}{run.continued ? " (تابع)" : ""}</b><span>{g.note}</span><em>{by(run.action).length}</em></h2>
+                  <table className={tableClass[run.action]}>
+                    <thead>{head[run.action]}</thead>
+                    <tbody>{run.rows.map(item => rowOf[run.action](item))}</tbody>
+                  </table>
+                </section>
+              );
+            })}
+            <footer className="print-explicit-page-meta">
+              <span>{college || "الجدول الأكاديمي"}</span>
+              <bdi dir="ltr">{pageIndex + 1} / {pages.length}</bdi>
+              <time dir="ltr">{stamp}</time>
+            </footer>
+          </section>
+        );
+      })}
+    </div>
   );
 }
 
