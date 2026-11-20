@@ -111,10 +111,13 @@ async function holdsPermission(req:AuthenticatedRequest,formId:number){
   return granted.includes(formId);
 }
 /** من يقرأ طلبات قسمٍ: صاحبُ الجدول (النموذج 7)، أو موظّفُ التسجيل المراجع، أو الإدارة — وكلٌّ بنطاقه. */
+/* فحوصُ ملف التسجيل للقسم وحده (قرار المالك 2026-11-20): التسجيلُ المراجع لا يقرؤها ولا يشطب بنودها. */
 async function mayReadRequests(req:AuthenticatedRequest){
-  return isPowerUser(req)||canReviewSubmissions(req.user?.Role)||await holdsPermission(req,7);
+  if(isPowerUser(req))return true;
+  if(canReviewSubmissions(req.user?.Role))return false;
+  return await holdsPermission(req,7);
 }
-const mayTickRequests=(req:AuthenticatedRequest)=>isPowerUser(req)||canReviewSubmissions(req.user?.Role);
+const mayTickRequests=(req:AuthenticatedRequest)=>isPowerUser(req);
 
 export function registerScheduleImportRoutes(app: Express): void {
 
@@ -562,7 +565,7 @@ app.post("/api/schedules/registrar-requests/verify", requirePermission(7), async
   const scope=registrarCheckScope(req,res);if(!scope)return;
   const {collegeId,sectionId,termId}=scope;
   const docs=(await Repository.listFeatureDocs<RegistrarRequestDoc>("registrarRequests",requestPrefix(termId,collegeId,sectionId)))
-    .filter(doc=>(doc.items||[]).some(item=>item.done&&item.state!=="confirmed"));
+    .filter(doc=>(doc.items||[]).some(item=>item.state!=="confirmed"));
   if(!docs.length){res.json({confirmed:0,reopened:0});return;}
   const result=await runRegistrarCheck(collegeId,sectionId,termId,scope.rows);
   const at=new Date().toISOString();

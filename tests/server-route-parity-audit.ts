@@ -267,7 +267,11 @@ const updatedPersonCards = (r:Row) => r.kind==="route" && r.methods.length===1 &
    links are stopped only with an explicit `?scope=all` after a confirmation that names it. Same path,
    permission 7 and family scope guard; behaviour pinned by tests/instructor-requests-owner-notes-audit.ts. */
 const updatedStaffStop = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="delete" && r.path==="/api/share/:id";
-const identity = (r: Row) => `${mp(r)} ${updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : updatedPersonCards(r) ? "[person-cards-audited]" : updatedProposalCommit(r) ? "[proposal-commit-audited]" : updatedStaffStop(r) ? "[staff-stop-audited]" : r.call || "-"} ${r.name}`;
+/* Registrar-check owner decision (2026-11-20): the department's saved checks are for the department alone;
+   the self-verification now also confirms open items on positive evidence. Same path, permission 7 and
+   scope guards; behaviour pinned by tests/registrar-check-route-audit.ts and tests/registrar-check-audit.ts. */
+const updatedRegistrarVerify = (r:Row) => r.kind==="route" && r.methods.length===1 && r.methods[0]==="post" && r.path==="/api/schedules/registrar-requests/verify";
+const identity = (r: Row) => `${mp(r)} ${updatedRegistrarVerify(r) ? "[registrar-verify-audited]" : updatedAuthorityReport(r) ? "[report-handler-audited]" : updatedLocationEdit(r) ? "[location-edit-audited]" : updatedCoreqSuggest(r) ? "[coreq-suggest-audited]" : updatedPlanFacts(r) ? "[plan-facts-audited]" : updatedTeacherCheck(r) ? "[teacher-check-audited]" : updatedTaConversion(r) ? "[ta-conversion-audited]" : updatedPersonCards(r) ? "[person-cards-audited]" : updatedProposalCommit(r) ? "[proposal-commit-audited]" : updatedStaffStop(r) ? "[staff-stop-audited]" : r.call || "-"} ${r.name}`;
 const positions = new Map<string, number[]>();
 after.forEach((r, i) => { const k = identity(r); if (!positions.has(k)) positions.set(k, []); positions.get(k)!.push(i); });
 const seen = new Map<string, number>();

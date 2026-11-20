@@ -1,7 +1,7 @@
 /**
  * ── «مطابقة التسجيل» في مركز الاستعلام ────────────────────────────────────────
- * تقريرُ ما بين جدولنا وملفّ التسجيل بتواريخه: عدسةٌ في الاستعلامات (للقسم وللتسجيل المراجع)،
- * بثلاثة ألوان، وطباعتُه هي ورقة «طلب تعديل للتسجيل» نفسها. وتحت «تغييرات الجدول» يبقى للتسجيل وحده.
+ * فحوصُ القسم لملفّ التسجيل بتواريخها: عدسةٌ في الاستعلامات للقسم وحده (قرار المالك 2026-11-20: «لنا فقط»)،
+ * بثلاثة ألوان، وطباعتُه ورقة «طلب تعديل للتسجيل» نفسها. ولا تصل وارد التسجيل.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -14,7 +14,7 @@ const reports = read("src/components/Reports.tsx"), comp = read("src/components/
 const changes = read("src/components/ScheduleChanges.tsx"), requests = read("src/components/RegistrarRequests.tsx"), index = read("src/index.css");
 
 check(/type Lens = [^;]*"registrar"/.test(reports) && /\{ id: "registrar", label: "مطابقة التسجيل"/.test(reports), "L1 عدسة «مطابقة التسجيل» معرَّفةٌ بتسميتها");
-check(["registrarDean", "registrarHead", "registrarStaff", "collegeRegistrar"].every(role => new RegExp(`${role}:\\s*\\[[^\\]]*"registrar"`).test(reports)), "L2 التسجيلُ المراجع يرى العدسة");
+check(["registrarDean", "registrarHead", "registrarStaff", "collegeRegistrar"].every(role => new RegExp(`${role}:\\s*\\[[^\\]]*\\]`).test(reports) && !new RegExp(`${role}:\\s*\\[[^\\]]*"registrar"`).test(reports)), "L2 الفحصُ للقسم: أدوارُ التسجيل لا ترى العدسة");
 check(/lens === "registrar" \? \(\s*<React\.Suspense[\s\S]{0,400}<RegistrarReport /.test(reports) && /React\.lazy\(\(\) => import\("\.\/RegistrarReport"\)\)/.test(reports), "L3 العدسة تُحمَّل كسولاً وتُعرض في اللوحة");
 check(/registrar: "مطابقة التسجيل"/.test(reports), "L4 عنوانُ التقرير في أسماء العدسات");
 
@@ -24,9 +24,17 @@ check(/downloadSheets\(exportFileName\(\["مطابقة التسجيل"/.test(com
 check(/previous|drift/.test(comp) && /زالت/.test(comp) && /جديدة/.test(comp), "U4 مقارنةٌ بالتقرير السابق (زالت وبقيت وجديدة)");
 check(/printRegistrarRequest/.test(comp) && /export function printRegistrarRequest/.test(requests) && /print-color-adjust:exact/.test(css), "P1 الطباعةُ بورقة «طلب تعديل للتسجيل» وبألوانها");
 check(/\.query-canvas-head\[data-lens="registrar"\]\{display:none\}/.test(css) && /data-lens=\{lens\}/.test(reports), "P2 رأسُ القائمة المشترك مخفيٌّ فوق التقرير");
-check(/\{isRegistrar \? \(\s*<RegistrarRequests/.test(changes), "C1 تحت «تغييرات الجدول» للتسجيل وحده");
+check(!/<RegistrarRequests\b|<RegistrarRequestInbox\b/.test(changes), "C1 لا شريطَ طلباتٍ ولا واردَ للتسجيل في «تغييرات الجدول»");
 check(/75-registrar-report\.css/.test(index), "C2 ملف التنسيق مستورد");
 check(!/localStorage|sessionStorage/.test(comp), "S1 لا تخزين محلي: المصدر مسار الطلبات القائم");
+
+/* شاشةُ الفحص: آخرُ فحصٍ عند الدخول، وما تغيّر عنه، والحفظُ في التقرير مع طريقه */
+const check2 = read("src/components/RegistrarPdfCheck.tsx"), util = read("src/utils/registrarRequest.ts");
+check(check2.includes("احفظ في تقرير المطابقة") && !check2.includes("احفظ طلب التعديل"), "F1 زرُّ الحفظ «احفظ في تقرير المطابقة»");
+check(/className="rpc-last"/.test(check2) && check2.includes("آخر فحص محفوظ"), "F2 آخرُ فحصٍ محفوظ يظهر عند الدخول");
+check(/className="rpc-drift"/.test(check2) && /زالت/.test(check2) && /بقيت/.test(check2) && /جديدة/.test(check2), "F3 ما زال وما بقي وما جدّ عن آخر فحص");
+check((check2.match(/onClick=\{openMatchReport\}/g) || []).length >= 2 && /"schedule-report-lens", "registrar"/.test(check2) && /takeLensRequest\(\)/.test(reports), "F4 «افتح التقرير» يفتح عدسة المطابقة");
+check(/if \(item\.state === "confirmed"\) return item;[\s\S]{0,400}if \(!item\.done\) return item;/.test(util), "F5 البندُ المفتوح يتأكّد بزوال فرقه بلا شطب");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -110,18 +110,34 @@ export function tickRequestItem(items: readonly RegistrarRequestItem[], itemId: 
 }
 
 /**
- * التحقق الذاتي: البندُ المشطوب يُقابَل بنتيجة فحص ملفٍّ أحدث.
+ * التحقق الذاتي: كلُّ بندٍ لم يتأكّد بعد يُقابَل بنتيجة فحص ملفٍّ أحدث (الفحصُ للقسم وحده،
+ * فلا ينتظر البندُ شطباً من أحد — قرار المالك 2026-11-20).
  *   - زال فرقُه (لا بندَ بمفتاحه، أو بقي بندُ تعديلٍ لكن بغير خاناته) ← «تأكّد».
- *   - بقي فرقُه ← يعود مفتوحاً «شُطب ولم يظهر في الملف»، ويبقى من شطبه أثراً.
+ *   - بقي فرقُه: المفتوحُ يبقى مفتوحاً كما هو؛ والمشطوبُ (من طلباتٍ قديمة) يعود مفتوحاً
+ *     «شُطب ولم يظهر في الملف»، ويبقى من شطبه أثراً.
  * ملفٌّ لم يُقرأ منه شيء لا يُثبت ولا ينفي: لا يتغيّر بند.
  */
 export function verifyRequestItems(items: readonly RegistrarRequestItem[], result: Pick<RegistrarCheckResult, "findings" | "empty">, at: string): { items: RegistrarRequestItem[]; confirmed: number; reopened: number } {
   if (result.empty) return { items: [...items], confirmed: 0, reopened: 0 };
   const fresh = new Map(buildRequestItems(result).map(item => [item.id, item]));
+  /* دليلٌ موجب لبندٍ لم يُشطب: شعبةٌ قُرئت وطابقت (تعديلٌ أو إضافة)، أو شعبةٌ لا يذكرها الملف إطلاقاً (حذف).
+     غيابُ البند من «الفروق» وحده لا يكفي: حقلٌ لم يُقرأ يُسقط البندَ ولا يُثبت زوال فرقه. */
+  const keysOf = (finding: Pick<RegistrarFinding, "crn" | "courseCode" | "section" | "pdfSection">) =>
+    [finding.crn ? `#${finding.crn}` : "", `${finding.courseCode}/${finding.section}`, finding.pdfSection ? `${finding.courseCode}/${finding.pdfSection}` : ""].filter(Boolean);
+  const matchedKeys = new Set<string>(), touchedKeys = new Set<string>();
+  for (const finding of result.findings) for (const key of keysOf(finding)) { touchedKeys.add(key); if (finding.group === "matched") matchedKeys.add(key); }
+  const itemKeys = (item: RegistrarRequestItem) => keysOf({ crn: item.crn, courseCode: item.courseCode, section: item.section, pdfSection: item.pdfSection });
+  const positive = (item: RegistrarRequestItem) => item.action === "delete"
+    ? itemKeys(item).every(key => !touchedKeys.has(key))
+    : itemKeys(item).some(key => matchedKeys.has(key));
   let confirmed = 0, reopened = 0;
   const next = items.map(item => {
-    if (!item.done || item.state === "confirmed") return item;
+    if (item.state === "confirmed") return item;
     const still = fresh.get(item.id);
+    if (!item.done) {
+      if (positive(item)) { confirmed++; return { ...item, state: "confirmed" as const, stateAt: at }; }
+      return item;
+    }
     const reflected = !still || (item.action === "edit" && item.fields.length > 0 && !item.fields.some(f => still.fields.some(g => g.field === f.field)));
     if (reflected) { confirmed++; return { ...item, state: "confirmed" as const, stateAt: at }; }
     reopened++;

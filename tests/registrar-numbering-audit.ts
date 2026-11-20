@@ -132,10 +132,10 @@ const pdf = (course: number, section: string, crn: string, day: number, start: s
   check(fields === "crn,section", "التغيير رقمُ الشعبة والمرجعي وحدهما");
 }
 
-/* ٥) حارس الصفات: موظف التسجيل (صفةُ اطّلاع) يشطب بنود طلب التعديل وحدها */
+/* ٥) حارس الصفات: الفحصُ للقسم وحده (قرار المالك 2026-11-20): موظف التسجيل (صفةُ اطّلاع) لا يشطب ولا يحفظ */
 {
   const tick = (role: string, path = "/schedules/registrar-requests/107:6:7:ab/tick", method = "POST") => roleWriteDecision({ method, path, authenticated: true, powerUser: false, role }).allowed;
-  check(tick("registrarStaff") && tick("collegeRegistrar") && tick("registrarHead"), "التسجيل المراجع يشطب البنود رغم أن صفته للاطّلاع");
+  check(!tick("registrarStaff") && !tick("collegeRegistrar") && !tick("registrarHead"), "التسجيل المراجع لا يشطب بنود فحص القسم: صفتُه للاطّلاع");
   check(!tick("registrarStaff", "/schedules/registrar-requests") && !tick("registrarStaff", "/schedules/registrar-requests/x", "DELETE") && !tick("dean"), "ولا يحفظ طلباً ولا يحذفه، ولا يشطب غيرُ التسجيل");
 }
 

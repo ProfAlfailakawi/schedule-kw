@@ -149,31 +149,23 @@ const pdfRow = (course: string, section: string, start: string, end: string, ext
     const listed = await call("GET", listQ, "head");
     check(listed.status === 200 && listed.json.requests?.length === 1 && listed.json.canTick === false, "القسم يقرأ طلبه ولا يشطب", listed.json);
     const listedRegistrar = await call("GET", listQ, "registrar");
-    check(listedRegistrar.status === 200 && listedRegistrar.json.canTick === true, "التسجيل يقرأ طلب القسم ويشطب", listedRegistrar.json);
+    check(listedRegistrar.status === 403, "الفحصُ للقسم وحده: التسجيل المراجع لا يقرؤه: ٤٠٣", listedRegistrar.json);
 
     check((await call("GET", `${R}/inbox?termId=5`, "head")).status === 403, "وارد الطلبات للتسجيل وحده: ٤٠٣ للقسم");
-    const inbox = await call("GET", `${R}/inbox?termId=5`, "registrar");
-    check(inbox.status === 200 && inbox.json.requests?.length === 1 && inbox.json.requests[0].progress.total === doc.items.length && inbox.json.requests[0].progress.done === 0, "وارد التسجيل: بطاقةٌ للقسم بتقدّمها", inbox.json);
-    const inboxOther = await call("GET", `${R}/inbox?termId=5`, "otherRegistrar");
-    check(inboxOther.status === 200 && inboxOther.json.requests.length === 0, "تسجيلُ قسمٍ آخر لا يرى بطاقته", inboxOther.json);
+    check((await call("GET", `${R}/inbox?termId=5`, "registrar")).status === 403, "لا وارد للتسجيل المراجع: الفحصُ لا يصله: ٤٠٣");
+    check((await call("GET", `${R}/inbox?termId=5`, "otherRegistrar")).status === 403, "ولا لتسجيلِ قسمٍ آخر: ٤٠٣");
 
     const tickUrl = `${R}/${encodeURIComponent(doc.id)}/tick`;
     const target = doc.items.find((item: any) => item.action === "edit" && item.fields.some((f: any) => f.field === "room"));
     check((await call("POST", tickUrl, null, { itemId: target.id })).status === 401, "الشطب بلا دخول: ٤٠١");
     check((await call("POST", tickUrl, "head", { itemId: target.id })).status === 403, "القسم لا يشطب بنود طلبه: ٤٠٣");
     check((await call("POST", tickUrl, "otherRegistrar", { itemId: target.id })).status === 403, "تسجيلُ قسمٍ آخر لا يشطب: ٤٠٣");
-    check((await call("POST", tickUrl, "registrar", { itemId: "edit:#nope" })).status === 404, "بندٌ غير موجود: ٤٠٤");
-    const ticked = await call("POST", tickUrl, "registrar", { itemId: target.id, done: true });
-    const tickedItem = ticked.json.request?.items?.find((item: any) => item.id === target.id);
-    check(ticked.status === 200 && tickedItem?.done?.byName === "موظف التسجيل" && typeof tickedItem.done.at === "string", "الشطب «نُفّذ» باسم الموظف ووقته", ticked.json);
-    const untick = await call("POST", tickUrl, "registrar", { itemId: target.id, done: false });
-    check(untick.status === 200 && !untick.json.request.items.find((item: any) => item.id === target.id).done, "رفع الشطب");
-    await call("POST", tickUrl, "registrar", { itemId: target.id, done: true });
+    check((await call("POST", tickUrl, "registrar", { itemId: target.id, done: true })).status === 403, "الفحصُ للقسم وحده: التسجيل المراجع لا يشطب: ٤٠٣");
 
-    /* الملف التالي: القاعة صُحّحت ⇒ البند المشطوب «تأكّد». */
+    /* الملف التالي: القاعة صُحّحت ⇒ البندُ المفتوح «تأكّد» بدليلٍ موجب (شعبةٌ قُرئت وطابقت). */
     check((await call("POST", `${R}/verify`, "registrar", { ...body, rows: fileRows })).status === 403, "التحقق الذاتي للقسم (النموذج 7): ٤٠٣ للتسجيل");
     const verify = await call("POST", `${R}/verify`, "head", { ...body, rows: [pdfRow("105", "1", "08:00", "09:15"), pdfRow("106", "1", "11:00", "12:15"), pdfRow("999", "1", "13:00", "14:15")] });
-    check(verify.status === 200 && verify.json.confirmed === 1 && verify.json.reopened === 0, "ملفٌّ يُثبت البند المشطوب: «تأكّد»", verify.json);
+    check(verify.status === 200 && verify.json.confirmed === 1 && verify.json.reopened === 0, "ملفٌّ يُثبت البند المفتوح: «تأكّد»", verify.json);
     const afterVerify = await call("GET", listQ, "head");
     check(afterVerify.json.requests[0].items.find((item: any) => item.id === target.id)?.state === "confirmed", "والحالُ محفوظة");
 

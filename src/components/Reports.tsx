@@ -210,6 +210,15 @@ function takeSharedReport(): SharedReportState | null {
   } catch { return null; }
 }
 
+/** عدسةٌ طلبتها شاشةٌ أخرى قبل أن تفتح الاستعلامات (مثل «افحص جدول التسجيل» ← «مطابقة التسجيل»): تُقرأ مرة. */
+function takeLensRequest(): string | undefined {
+  try {
+    const value = sessionStorage.getItem("schedule-report-lens") || "";
+    if (value) sessionStorage.removeItem("schedule-report-lens");
+    return value || undefined;
+  } catch { return undefined; }
+}
+
 /** ما يكتبه البحث العام (قائمة الأوامر) قبل أن يفتح الاستعلامات: أستاذٌ أو قاعةٌ أو مقرر. */
 type ReportPrefill = { instructorId?: number; courseId?: number; building?: string; hall?: string };
 function takeReportPrefill(): ReportPrefill | null {
@@ -267,7 +276,7 @@ const LENSES: Array<{ id: Lens; label: string; hint: string; icon: React.ReactNo
      else is allowed to see, so it must not appear as a locked door to them. */
   { id: "balance", label: "ميزان الأقسام", hint: "كل أقسام الفصل، قسمٌ في كل سطر", icon: <Landmark /> },
   /* K5: the planning tools, read-only, for the department head, the dean and above. */
-  { id: "registrar", label: "مطابقة التسجيل", hint: "تقارير ما بين جدولنا وملف التسجيل بتواريخها، وما نُفّذ منها", icon: <ClipboardCheck /> },
+  { id: "registrar", label: "مطابقة التسجيل", hint: "فحوصنا لملف التسجيل بتواريخها: ما زال من فروقه وما بقي", icon: <ClipboardCheck /> },
   { id: "decision", label: "لوحة القرار", hint: "التخطيط والتنبّؤ ومختبر القرار للقراءة: القسم لرئيسه، والكلية لعميدها", icon: <Compass /> }
 ];
 
@@ -292,10 +301,10 @@ const ROLE_LENSES: Record<string, Lens[]> = {
      أولى فارغة لا تجيب أحداً. ثم الجداول نفسها وما يُكمل الصورة. */
   dean:           ["balance", "list", "week", "decision", "fairness", "courseLoad", "visiting"],
   viceDean:       ["balance", "list", "week", "decision", "fairness", "courseLoad", "visiting", "instructor", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
-  registrarDean:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom", "registrar"],
-  registrarHead:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom", "registrar"],
-  registrarStaff: ["balance", "list", "room", "occupancy", "roomInstructor", "courseRoom", "registrar"],
-  collegeRegistrar: ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom", "registrar"],
+  registrarDean:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
+  registrarHead:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
+  registrarStaff: ["balance", "list", "room", "occupancy", "roomInstructor", "courseRoom"],
+  collegeRegistrar: ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
 };
 
 /**
@@ -568,6 +577,9 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   if (sharedOnOpen.current === undefined) sharedOnOpen.current = takeSharedReport();
   const prefillOnOpen = useRef<ReportPrefill | null | undefined>(undefined);
   if (prefillOnOpen.current === undefined) prefillOnOpen.current = takeReportPrefill();
+  /* عدسةٌ طلبتها شاشةٌ أخرى: تُقرأ مرةً في مرجع (لا في مُهيّئ الحالة الذي قد يُستدعى مرتين). */
+  const lensRequestOnOpen = useRef<string | null | undefined>(undefined);
+  if (lensRequestOnOpen.current === undefined) lensRequestOnOpen.current = takeLensRequest() || null;
   /* القاعة من البحث العام تصل نصّاً (رمز المبنى والقاعة): تُترجم إلى السجل الرسمي حين يصل. */
   const pendingPlace = useRef<{ building?: string; hall?: string } | null>(
     prefillOnOpen.current?.building ? { building: prefillOnOpen.current.building, hall: prefillOnOpen.current.hall } : null,
@@ -576,7 +588,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   const isDeanReader = roleId === "dean" || roleId === "viceDean";
   const [lens, setLens] = useState<Lens>(() => sharedOnOpen.current
     ? initialLensFor(roleId, "reportDepartment", sharedOnOpen.current.lens)
-    : initialLensFor(roleId, mode, saved.lens));
+    : initialLensFor(roleId, mode, lensRequestOnOpen.current || saved.lens));
   const [colleges, setColleges] = useState<AdCollege[]>([]);
   const [sections, setSections] = useState<AdSection[]>([]);
   const [terms, setTerms] = useState<AdTerm[]>([]);
@@ -757,7 +769,10 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
         pendingPlace.current = prefill.building ? { building: prefill.building, hall: prefill.hall } : null;
       }
     }
-    const nextLens = modeSeen.current ? initialLensFor(roleId, mode, undefined) : lens;
+    /* العدسةُ المطلوبة تبقى لأول شاشةٍ تُفتح فعلاً (قد تُبنى الاستعلاماتُ بشاشةٍ ثم تتبدّل). */
+    const asked = lensRequestOnOpen.current || takeLensRequest();
+    if (modeSeen.current) lensRequestOnOpen.current = null;
+    const nextLens = modeSeen.current ? initialLensFor(roleId, mode, asked) : lens;
     modeSeen.current = true;
     setLens(nextLens);
     setPrintKind(nextLens === "decision" ? "list" : nextLens);

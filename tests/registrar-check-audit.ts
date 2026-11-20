@@ -339,6 +339,11 @@ const only = (result: ReturnType<typeof run>, group: string) => result.findings.
   check(verified.confirmed === 1 && verified.reopened === 1 && verified.items[0].state === "confirmed" && verified.items[2].state === "reopened" && !verified.items[2].done && verified.items[2].lastDone?.by === 5, "الملف التالي: ما ظهر «تأكّد»، وما لم يظهر يعود «شُطب ولم يظهر في الملف»", verified.items);
   check(verified.items[1].state === undefined && !verified.items[1].done, "البند غير المشطوب لا يمسّه التحقق");
   check(requestProgress(verified.items).confirmed === 1 && requestProgress(verified.items).reopened === 1, "التقدّم يعدّ المؤكَّد والعائد");
+  /* بلا دليلٍ موجب (حقلٌ لم يُقرأ فلا بندَ ولا مطابقة): البندُ المفتوح لا يتأكّد. */
+  const noEvidence = verifyRequestItems(items, { findings: [], empty: undefined as any }, "x");
+  check(noEvidence.items[0].state === undefined && noEvidence.items[1].state === undefined, "بلا مطابقةٍ مقروءة لا يتأكّد بندُ تعديلٍ ولا إضافةٍ مفتوح");
+  const openOk = verifyRequestItems(items, second, "2026-11-20T08:00:00Z");
+  check(openOk.items[0].state === "confirmed" && !openOk.items[0].done && openOk.items[2].state === undefined, "البندُ المفتوح يتأكّد بمطابقةٍ مقروءة بلا شطب، والمحذوفُ الباقي لا يتأكّد");
   const blank = verifyRequestItems(ticked, { findings: [], empty: "pdfEmpty" }, "x");
   check(blank.confirmed === 0 && blank.reopened === 0, "ملفٌّ لم يُقرأ منه شيء لا يُثبت ولا ينفي");
 }
