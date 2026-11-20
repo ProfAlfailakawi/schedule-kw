@@ -47,7 +47,6 @@ import { singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeCont
 import { inboxAudience, multiSiteHeadline, type InboxAudience } from "../utils/inboxAudience";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
 import ApprovalDossier from "./ApprovalDossier";
-import RegistrarRequests, { RegistrarRequestInbox } from "./RegistrarRequests";
 import TermFrozenRibbon, { useTermFrozen } from "./TermFrozenRibbon";
 import { approvalScopeKey, authorityBaselineLabel, AUTHORITY_BASELINE_LABEL, createScopeGuard } from "../utils/approvalScope";
 
@@ -222,10 +221,9 @@ export function ApprovalChip({ status, late }: { status: ScheduleApprovalStatus;
 
 /* ── صندوق الوارد ───────────────────────────────────────────────────────── */
 
-function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExtend, scopes = [], powerAdmin = false, showRequests = false }: {
+function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExtend, scopes = [], powerAdmin = false }: {
   termId: number;
   /** طلبات التعديل من الأقسام (للتسجيل المراجع). */
-  showRequests?: boolean;
   /** ما يراه هذا القارئ من عُدّة الوارد — من القرار الواحد (inboxAudience). */
   audience: InboxAudience;
   /** نطاق القارئ: منه وحده يُقرّر أيُرسم منتقي القسم (singleDepartmentOf). */
@@ -387,13 +385,6 @@ function Inbox_({ termId, terms, onTermChange, onOpen, audience, onLoaded, onExt
   return (
     <>
       {error ? <Notice type="error">{error}</Notice> : null}
-      {showRequests ? (
-        <RegistrarRequestInbox
-          termId={termId}
-          nameOf={(c, sct) => { const row = rows.find(item => item.collegeId === c && item.sectionId === sct); return { collegeName: row?.collegeName, sectionName: row?.sectionName }; }}
-          onOpen={(c, sct) => { const row = rows.find(item => item.collegeId === c && item.sectionId === sct); if (row) onOpen({ ...row, openRequest: true } as InboxRow); }}
-        />
-      ) : null}
       {/* الشريط نفسه الذي فوق مركز الاستعلام: سؤالٌ بالعربية أولاً، ثم الكلية
           والقسم والفصل، وما زاد عليها مطويٌّ خلف «المزيد». الشرائحُ لم تُلغَ —
           نزلت إلى داخله، لأنها تصف ما يُعرض لا ما يُسأل عنه. */}
@@ -1007,15 +998,7 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
       {error ? <Notice type="error">{error}</Notice> : null}
       {message ? <Notice type="success">{message}</Notice> : null}
 
-      {/* تقارير المطابقة للقسم في «الاستعلامات ← مطابقة التسجيل»؛ هنا للتسجيل وحده بجانب وارده. */}
-      {isRegistrar ? (
-        <RegistrarRequests
-          collegeId={scope.collegeId} sectionId={scope.sectionId} termId={termId}
-          scopeLine={[termName, scope.collegeName, scope.sectionName].filter(Boolean).join(" · ") || `قسم ${scope.sectionId}`}
-          canDelete={canEditRequests && !frozen}
-          focusLatest={openRequest}
-        />
-      ) : null}
+      {/* فحوصُ ملف التسجيل للقسم وحده، في «الاستعلامات ← مطابقة التسجيل» (قرار المالك 2026-11-20): لا تصل وارد التسجيل. */}
 
       <TermStory
         scopeLine={[termName, scope.collegeName, scope.sectionName].filter(Boolean).join(" · ") || `قسم ${scope.sectionId}`}
@@ -1405,7 +1388,6 @@ export default function ScheduleChanges({ role, scope, scopes = [], powerAdmin =
             onExtend={deadlinesShown ? (row) => setExtendFor({ row, nonce: Date.now() }) : undefined}
             scopes={scopes}
             powerAdmin={powerAdmin}
-            showRequests={role.canReview || powerAdmin}
             onOpen={(row) => setOpened({ collegeId: row.collegeId, sectionId: row.sectionId, collegeName: row.collegeName, sectionName: row.sectionName, openRequest: Boolean((row as any).openRequest) })}
           />
         </Surface>

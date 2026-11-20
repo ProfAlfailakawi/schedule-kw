@@ -110,9 +110,11 @@ export function tickRequestItem(items: readonly RegistrarRequestItem[], itemId: 
 }
 
 /**
- * التحقق الذاتي: البندُ المشطوب يُقابَل بنتيجة فحص ملفٍّ أحدث.
+ * التحقق الذاتي: كلُّ بندٍ لم يتأكّد بعد يُقابَل بنتيجة فحص ملفٍّ أحدث (الفحصُ للقسم وحده،
+ * فلا ينتظر البندُ شطباً من أحد — قرار المالك 2026-11-20).
  *   - زال فرقُه (لا بندَ بمفتاحه، أو بقي بندُ تعديلٍ لكن بغير خاناته) ← «تأكّد».
- *   - بقي فرقُه ← يعود مفتوحاً «شُطب ولم يظهر في الملف»، ويبقى من شطبه أثراً.
+ *   - بقي فرقُه: المفتوحُ يبقى مفتوحاً كما هو؛ والمشطوبُ (من طلباتٍ قديمة) يعود مفتوحاً
+ *     «شُطب ولم يظهر في الملف»، ويبقى من شطبه أثراً.
  * ملفٌّ لم يُقرأ منه شيء لا يُثبت ولا ينفي: لا يتغيّر بند.
  */
 export function verifyRequestItems(items: readonly RegistrarRequestItem[], result: Pick<RegistrarCheckResult, "findings" | "empty">, at: string): { items: RegistrarRequestItem[]; confirmed: number; reopened: number } {
@@ -120,10 +122,11 @@ export function verifyRequestItems(items: readonly RegistrarRequestItem[], resul
   const fresh = new Map(buildRequestItems(result).map(item => [item.id, item]));
   let confirmed = 0, reopened = 0;
   const next = items.map(item => {
-    if (!item.done || item.state === "confirmed") return item;
+    if (item.state === "confirmed") return item;
     const still = fresh.get(item.id);
     const reflected = !still || (item.action === "edit" && item.fields.length > 0 && !item.fields.some(f => still.fields.some(g => g.field === f.field)));
     if (reflected) { confirmed++; return { ...item, state: "confirmed" as const, stateAt: at }; }
+    if (!item.done) return item;
     reopened++;
     const { done, ...rest } = item;
     return { ...rest, lastDone: done, state: "reopened" as const, stateAt: at };

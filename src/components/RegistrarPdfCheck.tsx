@@ -8,16 +8,19 @@
  * الفحصُ قراءةٌ محضة (readOnly=1 ثم المقارنة). وبعده خطوةٌ تلقائية واحدة تكتب: مطابقةُ رقم
  * الشعبة ومرجعيّها بما طبعه التسجيل (registrar-numbering، بنسخةٍ للتراجع)، ثم يُعاد الفحص.
  * وما سواها فعلان صريحان وحدهما:
- * «احفظ طلب التعديل» (يصير طلباً مؤرَّخاً تحت «تغييرات الجدول» يصل التسجيل)،
- * والتحققُ الذاتي من بنودٍ شطبها التسجيل قبلُ (يجري بعد الفحص بطريقٍ مستقلّ).
+ * «احفظ في تقرير المطابقة» (يصير فحصاً مؤرَّخاً في «الاستعلامات ← مطابقة التسجيل»، للقسم وحده)،
+ * والتحققُ الذاتي من بنود الفحوص السابقة (ما زال فرقُه يُثبَت؛ يجري بعد الفحص بطريقٍ مستقلّ).
+ * وعند الدخول يظهر آخرُ فحصٍ محفوظ، وبعد الفحص الجديد ما زال وما بقي وما جدّ عنه.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle, ArrowLeft, BookOpen, CalendarDays, CheckCircle2, Clock3, Eye, FileSearch, FileText, Hourglass, Info, MapPin, RefreshCw, Save, ScanLine, Send, ShieldCheck, UploadCloud, UserRound, X,
+  AlertTriangle, ArrowLeft, BookOpen, CalendarDays, CheckCircle2, ClipboardCheck, History, Clock3, Eye, FileSearch, FileText, Hourglass, Info, MapPin, RefreshCw, Save, ScanLine, Send, ShieldCheck, UploadCloud, UserRound, X,
 } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import { interruptedImportMessage } from "../utils/importStreamFailure";
+import { buildRequestItems, type RegistrarRequestDoc } from "../utils/registrarRequest";
+import { requestDay } from "./RegistrarRequests";
 import { looksForeign, slimPdfRow, type FieldDelta, type FindingGroup, type RegistrarCheckResult, type RegistrarFinding } from "../utils/registrarCheck";
 import { PrimaryButton, SecondaryButton } from "./ui";
 import CourseTags from "./CourseTags";
@@ -114,6 +117,13 @@ function Card({ finding, onOpen }: { key?: React.Key; finding: RegistrarFinding;
   );
 }
 
+/** يفتح «الاستعلامات ← مطابقة التسجيل» (العدسة تُطلب مرةً وتُقرأ عند فتح الاستعلامات). */
+function openMatchReport() {
+  try { sessionStorage.setItem("schedule-report-lens", "registrar"); } catch { /* تخزينٌ محجوب: تُفتح الاستعلامات على عدستها */ }
+  window.history.pushState(window.history.state, "", "/FSchedule/MainReport");
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
 export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpenAppointment, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [dragging, setDragging] = useState(false);
@@ -121,6 +131,19 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
   const [saving, setSaving] = useState<"idle" | "busy" | "saved">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [verified, setVerified] = useState<{ confirmed: number; reopened: number } | null>(null);
+  /* آخرُ فحصٍ محفوظ لهذا الفصل: يظهر عند الدخول، ويُقارَن به الفحصُ الجديد قبل حفظه. */
+  const [latest, setLatest] = useState<RegistrarRequestDoc | null>(null);
+  const [baseline, setBaseline] = useState<RegistrarRequestDoc | null>(null);
+  const loadLatest = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/schedules/registrar-requests?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" });
+      const body = response.ok ? await response.json() : null;
+      const doc = Array.isArray(body?.requests) ? (body.requests[0] as RegistrarRequestDoc | undefined) : undefined;
+      setLatest(doc || null);
+      return doc || null;
+    } catch { setLatest(null); return null; }
+  }, [collegeId, sectionId, termId]);
+  useEffect(() => { void loadLatest(); }, [loadLatest]);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const resultRef = useRef<HTMLDivElement | null>(null);
@@ -222,6 +245,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
       const numbering = rows.length && !result.empty && !looksForeign(result) ? await align(rows, controller.signal) : null;
       /* الفروقُ تُعرض بالأرقام بعد المطابقة. */
       if (numbering?.changed) result = await compare(rows, controller.signal);
+      setBaseline(latest);
       setPhase({ kind: "done", result, notes, rows, numbering });
       /* التحقق الذاتي: بنودٌ شطبها التسجيل في طلبٍ سابق تُقابَل بهذا الملف («تأكّد» أو تعود مفتوحة). */
       if (rows.length) {
@@ -233,7 +257,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
       if (error?.name === "AbortError") return;
       setPhase({ kind: "failed", message: String(error?.message || "تعذّرت قراءة الملف") });
     }
-  }, [collegeId, sectionId, termId, compare, align]);
+  }, [collegeId, sectionId, termId, compare, align, latest]);
 
   const pick = (files: FileList | null) => { const file = files?.[0]; if (file) void readFile(file); };
   const reset = () => { abortRef.current?.abort(); setPhase({ kind: "idle" }); setSaving("idle"); setSaveError(null); setVerified(null); if (inputRef.current) inputRef.current.value = ""; };
@@ -247,10 +271,22 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
         body: JSON.stringify({ collegeId, sectionId, termId, fileName: phase.notes.fileName, rows: phase.rows }),
       });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(String(body?.error || "تعذّر حفظ الطلب"));
+      if (!response.ok) throw new Error(String(body?.error || "تعذّر الحفظ في التقرير"));
       setSaving("saved");
-    } catch (error: any) { setSaving("idle"); setSaveError(String(error?.message || "تعذّر حفظ الطلب")); }
+      void loadLatest();
+    } catch (error: any) { setSaving("idle"); setSaveError(String(error?.message || "تعذّر الحفظ في التقرير")); }
   };
+
+  /* ما زال وما بقي وما جدّ عن آخر فحصٍ محفوظ، بمفاتيح البنود نفسها التي يحفظها التقرير. */
+  const drift = useMemo(() => {
+    if (phase.kind !== "done" || !baseline || phase.result.empty) return null;
+    const now = new Set<string>(buildRequestItems(phase.result).map(item => String(item.id)));
+    const before = new Set<string>((baseline.items || []).map(item => String(item.id)));
+    let gone = 0, kept = 0, fresh = 0;
+    for (const id of before) (now.has(id) ? kept++ : gone++);
+    for (const id of now) if (!before.has(id)) fresh++;
+    return { gone, kept, fresh, day: requestDay(baseline.at) };
+  }, [phase, baseline]);
 
   const skipped = useMemo(() => {
     if (phase.kind !== "done") return [] as Array<[string, number]>;
@@ -283,6 +319,16 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
 
       {phase.kind === "idle" || phase.kind === "failed" ? (
         <>
+          {latest ? (
+            <div className="rpc-last" role="status">
+              <History aria-hidden="true" />
+              <p>
+                <strong>آخر فحص محفوظ: {requestDay(latest.at)}</strong>
+                <span><bdi dir="auto">{latest.fileName}</bdi> · {countOf((latest.items || []).length, AR.difference)}</span>
+              </p>
+              <SecondaryButton type="button" data-guide-ignore="يفتح تقرير المطابقة في الاستعلامات — لا يغيّر شيئاً" onClick={openMatchReport}><ClipboardCheck aria-hidden="true" /> افتح التقرير</SecondaryButton>
+            </div>
+          ) : null}
           {phase.kind === "failed" ? <p className="rpc-alert" data-tone="error" role="alert"><AlertTriangle aria-hidden="true" />{phase.message}</p> : null}
           <div
             className="rpc-drop" data-over={dragging || undefined}
@@ -354,9 +400,19 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
           {verified ? (
             <p className="rpc-alert" data-tone={verified.reopened ? "warning" : "ok"} role="status">
               <ShieldCheck aria-hidden="true" />
-              {verified.confirmed ? `${countOf(verified.confirmed, AR.item)} شطبها التسجيل وتأكّدت من هذا الملف.` : ""}
+              {verified.confirmed ? `${countOf(verified.confirmed, AR.item)} من الفحوص السابقة زال فرقُها في هذا الملف.` : ""}
               {verified.confirmed && verified.reopened ? " " : ""}
               {verified.reopened ? `${countOf(verified.reopened, AR.item)} شُطبت ولم تظهر في الملف، فعادت مفتوحة.` : ""}
+            </p>
+          ) : null}
+
+          {drift ? (
+            <p className="rpc-drift" role="status">
+              <History aria-hidden="true" />
+              <span>عن آخر فحص ({drift.day}):</span>
+              <b data-tone="ok"><bdi dir="ltr">{drift.gone}</bdi> زالت</b>·
+              <b data-tone="warn"><bdi dir="ltr">{drift.kept}</bdi> بقيت</b>·
+              <b data-tone="new"><bdi dir="ltr">{drift.fresh}</bdi> جديدة</b>
             </p>
           ) : null}
 
@@ -391,11 +447,17 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
           ))}
 
           {saveError ? <p className="rpc-alert" data-tone="error" role="alert"><AlertTriangle aria-hidden="true" />{saveError}</p> : null}
-          {saving === "saved" ? <p className="rpc-alert" data-tone="ok" role="status"><CheckCircle2 aria-hidden="true" />حُفظ الطلب في «تغييرات الجدول»، ويراه التسجيل في وارده.</p> : null}
+          {saving === "saved" ? (
+            <div className="rpc-alert rpc-saved" data-tone="ok" role="status">
+              <CheckCircle2 aria-hidden="true" />
+              <span>حُفظ في تقرير المطابقة بتاريخ اليوم.</span>
+              <SecondaryButton type="button" data-guide-ignore="يفتح تقرير المطابقة في الاستعلامات — لا يغيّر شيئاً" onClick={openMatchReport}><ClipboardCheck aria-hidden="true" /> افتح التقرير</SecondaryButton>
+            </div>
+          ) : null}
           <footer className="rpc-foot">
             {actionable && !phase.result.empty && !looksForeign(phase.result) ? (
-              <PrimaryButton type="button" disabled={saving !== "idle"} data-guide-ignore="يحفظ طلب التعديل للتسجيل تحت «تغييرات الجدول» — فعلٌ صريح لصاحب الجدول، والفحص نفسه لا يكتب" onClick={() => void save()}>
-                <Save aria-hidden="true" /> {saving === "saved" ? "حُفظ الطلب" : saving === "busy" ? "يحفظ…" : "احفظ طلب التعديل"}
+              <PrimaryButton type="button" disabled={saving !== "idle"} data-guide-ignore="يحفظ هذا الفحص في تقرير المطابقة بالاستعلامات — فعلٌ صريح لصاحب الجدول، والفحص نفسه لا يكتب" onClick={() => void save()}>
+                <Save aria-hidden="true" /> {saving === "saved" ? "حُفظ في التقرير" : saving === "busy" ? "يحفظ…" : "احفظ في تقرير المطابقة"}
               </PrimaryButton>
             ) : null}
             <SecondaryButton type="button" data-guide-ignore="يفتح اختيار ملفٍّ آخر للفحص — لا يغيّر شيئاً" onClick={reset}><RefreshCw aria-hidden="true" /> افحص ملفاً آخر</SecondaryButton>

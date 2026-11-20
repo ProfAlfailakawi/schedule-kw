@@ -251,3 +251,18 @@
 
 /* ── شعبةٌ جديدة لم يظهر رقمها المرجعي بعد: علامةٌ هادئة بجانب رقمها ── */
 .awaiting-crn{display:inline-flex;align-items:center;padding:1px 8px;border:1px dashed var(--line-strong);border-radius:var(--r-full);color:var(--muted);font-size:.72rem;font-weight:600;white-space:nowrap;line-height:1.6}
+
+/* آخرُ فحصٍ محفوظ عند الدخول، وما تغيّر عنه بعد الفحص، وتأكيدُ الحفظ مع طريق التقرير */
+.rpc-last{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;margin-block-end:var(--s3);border:1px solid color-mix(in srgb,var(--accent) 26%,var(--line));border-radius:var(--r-lg);background:var(--accent-softer)}
+.rpc-last>svg{inline-size:20px;block-size:20px;color:var(--accent);flex:none}
+.rpc-last p{display:grid;gap:2px;margin:0;flex:1;min-inline-size:0}
+.rpc-last p span{color:var(--muted);font-size:.84rem;overflow-wrap:anywhere}
+.rpc-last .btn,.rpc-saved .btn{min-block-size:44px;display:inline-flex;align-items:center;gap:6px}
+.rpc-last .btn svg,.rpc-saved .btn svg{inline-size:16px;block-size:16px}
+.rpc-drift{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:10px 14px;border-radius:var(--r-md);background:var(--surface-3);color:var(--ink-2);font-size:.9rem}
+.rpc-drift>svg{inline-size:16px;block-size:16px;color:var(--brass)}
+.rpc-drift b[data-tone="ok"]{color:var(--success)}
+.rpc-drift b[data-tone="warn"]{color:var(--warning)}
+.rpc-drift b[data-tone="new"]{color:var(--info)}
+.rpc-saved{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rpc-saved>span{flex:1;min-inline-size:12ch}
