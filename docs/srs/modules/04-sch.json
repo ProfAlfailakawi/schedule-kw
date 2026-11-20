@@ -133,7 +133,9 @@
     "src/components/SpecialSectionBuilder.tsx",
     "src/components/PracticalMark.tsx",
     "src/server/core/specialSection.ts",
-    "src/server/demoSpecialNatureSeed.ts"
+    "src/server/demoSpecialNatureSeed.ts",
+    "src/server/demoRegistrarReportSeed.ts",
+    "src/server/demoWhatChangedSeed.ts"
   ],
   "screens": [
     {

@@ -28,6 +28,8 @@ import { seedDemoSectionRequests } from "../demoSectionRequestsSeed";
 import { seedDemoActualDemand } from "../demoActualDemandSeed";
 import { seedDemoTrainingPhase } from "../demoTrainingSeed";
 import { seedDemoSpecialNature } from "../demoSpecialNatureSeed";
+import { seedDemoRegistrarReports } from "../demoRegistrarReportSeed";
+import { seedDemoWhatChanged } from "../demoWhatChangedSeed";
 import { demoActivityTrail } from "../../db/demoActivityTrail";
 import { dayKeysOf, DAY_LETTERS, requestItemFromRow } from "../../utils/instructorRequestItems";
 import { adminSetPasswordFields, claimPasswordReset, currentPasswordWaived, decidePasswordChange, INITIAL_PASSWORD_EXPIRED, initialPasswordExpired, initialPasswordMark, LEGACY_SHARED_PASSWORD, passwordResetApplies, passwordResetId, type PasswordResetRecord, TEMPORARY_PASSWORD_EXPIRED, TEMPORARY_PASSWORD_USED } from "../accountPassword";
@@ -202,6 +204,10 @@ function scheduleDemoExtras(sessionId: string): void {
     /* مقررٌ نظريٌّ وعمليّ بشعبةٍ واحدة (أحد·ثلاثاء نظري، خميس عملي) لأستاذ «جرّب كأستاذ»: بعد مرحلة التدريب
        (التي تُسند أحدثَ الصفوف إلى المدرّبَين) فلا تُفرَّق شعبتُه بين أستاذين. */
     await run("special nature", seedDemoSpecialNature);
+    /* «مطابقة التسجيل»: ثلاثةُ تقارير مؤرَّخة في الاستعلامات (نُفِّذ، جزئيّ، جارٍ). */
+    await run("registrar reports", seedDemoRegistrarReports);
+    /* «ماذا غيّرنا؟»: لقطتان قبل الجدول الجاري، فتُفتح الحصيلةُ بتعديلاتٍ من كل نوع. */
+    await run("what changed", seedDemoWhatChanged);
     /* «الطلب الفعلي» المحفوظ بالنسختين، من مقررات الصندوق ومواعيده: تخطيط الشعب ونبض الطلبة لا يُفتحان فارغين. */
     await run("actual demand", seedDemoActualDemand);
     /* «👣 الأثر»: أسبوعُ عملٍ محكيّ لكل فريق، على مواعيد القسم الجارية نفسها (فتظهر البصمةُ عليها). */
