@@ -1,0 +1,42 @@
+/* ==========================================================================
+   الطبقات العائمة على iPhone Duo: الدرج، والتلميحات، والأزرار العائمة.
+   - الدرج مفتوحاً: لا زرّ عائم فوق الستارة (تبادل القاعات، شريط الأدوات، المرشد) — تعود عند إغلاقه.
+     هذه القاعدة صحيحةٌ على كل شاشةٍ ضيّقة، فلا تُقيَّد بالدوو: لا شيء يطفو فوق درجٍ مفتوح.
+   - الشاشة الخارجية عرضاً (ارتفاعٌ قصير): روابط الصفحات تأتي بعد الشعار مباشرة، قبل لوحة التجربة والبحث،
+     فتُرى الصفحات حين يُفتح الدرج بلا تمرير.
+   ========================================================================== */
+@media screen and (max-width:1000px){
+  body:has(.sidebar.open) :is(.hall-barter-inbox:not(.hall-barter-inbox-decision),.schedule-dock,.smart-guide-fab,.mobile-bottom-dock){
+    visibility:hidden;pointer-events:none;
+  }
+}
+@media screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"] .sidebar.open>*{order:2}
+  html[data-device="duo"] .sidebar.open>.sidebar-brand{order:0}
+  html[data-device="duo"] .sidebar.open>.side-nav{order:1}
+}
+/* التلميحات (الأسود، .apb-pop) لا تتجاوز عرض الشاشة؛ والإزاحة الأفقية تحسبها ApprovalBar عند الفتح. */
+html[data-device="duo"] .apb-pop{max-inline-size:min(320px,calc(100vw - 24px))}
+/* الشاشة الداخلية عرضاً: لوحة المرشد («اسأل عمّا تريد إنجازه») ولوحة الإشعارات في اللوح الأول وحده، تحت زرّيهما،
+   لا ورقةً تعبر المفصل. */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  html[data-device="duo"] .guide-panel{
+    left:auto !important;right:env(safe-area-inset-right) !important;
+    width:calc(50vw - 22px - env(safe-area-inset-right)) !important;max-width:none !important;
+  }
+}
+/* الداخلية طولاً في Safari: صفٌّ سفليٌّ واحد كالشاشة الخارجية — التبويبات يميناً، والأدوات («موعد» والبحث والتركيز)
+   و«تبادل القاعات» يساراً؛ لا شريطان فوق بعض ولا شيء يطفو فوق صفّ الشرائح. */
+@media screen and (orientation:portrait) and (min-width:461px) and (max-width:760px){
+  html[data-device="duo"][data-shell="browser"] body:has(.schedule-dock) .mobile-bottom-dock{left:44%;right:0;width:auto;max-width:none}
+  html[data-device="duo"][data-shell="browser"] .schedule-dock{
+    left:0;right:56%;bottom:0;z-index:56;
+    padding:0 12px env(safe-area-inset-bottom) 68px;
+    height:calc(var(--dock-h) + env(safe-area-inset-bottom));
+    align-items:center;justify-content:center;gap:6px;border-top:1px solid var(--line);
+  }
+  html[data-device="duo"][data-shell="browser"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    left:12px;bottom:calc(env(safe-area-inset-bottom) + (var(--dock-h) - 44px) / 2);
+  }
+  html[data-device="duo"][data-shell="browser"] body:has(.schedule-dock) .content-frame{padding-bottom:calc(var(--dock-h) + 24px + env(safe-area-inset-bottom))}
+}

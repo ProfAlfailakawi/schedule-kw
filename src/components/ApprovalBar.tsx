@@ -1049,13 +1049,24 @@ function InfoTip({ label, tip, open, onToggle, className = "", align, children, 
 }) {
   const id = React.useId();
   const lines = Array.isArray(tip) ? tip.filter(Boolean) : null;
+  /* التلميح المفتوح بالنقر لا يخرج عن حافة الشاشة الضيّقة (الهاتف، وشاشتا الدوو): يُزاح أفقياً بقدر ما يتجاوزها. */
+  const popRef = React.useRef<HTMLSpanElement>(null);
+  const [shift, setShift] = React.useState(0);
+  React.useLayoutEffect(() => {
+    if (!open) { setShift(0); return; }
+    const pop = popRef.current;
+    if (!pop) return;
+    pop.style.translate = "0px";
+    const rect = pop.getBoundingClientRect(), edge = 8, width = document.documentElement.clientWidth;
+    setShift(rect.left < edge ? edge - rect.left : rect.right > width - edge ? width - edge - rect.right : 0);
+  }, [open]);
   return (
     <span className="apb-tip" data-open={open || undefined} data-align={align}>
       <button type="button" className={`apb-tip-target ${className}`.trim()} aria-label={label} aria-describedby={id} aria-expanded={open}
         data-guide-ignore="تلميحُ عنصرٍ مرئيّ في شريط الاعتماد — يُفتح ويُطوى، لا فعل" {...rest} onClick={(event) => { event.stopPropagation(); onToggle(); }}>
         {children}
       </button>
-      <span className="apb-pop" role="tooltip" id={id}>
+      <span className="apb-pop" role="tooltip" id={id} ref={popRef} style={{ translate: `${shift}px` }}>
         {lines ? lines.map((line, index) => <span key={index}>{line}</span>) : tip}
       </span>
     </span>

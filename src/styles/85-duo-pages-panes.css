@@ -1,0 +1,105 @@
+/* ==========================================================================
+   كل الصفحات (غير «الجدول الدراسي» و«موعد جديد») على iPhone Duo — الشاشة الداخلية عرضاً: لوحان والمفصل فجوةٌ بينهما.
+   - اللوح الأول (الصفحة اليمنى، بلونٍ خفيف): شريط التطبيق، ثم عنوان الصفحة المضغوط وحالتها ومرشّحاتها.
+   - اللوح الثاني (الصفحة اليسرى): القائمة أو المحتوى الرئيس (آخر أبناء الصفحة)، يتمرّر وحده.
+   - صفحةٌ قصيرة (ابنان أو أقل) تتوزّع على اللوحين عمودين متوازنين، فلا يبقى لوحٌ فارغ.
+   - الفهرس لا يأخذ لوحاً دائماً: يُفتح من زرّ القائمة في شريط التطبيق.
+   الدوو وحده ([data-device="duo"])؛ iPhone وiPad والوضعيات الأخرى لا تتغيّر.
+   ========================================================================== */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)){
+    --pane-gap:44px;
+    --pane-r:calc(50vw - var(--pane-gap) / 2 - env(safe-area-inset-right));
+    --pane-l:calc(50vw - var(--pane-gap) / 2 - env(safe-area-inset-left));
+    --pane-tint:color-mix(in srgb,var(--accent) 7%,var(--canvas));
+    background:linear-gradient(to right,var(--canvas) 50%,var(--pane-tint) 50%) fixed;
+  }
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) .app-shell{
+    background:linear-gradient(to right,var(--canvas) 50%,var(--pane-tint) 50%) fixed;
+    display:block;
+  }
+  /* الفهرس درجٌ يُفتح من القائمة فقط. */
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) :is(.sidebar:not(.open),.sidebar-launcher){display:none}
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) .app-main,
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) .content-frame{
+    padding:0 !important;margin:0 !important;max-width:none !important;width:100% !important;background:none;
+  }
+  /* شريط التطبيق فوق اللوح الأول وحده؛ الساعة في عمودها (env) لا تحته. */
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) .mobile-topbar{
+    display:grid !important;position:fixed;top:0;right:0;left:auto;z-index:50;
+    width:calc(50vw - var(--pane-gap) / 2);height:calc(60px + env(safe-area-inset-top));
+    padding:env(safe-area-inset-top) calc(12px + env(safe-area-inset-right)) 0 12px;
+    background:var(--pane-tint);border:0;box-shadow:none;box-sizing:border-box;
+  }
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) .notify-bell,
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) .smart-guide-fab{
+    position:fixed;top:calc(8px + env(safe-area-inset-top));right:auto;z-index:51;
+    width:44px;height:44px;min-width:44px;padding:0;display:grid;place-items:center;
+    background:none !important;box-shadow:none !important;border:0 !important;
+  }
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) .notify-bell{left:calc(50vw + var(--pane-gap) / 2 + 60px)}
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) .smart-guide-fab{left:calc(50vw + var(--pane-gap) / 2 + 106px);color:var(--accent)}
+  html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) .smart-guide-fab .smart-guide-fab-mark{background:none;box-shadow:none;color:var(--accent)}
+
+  /* ── الصفحة: لوحان بشبكة، وآخر أبنائها (المحتوى الرئيس) في اللوح الثاني يتمرّر وحده. ── */
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"]){
+    display:grid;grid-template-columns:var(--pane-r) var(--pane-l);column-gap:var(--pane-gap);row-gap:12px;
+    align-items:start;align-content:start;grid-auto-flow:row dense;
+    padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left);margin:0;max-width:none;width:100%;box-sizing:border-box;
+  }
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"])>:not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"]){
+    grid-column:1;min-width:0;max-width:none;margin-inline:20px;box-sizing:border-box;
+  }
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"])>:first-child:not(.sr-only),
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"])>.sr-only+*{
+    margin-top:calc(64px + env(safe-area-inset-top));
+  }
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"])>:last-child{margin-bottom:28px}
+  /* صفحةٌ لها ثلاثة أبناء فأكثر: الأخير هو القائمة/المحتوى الرئيس، في اللوح الثاني بارتفاع الشاشة.
+     النوافذ والأدراج والستائر (CatalogFormDrawer وأمثاله، تُرسم بعد المحتوى بلا بوابة) لا تُعدّ: تبقى عائمةً كما هي. */
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen):not(.schedule-page,.schedule-editor,[role="dialog"]):has(>:nth-child(3 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"])))>:nth-last-child(1 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"],.tl-save)):not(:first-child){
+    grid-column:2;grid-row:1 / span 60;position:sticky;top:0;align-self:start;
+    height:100svh;max-height:100svh;overflow:auto;overscroll-behavior:contain;
+    margin:0;padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+    border-radius:0;border-block:0;border-inline:0;box-shadow:none;
+  }
+  /* صفحةٌ قصيرة (ابنان أو أقل، أو «من نحن»): عمودان متوازنان يملآن اللوحين. */
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"]):not(:has(>:nth-child(3 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"])))),
+  html[data-device="duo"] #root .content-frame>.about-editorial{
+    display:block;column-count:2;column-gap:var(--pane-gap);column-fill:balance;
+    padding-top:calc(64px + env(safe-area-inset-top));padding-bottom:28px;
+  }
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"]):not(:has(>:nth-child(3 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"]))))>*,
+  html[data-device="duo"] #root .content-frame>.about-editorial>*{margin-top:0 !important;margin-bottom:12px}
+  html[data-device="duo"] #root .content-frame>.about-editorial>*{break-inside:avoid}
+
+  /* العنوان سطرٌ صغير في اللوح الأول. */
+  html[data-device="duo"] #root .content-frame .page-heading:not(.schedule-editor .page-heading){
+    display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;
+    padding:0;min-height:0;text-align:start;
+  }
+  html[data-device="duo"] #root .content-frame .page-heading:not(.schedule-editor .page-heading)::after,
+  html[data-device="duo"] #root .content-frame .page-heading:not(.schedule-editor .page-heading) .page-eyebrow,
+  html[data-device="duo"] #root .content-frame .page-heading:not(.schedule-editor .page-heading) .page-heading-copy>p{display:none}
+  html[data-device="duo"] #root .content-frame .page-heading:not(.schedule-editor .page-heading) h1{font-size:20px;line-height:1.3;margin:0}
+  html[data-device="duo"] #root .content-frame .page-heading:not(.schedule-editor .page-heading) .page-heading-action .btn{min-height:40px;padding-inline:16px;border-radius:999px;font-size:14px}
+  /* الجداول العريضة تتمرّر داخل لوحها، لا تعبر المفصل. */
+  html[data-device="duo"] #root .content-frame>.content-stack:not(.schedule-page,.schedule-editor) :is(.table-wrap,.table-scroll,table){max-width:100%}
+}
+/* انتظار الشاشة (.view-loading): هيكلٌ في كل لوح، لا بطاقاتٌ تعبر المفصل. */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  html[data-device="duo"] #root .content-frame>.view-loading{
+    display:grid;grid-template-columns:var(--pane-r) var(--pane-l);column-gap:var(--pane-gap);row-gap:12px;align-content:start;
+    padding:calc(64px + env(safe-area-inset-top)) env(safe-area-inset-right) 0 env(safe-area-inset-left);box-sizing:border-box;width:100%;
+  }
+  html[data-device="duo"] #root .content-frame>.view-loading>*{margin-inline:20px;min-width:0;width:auto;max-width:none}
+  html[data-device="duo"] #root .content-frame>.view-loading>span{grid-column:1 / -1;justify-self:start;margin-inline:calc(25vw - 20px)}
+}
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  /* شارة «تجريبي · الإدارة للعرض فقط» في أعلى اللوح الثاني، لا على المفصل. */
+  html[data-device="duo"][data-demo-admin-readonly="true"] body:not(:has(.schedule-page,.schedule-editor)) .app-main::before{
+    position:fixed !important;top:calc(8px + env(safe-area-inset-top)) !important;left:calc(env(safe-area-inset-left) + var(--pane-l) / 2) !important;
+    transform:translateX(-50%);margin:0 !important;
+  }
+  /* شريط الحفظ (.tl-save) ليس «المحتوى الرئيس»: يُستثنى في قاعدة اللوح الثاني أعلاه فيأخذ اللوحَ ما قبله، ويبقى هو في اللوح الأول. */
+}
