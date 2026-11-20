@@ -102,3 +102,9 @@ html[data-device="duo"] .smart-guide-fab.icon-only svg{width:22px;height:22px}
 }
 /* ما يظهر خلف شريط Safari العائم هو خلفية الجذر: بلون الصفحة لا أبيض. */
 html[data-device="duo"],html[data-device="duo"] body{background-color:var(--canvas)}
+
+/* العمود الواحد على الدوو (الخارجية طولاً وعرضاً، والداخلية طولاً): بطاقة الكلية والقسم والفصل أوّل ما يُقرأ
+   بعد العنوان، قبل التنبيهات واللوحة؛ فأنت تعرف ما الذي تنظر إليه قبل أن تقرأه (طلب المالك 2026-11-20). */
+@media screen and (orientation:portrait),screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"] #root .content-stack.schedule-page>.schedule-control{order:-4}
+}

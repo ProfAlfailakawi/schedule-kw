@@ -170,6 +170,9 @@
   .schedule-editor.is-studio .appt-step>.appt-step-head>.qs-wrap{grid-column:3;grid-row:1;justify-self:end}
   .schedule-editor.is-studio .appt-step>.appt-step-head>.appt-was{grid-column:2 / 4;grid-row:2;justify-self:start;margin:0;max-width:100%;width:auto;min-width:0}
   .schedule-editor.is-studio .appt-step>.appt-step-head>.appt-was>bdi{min-width:0;max-width:100%}
+  /* «جدول الأستاذ» سطرٌ تحت السؤال داخل البطاقة، لا في عمود الـ36px فيخرج من حافتها. */
+  .schedule-editor.is-studio .appt-step>.appt-step-head>.instructor-tools{grid-column:2 / 4;grid-row:2;justify-self:start;min-width:0;max-width:100%}
+  .schedule-editor.is-studio .appt-step>.appt-step-head>.instructor-tools .mini-week-toggle{white-space:nowrap;max-width:100%}
 }
 
 /* الخطوة المقفلة بلا ترويسةٍ وسيطة: أبناؤها المباشرون يصفّهم flex بالمظهر نفسه */
