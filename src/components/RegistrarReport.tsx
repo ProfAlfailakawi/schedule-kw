@@ -177,7 +177,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
     <section className="rpr" aria-label="تقرير مطابقة التسجيل">
       {/* ── أرشيف التقارير بتواريخها ── */}
       <div className="rpr-archive">
-        <h3><History aria-hidden="true" /> تقارير المطابقة <small>{countOf(docs.length, AR.report)}</small></h3>
+        <h3><History aria-hidden="true" /> تقارير المطابقة <small dir="ltr">{docs.length}</small></h3>
         <div className="rpr-timeline" role="tablist" aria-label="تقارير مطابقة التسجيل بتواريخها">
           {docs.map(doc => {
             const p = requestProgress(doc.items);
@@ -223,7 +223,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
 
           {/* ── المؤشرات ── */}
           <div className="rpr-kpis">
-            <div className="rpr-kpi" data-tone="total"><ArrowLeftRight aria-hidden="true" /><b>{total}</b><span>فرقٌ بالمجموع</span></div>
+            <div className="rpr-kpi" data-tone="total"><ArrowLeftRight aria-hidden="true" /><b>{total}</b><span>المجموع</span></div>
             <div className="rpr-kpi" data-tone="done"><CheckCircle2 aria-hidden="true" /><b>{progress.done}</b><span>نُفّذت</span></div>
             <div className="rpr-kpi" data-tone="open"><CircleDashed aria-hidden="true" /><b>{progress.open}</b><span>تنتظر</span></div>
             <div className="rpr-kpi" data-tone="sure"><ShieldCheck aria-hidden="true" /><b>{progress.confirmed}</b><span>تأكّدت من الملف</span></div>

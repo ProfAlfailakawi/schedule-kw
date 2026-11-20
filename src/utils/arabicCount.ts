@@ -180,7 +180,6 @@ export const AR = {
   edit:        { one: "تعديل", two: "تعديلان", few: "تعديلات", many: "تعديلاً" },
   signature:   { one: "توقيع", two: "توقيعان", few: "توقيعات", many: "توقيعاً" },
   item:        { one: "بند", two: "بندان", few: "بنود", many: "بنداً" },
-  report:      { one: "تقرير", two: "تقريران", few: "تقارير", many: "تقريراً" },
   slot:        { one: "خانة", two: "خانتان", few: "خانات", many: "خانة" },
   bond:        { one: "ارتباط", two: "ارتباطان", few: "ارتباطات", many: "ارتباطاً" },
   booking:     { one: "حجز", two: "حجزان", few: "حجوزات", many: "حجزاً" },
