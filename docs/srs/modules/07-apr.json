@@ -79,7 +79,8 @@
     "src/styles/75-registrar-report.css",
     "src/utils/registrarNumbering.ts",
     "src/server/core/sectionNumbers.ts",
-    "src/components/RegistrarNumbering.tsx"
+    "src/components/RegistrarNumbering.tsx",
+    "src/components/RegistrarCheckNote.tsx"
   ],
   "screens": [
     {
@@ -3159,6 +3160,53 @@
         "tests": [
           "tests/registrar-numbering-audit.ts",
           "tests/registrar-numbering-route-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-APR-043",
+      "kind": "functional",
+      "title": {
+        "ar": "تقرير المطابقة على جدولنا الآن، وتنبيه المحرّر، وقراءة «تغييرات الجدول» بنوعٍ واحد",
+        "en": "The match report against our schedule now, the editor notice, and reading schedule changes one kind at a time"
+      },
+      "text": {
+        "ar": "يجب أن تُحفظ مع كل فحصٍ محفوظ صفوفُ ملف التسجيل المقروءة مختصرةً (بلا أرقام مدنية) في وثيقةٍ جانبية بمعرّفه تُحذف معه، وأن يُحسب آخرُ تقريرٍ في «الاستعلامات ← مطابقة التسجيل» عند فتحه على جدولنا لحظتها بتلك الصفوف (GET /api/schedules/registrar-requests/:id/live، قراءةٌ محضة بصلاحية القراءة ونطاقها)، فيظهر ما عدّلناه بعد الفحص دون رفع الملف ثانية: سطرُ «محسوبٌ على جدولكم الآن، مقابل ملف التسجيل المرفوع في …» ومعه عددُ ما تغيّر في جدولنا منذ الفحص وعددُ ما زال، ومبدّلٌ «الآن / يوم الفحص» يُبقي الفحص المحفوظ شاهداً كما هو؛ والبندُ الذي استجدّ بعد الفحص يُعلَّم «جديد بعد الفحص» والذي تغيّرت قيمُه «تغيّر بعد الفحص» ولا يحمل «تأكّد» القديم، والقائمُ يحتفظ بحالته؛ وتذكر الورقةُ المطبوعة «جدولنا بتاريخ» و«ملفكم بتاريخ». والفحصُ المحفوظ قبل هذا لا صفوف له فيُعرض كما حُفظ مع دعوةٍ إلى رفع الملف مرة. وحين يعدّل المحرّرُ شعبةً قرأها آخرُ فحصٍ محفوظ (بالرقم المرجعي، وإلا بالمقرر والشعبة؛ GET /api/schedules/registrar-requests/keys) يظهر تحت شريط «تراجع» سطرُ «هذه الشعبة في فحص التسجيل (تاريخه)، ويظهر تعديلها في تقرير المطابقة» مع «افتح التقرير». وفي «تغييرات الجدول» مرشّحٌ بنوع التغيير (الكل، معدّل، مضاف، محذوف) فوق «ما تحرّك»، وزرّا «جرّب بديلاً» و«علّق على خانة» في سطرٍ صغيرٍ واحد على طرف البطاقة لا شريطين بعرضها.",
+        "en": "Every saved check shall also store the Registration file rows it read, slimmed and without civil IDs, in a side document under its id that is deleted with it, and the latest report in Queries, «Registration match», shall be computed on opening against our schedule at that moment from those rows (GET /api/schedules/registrar-requests/:id/live, read-only, with the reading permission and scope), so edits made after the check appear without uploading the file again: a line «computed on your schedule now, against the Registration file uploaded on …» with how many of our changes happened since the check and how many items went away, and a «now / check day» switch that keeps the saved check unchanged as evidence; an item new since the check is tagged «new after the check», one whose values changed is tagged «changed after the check» and drops an old confirmation, and the others keep their state; the printed sheet states «our schedule as of» and «your file as of». A check saved before this has no rows, so it is shown as saved with an invitation to upload the file once. When the editor changes a section the latest saved check read (by reference number, otherwise by course and section; GET /api/schedules/registrar-requests/keys), a line under the undo bar says the section is in the Registration check (its date) and its edit will appear in the match report, with «Open the report». In schedule changes a filter by kind (all, changed, added, removed) sits above «what moved», and the «try an alternative» and «comment on a field» buttons sit on one small line at the card edge instead of two full-width bars."
+      },
+      "rationale": {
+        "ar": "ملفُّ التسجيل لا يتغيّر بعد رفعه، وجدولُنا يتغيّر: تقريرٌ مجمّد على لحظة الحفظ أخفى عن رئيس القسم تعديله بعد الفحص (المالك 2026-11-20).",
+        "en": "The Registration file does not change after upload while our schedule does: a report frozen at the save moment hid the head's own edit made after the check (owner, 2026-11-20)."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "liveRequestItems: بندٌ لم يعد فرقاً يُعدّ زائلاً، والقائمُ يحتفظ بشطبه، والجديدُ «new»، والمتغيّرُ «changed» بلا «تأكّد» قديم؛ وصفوفُ الملف تُحفظ مع الفحص وتُحذف معه.",
+          "en": "liveRequestItems: an item no longer different counts as gone, an existing one keeps its tick, a new one is «new», a changed one is «changed» without an old confirmation; the file rows are stored with the check and deleted with it."
+        },
+        {
+          "ar": "في التجربة: تعديلُ قاعة شعبةٍ مطابقة ثم فتحُ التقرير يُظهر بندها «جديد بعد الفحص» وسطرَ «منذ الفحص: تغيير واحد في جدولنا».",
+          "en": "In the demo: moving a matched section to another room and opening the report shows its item «new after the check» and the line «since the check: one change in our schedule»."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/registrarRequest.ts",
+          "src/server/routes/scheduleImportRoutes.ts#/api/schedules/registrar-requests/:id/live",
+          "src/server/routes/scheduleImportRoutes.ts#/api/schedules/registrar-requests/keys",
+          "src/components/RegistrarReport.tsx",
+          "src/components/RegistrarCheckNote.tsx",
+          "src/components/ScheduleChanges.tsx",
+          "src/server/demoRegistrarReportSeed.ts"
+        ],
+        "tests": [
+          "tests/registrar-report-audit.ts"
         ]
       },
       "inferred": false

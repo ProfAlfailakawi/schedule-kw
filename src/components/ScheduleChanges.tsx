@@ -714,6 +714,8 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
   /* «ما تحرّك» مدخلُ المراجعة السريعة، و«الجدول كامل» ما يطلبه القسم: أن يرى
      جدولَه كلَّه والملاحظات في مواضعها، لا الملاحظات وحدها. */
   const [view, setView] = useState<"changes" | "full">("changes");
+  /* قراءةُ نوعٍ واحد (معدّل، مضاف، محذوف): التسجيلُ ينفّذ نوعاً نوعاً. */
+  const [kindOnly, setKindOnly] = useState<DiffEntry["kind"] | "all">("all");
   const [noteDraft, setNoteDraft] = useState<{ scheduleId: number; field: NoteField } | null>(null);
   const [noteText, setNoteText] = useState("");
   /* «جرّب بديلاً»: على الموعد المتغيّر في جدولٍ حيّ؛ لا في فصلٍ مضى ولا على موعدٍ حُذف. */
@@ -735,6 +737,8 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
       compareCourseSection({courseCode:a.display.courseCode,sectionCode:a.display.sectionCode,courseName:a.display.course,id:a.display.scheduleId}, {courseCode:b.display.courseCode,sectionCode:b.display.sectionCode,courseName:b.display.course,id:b.display.scheduleId})
     );
   }, [report?.diff.entries]);
+  /* مرشّحُ نوعٍ لم يعد في التقرير (جولةٌ أخرى أو أساسٌ آخر) لا يُخفي القائمة: يعود «الكل». */
+  const activeKind = kindOnly !== "all" && sortedDiffEntries.some(entry => entry.kind === kindOnly) ? kindOnly : "all";
   const sortedFullSchedule = useMemo(() => [...(report?.fullSchedule || [])].sort((a, b) =>
     (a.dayOrder ?? 99) - (b.dayOrder ?? 99) ||
     (a.startMinutes ?? 99999) - (b.startMinutes ?? 99999) ||
@@ -884,6 +888,7 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
     if (!(canAnnotate && annotatable) && !notes.length && !canTry) return null;
     return (
       <>
+        {canTry || (canAnnotate && annotatable) ? <div className="changes-row-tools">
         {canTry ? (
           <button type="button" className="changes-try-add" data-guide-ignore="يفتح مكتب «ماذا لو» على هذا الموعد: بدائلُ أماكنَ وأوقاتٍ على نسخةٍ افتراضية، لا يكتب في الجدول" onClick={() => setTryRow({ scheduleId, title: rowTitle })}>
             <Hourglass aria-hidden="true" /> جرّب بديلاً
@@ -894,6 +899,7 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
             <MessageSquarePlus aria-hidden="true" /> علّق على خانة
           </button>
         ) : null}
+        </div> : null}
 
         {notes.length ? (
           <ul className="changes-notes">
@@ -1148,8 +1154,22 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
       ) : sortedDiffEntries.length === 0 ? (
         <EmptyState title="لم يتغيّر شيء" detail="لا فرق بين هذا الجدول وما راجعتَه آخر مرّة — انظر «الجدول كامل» لرؤية المواعيد كلها." />
       ) : (
+        <>
+        {new Set(sortedDiffEntries.map(entry => entry.kind)).size > 1 || activeKind !== "all" ? (
+          <div className="changes-kind-filter" role="group" aria-label="اعرض نوعاً واحداً من التغييرات">
+            <button type="button" aria-pressed={activeKind === "all"} data-guide-ignore="يعرض التغييرات كلها — عرضٌ لا فعل" onClick={() => setKindOnly("all")}>الكل <b>{sortedDiffEntries.length}</b></button>
+            {(["changed", "added", "removed"] as const).map(kind => {
+              const n = sortedDiffEntries.filter(entry => entry.kind === kind).length;
+              return n ? (
+                <button key={kind} type="button" data-kind={kind} aria-pressed={activeKind === kind} data-guide-ignore="يقصر العرض على نوعٍ واحد من التغييرات — عرضٌ لا فعل" onClick={() => setKindOnly(current => current === kind ? "all" : kind)}>
+                  {KIND_LABEL[kind]} <b>{n}</b>
+                </button>
+              ) : null;
+            })}
+          </div>
+        ) : null}
         <div className="changes-table agenda-list" role="table" aria-label="تغييرات الجدول">
-          {sortedDiffEntries.map((entry, index) => (
+          {sortedDiffEntries.filter(entry => activeKind === "all" || entry.kind === activeKind).map((entry, index) => (
             <ScheduleRowCard
               key={`${entry.kind}:${entry.scheduleId}`}
               row={entry.display}
@@ -1162,6 +1182,7 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
             </ScheduleRowCard>
           ))}
         </div>
+        </>
       )}
 
       {/* أزرار القرار في الأسفل: تُضغط بعد القراءة لا قبلها. وتُعرض على الجولة

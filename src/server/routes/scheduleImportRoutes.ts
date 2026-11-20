@@ -28,7 +28,7 @@ import { authorityCourseCode, authorityDepartmentKeys } from "../../utils/author
 import { SCHEDULE_DAY_KEYS, schedulePayloadIssues } from "../core/scheduleRules";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { checkRegistrarPdf, looksForeign, slimPdfRow, type RegistrarCheckResult } from "../../utils/registrarCheck";
-import { buildRequestItems, requestSummary, tickRequestItem, verifyRequestItems, type RegistrarRequestDoc } from "../../utils/registrarRequest";
+import { buildRequestItems, checkCrnKey, checkPairKey, liveRequestItems, requestSummary, tickRequestItem, verifyRequestItems, type LiveRequestView, type RegistrarCheckKeys, type RegistrarRequestDoc } from "../../utils/registrarRequest";
 import { authorityBaselineForScope, authorityDraftForScope, buildAuthorityPdfDiff, buildAuthorityPdfDiffWithHistory } from "../core/authority";
 import { isPowerUser, requireAuth } from "../core/auth";
 import { canReviewSubmissions } from "../../utils/academicRoles";
@@ -54,7 +54,7 @@ function registrarCheckScope(req: AuthenticatedRequest, res: Response) {
   return {collegeId,sectionId,termId,rows:req.body.rows.map(slimPdfRow) as any[]};
 }
 
-async function runRegistrarCheck(collegeId:number,sectionId:number,termId:number,pdfRows:any[]):Promise<RegistrarCheckResult>{
+export async function runRegistrarCheck(collegeId:number,sectionId:number,termId:number,pdfRows:any[]):Promise<RegistrarCheckResult>{
   const [liveRows,instructors,courses,approval,authorityDraft]=await Promise.all([
     Repository.getSchedulesByScope({collegeId,sectionId,termId}),Repository.getInstructors(),Repository.getCourses(),
     readApproval(collegeId,sectionId,termId),authorityDraftForScope(collegeId,sectionId,termId),
@@ -504,7 +504,59 @@ app.post("/api/schedules/registrar-requests", requirePermission(7), async (req: 
     ...(sentRound?{sent:{round:Number(sentRound.number)||0,at:new Date(sentRound.submittedAt).toISOString()}}:{}),
   };
   await Repository.saveFeatureDoc("registrarRequests",doc.id,doc);
+  /* صفوفُ ملف التسجيل المقروءة (مختصرة) في وثيقةٍ جانبية: بها يُعاد حسابُ التقرير على جدولنا متى فُتح،
+     دون رفع الملف ثانية، ولا تُثقل قائمةَ التقارير. */
+  await Repository.saveFeatureDoc("registrarRequestRows",doc.id,{id:doc.id,collegeId,sectionId,termId,at:doc.at,rows:scope.rows});
   res.json({request:doc});
+});
+
+/** صفوفُ ملف التسجيل المحفوظة مع تقرير، بنطاق القارئ وصلاحيته. */
+async function savedRequestRows(req:AuthenticatedRequest,res:Response,id:string){
+  if(!await mayReadRequests(req)){res.status(403).json({error:"ليس لديك صلاحية للوصول إلى هذا القسم"});return null;}
+  const doc=await Repository.getFeatureDoc<RegistrarRequestDoc>("registrarRequests",id);
+  if(!doc){res.status(404).json({error:"التقرير غير موجود."});return null;}
+  if(!isScopeAllowed(req,Number(doc.collegeId),Number(doc.sectionId))){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return null;}
+  const saved=await Repository.getFeatureDoc<{rows?:any[]}>("registrarRequestRows",id);
+  return {doc,rows:Array.isArray(saved?.rows)?saved!.rows.map(slimPdfRow):null};
+}
+
+/**
+ * ── التقرير على جدولنا الآن: قراءةٌ محضة ──────────────────────────────────────
+ * ملفُّ التسجيل لم يتغيّر، وجدولُنا تغيّر بعد الفحص: يُعاد الحساب بصفوف الملف المحفوظة مقابل الجدول
+ * لحظة الفتح، فيظهر ما عدّلناه بعد الفحص ويخرج ما زال، ويبقى الفحصُ المحفوظ شاهداً كما هو. لا كتابة.
+ */
+app.get("/api/schedules/registrar-requests/:id/live", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control","no-store");
+  const found=await savedRequestRows(req,res,String(req.params.id||""));if(!found)return;
+  if(!found.rows){res.json({live:null,reason:"no-rows"});return;}
+  const {doc}=found;
+  const result=await runRegistrarCheck(Number(doc.collegeId),Number(doc.sectionId),Number(doc.termId),found.rows);
+  if(result.empty){res.json({live:null,reason:"empty"});return;}
+  const {items,gone}=liveRequestItems(doc.items||[],buildRequestItems(result));
+  const live:LiveRequestView={at:new Date().toISOString(),items,counts:result.counts,reviewCount:result.counts.review,gone};
+  res.json({live});
+});
+
+/** مفاتيحُ شعب آخر فحصٍ محفوظ بصفوفه: لينبّه المحرّرُ أن الشعبة التي عُدّلت في فحص التسجيل. */
+app.get("/api/schedules/registrar-requests/keys", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  res.setHeader("Cache-Control","no-store");
+  const collegeId=Number(req.query.collegeId||0),sectionId=Number(req.query.sectionId||0),termId=Number(req.query.termId||0);
+  if(!collegeId||!sectionId||!termId){res.status(400).json({error:"حدد الكلية والقسم والفصل."});return;}
+  if(!await mayReadRequests(req)||!isScopeAllowed(req,collegeId,sectionId)){res.json({keys:null});return;}
+  const docs=(await Repository.listFeatureDocs<RegistrarRequestDoc>("registrarRequests",requestPrefix(termId,collegeId,sectionId)))
+    .sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  for(const doc of docs.slice(0,5)){
+    const saved=await Repository.getFeatureDoc<{rows?:any[]}>("registrarRequestRows",doc.id);
+    if(!Array.isArray(saved?.rows))continue;
+    const crns=new Set<string>(),pairs=new Set<string>();
+    for(const row of saved!.rows){
+      const crn=checkCrnKey(row?.referenceNumber);if(crn)crns.add(crn);
+      if(Number(row?.AdCourseId)&&row?.SCode)pairs.add(checkPairKey(row.AdCourseId,row.SCode));
+    }
+    const keys:RegistrarCheckKeys={at:doc.at,requestId:doc.id,crns:[...crns],pairs:[...pairs]};
+    res.json({keys});return;
+  }
+  res.json({keys:null});
 });
 
 app.get("/api/schedules/registrar-requests", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
@@ -591,6 +643,7 @@ app.delete("/api/schedules/registrar-requests/:id", requirePermission(7), async 
   if(!doc){res.status(404).json({error:"الطلب غير موجود."});return;}
   if(!isScopeAllowed(req,Number(doc.collegeId),Number(doc.sectionId))){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
   await Repository.deleteFeatureDoc("registrarRequests",id);
+  await Repository.deleteFeatureDoc("registrarRequestRows",id).catch(()=>undefined);
   res.json({ok:true});
 });
 

@@ -12,7 +12,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeftRight, CheckCircle2, CircleDashed, ClipboardCheck, FileSpreadsheet, FilePlus2, FilePenLine, FileX2, History, Printer, ScrollText, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { isTheirs, REQUEST_ACTION_LABEL, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem } from "../utils/registrarRequest";
+import { isTheirs, REQUEST_ACTION_LABEL, requestProgress, type LiveRequestView, type RegistrarRequestDoc, type RegistrarRequestItem } from "../utils/registrarRequest";
 import type { RequestAction } from "../utils/registrarCheck";
 import { downloadSheets, exportFileName, type ExportSheet } from "../utils/lensExport";
 import { ItemLine, printRegistrarRequest, RequestSheet, requestDay, requestStamp } from "./RegistrarRequests";
@@ -113,8 +113,29 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
   useEffect(() => { setDocs(null); setOpenId(null); setError(null); void load(); }, [load]);
 
   const index = useMemo(() => (docs || []).findIndex(doc => doc.id === openId), [docs, openId]);
-  const open = index >= 0 ? docs![index] : null;
+  const saved = index >= 0 ? docs![index] : null;
   const previous = index >= 0 ? docs![index + 1] || null : null;
+
+  /* ── آخرُ تقريرٍ يُقرأ على جدولنا الآن: ملفُّ التسجيل نفسه، وجدولُنا لحظة الفتح ── */
+  const latestId = docs?.[0]?.id || null;
+  const [live, setLive] = useState<{ id: string; view: LiveRequestView | null } | null>(null);
+  const [view, setView] = useState<"now" | "saved">("now");
+  useEffect(() => {
+    if (!latestId) { setLive(null); return; }
+    let alive = true;
+    setLive(null);
+    call(`/api/schedules/registrar-requests/${encodeURIComponent(latestId)}/live`)
+      .then(data => { if (alive) setLive({ id: latestId, view: data?.live || null }); })
+      .catch(() => { if (alive) setLive({ id: latestId, view: null }); });
+    return () => { alive = false; };
+  }, [latestId, docs?.[0]?.at]);
+  const liveView = live && saved && live.id === saved.id ? live.view : null;
+  const liveLoading = Boolean(saved && saved.id === latestId && (!live || live.id !== saved.id));
+  const showingNow = Boolean(liveView && view === "now");
+  const open: RegistrarRequestDoc | null = saved && showingNow && liveView
+    ? { ...saved, items: liveView.items, counts: liveView.counts, reviewCount: liveView.reviewCount }
+    : saved;
+  const sinceCount = useMemo(() => showingNow ? (open?.items || []).filter(item => item.since).length : 0, [showingNow, open]);
 
   const progress = useMemo(() => open ? requestProgress(open.items) : null, [open]);
   /* ورقةُ «ملاحظات على ملف التسجيل»: الورقةُ نفسها بتقصيرهم وحده؛ تُرسم ثم تُطبع ثم تعود إلى الورقة الكاملة. */
@@ -164,6 +185,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
     } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   };
   const remove = async () => {
+    const open = saved;
     if (!open) return;
     const ok = await visualConfirm({ title: "حذف تقرير المطابقة", message: `يُحذف تقرير ${requestDay(open.at)} (${countOf(open.items.length, AR.item)}) ولا يعود يظهر للتسجيل.`, confirmLabel: "احذف التقرير", tone: "danger", safeCancel: true });
     if (!ok) return;
@@ -233,6 +255,32 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
             </div>
           </header>
 
+          {/* ── على جدولكم الآن، أو كما حُفظ ── */}
+          {saved && saved.id === latestId ? (
+            <div className="rpr-live" data-state={liveLoading ? "loading" : liveView ? "live" : "saved"} role="status">
+              <span className="rpr-live-dot" aria-hidden="true" />
+              <p>
+                <span>{liveLoading ? "يحسب التقرير على جدولكم الآن…"
+                  : liveView && showingNow ? <>محسوبٌ على جدولكم <b>الآن</b>، مقابل ملف التسجيل المرفوع في {requestDay(saved.at)}.</>
+                  : liveView ? <>كما حُفظ يوم الفحص، {requestDay(saved.at)}.</>
+                  : <>كما حُفظ في {requestDay(saved.at)}. ليُحسب على جدولكم الآن متى فُتح، ارفع ملف التسجيل مرةً واحدة واحفظه.</>}</span>
+                {liveView && showingNow && (sinceCount || liveView.gone) ? (
+                  <small>
+                    منذ الفحص: {sinceCount ? <b data-tone="new">{countOf(sinceCount, AR.change)} في جدولنا</b> : null}
+                    {sinceCount && liveView.gone ? " · " : null}
+                    {liveView.gone ? <b data-tone="ok">زال {countOf(liveView.gone, AR.item)}</b> : null}
+                  </small>
+                ) : null}
+              </p>
+              {liveView ? (
+                <div className="rpr-live-switch" role="radiogroup" aria-label="طريقة عرض التقرير">
+                  <button type="button" role="radio" aria-checked={view === "now"} data-guide-ignore="يعرض التقرير محسوباً على الجدول الآن — عرضٌ لا فعل" onClick={() => setView("now")}>الآن</button>
+                  <button type="button" role="radio" aria-checked={view === "saved"} data-guide-ignore="يعرض التقرير كما حُفظ يوم الفحص — عرضٌ لا فعل" onClick={() => setView("saved")}>يوم الفحص</button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* ── المؤشرات ── */}
           <div className="rpr-kpis">
             <div className="rpr-kpi" data-tone="total"><ArrowLeftRight aria-hidden="true" /><b>{total}</b><span>المجموع</span></div>
@@ -241,10 +289,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
             <div className="rpr-kpi" data-tone="sure"><ShieldCheck aria-hidden="true" /><b>{progress.confirmed}</b><span>تأكّدت من الملف</span></div>
           </div>
 
-          {/* ── شريط الأنواع: كهرمانيّ وأخضر وأحمر ── */}
-          <div className="rpr-split" role="img" aria-label={ACTIONS.map(a => `${REQUEST_ACTION_LABEL[a]} ${byAction[a]}`).join("، ")}>
-            {ACTIONS.map(a => byAction[a] ? <span key={a} data-action={a} style={{ flexGrow: byAction[a] }}>{byAction[a]}</span> : null)}
-          </div>
+          {/* ── الأنواع بألوانها: كهرمانيّ وأخضر وأحمر (وهي مرشّحٌ للعرض) ── */}
           <div className="rpr-legend">
             {ACTIONS.map(a => (
               <button
@@ -260,7 +305,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
           </div>
 
           {/* ── ما تغيّر عن التقرير السابق ── */}
-          {drift ? (
+          {drift && !showingNow ? (
             <p className="rpr-drift">
               <Sparkles aria-hidden="true" />
               عن تقرير {requestDay(previous!.at)}: <b data-tone="ok">{drift.gone} زالت</b> · <b data-tone="warn">{drift.kept} بقيت</b> · <b data-tone="new">{drift.fresh} جديدة</b>
@@ -279,13 +324,13 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
                   <small>{ACTION_HINT[action]}</small>
                 </header>
                 {list.length
-                  ? <ul>{list.map(item => <ItemLine key={item.id} item={item} canTick={canTick} busy={busy} onTick={(it, done) => void tick(it, done)} />)}</ul>
+                  ? <ul>{list.map(item => <ItemLine key={item.id} item={item} canTick={canTick && !showingNow} busy={busy} onTick={(it, done) => void tick(it, done)} />)}</ul>
                   : <p className="rpr-clear"><CheckCircle2 aria-hidden="true" /> نُفّذ كلُّ ما في هذا النوع.</p>}
               </section>
             );
           })}
           {open.reviewCount ? <p className="rpr-note">{countOf(open.reviewCount, AR.section)} احتاجت نظر القسم فلم تُدرج في التقرير.</p> : null}
-          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} history={docs || []} /></PrintPortal>
+          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} history={docs || []} asOf={showingNow ? liveView?.at : undefined} /></PrintPortal>
         </div>
       ) : null}
     </section>

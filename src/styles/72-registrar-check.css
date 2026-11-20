@@ -326,3 +326,4 @@
 .rpc-drift b[data-tone="new"]{color:var(--info)}
 .rpc-saved{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .rpc-saved>span{flex:1;min-inline-size:12ch}
+.rrq-field-label{min-inline-size:3.6em;font-size:.8rem;font-weight:700;color:var(--muted)}
