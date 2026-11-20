@@ -22,7 +22,9 @@ check(/data-action=\{/.test(comp) && /rpr-split/.test(comp) && /rpr-kpis/.test(c
 check(/--rpr-edit:#9a6a12/.test(css) && /--rpr-add:#25684a/.test(css) && /--rpr-del:#973c38/.test(css), "U2 ثلاثة ألوان: كهرمانيّ وأخضر وأحمر");
 check(/downloadSheets\(exportFileName\(\["مطابقة التسجيل"/.test(comp) && /الرقم المرجعي/.test(comp), "U3 تصديرُ Excel بالرقم المرجعي");
 check(/previous|drift/.test(comp) && /زالت/.test(comp) && /جديدة/.test(comp), "U4 مقارنةٌ بالتقرير السابق (زالت وبقيت وجديدة)");
-check(/printRegistrarRequest/.test(comp) && /export function printRegistrarRequest/.test(requests) && /print-color-adjust:exact/.test(css), "P1 الطباعةُ بورقة «طلب تعديل للتسجيل» وبألوانها");
+const checkCss = read("src/styles/72-registrar-check.css");
+check(/printRegistrarRequest/.test(comp) && /export function printRegistrarRequest/.test(requests) && /print-color-adjust:exact/.test(checkCss) && /--rq-edit:#9a6a12/.test(checkCss), "P1 الطباعةُ بثلاثة ألوانٍ تحمل المعنى");
+check(/<PrintLetterhead\b/.test(requests) && /className="rrq-meta"/.test(requests) && /className="rrq-foot"/.test(requests) && /@page rrequest\{size:A4 portrait/.test(checkCss), "P3 الورقة بأسلوب بقية التقارير: ترويسةُ الكلية، شريطُ ملخّص، تذييل، وورقٌ طوليّ");
 check(/\.query-canvas-head\[data-lens="registrar"\]\{display:none\}/.test(css) && /data-lens=\{lens\}/.test(reports), "P2 رأسُ القائمة المشترك مخفيٌّ فوق التقرير");
 check(!/<RegistrarRequests\b|<RegistrarRequestInbox\b/.test(changes), "C1 لا شريطَ طلباتٍ ولا واردَ للتسجيل في «تغييرات الجدول»");
 check(/75-registrar-report\.css/.test(index), "C2 ملف التنسيق مستورد");
@@ -33,8 +35,16 @@ const check2 = read("src/components/RegistrarPdfCheck.tsx"), util = read("src/ut
 check(check2.includes("احفظ في تقرير المطابقة") && !check2.includes("احفظ طلب التعديل"), "F1 زرُّ الحفظ «احفظ في تقرير المطابقة»");
 check(/className="rpc-last"/.test(check2) && check2.includes("آخر فحص محفوظ"), "F2 آخرُ فحصٍ محفوظ يظهر عند الدخول");
 check(/className="rpc-drift"/.test(check2) && /زالت/.test(check2) && /بقيت/.test(check2) && /جديدة/.test(check2), "F3 ما زال وما بقي وما جدّ عن آخر فحص");
-check((check2.match(/onClick=\{openMatchReport\}/g) || []).length >= 2 && /"schedule-report-lens", "registrar"/.test(check2) && /takeLensRequest\(\)/.test(reports), "F4 «افتح التقرير» يفتح عدسة المطابقة");
-check(/if \(item\.state === "confirmed"\) return item;[\s\S]{0,400}if \(!item\.done\) return item;/.test(util), "F5 البندُ المفتوح يتأكّد بزوال فرقه بلا شطب");
+check((check2.match(/onClick=\{openMatchReport\}/g) || []).length >= 2 && /"schedule-report-lens", "registrar"/.test(read("src/utils/openMatchReport.ts")) && /takeLensRequest\(\)/.test(reports), "F4 «افتح التقرير» يفتح عدسة المطابقة");
+check(/const positive = \(item: RegistrarRequestItem\)/.test(util) && /if \(!item\.done\) \{\s*if \(positive\(item\)\)/.test(util), "F5 البندُ المفتوح يتأكّد بدليلٍ موجب بلا شطب");
+
+/* ملاحظاتنا على ملف التسجيل: ورقةٌ بتقصيرهم وحده، وبطاقةُ متابعةٍ تحت «تغييرات الجدول» للقسم */
+const sheet = read("src/components/RegistrarRequests.tsx"), follow = read("src/components/RegistrarFollowUp.tsx"), importRoutes = read("src/server/routes/scheduleImportRoutes.ts");
+check(/theirsOnly/.test(sheet) && /theirsOnly\s*\? doc\.items\.filter\(isTheirs\)/.test(sheet) && /"ملاحظات على ملف التسجيل"/.test(sheet), "N1 ورقةُ «ملاحظات على ملف التسجيل» بما أُرسل ولم يظهر في ملفهم وحده");
+check(/doc\.sent/.test(sheet) && /sent:\{round:/.test(importRoutes), "N2 سطرُ الإثبات: جولةُ الإرسال وتاريخُه محفوظان في الطلب");
+check(/isTheirs/.test(comp) && /printNotes/.test(comp) && /theirsOnly=\{notesMode\}/.test(comp), "N3 زرُّ «ملاحظاتهم للتسجيل» يطبع الورقة المصفّاة");
+check(/RegistrarFollowUp/.test(changes) && /!isRegistrar \? <RegistrarFollowUp/.test(changes), "N4 بطاقةُ المتابعة تحت «تغييرات الجدول» للقسم لا للتسجيل");
+check(/notesCohort/.test(follow) && !/fetch\([^)]*,\s*\{[^}]*method/.test(follow), "N5 البطاقةُ تقرأ ولا تكتب: الفحصُ التالي هو الدليل");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

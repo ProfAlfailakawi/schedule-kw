@@ -10,10 +10,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, CalendarDays, CheckCircle2, Circle, Clock3, FileText, MapPin, Printer, RotateCcw, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { REQUEST_ACTION_LABEL, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
+import { isTheirs, REQUEST_ACTION_LABEL, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
 import type { FieldDelta, RequestAction } from "../utils/registrarCheck";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
-import { GhostButton, Notice, PrintPortal, SecondaryButton, visualConfirm } from "./ui";
+import { GhostButton, Notice, PrintLetterhead, PrintPortal, SecondaryButton, visualConfirm } from "./ui";
 
 const call = async (url: string, init?: RequestInit) => {
   const response = await fetch(url, init);
@@ -110,43 +110,65 @@ export function printRegistrarRequest() {
 
 const ACTIONS: RequestAction[] = ["edit", "add", "delete"];
 
-/** الورقة المطبوعة: صفحةٌ واحدة بثلاث فئات. */
-export function RequestSheet({ doc, scopeLine }: { doc: RegistrarRequestDoc; scopeLine: string }) {
-  const by = (action: RequestAction) => doc.items.filter(item => item.action === action);
+/**
+ * الورقة المطبوعة: بأسلوب بقية التقارير (ترويسةُ الكلية، شريطُ ملخّص، جداول، تذييل)، على ورقٍ طوليّ،
+ * وبثلاثة ألوانٍ تحمل المعنى: كهرمانيّ عدّلوا، أخضر أضيفوا، أحمر احذفوا.
+ */
+export function RequestSheet({ doc, scopeLine, college, theirsOnly = false }: { doc: RegistrarRequestDoc; scopeLine: string; college?: string; theirsOnly?: boolean }) {
+  /* «ملاحظات على ملف التسجيل»: ما أُرسل ولم يظهر في ملفهم وحده، فلا يُحمَّلون ما عدّلناه نحن بعد الإرسال. */
+  const items = (theirsOnly
+    ? doc.items.filter(isTheirs).map(item => item.action === "edit" ? { ...item, fields: theirFields(item) } : item)
+    : doc.items);
+  const by = (action: RequestAction) => items.filter(item => item.action === action);
   const value = (item: RegistrarRequestItem, field: string) => item.fields.find(f => f.field === field)?.ours || "—";
+  const printedAt = new Date();
+  const stamp = `${String(printedAt.getDate()).padStart(2, "0")}/${String(printedAt.getMonth() + 1).padStart(2, "0")}/${printedAt.getFullYear()}`;
+  const groups: Array<{ action: RequestAction; title: string; note: string }> = [
+    { action: "edit", title: "عدّلوا", note: "شعبٌ في ملفهم يخالف جدولنا" },
+    { action: "add", title: "أضيفوا", note: "شعبٌ عندنا ولم تظهر في ملفهم" },
+    { action: "delete", title: "احذفوا", note: "شعبٌ في ملفهم ليست في جدولنا" },
+  ];
   return (
     <article className="rrq-sheet" dir="rtl">
-      <header>
-        <h1>طلب تعديل للتسجيل</h1>
-        <p>{scopeLine}</p>
-        <p>التاريخ: {requestDay(doc.at)} · الملف: <bdi dir="auto">{doc.fileName}</bdi> · {countOf(doc.items.length, AR.item)}</p>
-      </header>
+      <PrintLetterhead title={theirsOnly ? "ملاحظات على ملف التسجيل" : "مطابقة التسجيل"} scope={scopeLine} college={college} footer={false} />
+      <div className="rrq-meta">
+        <span><i>التاريخ</i><b>{requestDay(doc.at)}</b></span>
+        <span className="rrq-meta-file"><i>الملف</i><b><bdi dir="auto">{doc.fileName}</bdi></b></span>
+        {doc.round ? <span><i>الجولة</i><b>{doc.round}</b></span> : null}
+        <span className="rrq-meta-total"><i>المجموع</i><b>{items.length}</b></span>
+        {groups.map(({ action, title }) => by(action).length ? <span key={action} className="rrq-meta-chip" data-action={action}><i>{title}</i><b>{by(action).length}</b></span> : null)}
+      </div>
+      {theirsOnly ? (
+        <p className="rrq-proof">
+          {doc.sent ? <>أُرسل الجدول في <b>الجولة {doc.sent.round}</b> بتاريخ <b>{requestDay(doc.sent.at)}</b>، وهذه البنود لم تظهر في ملفكم.</> : <>هذه البنود أُرسلت في الجدول ولم تظهر في ملفكم.</>}
+        </p>
+      ) : null}
       {by("edit").length ? (
-        <section>
-          <h2>عدّلوا ({by("edit").length})</h2>
-          <table>
-            <thead><tr><th>الرقم المرجعي</th><th>المقرر</th><th>شعبتكم</th><th>الحالي عندكم ← المطلوب</th></tr></thead>
+        <section data-action="edit">
+          <h2><b>{groups[0].title}</b><span>{groups[0].note}</span><em>{by("edit").length}</em></h2>
+          <table className="rrq-t-edit">
+            <thead><tr><th>الرقم المرجعي</th><th>المقرر</th><th>شعبتكم</th><th>ما عندكم ← المطلوب</th></tr></thead>
             <tbody>{by("edit").map(item => (
               <tr key={item.id}>
-                <td dir="ltr">{item.crn || "—"}</td>
-                <td><bdi dir="ltr">{item.courseCode}</bdi> {item.courseName}</td>
-                <td dir="ltr">{item.pdfSection || item.section}</td>
-                <td>{item.fields.map(f => <div key={f.field}>{f.label}: <Value field={f.field} text={f.pdf} /> ← <b><Value field={f.field} text={f.ours} /></b></div>)}</td>
+                <td><bdi dir="ltr">{item.crn || "—"}</bdi></td>
+                <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi></small></td>
+                <td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td>
+                <td>{item.fields.map(f => <div key={f.field} className="rrq-delta"><i>{f.label}</i><s><Value field={f.field} text={f.pdf} /></s><span aria-hidden="true">←</span><b><Value field={f.field} text={f.ours} /></b></div>)}</td>
               </tr>
             ))}</tbody>
           </table>
         </section>
       ) : null}
       {by("add").length ? (
-        <section>
-          <h2>أضيفوا ({by("add").length})</h2>
-          <table>
-            <thead><tr><th>المقرر</th><th>الأيام والوقت</th><th>القاعة</th><th>الأستاذ</th></tr></thead>
+        <section data-action="add">
+          <h2><b>{groups[1].title}</b><span>{groups[1].note}</span><em>{by("add").length}</em></h2>
+          <table className="rrq-t-add">
+            <thead><tr><th>المقرر والشعبة</th><th>الأيام والوقت</th><th>القاعة</th><th>الأستاذ</th></tr></thead>
             <tbody>{by("add").map(item => (
               <tr key={item.id}>
-                <td><bdi dir="ltr">{item.courseCode}</bdi> {item.courseName} · ش<bdi dir="ltr">{item.section}</bdi></td>
-                <td>{value(item, "days")} · <bdi dir="ltr">{value(item, "time")}</bdi></td>
-                <td dir="ltr">{value(item, "room")}</td>
+                <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi> · شعبة <bdi dir="ltr">{item.section}</bdi></small></td>
+                <td>{value(item, "days")}<small><bdi dir="ltr">{value(item, "time")}</bdi></small></td>
+                <td><bdi dir="ltr">{value(item, "room")}</bdi></td>
                 <td>{value(item, "instructor")}</td>
               </tr>
             ))}</tbody>
@@ -154,16 +176,21 @@ export function RequestSheet({ doc, scopeLine }: { doc: RegistrarRequestDoc; sco
         </section>
       ) : null}
       {by("delete").length ? (
-        <section>
-          <h2>احذفوا ({by("delete").length})</h2>
-          <table>
+        <section data-action="delete">
+          <h2><b>{groups[2].title}</b><span>{groups[2].note}</span><em>{by("delete").length}</em></h2>
+          <table className="rrq-t-del">
             <thead><tr><th>الرقم المرجعي</th><th>المقرر</th><th>الشعبة</th></tr></thead>
             <tbody>{by("delete").map(item => (
-              <tr key={item.id}><td dir="ltr">{item.crn || "—"}</td><td><bdi dir="ltr">{item.courseCode}</bdi> {item.courseName}</td><td dir="ltr">{item.pdfSection || item.section}</td></tr>
+              <tr key={item.id}><td><bdi dir="ltr">{item.crn || "—"}</bdi></td><td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi></small></td><td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td></tr>
             ))}</tbody>
           </table>
         </section>
       ) : null}
+      <footer className="rrq-foot">
+        <span>{college || "الجدول الأكاديمي"}</span>
+        <span>نظام الجدول الأكاديمي</span>
+        <time dir="ltr">{stamp}</time>
+      </footer>
     </article>
   );
 }

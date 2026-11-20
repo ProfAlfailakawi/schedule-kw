@@ -28,10 +28,11 @@ export async function seedDemoRegistrarReports(): Promise<void> {
   const [a, b, c, d, e, f] = courses.map(row => ({ code: String(row.CourseCode).trim(), name: String(row.CourseName || "").trim() }));
   const g = f || e;
 
-  const edit = (course: { code: string; name: string }, crn: string, section: string, fields: RegistrarRequestItem["fields"]): RegistrarRequestItem =>
-    ({ id: `edit:#${crn}`, action: "edit", group: "mismatch", kind: "fields", crn, courseCode: course.code, courseName: course.name, section, pdfSection: section, fields } as RegistrarRequestItem);
+  /* الافتراضيُّ «أُرسل ولم يُنفَّذ» (تقصيرُهم)؛ و«mismatch» يخالف جدولنا بلا إرسالٍ سابق، فلا يخرج في ورقة ملاحظاتهم. */
+  const edit = (course: { code: string; name: string }, crn: string, section: string, fields: RegistrarRequestItem["fields"], group: "notApplied" | "mismatch" = "notApplied"): RegistrarRequestItem =>
+    ({ id: `edit:#${crn}`, action: "edit", group, kind: group === "notApplied" ? "notChanged" : "fields", crn, courseCode: course.code, courseName: course.name, section, pdfSection: section, fields } as RegistrarRequestItem);
   const add = (course: { code: string; name: string }, section: string, fields: RegistrarRequestItem["fields"]): RegistrarRequestItem =>
-    ({ id: `add:${course.code}/${section}`, action: "add", group: "notApplied", kind: "onlyOurs", courseCode: course.code, courseName: course.name, section, fields } as RegistrarRequestItem);
+    ({ id: `add:${course.code}/${section}`, action: "add", group: "notApplied", kind: "notAdded", courseCode: course.code, courseName: course.name, section, fields } as RegistrarRequestItem);
   const del = (course: { code: string; name: string }, crn: string, section: string): RegistrarRequestItem =>
     ({ id: `delete:#${crn}`, action: "delete", group: "review", kind: "onlyPdf", crn, courseCode: course.code, courseName: course.name, section, pdfSection: section, fields: [] } as RegistrarRequestItem);
 
@@ -65,7 +66,7 @@ export async function seedDemoRegistrarReports(): Promise<void> {
   const third: RegistrarRequestItem[] = [
     edit(d, "41067", "3", who("د. نورة العنزي", "د. فيصل المطيري")),
     edit(e, "41072", "2", room("ق 301", "ق 212")),
-    edit(b, "41090", "1", time("13:00 – 14:50", "12:00 – 13:50")),
+    edit(b, "41090", "1", time("13:00 – 14:50", "12:00 – 13:50"), "mismatch"),
     { ...edit(a, "41101", "4", daysAndTime("إثنين · أربعاء", "أحد · ثلاثاء", "10:30 – 11:45", "10:30 – 11:45")), done: done(1, 9) },
     add(c, "2", daysAndTime("أحد · ثلاثاء", "—", "14:00 – 14:50", "—")),
     add(f || b, "3", daysAndTime("إثنين", "—", "08:00 – 09:50", "—")),
@@ -85,6 +86,7 @@ export async function seedDemoRegistrarReports(): Promise<void> {
     const doc: RegistrarRequestDoc = {
       id: `${prefix}demo${key}`, collegeId, sectionId, termId, round: 1,
       at: at(daysAgo, 9), by: SEAT.by, byName: "رئيس القسم", fileName,
+      sent: { round: 1, at: at(daysAgo + 6, 9) },
       counts: counts(items, total, matched), reviewCount: items.filter(i => i.action === "delete").length, items,
     };
     await Repository.saveFeatureDoc("registrarRequests", doc.id, doc);

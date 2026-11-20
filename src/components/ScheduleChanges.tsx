@@ -47,6 +47,7 @@ import { singleDepartmentOf, type ScopeAssignmentLike } from "../utils/scopeCont
 import { inboxAudience, multiSiteHeadline, type InboxAudience } from "../utils/inboxAudience";
 import { readSharedScope, resolveSharedScope, useSharedScope } from "../utils/sharedScope";
 import ApprovalDossier from "./ApprovalDossier";
+import RegistrarFollowUp from "./RegistrarFollowUp";
 import TermFrozenRibbon, { useTermFrozen } from "./TermFrozenRibbon";
 import { approvalScopeKey, authorityBaselineLabel, AUTHORITY_BASELINE_LABEL, createScopeGuard } from "../utils/approvalScope";
 
@@ -999,6 +1000,9 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
       {message ? <Notice type="success">{message}</Notice> : null}
 
       {/* فحوصُ ملف التسجيل للقسم وحده، في «الاستعلامات ← مطابقة التسجيل» (قرار المالك 2026-11-20): لا تصل وارد التسجيل. */}
+
+      {/* ملاحظاتنا على ملف التسجيل: للقسم وحده؛ تتحدّث من الفحص التالي (التسجيلُ لا يرى فحوصنا). */}
+      {!isRegistrar ? <RegistrarFollowUp collegeId={scope.collegeId} sectionId={scope.sectionId} termId={termId} /> : null}
 
       <TermStory
         scopeLine={[termName, scope.collegeName, scope.sectionName].filter(Boolean).join(" · ") || `قسم ${scope.sectionId}`}

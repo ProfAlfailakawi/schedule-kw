@@ -5,7 +5,7 @@
  * ومطابقةٌ تقريبية وخانةٌ غير مؤكدة) — ثم الفراغ، والنطاق، وأنّ المقارنة لا تمسّ مدخلاتها.
  */
 import { checkRegistrarPdf, namesAgree, slimPdfRow, type RegistrarCheckInput } from "../src/utils/registrarCheck";
-import { buildRequestItems, requestProgress, tickRequestItem, verifyRequestItems } from "../src/utils/registrarRequest";
+import { buildRequestItems, isTheirs, notesCohort, notesProgress, theirFields, requestProgress, tickRequestItem, verifyRequestItems } from "../src/utils/registrarRequest";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, detail?: unknown) => {
@@ -344,6 +344,24 @@ const only = (result: ReturnType<typeof run>, group: string) => result.findings.
   check(noEvidence.items[0].state === undefined && noEvidence.items[1].state === undefined, "بلا مطابقةٍ مقروءة لا يتأكّد بندُ تعديلٍ ولا إضافةٍ مفتوح");
   const openOk = verifyRequestItems(items, second, "2026-11-20T08:00:00Z");
   check(openOk.items[0].state === "confirmed" && !openOk.items[0].done && openOk.items[2].state === undefined, "البندُ المفتوح يتأكّد بمطابقةٍ مقروءة بلا شطب، والمحذوفُ الباقي لا يتأكّد");
+  /* ملاحظاتهم: «أُرسل ولم يُنفَّذ» وحدها، وتقدّمُها يعدّ المتأكَّد. */
+  const mine = items.filter(isTheirs);
+  check(mine.length === items.filter(x => x.group === "notApplied").length && items.every(x => isTheirs(x) === (x.group === "notApplied")), "ملاحظاتهم هي group=notApplied وحدها");
+  /* أصلُ كل حقل: بندٌ دُمجت فيه نتيجتان يُخرج للتسجيل ما أُرسل ولم يُنفَّذ وحده. */
+  const merged: any = { id: "edit:#1", action: "edit", group: "notApplied", courseCode: "1", courseName: "x", section: "1", fields: [
+    { field: "room", label: "القاعة", ours: "A", pdf: "B", group: "notApplied" }, { field: "time", label: "الوقت", ours: "1", pdf: "2", group: "notSent" }] };
+  check(isTheirs(merged) && theirFields(merged).length === 1 && theirFields(merged)[0].field === "room", "تقصيرُهم على مستوى الحقل: القاعة وحدها، لا تعديلُنا بعد الإرسال");
+  check(buildRequestItems(second).every(item => item.fields.every(f => f.group !== undefined)), "كل حقلٍ في البند يحمل أصلَه");
+  /* دفعةُ المتابعة عبر الفحوص: لا تضيع بحفظ فحصٍ أحدث. */
+  const doc = (at: string, list: any[]): any => ({ id: at, at, items: list });
+  const it = (id: string, state?: string): any => ({ id, group: "notApplied", fields: [], ...(state ? { state } : {}) });
+  const c1 = notesCohort([doc("2026-11-20", [it("b")]), doc("2026-11-10", [it("a", "confirmed"), it("b")])]);
+  check(c1.total === 2 && c1.confirmed === 1 && c1.open === 1, "فحصٌ أحدث يحمل الباقي وحده: «زال ١ من ٢ وبقي ١»", c1);
+  const c2 = notesCohort([doc("2026-11-20", [it("z")]), doc("2026-11-10", [it("a"), it("b")])]);
+  check(c2.total === 3 && c2.confirmed === 2 && c2.open === 1, "ما غاب من آخر فحصٍ زال، وما جدّ مفتوح", c2);
+  check(notesCohort([doc("2026-11-20", []), doc("2026-11-10", [it("a")])]).open === 0, "آخرُ فحصٍ بلا ملاحظاتهم يُغلق الدفعة");
+  const np = notesProgress(verified.items);
+  check(np.total === mine.length && np.confirmed + np.open === np.total, "تقدّمُ الملاحظات: المتأكَّد والمفتوح يجمعان المجموع");
   const blank = verifyRequestItems(ticked, { findings: [], empty: "pdfEmpty" }, "x");
   check(blank.confirmed === 0 && blank.reopened === 0, "ملفٌّ لم يُقرأ منه شيء لا يُثبت ولا ينفي");
 }

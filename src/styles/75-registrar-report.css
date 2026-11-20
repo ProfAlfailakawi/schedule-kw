@@ -92,13 +92,3 @@
   .rpr-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .rpr-switch{margin-inline-start:0}
 }
-
-/* الورقة المطبوعة: الألوان نفسها، وتُطبع كما هي لا رماديّةً */
-@media print{
-  .rrq-sheet{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .rrq-sheet section>h2{padding:1.2mm 3mm;border-radius:1.2mm;color:#fff;font-size:10.5pt}
-  .rrq-sheet section:nth-of-type(1)>h2{background:#9a6a12}
-  .rrq-sheet section:nth-of-type(2)>h2{background:#25684a}
-  .rrq-sheet section:nth-of-type(3)>h2{background:#973c38}
-  .rrq-sheet thead th{background:#eef2f0}
-}

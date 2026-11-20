@@ -21,6 +21,7 @@ import { AR, countOf } from "../utils/arabicCount";
 import { interruptedImportMessage } from "../utils/importStreamFailure";
 import { buildRequestItems, type RegistrarRequestDoc } from "../utils/registrarRequest";
 import { requestDay } from "./RegistrarRequests";
+import { openMatchReport } from "../utils/openMatchReport";
 import { looksForeign, slimPdfRow, type FieldDelta, type FindingGroup, type RegistrarCheckResult, type RegistrarFinding } from "../utils/registrarCheck";
 import { PrimaryButton, SecondaryButton } from "./ui";
 import CourseTags from "./CourseTags";
@@ -115,13 +116,6 @@ function Card({ finding, onOpen }: { key?: React.Key; finding: RegistrarFinding;
       {finding.reason ? <p className="rpc-reason"><Info aria-hidden="true" />{finding.reason}</p> : null}
     </li>
   );
-}
-
-/** يفتح «الاستعلامات ← مطابقة التسجيل» (العدسة تُطلب مرةً وتُقرأ عند فتح الاستعلامات). */
-function openMatchReport() {
-  try { sessionStorage.setItem("schedule-report-lens", "registrar"); } catch { /* تخزينٌ محجوب: تُفتح الاستعلامات على عدستها */ }
-  window.history.pushState(window.history.state, "", "/FSchedule/MainReport");
-  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpenAppointment, onClose }: Props) {
