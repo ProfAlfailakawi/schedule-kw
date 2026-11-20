@@ -45,12 +45,24 @@ export interface RegistrarRequestDoc {
   at: string; by: number; byName: string;
   fileName: string;
   counts: RegistrarCounts;
+  /** إرسالُ الجدول الذي يُحتجّ به: جولتُه وتاريخُ توقيعه (ورقة «ملاحظات على ملف التسجيل»). */
+  sent?: { round: number; at: string };
   /** ما يحتاج نظر القسم ولم يُدرج في الطلب. */
   reviewCount: number;
   items: RegistrarRequestItem[];
 }
 
 export const REGISTRAR_REQUEST_LIMIT = 400;
+
+/** ما أرسلناه ولم يظهر في ملفهم (تقصيرُهم لا تعديلُنا بعد الإرسال): وحده يخرج لهم في «ملاحظات على ملف التسجيل». */
+export const isTheirs = (item: Pick<RegistrarRequestItem, "group">) => item.group === "notApplied";
+
+/** متابعةُ ملاحظاتهم: كم بقي منها مفتوحاً وكم تأكّد زوالُه في ملفٍّ لاحق. */
+export function notesProgress(items: readonly RegistrarRequestItem[]): { total: number; confirmed: number; open: number } {
+  const theirs = items.filter(isTheirs);
+  const confirmed = theirs.filter(item => item.state === "confirmed").length;
+  return { total: theirs.length, confirmed, open: theirs.length - confirmed };
+}
 export const REQUEST_ACTION_LABEL: Record<RequestAction, string> = { edit: "عدّلوا", add: "أضيفوا", delete: "احذفوا" };
 
 const text = (value: unknown, max: number) => String(value ?? "").slice(0, max);

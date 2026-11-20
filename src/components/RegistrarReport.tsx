@@ -10,9 +10,9 @@
  * «طلب تعديل للتسجيل» نفسها. لا يراه الأستاذ.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeftRight, CheckCircle2, CircleDashed, ClipboardCheck, FileSpreadsheet, FilePlus2, FilePenLine, FileX2, History, Printer, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeftRight, CheckCircle2, CircleDashed, ClipboardCheck, FileSpreadsheet, FilePlus2, FilePenLine, FileX2, History, Printer, ScrollText, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { REQUEST_ACTION_LABEL, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem } from "../utils/registrarRequest";
+import { isTheirs, REQUEST_ACTION_LABEL, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem } from "../utils/registrarRequest";
 import type { RequestAction } from "../utils/registrarCheck";
 import { downloadSheets, exportFileName, type ExportSheet } from "../utils/lensExport";
 import { ItemLine, printRegistrarRequest, RequestSheet, requestDay, requestStamp } from "./RegistrarRequests";
@@ -86,8 +86,10 @@ function Ring({ done, total }: { done: number; total: number }) {
   );
 }
 
-export default function RegistrarReport({ collegeId, sectionId, termId, scopeLine, canDelete }: {
+export default function RegistrarReport({ collegeId, sectionId, termId, scopeLine, college, canDelete }: {
   collegeId: number; sectionId: number; termId: number; scopeLine: string;
+  /** اسمُ الكلية في ترويسة الورقة المطبوعة. */
+  college?: string;
   /** صاحبُ الجدول (النموذج 7) يحذف تقريره؛ التسجيلُ لا. */
   canDelete: boolean;
 }) {
@@ -115,6 +117,15 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
   const previous = index >= 0 ? docs![index + 1] || null : null;
 
   const progress = useMemo(() => open ? requestProgress(open.items) : null, [open]);
+  /* ورقةُ «ملاحظات على ملف التسجيل»: الورقةُ نفسها بتقصيرهم وحده؛ تُرسم ثم تُطبع ثم تعود إلى الورقة الكاملة. */
+  const [notesMode, setNotesMode] = useState(false);
+  const printNotes = () => {
+    setNotesMode(true);
+    const back = () => { setNotesMode(false); window.removeEventListener("afterprint", back); };
+    window.addEventListener("afterprint", back);
+    window.setTimeout(printRegistrarRequest, 80);
+    window.setTimeout(back, 5000);
+  };
   const byAction = useMemo(() => {
     const out: Record<RequestAction, number> = { edit: 0, add: 0, delete: 0 };
     for (const item of open?.items || []) out[item.action]++;
@@ -216,6 +227,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
             </div>
             <div className="rpr-actions">
               <SecondaryButton type="button" data-guide-ignore="يطبع تقرير المطابقة صفحةً واحدة — قراءةٌ لا تغيّر شيئاً" onClick={printRegistrarRequest}><Printer aria-hidden="true" /> طباعة</SecondaryButton>
+              {open.items.some(isTheirs) ? <SecondaryButton type="button" data-guide-ignore="يطبع ورقة «ملاحظات على ملف التسجيل» للتسجيل: ما أُرسل ولم يظهر في ملفهم وحده — قراءةٌ لا تغيّر شيئاً" onClick={printNotes}><ScrollText aria-hidden="true" /> ملاحظاتهم للتسجيل</SecondaryButton> : null}
               <SecondaryButton type="button" disabled={busy} data-guide-ignore="ينزّل تقرير المطابقة ملف Excel — قراءةٌ لا تغيّر شيئاً" onClick={() => void exportIt()}><FileSpreadsheet aria-hidden="true" /> Excel</SecondaryButton>
               {canDelete ? <GhostButton type="button" disabled={busy} data-guide-ignore="يحذف تقرير المطابقة المحفوظ بعد التأكيد" onClick={() => void remove()}><Trash2 aria-hidden="true" /> احذف</GhostButton> : null}
             </div>
@@ -273,7 +285,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
             );
           })}
           {open.reviewCount ? <p className="rpr-note">{countOf(open.reviewCount, AR.section)} احتاجت نظر القسم فلم تُدرج في التقرير.</p> : null}
-          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} /></PrintPortal>
+          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} /></PrintPortal>
         </div>
       ) : null}
     </section>

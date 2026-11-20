@@ -5,7 +5,7 @@
  * ومطابقةٌ تقريبية وخانةٌ غير مؤكدة) — ثم الفراغ، والنطاق، وأنّ المقارنة لا تمسّ مدخلاتها.
  */
 import { checkRegistrarPdf, namesAgree, slimPdfRow, type RegistrarCheckInput } from "../src/utils/registrarCheck";
-import { buildRequestItems, requestProgress, tickRequestItem, verifyRequestItems } from "../src/utils/registrarRequest";
+import { buildRequestItems, isTheirs, notesProgress, requestProgress, tickRequestItem, verifyRequestItems } from "../src/utils/registrarRequest";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, detail?: unknown) => {
@@ -344,6 +344,11 @@ const only = (result: ReturnType<typeof run>, group: string) => result.findings.
   check(noEvidence.items[0].state === undefined && noEvidence.items[1].state === undefined, "بلا مطابقةٍ مقروءة لا يتأكّد بندُ تعديلٍ ولا إضافةٍ مفتوح");
   const openOk = verifyRequestItems(items, second, "2026-11-20T08:00:00Z");
   check(openOk.items[0].state === "confirmed" && !openOk.items[0].done && openOk.items[2].state === undefined, "البندُ المفتوح يتأكّد بمطابقةٍ مقروءة بلا شطب، والمحذوفُ الباقي لا يتأكّد");
+  /* ملاحظاتهم: «أُرسل ولم يُنفَّذ» وحدها، وتقدّمُها يعدّ المتأكَّد. */
+  const mine = items.filter(isTheirs);
+  check(mine.length === items.filter(x => x.group === "notApplied").length && items.every(x => isTheirs(x) === (x.group === "notApplied")), "ملاحظاتهم هي group=notApplied وحدها");
+  const np = notesProgress(verified.items);
+  check(np.total === mine.length && np.confirmed + np.open === np.total, "تقدّمُ الملاحظات: المتأكَّد والمفتوح يجمعان المجموع");
   const blank = verifyRequestItems(ticked, { findings: [], empty: "pdfEmpty" }, "x");
   check(blank.confirmed === 0 && blank.reopened === 0, "ملفٌّ لم يُقرأ منه شيء لا يُثبت ولا ينفي");
 }

@@ -494,11 +494,14 @@ app.post("/api/schedules/registrar-requests", requirePermission(7), async (req: 
   const existing=await Repository.listFeatureDocs<RegistrarRequestDoc>("registrarRequests",prefix);
   if(existing.length>=REQUESTS_PER_SCOPE){res.status(409).json({error:`بلغت الطلبات المحفوظة لهذا الفصل حدّها (${countOf(REQUESTS_PER_SCOPE,AR.request)}). احذف قديماً.`});return;}
   const approval=await readApproval(collegeId,sectionId,termId);
+  /* الإرسالُ الذي يُحتجّ به: أحدثُ جولةٍ مُرسَلة (بتاريخ إرسالها)، فتُثبته ورقةُ «ملاحظات على ملف التسجيل». */
+  const sentRound=[...(approval.rounds||[])].filter((item:any)=>item?.submittedAt&&!item?.amendment).sort((a:any,b:any)=>Number(b.number)-Number(a.number))[0] as any;
   const doc:RegistrarRequestDoc={
     id:`${prefix}${randomBytes(5).toString("hex")}`,collegeId,sectionId,termId,round:Number(approval.currentRound||0),
     at:new Date().toISOString(),by:Number(req.user?.SystemUserId||0),byName:String(req.user?.Name||"").slice(0,80),
     fileName:String(req.body?.fileName||"").replace(/[\u0000-\u001f]/g,"").slice(0,120)||"ملف التسجيل.pdf",
     counts:result.counts,reviewCount:result.counts.review,items,
+    ...(sentRound?{sent:{round:Number(sentRound.number)||0,at:new Date(sentRound.submittedAt).toISOString()}}:{}),
   };
   await Repository.saveFeatureDoc("registrarRequests",doc.id,doc);
   res.json({request:doc});
