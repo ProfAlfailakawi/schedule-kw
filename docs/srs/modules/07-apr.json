@@ -63,6 +63,7 @@
     "src/components/ScheduleChanges.tsx",
     "src/components/RegistrarPdfCheck.tsx",
     "src/components/RegistrarRequests.tsx",
+    "src/components/RegistrarReport.tsx",
     "src/utils/registrarRequest.ts",
     "src/components/ScheduleReview.tsx",
     "src/components/PeriodBalanceInfographic.tsx",
@@ -72,6 +73,7 @@
     "src/styles/31-approval-atlas.css",
     "src/styles/33-approval-score.css",
     "src/styles/72-registrar-check.css",
+    "src/styles/75-registrar-report.css",
     "src/utils/registrarNumbering.ts",
     "src/server/core/sectionNumbers.ts",
     "src/components/RegistrarNumbering.tsx"
@@ -3071,8 +3073,8 @@
         "en": "Change request to Registration: saved, delivered, ticked and self-verified"
       },
       "text": {
-        "ar": "يجب أن يحفظ «احفظ طلب التعديل» نتيجة الفحص على الخادم (يعيد الخادمُ الفحص بالصفوف نفسها) طلباً مؤرَّخاً مربوطاً بجولة الاعتماد الجارية، فيه التاريخ واسم الملف والأعداد والبنود وحدها: بندٌ لكل شعبة مفتاحُه الرقم المرجعي في ثلاث فئات «عدّلوا» (الرقم المرجعي والمقرر وشعبتهم والحالي عندهم ← المطلوب) و«أضيفوا» (المقرر والموعد والقاعة والأستاذ) و«احذفوا» (الرقم المرجعي)، بلا أرقام مدنية. يظهر كل طلب تحت «تغييرات الجدول» شريحةً بتاريخه وعدد بنوده تفتح الطلب، ويُطبع «طلب تعديل للتسجيل» صفحةً واحدة، ويحذفه القسم بعد تأكيد. ويرى التسجيلُ المراجع في وارده بطاقةً لكل قسمٍ «طلب تعديل · التاريخ · عدد البنود» لجولته الجارية، فيشطب كل بند «نُفّذ» ويُحفظ من شطب ومتى، ويرى القسمُ «٥ من ٧ نُفّذت». وحين يفحص القسمُ ملف التسجيل التالي يُقابَل كل بندٍ مشطوب به: ما زال فرقُه صار «تأكّد»، وما بقي عاد مفتوحاً «شُطب ولم يظهر في الملف». لا يراه الأستاذ.",
-        "en": "«Save the change request» shall store the check result on the server (the server re-runs the check from the same rows) as a dated request tied to the current approval round, holding only the date, file name, counts and items: one item per section keyed by CRN in three groups, edit (CRN, course, their section, current there → required), add (course, slot, room, teacher) and delete (CRN), with no civil IDs. Each request appears under schedule changes as a chip with its date and item count that opens it; «change request to Registration» prints as one page, and the department may delete it after confirmation. The reviewing registrar sees in the inbox one card per department, «change request · date · N items», for its current round, ticks each item done with who and when recorded, and the department sees «5 of 7 done». When the department checks Registration's next file, every ticked item is matched against it: one whose difference is gone becomes confirmed, one still present reopens as «ticked but not reflected in the file». Teachers never see it."
+        "ar": "يجب أن يحفظ «احفظ طلب التعديل» نتيجة الفحص على الخادم (يعيد الخادمُ الفحص بالصفوف نفسها) طلباً مؤرَّخاً مربوطاً بجولة الاعتماد الجارية، فيه التاريخ واسم الملف والأعداد والبنود وحدها: بندٌ لكل شعبة مفتاحُه الرقم المرجعي في ثلاث فئات «عدّلوا» (الرقم المرجعي والمقرر وشعبتهم والحالي عندهم ← المطلوب) و«أضيفوا» (المقرر والموعد والقاعة والأستاذ) و«احذفوا» (الرقم المرجعي)، بلا أرقام مدنية. يظهر كل طلب للقسم تقريراً في «الاستعلامات ← مطابقة التسجيل»: أرشيفٌ بالتواريخ، ومؤشرات (المجموع والمنفَّذ والمنتظر والمتأكَّد)، وفروقٌ بثلاثة ألوان (كهرمانيّ للتعديل وأخضر للإضافة وأحمر للحذف) مع مقارنةٍ بالتقرير السابق وطباعةٍ وملف Excel؛ ويقرؤه التسجيلُ المراجع بجانب وارده في «تغييرات الجدول». ويُطبع «طلب تعديل للتسجيل» صفحةً واحدة، ويحذفه القسم بعد تأكيد. ويرى التسجيلُ المراجع في وارده بطاقةً لكل قسمٍ «طلب تعديل · التاريخ · عدد البنود» لجولته الجارية، فيشطب كل بند «نُفّذ» ويُحفظ من شطب ومتى، ويرى القسمُ «٥ من ٧ نُفّذت». وحين يفحص القسمُ ملف التسجيل التالي يُقابَل كل بندٍ مشطوب به: ما زال فرقُه صار «تأكّد»، وما بقي عاد مفتوحاً «شُطب ولم يظهر في الملف». لا يراه الأستاذ.",
+        "en": "«Save the change request» shall store the check result on the server (the server re-runs the check from the same rows) as a dated request tied to the current approval round, holding only the date, file name, counts and items: one item per section keyed by CRN in three groups, edit (CRN, course, their section, current there → required), add (course, slot, room, teacher) and delete (CRN), with no civil IDs. Each request appears for the department as a report in Queries, «Registration match»: a dated archive, indicators (total, done, waiting, confirmed), differences in three colors (amber edit, green add, red delete) with a comparison against the previous report, print and Excel; the reviewing registrar also reads it beside the inbox under schedule changes. «Change request to Registration» prints as one page, and the department may delete it after confirmation. The reviewing registrar sees in the inbox one card per department, «change request · date · N items», for its current round, ticks each item done with who and when recorded, and the department sees «5 of 7 done». When the department checks Registration's next file, every ticked item is matched against it: one whose difference is gone becomes confirmed, one still present reopens as «ticked but not reflected in the file». Teachers never see it."
       },
       "rationale": {
         "ar": "ما يُطلب من التسجيل يجب أن يصله داخل النظام ويُتابع حتى يثبت في الملف، لا أن يضيع في ورقة.",

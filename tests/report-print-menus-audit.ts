@@ -70,7 +70,12 @@ const base = { normalize: (value: string) => value, nameOf: (id: number) => name
   check(lensIds.length >= 15 && lensIds.includes("courseRoom") && lensIds.includes("decision"), "قائمة العدسات قُرئت");
   check(!/type PrintKind = Exclude<Lens/.test(reports), "PrintKind لا يستثني عدسة: زرّ «طباعة هذا العرض» يظهر فيها كلها");
   const sheet = reports.slice(reports.indexOf("function PrintSheetBody("));
+  /* «مطابقة التسجيل» تطبع ورقتها من داخل العدسة («طلب تعديل للتسجيل» بألوانها) ورأس القائمة المشترك مخفيٌّ فوقها. */
+  const ownPrint = new Set(["registrar"]);
+  const registrarLens = fs.readFileSync(path.join(process.cwd(), "src/components/RegistrarReport.tsx"), "utf8");
+  check(/printRegistrarRequest/.test(registrarLens) && /RequestSheet/.test(registrarLens) && /\.query-canvas-head\[data-lens="registrar"\]\{display:none\}/.test(fs.readFileSync(path.join(process.cwd(), "src/styles/75-registrar-report.css"), "utf8")), "«مطابقة التسجيل» لها طباعتها الخاصة ورأس القائمة المشترك مخفيٌّ فوقها");
   for (const id of lensIds) {
+    if (ownPrint.has(id)) continue;
     check(sheet.includes(`kind === "${id}"`), `لعدسة «${id}» ورقة طباعة`);
   }
   /* عناوين النافذة في جدولٍ واحد يقرؤه مسار الطباعة الواحد (invokePrint). */

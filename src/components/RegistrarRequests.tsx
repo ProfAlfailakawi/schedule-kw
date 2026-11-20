@@ -26,7 +26,7 @@ export const requestDay = (iso: string) => {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("ar-KW-u-nu-latn", { day: "numeric", month: "long" });
 };
-const requestStamp = (iso: string) => {
+export const requestStamp = (iso: string) => {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("ar-KW-u-nu-latn", { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" });
 };
@@ -55,7 +55,7 @@ export function RequestProgressBar({ progress }: { progress: RequestProgress }) 
   );
 }
 
-function ItemLine({ item, canTick, busy, onTick }: { key?: React.Key; item: RegistrarRequestItem; canTick: boolean; busy: boolean; onTick: (item: RegistrarRequestItem, done: boolean) => void }) {
+export function ItemLine({ item, canTick, busy, onTick }: { key?: React.Key; item: RegistrarRequestItem; canTick: boolean; busy: boolean; onTick: (item: RegistrarRequestItem, done: boolean) => void }) {
   const closed = Boolean(item.done) || item.state === "confirmed";
   const who = item.done || (item.state === "confirmed" ? undefined : item.lastDone);
   return (
@@ -97,10 +97,21 @@ function ItemLine({ item, canTick, busy, onTick }: { key?: React.Key; item: Regi
   );
 }
 
+/** يطبع «طلب تعديل للتسجيل» الموجودَ في الصفحة (PrintPortal) بصفحةٍ واحدة. */
+export function printRegistrarRequest() {
+  if (showPwaPrintHelp()) return;
+  const root = document.documentElement;
+  root.dataset.printKind = "registrar-request";
+  const done = () => { delete root.dataset.printKind; window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done, { once: true });
+  window.setTimeout(() => { try { window.print(); } catch { done(); } }, 30);
+  window.setTimeout(done, 4000);
+}
+
 const ACTIONS: RequestAction[] = ["edit", "add", "delete"];
 
 /** الورقة المطبوعة: صفحةٌ واحدة بثلاث فئات. */
-function RequestSheet({ doc, scopeLine }: { doc: RegistrarRequestDoc; scopeLine: string }) {
+export function RequestSheet({ doc, scopeLine }: { doc: RegistrarRequestDoc; scopeLine: string }) {
   const by = (action: RequestAction) => doc.items.filter(item => item.action === action);
   const value = (item: RegistrarRequestItem, field: string) => item.fields.find(f => f.field === field)?.ours || "—";
   return (
@@ -208,15 +219,7 @@ export default function RegistrarRequests({ collegeId, sectionId, termId, scopeL
       setDocs(list => (list || []).filter(doc => doc.id !== open.id)); setOpenId(null);
     } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   };
-  const printIt = () => {
-    if (showPwaPrintHelp()) return;
-    const root = document.documentElement;
-    root.dataset.printKind = "registrar-request";
-    const done = () => { delete root.dataset.printKind; window.removeEventListener("afterprint", done); };
-    window.addEventListener("afterprint", done, { once: true });
-    window.setTimeout(() => { try { window.print(); } catch { done(); } }, 30);
-    window.setTimeout(done, 4000);
-  };
+  const printIt = printRegistrarRequest;
 
   return (
     <section className="rrq" aria-labelledby="rrq-title">
