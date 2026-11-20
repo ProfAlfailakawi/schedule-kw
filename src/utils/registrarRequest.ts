@@ -67,7 +67,8 @@ export function liveRequestItems(saved: readonly RegistrarRequestItem[], fresh: 
     const keep = { ...(done ? { done } : {}), ...(lastDone ? { lastDone } : {}), ...(state ? { state } : {}), ...(stateAt ? { stateAt } : {}) };
     const changed = fieldsSignature(old) !== fieldsSignature(item);
     /* بندٌ تغيّرت قيمُه لا يحمل «تأكّد» القديم: الذي تأكّد غيرُ المطلوب الآن. */
-    if (changed) { const { state: _s, stateAt: _a, ...rest } = keep as any; return { ...item, ...rest, since: "changed" as const }; }
+    /* المطلوبُ تغيّر: لا يحمل شطباً ولا «تأكّد» على غيره؛ يعود مفتوحاً، والشطبُ القديم أثرٌ (lastDone). */
+    if (changed) { const was = done || lastDone; return { ...item, ...(was ? { lastDone: was } : {}), since: "changed" as const }; }
     return { ...item, ...keep };
   });
   return { items, gone: saved.filter(item => !now.has(item.id)).length };

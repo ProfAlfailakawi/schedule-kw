@@ -737,6 +737,8 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
       compareCourseSection({courseCode:a.display.courseCode,sectionCode:a.display.sectionCode,courseName:a.display.course,id:a.display.scheduleId}, {courseCode:b.display.courseCode,sectionCode:b.display.sectionCode,courseName:b.display.course,id:b.display.scheduleId})
     );
   }, [report?.diff.entries]);
+  /* مرشّحُ نوعٍ لم يعد في التقرير (جولةٌ أخرى أو أساسٌ آخر) لا يُخفي القائمة: يعود «الكل». */
+  const activeKind = kindOnly !== "all" && sortedDiffEntries.some(entry => entry.kind === kindOnly) ? kindOnly : "all";
   const sortedFullSchedule = useMemo(() => [...(report?.fullSchedule || [])].sort((a, b) =>
     (a.dayOrder ?? 99) - (b.dayOrder ?? 99) ||
     (a.startMinutes ?? 99999) - (b.startMinutes ?? 99999) ||
@@ -1153,13 +1155,13 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
         <EmptyState title="لم يتغيّر شيء" detail="لا فرق بين هذا الجدول وما راجعتَه آخر مرّة — انظر «الجدول كامل» لرؤية المواعيد كلها." />
       ) : (
         <>
-        {new Set(sortedDiffEntries.map(entry => entry.kind)).size > 1 ? (
+        {new Set(sortedDiffEntries.map(entry => entry.kind)).size > 1 || activeKind !== "all" ? (
           <div className="changes-kind-filter" role="group" aria-label="اعرض نوعاً واحداً من التغييرات">
-            <button type="button" aria-pressed={kindOnly === "all"} data-guide-ignore="يعرض التغييرات كلها — عرضٌ لا فعل" onClick={() => setKindOnly("all")}>الكل <b>{sortedDiffEntries.length}</b></button>
+            <button type="button" aria-pressed={activeKind === "all"} data-guide-ignore="يعرض التغييرات كلها — عرضٌ لا فعل" onClick={() => setKindOnly("all")}>الكل <b>{sortedDiffEntries.length}</b></button>
             {(["changed", "added", "removed"] as const).map(kind => {
               const n = sortedDiffEntries.filter(entry => entry.kind === kind).length;
               return n ? (
-                <button key={kind} type="button" data-kind={kind} aria-pressed={kindOnly === kind} data-guide-ignore="يقصر العرض على نوعٍ واحد من التغييرات — عرضٌ لا فعل" onClick={() => setKindOnly(current => current === kind ? "all" : kind)}>
+                <button key={kind} type="button" data-kind={kind} aria-pressed={activeKind === kind} data-guide-ignore="يقصر العرض على نوعٍ واحد من التغييرات — عرضٌ لا فعل" onClick={() => setKindOnly(current => current === kind ? "all" : kind)}>
                   {KIND_LABEL[kind]} <b>{n}</b>
                 </button>
               ) : null;
@@ -1167,7 +1169,7 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
           </div>
         ) : null}
         <div className="changes-table agenda-list" role="table" aria-label="تغييرات الجدول">
-          {sortedDiffEntries.filter(entry => kindOnly === "all" || entry.kind === kindOnly).map((entry, index) => (
+          {sortedDiffEntries.filter(entry => activeKind === "all" || entry.kind === activeKind).map((entry, index) => (
             <ScheduleRowCard
               key={`${entry.kind}:${entry.scheduleId}`}
               row={entry.display}

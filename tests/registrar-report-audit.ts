@@ -62,11 +62,13 @@ check(/باقٍ منذ/.test(requests) && /firstSeen/.test(requests), "P6 الب
   check(out.items.find(i => i.id === "edit:#4")?.since === "new", "R3 ما استجدّ بعد الفحص يُعلَّم «جديد بعد الفحص»");
   const changedItem = out.items.find(i => i.id === "edit:#3");
   check(changedItem?.since === "changed" && changedItem?.state !== "confirmed", "R4 بندٌ تغيّرت قيمُه يُعلَّم ولا يحمل «تأكّد» القديم");
+  const reDone = live.liveRequestItems([{ ...base("edit:#9", "101"), done: { by: 1, byName: "x", at: "t" } }], [base("edit:#9", "999")]).items[0];
+  check(!reDone.done && reDone.lastDone?.byName === "x" && live.requestProgress([reDone]).open === 1, "R4b بندٌ مشطوب تغيّر مطلوبُه يعود مفتوحاً والشطبُ أثر");
 }
 check(/"registrarRequestRows",doc\.id,\{id:doc\.id/.test(importRoutes) && /registrar-requests\/:id\/live/.test(importRoutes) && /deleteFeatureDoc\("registrarRequestRows",id\)/.test(importRoutes), "R5 صفوفُ الملف تُحفظ مع الفحص وتُحذف معه، ومسارُ القراءة الحيّة قائم");
 check(/className="rpr-live"/.test(comp) && /يوم الفحص/.test(comp) && /asOf=\{showingNow/.test(comp) && /canTick=\{canTick && !showingNow\}/.test(comp), "R6 التقرير يُعرض «الآن» أو «يوم الفحص»، والطباعة تذكر تاريخ جدولنا");
 check(/<RegistrarCheckNote\b/.test(read("src/components/Schedules.tsx")) && /forgetRegistrarCheckKeys\(\)/.test(check2), "R7 تنبيهُ «في فحص التسجيل» تحت شريط التراجع، ويُنسى بعد فحصٍ جديد");
-check(/changes-kind-filter/.test(changes) && /changes-row-tools/.test(changes), "R8 «تغييرات الجدول»: مرشّحُ النوع، وزرّا الموعد في سطرٍ صغير");
+check(/changes-kind-filter/.test(changes) && /changes-row-tools/.test(changes) && /const activeKind = /.test(changes), "R8 «تغييرات الجدول»: مرشّحُ النوع، وزرّا الموعد في سطرٍ صغير");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
