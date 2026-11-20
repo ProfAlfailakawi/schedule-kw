@@ -40,3 +40,13 @@ html[data-device="duo"] .apb-pop{max-inline-size:min(320px,calc(100vw - 24px))}
   }
   html[data-device="duo"][data-shell="browser"] body:has(.schedule-dock) .content-frame{padding-bottom:calc(var(--dock-h) + 24px + env(safe-area-inset-bottom))}
 }
+
+/* دعوة «حمّل التطبيق» (.get-app): في الدوو يعلوها الشريط السفلي فيُخفي «لاحقاً».
+   تجلس فوق الشريط بدل أن تتنازعه الطبقة، في كل وضعٍ يظهر فيه الشريط. */
+@media screen and (max-width:859px){
+  html[data-device="duo"] body:has(.mobile-bottom-dock) .get-app{
+    bottom:calc(var(--duo-dock-h, 59px) + 10px + env(safe-area-inset-bottom));
+    max-height:calc(100svh - var(--duo-dock-h, 59px) - 24px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
+    overflow-y:auto;
+  }
+}

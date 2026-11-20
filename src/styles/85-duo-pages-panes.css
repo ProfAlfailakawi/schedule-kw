@@ -42,38 +42,49 @@
   html[data-device="duo"] body:not(:has(.schedule-page,.schedule-editor)) .smart-guide-fab .smart-guide-fab-mark{background:none;box-shadow:none;color:var(--accent)}
 
   /* ── الصفحة: لوحان بشبكة، وآخر أبنائها (المحتوى الرئيس) في اللوح الثاني يتمرّر وحده. ── */
-  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"]){
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,.dashboard-page,[role="dialog"]){
     display:grid;grid-template-columns:var(--pane-r) var(--pane-l);column-gap:var(--pane-gap);row-gap:12px;
     align-items:start;align-content:start;grid-auto-flow:row dense;
     padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left);margin:0;max-width:none;width:100%;box-sizing:border-box;
   }
-  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"])>:not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"]){
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,.dashboard-page,[role="dialog"])>:not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"]){
     grid-column:1;min-width:0;max-width:none;margin-inline:20px;box-sizing:border-box;
   }
-  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"])>:first-child:not(.sr-only),
-  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"])>.sr-only+*{
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,.dashboard-page,[role="dialog"])>:first-child:not(.sr-only),
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,.dashboard-page,[role="dialog"])>.sr-only+*{
     margin-top:calc(64px + env(safe-area-inset-top));
   }
-  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"])>:last-child{margin-bottom:28px}
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,.dashboard-page,[role="dialog"])>:last-child{margin-bottom:28px}
   /* صفحةٌ لها ثلاثة أبناء فأكثر: الأخير هو القائمة/المحتوى الرئيس، في اللوح الثاني بارتفاع الشاشة.
      النوافذ والأدراج والستائر (CatalogFormDrawer وأمثاله، تُرسم بعد المحتوى بلا بوابة) لا تُعدّ: تبقى عائمةً كما هي. */
-  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen):not(.schedule-page,.schedule-editor,[role="dialog"]):has(>:nth-child(3 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"])))>:nth-last-child(1 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"],.tl-save)):not(:first-child){
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen):not(.schedule-page,.schedule-editor,.dashboard-page,[role="dialog"]):has(>:nth-child(3 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"])))>:nth-last-child(1 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"],.tl-save)):not(:first-child){
     grid-column:2;grid-row:1 / span 60;position:sticky;top:0;align-self:start;
     height:100svh;max-height:100svh;overflow:auto;overscroll-behavior:contain;
     margin:0;padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
     border-radius:0;border-block:0;border-inline:0;box-shadow:none;
   }
   /* صفحةٌ قصيرة (ابنان أو أقل، أو «من نحن»): عمودان متوازنان يملآن اللوحين. */
-  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"]):not(:has(>:nth-child(3 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"])))),
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,.dashboard-page,[role="dialog"]):not(:has(>:nth-child(3 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"])))),
   html[data-device="duo"] #root .content-frame>.about-editorial{
     display:block;column-count:2;column-gap:var(--pane-gap);column-fill:balance;
     padding-top:calc(64px + env(safe-area-inset-top));padding-bottom:28px;
   }
-  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,[role="dialog"]):not(:has(>:nth-child(3 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"]))))>*,
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen,.about-editorial):not(.schedule-page,.schedule-editor,.dashboard-page,[role="dialog"]):not(:has(>:nth-child(3 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"]))))>*,
   html[data-device="duo"] #root .content-frame>.about-editorial>*{margin-top:0 !important;margin-bottom:12px}
   html[data-device="duo"] #root .content-frame>.about-editorial>*{break-inside:avoid}
 
-  /* العنوان سطرٌ صغير في اللوح الأول. */
+    /* الرئيسية: بطاقاتٌ كثيرة قصيرة وآخرها «تفاصيل» مطويّة، فقاعدة «الأخير في اللوح الثاني» تتركه شبه فارغ.
+     تتوزّع بطاقاتها على عمودين متوازنين، فيمتلئ اللوحان والفاصل على المفصل. */
+  html[data-device="duo"] #root .content-frame>.content-stack.dashboard-page{
+    display:block;column-count:2;column-gap:var(--pane-gap);column-fill:balance;
+    padding:calc(64px + env(safe-area-inset-top)) env(safe-area-inset-right) 28px env(safe-area-inset-left);
+    margin:0;max-width:none;width:100%;box-sizing:border-box;
+  }
+  html[data-device="duo"] #root .content-frame>.content-stack.dashboard-page>:not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"]){
+    break-inside:avoid;margin:0 20px 12px;min-width:0;max-width:none;box-sizing:border-box;
+  }
+
+/* العنوان سطرٌ صغير في اللوح الأول. */
   html[data-device="duo"] #root .content-frame .page-heading:not(.schedule-editor .page-heading){
     display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;
     padding:0;min-height:0;text-align:start;
