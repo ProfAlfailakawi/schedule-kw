@@ -25,3 +25,18 @@ html[data-device="duo"] .apb-pop{max-inline-size:min(320px,calc(100vw - 24px))}
     width:calc(50vw - 22px - env(safe-area-inset-right)) !important;max-width:none !important;
   }
 }
+/* الداخلية طولاً في Safari: صفٌّ سفليٌّ واحد كالشاشة الخارجية — التبويبات يميناً، والأدوات («موعد» والبحث والتركيز)
+   و«تبادل القاعات» يساراً؛ لا شريطان فوق بعض ولا شيء يطفو فوق صفّ الشرائح. */
+@media screen and (orientation:portrait) and (min-width:461px) and (max-width:760px){
+  html[data-device="duo"][data-shell="browser"] body:has(.schedule-dock) .mobile-bottom-dock{left:44%;right:0;width:auto;max-width:none}
+  html[data-device="duo"][data-shell="browser"] .schedule-dock{
+    left:0;right:56%;bottom:0;z-index:56;
+    padding:0 12px env(safe-area-inset-bottom) 68px;
+    height:calc(var(--dock-h) + env(safe-area-inset-bottom));
+    align-items:center;justify-content:center;gap:6px;border-top:1px solid var(--line);
+  }
+  html[data-device="duo"][data-shell="browser"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    left:12px;bottom:calc(env(safe-area-inset-bottom) + (var(--dock-h) - 44px) / 2);
+  }
+  html[data-device="duo"][data-shell="browser"] body:has(.schedule-dock) .content-frame{padding-bottom:calc(var(--dock-h) + 24px + env(safe-area-inset-bottom))}
+}
