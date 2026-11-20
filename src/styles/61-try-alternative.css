@@ -51,3 +51,6 @@
   .try-alt-body{padding:var(--s3) var(--s3) var(--s6)}
 }
 @media print{.try-alt-sheet{display:none !important}}
+/* زرّا الموعد في سطرٍ واحدٍ صغير على طرف البطاقة، لا شريطان بعرضها: تبقى القراءةُ للتغيير نفسه. */
+.changes-row-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;grid-column:1 / -1;margin-top:6px}
+.changes-row-tools>.changes-try-add,.changes-row-tools>.changes-note-add{inline-size:auto;margin:0;flex:0 0 auto}

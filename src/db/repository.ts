@@ -3443,6 +3443,8 @@ export type FeatureCollection =
   | "actualDemandReports" | "actualDemandLinks"
   /* طلبُ التعديل للتسجيل (src/utils/registrarRequest.ts): وثيقةٌ لكل فحصٍ محفوظ، معرّفُها `${termId}:${collegeId}:${sectionId}:`. */
   | "registrarRequests"
+  /* صفوفُ ملف التسجيل المقروءة لكل فحصٍ محفوظ (بالمعرّف نفسه): بها يُعاد حسابُ التقرير على الجدول الآن. */
+  | "registrarRequestRows"
   /* سجلّ أرقام الشعب (src/utils/registrarNumbering.ts): أكبرُ رقمٍ استُعمل لكل مقرر، وثيقةٌ لكل `${termId}:${collegeId}:${sectionId}`. */
   | "sectionNumbers";
 /** «👣 الأثر»: ما يُقرأ من كل سطر (لا مفاتيحُ القراءة نفسها)، وحدُّ السجلّ المحلّي والتجريبي. */

@@ -11,6 +11,7 @@
  *
  * لا رقمَ مدنيّاً ولا شيءَ من الجدول غير ما في البند.
  */
+import { normalizeCrn } from "./registrarCheck";
 import type { FieldDelta, FindingGroup, FindingKind, RegistrarCheckResult, RegistrarCounts, RegistrarFinding, RequestAction } from "./registrarCheck";
 
 export interface RequestActor { by: number; byName: string; at: string }
@@ -35,7 +36,47 @@ export interface RegistrarRequestItem {
   /** confirmed: أثبته الملفُّ التالي. reopened: شُطب ولم يظهر في الملف. */
   state?: "confirmed" | "reopened";
   stateAt?: string;
+  /** في القراءة الحيّة وحدها (لا يُخزَّن): بندٌ استجدّ بعد حفظ الفحص، أو تغيّرت قيمُه بعده. */
+  since?: "new" | "changed";
 }
+
+/** قراءةُ التقرير على الجدول الآن: ملفُّ التسجيل المحفوظ نفسه، مقابل جدولنا لحظة الفتح. */
+export interface LiveRequestView {
+  at: string;
+  items: RegistrarRequestItem[];
+  counts: RegistrarCounts;
+  reviewCount: number;
+  /** بنودُ الفحص المحفوظ التي لم تعد فرقاً الآن. */
+  gone: number;
+}
+
+const fieldsSignature = (item: Pick<RegistrarRequestItem, "fields">) =>
+  (item.fields || []).map(f => `${f.field}=${f.ours}|${f.pdf}`).sort().join("~");
+
+/**
+ * يقابل بنودَ الفحص المحفوظ ببنود إعادة الحساب على الجدول الآن: يُبقي لكل بندٍ قائمٍ شطبَه وحالته،
+ * ويعلّم ما استجدّ وما تغيّرت قيمُه بعد الحفظ، ويعدّ ما زال. دالّةٌ نقيّة.
+ */
+export function liveRequestItems(saved: readonly RegistrarRequestItem[], fresh: readonly RegistrarRequestItem[]): { items: RegistrarRequestItem[]; gone: number } {
+  const before = new Map(saved.map(item => [item.id, item]));
+  const now = new Set(fresh.map(item => item.id));
+  const items = fresh.map(item => {
+    const old = before.get(item.id);
+    if (!old) return { ...item, since: "new" as const };
+    const { done, lastDone, state, stateAt } = old;
+    const keep = { ...(done ? { done } : {}), ...(lastDone ? { lastDone } : {}), ...(state ? { state } : {}), ...(stateAt ? { stateAt } : {}) };
+    const changed = fieldsSignature(old) !== fieldsSignature(item);
+    /* بندٌ تغيّرت قيمُه لا يحمل «تأكّد» القديم: الذي تأكّد غيرُ المطلوب الآن. */
+    if (changed) { const { state: _s, stateAt: _a, ...rest } = keep as any; return { ...item, ...rest, since: "changed" as const }; }
+    return { ...item, ...keep };
+  });
+  return { items, gone: saved.filter(item => !now.has(item.id)).length };
+}
+
+/** مفاتيحُ شعب ملف التسجيل المحفوظ: بها يعرف المحرّرُ أن الشعبة التي تُعدَّل كانت في آخر فحص. */
+export interface RegistrarCheckKeys { at: string; requestId: string; crns: string[]; pairs: string[] }
+export const checkPairKey = (courseId: unknown, section: unknown) => `${Number(courseId) || 0}|${String(section ?? "").trim().replace(/^0+(?=\d)/, "")}`;
+export const checkCrnKey = (crn: unknown) => normalizeCrn(crn);
 
 export interface RegistrarRequestDoc {
   id: string;

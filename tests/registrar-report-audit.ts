@@ -18,7 +18,7 @@ check(["registrarDean", "registrarHead", "registrarStaff", "collegeRegistrar"].e
 check(/lens === "registrar" \? \(\s*<React\.Suspense[\s\S]{0,400}<RegistrarReport /.test(reports) && /React\.lazy\(\(\) => import\("\.\/RegistrarReport"\)\)/.test(reports), "L3 العدسة تُحمَّل كسولاً وتُعرض في اللوحة");
 check(/registrar: "مطابقة التسجيل"/.test(reports), "L4 عنوانُ التقرير في أسماء العدسات");
 
-check(/data-action=\{/.test(comp) && /rpr-split/.test(comp) && /rpr-kpis/.test(comp) && /rpr-timeline/.test(comp), "U1 أرشيفٌ بالتواريخ ومؤشراتٌ وشريطُ أنواع");
+check(/data-action=\{/.test(comp) && /rpr-legend/.test(comp) && /rpr-kpis/.test(comp) && /rpr-timeline/.test(comp), "U1 أرشيفٌ بالتواريخ ومؤشراتٌ وأنواعٌ بألوانها");
 check(/--rpr-edit:#9a6a12/.test(css) && /--rpr-add:#25684a/.test(css) && /--rpr-del:#973c38/.test(css), "U2 ثلاثة ألوان: كهرمانيّ وأخضر وأحمر");
 check(/downloadSheets\(exportFileName\(\["مطابقة التسجيل"/.test(comp) && /الرقم المرجعي/.test(comp), "U3 تصديرُ Excel بالرقم المرجعي");
 check(/previous|drift/.test(comp) && /زالت/.test(comp) && /جديدة/.test(comp), "U4 مقارنةٌ بالتقرير السابق (زالت وبقيت وجديدة)");
@@ -50,6 +50,23 @@ check(/notesCohort/.test(follow) && !/fetch\([^)]*,\s*\{[^}]*method/.test(follow
 check(/stampPrintEngine\(root\)/.test(requests) && /fitPrintPages\(scope\)/.test(requests) && /packPrintLines\(/.test(requests) && !/@page rrequest/.test(checkCss), "P4 تُطبع بمطبعة الاستعلام نفسها: تدويرُ Safari وهندسةُ Chromium والملءُ والتصفيح");
 check(/className="rrq-trail"/.test(requests) && /سجلّ الفحوص/.test(requests) && /history=\{docs \|\| \[\]\}/.test(comp), "P5 سجلُّ الفحوص: كلُّ رفعٍ بتاريخه وما زال وما بقي وما جدّ");
 check(/باقٍ منذ/.test(requests) && /firstSeen/.test(requests), "P6 البندُ المتكرّر يُعلَّم «باقٍ منذ» أولِ فحصٍ ظهر فيه");
+
+/* التقرير على جدولنا الآن: صفوفُ ملفهم محفوظة، ويُعاد الحساب عند الفتح، وينبّه المحرّر */
+{
+  const live = await import("../src/utils/registrarRequest");
+  const base = (id: string, ours: string): any => ({ id, action: "edit", group: "mismatch", kind: "fields", courseCode: "0109105", courseName: "x", section: "1", fields: [{ field: "room", label: "القاعة", ours, pdf: "118" }] });
+  const savedItems = [{ ...base("edit:#1", "101"), done: { by: 1, byName: "x", at: "t" } }, base("edit:#2", "102"), { ...base("edit:#3", "103"), state: "confirmed" as const }];
+  const out = live.liveRequestItems(savedItems, [base("edit:#1", "101"), base("edit:#3", "999"), base("edit:#4", "104")]);
+  check(out.gone === 1, "R1 بندٌ لم يعد فرقاً يُعدّ «زال»");
+  check(Boolean(out.items.find(i => i.id === "edit:#1")?.done) && !out.items.find(i => i.id === "edit:#1")?.since, "R2 البندُ القائم يحتفظ بشطبه بلا علامة");
+  check(out.items.find(i => i.id === "edit:#4")?.since === "new", "R3 ما استجدّ بعد الفحص يُعلَّم «جديد بعد الفحص»");
+  const changedItem = out.items.find(i => i.id === "edit:#3");
+  check(changedItem?.since === "changed" && changedItem?.state !== "confirmed", "R4 بندٌ تغيّرت قيمُه يُعلَّم ولا يحمل «تأكّد» القديم");
+}
+check(/"registrarRequestRows",doc\.id,\{id:doc\.id/.test(importRoutes) && /registrar-requests\/:id\/live/.test(importRoutes) && /deleteFeatureDoc\("registrarRequestRows",id\)/.test(importRoutes), "R5 صفوفُ الملف تُحفظ مع الفحص وتُحذف معه، ومسارُ القراءة الحيّة قائم");
+check(/className="rpr-live"/.test(comp) && /يوم الفحص/.test(comp) && /asOf=\{showingNow/.test(comp) && /canTick=\{canTick && !showingNow\}/.test(comp), "R6 التقرير يُعرض «الآن» أو «يوم الفحص»، والطباعة تذكر تاريخ جدولنا");
+check(/<RegistrarCheckNote\b/.test(read("src/components/Schedules.tsx")) && /forgetRegistrarCheckKeys\(\)/.test(check2), "R7 تنبيهُ «في فحص التسجيل» تحت شريط التراجع، ويُنسى بعد فحصٍ جديد");
+check(/changes-kind-filter/.test(changes) && /changes-row-tools/.test(changes), "R8 «تغييرات الجدول»: مرشّحُ النوع، وزرّا الموعد في سطرٍ صغير");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

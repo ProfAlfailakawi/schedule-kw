@@ -10,7 +10,7 @@
  */
 import { Repository } from "../db/repository";
 import { DEMO_STORY_SCOPE } from "./core/demo";
-import type { RegistrarRequestDoc, RegistrarRequestItem } from "../utils/registrarRequest";
+import { buildRequestItems, type RegistrarRequestDoc, type RegistrarRequestItem } from "../utils/registrarRequest";
 
 const DAY = 24 * 60 * 60 * 1000;
 const SEAT = { by: 0, byName: "التسجيل" };
@@ -82,13 +82,48 @@ export async function seedDemoRegistrarReports(): Promise<void> {
     ["b2", second, 21, "شعب التسجيل (محدّث).pdf", 9, 17],
     ["c3", third, 22, "شعب التسجيل (آخر نسخة).pdf", 2, 15],
   ];
+  /* آخرُ تقرير يُبنى من ملفٍّ حقيقيّ الشكل يُشتقّ من جدول الصندوق نفسه، فيُحسب «على جدولكم الآن» حين يُفتح:
+     يعدّل الزائرُ شعبةً في الجدول، فيراها في التقرير بنداً «جديد بعد الفحص». */
+  const latest = await liveLatest(collegeId, sectionId, termId).catch(() => null);
   for (const [key, items, total, fileName, daysAgo, matched] of docs) {
+    const real = key === "c3" ? latest : null;
     const doc: RegistrarRequestDoc = {
       id: `${prefix}demo${key}`, collegeId, sectionId, termId, round: 1,
       at: at(daysAgo, 9), by: SEAT.by, byName: "رئيس القسم", fileName,
       sent: { round: 1, at: at(daysAgo + 6, 9) },
-      counts: counts(items, total, matched), reviewCount: items.filter(i => i.action === "delete").length, items,
+      ...(real
+        ? { counts: real.counts, reviewCount: real.counts.review, items: real.items }
+        : { counts: counts(items, total, matched), reviewCount: items.filter(i => i.action === "delete").length, items }),
     };
     await Repository.saveFeatureDoc("registrarRequests", doc.id, doc);
+    if (real) await Repository.saveFeatureDoc("registrarRequestRows", doc.id, { id: doc.id, collegeId, sectionId, termId, at: doc.at, rows: real.rows });
   }
+}
+
+/** ملفُّ تسجيلٍ تجريبيّ من جدول الصندوق: مطابقٌ إلا أربعَ شعب (قاعة، ووقت، وشعبةٌ لم يُضفها، وشعبةٌ زائدة). */
+async function liveLatest(collegeId: number, sectionId: number, termId: number) {
+  const { runRegistrarCheck } = await import("./routes/scheduleImportRoutes");
+  const courses = new Map((await Repository.getCourses()).map(row => [Number(row.AdCourseId), row]));
+  const live = (await Repository.getSchedulesByScope({ collegeId, sectionId, termId }) as any[])
+    .filter(row => Number(row.AdCourseId) && String(row.SCode || "").trim() && row.fstarttime && row.fendtime);
+  if (live.length < 6) return null;
+  const rows: any[] = live.map((row, index) => ({
+    sourceOrder: index + 1, sourcePage: 1 + Math.floor(index / 20), sourceReadMode: "pdf-text",
+    sourceCourseCode: String(courses.get(Number(row.AdCourseId))?.CourseCode || ""), sourceSectionText: String(row.SCode),
+    referenceNumber: String(row.referenceNumber || ""), sourceInstructorText: "",
+    AdCourseId: Number(row.AdCourseId), AdCourseName: String(row.AdCourseName || courses.get(Number(row.AdCourseId))?.CourseName || ""),
+    SCode: String(row.SCode), AdInstructorId: Number(row.AdInstructorId) || 0,
+    fsunday: Boolean(row.fsunday), fmonday: Boolean(row.fmonday), ftuesday: Boolean(row.ftuesday), fwednesday: Boolean(row.fwednesday), fthursday: Boolean(row.fthursday),
+    fstarttime: String(row.fstarttime), fendtime: String(row.fendtime),
+    AdRoomCode: String(row.AdRoomCode || ""), AdRoomHall: String(row.AdRoomHall || ""),
+  }));
+  const shift = (clock: string, hours: number) => { const [h, m] = clock.split(":").map(Number); return `${String(Math.min(20, (h || 8) + hours)).padStart(2, "0")}:${String(m || 0).padStart(2, "0")}`; };
+  rows[0] = { ...rows[0], AdRoomHall: rows[0].AdRoomHall === "118" ? "212" : "118" };
+  rows[1] = { ...rows[1], fstarttime: shift(rows[1].fstarttime, 1), fendtime: shift(rows[1].fendtime, 1) };
+  const extra = { ...rows[3], sourceOrder: rows.length + 1, referenceNumber: "49917", SCode: "19", sourceSectionText: "19", fstarttime: "15:00", fendtime: "15:50" };
+  const file = [...rows.slice(0, 2), ...rows.slice(3), extra];
+  const result = await runRegistrarCheck(collegeId, sectionId, termId, file);
+  if (result.empty) return null;
+  const items = buildRequestItems(result);
+  return items.length ? { rows: file, items, counts: result.counts } : null;
 }

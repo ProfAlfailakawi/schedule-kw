@@ -1756,3 +1756,12 @@ button.apb-staff-chip,button.apb-staff-need{border:0;font-family:inherit;cursor:
 .review-unavailable[data-review-state="failed"]>svg{color:var(--warning)}
 .review-unavailable>strong{font-size:.95rem;color:var(--ink)}
 .review-unavailable>.drawer-close{position:absolute;inset-inline-end:12px;inset-block-start:12px}
+/* مرشّحُ النوع فوق «ما تحرّك»: نوعٌ واحدٌ يُقرأ في المرّة، بألوان البطاقات نفسها. */
+.changes-kind-filter{display:flex;flex-wrap:wrap;gap:8px;margin-block:4px 10px}
+.changes-kind-filter button{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:var(--r-full);border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font-size:.86rem;font-weight:700;cursor:pointer}
+.changes-kind-filter button b{font-variant-numeric:tabular-nums}
+.changes-kind-filter button[data-kind="changed"]{color:var(--warning)}
+.changes-kind-filter button[data-kind="added"]{color:var(--success)}
+.changes-kind-filter button[data-kind="removed"]{color:var(--danger)}
+.changes-kind-filter button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.changes-kind-filter button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}

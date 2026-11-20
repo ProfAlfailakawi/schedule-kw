@@ -66,12 +66,14 @@ export function ItemLine({ item, canTick, busy, onTick }: { key?: React.Key; ite
         {item.crn ? <span className="crn-chip" dir="ltr" title="الرقم المرجعي">{item.crn}</span> : <span className="rrq-new">بلا رقم</span>}
         <strong><bdi dir="ltr">{item.courseCode}</bdi> {item.courseName}</strong>
         <small>ش<bdi dir="ltr">{item.pdfSection || item.section}</bdi></small>
+        {item.since ? <span className="rrq-since-now" data-since={item.since}>{item.since === "new" ? "جديد بعد الفحص" : "تغيّر بعد الفحص"}</span> : null}
       </div>
       {item.action === "edit" && item.fields.length ? (
         <ul className="rrq-fields">
           {item.fields.map(f => (
             <li key={f.field}>
               <span className="rrq-field-icon" title={f.label}>{FIELD_ICON[f.field]}</span>
+              <span className="rrq-field-label">{f.label}</span>
               <span className="rrq-was"><Value field={f.field} text={f.pdf} /></span>
               <ArrowLeft className="rrq-arrow" aria-label="إلى" />
               <span className="rrq-want"><Value field={f.field} text={f.ours} /></span>
@@ -145,7 +147,11 @@ function checkTrail(history: readonly RegistrarRequestDoc[], theirsOnly: boolean
   });
 }
 
-export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, history = [] }: { doc: RegistrarRequestDoc; scopeLine: string; college?: string; theirsOnly?: boolean; history?: readonly RegistrarRequestDoc[] }) {
+export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, history = [], asOf }: {
+  doc: RegistrarRequestDoc; scopeLine: string; college?: string; theirsOnly?: boolean; history?: readonly RegistrarRequestDoc[];
+  /** التقريرُ محسوبٌ على جدولنا في هذا الوقت (لا كما حُفظ): يُكتب في الرأس مع تاريخ ملفهم. */
+  asOf?: string;
+}) {
   /* «ملاحظات على ملف التسجيل»: ما أُرسل ولم يظهر في ملفهم وحده، فلا يُحمَّلون ما عدّلناه نحن بعد الإرسال. */
   /* البندُ المتكرّر: أولُ فحصٍ ظهر فيه، فيُرى أنه باقٍ منذ ذلك اليوم. */
   const firstSeen = new Map<string, string>();
@@ -215,7 +221,8 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, hist
             {pageIndex === 0 ? (
               <>
                 <div className="print-query-summaryline rrq-meta">
-                  <span><i>التاريخ</i> <b>{requestDay(doc.at)}</b></span>
+                  {asOf ? <span><i>جدولنا بتاريخ</i> <b>{requestDay(asOf)}</b></span> : null}
+                  <span><i>{asOf ? "ملفكم بتاريخ" : "التاريخ"}</i> <b>{requestDay(doc.at)}</b></span>
                   <span className="rrq-meta-file"><i>الملف</i> <b><bdi dir="auto">{doc.fileName}</bdi></b></span>
                   {doc.round ? <span><i>الجولة</i> <b>{doc.round}</b></span> : null}
                   <span className="rrq-meta-total"><i>المجموع</i> <b>{items.length}</b></span>

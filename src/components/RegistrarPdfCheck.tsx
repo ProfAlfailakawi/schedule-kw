@@ -14,6 +14,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forgetRegistrarCheckKeys } from "./RegistrarCheckNote";
 import {
   AlertTriangle, ArrowLeft, BookOpen, CalendarDays, CheckCircle2, ClipboardCheck, History, Clock3, Eye, FileSearch, FileText, Hourglass, Info, MapPin, RefreshCw, Save, ScanLine, Send, ShieldCheck, UploadCloud, UserRound, X,
 } from "lucide-react";
@@ -267,6 +268,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(String(body?.error || "تعذّر الحفظ في التقرير"));
       setSaving("saved");
+      forgetRegistrarCheckKeys();
       void loadLatest();
     } catch (error: any) { setSaving("idle"); setSaveError(String(error?.message || "تعذّر الحفظ في التقرير")); }
   };

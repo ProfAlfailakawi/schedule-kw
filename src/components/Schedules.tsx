@@ -88,6 +88,7 @@ import {
   Ruler,
 } from "lucide-react";
 import { DnaCount, DnaStatusHeader } from "./dna";
+import RegistrarCheckNote, { undoRowIds } from "./RegistrarCheckNote";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
 import CompanionFacilityBadge from "./CompanionFacilityBadge";
 import RoomSuggestionCards, { SuggestionEmpty, type ReplaceableSection } from "./RoomSuggestionCards";
@@ -11766,6 +11767,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     <div className="undo-bar no-print" role="status">
       <History aria-hidden="true" />
       <span>{undoAction.label}</span>
+      <RegistrarCheckNote collegeId={Number(filterCollege) || 0} sectionId={Number(filterSection) || 0} termId={Number(filterTerm) || 0} rowIds={undoRowIds(undoAction.steps)} rows={rows} />
       <button data-guide-target="schedule.undo" type="button" onClick={() => void runUndoEntry(undoAction)} disabled={Boolean(undoBusy)}>
         {undoBusy === undoAction.id ? "يتراجع…" : "تراجع"}
       </button>
