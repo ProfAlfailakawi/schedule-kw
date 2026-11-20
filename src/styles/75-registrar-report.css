@@ -1,0 +1,104 @@
+/* «مطابقة التسجيل» في مركز الاستعلام: أرشيفٌ بالتواريخ، ومؤشرات، وفروقٌ بثلاثة ألوان.
+   الألوان تحمل المعنى: كهرمانيّ = عدّلوا، أخضر = أضيفوا، أحمر = احذفوا. */
+.rpr{--rpr-edit:#9a6a12;--rpr-edit-soft:#fbf0d4;--rpr-add:#25684a;--rpr-add-soft:#dfeee6;--rpr-del:#973c38;--rpr-del-soft:#f8e4e2;display:grid;gap:var(--s4);min-inline-size:0}
+.rpr [data-action="edit"]{--tone:var(--rpr-edit);--tone-soft:var(--rpr-edit-soft)}
+.rpr [data-action="add"]{--tone:var(--rpr-add);--tone-soft:var(--rpr-add-soft)}
+.rpr [data-action="delete"]{--tone:var(--rpr-del);--tone-soft:var(--rpr-del-soft)}
+:root[data-theme="dark"] .rpr{--rpr-edit:#e3b660;--rpr-edit-soft:#3a2f17;--rpr-add:#6fc59a;--rpr-add-soft:#173326;--rpr-del:#ee8f88;--rpr-del-soft:#3b1d1b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .rpr{--rpr-edit:#e3b660;--rpr-edit-soft:#3a2f17;--rpr-add:#6fc59a;--rpr-add-soft:#173326;--rpr-del:#ee8f88;--rpr-del-soft:#3b1d1b}}
+
+/* تقرير المطابقة له رأسه وأزراره: عدّاد المواعيد وطباعة القائمة لا معنى لهما فوقه. */
+.query-canvas-head[data-lens="registrar"]{display:none}
+
+/* الأرشيف */
+.rpr-archive{display:grid;gap:var(--s2)}
+.rpr-archive h3{display:flex;align-items:center;gap:8px;margin:0;font-size:1rem}
+.rpr-archive h3 svg{inline-size:18px;block-size:18px;color:var(--accent)}
+.rpr-archive h3 small{color:var(--muted);font-weight:600}
+.rpr-timeline{display:flex;gap:var(--s2);overflow-x:auto;padding:4px 2px 8px;scroll-snap-type:x proximity;max-inline-size:100%}
+.rpr-date{scroll-snap-align:start;flex:none;display:flex;align-items:center;gap:10px;min-block-size:64px;min-inline-size:196px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+.rpr-date:hover{border-color:var(--accent)}
+.rpr-date[aria-selected="true"]{border-color:var(--accent);background:var(--accent-softer);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 28%,transparent)}
+.rpr-date-cal{display:grid;justify-items:center;gap:0;inline-size:46px;padding:4px 0 5px;border-radius:12px;background:var(--accent);color:#fff;line-height:1.1}
+.rpr-date-cal b{font-size:1.2rem;font-variant-numeric:tabular-nums}
+.rpr-date-cal i{font-style:normal;font-size:.68rem;opacity:.9}
+.rpr-date-body{display:grid;gap:4px;min-inline-size:0;flex:1}
+.rpr-date-body small{color:var(--muted);font-size:.72rem;max-inline-size:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rpr-dots{display:flex;gap:4px}
+.rpr-dots em{font-style:normal;min-inline-size:22px;padding:1px 6px;border-radius:999px;background:var(--tone-soft);color:var(--tone);font-size:.74rem;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
+.rpr-ring{inline-size:38px;block-size:38px;flex:none}
+.rpr-ring-bg{fill:none;stroke:var(--surface-3);stroke-width:4}
+.rpr-ring-fg{fill:none;stroke:var(--success);stroke-width:4;stroke-linecap:round}
+.rpr-ring text{font-size:10px;font-weight:800;fill:var(--ink);font-variant-numeric:tabular-nums}
+.rpr-date[data-complete] .rpr-date-cal{background:var(--success)}
+
+/* التقرير المفتوح */
+.rpr-open{display:grid;gap:var(--s3)}
+.rpr-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:16px 18px;border-radius:var(--r-lg);background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 14%,var(--surface)),var(--surface));border:1px solid color-mix(in srgb,var(--accent) 26%,var(--line))}
+.rpr-hero-icon{display:grid;place-items:center;inline-size:48px;block-size:48px;border-radius:15px;background:var(--accent);color:#fff}
+.rpr-hero-icon svg{inline-size:26px;block-size:26px}
+.rpr-hero h2{margin:0 0 2px;font-size:1.15rem}
+.rpr-hero p{margin:0;color:var(--muted);font-size:.84rem;overflow-wrap:anywhere}
+.rpr-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.rpr-actions .btn{min-block-size:44px;display:inline-flex;align-items:center;gap:6px}
+.rpr-actions svg{inline-size:16px;block-size:16px}
+
+.rpr-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.rpr-kpi{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;align-items:center;column-gap:10px;padding:12px 14px;border-radius:var(--r-lg);border:1px solid var(--line);background:var(--surface)}
+.rpr-kpi svg{grid-row:1 / 3;inline-size:30px;block-size:30px;padding:6px;border-radius:10px}
+.rpr-kpi b{font-size:1.6rem;line-height:1;font-variant-numeric:tabular-nums}
+.rpr-kpi span{color:var(--muted);font-size:.78rem}
+.rpr-kpi[data-tone="total"] svg{background:var(--accent-soft);color:var(--accent-strong)}
+.rpr-kpi[data-tone="done"] svg{background:var(--success-soft);color:var(--success)}
+.rpr-kpi[data-tone="open"] svg{background:var(--warning-soft);color:var(--warning)}
+.rpr-kpi[data-tone="open"] b{color:var(--warning)}
+.rpr-kpi[data-tone="sure"] svg{background:var(--info-soft);color:var(--info)}
+
+.rpr-split{display:flex;gap:3px;block-size:30px;border-radius:999px;overflow:hidden}
+.rpr-split>span{display:grid;place-items:center;min-inline-size:34px;background:var(--tone);color:#fff;font-size:.8rem;font-weight:800;font-variant-numeric:tabular-nums}
+.rpr-legend{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rpr-legend>button{display:inline-flex;align-items:center;gap:6px;min-block-size:40px;padding:4px 14px;border-radius:999px;border:1.5px solid color-mix(in srgb,var(--tone) 40%,var(--line));background:var(--surface);color:var(--tone);font:inherit;cursor:pointer}
+.rpr-legend>button svg{inline-size:16px;block-size:16px}
+.rpr-legend>button small{padding:0 7px;border-radius:999px;background:var(--tone-soft);font-weight:800}
+.rpr-legend>button[aria-pressed="true"]{background:var(--tone);color:#fff;border-color:var(--tone)}
+.rpr-legend>button[aria-pressed="true"] small{background:rgba(255,255,255,.22);color:#fff}
+.rpr-legend>button:disabled{opacity:.4;cursor:default}
+.rpr-switch{display:inline-flex;align-items:center;gap:8px;margin-inline-start:auto;min-block-size:40px;color:var(--ink-2);font-size:.88rem;cursor:pointer}
+.rpr-switch input{inline-size:18px;block-size:18px;accent-color:var(--accent)}
+
+.rpr-drift{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:10px 14px;border-radius:var(--r-md);background:var(--surface-3);color:var(--ink-2);font-size:.88rem}
+.rpr-drift svg{inline-size:16px;block-size:16px;color:var(--brass)}
+.rpr-drift b[data-tone="ok"]{color:var(--success)}
+.rpr-drift b[data-tone="warn"]{color:var(--warning)}
+.rpr-drift b[data-tone="new"]{color:var(--info)}
+
+/* مجموعات الفروق: شريطٌ ملوّن أعلى كل مجموعة */
+.rpr-group{border:1px solid color-mix(in srgb,var(--tone) 30%,var(--line));border-radius:var(--r-lg);background:var(--surface);overflow:hidden}
+.rpr-group>header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--tone-soft);color:var(--tone);border-block-end:1px solid color-mix(in srgb,var(--tone) 25%,var(--line))}
+.rpr-group-icon{display:grid;place-items:center;inline-size:34px;block-size:34px;border-radius:11px;background:var(--tone);color:#fff}
+.rpr-group-icon svg{inline-size:19px;block-size:19px}
+.rpr-group>header h4{margin:0;font-size:1rem}
+.rpr-group>header small{margin-inline-start:auto;color:var(--ink-2);font-size:.78rem}
+.rpr-group>ul{list-style:none;margin:0;padding:8px 12px;display:grid;gap:8px}
+.rpr-group .rrq-item{border-inline-start:4px solid var(--tone);border-radius:var(--r-md)}
+.rpr-group .rrq-want{color:var(--tone);font-weight:800}
+.rpr-clear{display:flex;align-items:center;gap:8px;margin:0;padding:14px;color:var(--success);font-weight:700}
+.rpr-clear svg{inline-size:18px;block-size:18px}
+.rpr-note{margin:0;color:var(--muted);font-size:.84rem}
+
+@media (max-width:760px){
+  .rpr-hero{grid-template-columns:auto minmax(0,1fr)}
+  .rpr-actions{grid-column:1 / -1;justify-content:flex-start}
+  .rpr-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rpr-switch{margin-inline-start:0}
+}
+
+/* الورقة المطبوعة: الألوان نفسها، وتُطبع كما هي لا رماديّةً */
+@media print{
+  .rrq-sheet{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rrq-sheet section>h2{padding:1.2mm 3mm;border-radius:1.2mm;color:#fff;font-size:10.5pt}
+  .rrq-sheet section:nth-of-type(1)>h2{background:#9a6a12}
+  .rrq-sheet section:nth-of-type(2)>h2{background:#25684a}
+  .rrq-sheet section:nth-of-type(3)>h2{background:#973c38}
+  .rrq-sheet thead th{background:#eef2f0}
+}

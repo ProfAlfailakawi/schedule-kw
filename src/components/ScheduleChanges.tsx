@@ -1007,7 +1007,8 @@ function Report({ termId, termName, scope, role, onBack, onSigned, archive = fal
       {error ? <Notice type="error">{error}</Notice> : null}
       {message ? <Notice type="success">{message}</Notice> : null}
 
-      {canEditRequests || isRegistrar ? (
+      {/* تقارير المطابقة للقسم في «الاستعلامات ← مطابقة التسجيل»؛ هنا للتسجيل وحده بجانب وارده. */}
+      {isRegistrar ? (
         <RegistrarRequests
           collegeId={scope.collegeId} sectionId={scope.sectionId} termId={termId}
           scopeLine={[termName, scope.collegeName, scope.sectionName].filter(Boolean).join(" · ") || `قسم ${scope.sectionId}`}

@@ -11,8 +11,8 @@
     "en": "One question, many lenses; A4 landscape sheets in their approved design; Excel files with seven-digit course numbers."
   },
   "summary": {
-    "ar": "تجمع هذه الوحدة شاشة الاستعلامات والتقارير بعشرة مداخل (بحث وتقرير للأستاذ والقاعة والوقت والقاعة والوقت معاً، والبحث المتقدم، وتقرير القسم) تفتح كلها على مجموعة واحدة من المرشحات وخمس عشرة عدسة للعرض. ومنها تُطبع الأوراق على A4 أفقي دون المساس بتصميمها، ويُصدَّر ملف Excel بالمرشحات نفسها. وتشمل مصادر البيانات الخاصة بالتقارير على الخادم: ميزان الأقسام وإشغال القاعات وسجل المنتدبين وتقرير التغييرات ومقارنة ملف الهيئة، وجسر شارات الصحيفة الذي تشترك فيه الشاشات. وتحكم الوحدة رقم المقرر المعروض: سبع خانات دائماً.",
-    "en": "This module covers the queries-and-reports screen, which has ten entry points (search and report for instructor, room, time and room-and-time, advanced search, and the department report). All of them open on one shared filter set and fifteen display lenses. Sheets print on A4 landscape without any change to their approved design, and Excel export uses the same filters. It also covers the report data sources on the server: department balance, room load, the visiting-instructor roster and history, the schedule-changes report, the Authority file comparison, and the plan-sheet badge bridge shared by several screens. Every course number shown is seven digits."
+    "ar": "تجمع هذه الوحدة شاشة الاستعلامات والتقارير بعشرة مداخل (بحث وتقرير للأستاذ والقاعة والوقت والقاعة والوقت معاً، والبحث المتقدم، وتقرير القسم) تفتح كلها على مجموعة واحدة من المرشحات وست عشرة عدسة للعرض. ومنها تُطبع الأوراق على A4 أفقي دون المساس بتصميمها، ويُصدَّر ملف Excel بالمرشحات نفسها. وتشمل مصادر البيانات الخاصة بالتقارير على الخادم: ميزان الأقسام وإشغال القاعات وسجل المنتدبين وتقرير التغييرات ومقارنة ملف الهيئة، وجسر شارات الصحيفة الذي تشترك فيه الشاشات. وتحكم الوحدة رقم المقرر المعروض: سبع خانات دائماً.",
+    "en": "This module covers the queries-and-reports screen, which has ten entry points (search and report for instructor, room, time and room-and-time, advanced search, and the department report). All of them open on one shared filter set and sixteen display lenses. Sheets print on A4 landscape without any change to their approved design, and Excel export uses the same filters. It also covers the report data sources on the server: department balance, room load, the visiting-instructor roster and history, the schedule-changes report, the Authority file comparison, and the plan-sheet badge bridge shared by several screens. Every course number shown is seven digits."
   },
   "actors": [
     "departmentHead",
@@ -614,12 +614,12 @@
       "id": "FR-RPT-004",
       "kind": "functional",
       "title": {
-        "ar": "عدسات العرض الخمس عشرة",
-        "en": "Fifteen display lenses"
+        "ar": "عدسات العرض الست عشرة",
+        "en": "Sixteen display lenses"
       },
       "text": {
-        "ar": "يجب أن يقدّم النظام خمس عشرة عدسة تجيب كلٌّ منها عن سؤال بعينه من نتائج المرشحات نفسها، ولكل عدسة ورقة طباعة بمحتوى.",
-        "en": "The system shall provide fifteen lenses, each answering one specific question from the same filtered results, and every lens shall have a print sheet with content."
+        "ar": "يجب أن يقدّم النظام ست عشرة عدسة تجيب كلٌّ منها عن سؤال بعينه من نتائج المرشحات نفسها، ولكل عدسة ورقة طباعة بمحتوى («مطابقة التسجيل» تطبع ورقة «طلب تعديل للتسجيل» من داخلها).",
+        "en": "The system shall provide sixteen lenses, each answering one specific question from the same filtered results, and every lens shall have a print sheet with content (the registration match lens prints the «change request to Registration» sheet from inside it)."
       },
       "priority": "must",
       "status": "implemented",

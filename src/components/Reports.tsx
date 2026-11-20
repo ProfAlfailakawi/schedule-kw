@@ -12,6 +12,7 @@ import {
   ShieldCheck, FileSpreadsheet, UsersRound, DoorOpen, TriangleAlert, Grid3x3, Network,
   Hash, Fingerprint, Mic, Hourglass, CalendarPlus,
 } from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
 import { resolveAsk, type AskAnswer, type AskOption } from "../utils/queryAsk";
 import { buildReportInsights } from "../utils/reportInsights";
 import { compactFilters, decodeReportState, readSeen, reportShareUrl, resultsFingerprint, writeSeen, type SavedReport, type SharedReportState } from "../utils/reportShare";
@@ -32,7 +33,7 @@ import { writeSharedScope } from "../utils/sharedScope";
 import { balanceSheet, courseLoadSheet, courseRoomSheet, directorySheets, downloadSheets, exportFileName, fairnessSheet, instructorSheet, occupancySheet, roomLoadSheet, timeSheet, visitingHistorySheet, visitingSheet, type ExportSheet } from "../utils/lensExport";
 import { buildMorningBrief, type MorningBrief } from "../utils/morningBrief";
 import { TRAIL_KIND_META, isTrailKind } from "../utils/activityTrail";
-import { EmptyState, Field, GhostButton, Notice, PageTitle, PrintLetterhead, PrintPortal, SecondaryButton } from "./ui";
+import { EmptyState, Field, GhostButton, MicroLoader, Notice, PageTitle, PrintLetterhead, PrintPortal, SecondaryButton } from "./ui";
 import { APPROVAL_STATUS_LABEL } from "../utils/approvalWorkflow";
 import type { ScheduleApprovalStatus } from "../types";
 import { AdCollege, AdCourse, AdInstructor, AdSection, AdTerm, FSchedule, MasterBuilding, MasterRoom } from "../types";
@@ -92,6 +93,7 @@ import PrintComprehensiveHead, { printIssueDate } from "./PrintComprehensiveHead
 import PrintStamp from "./PrintStamp";
 import { buildReportStamp, type ReportStampClaim } from "../utils/reportStamp";
 import { flushPendingReportStamps, sendReportStamp } from "../utils/reportStampClient";
+const RegistrarReport = React.lazy(() => import("./RegistrarReport"));
 import DecisionBoard, { type DecisionBoardPrintDepartment } from "./DecisionBoard";
 import { instructorReportScope } from "../utils/instructorReportScope";
 import { compactCampusLabels } from "../utils/campusChips";
@@ -123,7 +125,7 @@ type VisitingTeachingData = {
   instructors: AdInstructor[];
   rows: FSchedule[];
 };
-type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "occupancy" | "roomInstructor" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance" | "courseRoom" | "decision";
+type Lens = "list" | "week" | "instructor" | "courseLoad" | "room" | "occupancy" | "roomInstructor" | "matrix" | "time" | "visiting" | "visitingHistory" | "fairness" | "balance" | "courseRoom" | "decision" | "registrar";
 /* كل عدسةٍ لها ورقة: زرّ «طباعة هذا العرض» يظهر في كل عدسة، وعدسةٌ بلا ورقة كانت
    تخرج صفحةً بيضاء عنوانها «undefined» («المقررات × القاعات» و«لوحة القرار»).
    tests/report-print-menus-audit.ts يحرس ذلك. */
@@ -265,6 +267,7 @@ const LENSES: Array<{ id: Lens; label: string; hint: string; icon: React.ReactNo
      else is allowed to see, so it must not appear as a locked door to them. */
   { id: "balance", label: "ميزان الأقسام", hint: "كل أقسام الفصل، قسمٌ في كل سطر", icon: <Landmark /> },
   /* K5: the planning tools, read-only, for the department head, the dean and above. */
+  { id: "registrar", label: "مطابقة التسجيل", hint: "تقارير ما بين جدولنا وملف التسجيل بتواريخها، وما نُفّذ منها", icon: <ClipboardCheck /> },
   { id: "decision", label: "لوحة القرار", hint: "التخطيط والتنبّؤ ومختبر القرار للقراءة: القسم لرئيسه، والكلية لعميدها", icon: <Compass /> }
 ];
 
@@ -289,10 +292,10 @@ const ROLE_LENSES: Record<string, Lens[]> = {
      أولى فارغة لا تجيب أحداً. ثم الجداول نفسها وما يُكمل الصورة. */
   dean:           ["balance", "list", "week", "decision", "fairness", "courseLoad", "visiting"],
   viceDean:       ["balance", "list", "week", "decision", "fairness", "courseLoad", "visiting", "instructor", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
-  registrarDean:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
-  registrarHead:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
-  registrarStaff: ["balance", "list", "room", "occupancy", "roomInstructor", "courseRoom"],
-  collegeRegistrar: ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom"],
+  registrarDean:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom", "registrar"],
+  registrarHead:  ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom", "registrar"],
+  registrarStaff: ["balance", "list", "room", "occupancy", "roomInstructor", "courseRoom", "registrar"],
+  collegeRegistrar: ["balance", "list", "room", "occupancy", "roomInstructor", "matrix", "courseRoom", "registrar"],
 };
 
 /**
@@ -2190,7 +2193,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
     list: "نتائج الاستعلام", week: "الأسبوع", instructor: "تقرير الأستاذ", courseLoad: "توزيع المواد بين المواقع", room: "إشغال القاعات والفراغات", occupancy: "نسبة الإشغال", roomInstructor: "القاعات والأساتذة",
     matrix: "القاعات والأوقات", time: "الأوقات", visiting: "المنتدبون — الفصل الحالي",
     visitingHistory: "المنتدبون — كل الفصول", fairness: "عدالة توزيع العبء", balance: "ميزان الأقسام",
-    courseRoom: "المقررات × القاعات", decision: "لوحة القرار",
+    courseRoom: "المقررات × القاعات", decision: "لوحة القرار", registrar: "مطابقة التسجيل",
     comprehensive: "تقرير الجدول الشامل", "comprehensive-branch": "تقرير الجدول الشامل — كل الفروع",
     morning: "موجز الصباح",
   };
@@ -3025,7 +3028,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
         aria-labelledby={`query-lens-tab-${lens}`}
         tabIndex={0}
       >
-        <header className="query-canvas-head no-print">
+        <header className="query-canvas-head no-print" data-lens={lens}>
           <div className="query-count" aria-live="polite" aria-atomic="true">
             {/* الميزان يعدّ الأقسام لا المواعيد المعتمدة: «0 موعد» فوق جدولٍ فيه أقسامٌ
                 ومواعيد كان يقول للعميد شيئاً غير ما يراه تحته. */}
@@ -3905,6 +3908,10 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
             ))}</div>
             </section> : filters.sectionId && !siteLoadRead?.loading ? <div className="query-empty"><EmptyState title={`لا توجد مواد لقسم ${sectionName || "القسم المحدد"} في المواقع المعنية لهذا الفصل`} /></div> : null}
           </div>
+        ) : lens === "registrar" ? (
+          <React.Suspense fallback={<MicroLoader label="يقرأ تقارير المطابقة…" />}>
+            <RegistrarReport collegeId={Number(filters.collegeId) || 0} sectionId={Number(filters.sectionId) || 0} termId={Number(filters.termId) || 0} scopeLine={scopeLine} canDelete={canSchedule} />
+          </React.Suspense>
         ) : lens === "decision" ? (
           <DecisionBoard
             reader={{ roleId, isPowerAdmin, scopes }}
@@ -4889,7 +4896,7 @@ function PrintSheetBody({ kind, rows, fairness, matrix, roomLoad, roomDay, balan
     morning: "موجز الصباح",
     balance: "نشرة المجلس — ميزان الأقسام",
     courseRoom: "المقررات × القاعات",
-    decision: "لوحة القرار",
+    decision: "لوحة القرار", registrar: "مطابقة التسجيل",
     comprehensive: "تقرير الجدول الشامل",
     "comprehensive-branch": "تقرير الجدول الشامل — كل الفروع",
   };

@@ -56,7 +56,7 @@ const blockCount = (regs.match(/approvalEffect: "block"/g) || []).length;
 check(blockCount === 6, `قواعد المراجعة: ستة مواضع منعٍ في الكود (الآن ${blockCount})`, "تغيّر عدد ما يمنع المراجعة: راجع قواعد الجدول.");
 
 const lensCount = (read("src/components/Reports.tsx").match(/const LENSES[\s\S]*?\n\];/)?.[0].match(/\{ id: "/g) || []).length;
-check(lensCount === 15 && deck.includes("خمس عشرة عدسة"), `التقارير: خمس عشرة عدسة (الآن ${lensCount})`, "تغيّر عدد العدسات: راجع شريحة «التقارير».");
+check(lensCount === 16 && deck.includes("ست عشرة عدسة"), `التقارير: ست عشرة عدسة (الآن ${lensCount})`, "تغيّر عدد العدسات: راجع شريحة «التقارير».");
 
 const geminiCallers = fs.readdirSync("src/server", { recursive: true } as any).map(String).filter(f => f.endsWith(".ts"))
   .filter(f => !f.endsWith(path.join("core", "gemini.ts")) && /from "(\.\.?\/)+(core\/)?gemini"/.test(read(path.join("src/server", f))));
