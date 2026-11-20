@@ -13,8 +13,8 @@ import { AR, countOf } from "../utils/arabicCount";
 import { isTheirs, REQUEST_ACTION_LABEL, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
 import type { FieldDelta, RequestAction } from "../utils/registrarCheck";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
-import { packPrintLines } from "../utils/printFit";
-import { isChromiumPrint, isSafariPrint } from "../utils/printEngine";
+import { clearPrintFit, fitPrintPages, packPrintLines } from "../utils/printFit";
+import { isSafariPrint, stampPrintEngine } from "../utils/printEngine";
 import { GhostButton, Notice, PrintLetterhead, PrintPortal, SecondaryButton, visualConfirm } from "./ui";
 
 const call = async (url: string, init?: RequestInit) => {
@@ -102,32 +102,24 @@ export function ItemLine({ item, canTick, busy, onTick }: { key?: React.Key; ite
 }
 
 /**
- * يطبع ورقة المطابقة الموجودةَ في الصفحة (PrintPortal) طوليّةً (A4 طولي، قرار المالك 2026-11-20): لا تدويرَ في
- * Safari (ورقُه طوليٌّ أصلاً)، وصفحاتُ التطبيق نفسه مقسومةٌ بأطوالها (packPrintLines) فلا تُصغَّر لتملأ ورقةً عرضية.
- * أمرُ الطباعة في اللمسة نفسها، ولا تُرفع السمة إلا بعد الطباعة فعلاً.
+ * يطبع ورقة المطابقة الموجودةَ في الصفحة (PrintPortal) كما يطبع «مركز الاستعلام» تقاريره: سماتُ المحرّك
+ * (التدوير في Safari، وهندسة A4 في Chromium)، ثم ملءُ كل صفحةٍ إلى حدود A4 (fitPrintPages)، وأمرُ الطباعة
+ * في اللمسة نفسها، ولا تُرفع السمات إلا بعد الطباعة فعلاً.
  */
-/** الورقةُ الطولية لهذه الطباعة وحدها: قاعدةُ `@page` تُضاف قبل الطباعة وتُرفع بعدها (البرنامجُ كلُّه عرضيٌّ افتراضياً). */
-export function portraitPaper(): HTMLStyleElement {
-  const style = document.createElement("style");
-  style.dataset.registrarPaper = "portrait";
-  style.textContent = "@page{size:A4 portrait;margin:0}";
-  document.head.appendChild(style);
-  return style;
-}
-
 export function printRegistrarRequest() {
   if (showPwaPrintHelp()) return;
   const root = document.documentElement;
+  const scope = document.getElementById("app-print-root") || document;
   root.dataset.printKind = "registrar-request";
-  if (isChromiumPrint()) root.dataset.printChromium = "1";
-  const paper = portraitPaper();
+  const unstamp = stampPrintEngine(root);
+  fitPrintPages(scope);
   let finished = false;
   const done = () => {
     if (finished) return;
     finished = true;
     delete root.dataset.printKind;
-    delete root.dataset.printChromium;
-    paper.remove();
+    unstamp();
+    clearPrintFit(scope);
     window.removeEventListener("afterprint", done);
   };
   window.addEventListener("afterprint", done, { once: true });
@@ -184,9 +176,8 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, hist
   type Line = { item: RegistrarRequestItem; action: RequestAction };
   const lines: Line[] = groups.flatMap(({ action }) => by(action).map(item => ({ item, action })));
   const cost = (line: Line) => 1 + Math.max(0, (line.action === "edit" ? line.item.fields.length : 1) - 1) * 0.55;
-  /* ورقةٌ طولية: نحو 273 ملم للمحتوى، والسطرُ أطول قليلاً في عرض 186 ملم. */
-  const firstBudget = Math.max(4, 12 - (trail.length > 1 ? Math.min(5, 1.4 + trail.length * 0.7) : 0) - (theirsOnly ? 0.8 : 0));
-  const pages = lines.length ? packPrintLines(lines, cost, firstBudget, 15) : [[] as Line[]];
+  const firstBudget = Math.max(3, 8 - (trail.length > 1 ? Math.min(4, 1 + trail.length * 0.6) : 0) - (theirsOnly ? 0.8 : 0));
+  const pages = lines.length ? packPrintLines(lines, cost, firstBudget, 10) : [[] as Line[]];
   const groupOf = (action: RequestAction) => groups.find(g => g.action === action)!;
   const editRow = (item: RegistrarRequestItem) => (
     <tr key={item.id}>
@@ -215,7 +206,7 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, hist
   const rowOf = { edit: editRow, add: addRow, delete: delRow } as const;
   const tableClass = { edit: "rrq-t-edit", add: "rrq-t-add", delete: "rrq-t-del" } as const;
   return (
-    <div className="print-report print-upright print-query-report print-registrar-report rrq-sheet" dir="rtl">
+    <div className="print-report print-wide print-query-report print-registrar-report rrq-sheet" dir="rtl">
       {pages.map((pageLines, pageIndex) => {
         /* البنودُ على الصفحة مجموعاتٍ متصلة، ومجموعةٌ تبدأ في صفحةٍ سابقة تُكمَل بعنوانها «(تابع)». */
         const runs: Array<{ action: RequestAction; rows: RegistrarRequestItem[]; continued: boolean }> = [];
