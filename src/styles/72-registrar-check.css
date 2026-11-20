@@ -221,21 +221,14 @@
 
 /* ── الورقة المطبوعة «طلب تعديل للتسجيل»: صفحةٌ عمودية واحدة، منفذٌ معزول ── */
 .rrq-sheet{display:none}
-@page rrq-portrait{size:A4 portrait;margin:0}
 @media print{
   #app-print-root>.registrar-request-print-host,
   body.has-print-portal>#app-print-root>.registrar-request-print-host,
   .registrar-request-print-host{display:none!important}
   html[data-print-kind="registrar-request"] #app-print-root>.print-only:not(.registrar-request-print-host){display:none!important}
   html[data-print-kind="registrar-request"] #app-print-root>.registrar-request-print-host{display:block!important;visibility:visible!important}
-  /* ورقةُ المطابقة طوليّة (قرار المالك 2026-11-20): صفحاتٌ صريحة بترويسة بقية التقارير على A4 طولي
-     (.print-upright وصفحةٌ مسمّاة)، بلا تدويرٍ في Safari ولا تصغيرٍ لملء ورقةٍ عرضية. */
-  html[data-print-kind="registrar-request"] .print-registrar-report,
-  html[data-print-kind="registrar-request"] .print-registrar-report .print-explicit-page{page:rrq-portrait!important}
-  html[data-print-kind="registrar-request"] .print-registrar-report .print-explicit-page{display:flex!important;flex-direction:column!important;box-sizing:border-box!important}
-  html[data-print-kind="registrar-request"] .print-registrar-report .print-explicit-page>.print-explicit-page-meta{margin-top:auto!important}
-  /* في Chromium الهامشُ صفر: الصفحةُ ورقةٌ كاملة، والتذييلُ في أسفلها. Safari يضع هوامشه، فتبقى الصفحةُ بطولها الطبيعي. */
-  html[data-print-kind="registrar-request"][data-print-chromium="1"] .print-registrar-report .print-explicit-page{width:210mm!important;max-width:210mm!important;min-height:291mm!important}
+  /* ورقةُ المطابقة تُطبع كبقية تقارير «مركز الاستعلام»: صفحاتٌ صريحة عرضية (.print-report.print-wide)
+     تأخذ هندستها المشتركة — التدوير في Safari، وA4 في Chromium، والملء (printFit). هنا ألوانُها وجداولُها وحدها. */
   .registrar-request-print-host .rrq-sheet{display:block!important;direction:rtl;color:#1d2422;font-size:9.2pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .rrq-sheet{--rq-edit:#9a6a12;--rq-edit-soft:#fbf0d4;--rq-add:#25684a;--rq-add-soft:#dfeee6;--rq-del:#973c38;--rq-del-soft:#f8e4e2;--rq-ink:#12463c}
   .rrq-sheet [data-action="edit"]{--tone:var(--rq-edit);--tone-soft:var(--rq-edit-soft)}
