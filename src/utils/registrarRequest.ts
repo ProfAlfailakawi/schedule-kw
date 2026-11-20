@@ -120,13 +120,26 @@ export function tickRequestItem(items: readonly RegistrarRequestItem[], itemId: 
 export function verifyRequestItems(items: readonly RegistrarRequestItem[], result: Pick<RegistrarCheckResult, "findings" | "empty">, at: string): { items: RegistrarRequestItem[]; confirmed: number; reopened: number } {
   if (result.empty) return { items: [...items], confirmed: 0, reopened: 0 };
   const fresh = new Map(buildRequestItems(result).map(item => [item.id, item]));
+  /* دليلٌ موجب لبندٍ لم يُشطب: شعبةٌ قُرئت وطابقت (تعديلٌ أو إضافة)، أو شعبةٌ لا يذكرها الملف إطلاقاً (حذف).
+     غيابُ البند من «الفروق» وحده لا يكفي: حقلٌ لم يُقرأ يُسقط البندَ ولا يُثبت زوال فرقه. */
+  const keysOf = (finding: Pick<RegistrarFinding, "crn" | "courseCode" | "section" | "pdfSection">) =>
+    [finding.crn ? `#${finding.crn}` : "", `${finding.courseCode}/${finding.section}`, finding.pdfSection ? `${finding.courseCode}/${finding.pdfSection}` : ""].filter(Boolean);
+  const matchedKeys = new Set<string>(), touchedKeys = new Set<string>();
+  for (const finding of result.findings) for (const key of keysOf(finding)) { touchedKeys.add(key); if (finding.group === "matched") matchedKeys.add(key); }
+  const itemKeys = (item: RegistrarRequestItem) => keysOf({ crn: item.crn, courseCode: item.courseCode, section: item.section, pdfSection: item.pdfSection });
+  const positive = (item: RegistrarRequestItem) => item.action === "delete"
+    ? itemKeys(item).every(key => !touchedKeys.has(key))
+    : itemKeys(item).some(key => matchedKeys.has(key));
   let confirmed = 0, reopened = 0;
   const next = items.map(item => {
     if (item.state === "confirmed") return item;
     const still = fresh.get(item.id);
+    if (!item.done) {
+      if (positive(item)) { confirmed++; return { ...item, state: "confirmed" as const, stateAt: at }; }
+      return item;
+    }
     const reflected = !still || (item.action === "edit" && item.fields.length > 0 && !item.fields.some(f => still.fields.some(g => g.field === f.field)));
     if (reflected) { confirmed++; return { ...item, state: "confirmed" as const, stateAt: at }; }
-    if (!item.done) return item;
     reopened++;
     const { done, ...rest } = item;
     return { ...rest, lastDone: done, state: "reopened" as const, stateAt: at };
