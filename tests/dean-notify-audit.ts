@@ -136,9 +136,9 @@ check(HISTORICAL_FINALITY_LABEL === "جدول نُفّذ (قبل دورة الا
   const reports = read("src/components/Reports.tsx");
   const lenses = reports.slice(reports.indexOf("const ROLE_LENSES"), reports.indexOf("const ROLE_LENSES") + 900);
   check(/dean:\s*\["balance"/.test(lenses) && /viceDean:\s*\["balance"/.test(lenses), "N2: العميد والعميد المساعد يبدآن بميزان الأقسام");
-  check(reports.includes("initialLensFor(roleId, mode, takeLensRequest() || saved.lens)"), "N2: العدسة الأولى من دالّةٍ واحدة تعرف الصفة");
+  check(reports.includes("initialLensFor(roleId, mode, lensRequestOnOpen.current || saved.lens)"), "N2: العدسة الأولى من دالّةٍ واحدة تعرف الصفة");
   const fn = reports.slice(reports.indexOf("function initialLensFor("), reports.indexOf("function initialLensFor(") + 1400);
-  check(reports.includes("const nextLens = modeSeen.current ? initialLensFor(roleId, mode, takeLensRequest()) : lens;"),
+  check(reports.includes("const nextLens = modeSeen.current ? initialLensFor(roleId, mode, asked) : lens;"),
     "N2: أثرُ تبدّل الشاشة لا يمحو العدسة الأولى عند الفتح");
   check(fn.includes('const generic = mode === "reportDepartment" || mode === "searchAdvanced";') && fn.includes('if (deanReader && generic) return "balance";'),
     "N2: تقرير القسم يفتح للعميدين على الميزان");

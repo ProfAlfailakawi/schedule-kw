@@ -577,6 +577,9 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   if (sharedOnOpen.current === undefined) sharedOnOpen.current = takeSharedReport();
   const prefillOnOpen = useRef<ReportPrefill | null | undefined>(undefined);
   if (prefillOnOpen.current === undefined) prefillOnOpen.current = takeReportPrefill();
+  /* عدسةٌ طلبتها شاشةٌ أخرى: تُقرأ مرةً في مرجع (لا في مُهيّئ الحالة الذي قد يُستدعى مرتين). */
+  const lensRequestOnOpen = useRef<string | null | undefined>(undefined);
+  if (lensRequestOnOpen.current === undefined) lensRequestOnOpen.current = takeLensRequest() || null;
   /* القاعة من البحث العام تصل نصّاً (رمز المبنى والقاعة): تُترجم إلى السجل الرسمي حين يصل. */
   const pendingPlace = useRef<{ building?: string; hall?: string } | null>(
     prefillOnOpen.current?.building ? { building: prefillOnOpen.current.building, hall: prefillOnOpen.current.hall } : null,
@@ -585,7 +588,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   const isDeanReader = roleId === "dean" || roleId === "viceDean";
   const [lens, setLens] = useState<Lens>(() => sharedOnOpen.current
     ? initialLensFor(roleId, "reportDepartment", sharedOnOpen.current.lens)
-    : initialLensFor(roleId, mode, takeLensRequest() || saved.lens));
+    : initialLensFor(roleId, mode, lensRequestOnOpen.current || saved.lens));
   const [colleges, setColleges] = useState<AdCollege[]>([]);
   const [sections, setSections] = useState<AdSection[]>([]);
   const [terms, setTerms] = useState<AdTerm[]>([]);
@@ -766,7 +769,10 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
         pendingPlace.current = prefill.building ? { building: prefill.building, hall: prefill.hall } : null;
       }
     }
-    const nextLens = modeSeen.current ? initialLensFor(roleId, mode, takeLensRequest()) : lens;
+    /* العدسةُ المطلوبة تبقى لأول شاشةٍ تُفتح فعلاً (قد تُبنى الاستعلاماتُ بشاشةٍ ثم تتبدّل). */
+    const asked = lensRequestOnOpen.current || takeLensRequest();
+    if (modeSeen.current) lensRequestOnOpen.current = null;
+    const nextLens = modeSeen.current ? initialLensFor(roleId, mode, asked) : lens;
     modeSeen.current = true;
     setLens(nextLens);
     setPrintKind(nextLens === "decision" ? "list" : nextLens);
