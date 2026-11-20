@@ -8,26 +8,27 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle2, ClipboardCheck, Hourglass } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { notesProgress, type RegistrarRequestDoc } from "../utils/registrarRequest";
+import { notesCohort, type RegistrarRequestDoc } from "../utils/registrarRequest";
 import { openMatchReport } from "../utils/openMatchReport";
 import { requestDay } from "./RegistrarRequests";
 import { SecondaryButton } from "./ui";
 
 export default function RegistrarFollowUp({ collegeId, sectionId, termId }: { collegeId: number; sectionId: number; termId: number }) {
-  const [doc, setDoc] = useState<RegistrarRequestDoc | null>(null);
+  const [docs, setDocs] = useState<RegistrarRequestDoc[] | null>(null);
   useEffect(() => {
     let alive = true;
-    setDoc(null);
+    setDocs(null);
     if (!collegeId || !sectionId || !termId) return;
     fetch(`/api/schedules/registrar-requests?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`, { cache: "no-store" })
       .then(response => (response.ok ? response.json() : null))
-      .then(body => { if (alive && Array.isArray(body?.requests) && body.requests[0]) setDoc(body.requests[0] as RegistrarRequestDoc); })
+      .then(body => { if (alive && Array.isArray(body?.requests) && body.requests.length) setDocs(body.requests as RegistrarRequestDoc[]); })
       .catch(() => { /* بطاقةٌ إضافية: تعذّرُها لا يُسقط التقرير */ });
     return () => { alive = false; };
   }, [collegeId, sectionId, termId]);
 
-  if (!doc) return null;
-  const progress = notesProgress(doc.items || []);
+  if (!docs?.length) return null;
+  const doc = docs[0];
+  const progress = notesCohort(docs);
   if (!progress.total) return null;
   const closed = progress.open === 0;
   return (

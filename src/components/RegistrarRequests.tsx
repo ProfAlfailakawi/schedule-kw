@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, CalendarDays, CheckCircle2, Circle, Clock3, FileText, MapPin, Printer, RotateCcw, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { isTheirs, REQUEST_ACTION_LABEL, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
+import { isTheirs, REQUEST_ACTION_LABEL, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
 import type { FieldDelta, RequestAction } from "../utils/registrarCheck";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import { GhostButton, Notice, PrintLetterhead, PrintPortal, SecondaryButton, visualConfirm } from "./ui";
@@ -116,7 +116,9 @@ const ACTIONS: RequestAction[] = ["edit", "add", "delete"];
  */
 export function RequestSheet({ doc, scopeLine, college, theirsOnly = false }: { doc: RegistrarRequestDoc; scopeLine: string; college?: string; theirsOnly?: boolean }) {
   /* «ملاحظات على ملف التسجيل»: ما أُرسل ولم يظهر في ملفهم وحده، فلا يُحمَّلون ما عدّلناه نحن بعد الإرسال. */
-  const items = theirsOnly ? doc.items.filter(isTheirs) : doc.items;
+  const items = (theirsOnly
+    ? doc.items.filter(isTheirs).map(item => item.action === "edit" ? { ...item, fields: theirFields(item) } : item)
+    : doc.items);
   const by = (action: RequestAction) => items.filter(item => item.action === action);
   const value = (item: RegistrarRequestItem, field: string) => item.fields.find(f => f.field === field)?.ours || "—";
   const printedAt = new Date();

@@ -55,13 +55,35 @@ export interface RegistrarRequestDoc {
 export const REGISTRAR_REQUEST_LIMIT = 400;
 
 /** ما أرسلناه ولم يظهر في ملفهم (تقصيرُهم لا تعديلُنا بعد الإرسال): وحده يخرج لهم في «ملاحظات على ملف التسجيل». */
-export const isTheirs = (item: Pick<RegistrarRequestItem, "group">) => item.group === "notApplied";
+export const isTheirs = (item: Pick<RegistrarRequestItem, "group" | "fields">) => item.group === "notApplied" || (item.fields || []).some(f => f.group === "notApplied");
+/** حقولُ البند التي هي تقصيرُهم وحدها (بندٌ دُمجت فيه نتيجتان يُخرج ما أُرسل ولم يُنفَّذ فقط). حقلٌ بلا أصلٍ مسجَّل يُحسب لهم تبعاً للبند. */
+export const theirFields = (item: Pick<RegistrarRequestItem, "group" | "fields">) =>
+  (item.fields || []).filter(f => (f.group ? f.group === "notApplied" : item.group === "notApplied"));
 
 /** متابعةُ ملاحظاتهم: كم بقي منها مفتوحاً وكم تأكّد زوالُه في ملفٍّ لاحق. */
 export function notesProgress(items: readonly RegistrarRequestItem[]): { total: number; confirmed: number; open: number } {
   const theirs = items.filter(isTheirs);
   const confirmed = theirs.filter(item => item.state === "confirmed").length;
   return { total: theirs.length, confirmed, open: theirs.length - confirmed };
+}
+
+/**
+ * متابعةُ ملاحظاتنا عبر الفحوص: دفعةُ البنود التي كانت «أُرسلت ولم تُنفَّذ» في أي فحصٍ محفوظ، لا لقطةُ آخر فحصٍ وحدها
+ * (آخرُ فحصٍ يحمل ما بقي فقط، فيُضيّع ما زال في الفحص بعده). البندُ زال إن تأكّد في أي فحص، أو لم يعد في آخر فحصٍ محفوظ.
+ */
+export function notesCohort(docs: readonly RegistrarRequestDoc[]): { total: number; confirmed: number; open: number } {
+  const ordered = [...docs].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  if (!ordered.length) return { total: 0, confirmed: 0, open: 0 };
+  const latestIds = new Set((ordered[0].items || []).filter(isTheirs).map(item => item.id));
+  const cohort = new Set<string>(), confirmedIds = new Set<string>();
+  for (const doc of ordered) for (const item of doc.items || []) {
+    if (!isTheirs(item)) continue;
+    cohort.add(item.id);
+    if (item.state === "confirmed") confirmedIds.add(item.id);
+  }
+  let confirmed = 0;
+  for (const id of cohort) if (confirmedIds.has(id) || !latestIds.has(id)) confirmed++;
+  return { total: cohort.size, confirmed, open: cohort.size - confirmed };
 }
 export const REQUEST_ACTION_LABEL: Record<RequestAction, string> = { edit: "عدّلوا", add: "أضيفوا", delete: "احذفوا" };
 
@@ -81,7 +103,7 @@ export function buildRequestItems(result: Pick<RegistrarCheckResult, "findings">
     if (!finding.action) continue;
     const id = requestItemId({ ...finding, action: finding.action });
     const fields = finding.fields.slice(0, 8).map(f => ({
-      field: f.field, label: text(f.label, 20), ours: text(f.ours, 160), pdf: text(f.pdf, 160), ...(f.was ? { was: text(f.was, 160) } : {}),
+      field: f.field, label: text(f.label, 20), ours: text(f.ours, 160), pdf: text(f.pdf, 160), ...(f.was ? { was: text(f.was, 160) } : {}), group: finding.group,
     }));
     const found = items.get(id);
     if (found) {

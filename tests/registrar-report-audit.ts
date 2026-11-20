@@ -40,11 +40,11 @@ check(/const positive = \(item: RegistrarRequestItem\)/.test(util) && /if \(!ite
 
 /* ملاحظاتنا على ملف التسجيل: ورقةٌ بتقصيرهم وحده، وبطاقةُ متابعةٍ تحت «تغييرات الجدول» للقسم */
 const sheet = read("src/components/RegistrarRequests.tsx"), follow = read("src/components/RegistrarFollowUp.tsx"), importRoutes = read("src/server/routes/scheduleImportRoutes.ts");
-check(/theirsOnly/.test(sheet) && /items = theirsOnly \? doc\.items\.filter\(isTheirs\)/.test(sheet) && /"ملاحظات على ملف التسجيل"/.test(sheet), "N1 ورقةُ «ملاحظات على ملف التسجيل» بما أُرسل ولم يظهر في ملفهم وحده");
+check(/theirsOnly/.test(sheet) && /theirsOnly\s*\? doc\.items\.filter\(isTheirs\)/.test(sheet) && /"ملاحظات على ملف التسجيل"/.test(sheet), "N1 ورقةُ «ملاحظات على ملف التسجيل» بما أُرسل ولم يظهر في ملفهم وحده");
 check(/doc\.sent/.test(sheet) && /sent:\{round:/.test(importRoutes), "N2 سطرُ الإثبات: جولةُ الإرسال وتاريخُه محفوظان في الطلب");
 check(/isTheirs/.test(comp) && /printNotes/.test(comp) && /theirsOnly=\{notesMode\}/.test(comp), "N3 زرُّ «ملاحظاتهم للتسجيل» يطبع الورقة المصفّاة");
 check(/RegistrarFollowUp/.test(changes) && /!isRegistrar \? <RegistrarFollowUp/.test(changes), "N4 بطاقةُ المتابعة تحت «تغييرات الجدول» للقسم لا للتسجيل");
-check(/notesProgress/.test(follow) && !/fetch\([^)]*,\s*\{[^}]*method/.test(follow), "N5 البطاقةُ تقرأ ولا تكتب: الفحصُ التالي هو الدليل");
+check(/notesCohort/.test(follow) && !/fetch\([^)]*,\s*\{[^}]*method/.test(follow), "N5 البطاقةُ تقرأ ولا تكتب: الفحصُ التالي هو الدليل");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

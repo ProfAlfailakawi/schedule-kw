@@ -49,6 +49,8 @@ export interface FieldDelta {
   pdf: string;
   /** ما كان في النسخة المرسلة (لـ«لم يُرسل بعد»). */
   was?: string;
+  /** مجموعةُ النتيجة التي جاء منها الحقل: حين تُدمج نتيجتان لشعبةٍ واحدة يبقى لكل حقلٍ أصلُه (تقصيرُهم أم تعديلُنا بعد الإرسال). */
+  group?: FindingGroup;
 }
 
 export interface RegistrarFinding {
