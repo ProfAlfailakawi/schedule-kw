@@ -1,0 +1,28 @@
+/* ==========================================================================
+   مساحة العمل المتكاملة — iPhone Duo مفتوحاً والمفصل أفقياً (الداخلية طولاً)
+   الفكرة: الشاشتان عملٌ واحد. العليا تعرض ما تعمل عليه (المعاينة)، والسفلى أدوات التحكّم المرتبطة به،
+   وما تغيّره في السفلى يظهر فوراً في العليا. عرضٌ فقط: لا منطق ولا بيانات، ولا شيء مهمّ فوق المفصل.
+   - Safari لا يُخبر الصفحة بموضع المفصل (قيس على المحاكي): يُقدَّر من نسبة الشاشة (بعد شريط Safari ≈ 42٪
+     من نافذة العرض)، وفي التطبيق = 50٪ لأنه بلا شريط. حزامٌ هادئ بعرض --duo-hinge-band حوله لا يعبره شيء.
+   - كل القواعد تحت [data-device="duo"]: iPhone وiPad لا يتغيّران.
+   ========================================================================== */
+@media screen and (orientation:portrait) and (min-width:600px) and (max-width:820px) and (min-height:700px){
+  html[data-device="duo"]{--duo-hinge-y:42dvh;--duo-hinge-band:28px}
+  html[data-device="duo"][data-shell="app"]{--duo-hinge-y:50dvh}
+
+  /* «موعد جديد»: أسبوع الأستاذ (المعاينة) في الشاشة العليا ثابتٌ، والنموذج في السفلى يمرّ تحت حزام المفصل. */
+  html[data-device="duo"] #root .schedule-editor.is-studio .appt-layout.has-week:has(>.editor-side:not(:empty)){
+    display:flex;flex-direction:column;row-gap:0;
+  }
+  html[data-device="duo"] #root .schedule-editor.is-studio .appt-layout.has-week>.editor-side:not(:empty){
+    order:-1;position:sticky;top:var(--topbar-h,64px);z-index:20;margin:0;align-self:stretch;width:100%;max-width:none;box-sizing:border-box;
+    max-height:calc(var(--duo-hinge-y) - var(--topbar-h,64px) - var(--duo-hinge-band));
+    overflow:auto;overscroll-behavior:contain;
+    /* حزام المفصل بلون الصفحة: ما يمرّ تحت المعاينة لا يظهر في هذا الشريط. */
+    box-shadow:0 calc(var(--duo-hinge-band) + 2px) 0 var(--canvas);
+  }
+  /* حزام المفصل: فاصلٌ هادئ تحت المعاينة، فتبدأ الأدوات بعده. */
+  html[data-device="duo"] #root .schedule-editor.is-studio .appt-layout.has-week>.appt-form{
+    position:relative;z-index:1;margin-top:var(--duo-hinge-band);
+  }
+}
