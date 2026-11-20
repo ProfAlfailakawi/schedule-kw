@@ -228,7 +228,14 @@
   .registrar-request-print-host{display:none!important}
   html[data-print-kind="registrar-request"] #app-print-root>.print-only:not(.registrar-request-print-host){display:none!important}
   html[data-print-kind="registrar-request"] #app-print-root>.registrar-request-print-host{display:block!important;visibility:visible!important;page:rrequest!important}
-  .registrar-request-print-host .rrq-sheet{display:block!important;direction:rtl;color:#1d2422;background:#fff;font-size:9.4pt;box-sizing:border-box;padding:11mm 12mm 12mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* عرضُ الورقة بالمليمتر لا بعرض الشاشة: Safari على الجوال يطبع بعرض الشاشة (≈٣٩٠ نقطة)
+     فانضغطت الورقة في عمودٍ ضيّق. عرضٌ ثابتٌ يتّسع لهوامش Safari (١٨٦ مم) ويتوسّط ورقة Chrome الصفرية. */
+  html[data-print-kind="registrar-request"],
+  html[data-print-kind="registrar-request"] body,
+  html[data-print-kind="registrar-request"] #app-print-root,
+  html[data-print-kind="registrar-request"] #app-print-root>.registrar-request-print-host{width:auto!important;min-width:186mm!important;max-width:none!important}
+  .registrar-request-print-host .rrq-sheet{display:block!important;direction:rtl;color:#1d2422;background:#fff;font-size:9.4pt;box-sizing:border-box;width:186mm!important;max-width:186mm!important;margin:0 auto!important;padding:8mm 2mm 8mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rrq-sheet .print-head-title h1{white-space:nowrap}
   .rrq-sheet{--rq-edit:#9a6a12;--rq-edit-soft:#fbf0d4;--rq-add:#25684a;--rq-add-soft:#dfeee6;--rq-del:#973c38;--rq-del-soft:#f8e4e2;--rq-ink:#12463c}
   .rrq-sheet [data-action="edit"]{--tone:var(--rq-edit);--tone-soft:var(--rq-edit-soft)}
   .rrq-sheet [data-action="add"]{--tone:var(--rq-add);--tone-soft:var(--rq-add-soft)}
@@ -258,14 +265,26 @@
   .rrq-sheet tr{break-inside:avoid}
   .rrq-sheet td strong{display:block;font-size:9.2pt;color:#1d2422}
   .rrq-sheet td small{display:block;margin-top:.6mm;color:#5d6966;font-size:8pt}
-  .rrq-t-edit th:nth-child(1),.rrq-t-edit td:nth-child(1){width:19%}
-  .rrq-t-edit th:nth-child(3),.rrq-t-edit td:nth-child(3){width:11%}
-  .rrq-t-edit th:nth-child(2),.rrq-t-edit td:nth-child(2){width:30%}
+  .rrq-t-edit th:nth-child(1),.rrq-t-edit td:nth-child(1){width:14%}
+  .rrq-t-edit th:nth-child(3),.rrq-t-edit td:nth-child(3){width:10%}
+  .rrq-t-edit th:nth-child(2),.rrq-t-edit td:nth-child(2){width:32%}
   .rrq-t-add th:nth-child(1){width:38%}
   .rrq-t-add th:nth-child(2){width:24%}
   .rrq-t-add th:nth-child(3){width:14%}
   .rrq-t-del th:nth-child(1){width:22%}
   .rrq-t-del th:nth-child(3){width:16%}
+  .rrq-since{display:inline-block;margin-top:1mm;padding:.3mm 2mm;border-radius:99mm;background:#fdecea;color:#973c38;font-style:normal;font-size:7.4pt;font-weight:700}
+  .rrq-trail{margin-top:2mm;break-inside:avoid}
+  .rrq-trail h3{margin:0 0 1.5mm;font-size:9.6pt;color:#12463c}
+  .rrq-trail table{border:.5pt solid #cbd4d0}
+  .rrq-trail th{background:#eef4f1!important;color:#12463c!important;border-bottom:.6pt solid #12463c!important}
+  .rrq-trail td{padding:1.4mm 2.4mm!important;font-size:8.6pt!important}
+  .rrq-trail tr[data-current] td{background:#f3f8f5!important;font-weight:700}
+  .rrq-trail td small{display:inline!important;margin-inline-start:1.5mm;padding:.2mm 1.6mm;border-radius:99mm;background:#12463c;color:#fff!important;font-size:7pt!important}
+  .rrq-trail [data-tone="ok"]{color:#25684a;font-weight:700}
+  .rrq-trail [data-tone="warn"]{color:#9a6a12;font-weight:700}
+  .rrq-trail [data-tone="new"]{color:#2a5a8a;font-weight:700}
+  .rrq-trail th:nth-child(1){width:22%}.rrq-trail th:nth-child(3){width:12%}.rrq-trail th:nth-child(4){width:36%}
   .rrq-delta{display:flex;align-items:baseline;flex-wrap:wrap;gap:1.4mm;margin:.4mm 0}
   .rrq-delta i{font-style:normal;min-width:11mm;color:#5d6966;font-size:8pt}
   .rrq-delta s{color:#8b9591;text-decoration-color:#b7bfbb}

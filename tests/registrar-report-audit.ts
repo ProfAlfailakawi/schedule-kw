@@ -46,5 +46,10 @@ check(/isTheirs/.test(comp) && /printNotes/.test(comp) && /theirsOnly=\{notesMod
 check(/RegistrarFollowUp/.test(changes) && /!isRegistrar \? <RegistrarFollowUp/.test(changes), "N4 بطاقةُ المتابعة تحت «تغييرات الجدول» للقسم لا للتسجيل");
 check(/notesCohort/.test(follow) && !/fetch\([^)]*,\s*\{[^}]*method/.test(follow), "N5 البطاقةُ تقرأ ولا تكتب: الفحصُ التالي هو الدليل");
 
+/* الورقة على الجوال: عرضٌ بالمليمتر لا بعرض الشاشة، وسجلُّ الفحوص، و«باقٍ منذ» */
+check(/width:186mm!important/.test(checkCss) && /html\[data-print-kind="registrar-request"\] body/.test(checkCss), "P4 الورقة بعرضٍ ثابتٍ بالمليمتر فلا تنضغط في Safari الجوال");
+check(/className="rrq-trail"/.test(requests) && /سجلّ الفحوص/.test(requests) && /history=\{docs \|\| \[\]\}/.test(comp), "P5 سجلُّ الفحوص: كلُّ رفعٍ بتاريخه وما زال وما بقي وما جدّ");
+check(/باقٍ منذ/.test(requests) && /firstSeen/.test(requests), "P6 البندُ المتكرّر يُعلَّم «باقٍ منذ» أولِ فحصٍ ظهر فيه");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

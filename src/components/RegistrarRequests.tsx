@@ -114,8 +114,27 @@ const ACTIONS: RequestAction[] = ["edit", "add", "delete"];
  * الورقة المطبوعة: بأسلوب بقية التقارير (ترويسةُ الكلية، شريطُ ملخّص، جداول، تذييل)، على ورقٍ طوليّ،
  * وبثلاثة ألوانٍ تحمل المعنى: كهرمانيّ عدّلوا، أخضر أضيفوا، أحمر احذفوا.
  */
-export function RequestSheet({ doc, scopeLine, college, theirsOnly = false }: { doc: RegistrarRequestDoc; scopeLine: string; college?: string; theirsOnly?: boolean }) {
+/** سجلُّ الفحوص على الورقة: كلُّ فحصٍ محفوظ بتاريخه، وما زال عن الذي قبله وما بقي وما جدّ. */
+function checkTrail(history: readonly RegistrarRequestDoc[], theirsOnly: boolean) {
+  const pick = (d: RegistrarRequestDoc) => (theirsOnly ? d.items.filter(isTheirs) : d.items).map(item => item.id);
+  const ordered = [...history].sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  return ordered.map((d, index) => {
+    const now = new Set(pick(d));
+    const before = index ? new Set(pick(ordered[index - 1])) : null;
+    let gone = 0, kept = 0, fresh = 0;
+    if (before) { for (const id of before) (now.has(id) ? kept++ : gone++); for (const id of now) if (!before.has(id)) fresh++; }
+    return { id: d.id, at: d.at, fileName: d.fileName, total: now.size, first: !before, gone, kept, fresh };
+  });
+}
+
+export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, history = [] }: { doc: RegistrarRequestDoc; scopeLine: string; college?: string; theirsOnly?: boolean; history?: readonly RegistrarRequestDoc[] }) {
   /* «ملاحظات على ملف التسجيل»: ما أُرسل ولم يظهر في ملفهم وحده، فلا يُحمَّلون ما عدّلناه نحن بعد الإرسال. */
+  /* البندُ المتكرّر: أولُ فحصٍ ظهر فيه، فيُرى أنه باقٍ منذ ذلك اليوم. */
+  const firstSeen = new Map<string, string>();
+  for (const d of [...history].filter(d => String(d.at) <= String(doc.at)).sort((a, b) => String(a.at).localeCompare(String(b.at))))
+    for (const item of d.items) if (!firstSeen.has(item.id)) firstSeen.set(item.id, d.at);
+  const since = (item: RegistrarRequestItem) => { const at = firstSeen.get(item.id); return at && at < doc.at ? <em className="rrq-since">باقٍ منذ {requestDay(at)}</em> : null; };
+  const trail = checkTrail(history.length ? history : [doc], theirsOnly);
   const items = (theirsOnly
     ? doc.items.filter(isTheirs).map(item => item.action === "edit" ? { ...item, fields: theirFields(item) } : item)
     : doc.items);
@@ -143,6 +162,22 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false }: { 
           {doc.sent ? <>أُرسل الجدول في <b>الجولة {doc.sent.round}</b> بتاريخ <b>{requestDay(doc.sent.at)}</b>، وهذه البنود لم تظهر في ملفكم.</> : <>هذه البنود أُرسلت في الجدول ولم تظهر في ملفكم.</>}
         </p>
       ) : null}
+      {trail.length > 1 ? (
+        <section className="rrq-trail">
+          <h3>سجلّ الفحوص</h3>
+          <table>
+            <thead><tr><th>التاريخ</th><th>الملف</th><th>البنود</th><th>عن الفحص السابق</th></tr></thead>
+            <tbody>{trail.map(row => (
+              <tr key={row.id} data-current={row.id === doc.id ? "" : undefined}>
+                <td>{requestDay(row.at)}{row.id === doc.id ? <small>هذا التقرير</small> : null}</td>
+                <td><bdi dir="auto">{row.fileName}</bdi></td>
+                <td><b>{row.total}</b></td>
+                <td>{row.first ? "أول فحص" : <><span data-tone="ok">زالت {row.gone}</span> · <span data-tone="warn">بقيت {row.kept}</span> · <span data-tone="new">جديدة {row.fresh}</span></>}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </section>
+      ) : null}
       {by("edit").length ? (
         <section data-action="edit">
           <h2><b>{groups[0].title}</b><span>{groups[0].note}</span><em>{by("edit").length}</em></h2>
@@ -151,7 +186,7 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false }: { 
             <tbody>{by("edit").map(item => (
               <tr key={item.id}>
                 <td><bdi dir="ltr">{item.crn || "—"}</bdi></td>
-                <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi></small></td>
+                <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi></small>{since(item)}</td>
                 <td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td>
                 <td>{item.fields.map(f => <div key={f.field} className="rrq-delta"><i>{f.label}</i><s><Value field={f.field} text={f.pdf} /></s><span aria-hidden="true">←</span><b><Value field={f.field} text={f.ours} /></b></div>)}</td>
               </tr>
@@ -166,7 +201,7 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false }: { 
             <thead><tr><th>المقرر والشعبة</th><th>الأيام والوقت</th><th>القاعة</th><th>الأستاذ</th></tr></thead>
             <tbody>{by("add").map(item => (
               <tr key={item.id}>
-                <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi> · شعبة <bdi dir="ltr">{item.section}</bdi></small></td>
+                <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi> · شعبة <bdi dir="ltr">{item.section}</bdi></small>{since(item)}</td>
                 <td>{value(item, "days")}<small><bdi dir="ltr">{value(item, "time")}</bdi></small></td>
                 <td><bdi dir="ltr">{value(item, "room")}</bdi></td>
                 <td>{value(item, "instructor")}</td>
