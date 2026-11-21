@@ -472,6 +472,10 @@ time,.num,.code-chip{
    وفي التطبيق يُبلغ iOS عمودَ الودجت نفسه safe-area-inset-right (84pt، قيس على المحاكي 2026-11-19) فتحترمه الصفحة.
    iPhone وiPad: كما هي. */
 :root[data-device="duo"]{--duo-widget-w:0px;--duo-widget-gap:0px;--duo-widget-h:0px}
+/* والاستعلام أعلاه بالمقاس وحده، فكان يلتقط كل iPhone طولي (390/402/430) ونوافذ iPad والحاسوب الضيقة ويترك شريطاً
+   فارغاً يمين الصفحة. الحجز الثابت لا يخصّ إلا الدوو الحقيقي، فيُصفَّر لكل شاشةٍ سواه (خصوصية أعلى من :root أعلاه؛
+   والقيم المضمّنة التي يكتبها التطبيق الأصلي من مناطق النظام الحقيقية تبقى غالبة). */
+:root:not([data-device="duo"]){--duo-widget-w:0px;--duo-widget-gap:0px;--duo-widget-h:0px}
 /* Latin numbers and time ranges must keep their visual order when they sit in
    Arabic sentences. `dir=ltr` already carries the semantics; isolation stops a
    neighbouring Arabic phrase from reordering the glyphs on screen. */
