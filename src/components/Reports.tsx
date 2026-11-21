@@ -1274,6 +1274,8 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   const rowMatchesBuilding = useCallback((row: FSchedule, buildingId: string) => !buildingId || rowLocation(row).building?.id === buildingId, [rowLocation]);
   const rowMatchesRoom = useCallback((row: FSchedule, roomId: string) => !roomId || rowLocation(row).room?.id === roomId, [rowLocation]);
   const instructorById = useMemo(() => new Map(instructors.map(x => [x.AdInstructorId, x])), [instructors]);
+  /* من لا يحقّ له الرقمَ المدني يصله الدليلُ بلا أرقامٍ لأحد (scope.ts): فوجودُ رقمٍ واحدٍ يعني أن القارئ يحقّ له. */
+  const civilReadable = useMemo(() => instructors.some(x => Boolean(x.AdInstructorCivil)), [instructors]);
   /* ── J1: «—» مكان رمز المقرر و«6 س» لخمسة مقررات ─────────────────────────
      When a department is chosen its own courses replace the catalogue (below),
      but «كل الكليات» reads the sister colleges' rows too — and each college's
@@ -3925,7 +3927,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
           </div>
         ) : lens === "registrar" ? (
           <React.Suspense fallback={<MicroLoader label="يقرأ تقارير المطابقة…" />}>
-            <RegistrarReport collegeId={Number(filters.collegeId) || 0} sectionId={Number(filters.sectionId) || 0} termId={Number(filters.termId) || 0} scopeLine={scopeLine} college={collegeName} canDelete={canSchedule} civilOf={id => String(instructorById.get(id)?.AdInstructorCivil || "")} />
+            <RegistrarReport collegeId={Number(filters.collegeId) || 0} sectionId={Number(filters.sectionId) || 0} termId={Number(filters.termId) || 0} scopeLine={scopeLine} college={collegeName} canDelete={canSchedule} civilOf={civilReadable ? (id => String(instructorById.get(id)?.AdInstructorCivil || "")) : undefined} />
           </React.Suspense>
         ) : lens === "decision" ? (
           <DecisionBoard
