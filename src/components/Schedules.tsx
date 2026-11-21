@@ -12972,7 +12972,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 </>
   );
   return (
-    <div className={`content-stack schedule-page ${phoneReadOnly ? "schedule-phone" : ""}`.trim()}>
+    <div className={`content-stack schedule-page ${phoneReadOnly ? "schedule-phone" : ""} ${duoSplit ? "duo-full" : ""}`.trim()}>
       {/* Lifted clear of the board's horizontal scroller so nothing can clip it,
           and given one line per wall instead of a sentence stitched with dashes. */}
       {refusal ? (
@@ -13509,7 +13509,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       ) : presentationMode ? (
         <CinemaView />
       ) : duoSplit && viewMode !== "rooms" ? (
-        <>{schedWeekPane}{schedListPane}</>
+        <div className="duo-split"><div className="duo-split-week">{schedWeekPane}</div><aside className="duo-split-list" aria-label="قائمة المواعيد">{schedListPane}</aside></div>
       ) : viewMode === "list" ? (
         <>{schedListPane}</>
       ) : viewMode === "rooms" ? (
