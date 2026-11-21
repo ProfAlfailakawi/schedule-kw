@@ -50,3 +50,42 @@ html[data-device="duo"] .apb-pop{max-inline-size:min(320px,calc(100vw - 24px))}
     overflow-y:auto;
   }
 }
+
+/* ==========================================================================
+   Safari على الدوو — صفحة «الجدول»: الشريط السفلي كشريط «الاستعلامات» تماماً (طلب المالك 2026-11-22).
+   كان شريط أدوات الجدول (.schedule-dock) يشارك الصفّ نفسه فيدفع التبويبات الأربعة إلى جهة ويترك قطعة بيضاء
+   في الجهة الأخرى. الآن: التبويبات الأربعة بعرض الصفحة كلها، متساويةً، في كل الصفحات؛ وزرّ «موعد» يبقى متاحاً
+   دائرةً خضراء تطفو فوق الشريط عند طرفه، فلا يتداخل معه. عرضٌ فقط تحت [data-device="duo"].
+   (الداخلية عرضاً لها صفحتاها في 84؛ التطبيق المثبّت له كبسولته في 83؛ لا يُمسّ أيٌّ منهما.)
+   ========================================================================== */
+@media screen and (orientation:portrait) and (max-width:760px),screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"][data-shell="browser"] body:has(.schedule-dock) .mobile-bottom-dock{
+    left:0;right:0;width:auto;max-width:none;
+  }
+  /* الحاوية نفسها تتلاشى: لا خلفية ولا حدّ ولا ظلّ ولا قياس؛ تبقى دائرة «موعد» وحدها. */
+  html[data-device="duo"][data-shell="browser"] .schedule-dock{
+    left:12px;right:auto;width:auto;height:auto;min-height:0;padding:0;gap:0;margin:0;
+    top:auto;bottom:calc(var(--dock-h) + 12px + env(safe-area-inset-bottom));
+    background:none;border:0;box-shadow:none;border-radius:0;z-index:57;
+    display:flex;align-items:center;justify-content:flex-start;pointer-events:none;
+  }
+  html[data-device="duo"][data-shell="browser"] .schedule-dock>:not(.dock-add):not(:has(.dock-add)){display:none}
+  html[data-device="duo"][data-shell="browser"] .schedule-dock>.dock-add{
+    pointer-events:auto;width:52px;height:52px;min-width:52px;min-height:52px;padding:0;gap:0;
+    display:grid;place-items:center;border-radius:50%;
+    background:var(--accent) !important;color:#fff;border:0;
+    box-shadow:0 8px 22px rgb(17 25 22 / .22);
+  }
+  html[data-device="duo"][data-shell="browser"] .schedule-dock>.dock-add svg{width:24px;height:24px;color:#fff}
+  html[data-device="duo"][data-shell="browser"] .schedule-dock>.dock-add span{
+    position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;
+  }
+  /* «تبادل القاعات» بجوار «موعد» فوق الشريط، لا داخله. */
+  html[data-device="duo"][data-shell="browser"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    left:72px;bottom:calc(var(--dock-h) + 16px + env(safe-area-inset-bottom));
+  }
+  /* آخر المحتوى ينتهي فوق الدائرة. */
+  html[data-device="duo"][data-shell="browser"] body:has(.schedule-dock) .content-frame{
+    padding-bottom:calc(var(--dock-h) + 12px + 52px + 24px + env(safe-area-inset-bottom));
+  }
+}
