@@ -15,7 +15,7 @@ import { AR, countOf } from "../utils/arabicCount";
 import { isTheirs, REQUEST_ACTION_LABEL, requestProgress, type LiveRequestView, type RegistrarRequestDoc, type RegistrarRequestItem } from "../utils/registrarRequest";
 import type { RequestAction } from "../utils/registrarCheck";
 import { downloadSheets, exportFileName, type ExportSheet } from "../utils/lensExport";
-import { ItemLine, printRegistrarRequest, RequestSheet, requestDay, requestStamp } from "./RegistrarRequests";
+import { armRegistrarPrint, ItemLine, printRegistrarRequest, RequestSheet, requestDay, requestStamp } from "./RegistrarRequests";
 import { EmptyState, GhostButton, MicroLoader, Notice, PrintPortal, SecondaryButton, visualConfirm } from "./ui";
 
 const call = async (url: string, init?: RequestInit) => {
@@ -135,6 +135,15 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
   const open: RegistrarRequestDoc | null = saved && showingNow && liveView
     ? { ...saved, items: liveView.items, counts: liveView.counts, reviewCount: liveView.reviewCount }
     : saved;
+  /* طباعةٌ من قائمة المتصفّح (مشاركة ← طباعة في iPhone) لا تمرّ بزرّ «طباعة»: تأخذ الورقةُ سماتها هنا،
+     وإلا خرجت بلا تدويرٍ عموداً ضيقاً بعرض الشاشة ومعها أوراقٌ أخرى. */
+  const hasSheet = Boolean(open);
+  useEffect(() => {
+    if (!hasSheet) return;
+    const onBefore = () => { if (!document.documentElement.dataset.printKind) armRegistrarPrint(); };
+    window.addEventListener("beforeprint", onBefore);
+    return () => window.removeEventListener("beforeprint", onBefore);
+  }, [hasSheet]);
   const sinceCount = useMemo(() => showingNow ? (open?.items || []).filter(item => item.since).length : 0, [showingNow, open]);
 
   const progress = useMemo(() => open ? requestProgress(open.items) : null, [open]);

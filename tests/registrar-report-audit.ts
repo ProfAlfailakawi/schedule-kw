@@ -70,5 +70,7 @@ check(/className="rpr-live"/.test(comp) && /يوم الفحص/.test(comp) && /as
 check(/<RegistrarCheckNote\b/.test(read("src/components/Schedules.tsx")) && /forgetRegistrarCheckKeys\(\)/.test(check2), "R7 تنبيهُ «في فحص التسجيل» تحت شريط التراجع، ويُنسى بعد فحصٍ جديد");
 check(/changes-kind-filter/.test(changes) && /changes-row-tools/.test(changes) && /const activeKind = /.test(changes), "R8 «تغييرات الجدول»: مرشّحُ النوع، وزرّا الموعد في سطرٍ صغير");
 
+check(/export function armRegistrarPrint/.test(requests) && /addEventListener\("afterprint", later/.test(requests) && /addEventListener\("pointerdown", done/.test(requests) && /addEventListener\("beforeprint", onBefore\)/.test(comp), "P5 سماتُ الطباعة لا تُرفع عند afterprint نفسه (iPhone)، وطباعةُ قائمة المتصفّح تأخذها");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
