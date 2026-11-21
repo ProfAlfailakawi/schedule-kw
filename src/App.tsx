@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { APP_PATH_ALIASES, APP_VIEW_PATHS } from "./appPaths";
 import { DEMO_SEEDED_EVENT } from "./utils/demoSeedEvent";
 import NotificationCenter from "./components/NotificationCenter";
 import {
@@ -300,50 +301,7 @@ async function forgetCachedReads() {
   } catch { /* storage denied — the network path still answers */ }
 }
 
-const pathByView: Record<View, string> = {
-  dashboard: "/Home/Index",
-  terms: "/AdTerm/Index",
-  colleges: "/AdCollege/Index",
-  sections: "/AdSection/Index",
-  instructors: "/AdInstructor/Index",
-  courses: "/AdCourse/Index",
-  schedules: "/FSchedule/Index",
-  departmentSchedule: "/FSchedule/DepartmentSchedule",
-  scheduleCopy: "/FSchedule/CopySchedule",
-  /* The rail's own name for the same screen — translated before it is ever
-     navigated to, and mapped here so the route table stays total. */
-  copyTerm: "/FSchedule/CopySchedule",
-  intelligence: "/Schedule/Intelligence",
-  searchInstructor: "/FSchedule/InstructorReport",
-  searchRoom: "/FSchedule/RoomReport",
-  searchTime: "/FSchedule/TimeReport",
-  searchRoomTime: "/FSchedule/RoomTimeReport",
-  searchAdvanced: "/FSchedule/MainReport",
-  reportDepartment: "/FSchedule/MainScheduleReport",
-  reportInstructor: "/FSchedule/InstructorReportRPT",
-  reportRoom: "/FSchedule/RoomReportRPT",
-  reportTime: "/FSchedule/TimeReportRPT",
-  reportRoomTime: "/FSchedule/RoomTimeReportRPT",
-  users: "/SystemUser/Index",
-  seats: "/SystemUser/Seats",
-  permissions: "/FormSecurity/Index",
-  scopes: "/AdCollegeUserAssign/Index",
-  audit: "/System/AuditLog",
-  roomSetup: "/System/LocationSetup",
-  sectionHours: "/System/SectionHours",
-  teachingLoad: "/System/TeachingLoad",
-  backup: "/System/Backup",
-  health: "/System/Health",
-  scheduleChanges: "/FSchedule/Changes",
-  instructorRequests: "/FSchedule/InstructorRequests",
-  studentRegistration: "/FSchedule/StudentRegistration",
-  planReview: "/FSchedule/PlanReview",
-  simulation: "/FSchedule/Rehearsal",
-  timeMachine: "/FSchedule/TimeMachine",
-  audience: "/System/Audience",
-  ads: "/System/Ads",
-  about: "/Public/Aboutus",
-};
+const pathByView: Record<View, string> = APP_VIEW_PATHS;
 /** بعد تسجيل الدخول يبدأ كل مستخدم من لوحة التحكم، مهما كانت صفته. */
 function landingViewFor(): View {
   return "dashboard";
@@ -355,8 +313,7 @@ const viewByPath = new Map(
     view as View,
   ]),
 );
-/* رابط «المباني والقاعات» القديم يفتح الشاشة الموحّدة «إضافة مبانٍ وقاعات». */
-viewByPath.set("/system/locations", "roomSetup");
+for (const [alias, view] of Object.entries(APP_PATH_ALIASES)) viewByPath.set(alias, view as View);
 
 /** The pointer reaches a destination before the click. Use that small lead to
  * fetch its code chunk; dynamic imports are cached, so this never downloads a
