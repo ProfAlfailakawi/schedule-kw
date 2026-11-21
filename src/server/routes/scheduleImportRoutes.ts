@@ -533,7 +533,16 @@ app.get("/api/schedules/registrar-requests/:id/live", requireAuth, async (req: A
   const result=await runRegistrarCheck(Number(doc.collegeId),Number(doc.sectionId),Number(doc.termId),found.rows);
   if(result.empty){res.json({live:null,reason:"empty"});return;}
   const {items,gone}=liveRequestItems(doc.items||[],buildRequestItems(result));
-  const live:LiveRequestView={at:new Date().toISOString(),items,counts:result.counts,reviewCount:result.counts.review,gone};
+  /* الرقمُ المدني بجانب الأستاذ في ورقة المطابقة (طلب المالك): لأساتذة هذا التقرير وحدهم، ولمن مرّ بـ mayReadRequests
+     ونطاقه في savedRequestRows — لا يُخزَّن في البند ولا يخرج في مسارٍ آخر. */
+  const wanted=new Set<number>();
+  for(const item of items)for(const field of item.fields)for(const id of field.oursIds||[])wanted.add(Number(id));
+  const civils:Record<string,string>={};
+  if(wanted.size)for(const person of await Repository.getInstructors()){
+    const id=Number((person as any).AdInstructorId||0),civil=String((person as any).AdInstructorCivil||"").trim();
+    if(wanted.has(id)&&civil)civils[String(id)]=civil;
+  }
+  const live:LiveRequestView={at:new Date().toISOString(),items,counts:result.counts,reviewCount:result.counts.review,gone,civils};
   res.json({live});
 });
 
