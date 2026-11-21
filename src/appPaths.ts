@@ -1,6 +1,7 @@
 /**
- * The application's own screen addresses — one table read by the browser
- * router (App.tsx) and by the server's catch-all.
+ * The application's screen addresses, for the server's catch-all. This is a
+ * copy of `pathByView` in App.tsx (which other audits read as text, so it stays
+ * there); tests/public-pages-audit.ts fails if the two ever differ.
  *
  * The server still answers every unknown address with the application shell,
  * so a person who follows any link sees the page exactly as before. What

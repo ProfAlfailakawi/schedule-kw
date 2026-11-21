@@ -2,7 +2,7 @@
  * ── الصفحات العامة وجاهزية الفهرسة ──────────────────────────────────────────
  *  A  كل شاشةٍ في جدول التوجيه (وبديلُها القديم) تُعدّ من شاشات التطبيق، بلا حساسيةٍ لحالة الأحرف أو للشرطة الأخيرة.
  *  B  العنوانُ المختلَق ليس شاشة — فيأخذ الخادمُ له 404 مع بقاء صفحة التطبيق نفسها للزائر.
- *  C  App.tsx يقرأ الجدولَ نفسه (لا نسخةَ ثانية تنحرف عنه).
+ *  C  جدولُ الخادم يطابق جدولَ App.tsx حرفياً (نسختان لا تنحرفان).
  *  D  صفحات «من نحن» و«تواصل» و«الشروط» موجودة وبمحتوى حقيقي، والخصوصيةُ تذكر إعلانات Google وطريقة إيقافها.
  *  E  خريطةُ الموقع صالحة ولا تضم إلا صفحاتٍ عامة، وrobots.txt يشير إليها ويُبقي الحجبَ القائم.
  *  F  الخادم: 404 للعنوان المختلَق مع صفحة التطبيق، و200 للشاشات، والصفحاتُ العامة تُخدَم، و/privacy يحوَّل.
@@ -28,10 +28,13 @@ for (const p of ["/zz-not-here-91", "/about-us", "/FSchedule", "/Home/Index/extr
   check(!isAppShellPath(p), `B ${p} ليس شاشة`);
 }
 
-// C
+// C — App.tsx keeps its own table (other audits read it as text); the server's copy must match it exactly.
 const app = fs.readFileSync("src/App.tsx", "utf8");
-check(/const pathByView: Record<View, string> = APP_VIEW_PATHS;/.test(app), "C App.tsx يستعمل الجدول المشترك");
-check(!/dashboard: "\/Home\/Index"/.test(app), "C لا نسخة ثانية من الجدول في App.tsx");
+const block = app.slice(app.indexOf("const pathByView: Record<View, string> = {"), app.indexOf("};", app.indexOf("const pathByView: Record<View, string> = {")));
+const appTable = Object.fromEntries([...block.matchAll(/^\s*(\w+): "([^"]+)",/gm)].map(m => [m[1], m[2]]));
+check(Object.keys(appTable).length > 30, "C قُرئ جدول App.tsx", Object.keys(appTable).length);
+check(JSON.stringify(appTable) === JSON.stringify(APP_VIEW_PATHS), "C جدول الخادم يطابق جدول App.tsx حرفياً", { app: appTable, server: APP_VIEW_PATHS });
+check(Object.keys(APP_PATH_ALIASES).every(alias => app.includes(`viewByPath.set("${alias}", "${APP_PATH_ALIASES[alias]}")`)), "C البدائل القديمة نفسها في App.tsx");
 
 // D
 for (const page of ["about", "contact", "terms"]) {
