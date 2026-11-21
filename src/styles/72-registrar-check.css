@@ -231,7 +231,9 @@
      تأخذ هندستها المشتركة — التدوير في Safari، وA4 في Chromium، والملء (printFit). هنا ألوانُها وجداولُها وحدها. */
   /* Safari على iPhone: الصفحةُ المُدارة الأخيرة تُرسم أدنى من خانتها بنصف فرق المقياس (≈٤٫٥ مم)، وذاك الذيلُ
      يتجاوز مساحة الطباعة مع رأس Safari وتذييله فتخرج بعدها صفحةٌ بيضاء. الأخيرةُ وحدها تُرفع إلى أعلى خانتها. */
-  html[data-print-rotate="1"] .print-report.print-wide.print-registrar-report .print-explicit-page:last-child{
+  /* ولا وقتَ القياس (printFit): هذا التحويلُ أقوى من قاعدة القياس التي تُلغي التدوير، فكانت الصفحةُ تُقاس مُدارةً
+     (٢٦٧ مم بدل ارتفاعها) فتُصغَّر إلى ٧٦٪ — ورقةٌ صغيرة في ربع الصفحة على iPhone. */
+  html[data-print-rotate="1"]:not([data-print-fit-measure]) .print-report.print-wide.print-registrar-report .print-explicit-page:last-child{
     transform:translate(calc(210mm * var(--safari-rot-scale) + (210mm - 210mm * var(--safari-rot-scale))), 0) rotate(90deg) scale(var(--safari-rot-scale))!important;
   }
   /* وبمقياس ٩٧٪ يبلغ ما تشغله الصفحة المُدارة ٢٨٨ مم، وهو أطول مما يُطبع فيه Safari على iPhone مع رأسه وتذييله
