@@ -48,6 +48,8 @@ export interface LiveRequestView {
   reviewCount: number;
   /** بنودُ الفحص المحفوظ التي لم تعد فرقاً الآن. */
   gone: number;
+  /** الرقمُ المدني لأساتذة هذا التقرير وحدهم (معرّفٌ ← رقم)، يرسله الخادمُ لمن يقرأ فحوص القسم ولا يُخزَّن. غيابُ الحقل = لم يُرسل. */
+  civils?: Record<string, string>;
 }
 
 const fieldsSignature = (item: Pick<RegistrarRequestItem, "fields">) =>

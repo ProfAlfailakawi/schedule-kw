@@ -146,6 +146,12 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
     window.addEventListener("beforeprint", onBefore);
     return () => window.removeEventListener("beforeprint", onBefore);
   }, [hasSheet]);
+  /* الرقمُ المدني: ما أرسله الخادمُ مع القراءة الحيّة (لمن يقرأ فحوص القسم) أولاً — وصلاحيةُ القارئ في الدليل الذي يحمّله الاستعلام بعده. */
+  const civilFor = useMemo(() => {
+    const served = showingNow ? liveView?.civils : undefined;
+    if (served) return (id: number) => served[String(id)] || "";
+    return civilOf;
+  }, [showingNow, liveView, civilOf]);
   const sinceCount = useMemo(() => showingNow ? (open?.items || []).filter(item => item.since).length : 0, [showingNow, open]);
 
   const progress = useMemo(() => open ? requestProgress(open.items) : null, [open]);
@@ -341,7 +347,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
             );
           })}
           {open.reviewCount ? <p className="rpr-note">{countOf(open.reviewCount, AR.section)} احتاجت نظر القسم فلم تُدرج في التقرير.</p> : null}
-          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} history={docs || []} asOf={showingNow ? liveView?.at : undefined} civilOf={civilOf} /></PrintPortal>
+          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} history={docs || []} asOf={showingNow ? liveView?.at : undefined} civilOf={civilFor} /></PrintPortal>
         </div>
       ) : null}
     </section>

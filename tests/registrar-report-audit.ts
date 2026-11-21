@@ -83,6 +83,7 @@ check(/shortCourseCode\(item\.courseCode\)/.test(requests), "S3 رمزُ الم�
   check(none.kind === "missing" && /بلا رقم مدني/.test(requests), "S5 من يحقّ له والأستاذُ بلا رقمٍ مسجَّل: تُكتب «بلا رقم مدني» لا فراغٌ صامت");
   check(one.kind === "shown" && one.civils.join() === "123456789012" && /civilReadable/.test(reports), "S6 الأرقامُ المسجَّلة تُكتب، والقراءةُ تتبع صلاحية القارئ");
 }
+check(/const civils:Record<string,string>=\{\}/.test(importRoutes) && /wanted\.has\(id\)&&civil/.test(importRoutes) && /civils\?: Record<string, string>/.test(read("src/utils/registrarRequest.ts")) && /liveView\?\.civils/.test(comp), "S7 الرقمُ المدني يصل مع القراءة الحيّة لأساتذة التقرير وحدهم ولمن يقرأ فحوص القسم، ولا يُخزَّن");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
