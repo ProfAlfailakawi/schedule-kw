@@ -5,7 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { civilNoteFor } from "../src/utils/registrarRequest";
+import { civilNoteFor, instructorNamesOf } from "../src/utils/registrarRequest";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -86,6 +86,8 @@ check(/shortCourseCode\(item\.courseCode\)/.test(requests), "S3 رمزُ الم�
 check(/const civils:Record<string,string>=\{\}/.test(importRoutes) && /wanted\.has\(id\)&&civil/.test(importRoutes) && /civils\?: Record<string, string>/.test(read("src/utils/registrarRequest.ts")) && /liveView\?\.civils/.test(comp), "S7 الرقمُ المدني يصل مع القراءة الحيّة لأساتذة التقرير وحدهم ولمن يقرأ فحوص القسم، ولا يُخزَّن");
 check(/font-size:5\.95pt!important/.test(checkCss) && /height:5\.32mm/.test(checkCss) && /ROW_MM = 5\.4/.test(requests), "S8 كثافةُ ورقة المطابقة كثافةُ تقرير تغييرات الجدول (٥٫٩٥pt وسطر ٥٫٣٢ مم)، وتُرصّ البنود بالمليمتر");
 check(/html\[data-print-rotate="1"\]:not\(\[data-print-fit-measure\]\) \.print-report\.print-wide\.print-registrar-report \.print-explicit-page:last-child/.test(checkCss), "S9 تحويلُ الصفحة الأخيرة في Safari لا يُطبَّق وقتَ القياس، فلا تُصغَّر الورقة");
+check(instructorNamesOf({ fields: [{ field: "instructor", label: "", ours: "د.  أ  ب · د. ج", pdf: "—" }] } as any).join("|") === "د. أ ب|د. ج" && instructorNamesOf({ fields: [{ field: "instructor", label: "", ours: "—", pdf: "" }] } as any).length === 0, "S10 أسماءُ أساتذتنا في البند المحفوظ تُقرأ من حقل الأستاذ");
+check(/civilsByName\[name\]=list\[0\]/.test(importRoutes) && /list\.length===1/.test(importRoutes) && /civilOfName=\{civilOfName\}/.test(comp), "S11 الورقةُ المحفوظة بلا معرّفات: الرقمُ المدني باسم الأستاذ حين يدلّ على أستاذٍ واحدٍ فقط");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
