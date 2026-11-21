@@ -49,6 +49,8 @@ export interface FieldDelta {
   pdf: string;
   /** ما كان في النسخة المرسلة (لـ«لم يُرسل بعد»). */
   was?: string;
+  /** حقلُ «الأستاذ» وحده: معرّفاتُ أساتذتنا (لا غير)، ليُعرض رقمُهم المدني عند القراءة بصلاحيتها لا مخزَّناً. */
+  oursIds?: number[];
   /** مجموعةُ النتيجة التي جاء منها الحقل: حين تُدمج نتيجتان لشعبةٍ واحدة يبقى لكل حقلٍ أصلُه (تقصيرُهم أم تعديلُنا بعد الإرسال). */
   group?: FindingGroup;
 }
@@ -561,6 +563,7 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
     ours: valueText(field, ours, instructorNames),
     pdf: valueText(field, theirs, instructorNames),
     ...(was ? { was: valueText(field, was, instructorNames) } : {}),
+    ...(field === "instructor" && instructorIds(ours).length ? { oursIds: instructorIds(ours) } : {}),
   });
   const courseDelta = (ours: Section, theirs: Section): FieldDelta => ({
     field: "course", label: REGISTRAR_FIELD_LABEL.course,

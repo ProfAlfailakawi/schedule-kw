@@ -3925,7 +3925,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
           </div>
         ) : lens === "registrar" ? (
           <React.Suspense fallback={<MicroLoader label="يقرأ تقارير المطابقة…" />}>
-            <RegistrarReport collegeId={Number(filters.collegeId) || 0} sectionId={Number(filters.sectionId) || 0} termId={Number(filters.termId) || 0} scopeLine={scopeLine} college={collegeName} canDelete={canSchedule} />
+            <RegistrarReport collegeId={Number(filters.collegeId) || 0} sectionId={Number(filters.sectionId) || 0} termId={Number(filters.termId) || 0} scopeLine={scopeLine} college={collegeName} canDelete={canSchedule} civilOf={id => String(instructorById.get(id)?.AdInstructorCivil || "")} />
           </React.Suspense>
         ) : lens === "decision" ? (
           <DecisionBoard

@@ -127,7 +127,15 @@ export function notesCohort(docs: readonly RegistrarRequestDoc[]): { total: numb
   for (const id of cohort) if (confirmedIds.has(id) || !latestIds.has(id)) confirmed++;
   return { total: cohort.size, confirmed, open: cohort.size - confirmed };
 }
-export const REQUEST_ACTION_LABEL: Record<RequestAction, string> = { edit: "عدّلوا", add: "أضيفوا", delete: "احذفوا" };
+/* عناوينُ الأقسام كما يقرؤها مكتب التسجيل: ما المطلوب منهم، وبوصفٍ يقول لماذا هو عندهم. */
+export const REQUEST_ACTION_LABEL: Record<RequestAction, string> = { edit: "التعديل", add: "الإضافة", delete: "الحذف" };
+export const REQUEST_ACTION_NOTE: Record<RequestAction, string> = {
+  edit: "شعب لم يعدّلها مكتب التسجيل بعد",
+  add: "شعب لم يضفها مكتب التسجيل بعد",
+  delete: "شعب حذفناها ولم يحذفها مكتب التسجيل بعد",
+};
+/** رمزُ المقرر كما يُقرأ على الورقة: ثلاثُ خاناتٍ (112) لا سبع (0109112) — كبقية خانات الورقة. */
+export const shortCourseCode = (code: string): string => (/^\d{7}$/.test(String(code || "").trim()) ? String(code).trim().slice(-3) : String(code || ""));
 
 const text = (value: unknown, max: number) => String(value ?? "").slice(0, max);
 
@@ -145,7 +153,7 @@ export function buildRequestItems(result: Pick<RegistrarCheckResult, "findings">
     if (!finding.action) continue;
     const id = requestItemId({ ...finding, action: finding.action });
     const fields = finding.fields.slice(0, 8).map(f => ({
-      field: f.field, label: text(f.label, 20), ours: text(f.ours, 160), pdf: text(f.pdf, 160), ...(f.was ? { was: text(f.was, 160) } : {}), group: finding.group,
+      field: f.field, label: text(f.label, 20), ours: text(f.ours, 160), pdf: text(f.pdf, 160), ...(f.was ? { was: text(f.was, 160) } : {}), ...(f.oursIds?.length ? { oursIds: f.oursIds.slice(0, 6) } : {}), group: finding.group,
     }));
     const found = items.get(id);
     if (found) {
