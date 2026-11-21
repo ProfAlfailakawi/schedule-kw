@@ -308,6 +308,36 @@
   .rrq-delta s{color:#8b9591;text-decoration-color:#b7bfbb}
   .rrq-delta span{color:var(--tone);font-weight:800}
   .rrq-delta b{color:var(--tone);font-weight:800}
+  /* ── كثافةُ «تقرير تغييرات الجدول» (قرار المالك 2026-11-21: «قلّده في حجم الخط والارتفاعات») ─────────────
+     خلايا ٥٫٩٥pt ورؤوسُها ٥٫٦٥pt وسطرٌ أدناه ٥٫٣٢ مم بحشوةٍ ٠٫٨٢ مم (08-print.css: authority-pdf)، فتسع ورقةٌ واحدة
+     ما كان يأخذ أربعاً. الورقةُ نفسها: الحجمُ والاتجاهُ والترويسة كما هي، والكثافةُ وحدها. */
+  .print-registrar-report .print-head{margin-bottom:1.8mm!important}
+  .print-registrar-report .rrq-meta{gap:1.2mm!important;margin:0 0 1.6mm!important}
+  .print-registrar-report .rrq-meta>span{padding:.5mm 1.8mm!important;font-size:6pt!important;border-radius:1.2mm!important;gap:1mm!important}
+  .print-registrar-report .rrq-proof{margin:0 0 1.6mm!important;padding:.9mm 2.4mm!important;font-size:6.2pt!important;line-height:1.5!important}
+  .print-registrar-report .rrq-group{margin-top:1.6mm!important}
+  .print-registrar-report .rrq-group h2{padding:.8mm 2.4mm!important;font-size:7pt!important;gap:2mm!important;line-height:1.3!important}
+  .print-registrar-report .rrq-group h2 span{font-size:5.8pt!important}
+  .print-registrar-report .rrq-group h2 em{font-size:6pt!important;padding:0 1.4mm!important;min-width:5mm!important}
+  .print-registrar-report .rrq-group th{padding:.7mm 1.2mm!important;font-size:5.65pt!important;line-height:1.3!important}
+  .print-registrar-report .rrq-group tbody td{padding:.82mm 1.2mm!important;font-size:5.95pt!important;line-height:1.3!important;vertical-align:middle!important;height:5.32mm}
+  .print-registrar-report .rrq-group td strong{display:inline!important;font-size:6.1pt!important}
+  .print-registrar-report .rrq-group td small{display:inline!important;margin:0 1.2mm!important;font-size:5.5pt!important}
+  .print-registrar-report .rrq-group .rrq-since{margin:0 1.2mm!important;padding:0 1.2mm!important;font-size:5pt!important}
+  .print-registrar-report .rrq-delta{display:inline-flex!important;margin:0 0 0 2.4mm!important;gap:.8mm!important}
+  .print-registrar-report .rrq-delta i{min-width:0!important;font-size:5.5pt!important}
+  .print-registrar-report .rrq-sheet .rrq-civil,.print-registrar-report .rrq-civil{display:inline!important;margin:0 1.4mm!important;font-size:5.4pt!important}
+  .print-registrar-report .rrq-trail{margin-top:1.2mm!important}
+  .print-registrar-report .rrq-trail h3{font-size:6.6pt!important;margin:0 0 .8mm!important}
+  .print-registrar-report .rrq-trail th{padding:.5mm 1.2mm!important;font-size:5.65pt!important}
+  .print-registrar-report .rrq-trail tbody td{padding:.5mm 1.2mm!important;font-size:5.95pt!important}
+  .print-registrar-report .rrq-trail td small{font-size:5pt!important;padding:0 1.2mm!important}
+  /* وفي Chromium صفحةُ التقارير العرضية ١٧٨ مم (08-print.css)؛ وورقةُ المطابقة بمقدار صفحة «تغييرات الجدول» الكاملة تقريباً. */
+  html[data-print-chromium="1"] .print-report.print-wide.print-registrar-report .print-explicit-page{height:196mm!important;min-height:196mm!important;max-height:196mm!important}
+  html .print-report.print-wide.print-registrar-report .print-explicit-page{padding:5mm 8mm 5mm!important}
+  .print-registrar-report .print-explicit-page .print-head{margin-bottom:1.5mm!important;padding-bottom:1.5mm!important}
+  .print-registrar-report .rrq-group{display:block!important}
+  .print-registrar-report .rrq-trail thead{display:none!important}
 }
 
 /* ── مطابقة ترقيم التسجيل: سطرٌ واحدٌ هادئ، ومعه «تراجع» ─────────────── */
@@ -336,4 +366,5 @@
 .rpc-drift b[data-tone="new"]{color:var(--info)}
 .rpc-saved{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .rpc-saved>span{flex:1;min-inline-size:12ch}
-.rrq-field-label{min-inline-size:3.6em;font-size:.8rem;font-weight:700;color:var(--muted)}
+.rrq-field-label{min-inline-size:3.6em;font-size:.8rem;font-weight:700;color:var(--muted)
+}

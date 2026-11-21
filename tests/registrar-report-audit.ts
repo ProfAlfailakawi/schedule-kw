@@ -84,6 +84,7 @@ check(/shortCourseCode\(item\.courseCode\)/.test(requests), "S3 رمزُ الم�
   check(one.kind === "shown" && one.civils.join() === "123456789012" && /civilReadable/.test(reports), "S6 الأرقامُ المسجَّلة تُكتب، والقراءةُ تتبع صلاحية القارئ");
 }
 check(/const civils:Record<string,string>=\{\}/.test(importRoutes) && /wanted\.has\(id\)&&civil/.test(importRoutes) && /civils\?: Record<string, string>/.test(read("src/utils/registrarRequest.ts")) && /liveView\?\.civils/.test(comp), "S7 الرقمُ المدني يصل مع القراءة الحيّة لأساتذة التقرير وحدهم ولمن يقرأ فحوص القسم، ولا يُخزَّن");
+check(/font-size:5\.95pt!important/.test(checkCss) && /height:5\.32mm/.test(checkCss) && /ROW_MM = 5\.4/.test(requests), "S8 كثافةُ ورقة المطابقة كثافةُ تقرير تغييرات الجدول (٥٫٩٥pt وسطر ٥٫٣٢ مم)، وتُرصّ البنود بالمليمتر");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
