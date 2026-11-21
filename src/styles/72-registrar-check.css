@@ -243,6 +243,7 @@
   .rrq-sheet [data-action="add"]{--tone:var(--rq-add);--tone-soft:var(--rq-add-soft)}
   .rrq-sheet [data-action="delete"]{--tone:var(--rq-del);--tone-soft:var(--rq-del-soft)}
   .rrq-sheet .print-head{margin-bottom:4mm}
+  .rrq-sheet .rrq-civil{display:block;margin-top:.6mm;font-size:7.6pt;font-weight:400;color:#5d6966;font-variant-numeric:tabular-nums;letter-spacing:.2pt}
   .rrq-meta{display:flex;flex-wrap:wrap;gap:2mm;margin:0 0 3mm;break-inside:avoid}
   .rrq-meta>span{display:inline-flex;align-items:baseline;gap:1.6mm;padding:1.3mm 3mm;border:.45pt solid #cbd4d0;border-radius:2mm;background:#f7f9f8;font-size:8.6pt}
   .rrq-meta>span i{font-style:normal;color:#5d6966}

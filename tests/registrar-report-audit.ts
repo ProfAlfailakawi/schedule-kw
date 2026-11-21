@@ -72,5 +72,9 @@ check(/changes-kind-filter/.test(changes) && /changes-row-tools/.test(changes) &
 
 check(/export function armRegistrarPrint/.test(requests) && /addEventListener\("afterprint", later/.test(requests) && /addEventListener\("pointerdown", done/.test(requests) && /addEventListener\("beforeprint", onBefore\)/.test(comp), "P5 سماتُ الطباعة لا تُرفع عند afterprint نفسه (iPhone)، وطباعةُ قائمة المتصفّح تأخذها");
 
+check(/edit: "التعديل", add: "الإضافة", delete: "الحذف"/.test(read("src/utils/registrarRequest.ts")) && /شعب لم يعدّلها مكتب التسجيل بعد/.test(read("src/utils/registrarRequest.ts")) && /<th>الحالي \(الخطأ\) ← المطلوب<\/th>/.test(requests), "S1 عناوينُ الأقسام وأوصافُها ورأسا عمودَي الشعبة والحالي ← المطلوب كما أقرّها المالك");
+check(/civilLine\(item\)/.test(requests) && /oursIds/.test(read("src/utils/registrarRequest.ts")) && /civilOf=\{id =>/.test(reports) && !/AdInstructorCivil|instructorCivil/.test(read("src/utils/registrarRequest.ts")), "S2 الرقمُ المدني بجانب الأستاذ يُقرأ بصلاحية القارئ ولا يُخزَّن في البند (معرّفاتٌ فقط)");
+check(/shortCourseCode\(item\.courseCode\)/.test(requests), "S3 رمزُ المقرر على الورقة ثلاثُ خاناتٍ في كل الأقسام");
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

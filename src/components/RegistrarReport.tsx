@@ -86,10 +86,12 @@ function Ring({ done, total }: { done: number; total: number }) {
   );
 }
 
-export default function RegistrarReport({ collegeId, sectionId, termId, scopeLine, college, canDelete }: {
+export default function RegistrarReport({ collegeId, sectionId, termId, scopeLine, college, canDelete, civilOf }: {
   collegeId: number; sectionId: number; termId: number; scopeLine: string;
   /** اسمُ الكلية في ترويسة الورقة المطبوعة. */
   college?: string;
+  /** الرقمُ المدني لأستاذٍ بمعرّفه بصلاحية القارئ (فارغٌ لمن لا يحقّ له)، يُطبع بجانب اسمه. */
+  civilOf?: (instructorId: number) => string;
   /** صاحبُ الجدول (النموذج 7) يحذف تقريره؛ التسجيلُ لا. */
   canDelete: boolean;
 }) {
@@ -339,7 +341,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
             );
           })}
           {open.reviewCount ? <p className="rpr-note">{countOf(open.reviewCount, AR.section)} احتاجت نظر القسم فلم تُدرج في التقرير.</p> : null}
-          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} history={docs || []} asOf={showingNow ? liveView?.at : undefined} /></PrintPortal>
+          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} history={docs || []} asOf={showingNow ? liveView?.at : undefined} civilOf={civilOf} /></PrintPortal>
         </div>
       ) : null}
     </section>

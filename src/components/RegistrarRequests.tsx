@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, CalendarDays, CheckCircle2, Circle, Clock3, FileText, MapPin, Printer, RotateCcw, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { isTheirs, REQUEST_ACTION_LABEL, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
+import { isTheirs, REQUEST_ACTION_LABEL, REQUEST_ACTION_NOTE, shortCourseCode, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
 import type { FieldDelta, RequestAction } from "../utils/registrarCheck";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import { clearPrintFit, fitPrintPages, packPrintLines } from "../utils/printFit";import { isSafariPrint, stampPrintEngine } from "../utils/printEngine";
@@ -63,7 +63,7 @@ export function ItemLine({ item, canTick, busy, onTick }: { key?: React.Key; ite
     <li className="rrq-item" data-state={item.state === "confirmed" ? "confirmed" : item.done ? "done" : item.state === "reopened" ? "reopened" : "open"}>
       <div className="rrq-item-id">
         {item.crn ? <span className="crn-chip" dir="ltr" title="الرقم المرجعي">{item.crn}</span> : <span className="rrq-new">بلا رقم</span>}
-        <strong><bdi dir="ltr">{item.courseCode}</bdi> {item.courseName}</strong>
+        <strong><bdi dir="ltr">{shortCourseCode(item.courseCode)}</bdi> {item.courseName}</strong>
         <small>ش<bdi dir="ltr">{item.pdfSection || item.section}</bdi></small>
         {item.since ? <span className="rrq-since-now" data-since={item.since}>{item.since === "new" ? "جديد بعد الفحص" : "تغيّر بعد الفحص"}</span> : null}
       </div>
@@ -162,10 +162,12 @@ function checkTrail(history: readonly RegistrarRequestDoc[], theirsOnly: boolean
   });
 }
 
-export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, history = [], asOf }: {
+export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, history = [], asOf, civilOf }: {
   doc: RegistrarRequestDoc; scopeLine: string; college?: string; theirsOnly?: boolean; history?: readonly RegistrarRequestDoc[];
   /** التقريرُ محسوبٌ على جدولنا في هذا الوقت (لا كما حُفظ): يُكتب في الرأس مع تاريخ ملفهم. */
   asOf?: string;
+  /** الرقمُ المدني لأستاذٍ بمعرّفه، بصلاحية القارئ (فارغٌ لمن لا يحقّ له): يُكتب بجانب اسمه. */
+  civilOf?: (instructorId: number) => string;
 }) {
   /* «ملاحظات على ملف التسجيل»: ما أُرسل ولم يظهر في ملفهم وحده، فلا يُحمَّلون ما عدّلناه نحن بعد الإرسال. */
   /* البندُ المتكرّر: أولُ فحصٍ ظهر فيه، فيُرى أنه باقٍ منذ ذلك اليوم. */
@@ -181,11 +183,14 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, hist
   const value = (item: RegistrarRequestItem, field: string) => item.fields.find(f => f.field === field)?.ours || "—";
   const printedAt = new Date();
   const stamp = `${String(printedAt.getDate()).padStart(2, "0")}/${String(printedAt.getMonth() + 1).padStart(2, "0")}/${printedAt.getFullYear()}`;
-  const groups: Array<{ action: RequestAction; title: string; note: string }> = [
-    { action: "edit", title: "عدّلوا", note: "شعبٌ في ملفهم يخالف جدولنا" },
-    { action: "add", title: "أضيفوا", note: "شعبٌ عندنا ولم تظهر في ملفهم" },
-    { action: "delete", title: "احذفوا", note: "شعبٌ في ملفهم ليست في جدولنا" },
-  ];
+  const groups: Array<{ action: RequestAction; title: string; note: string }> = (["edit", "add", "delete"] as const)
+    .map(action => ({ action, title: REQUEST_ACTION_LABEL[action], note: REQUEST_ACTION_NOTE[action] }));
+  /* الرقمُ المدني بجانب اسم الأستاذ: يُقرأ الآن بصلاحية القارئ ولا يُخزَّن في البند (البندُ يحمل معرّفاتٍ فقط). */
+  const civilLine = (item: RegistrarRequestItem) => {
+    const ids = item.fields.find(f => f.field === "instructor")?.oursIds || [];
+    const list = ids.map(id => civilOf?.(id) || "").filter(Boolean);
+    return list.length ? <small className="rrq-civil"><bdi dir="ltr">{list.join(" · ")}</bdi></small> : null;
+  };
   /* ── الصفحات: كما تُصفَّح بقية التقارير (صفحاتٌ صريحة، لكل صفحةٍ ترويستُها وتذييلُها) ──
      البنودُ تُحزَم بكلفة ارتفاعها (بندُ تعديلٍ بحقولٍ كثيرة أطول)، والصفحةُ الأولى تحمل الملخّص وسجلَّ الفحوص. */
   type Line = { item: RegistrarRequestItem; action: RequestAction };
@@ -197,24 +202,24 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, hist
   const editRow = (item: RegistrarRequestItem) => (
     <tr key={item.id}>
       <td><bdi dir="ltr">{item.crn || "—"}</bdi></td>
-      <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi></small>{since(item)}</td>
+      <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{shortCourseCode(item.courseCode)}</bdi></small>{since(item)}</td>
       <td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td>
-      <td>{item.fields.map(f => <div key={f.field} className="rrq-delta"><i>{f.label}</i><s><Value field={f.field} text={f.pdf} /></s><span aria-hidden="true">←</span><b><Value field={f.field} text={f.ours} /></b></div>)}</td>
+      <td>{item.fields.map(f => <div key={f.field} className="rrq-delta"><i>{f.label}</i><s><Value field={f.field} text={f.pdf} /></s><span aria-hidden="true">←</span><b><Value field={f.field} text={f.ours} />{f.field === "instructor" ? civilLine(item) : null}</b></div>)}</td>
     </tr>
   );
   const addRow = (item: RegistrarRequestItem) => (
     <tr key={item.id}>
-      <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi> · شعبة <bdi dir="ltr">{item.section}</bdi></small>{since(item)}</td>
+      <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{shortCourseCode(item.courseCode)}</bdi> · شعبة <bdi dir="ltr">{item.section}</bdi></small>{since(item)}</td>
       <td>{value(item, "days")}<small><bdi dir="ltr">{value(item, "time")}</bdi></small></td>
       <td><bdi dir="ltr">{value(item, "room")}</bdi></td>
-      <td>{value(item, "instructor")}</td>
+      <td>{value(item, "instructor")}{civilLine(item)}</td>
     </tr>
   );
   const delRow = (item: RegistrarRequestItem) => (
-    <tr key={item.id}><td><bdi dir="ltr">{item.crn || "—"}</bdi></td><td><strong>{item.courseName}</strong><small><bdi dir="ltr">{item.courseCode}</bdi></small>{since(item)}</td><td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td></tr>
+    <tr key={item.id}><td><bdi dir="ltr">{item.crn || "—"}</bdi></td><td><strong>{item.courseName}</strong><small><bdi dir="ltr">{shortCourseCode(item.courseCode)}</bdi></small>{since(item)}</td><td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td></tr>
   );
   const head: Record<RequestAction, React.ReactNode> = {
-    edit: <tr><th>الرقم المرجعي</th><th>المقرر</th><th>شعبتكم</th><th>ما عندكم ← المطلوب</th></tr>,
+    edit: <tr><th>الرقم المرجعي</th><th>المقرر</th><th>الشعبة</th><th>الحالي (الخطأ) ← المطلوب</th></tr>,
     add: <tr><th>المقرر والشعبة</th><th>الأيام والوقت</th><th>القاعة</th><th>الأستاذ</th></tr>,
     delete: <tr><th>الرقم المرجعي</th><th>المقرر</th><th>الشعبة</th></tr>,
   };
