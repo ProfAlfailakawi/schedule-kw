@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, CalendarDays, CheckCircle2, Circle, Clock3, FileText, MapPin, Printer, RotateCcw, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { civilNoteFor, isTheirs, REQUEST_ACTION_LABEL, REQUEST_ACTION_NOTE, shortCourseCode, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
+import { civilNoteFor, instructorNamesOf, isTheirs, REQUEST_ACTION_LABEL, REQUEST_ACTION_NOTE, shortCourseCode, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
 import type { FieldDelta, RequestAction } from "../utils/registrarCheck";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import { clearPrintFit, fitPrintPages, packPrintLines } from "../utils/printFit";import { isSafariPrint, stampPrintEngine } from "../utils/printEngine";
@@ -162,12 +162,14 @@ function checkTrail(history: readonly RegistrarRequestDoc[], theirsOnly: boolean
   });
 }
 
-export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, history = [], asOf, civilOf }: {
+export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, history = [], asOf, civilOf, civilOfName }: {
   doc: RegistrarRequestDoc; scopeLine: string; college?: string; theirsOnly?: boolean; history?: readonly RegistrarRequestDoc[];
   /** التقريرُ محسوبٌ على جدولنا في هذا الوقت (لا كما حُفظ): يُكتب في الرأس مع تاريخ ملفهم. */
   asOf?: string;
   /** الرقمُ المدني لأستاذٍ بمعرّفه، بصلاحية القارئ (فارغٌ لمن لا يحقّ له): يُكتب بجانب اسمه. */
   civilOf?: (instructorId: number) => string | undefined;
+  /** وللبند المحفوظ بلا معرّفات: الرقمُ باسم الأستاذ (فارغٌ إن لم يُعرف بيقين). */
+  civilOfName?: (name: string) => string | undefined;
 }) {
   /* «ملاحظات على ملف التسجيل»: ما أُرسل ولم يظهر في ملفهم وحده، فلا يُحمَّلون ما عدّلناه نحن بعد الإرسال. */
   /* البندُ المتكرّر: أولُ فحصٍ ظهر فيه، فيُرى أنه باقٍ منذ ذلك اليوم. */
@@ -187,7 +189,9 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, hist
     .map(action => ({ action, title: REQUEST_ACTION_LABEL[action], note: REQUEST_ACTION_NOTE[action] }));
   /* الرقمُ المدني بجانب اسم الأستاذ: يُقرأ الآن بصلاحية القارئ ولا يُخزَّن في البند (البندُ يحمل معرّفاتٍ فقط). */
   const civilLine = (item: RegistrarRequestItem) => {
-    const note = civilNoteFor(item.fields.find(f => f.field === "instructor")?.oursIds || [], civilOf);
+    const ids = item.fields.find(f => f.field === "instructor")?.oursIds || [];
+    const names = ids.length ? [] : instructorNamesOf(item);
+    const note = ids.length ? civilNoteFor(ids, civilOf) : civilNoteFor(names.map((_, index) => index), civilOfName ? index => civilOfName(names[index]) : undefined);
     if (note.kind === "hidden") return null;
     return note.kind === "shown"
       ? <small className="rrq-civil"><bdi dir="ltr">{note.civils.join(" · ")}</bdi></small>

@@ -96,6 +96,8 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
   canDelete: boolean;
 }) {
   const [docs, setDocs] = useState<RegistrarRequestDoc[] | null>(null);
+  /* الرقمُ المدني للورقة المحفوظة كما أرسله الخادمُ مع القائمة: بالمعرّف، وإلا بالاسم. */
+  const [listCivils, setListCivils] = useState<{ byId: Record<string, string>; byName: Record<string, string> } | null>(null);
   const [canTick, setCanTick] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [only, setOnly] = useState<RequestAction | "all">("all");
@@ -109,6 +111,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
       const data = await call(`/api/schedules/registrar-requests?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}`);
       const list: RegistrarRequestDoc[] = Array.isArray(data.requests) ? data.requests : [];
       setDocs(list); setCanTick(Boolean(data.canTick));
+      setListCivils(data.civils || data.civilsByName ? { byId: data.civils || {}, byName: data.civilsByName || {} } : null);
       setOpenId(current => (current && list.some(doc => doc.id === current)) ? current : (list[0]?.id || null));
     } catch (e: any) { setDocs([]); setError(e?.message || "تعذّرت قراءة التقارير"); }
   }, [collegeId, sectionId, termId]);
@@ -149,9 +152,12 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
   /* الرقمُ المدني: ما أرسله الخادمُ مع القراءة الحيّة (لمن يقرأ فحوص القسم) أولاً — وصلاحيةُ القارئ في الدليل الذي يحمّله الاستعلام بعده. */
   const civilFor = useMemo(() => {
     const served = showingNow ? liveView?.civils : undefined;
-    if (served) return (id: number) => served[String(id)] || "";
+    if (served) return (id: number) => served[String(id)] || listCivils?.byId[String(id)] || "";
+    if (listCivils) return (id: number) => listCivils.byId[String(id)] || civilOf?.(id) || "";
     return civilOf;
-  }, [showingNow, liveView, civilOf]);
+  }, [showingNow, liveView, civilOf, listCivils]);
+  /* بندٌ محفوظٌ قبل أن يحمل معرّفات الأساتذة: يُعرف رقمُهم بأسمائهم (أستاذٌ واحدٌ بالاسم وحده). */
+  const civilOfName = useMemo(() => (listCivils ? (name: string) => listCivils.byName[name] || "" : undefined), [listCivils]);
   const sinceCount = useMemo(() => showingNow ? (open?.items || []).filter(item => item.since).length : 0, [showingNow, open]);
 
   const progress = useMemo(() => open ? requestProgress(open.items) : null, [open]);
@@ -347,7 +353,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
             );
           })}
           {open.reviewCount ? <p className="rpr-note">{countOf(open.reviewCount, AR.section)} احتاجت نظر القسم فلم تُدرج في التقرير.</p> : null}
-          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} history={docs || []} asOf={showingNow ? liveView?.at : undefined} civilOf={civilFor} /></PrintPortal>
+          <PrintPortal className="registrar-request-print-host"><RequestSheet doc={open} scopeLine={scopeLine} college={college} theirsOnly={notesMode} history={docs || []} asOf={showingNow ? liveView?.at : undefined} civilOf={civilFor} civilOfName={civilOfName} /></PrintPortal>
         </div>
       ) : null}
     </section>

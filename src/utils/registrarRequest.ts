@@ -148,6 +148,11 @@ export function civilNoteFor(ids: readonly number[], civilOf?: (id: number) => s
   const civils = values.filter((value): value is string => Boolean(value));
   return civils.length ? { kind: "shown", civils } : { kind: "missing" };
 }
+/** اسمٌ كما يُقارَن: مسافاتٌ مطويّة. */
+export const personNameKey = (name: string) => String(name || "").replace(/\s+/g, " ").trim();
+/** أسماءُ أساتذتنا في بند (حقل «الأستاذ» عندنا): للبنود المحفوظة قبل أن تحمل معرّفاتهم. */
+export const instructorNamesOf = (item: Pick<RegistrarRequestItem, "fields">): string[] =>
+  String(item.fields.find(f => f.field === "instructor")?.ours || "").split(" · ").map(personNameKey).filter(name => name && name !== "—");
 /** رمزُ المقرر كما يُقرأ على الورقة: ثلاثُ خاناتٍ (112) لا سبع (0109112) — كبقية خانات الورقة. */
 export const shortCourseCode = (code: string): string => (/^\d{7}$/.test(String(code || "").trim()) ? String(code).trim().slice(-3) : String(code || ""));
 
