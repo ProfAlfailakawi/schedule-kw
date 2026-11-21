@@ -55,8 +55,8 @@ check(robots.includes("Sitemap: https://schedule-kw.com/sitemap.xml") && robots.
 // F — the real catch-all, against a throwaway dist folder.
 const server = fs.readFileSync("server.ts", "utf8");
 check(/if \(!isAppShellPath\(req\.path\)\) res\.status\(404\);\s*res\.sendFile\(path\.join\(distPath, "index\.html"\)\);/.test(server), "F الخادم يرسل صفحة التطبيق مع 404 للعنوان المختلَق");
-check(/for \(const page of \["about", "contact", "terms"\]\)/.test(server) && /res\.redirect\(301, "\/privacy-policy\.html"\)/.test(server), "F الصفحات العامة وتحويل /privacy مسجّلة");
-check(server.indexOf('for (const page of ["about", "contact", "terms"])') < server.indexOf('app.get("*"'), "F الصفحات العامة قبل المسار العام");
+check(["about", "contact", "terms"].every(page => server.includes(`app.get(["/${page}", "/${page}/"], publicPage("${page}.html"))`)) && /res\.redirect\(301, "\/privacy-policy\.html"\)/.test(server), "F الصفحات العامة وتحويل /privacy مسجّلة");
+check(server.indexOf('app.get(["/about", "/about/"]') < server.indexOf('app.get("*"'), "F الصفحات العامة قبل المسار العام");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

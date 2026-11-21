@@ -8359,8 +8359,8 @@
     "/about/"
    ],
    "name": "bound dispatch",
-   "call": "9defe6cd8bad1074",
-   "site": "server.ts:980",
+   "call": "41681d79b7200298",
+   "site": "server.ts:983",
    "regexp": "/^\\/about\\/?$|^\\/about\\/?$/i",
    "end": true
   },
@@ -8374,8 +8374,8 @@
     "/contact/"
    ],
    "name": "bound dispatch",
-   "call": "9defe6cd8bad1074",
-   "site": "server.ts:980",
+   "call": "9278349069ab46dd",
+   "site": "server.ts:984",
    "regexp": "/^\\/contact\\/?$|^\\/contact\\/?$/i",
    "end": true
   },
@@ -8389,8 +8389,8 @@
     "/terms/"
    ],
    "name": "bound dispatch",
-   "call": "9defe6cd8bad1074",
-   "site": "server.ts:980",
+   "call": "5463795a9b2ff5c7",
+   "site": "server.ts:985",
    "regexp": "/^\\/terms\\/?$|^\\/terms\\/?$/i",
    "end": true
   },
@@ -8405,7 +8405,7 @@
    ],
    "name": "bound dispatch",
    "call": "0b23aa5cb08f94f1",
-   "site": "server.ts:985",
+   "site": "server.ts:986",
    "regexp": "/^\\/privacy\\/?$|^\\/privacy\\/?$/i",
    "end": true
   },
@@ -8417,7 +8417,7 @@
    "path": "*",
    "name": "bound dispatch",
    "call": "b64fc66b411d9805",
-   "site": "server.ts:987",
+   "site": "server.ts:988",
    "regexp": "/^(.*)\\/?$/i",
    "end": true
   }

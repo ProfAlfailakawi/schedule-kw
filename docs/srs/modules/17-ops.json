@@ -22,6 +22,9 @@
   ],
   "sources": [
     "server.ts",
+    "public/about.html",
+    "public/contact.html",
+    "public/terms.html",
     "src/server/core/boot.ts",
     "src/server/core/state.ts",
     "src/server/core/http.ts",
@@ -3017,6 +3020,48 @@
         ],
         "tests": [
           "tests/feature-health-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-OPS-053",
+      "kind": "functional",
+      "title": {
+        "ar": "صفحاتُ الثقة العامة وخريطةُ الموقع و404 صادق",
+        "en": "Public trust pages, sitemap and honest 404"
+      },
+      "text": {
+        "ar": "يجب أن يخدم الموقع صفحاتٍ عامةً حقيقية على ‎/about‎ و‎/contact‎ و‎/terms‎، وأن يحوِّل ‎/privacy‎ تحويلاً دائماً (301) إلى ‎/privacy-policy.html‎ التي تذكر إعلانات Google وملفات الارتباط وطرق إيقافها، وأن يقدّم ‎/sitemap.xml‎ بالصفحات العامة وحدها ويشير إليه robots.txt مع بقاء حجبه القائم، وأن يجيب المسارُ العام بصفحة التطبيق نفسها مع الحالة 404 لكل عنوانٍ ليس شاشةً من جدول شاشات التطبيق (src/appPaths.ts) و200 لشاشاته وبدائلها القديمة.",
+        "en": "The site shall serve real public pages at ‎/about‎, ‎/contact‎ and ‎/terms‎; permanently redirect (301) ‎/privacy‎ to ‎/privacy-policy.html‎, which discloses Google ads, cookies and how to opt out; serve ‎/sitemap.xml‎ listing public pages only, referenced from robots.txt with its existing disallows kept; and answer the catch-all with the same application shell, status 404 for any address that is not a screen in the application's screen table (src/appPaths.ts) and 200 for its screens and legacy aliases."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "visitor"
+      ],
+      "acceptance": [
+        {
+          "ar": "‎/zz-not-here‎ ← 404 بصفحة التطبيق، و‎/Home/Index‎ ← 200.",
+          "en": "‎/zz-not-here‎ returns 404 with the app shell; ‎/Home/Index‎ returns 200."
+        },
+        {
+          "ar": "‎/privacy‎ ← 301 إلى ‎/privacy-policy.html‎.",
+          "en": "‎/privacy‎ returns 301 to ‎/privacy-policy.html‎."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "server.ts",
+          "src/appPaths.ts",
+          "public/about.html",
+          "public/contact.html",
+          "public/terms.html",
+          "public/sitemap.xml",
+          "public/robots.txt",
+          "public/privacy-policy.html"
+        ],
+        "tests": [
+          "tests/public-pages-audit.ts"
         ]
       }
     }

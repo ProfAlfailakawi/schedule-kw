@@ -976,12 +976,13 @@ async function startServer() {
      */
     /* Public trust pages (about, contact, terms) are plain HTML files in public/;
        /privacy is a short alias for the existing privacy policy. */
-    for (const page of ["about", "contact", "terms"]) {
-      app.get([`/${page}`, `/${page}/`], (_req, res) => {
-        res.setHeader("Cache-Control", "no-cache, must-revalidate, max-age=0");
-        res.sendFile(path.join(distPath, `${page}.html`));
-      });
-    }
+    const publicPage = (file: string) => (_req: Request, res: Response) => {
+      res.setHeader("Cache-Control", "no-cache, must-revalidate, max-age=0");
+      res.sendFile(path.join(distPath, file));
+    };
+    app.get(["/about", "/about/"], publicPage("about.html"));
+    app.get(["/contact", "/contact/"], publicPage("contact.html"));
+    app.get(["/terms", "/terms/"], publicPage("terms.html"));
     app.get(["/privacy", "/privacy/"], (_req, res) => res.redirect(301, "/privacy-policy.html"));
     const looksLikeFile = /\.[a-z0-9]{2,8}$/i;
     app.get("*", (req, res) => {
