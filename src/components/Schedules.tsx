@@ -97,8 +97,8 @@ import { roomSwapBody, useRoomSwaps } from "./useRoomSwaps";
 import type { RoomSwap } from "../utils/appointmentRoomSwap";
 import AppointmentChecksPanel from "./AppointmentChecksPanel";
 import ConflictTimeline, { DurationBar } from "./ConflictTimeline";
-import { ChainSolveButton } from "./ChainSolveSheet";
-import { chainOffered } from "../utils/chainSolve";
+import { ChainSolveButton, chainFindable } from "./ChainSolveSheet";
+import { chainOffered, type ChainSolveInput } from "../utils/chainSolve";
 import { lectureSegments } from "../utils/lectureSegments";
 import { travelSavedCard } from "../utils/saveTravel";
 import ColleagueHoldNotice, { ColleaguePresenceChip } from "./ColleagueHoldNotice";
@@ -10133,12 +10133,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     rows, teacherId: Number(form.AdInstructorId) || 0, sectionId: Number(form.AdSectionId || filterSection) || 0, termId: studioTermId, courseId: Number(form.AdCourseId) || 0,
     editId: editor === "edit" ? Number(editId || 0) : 0, traineeIds: formTrainees, placeholderIds: new Set(studioPlaceholderIds), mine: quickSwapMineNow,
   }), [rows, form.AdInstructorId, form.AdCourseId, form.AdSectionId, filterSection, studioTermId, editor, editId, formTrainees, studioPlaceholderIds, quickSwapMineNow]);
-  const applyQuickSwap = async (source: QuickSwapSource, mode: "its" | "mine") => {
-    if (refuseInPractice()) return;
-    if (mode === "mine" && !source.sameCourse) return;
+  const applyQuickSwap = async (source: QuickSwapSource, mode: "its" | "mine"): Promise<boolean> => {
+    if (refuseInPractice()) return false;
+    if (mode === "mine" && !source.sameCourse) return false;
     const teacherId = Number(form.AdInstructorId) || 0;
     const before = rows.find(row => Number(row.id) === source.rowId);
-    if (!teacherId || !before) { setError("تغيّر الجدول؛ أعد فتح التبديل السريع."); return; }
+    if (!teacherId || !before) { setError("تغيّر الجدول؛ أعد فتح التبديل السريع."); return false; }
     setReplaceBusy(true);
     try {
       const after: any = quickSwapAfter(before, teacherId, mode, quickSwapMineNow);
@@ -10156,8 +10156,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       /* «بوقتي» استهلكت موعداً يُبنى الآن: تبقى مسودتُه فتُنشئ نسخةً مكررة. */
       if (mode === "mine" && source.sameCourse && editor === "create") { clearDraft(); back(); }
       requestAnimationFrame(() => setMessage(`انتقلت الشعبة ${changed.SCode || ""} إلى ${instructorById.get(teacherId)?.AdInstructorName || "الأستاذ"}.`));
+      return true;
     } catch (e: any) {
       setError(friendlyError(e));
+      return false;
     } finally {
       setReplaceBusy(false);
     }
@@ -10274,6 +10276,48 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const studioChip = (done: boolean, changed?: boolean) => `appt-chip${done ? "" : " is-missing"}${changed ? " is-changed" : ""}`;
   const studioInitial = String(selectedInstructor?.AdInstructorName || "").replace(/^(د\.|أ\.|م\.)\s*/, "").trim().charAt(0) || "؟";
   const studioScopeText = [formScopeLabel, studioTermName].filter(Boolean).join(" · ") || "اختر الكلية والقسم والفصل";
+  /* «حلّ بسلسلة»: مدخلُ المحرّك من النموذج، وفحصٌ مسبق فلا يظهر الزرّ إلا إذا وُجدت سلسلةٌ فعلاً (قرار المالك). */
+  const chainInputNow = (): ChainSolveInput => ({
+    draft: {
+      courseId: Number(form.AdCourseId || 0) || undefined,
+      courseName,
+      courseCode: String(formCourse?.CourseCode || ""),
+      sectionCode: String(form.SCode || ""),
+      instructorId: Number(form.AdInstructorId || 0) || undefined,
+      room: { buildingId: form.buildingId, roomId: form.roomId, code: String(form.AdRoomCode || ""), hall: String(form.AdRoomHall || "") },
+      days: formDays as any,
+      start: String(form.fstarttime || ""),
+      end: String(form.fendtime || ""),
+      editId: editor === "edit" ? Number(editId || 0) || undefined : undefined,
+    },
+    rows: [...new Map([...rows, ...formScopeRows.rows].filter(row => Number(row.AdTermId) === Number(form.AdTermId)).map(row => [Number(row.id), row] as const)).values()],
+    conflicts,
+    scope: { collegeId: Number(form.AdCollegeId || 0), sectionId: Number(form.AdSectionId || 0), termId: Number(form.AdTermId || 0) },
+    frozen: termFrozen,
+    approvalLocked: Boolean(approvalLock),
+    heldRowIds: [...pendingWriteIds, ...peers.flatMap((peer: any) => [peer.holding?.rowId, peer.editing?.rowId]).filter((id: any) => Number(id) > 0)].map(Number),
+    holds: studioHolds.holds.map((hold: any) => ({ days: hold.days, start: hold.start, end: hold.end, roomCode: hold.roomCode, roomHall: hold.roomHall, instructorId: hold.instructorId, editId: hold.editId })),
+    placeholderInstructorIds: studioPlaceholderIds,
+    courseHours: repairCourseHours,
+    courseOf: row => courseById.get(Number(row.AdCourseId)) as any,
+  });
+  const chainInputRef = useRef(chainInputNow);
+  chainInputRef.current = chainInputNow;
+  const chainAsked = chainOffered(editorVerdict);
+  const chainProbeKey = chainAsked ? JSON.stringify([form.AdTermId, form.AdCollegeId, form.AdSectionId, form.AdCourseId, form.AdInstructorId, form.AdRoomCode, form.AdRoomHall, formDays, form.fstarttime, form.fendtime, editor, editId,
+    editorVerdict.blockers.map(item => item.text)]) : "";
+  const [chainFound, setChainFound] = useState<{ key: string; ok: boolean } | null>(null);
+  useEffect(() => {
+    if (!chainProbeKey) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      chainFindable(chainInputRef.current())
+        .then(ok => { if (!cancelled) setChainFound({ key: chainProbeKey, ok }); })
+        .catch(() => { if (!cancelled) setChainFound({ key: chainProbeKey, ok: false }); });
+    }, 350);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [chainProbeKey, rows]);
+  const chainShown = chainAsked && chainFound?.key === chainProbeKey && chainFound.ok;
   const editorView = (
       <div className={`content-stack editor-page schedule-editor is-studio${studioChecksOpen ? " is-checks-open" : ""}`} data-tone={studioTone} data-ctype={String(formCourse?.CourseTeachingMode || "")} style={{ ["--appt-p" as any]: studioProgress }}>
         {/* The way out, at the top where the eye already is. */}
@@ -10580,7 +10624,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     <span className="appt-num">3</span>
                     <div className="appt-q"><strong>متى؟ الأيام والوقت</strong><small>اختر الأيام أو نمطاً من اللائحة، ثم البداية</small></div>
                     {studioWasMark(studioTimeWas, "time")}
-                    <AppointmentQuickSwap sources={quickSwapList} hasMine={Boolean(quickSwapMineNow)} busy={replaceBusy} onApply={(source, mode) => { void applyQuickSwap(source, mode); }} />
+                    <AppointmentQuickSwap sources={quickSwapList} hasMine={Boolean(quickSwapMineNow)} mine={quickSwapMineNow} teacherId={studioTeacherId}
+                      teacherName={String(selectedInstructor?.AdInstructorName || "")} teacherVisiting={formVisiting(studioTeacherId)} ownerName={id => String(instructorById.get(id)?.AdInstructorName || "")}
+                      busy={replaceBusy} onApply={applyQuickSwap} />
                   </header>
                 <Field label="الأيام" hint={formRegulationChips.length ? undefined : dayPatternNote}>
                   <div className={`checkbox-row day-pills${autofillFlash ? " is-autofilled" : ""}`}>
@@ -10724,7 +10770,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                       <span className="appt-inline-text">ساعات الشعبة زائدة</span>
                       <bdi className="appt-hours-figure" dir="ltr">{editorOverHours[2]}<span>/</span>{editorOverHours[1]} <small>س</small></bdi>
                     </> : <ConflictTimeline card={editorConflictCards.find((item: any) => item.source === editorVerdict.blockers[0].conflict)} text={editorBlockerLine(editorVerdict.blockers[0].text)} />}
-                    <div className={`appt-inline-actions${!editorUnderHours && !editorOverHours && chainOffered(editorVerdict) && editorVerdict.blockers.length === 1 ? " is-pair" : ""}`}>
+                    <div className={`appt-inline-actions${!editorUnderHours && !editorOverHours && chainShown && editorVerdict.blockers.length === 1 ? " is-pair" : ""}`}>
                     {editorVerdict.blockers.length > 1 ? <button type="button" className="appt-inline-more" onClick={() => setStudioChecksOpen(true)}
                       data-guide-ignore="يفتح لوحة الفحص على بقية الموانع؛ لا يحفظ شيئاً"><bdi dir="ltr">+{editorVerdict.blockers.length - 1}</bdi></button> : null}
                     {editorFreshSection ? <button type="button" className="appt-inline-alt is-fix" onClick={useFreshSection}
@@ -10739,7 +10785,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                     }} data-guide-ignore="يكمل نهاية الموعد وفق ساعات المقرر والأيام المختارة؛ لا يحفظ شيئاً"><Ruler aria-hidden="true" />أكمل النمط</button> : null}
                     <button type="button" className="appt-inline-alt" onClick={() => goToAlternatives()} disabled={altBusy}
                       data-guide-ignore="يطلب بديلاً آمناً من محرك الاقتراح الموحد وينزل إليه في النموذج؛ لا يحفظ شيئاً">{altBusy ? "…" : "بديل"}</button>
-                    {chainOffered(editorVerdict) ? <ChainSolveButton onOpen={() => setChainOpen(true)} data-guide-ignore="يفتح ورقة «حلّ بسلسلة» لمعاينة نقلات مقترحة؛ لا يكتب شيئاً قبل التطبيق" /> : null}
+                    {chainShown ? <ChainSolveButton onOpen={() => setChainOpen(true)} data-guide-ignore="يفتح ورقة «حلّ بسلسلة» لمعاينة نقلات مقترحة؛ لا يكتب شيئاً قبل التطبيق" /> : null}
                     </div>
                   </div>:null}
                   <ColleagueHoldNotice clashes={studioHolds.clashes} instructorName={id => instructorById.get(Number(id))?.AdInstructorName} />
@@ -11155,7 +11201,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             lockedReason={approvalLock}
             alternativeBusy={altBusy}
             onAlternative={() => goToAlternatives()}
-            onChainSolve={() => setChainOpen(true)}
+            onChainSolve={chainShown ? () => setChainOpen(true) : undefined}
             onApplyPattern={patternOverridden ? applyApprovedPattern : undefined}
             onOpenReach={formReachNote ? () => void formReach.setOpen(Number(form.AdCourseId || 0), true) : undefined}
             reachBusy={Boolean(formReach.busy)}
@@ -11262,30 +11308,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             <ChainSolveSheet
               open={chainOpen}
               onClose={() => setChainOpen(false)}
-              input={{
-                draft: {
-                  courseId: Number(form.AdCourseId || 0) || undefined,
-                  courseName,
-                  courseCode: String(formCourse?.CourseCode || ""),
-                  sectionCode: String(form.SCode || ""),
-                  instructorId: Number(form.AdInstructorId || 0) || undefined,
-                  room: { buildingId: form.buildingId, roomId: form.roomId, code: String(form.AdRoomCode || ""), hall: String(form.AdRoomHall || "") },
-                  days: formDays as any,
-                  start: String(form.fstarttime || ""),
-                  end: String(form.fendtime || ""),
-                  editId: editor === "edit" ? Number(editId || 0) || undefined : undefined,
-                },
-                rows: [...new Map([...rows, ...formScopeRows.rows].filter(row => Number(row.AdTermId) === Number(form.AdTermId)).map(row => [Number(row.id), row] as const)).values()],
-                conflicts,
-                scope: { collegeId: Number(form.AdCollegeId || 0), sectionId: Number(form.AdSectionId || 0), termId: Number(form.AdTermId || 0) },
-                frozen: termFrozen,
-                approvalLocked: Boolean(approvalLock),
-                heldRowIds: [...pendingWriteIds, ...peers.flatMap((peer: any) => [peer.holding?.rowId, peer.editing?.rowId]).filter((id: any) => Number(id) > 0)].map(Number),
-                holds: studioHolds.holds.map((hold: any) => ({ days: hold.days, start: hold.start, end: hold.end, roomCode: hold.roomCode, roomHall: hold.roomHall, instructorId: hold.instructorId, editId: hold.editId })),
-                placeholderInstructorIds: studioPlaceholderIds,
-                courseHours: repairCourseHours,
-                courseOf: row => courseById.get(Number(row.AdCourseId)) as any,
-              }}
+              input={chainInputNow()}
               onApplied={() => { forgetSuggestions(); checkCache.current.clear(); lastCheckFormKey.current = ""; void loadRows({ silent: true }).catch(() => undefined); }}
               onUndone={() => { forgetSuggestions(); checkCache.current.clear(); lastCheckFormKey.current = ""; void loadRows({ silent: true }).catch(() => undefined); }}
             />

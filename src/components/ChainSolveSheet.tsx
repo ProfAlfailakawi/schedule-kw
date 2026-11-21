@@ -255,15 +255,23 @@ export function ChainSolveButton({ onOpen, busy = false }: { onOpen: () => void;
  * ملاءمةُ القاعة لمقرر الصف من سجلّ المواقع (نوعٌ يطابق، وسعةٌ معروفة تكفي مقاعدَ المقرر): شرطٌ صلب كما في «بدّل القاعتين».
  * تعذّر السجلّ: لا قاعةَ جديدة لأحد (تبقى كلُّ شعبةٍ في قاعتها)، فلا يُرسَل صفٌّ إلى سعةٍ مجهولة.
  */
+/* سجلُّ المواقع لدقيقةٍ واحدة: الفحصُ المسبق للزرّ والورقةُ بعده يقرآن نسخةً واحدة. */
+const registryCache = new Map<string, { at: number; value: Promise<any> }>();
+function loadRegistry(collegeId: number, sectionId: number, termId: number): Promise<any> {
+  const key = `${collegeId}|${sectionId}|${termId}`;
+  const hit = registryCache.get(key);
+  if (hit && Date.now() - hit.at < 60_000) return hit.value;
+  const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
+  const value = fetch(`/api/location-registry?${query}`, { credentials: "include", signal: AbortSignal.timeout?.(8000) })
+    .then(response => (response.ok ? response.json() : null)).catch(() => null);
+  registryCache.set(key, { at: Date.now(), value });
+  value.then(body => { if (!body) registryCache.delete(key); });
+  return value;
+}
 async function loadRoomFits(input: ChainSolveInput): Promise<ChainSolveInput["roomFits"]> {
   if (!input.courseOf) return undefined;
   const { collegeId, sectionId, termId } = input.scope;
-  let registry: any = null;
-  try {
-    const query = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
-    const response = await fetch(`/api/location-registry?${query}`, { credentials: "include", signal: AbortSignal.timeout?.(8000) });
-    registry = response.ok ? await response.json() : null;
-  } catch { registry = null; }
+  const registry: any = await loadRegistry(collegeId, sectionId, termId);
   const halls = new Map<string, RoomSwapHall>();
   for (const room of Array.isArray(registry?.rooms) ? registry.rooms : []) {
     if (!room?.id) continue;
@@ -276,6 +284,14 @@ async function loadRoomFits(input: ChainSolveInput): Promise<ChainSolveInput["ro
     const current = halls.get(String(row.roomId || ""));
     return roomIsGood({ AdCourseId: Number(row.AdCourseId), ...course }, hall, current?.roomType);
   };
+}
+
+/**
+ * فحصٌ مسبق للزرّ: «حلّ بسلسلة» لا يظهر إلا إذا وُجدت سلسلةٌ فعلاً (قرار المالك)، بالمحرّك والملاءمة نفسيهما اللذين تستعملهما الورقة.
+ */
+export async function chainFindable(input: ChainSolveInput): Promise<boolean> {
+  const fits = await loadRoomFits(input);
+  return solveChain({ ...input, roomFits: input.roomFits || fits }).ok;
 }
 
 const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
