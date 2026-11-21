@@ -85,6 +85,7 @@ check(/shortCourseCode\(item\.courseCode\)/.test(requests), "S3 رمزُ الم�
 }
 check(/const civils:Record<string,string>=\{\}/.test(importRoutes) && /wanted\.has\(id\)&&civil/.test(importRoutes) && /civils\?: Record<string, string>/.test(read("src/utils/registrarRequest.ts")) && /liveView\?\.civils/.test(comp), "S7 الرقمُ المدني يصل مع القراءة الحيّة لأساتذة التقرير وحدهم ولمن يقرأ فحوص القسم، ولا يُخزَّن");
 check(/font-size:5\.95pt!important/.test(checkCss) && /height:5\.32mm/.test(checkCss) && /ROW_MM = 5\.4/.test(requests), "S8 كثافةُ ورقة المطابقة كثافةُ تقرير تغييرات الجدول (٥٫٩٥pt وسطر ٥٫٣٢ مم)، وتُرصّ البنود بالمليمتر");
+check(/html\[data-print-rotate="1"\]:not\(\[data-print-fit-measure\]\) \.print-report\.print-wide\.print-registrar-report \.print-explicit-page:last-child/.test(checkCss), "S9 تحويلُ الصفحة الأخيرة في Safari لا يُطبَّق وقتَ القياس، فلا تُصغَّر الورقة");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
