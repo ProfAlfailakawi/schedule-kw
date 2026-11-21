@@ -6,3 +6,5 @@ Disallow: /t/
 Disallow: /r/
 Disallow: /q/
 Disallow: /me
+
+Sitemap: https://schedule-kw.com/sitemap.xml

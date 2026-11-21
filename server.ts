@@ -1,4 +1,5 @@
 import "./src/server/core/boot";
+import { isAppShellPath } from "./src/appPaths";
 import { RequestReservationConflict } from "./src/utils/instructorRequestReservations";
 import express, { Request, Response, NextFunction } from "express";
 import compression from "compression";
@@ -973,6 +974,16 @@ async function startServer() {
      * a file — /assets/*, or a path with an extension — now fails honestly, so
      * the page's boot guard can clear the stale copy and reload.
      */
+    /* Public trust pages (about, contact, terms) are plain HTML files in public/;
+       /privacy is a short alias for the existing privacy policy. */
+    const publicPage = (file: string) => (_req: Request, res: Response) => {
+      res.setHeader("Cache-Control", "no-cache, must-revalidate, max-age=0");
+      res.sendFile(path.join(distPath, file));
+    };
+    app.get(["/about", "/about/"], publicPage("about.html"));
+    app.get(["/contact", "/contact/"], publicPage("contact.html"));
+    app.get(["/terms", "/terms/"], publicPage("terms.html"));
+    app.get(["/privacy", "/privacy/"], (_req, res) => res.redirect(301, "/privacy-policy.html"));
     const looksLikeFile = /\.[a-z0-9]{2,8}$/i;
     app.get("*", (req, res) => {
       if (req.path.startsWith("/assets/") || looksLikeFile.test(req.path)) {
@@ -980,6 +991,10 @@ async function startServer() {
         return;
       }
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+      /* An address that is not a screen still receives the application shell, so
+         nothing changes for a person; only its status is honest (404), so search
+         engines stop indexing copies of the home page under made-up URLs. */
+      if (!isAppShellPath(req.path)) res.status(404);
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
