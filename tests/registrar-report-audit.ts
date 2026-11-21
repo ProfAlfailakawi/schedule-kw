@@ -5,6 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { civilNoteFor } from "../src/utils/registrarRequest";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -73,8 +74,15 @@ check(/changes-kind-filter/.test(changes) && /changes-row-tools/.test(changes) &
 check(/export function armRegistrarPrint/.test(requests) && /addEventListener\("afterprint", later/.test(requests) && /addEventListener\("pointerdown", done/.test(requests) && /addEventListener\("beforeprint", onBefore\)/.test(comp), "P5 سماتُ الطباعة لا تُرفع عند afterprint نفسه (iPhone)، وطباعةُ قائمة المتصفّح تأخذها");
 
 check(/edit: "التعديل", add: "الإضافة", delete: "الحذف"/.test(read("src/utils/registrarRequest.ts")) && /شعب لم يعدّلها مكتب التسجيل بعد/.test(read("src/utils/registrarRequest.ts")) && /<th>الحالي \(الخطأ\) ← المطلوب<\/th>/.test(requests), "S1 عناوينُ الأقسام وأوصافُها ورأسا عمودَي الشعبة والحالي ← المطلوب كما أقرّها المالك");
-check(/civilLine\(item\)/.test(requests) && /oursIds/.test(read("src/utils/registrarRequest.ts")) && /civilOf=\{id =>/.test(reports) && !/AdInstructorCivil|instructorCivil/.test(read("src/utils/registrarRequest.ts")), "S2 الرقمُ المدني بجانب الأستاذ يُقرأ بصلاحية القارئ ولا يُخزَّن في البند (معرّفاتٌ فقط)");
+check(/civilLine\(item\)/.test(requests) && /oursIds/.test(read("src/utils/registrarRequest.ts")) && /civilOf=\{civilReadable \?/.test(reports) && !/AdInstructorCivil|instructorCivil/.test(read("src/utils/registrarRequest.ts")), "S2 الرقمُ المدني بجانب الأستاذ يُقرأ بصلاحية القارئ ولا يُخزَّن في البند (معرّفاتٌ فقط)");
 check(/shortCourseCode\(item\.courseCode\)/.test(requests), "S3 رمزُ المقرر على الورقة ثلاثُ خاناتٍ في كل الأقسام");
+
+{
+  const hidden = civilNoteFor([7], () => undefined), none = civilNoteFor([7], () => ""), one = civilNoteFor([7, 8], id => (id === 7 ? "123456789012" : "")), noRead = civilNoteFor([7]);
+  check(hidden.kind === "hidden" && noRead.kind === "hidden" && civilNoteFor([], () => "1").kind === "hidden", "S4 من لا يحقّ له الرقمَ المدني لا يُكتب له شيء");
+  check(none.kind === "missing" && /بلا رقم مدني/.test(requests), "S5 من يحقّ له والأستاذُ بلا رقمٍ مسجَّل: تُكتب «بلا رقم مدني» لا فراغٌ صامت");
+  check(one.kind === "shown" && one.civils.join() === "123456789012" && /civilReadable/.test(reports), "S6 الأرقامُ المسجَّلة تُكتب، والقراءةُ تتبع صلاحية القارئ");
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

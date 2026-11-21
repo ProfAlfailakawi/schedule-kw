@@ -91,7 +91,7 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
   /** اسمُ الكلية في ترويسة الورقة المطبوعة. */
   college?: string;
   /** الرقمُ المدني لأستاذٍ بمعرّفه بصلاحية القارئ (فارغٌ لمن لا يحقّ له)، يُطبع بجانب اسمه. */
-  civilOf?: (instructorId: number) => string;
+  civilOf?: (instructorId: number) => string | undefined;
   /** صاحبُ الجدول (النموذج 7) يحذف تقريره؛ التسجيلُ لا. */
   canDelete: boolean;
 }) {

@@ -134,6 +134,18 @@ export const REQUEST_ACTION_NOTE: Record<RequestAction, string> = {
   add: "شعب لم يضفها مكتب التسجيل بعد",
   delete: "شعب حذفناها ولم يحذفها مكتب التسجيل بعد",
 };
+/**
+ * الرقمُ المدني بجانب الأستاذ على الورقة: ثلاث حالات. لا يحقّ للقارئ رؤيته (civilOf ترجع undefined للكل): لا يُكتب شيء.
+ * يحقّ له والأستاذُ بلا رقمٍ مسجَّل: يُكتب «بلا رقم مدني» ليعرف القارئ أنه ناقصٌ في البيانات لا مخفيّ.
+ * وإلا تُكتب الأرقام. دالّةٌ نقيّة.
+ */
+export function civilNoteFor(ids: readonly number[], civilOf?: (id: number) => string | undefined): { kind: "hidden" } | { kind: "missing" } | { kind: "shown"; civils: string[] } {
+  if (!civilOf || !ids.length) return { kind: "hidden" };
+  const values = ids.map(id => civilOf(id));
+  if (values.every(value => value === undefined)) return { kind: "hidden" };
+  const civils = values.filter((value): value is string => Boolean(value));
+  return civils.length ? { kind: "shown", civils } : { kind: "missing" };
+}
 /** رمزُ المقرر كما يُقرأ على الورقة: ثلاثُ خاناتٍ (112) لا سبع (0109112) — كبقية خانات الورقة. */
 export const shortCourseCode = (code: string): string => (/^\d{7}$/.test(String(code || "").trim()) ? String(code).trim().slice(-3) : String(code || ""));
 

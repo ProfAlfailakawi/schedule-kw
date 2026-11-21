@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, CalendarDays, CheckCircle2, Circle, Clock3, FileText, MapPin, Printer, RotateCcw, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { isTheirs, REQUEST_ACTION_LABEL, REQUEST_ACTION_NOTE, shortCourseCode, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
+import { civilNoteFor, isTheirs, REQUEST_ACTION_LABEL, REQUEST_ACTION_NOTE, shortCourseCode, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
 import type { FieldDelta, RequestAction } from "../utils/registrarCheck";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import { clearPrintFit, fitPrintPages, packPrintLines } from "../utils/printFit";import { isSafariPrint, stampPrintEngine } from "../utils/printEngine";
@@ -167,7 +167,7 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, hist
   /** التقريرُ محسوبٌ على جدولنا في هذا الوقت (لا كما حُفظ): يُكتب في الرأس مع تاريخ ملفهم. */
   asOf?: string;
   /** الرقمُ المدني لأستاذٍ بمعرّفه، بصلاحية القارئ (فارغٌ لمن لا يحقّ له): يُكتب بجانب اسمه. */
-  civilOf?: (instructorId: number) => string;
+  civilOf?: (instructorId: number) => string | undefined;
 }) {
   /* «ملاحظات على ملف التسجيل»: ما أُرسل ولم يظهر في ملفهم وحده، فلا يُحمَّلون ما عدّلناه نحن بعد الإرسال. */
   /* البندُ المتكرّر: أولُ فحصٍ ظهر فيه، فيُرى أنه باقٍ منذ ذلك اليوم. */
@@ -187,9 +187,11 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, hist
     .map(action => ({ action, title: REQUEST_ACTION_LABEL[action], note: REQUEST_ACTION_NOTE[action] }));
   /* الرقمُ المدني بجانب اسم الأستاذ: يُقرأ الآن بصلاحية القارئ ولا يُخزَّن في البند (البندُ يحمل معرّفاتٍ فقط). */
   const civilLine = (item: RegistrarRequestItem) => {
-    const ids = item.fields.find(f => f.field === "instructor")?.oursIds || [];
-    const list = ids.map(id => civilOf?.(id) || "").filter(Boolean);
-    return list.length ? <small className="rrq-civil"><bdi dir="ltr">{list.join(" · ")}</bdi></small> : null;
+    const note = civilNoteFor(item.fields.find(f => f.field === "instructor")?.oursIds || [], civilOf);
+    if (note.kind === "hidden") return null;
+    return note.kind === "shown"
+      ? <small className="rrq-civil"><bdi dir="ltr">{note.civils.join(" · ")}</bdi></small>
+      : <small className="rrq-civil" data-missing="">بلا رقم مدني</small>;
   };
   /* ── الصفحات: كما تُصفَّح بقية التقارير (صفحاتٌ صريحة، لكل صفحةٍ ترويستُها وتذييلُها) ──
      البنودُ تُحزَم بكلفة ارتفاعها (بندُ تعديلٍ بحقولٍ كثيرة أطول)، والصفحةُ الأولى تحمل الملخّص وسجلَّ الفحوص. */
