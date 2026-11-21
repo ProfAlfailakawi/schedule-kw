@@ -26,10 +26,8 @@
   }
   button:active { opacity: .7; }
   @media (prefers-reduced-motion: no-preference) { button { transition: opacity .15s; } }
-  /* ركن الودجت (iPhone Duo): الاستعلامات نفسها في src/styles/01-foundation.css. المحتوى هنا مركزيّ، فتُزاح حشوته اليمنى الفيزيائية. */
-  @media screen and (orientation:portrait) and (max-width:720px) and (min-height:360px),
-         screen and (orientation:landscape) and (min-width:540px) and (max-width:1000px) and (min-height:300px) and (max-height:960px) and (max-aspect-ratio:17/10),
-         screen and (horizontal-viewport-segments:2) { body { padding-right: 104px; } }
+  /* لا حجز ثابت لركن الودجت هنا: الاستعلام بالمقاس وحده كان يلتقط كل iPhone. حشوة safe-area أعلاه هي الحجز الوحيد
+     (iOS يبلغ عمود ودجت Duo حدّاً آمناً). */
 </style>
 </head>
 <body>

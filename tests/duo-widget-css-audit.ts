@@ -58,7 +58,39 @@ const NOT_DUO: [number, number][] = [[844, 390], [932, 430], [667, 375], [744, 1
 const wrongly = NOT_DUO.filter(([w, h]) => hit(w, h));
 check(wrongly.length === 0, `لا تطابق iPhone/iPad/سطح المكتب/المطويّ الخارجي (16 مقاساً)${wrongly.length ? " — تطابق: " + wrongly.map((s) => s.join("×")).join("، ") : ""}`);
 
-/* حدٌّ معروف مسجَّل: iPhone الطولي (360–430 عرضاً) يطابق الاستعلام الطولي؛ لا يُفصَل عن الدوو بالمقاس. */
+/* iPhone الطولي (360–430 عرضاً) يطابق الاستعلام الطولي؛ لا يُفصَل عن الدوو بالمقاس. لذا لا يصل الحجز الثابت إلى أي
+   شاشةٍ إلا عبر بوابة data-device="duo" (العلامة من main.tsx)، وإلا عاد الشريط الفارغ يمين iPhone العادي. */
+check(hit(390, 844) && hit(402, 874) && hit(430, 932), "الاستعلام بالمقاس وحده يلتقط iPhone الطولي (390/402/430)، فلا يكفي وحده");
+const afterActive = active ? f.slice(f.indexOf(active[0]) + active[0].length) : "";
+check(/:root:not\(\[data-device="duo"\]\)\{--duo-widget-w:0px;--duo-widget-gap:0px;--duo-widget-h:0px\}/.test(afterActive)
+  && /:root\[data-device="duo"\]\{--duo-widget-w:0px;--duo-widget-gap:0px;--duo-widget-h:0px\}/.test(afterActive),
+  "بعد كتلة التفعيل: :root:not([data-device=duo]) يصفّر المتغيّرات الثلاثة (خصوصية أعلى من :root)، والدوو يصفّرها لـenv()");
+/* كل قاعدةٍ داخل كتلةٍ بالاستعلامات نفسها في 55-duo-adaptive.css تحت بوابة الدوو. */
+const WIDGET_QUERY = /max-width:720px\)and\(min-height:360px\)|min-height:300px\)and\(max-height:960px\)and\(max-aspect-ratio:17\/10\)/;
+const flatDuo = flat(duoFile);
+let gatedRules = 0;
+const ungated: string[] = [];
+for (let i = flatDuo.indexOf("@media"); i !== -1; i = flatDuo.indexOf("@media", i + 1)) {
+  const open = flatDuo.indexOf("{", i);
+  if (!WIDGET_QUERY.test(flatDuo.slice(i, open))) continue;
+  let depth = 0, j = open;
+  for (; j < flatDuo.length; j++) { if (flatDuo[j] === "{") depth++; else if (flatDuo[j] === "}" && --depth === 0) break; }
+  for (const m of flatDuo.slice(open + 1, j).matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+    const parts: string[] = []; let d = 0, cur = "";
+    for (const ch of m[1]) { if ("([".includes(ch)) d++; if (")]".includes(ch)) d--; if (ch === "," && d === 0) { parts.push(cur); cur = ""; } else cur += ch; }
+    parts.push(cur);
+    for (const part of parts) { gatedRules++; if (!/^(:where\(html\[data-device="duo"\]\)|html:where\(\[data-device="duo"\]\))/.test(part)) ungated.push(part); }
+  }
+}
+check(gatedRules >= 30 && ungated.length === 0, `قواعد الركن في 55-duo-adaptive.css كلها تحت بوابة الدوو (${gatedRules} محدِّداً)${ungated.length ? " — بلا بوابة: " + ungated.slice(0, 5).join("، ") : ""}`);
+/* ولا ملفّ أنماط آخر يفعّل الحجز، ولا صفحتا التطبيق الاحتياطيتان (لا JS فيهما ولا علامة). */
+const styleDir = path.join(root, "src/styles");
+const others = fs.readdirSync(styleDir).filter((n) => n.endsWith(".css") && n !== "01-foundation.css").map((n) => strip(fs.readFileSync(path.join(styleDir, n), "utf8")));
+check(others.every((css) => !/--duo-widget-(w|gap|h)\s*:\s*(?!\s|0px)/.test(css)), "لا ملفّ أنماط غير 01-foundation.css يضع قيمةً لمتغيّرات الودجت");
+for (const page of ["apple/www/index.html", "apple/www/offline.html"]) {
+  const html = strip(read(page));
+  check(!/104px|96px/.test(html) && !/@media[^{]*max-width:720px/.test(html), `${page}: لا حجز ثابت لركن الودجت بالمقاس وحده`);
+}
 
 /* 3) قواعد الحجز. */
 const reserve = strip(duoFile.slice(duoFile.lastIndexOf("/*", duoFile.indexOf("ركن الودجت — iPhone Duo"))));
