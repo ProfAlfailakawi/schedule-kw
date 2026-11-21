@@ -197,9 +197,15 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, hist
      البنودُ تُحزَم بكلفة ارتفاعها (بندُ تعديلٍ بحقولٍ كثيرة أطول)، والصفحةُ الأولى تحمل الملخّص وسجلَّ الفحوص. */
   type Line = { item: RegistrarRequestItem; action: RequestAction };
   const lines: Line[] = groups.flatMap(({ action }) => by(action).map(item => ({ item, action })));
-  const cost = (line: Line) => 1 + Math.max(0, (line.action === "edit" ? line.item.fields.length : 1) - 1) * 0.55;
-  const firstBudget = Math.max(3, 8 - (trail.length > 1 ? Math.min(4, 1 + trail.length * 0.6) : 0) - (theirsOnly ? 0.8 : 0));
-  const pages = lines.length ? packPrintLines(lines, cost, firstBudget, 10) : [[] as Line[]];
+  /* كثافةُ «تقرير تغييرات الجدول» (src/styles/72-registrar-check.css): سطرٌ بارتفاع ٥٫٣٢ مم، وبنودُ التعديل
+     بحقولٍ على السطر نفسه، فيُرصّ بالمليمتر: ما يسعه ما بين الترويسة والتذييل بعد ملخّص الصفحة الأولى وسجلّ فحوصها. */
+  const ROW_MM = 5.4, GROUP_MM = 10.2, BODY_MM = 176, HEAD_MM = 19;
+  const cost = (line: Line) => (line.action === "edit" && line.item.fields.length > 2 ? ROW_MM * 1.55 : ROW_MM);
+  const trailMm = trail.length > 1 ? 4 + trail.length * 4.2 : 0;
+  const groupsPresent = groups.filter(g => by(g.action).length).length || 1;
+  const firstBudget = Math.max(ROW_MM * 2, BODY_MM - HEAD_MM - 6.5 - trailMm - groupsPresent * GROUP_MM - (theirsOnly ? 6 : 0));
+  const nextBudget = BODY_MM - HEAD_MM - 2 * GROUP_MM;
+  const pages = lines.length ? packPrintLines(lines, cost, firstBudget, nextBudget) : [[] as Line[]];
   const groupOf = (action: RequestAction) => groups.find(g => g.action === action)!;
   const editRow = (item: RegistrarRequestItem) => (
     <tr key={item.id}>
