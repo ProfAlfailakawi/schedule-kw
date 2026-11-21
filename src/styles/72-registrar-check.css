@@ -234,6 +234,9 @@
   html[data-print-rotate="1"] .print-report.print-wide.print-registrar-report .print-explicit-page:last-child{
     transform:translate(calc(210mm * var(--safari-rot-scale) + (210mm - 210mm * var(--safari-rot-scale))), 0) rotate(90deg) scale(var(--safari-rot-scale))!important;
   }
+  /* وبمقياس ٩٧٪ يبلغ ما تشغله الصفحة المُدارة ٢٨٨ مم، وهو أطول مما يُطبع فيه Safari على iPhone مع رأسه وتذييله
+     (قيس على محاكي iPhone: صفحةٌ بيضاء بعد الأخيرة؛ وبـ٩٠٪ صفحةٌ واحدة). فلورقة المطابقة ٩٠٪. */
+  html[data-print-rotate="1"] .print-report.print-wide.print-registrar-report{--safari-rot-scale:.9}
   .registrar-request-print-host .rrq-sheet{display:block!important;direction:rtl;color:#1d2422;font-size:9.2pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .rrq-sheet{--rq-edit:#9a6a12;--rq-edit-soft:#fbf0d4;--rq-add:#25684a;--rq-add-soft:#dfeee6;--rq-del:#973c38;--rq-del-soft:#f8e4e2;--rq-ink:#12463c}
   .rrq-sheet [data-action="edit"]{--tone:var(--rq-edit);--tone-soft:var(--rq-edit-soft)}
