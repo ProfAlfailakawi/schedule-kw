@@ -120,9 +120,9 @@ export default function PushCard({ userKey }: { userKey: string }) {
         <strong>{phase === "blocked" ? "التنبيهات محظورة على هذا الجهاز" : "فعّل التنبيهات على جوالك"}</strong>
         {phase === "ios" ? (
           <ol className="push-steps" aria-label="ثلاث خطوات على iPhone">
-            <li><span><Share aria-hidden="true" /></span><small>مشاركة ⬆︎</small></li>
+            <li><span><Share aria-hidden="true" /></span><small>مشاركة</small></li>
             <li><span><SquarePlus aria-hidden="true" /></span><small>الشاشة الرئيسية</small></li>
-            <li><span><BellRing aria-hidden="true" /></span><small>افتحه واضغط 🔔</small></li>
+            <li><span><BellRing aria-hidden="true" /></span><small>افتحه واضغط الجرس</small></li>
           </ol>
         ) : phase === "blocked" ? (
           <small className="push-how">
