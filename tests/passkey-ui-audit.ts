@@ -82,6 +82,8 @@ check(/safeStorage\.get\(AUTO_KEY, "session"\)/.test(entry) && /if \(!ready \|\|
 check(/visibilityState !== "visible"/.test(entry) && /AUTO_SETTLE_MS = 450/.test(entry), "U10 بعد ظهور الصفحة واستقرار الواجهة");
 check(/if \(ceremonyBusy\) return;/.test(entry) && /let ceremonyBusy = false;/.test(entry), "U10 لا نافذتا بصمة في آنٍ واحد");
 check(/isInvitationHash\(window\.location\.hash\)/.test(entry) && /has\("username"\)/.test(entry), "U10 لا تلقائيةَ عند فتح بطاقة دخول أو رابطٍ باسم مستخدم");
+check(/arrivedForAnotherLogin\(\)\) \{ skipAuto\.current = true; markAutoTried\(\); \}/.test(entry), "U10 بطاقةُ دخولٍ لغيره تُعلَّم في التبويب فلا تعود التلقائيةُ بعد حذف الرابط");
+check((app.match(/suppressPasskeyAuto\(\);/g) || []).length === 2, "U10 الخروجُ الصريح يوقف التلقائية في التبويب");
 check(/!\(automatic && failure\?\.failure === "cancelled"\)/.test(entry), "U10 إلغاءُ النافذة التلقائية صامت");
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

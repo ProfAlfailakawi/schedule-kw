@@ -67,6 +67,7 @@ import ChangePassword from "./components/ChangePassword";
 import AccountDeletion from "./components/AccountDeletion";
 import PasskeyManager from "./components/PasskeyManager";
 import PasskeyOffer from "./components/PasskeyOffer";
+import { suppressPasskeyAuto } from "./components/PasskeyEntry";
 import SeatDrawer from "./components/seats/SeatDrawer";
 import TrailButton from "./components/trail/TrailButton";
 import { forgetTrailStamps, setTrailStampOwner } from "./components/trail/trailStampMemory";
@@ -1699,6 +1700,7 @@ export default function App() {
     await forgetPushDevice().catch(() => undefined);
     if (user) markPushActive(String(user.SystemUserId || user.Name || ""), false);
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    suppressPasskeyAuto();
     forgetTrailStamps();
     forgetWarmStarts();
     forgetPlanFacts();
@@ -1829,7 +1831,7 @@ export default function App() {
         name={String(passwordGate.user?.Name || "")}
         askCurrent={passwordGate.passwordChange?.currentRequired !== false}
         onChanged={() => login({ ...passwordGate, user: { ...passwordGate.user, MustChangePassword: false } })}
-        onLogout={() => { void fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined); setPasswordGate(null); window.history.replaceState({}, "", "/"); }}
+        onLogout={() => { void fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined); suppressPasskeyAuto(); setPasswordGate(null); window.history.replaceState({}, "", "/"); }}
       />
     );
   }

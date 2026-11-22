@@ -22,6 +22,8 @@ let ceremonyBusy = false;
 /* علامةُ التبويب (تخزين الجلسة عبر التخزين الآمن): تصمد أمام إعادة التركيب وإعادة التحميل، وتسقط بإغلاق التبويب. */
 const autoTried = () => safeStorage.get(AUTO_KEY, "session") === "1";
 const markAutoTried = () => safeStorage.set(AUTO_KEY, "1", "session");
+/** خروجٌ صريح في هذا التبويب: لا تُفتح البصمة وحدها بعده (يناديه App عند الخروج). */
+export const suppressPasskeyAuto = markAutoTried;
 /** بطاقةُ دخولٍ أو رابطٌ باسم مستخدم: صاحبُه قد يكون غيرَ صاحب البصمة على هذا الجهاز. */
 const arrivedForAnotherLogin = () => typeof window !== "undefined"
   && (isInvitationHash(window.location.hash) || new URLSearchParams(window.location.search).has("username"));
@@ -30,7 +32,9 @@ export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => 
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const skipAuto = useRef(arrivedForAnotherLogin());
+  /* بطاقةُ دخولٍ لغيره: تُعلَّم في التبويب فوراً، فلا يُسقطها حذفُ الرابط من العنوان ولا العودةُ من «نسيت كلمة السر». */
+  const skipAuto = useRef(false);
+  if (!skipAuto.current && arrivedForAnotherLogin()) { skipAuto.current = true; markAutoTried(); }
 
   useEffect(() => {
     if (!passkeyDeviceRemembered()) return;
