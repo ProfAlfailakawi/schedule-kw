@@ -1084,6 +1084,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   const [workspaceToolsOpen, setWorkspaceToolsOpen] = useState(false);
   const [mobileViewGate, setMobileViewGate] = useState<"list" | "week" | "rooms" | null>(null);
   const [phoneReadOnly, setPhoneReadOnly] = useState(() => isPhoneDevice());
+  /* iPhone Duo، الشاشة الداخلية بالعرض: الأسبوع والقائمة معاً. الشرط نفسه في 81-duo-schedule.css. */
+  const [duoWide, setDuoWide] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px)");
+    const sync = () => setDuoWide(mq.matches && document.documentElement.dataset.device === "duo");
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const duoSplit = duoWide && !phoneReadOnly;
+  useEffect(() => {
+    // في العرض المزدوج يبقى «الأسبوع» هو الوضع الفعّال (السحب والتعديل)، والقائمة بجواره.
+    if (duoSplit && viewMode === "list") setViewMode("week");
+  }, [duoSplit, viewMode]);
   const [livingPanelOpen, setLivingPanelOpen] = useState(false);
   /* ── فصلٌ فارغ ليس طريقاً مسدوداً ───────────────────────────────────────
      «بداية الفصل» صارت بطاقةً في «مركز الذكاء ← جرّب»؛ الحالةُ الفارغة تفتحها
@@ -11792,545 +11807,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     </button>
   ) : null;
 
-  return (
-    <div className={`content-stack schedule-page ${phoneReadOnly ? "schedule-phone" : ""}`.trim()}>
-      {/* Lifted clear of the board's horizontal scroller so nothing can clip it,
-          and given one line per wall instead of a sentence stitched with dashes. */}
-      {refusal ? (
-        <div className="move-refusal no-print" role="alertdialog" aria-modal="false" aria-live="assertive" aria-label="تعذر نقل الموعد">
-          <span className="move-refusal-mark" aria-hidden="true"><ShieldAlert /></span>
-          <div className="move-refusal-body">
-            <strong>تعذّر النقل</strong>
-            <ul>
-              {refusal.reasons.map((item, index) => (
-                <li key={`${item.kind}-${index}`} className={`is-${item.kind}`} title={item.text}>
-                  {item.kind === "room" ? <Building2 aria-hidden="true" />
-                    : item.kind === "instructor" ? <UsersRound aria-hidden="true" />
-                      : item.kind === "cohort" ? <GraduationCap aria-hidden="true" />
-                        : <AlertTriangle aria-hidden="true" />}
-                  <b>{item.entity}</b>
-                  {item.state ? <em>{item.state}</em> : null}
-                </li>
-              ))}
-            </ul>
-            <small>الموعد لم يتحرّك.</small>
-          </div>
-          <button type="button" onClick={() => setRefusal(null)} aria-label="إغلاق" title="إغلاق"
-            data-guide-ignore="إغلاق رسالة رفض النقل فقط ولا يغيّر الجدول"><X aria-hidden="true" /></button>
-        </div>
-      ) : null}
-      {focusMode ? (
-        <button
-          type="button"
-          className="schedule-focus-exit no-print"
-          data-guide-ignore="زر خروج خافت من وضع التركيز؛ Escape ينفذ الإجراء نفسه"
-          onClick={() => {
-            setFocusExitPending(true);
-          }}
-          aria-label="إنهاء وضع التركيز"
-          title="إنهاء التركيز · Esc"
-        >
-          <X aria-hidden="true" />
-        </button>
-      ) : null}
-      <PageTitle
-        eyebrow="مركز الجدول"
-        subtitle="نطاق · مراجعة · نشر"
-        action={<PrimaryButton onClick={() => openCreate()} disabled={Boolean(approvalLock)} title={approvalLock || undefined} data-guide-ignore="فتح محرّر إضافة موعد — يُعطَّل بسببٍ مكتوب حين يكون الجدول عند التسجيل، والحفظ داخله مسجّل"><Plus aria-hidden="true" />إضافة موعد</PrimaryButton>}
-      >
-        الجدول الدراسي
-      </PageTitle>
-      {guideGhostDiff ? (
-        <section className="schedule-guide-ghost-diff no-print" aria-label="معاينة التغيير دون حفظ">
-          <header><Eye aria-hidden="true" /><div><small>معاينة فقط</small><strong>{guideGhostDiff.before.AdCourseName || "المقرر المحدد"}</strong></div><button type="button" onClick={() => setGuideGhostDiff(null)} aria-label="إلغاء المعاينة"><X /></button></header>
-          <div className="schedule-guide-ghost-flow">
-            <span><small>قبل</small><b>{arabicDays(guideGhostDiff.before)} · {formatScheduleTimeRange(guideGhostDiff.before.fstarttime, guideGhostDiff.before.fendtime)}</b><em>{[guideGhostDiff.before.AdRoomCode,guideGhostDiff.before.AdRoomHall].filter(Boolean).join("/")}</em></span>
-            <ChevronLeft aria-hidden="true" />
-            <span className="after"><small>بعد</small><b>{arabicDays(guideGhostDiff.after)} · {formatScheduleTimeRange(guideGhostDiff.after.fstarttime, guideGhostDiff.after.fendtime)}</b><em>{[guideGhostDiff.after.AdRoomCode,guideGhostDiff.after.AdRoomHall].filter(Boolean).join("/")}</em></span>
-          </div>
-          <p className={guideGhostDiff.conflicts ? "warn" : "ok"}>{guideGhostDiff.summary}</p>
-          <footer><button type="button" onClick={() => setGuideGhostDiff(null)}>إلغاء</button><button type="button" data-guide-ignore="اعتماد يدوي من معاينة شبحية يفتح المحرر ولا يحفظ تلقائيًا" className="primary" onClick={() => { setGuideGhostDiff(null); const row=rows.find(item=>item.id===guideGhostDiff.before.id); if(row) openEdit(row); }}>اعتماد يدوي</button></footer>
-        </section>
-      ) : null}
-      {historicalChoice ? (
-        <div ref={trapFocusRef} className="historical-time-backdrop no-print" role="dialog" aria-modal="true" aria-label="تنبيه التوقيت التاريخي">
-          <section className="historical-time-dialog">
-            <button type="button" className="historical-time-close" data-guide-ignore="إلغاء نافذة اقتراح التوقيت فقط وإرجاع الموعد لمكانه السابق؛ لا ينفذ نقلاً" onClick={() => settleHistoricalTimeChoice("cancel")} aria-label="إلغاء النقل والعودة للوضع السابق" title="إلغاء"><X /></button>
-            <header><span><Clock3 aria-hidden="true" /></span><div><small>{historicalChoice.source}</small><strong>{historicalChoice.dayLabel} · وقت غير معتاد</strong></div></header>
-            <div className="historical-time-compare" dir="ltr"><b>{scheduleClockForDisplay(historicalChoice.picked)}</b><ChevronLeft aria-hidden="true" /><strong>{scheduleClockForDisplay(historicalChoice.preferred)}</strong></div>
-            <p>النمط الأقرب يشير إلى <b dir="ltr">{scheduleClockForDisplay(historicalChoice.preferred)}</b>. الوقت الذي اخترته <b dir="ltr">{scheduleClockForDisplay(historicalChoice.picked)}</b> يبقى مسموحاً.</p>
-            <footer><button type="button" data-guide-ignore="اختيار صريح داخل تنبيه التوقيت لتثبيت الموعد المسحوب كما اختاره المستخدم" onClick={() => settleHistoricalTimeChoice("picked")}>ثبّت {scheduleClockForDisplay(historicalChoice.picked)}</button><button type="button" className="primary" data-guide-ignore="اختيار صريح داخل تنبيه التوقيت لاعتماد الوقت التاريخي المقترح بدلاً من الوقت المسحوب" onClick={() => settleHistoricalTimeChoice("preferred")}>استخدم {scheduleClockForDisplay(historicalChoice.preferred)}</button></footer>
-          </section>
-        </div>
-      ) : null}
-      {mobileViewGate ? (
-        <div ref={trapFocusRef} className="mobile-desktop-gate no-print" role="dialog" aria-modal="true" aria-label="بعض عروض الجدول للقراءة فقط على الهاتف">
-          <div className="mobile-desktop-gate-card">
-            <span className="mobile-desktop-gate-icon">
-              {mobileViewGate === "week" ? <CalendarDays /> : <MapPin />}
-            </span>
-            <div>
-              <strong>{mobileViewGate === "week" ? "عرض الأسبوع" : "عرض المباني والقاعات"} للقراءة فقط على الهاتف</strong>
-              {/* Two facts and a way out — a state, a limit, and where to go
-                  instead. The sentence spent twenty-nine words saying that,
-                  and the reader wanted to know which of the three applied to
-                  them. Three marks answer that at a glance. */}
-              <ul className="gate-facts">
-                <li><Eye aria-hidden="true" /><b>القراءة</b><span>كاملة هنا</span></li>
-                <li><Move aria-hidden="true" /><b>السحب</b><span>من الكمبيوتر</span></li>
-                <li><ListIcon aria-hidden="true" /><b>للتعديل</b><span>افتح «قائمة»</span></li>
-              </ul>
-            </div>
-            <button type="button" onClick={() => setMobileViewGate(null)}>فهمت · متابعة العرض</button>
-          </div>
-        </div>
-      ) : null}
-      {/* ── فصلٌ انتهى ────────────────────────────────────────────────────
-          يُقال قبل المحاولة لا بعدها: من يكتشف المنعَ عند الحفظ يكون قد أعاد
-          بناءَ موعدٍ كاملاً في نموذجٍ لن يُقبل. ولا يُخفى شيء — القراءةُ
-          والطباعةُ والاستعلامُ كما هي. */}
-      {returnNote || error || message ? <div className="schedule-feedback-stack" aria-live="polite">
-        {returnNote ? <Notice type="success">{returnNote}</Notice> : null}
-        {error ? <Notice>{error}</Notice> : null}
-        {message ? <Notice type="success">{message}</Notice> : null}
-        {saveImpact && editor === "index" ? <FitImpact impact={saveImpact} /> : null}
-      </div> : null}
-      {/* Silent intelligence: routine timing/physics feedback no longer owns
-          vertical space above the timetable. The same state is kept for assistive
-          technology and diagnostics; blocking problems still use the existing
-          conflict/error UI, and undo remains in the compact undo bar. */}
-      {physicsNotice ? <span className="sr-only" role="status" aria-live="polite">{physicsNotice}</span> : null}
-      {!rowsForeign && rows.length > 0 ? (
-      <div className="schedule-overview-stack no-print">
-        {/* An empty term shows no zero counters — only the genesis scene it asked for. */}
-        {/* The cards count what is SHOWN: a filter that matches nothing shows none. */}
-        <LivingScheduleLayer
-          user={user}
-          rows={filteredRows}
-          courses={courses}
-          instructors={instructors}
-          terms={terms}
-          colleges={colleges}
-          sections={sections}
-          collegeId={filterCollege}
-          sectionId={filterSection}
-          termId={filterTerm}
-          onOpenRow={openEdit}
-          onRefresh={loadRows}
-          experience={experience}
-          onEnsureWeek={() => setViewMode("week")}
-          onPanelOpenChange={onLivingPanelOpenChange}
-          onOpenHealth={() => openIntelligenceCard("command", "quality")}
-        />
-      </div>
-      ) : null}
-      <Surface className="schedule-control">
-        {/* ── حالُ الجدول في موضعٍ واحد ─────────────────────────────────────
-            كانت شرائطَ متراكبةً فوق البيانات: وضعُ التجربة، والفصلُ المنتهي،
-            والقاعاتُ المعلّقة، والعدّادات، وحالُ الاتصال. صارت رأساً هادئاً
-            واحداً وحبوباً بأعدادها داخل بطاقة المرشّحات — بالشروط والأفعال
-            نفسها، لا يسقط منها شيء. */}
-        {termFrozen || practiceMode || (pendingNoticeVisible && pendingOwnRows.length) || (!rowsForeign && filteredRows.length > 0)
-          || !networkOnline || offlinePending || liveCollaborators || liveEditors + liveHolders || pendingOwnRows.length || (parkedOpen && parked.length) ? (
-        <div className="schedule-status no-print">
-          {termFrozen ? (
-            <div className="schedule-frozen-status" data-tone="frozen">
-              <DnaStatusHeader
-                as="div"
-                className="schedule-status-head"
-                icon={<Lock />}
-                tone="neutral"
-                title="انتهى هذا الفصل."
-                subtitle={<>جدولُه محفوظٌ للاطّلاع والتقارير، و<b>لجنةُ الجدول</b> وحدَها تعمل فيه.</>}
-              />
-            </div>
-          ) : null}
-          {practiceMode ? (
-            <div className="schedule-practice-strip" data-guide-target="schedule.practice" role="status">
-              <DnaStatusHeader
-                as="div"
-                className="schedule-status-head"
-                icon={<ShieldCheck />}
-                tone="mint"
-                title="وضع تجربة"
-                subtitle="السحب والتعديل والحذف مؤقتة على هذا الجهاز فقط؛ وما يكتب في الجدول الحقيقي (التراجع والإصلاح وأدوات الجدول) موقوفٌ حتى تُنهي التجربة."
-                actions={<>{practiceRealChanged ? <small className="practice-real-changed" role="status">تغيّر الجدول الحقيقي</small> : null}<button type="button" onClick={() => window.dispatchEvent(new CustomEvent("schedule-smart-guide-command", { detail:{ scope:"schedule", type:"practice.stop", featureId:"schedule.practice" } }))}>إنهاء</button></>}
-              />
-            </div>
-          ) : null}
-          {pendingNoticeVisible && pendingOwnRows.length ? (
-            <DnaStatusHeader
-              as="div"
-              className="schedule-status-head pending-room-status"
-              icon={<CircleAlert />}
-              tone="warn"
-              title={<>لم تُثبَّت بعد قاعات <b>{pendingOwnRows.length.toLocaleString("ar-KW-u-nu-latn")}</b> {nounFor(pendingOwnRows.length, AR.section)} لديك.</>}
-              actions={<><SecondaryButton type="button" data-guide-ignore="فلتر القاعات المعلقة" onClick={()=>{setPendingOnly(true);setPendingNoticeVisible(false)}}>استكمال القاعات</SecondaryButton><button type="button" data-guide-ignore="إخفاء تنبيه القاعات المعلقة" className="pending-room-dismiss dna-ibtn" aria-label="إخفاء التنبيه" onClick={()=>setPendingNoticeVisible(false)}><X/></button></>}
-            />
-          ) : null}
-          <div className="schedule-status-pills">
-            {!rowsForeign && filteredRows.length > 0 ? (
-            <section className="schedule-mini-stats">
-              <DnaCount icon={<CalendarDays aria-hidden="true" />} value={filteredRows.length.toLocaleString("ar-KW-u-nu-latn")} label="موعد ظاهر" />
-              <DnaCount icon={<DoorOpen aria-hidden="true" />} value={new Set(filteredRows.map((x) => roomIdentityKey(x)).filter(Boolean)).size.toLocaleString("ar-KW-u-nu-latn")} label="قاعة مستخدمة" />
-              <DnaCount icon={<UsersRound aria-hidden="true" />} value={new Set(filteredRows.map((x) => x.AdInstructorId)).size.toLocaleString("ar-KW-u-nu-latn")} label="أستاذ مقرر" />
-            </section>
-            ) : null}
-          {!networkOnline || offlinePending || liveCollaborators || liveEditors + liveHolders || pendingOwnRows.length ? (
-            <div className="schedule-ops-strip" aria-label="حالة العمل الذكي">
-              {pendingOwnRows.length?<button type="button" data-guide-ignore="فلتر القاعات المعلقة" className={`schedule-ops-pill warn ${pendingOnly?"on":""}`} onClick={()=>setPendingOnly(value=>!value)}><CircleAlert aria-hidden="true"/><b>{pendingOwnRows.length.toLocaleString("ar-KW-u-nu-latn")} بانتظار قاعة</b></button>:null}
-              {!networkOnline ? <span className="schedule-ops-pill warn"><Radio aria-hidden="true"/><b>دون اتصال · التغييرات الآمنة محلية</b></span> : null}
-              {offlinePending ? <span className="schedule-ops-pill warn"><Upload aria-hidden="true"/><b>{offlinePending.toLocaleString("ar-KW-u-nu-latn")} بانتظار المزامنة</b></span> : null}
-              {/* A refusal is not a pending sync: it needs a person, so it gets its
-                  own pill that does not clear until the shelf is empty. */}
-              {parked.length ? <button type="button" data-guide-ignore="فتح قائمة التغييرات التي رفضها الخادم بعد انقطاع الاتصال" className={`schedule-ops-pill warn ${parkedOpen?"on":""}`} onClick={()=>setParkedOpen(value=>!value)}><ShieldAlert aria-hidden="true"/><b>{countOf(parked.length, AR.change)} رفضها الخادم</b></button> : null}
-              {liveCollaborators ? <span className="schedule-ops-pill"><UsersRound aria-hidden="true"/><b>{liveCollaborators.toLocaleString("ar-KW-u-nu-latn")} يعمل الآن</b></span> : null}
-              {liveEditors + liveHolders ? <span className="schedule-ops-pill"><Bookmark aria-hidden="true"/><b>تحت التحرير: {countOf(liveEditors + liveHolders, AR.card)}</b></span> : null}
-            </div>
-          ) : null}
-          </div>
-          {/* ── ما رفضه الخادم، معروضاً أخيراً ────────────────────────────────────
-              One line per refusal: what it was trying to do, when, and the server's
-              own sentence for why. Two ways out, and no third: send it again now,
-              or let it go. Nothing here decides on the person's behalf, because
-              the reason it is on this shelf at all is that the software could not. */}
-          {parkedOpen && parked.length ? (
-            <div className="parked-review no-print" role="region" aria-label="تغييرات رفضها الخادم">
-              <header>
-                <ShieldAlert aria-hidden="true" />
-                <div>
-                  <strong>تغييرات رفضها الخادم بعد عودة الاتصال</strong>
-                  <small>حُفظت كما هي ولم تُطبَّق. أعد إرسال ما تريده، وتجاهل ما لم يعد صالحاً.</small>
-                </div>
-                <button type="button" data-guide-ignore="إغلاق قائمة التغييرات المرفوضة" onClick={() => setParkedOpen(false)} aria-label="إغلاق"><X aria-hidden="true" /></button>
-              </header>
-              <ul>
-                {[...parked].reverse().map(item => {
-                  const target = rows.find(row => Number(row.id) === Number(String(item.url).match(/\/api\/schedules\/(\d+)/)?.[1] || 0));
-                  const what = item.method === "DELETE" ? "حذف موعد"
-                    : String(item.url).includes("move-batch") ? "نقل مجموعة مواعيد"
-                      : "تعديل موعد";
-                  const name = target ? `${target.AdCourseName || courseById.get(Number(target.AdCourseId))?.CourseName || "مقرر"} · شعبة ${target.SCode || "—"}` : "";
-                  return (
-                    <li key={item.id}>
-                      <div className="parked-review-what">
-                        <strong>{what}{name ? ` — ${name}` : ""}</strong>
-                        <small>{item.reviewReason}</small>
-                        <time dir="ltr">{new Date(item.reviewAt).toLocaleString("ar-KW-u-nu-latn", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}</time>
-                      </div>
-                      <div className="parked-review-actions">
-                        <SecondaryButton type="button" data-guide-ignore="إعادة إرسال تغيير رفضه الخادم" disabled={parkedBusy === item.id}
-                          onClick={async () => {
-                            setParkedBusy(item.id);
-                            const result = await retryParkedMutation(item.id);
-                            setParkedBusy(null);
-                            setParked(parkedMutations());
-                            if (result.ok) { setMessage("أُرسل التغيير ونُفِّذ."); void loadRows({ silent: true }); }
-                            else setError(result.error || "تعذر الإرسال");
-                          }}>{parkedBusy === item.id ? "جارٍ الإرسال…" : "أعد الإرسال"}</SecondaryButton>
-                        <SecondaryButton type="button" className="danger" data-guide-ignore="تجاهل تغيير رفضه الخادم"
-                          onClick={async () => {
-                            const sure = await visualConfirm({ title: "تجاهل هذا التغيير؟", message: "سيُحذف من القائمة ولن يُطبَّق. لا يمكن استرجاعه.", confirmLabel: "تجاهل", tone: "danger", compact: true });
-                            if (!sure) return;
-                            discardParkedMutation(item.id);
-                            setParked(parkedMutations());
-                          }}>تجاهل</SecondaryButton>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-        ) : null}
-        <div className="filter-strip">
-          {hidesCollege(scopeShape(scopes, isPowerAdmin)) ? null : <Field label="الكلية"><select data-guide-target="schedule.filter.college" value={filterCollege || ""} onChange={(e)=>{const id=Number(e.target.value)||0;setFilterCollege(id);setFilterSection(id && !isPowerAdmin ? (resolveScopeSelection(scopes,id,false).defaultSectionId||0) : 0)}}><option value="">اختر الكلية</option>{filterColleges.map(c=><option key={c.AdCollegeId} value={c.AdCollegeId}>{c.AdCollegeName}</option>)}</select></Field>}
-          {!hidesSection(scopeShape(scopes, isPowerAdmin)) && singleDepartmentOf(scopes, filterCollege, isPowerAdmin) === null ? <Field label="القسم العلمي"><select data-guide-target="schedule.filter.section" value={filterSection || ""} disabled={!filterCollege} onChange={(e)=>setFilterSection(Number(e.target.value)||0)}><option value="">كل الأقسام</option>{filterSections.map(s=><option key={s.AdSectionId} value={s.AdSectionId}>{s.AdSectionName}</option>)}</select></Field> : null}
-          <Field label="الفصل الدراسي">
-            <TermSelect
-              data-guide-target="schedule.filter.term"
-              value={filterTerm || ""}
-              onValueChange={(id) => setFilterTerm(id)}
-            >
-              <option value="">اختر الفصل</option>
-              {scopedTerms.map((t) => (
-                <option key={t.AdTermId} value={t.AdTermId}>
-                  {t.AdTermName}
-                </option>
-              ))}
-            </TermSelect>
-          </Field>
-          {rowsLoading ? <span className="filter-strip-busy" role="status"><MicroLoader size={16} label="يقرأ الجدول…" />يقرأ الجدول…</span> : null}
-        </div>
-        <div className="schedule-tools" role="toolbar" aria-label="أدوات عرض الجدول">
-          <div className="schedule-view-cluster">
-          <div className="segmented" role="group" aria-label="طريقة عرض الجدول">
-            <button data-guide-target="schedule.view.list" type="button" className={viewMode === "list" ? "active" : ""} aria-pressed={viewMode === "list"} onClick={() => changeView("list")}>
-              <LayoutList aria-hidden="true" /> قائمة
-            </button>
-            {!phoneReadOnly ? (<>
-              <button data-guide-target="schedule.view.week" type="button" className={viewMode === "week" ? "active" : ""} aria-pressed={viewMode === "week"} onClick={() => changeView("week")}>
-                <CalendarDays aria-hidden="true" /> أسبوع
-              </button>
-              <button data-guide-target="schedule.view.rooms" type="button" className={viewMode === "rooms" ? "active" : ""} aria-pressed={viewMode === "rooms"} onClick={() => changeView("rooms")}>
-                <MapPin aria-hidden="true" /> المباني والقاعات
-              </button>
-            </>) : null}
-          </div>
-          {/* A way of looking at the board, remembered by name. Absent entirely
-              until the reader has saved one — no empty menu on behalf of a
-              feature nobody has used. */}
-          <ScheduleViewsMenu
-            views={savedViews}
-            activeId={activeViewId}
-            dirty={viewDirty}
-            onOpenView={applyView}
-            onUpdateActive={() => {
-              if (!activeView) return;
-              viewsStore.update(activeView.id, captureView(activeView.name));
-              setSavedViews(viewsStore.list());
-              setMessage("حُدِّث العرض");
-            }}
-            onRestoreActive={() => { if (activeView) applyView(activeView); }}
-            onSaveAs={() => setViewDialog({ mode: "create" })}
-            onRename={view => setViewDialog({ mode: "rename", view })}
-            onDelete={async view => {
-              if (!(await visualConfirm({ title: `حذف العرض «${view.name}»`, message: "سيُحذف هذا العرض المحفوظ من قائمتك.", confirmLabel: "حذف", tone: "danger", compact: true }))) return;
-              viewsStore.remove(view.id);
-              setSavedViews(viewsStore.list());
-              if (activeViewId === view.id) setActiveViewId(null);
-            }}
-            onToggleFavorite={view => { viewsStore.toggleFavorite(view.id); setSavedViews(viewsStore.list()); }}
-            focusMode={focusMode}
-            onToggleFocus={phoneReadOnly ? undefined : () => { physics.cancel(); setFocusMode(!focusMode); setPresentationMode(false); }}
-          />
-          {viewMode === "week" ? (
-            <WeekLayerTools
-              rows={rows}
-              selectedId={context?.selected?.id ? Number(context.selected.id) : null}
-              replayReady={Boolean(filterCollege && filterSection && filterTerm)}
-              replay={{
-                scope: { collegeId: Number(filterCollege), sectionId: Number(filterSection), termId: Number(filterTerm) },
-                current: rows.filter(row => Number(row.AdCollegeId) === Number(filterCollege) && Number(row.AdSectionId) === Number(filterSection) && Number(row.AdTermId) === Number(filterTerm)),
-                instructorName: (id: number) => instructorById.get(id)?.AdInstructorName || "",
-              }}
-              whyNot={{
-                days, slots: timeSlots, gridEnd: gridWindow.end, mins,
-                buildCandidate: (row, target) => buildPhysicsTargetCandidate(row, target as any),
-                blockers: localPhysicsBlockers as any,
-                patternSwitchFor: (row, day) => Boolean(rhythmSwitchForTarget(row, day as DayKey)),
-                hours: { start: activeScheduleWindow.start, end: activeScheduleWindow.end },
-                locked: approvalLock || (termFrozen ? "الفصل مجمَّد" : null),
-                readOnly: phoneReadOnly || !canEditSchedule,
-                scope: { collegeId: Number(filterCollege), sectionId: Number(filterSection), termId: Number(filterTerm) },
-                onMove: (row, day, start, label) => {
-                  const sourceDay = (days.find(d => Boolean((row as any)[d.key]))?.key || day) as any;
-                  void commitMove({ row, sourceDay, target: { day: day as any, start, label }, decision: null });
-                },
-              }}
-            />
-          ) : null}
-          {/* The live radar: what the board knows about itself, always visible.
-              Counted locally on every change, so the number never waits for a
-              request — pressing it takes you to the offending cards. */}
-          {/* Two ways of being connected, and the dot says which: a stream
-              shared with a colleague here now, or the pulse that keeps a board
-              you have to yourself up to date within seconds. */}
-          <span
-            className={`schedule-live-dot ${liveFeed || liveState.connected ? "on" : ""}`}
-            title={liveFeed
-              ? "بث مباشر: أي تغيير من زميل يظهر هنا تلقائياً"
-              : liveState.connected
-                ? "متصل: أي تغيير من زميل يصل هنا خلال ثوانٍ، ويصبح لحظياً حين يفتح زميلٌ هذا الجدول"
-                : "البث المباشر غير متصل — يحدَّث عند القراءة"}
-            role="status"
-            aria-label={liveFeed || liveState.connected ? "البث المباشر متصل" : "البث المباشر غير متصل"}
-          />
-          {/* Who else is on this board. It only ever names the people it can
-              see — it never claims you are alone, because a colleague served by
-              another instance is invisible from here, and being confidently
-              wrong about that is worse than saying nothing. */}
-          {peers.length ? (
-            <span className="presence-strip no-print" role="status"
-              aria-label={`${countOf(peers.length, AR.colleague)} معك على هذا الجدول`}>
-              {peers.slice(0, 5).map(peer => (
-                <span key={peer.connId} className="presence-chip"
-                  data-busy={peer.holding || peer.editing ? "1" : "0"}
-                  style={{ ["--presence-hue" as string]: PRESENCE_HUES[presenceHue(peer.userId) - 1] }}
-                  title={peer.holding ? `${peer.name} — يحمل موعداً الآن`
-                       : peer.editing ? `${peer.name} — يعدّل موعداً الآن`
-                       : `${peer.name} — معك على هذا الجدول`}>
-                  {peer.name.replace(/^د\.\s*/, "").trim().charAt(0) || "؟"}
-                </span>
-              ))}
-              {peers.length > 5 ? <span className="presence-chip" title={`و${countOf(peers.length - 5, AR.colleague)} غيرهم`}>+{peers.length - 5}</span> : null}
-            </span>
-          ) : null}
-          {/* التداخلات تُراجع من «مراجعة الاعتماد» ومن تمييز البطاقات نفسها؛
-              أزيل العداد المنفصل لأنه كان يكرر المعلومة بصياغة غير واضحة. */}
-          {/* What arrived from the department's own instructors. It is the only
-              chip here that is about people rather than rows, so it says who,
-              not how many. */}
-          {inbox.length ? (
-            <button
-              type="button"
-              className="schedule-radar radar-inbox"
-              onClick={() => setInboxOpen(true)}
-              title={`${countOf(inbox.length, AR.message)} من أساتذة القسم — اضغط للقراءة`}
-            >
-              <Inbox aria-hidden="true" />
-              {inbox.length.toLocaleString("ar-KW-u-nu-latn")} من الأساتذة
-            </button>
-          ) : null}
-          {/* The settled term. It appears only when it has something to say, and
-              what it says is about a term nobody is editing — so it is a mark,
-              not a colour, and it never joins the counters above. */}
-          {drift ? (
-            <button
-              type="button"
-              className={`schedule-radar radar-drift ${drift.foreign ? "radar-drift-foreign" : ""}`}
-              onClick={() => setDriftOpen(true)}
-              title={`${drift.headline} — اضغط للتفصيل`}
-            >
-              <History aria-hidden="true" />
-              {drift.term?.name || "الفصل المعتمد"}
-            </button>
-          ) : null}
-          {!liveClash.pairs && !liveNotes.length && filteredRows.length ? (
-            <span className="schedule-radar radar-clean" title="لا تداخل ولا ملاحظات لائحة على النطاق المفتوح">
-              <CheckCircle2 aria-hidden="true" /> سليم
-            </span>
-          ) : null}
-          </div>
-          <label className="schedule-quick-search" role="search" data-guide-target="schedule.search.quick">
-            <Search aria-hidden="true" />
-            <input
-              type="search"
-              ref={searchRef}
-              value={quickSearch}
-              onChange={e => setQuickSearch(e.target.value)}
-              placeholder="بحث سريع"
-              aria-label="بحث سريع داخل مواعيد الجدول"
-            />
-            {quickSearch ? <button type="button" data-guide-ignore="مسح البحث السريع فقط" onClick={() => setQuickSearch("")} aria-label="مسح البحث السريع" title="مسح"><X aria-hidden="true" /></button> : null}
-          </label>
-          <div className="schedule-tool-actions" role="group" aria-label="أدوات الجدول الإضافية">
-            {/* The schedule lens was retired: its one distinct trick — dimming
-                instead of removing — did not earn a permanent button in a busy
-                toolbar when the quick search answers the same question by name
-                and the query centre covers the structured cases in full. */}
-            <PatternLibraryButton data-guide-ignore="يفتح مكتبة الأنماط للعرض فقط؛ لا يغير بيانات الجدول" />
-            {/* المسح الكامل يكتب في الجدول الحقيقي، فيغيب أثناء التجربة. */}
-            {practiceMode ? null : <WipeScheduleButton data-guide-ignore="زر مسح الجدول بالكامل وإرجاعه؛ يفتح تحذيرات ولا يمسح بنفسه" rowCount={rows.length} collegeId={Number(filterCollege)} sectionId={Number(filterSection)} termId={Number(filterTerm)} onChanged={() => { void loadRows(); }} />}
-            <GhostButton
-              type="button"
-              className={workspaceToolsOpen ? "schedule-tools-toggle is-close" : "schedule-tools-toggle"}
-              data-guide-target="schedule.tool.more"
-              onClick={() => setWorkspaceToolsOpen(open => !open)}
-              aria-expanded={workspaceToolsOpen}
-              aria-label={workspaceToolsOpen ? "إغلاق الأدوات" : "المزيد من الأدوات"}
-              title={workspaceToolsOpen ? "إغلاق الأدوات" : "إظهار أدوات التركيز والمراجعة والنشر"}
-            >
-              {workspaceToolsOpen ? <X aria-hidden="true" /> : <><Layers aria-hidden="true" /> المزيد</>}
-            </GhostButton>
-            {/* «تركيز» و«حفظ العرض الحالي» في قائمة العروض وحدها (المالك 2026-11-14). */}
-            {/* باب «تجربة آمنة» الظاهر: المرشد يشير إليه هنا قبل التجربة، وإلى شريطها بعد بدئها. */}
-            {workspaceToolsOpen && !practiceMode && !phoneReadOnly && mode === "schedule" ? <GhostButton
-              type="button"
-              data-guide-target="schedule.practice"
-              onClick={() => window.dispatchEvent(new CustomEvent("schedule-smart-guide-command", { detail: { scope: "schedule", type: "practice.start", featureId: "schedule.practice" } }))}
-              title="جرّب السحب والتعديل والحذف على نسخة مؤقتة؛ لا يتغير الجدول الحقيقي"
-            >
-              <FlaskConical aria-hidden="true" /> تجربة آمنة
-            </GhostButton> : null}
-            {workspaceToolsOpen ? <GhostButton data-guide-target="schedule.tool.review" type="button" onClick={() => setReviewOpen(true)} title="فحص الجدول كاملاً قبل الاعتماد">
-              <ClipboardCheck /> مراجعة الاعتماد
-            </GhostButton> : null}
-            {workspaceToolsOpen && filterTerm ? <GhostButton
-              type="button"
-              data-guide-ignore="أداة قراءة فقط: تعرض النوافذ الأسبوعية المشتركة ولا تغيّر الجدول"
-              onClick={() => setMeetingOpen(true)}
-              title="اختر أساتذة ليعرض الجدول النوافذ الأسبوعية التي يتفرغون فيها معاً"
-            >
-              <CalendarSearch aria-hidden="true" /> متى نلتقي؟
-            </GhostButton> : null}
-            {/* «تحويل هيئة التدريب» انتقل إلى «أدوات الجدول ← الأساتذة» بنسخته الآمنة وتراجعه. */}
-            {workspaceToolsOpen ? <GhostButton
-              type="button"
-              data-guide-target="schedule.tool.data"
-              onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab(undefined); setTransferOpen(true); } }}
-              title="التخطيط والأساتذة والملفات"
-            >
-              <ArrowLeftRight /> أدوات الجدول
-            </GhostButton> : null}
-            {/* Borrowing a room from another department only means something while
-                the term is still being taught. On a term marked as finished the
-                whole market is withdrawn rather than left to offer windows in a
-                week nobody will attend. */}
-            {workspaceToolsOpen && !practiceMode && mode === "schedule" && workspaceReady && filterCollege && filterSection && filterTerm && !selectedTermClosed ? (
-              <HallBarterBoard
-                collegeId={filterCollege}
-                sectionId={filterSection}
-                termId={filterTerm}
-                liveSerial={liveFeedSerial}
-                openSignal={barterOpenSignal}
-                onReservationsChange={setHallBarterReservations}
-                onPendingChange={setBarterInbox}
-              />
-            ) : null}
-          </div>
-        </div>
-      </Surface>
-      {/* ── شريط الاعتماد ───────────────────────────────────────────────────
-          يقف تحت أدوات الجدول وفوقه: أوّل ما تقع عليه العين بعد اختيار
-          القسم، وآخرُ ما يُقرأ قبل النظر في المواعيد. ولا يرسم شيئاً حين
-          لا ينتظر صاحبه شيء — فالهدوء هو الحال الطبيعية لا الاستثناء. */}
-      {/* في التجربة الآمنة لا توقيعَ ولا إرسال ولا ملاحظات: الشريط يكتب في سجل الاعتماد الحقيقي. */}
-      {mode === "schedule" && practiceMode && filterCollege && filterSection && filterTerm ? (
-        <div className="practice-approval-paused" role="status">شريط الاعتماد موقوف أثناء التجربة الآمنة؛ يعود عند الخروج منها.</div>
-      ) : null}
-      {mode === "schedule" && !practiceMode && filterCollege && filterSection && filterTerm
-        && !termIsArchive(terms.find(row => Number(row.AdTermId) === Number(filterTerm)), terms) ? (
-        <ApprovalBar
-          collegeId={filterCollege}
-          sectionId={filterSection}
-          termId={filterTerm}
-          signatureStage={approvalStage}
-          canSign={canSign}
-          powerAdmin={Boolean(user?.IsAdminUser || user?.IsRootAdmin)}
-          demoMode={Boolean(user?.IsDemo)}
-          /* ── الشريط يسمع ما يقع في الجدول تحته ──────────────────────────
-             تعديلُ موعدٍ يغيّر سجلَّ الاعتماد على الخادم: جدولٌ مقبول يعود
-             جولةً جديدة، وشعبةٌ تُضاف بعد التوقيع تنتظر إقراراً. وكان الشريط
-             لا يقرأ إلا عند تبدّل القسم أو الفصل — فيبقى يقول «معتمد» بعد أن
-             زال الاعتماد، وهو بالضبط الخبرُ الذي وُجد ليقوله. */
-          refreshSignal={liveFeedSerial}
-          canEditCourses={permissions.includes(6)}
-          onOpenRow={id => { const target = rows.find(item => Number(item.id) === id); if (target) openEdit(target); }}
-          onChanged={() => setLiveFeedSerial(value => value + 1)}
-          onSigned={onOpenQueryCentre}
-          onLockChange={setApprovalLock}
-          onOpenNotes={onNavigate ? () => onNavigate("scheduleChanges") : undefined}
-          onOpenCourses={onNavigate ? () => onNavigate("courses") : undefined}
-          onOpenInstructors={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab("roster"); setTransferOpen(true); } }}
-          onStudentGaps={setStudentGaps}
-          onPlanningGaps={setPlanningGaps}
-        />
-      ) : null}
-      {/* تنبيه النصاب: شارةٌ صغيرة تظهر فقط إن فعّل المسؤول الميزة وتجاوز عضوٌ نصابه؛ قراءةٌ فقط ولا تمنع تعديلاً. */}
-      {mode === "schedule" && filterCollege && filterSection && filterTerm ? (
-        <TeachingLoadNotice collegeId={filterCollege} sectionId={filterSection} termId={filterTerm} refreshSignal={liveFeedSerial + rows.length} />
-      ) : null}
-      <ScheduleExperienceLayer experience={experience} />
-      {(rowsLoading && !rows.length) || rowsForeign ? (
-        <Surface className="sched-skeleton-surface">
-          <ScheduleSkeleton viewMode={viewMode} />
-        </Surface>
-      ) : presentationMode ? (
-        <CinemaView />
-      ) : viewMode === "list" ? (
-        <Surface className="schedule-agenda-surface">
+  const schedListPane = (
+<>
+        <Surface className={`schedule-agenda-surface${duoSplit ? " is-split-list" : ""}`}>
           <div className="agenda-head">
             <div>
               <span className="surface-kicker">عرض ذكي</span>
@@ -12623,627 +12102,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             </div>
           ) : null}
         </Surface>
-      ) : viewMode === "rooms" ? (
-        <Surface className="rooms-surface" data-guide-target="schedule.rooms.board">
-          {(() => {
-            /* --- The paper timetable, alive -----------------------------------
-               The sheet this program replaces lists rooms as rows and the day
-               as columns of hours — the mind of the building itself. Same here:
-               room is now a five-day card: the paper's day column becomes five
-               living lanes sharing one hour line. A reader can still fold it
-               down to one day, but the default finally answers the real room
-               question: what happens here across the whole week? */
-            const { displayDays, allBuildings, allRooms, byDayRoom, byDayRoomLayout, noRoomByDay, noRoomLayout, roomCounts, hourMarks, span } = roomsMatrix;
-            /* Pinning rooms narrows the matrix to the ones being worked on —
-               a building's four labs instead of every room in the college. */
-            const tracedRooms = moveTraces
-              .filter(trace => trace.roomKey !== "|")
-              .map(trace => ({
-                key: trace.roomKey,
-                building: trace.roomBuilding,
-                hall: trace.roomHall,
-                roomCode: trace.roomBuilding,
-                roomHall: trace.roomHall,
-                buildingKey: trace.roomBuildingKey,
-                hallKey: trace.roomHallKey,
-                label: trace.roomLabel,
-              }));
-            // Keep a room on screen for the seven-second afterglow even if the
-            // moved lecture was its last appointment. Without this merge the
-            // source row vanished at the exact instant we tried to say
-            // «نُقل من هنا», which made room-to-room moves feel less physical
-            // than the week view.
-            const roomsWithAfterglow = [...new Map(
-              [...allRooms, ...tracedRooms].map(room => [room.key, room] as const),
-            ).values()].sort(byRoomIdentity);
-            const buildingScopedRooms = matrixBuildings.size
-              ? roomsWithAfterglow.filter(room => matrixBuildings.has(room.buildingKey))
-              : roomsWithAfterglow;
-            /* البحث يفهم الحاجة («٤٠ مقعداً الأحد ١٠»): ما فهمه شرطٌ، وما بقي نصٌّ يُطابَق على رمز القاعة.
-               قاعةٌ لا تناسب الحاجة تخفت في اللوحة (أو تُطوى بزرٍّ) ولا تُحذف؛ والمجهولُ السعة/النوع يبقى مناسباً موسوماً. */
-            const boardNeed = parseRoomQuery(roomFilterQuery);
-            const boardNeedOn = Boolean(boardNeed.day || boardNeed.from || boardNeed.minCapacity || boardNeed.lab);
-            const rxDays = days.map(day => ({ key: day.key, label: day.label }));
-            const rxByKey = new Map<string, RxRoom>(rxModel.rooms.map(item => [item.key, item] as [string, RxRoom]));
-            const roomFilterKey = normalizeRoomToken(boardNeedOn ? boardNeed.rest : roomFilterQuery);
-            const roomFilterMatches = roomFilterKey
-              ? buildingScopedRooms.filter(room =>
-                  normalizeRoomToken(`${room.building} ${room.hall} ${room.label}`).includes(roomFilterKey),
-                )
-              : buildingScopedRooms;
-            const unfitKeys = new Set<string>();
-            if (boardNeedOn) {
-              for (const room of roomFilterMatches) {
-                const known = rxByKey.get(room.key);
-                if (!known || !roomMatchesNeed(known, rowsOfRoom(known, rxDays), boardNeed).match) unfitKeys.add(room.key);
-              }
-            }
-            const roomPicked = matrixRooms.size
-              ? roomFilterMatches.filter(room => matrixRooms.has(room.key))
-              : roomFilterMatches;
-            const roomList = boardNeedOn && rxHideUnfit ? roomPicked.filter(room => !unfitKeys.has(room.key)) : roomPicked;
-            // The rooms board and dense week now literally share the same
-            // horizontal clock geometry. There is no second formula to drift:
-            // same hour width, same 19:30 terminal expansion, same pixel for
-            // every label and vertical guide.
-            const ROOM_DAY_LABEL_WIDTH = Math.max(weekStripConfig.labelWidth, 96);
-            const ROOM_FIXED_WIDTH = ROOM_DAY_LABEL_WIDTH;
-            const ROOM_LANE_HEIGHT = 48;
-            const roomOffset = weekStripOffset;
-            const timelineWidth = weekStripConfig.timelineWidth;
-            const roomsCanvasWidth = ROOM_FIXED_WIDTH + timelineWidth;
-            const pct = (minutesAt: number) => (roomOffset(minutesAt) / timelineWidth) * 100;
-            const roomSpanPct = (from: number, to: number) => Math.max(0.18, ((roomOffset(to) - roomOffset(from)) / timelineWidth) * 100);
-            const trackHeight = (lanes: number) => Math.max(54, 8 + Math.max(1, lanes) * ROOM_LANE_HEIGHT);
-            const roomTraceStyle = (trace: { from: number; to: number }): React.CSSProperties => {
-              // Use the exact same positioning system as renderTrackCard
-              // to ensure the trace is always bound to the original slot geometry.
-              return {
-                right: `${pct(trace.from)}%`,
-                width: `${Math.max(0.18, roomSpanPct(trace.from, trace.to))}%`,
-              };
-            };
-            const layoutFor = (day: DayKey, roomKey: string) => byDayRoomLayout.get(`${day}|${roomKey}`) || { items: [], lanes: 1 };
-            const renderTrackCard = (row: FSchedule, sourceDay: DayKey, placement?: { lane: number }) => {
-              const course = courseById.get(row.AdCourseId);
-              const instructor = instructorById.get(row.AdInstructorId);
-              const code = String(course?.CourseCode || "").trim() || "—";
-              const title = row.AdCourseName || course?.CourseName || code;
-              const who = instructor?.AdInstructorName ? firstLast(instructor.AdInstructorName) : "بدون أستاذ";
-              const activeRoomDays = days.filter(day => Boolean((row as any)[day.key]));
-              const dayNames = activeRoomDays.map(day => day.label).join(" · ") || "بلا يوم";
-              const undoId = recentMoves[row.id];
-              const undoEntry = undoId ? undoLog.find(item => item.id === undoId && !item.usedAt) : null;
-              const actualFrom = mins(row.fstarttime), actualTo = mins(row.fendtime);
-              const cardStyle: React.CSSProperties = {
-                ["--hue" as any]: hueFor(code, title, instructor?.AdInstructorName, placeOf(row)),
-                right: `${pct(actualFrom)}%`,
-                width: `${Math.max(0.18, roomSpanPct(actualFrom, actualTo))}%`,
-                ...(placement ? {
-                  top: `${4 + placement.lane * ROOM_LANE_HEIGHT}px`,
-                  bottom: "auto",
-                  height: "56px",
-                } : {}),
-              };
-              // The card is bound to the same drag engine the week uses, so it
-              // lifts, floats, is judged and lands with the identical behaviour
-              // — not an imitation of it.
-              const rowPending = pendingWriteIds.has(row.id);
-              const trackGrip = rowPending ? {} : physics.bindEvent(row, sourceDay as any);
-              return (
-                <article
-                  {...trackGrip}
-                  key={row.id}
-                  data-row-id={row.id}
-                  data-guide-description="بطاقة موعد داخل الجدول: اضغطها لقراءة الموعد وتحليله، أو اسحبها إلى يوم أو ساعة أو قاعة أخرى لنقلها بعد فحص التعارض."
-                  className={`rooms-card ${xrayClass(row)} ${physicsRelationClass(row)} ${draggingId === row.id ? "ripple-source" : ""} ${justChangedId === row.id ? "just-changed" : ""} ${liveClash.ids.has(row.id) ? "live-clash" : ""} ${outsideClash.notes[row.id] ? "live-clash-outside" : ""} ${physicsActive && physicsOrigin?.id === row.id ? "physics-source-lift" : ""} ${keyMove?.rowId === row.id ? "week-keymove-source" : ""} ${rowPending ? "schedule-row-pending" : ""} ${hueFocusClass(row)}`}
-                  style={cardStyle}
-                  draggable={!physics.supported && !rowPending && !dragBlocked}
-                  onDragStart={(e) => {
-                    if (approvalLock) { e.preventDefault(); setPhysicsNotice(approvalLock); return; }
-                    e.dataTransfer.setData("text/schedule-id", String(row.id));
-                    e.dataTransfer.effectAllowed = "move";
-                    beginRipple(row);
-                  }}
-                  onDragEnd={clearRipple}
-                  title={`${title} · ${withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`}
-                  aria-label={`${title} · ${withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}${liveClash.ids.has(row.id) ? " · يوجد تعارض" : ""}`}
-                  onPointerDown={(e) => {
-                    pressOrigin.current = { x: e.clientX, y: e.clientY }; explainApprovalLock();
-                    if (rowPending) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setPhysicsNotice("هذا الموعد ما زال بانتظار تثبيت نقله السابق. يمكنك سحب بقية المواعيد الآن، ثم العودة إليه بعد اكتمال الحفظ.");
-                      return;
-                    }
-                    trackGrip.onPointerDown?.(e);
-                  }}
-                  onClick={(e) => {
-                    if (rowPending || physics.didDrag() || physicsActive) return;
-                    const from = pressOrigin.current;
-                    if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
-                    setRxInfoId(row.id);
-                  }}
-                  onPointerEnter={(e) => { if (!physicsActive) openPeek(row, e.currentTarget); }}
-                  onPointerLeave={() => closePeek(row.id)}
-                  onFocus={(e) => openPeek(row, e.currentTarget)}
-                  onBlur={() => closePeek(row.id)}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { setRxInfoId(row.id); return; }
-                    if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); pickUpWithKeyboard(row); }
-                  }}
-                >
-                  <GripVertical data-physics-handle="true" className="rooms-drag-handle" aria-hidden="true" />
-                  <div className="rooms-identity-line">
-                    <b>{courseLabel(title, 0.82).text}</b>
-                    <em dir="ltr">{code}</em>
-                  </div>
-                  <span className="schedule-instructor-with-badge" title={withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))}>{who}{visitingIds.has(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
-                  {undoEntry ? (
-                    <button
-                      type="button"
-                      className="week-moved-pill"
-                      data-guide-target="schedule.undo"
-                      title={`${undoEntry.label} — اضغط للتراجع`}
-                      onClick={(e) => { e.stopPropagation(); void runUndoEntry(undoEntry); setRecentMoves(current => { const next = { ...current }; delete next[row.id]; return next; }); }}
-                      onPointerDown={(e) => e.stopPropagation()}
-                    >
-                      <Undo2 aria-hidden="true" />تراجع
-                    </button>
-                  ) : null}
-                </article>
-              );
-            };
-            const trackDrop = (building: string, hall: string, day: DayKey) => async (e: React.DragEvent<HTMLDivElement>) => {
-              e.preventDefault();
-              const id = Number(e.dataTransfer.getData("text/schedule-id"));
-              const row = rows.find(item => item.id === id);
-              if (!row) return;
-              const track = e.currentTarget.getBoundingClientRect();
-              /* RTL: the track starts at its right edge; the drop's share of the
-                 width, snapped to the half hour, is the new start. */
-              const share = Math.min(1, Math.max(0, (track.right - e.clientX) / track.width));
-              const start = timeFromMins(Math.round((gridWindow.start + share * span) / SCHEDULE_SLOT_MINUTES) * SCHEDULE_SLOT_MINUTES);
-              await commitRoomMove(row, day, start, building, hall);
-            };
-            /* ── البصمات: ما يقرؤه رسمُ القاعة ومعالجاتُها، فلا تُعاد قاعةٌ لم يتغيّر منه شيء (RoomsBoard.tsx) ── */
-            roomsDropRef.current = trackDrop;
-            roomsNowRef.current = { minutes: nowMinutes, start: gridWindow.start, end: gridWindow.end, pct, clock: minutesAt => scheduleClockForDisplay(timeFromMins(minutesAt)) };
-            const fieldLive = Boolean(physics.state.target) || !dragFieldIdle || suggestionRank.size > 0 || Object.keys(physicsField).length > 0;
-            const slotSigFor = (roomCode: string, roomHall: string, dayKey: DayKey) =>
-              fieldLive ? timeSlots.map(slot => physicsSlotClass(dayKey, slot, `${roomCode}|${roomHall}`)).join("\u0001") : "";
-            const roomsGlobalSig = [
-              objectId(rows), objectId(courseById), objectId(instructorById), objectId(visitingIds), objectId(displayDays), objectId(timeSlots),
-              objectId(roomsSlotGeo), objectId(weekStripConfig), objectId(gridWindow), matrixDay, hueBy, physicsActive, physics.supported, dragBlocked,
-              String(approvalLock || ""), mode, editor, picking, presentationMode, todayKey,
-            ].join("\u0003");
-            const roomCardSig = (row: FSchedule) => {
-              const course = courseById.get(row.AdCourseId);
-              const instructor = instructorById.get(row.AdInstructorId);
-              const code = String(course?.CourseCode || "").trim() || "—";
-              const title = row.AdCourseName || course?.CourseName || code;
-              const undoId = recentMoves[row.id];
-              const undoEntry = undoId ? undoLog.find(item => item.id === undoId && !item.usedAt) : null;
-              return `${objectId(row)}|${pendingWriteIds.has(row.id) ? 1 : 0}${draggingId === row.id ? 1 : 0}${justChangedId === row.id ? 1 : 0}${liveClash.ids.has(row.id) ? 1 : 0}${outsideClash.notes[row.id] ? 1 : 0}${physicsActive && physicsOrigin?.id === row.id ? 1 : 0}${keyMove?.rowId === row.id ? 1 : 0}|${hueFor(code, title, instructor?.AdInstructorName, placeOf(row))}|${xrayClass(row)}|${physicsRelationClass(row)}|${hueFocusClass(row)}|${undoEntry ? undoEntry.id : ""}`;
-            };
-            const roomSig = (room: { key: string; building: string; hall: string; label: string; roomCode: string; roomHall: string }) => {
-              const parts: string[] = [roomsGlobalSig, room.key, room.building, room.hall, room.label, room.roomCode, room.roomHall, unfitKeys.has(room.key) ? "unfit" : ""];
-              for (const day of displayDays) {
-                const layout = byDayRoomLayout.get(`${day.key}|${room.key}`);
-                parts.push(String(layout ? objectId(layout) : 0), slotSigFor(room.roomCode, room.roomHall, day.key as DayKey));
-                if (layout) for (const item of layout.items) parts.push(roomCardSig(item.row));
-              }
-              for (const trace of moveTraces) if (trace.roomKey === room.key) parts.push(`${trace.key}:${trace.dayKey}:${trace.from}:${trace.to}:${trace.label}`);
-              if (paint?.trackKey?.startsWith(`${room.key}|`)) parts.push(`${paint.trackKey}:${paint.from}:${paint.to}`);
-              return parts.join("\u0002");
-            };
-            /* ── مستكشف القاعات: المباني والقاعات في قائمتين، وأسبوعُ القاعة يُرسَم بجدول اللوحة نفسه عند فتحه ── */
-            const rxRooms: RxRoom[] = [
-              ...rxModel.rooms,
-              ...tracedRooms
-                .filter(trace => !rxModel.rooms.some(item => item.key === trace.key))
-                .map(trace => ({ key: trace.key, buildingKey: trace.buildingKey, label: displayRoomBadge(trace), building: trace.building, perDay: days.map(() => []), occupancy: 0, lectures: 0 })),
-            ];
-            const rxRow = rxInfoId != null ? rows.find(item => item.id === rxInfoId) : undefined;
-            const rxInfoNode = rxRow ? (() => {
-              const course = courseById.get(rxRow.AdCourseId);
-              const instructor = instructorById.get(rxRow.AdInstructorId);
-              const code = String(course?.CourseCode || "").trim() || "—";
-              const title = rxRow.AdCourseName || course?.CourseName || code;
-              const rowDays = days.filter(day => Boolean((rxRow as any)[day.key]));
-              const here = roomIdentity(rxRow.AdRoomCode, rxRow.AdRoomHall);
-              const undoId = recentMoves[rxRow.id];
-              const undoEntry = undoId ? undoLog.find(item => item.id === undoId && !item.usedAt) : null;
-              const sourceDay = (rowDays[0]?.key || days[0].key) as DayKey;
-              return (
-                <RoomsInfoBar
-                  title={title}
-                  code={code}
-                  who={withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(rxRow.AdInstructorId))}
-                  when={`${rowDays.map(day => day.label).join(" · ") || "بلا يوم"} ${formatScheduleTimeRange(rxRow.fstarttime, rxRow.fendtime)}`}
-                  place={here.label ? `القاعة ${here.label}` : "بلا قاعة"}
-                  canMove={!phoneReadOnly && !dragBlocked && Boolean(rxRow.fstarttime)}
-                  undo={undoEntry ? { label: `${undoEntry.label} — اضغط للتراجع`, run: () => { void runUndoEntry(undoEntry); setRecentMoves(current => { const next = { ...current }; delete next[rxRow.id]; return next; }); } } : null}
-                  onDetails={() => { void openContext(rxRow); }}
-                  onClose={() => setRxInfoId(null)}
-                  moveOptions={() => rxRooms
-                    .filter(item => !here.buildingKey || item.buildingKey === here.buildingKey)
-                    .map(item => {
-                      const known = roomsWithAfterglow.find(room => room.key === item.key);
-                      const cell = whyNotCell({
-                        subject: rxRow, days, slots: timeSlots, gridEnd: gridWindow.end, mins,
-                        buildCandidate: (source, target) => buildPhysicsTargetCandidate(source, { ...(target as any), label: "", room: { code: known?.roomCode || "", hall: known?.roomHall || "" } }),
-                        blockers: localPhysicsBlockers as any,
-                      }, sourceDay, rxRow.fstarttime);
-                      /* تبديلُ القاعة لا يغيّر انشغالَ الأستاذ: تعارضُه إن وُجد قائمٌ قبل النقل وبعده، فلا يمنع هذه القائمة (ويظهر في تأكيد النقل نفسه). */
-                      const hard = cell.reasons.find(reason => WHY_META[reason.kind].hard && reason.kind !== "instructor");
-                      return { key: item.key, label: item.label, current: item.key === here.key, free: !hard, reason: hard ? WHY_META[hard.kind].label : "" };
-                    })}
-                  onMove={async (key) => {
-                    const target = roomsWithAfterglow.find(room => room.key === key);
-                    if (!target) return;
-                    await commitRoomMove(rxRow, sourceDay, rxRow.fstarttime, target.roomCode, target.roomHall);
-                    await new Promise(resolve => window.setTimeout(resolve, 80));
-                    const moved = liveCmd.current.rows.find(item => item.id === rxRow.id);
-                    if (moved && roomIdentity(moved.AdRoomCode, moved.AdRoomHall).key === key) setRxGoto({ key, n: Date.now() });
-                  }}
-                />
-              );
-            })() : null;
-            const boardTools = (hueLegend.length > 1 || scheduledVisitingIds.size ? (
-                  <div className="week-legend rooms-legend" role="group" aria-label="مفتاح ألوان المباني والقاعات">
-                    <div className="week-legend-basis" role="group" aria-label="معنى اللون">
-                      {([
-                        { key: "course", label: "المقررات" },
-                        { key: "instructor", label: "الأساتذة" },
-                        { key: "room", label: "المباني والقاعات" },
-                      ] as const).map(basis => (
-                        <button
-                          key={basis.key}
-                          type="button"
-                          data-guide-ignore="تغيير أساس ألوان المباني والقاعات عرض بصري فقط"
-                          className={hueBy === basis.key ? "is-on" : ""}
-                          aria-pressed={hueBy === basis.key}
-                          onClick={() => changeHueBasis(basis.key)}
-                          title={`لوّن المباني والقاعات حسب ${basis.label}`}
-                        >
-                          {basis.label}
-                        </button>
-                      ))}
-                      <b className="num">
-                        {legendQuery
-                          ? `${legendShown.length.toLocaleString("ar-KW-u-nu-latn")}/${hueLegend.length.toLocaleString("ar-KW-u-nu-latn")}`
-                          : hueLegend.length.toLocaleString("ar-KW-u-nu-latn")}
-                      </b>
-                    </div>
-                    {visitingFilterButton()}
-                    {legendSearchable ? (
-                      <span className="week-legend-search">
-                        <Search aria-hidden="true" />
-                        <input
-                          type="search"
-                          value={legendQuery}
-                          onChange={e => setLegendQuery(e.target.value)}
-                          placeholder={hueBy === "course" ? "ابحث عن مقرر…" : hueBy === "room" ? "ابحث عن قاعة…" : "ابحث عن أستاذ…"}
-                          aria-label="تصفية مفتاح الألوان"
-                        />
-                      </span>
-                    ) : null}
-                    <ScheduleLegendScroller memoryKey={`${viewMode}:${hueBy}`} onWheel={horizontalWheel} label="استخدم السهمين أو عجلة الماوس للتنقل يميناً ويساراً">
-                      {legendShown.length === 0 ? <span className="week-legend-none">لا مطابقة</span> : null}
-                      {legendShown.map(item => {
-                        const folded = hueHidden.has(item.key);
-                        return (
-                          <span className={`week-legend-item ${folded ? "is-folded" : ""}`} key={item.key} style={{ ["--hue" as any]: item.hue }}>
-                            <button
-                              type="button"
-                              data-guide-ignore="تصفية بصرية لمفتاح ألوان المباني والقاعات"
-                              className={`week-legend-chip ${hueFocus.has(item.key) ? "is-on" : ""}`}
-                              aria-pressed={hueFocus.has(item.key)}
-                              disabled={folded}
-                        title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية المباني والقاعات عليه؛ اختيار غيره يمسح هذا الفلتر`}
-                              onClick={() => toggleHueFocus(item.key)}
-                            >
-                              <i aria-hidden="true" /><span>{item.label}{item.visiting ? <VisitingBadge compact /> : null}</span><em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
-                              {needMark(item.key)}
-                            </button>
-                            <button
-                              type="button"
-                              data-guide-ignore="إخفاء عنصر من مفتاح الألوان مؤقتاً عرض بصري فقط"
-                              className="week-legend-eye"
-                              aria-pressed={folded}
-                              aria-label={folded ? `إظهار ${legendText(item)}` : `إخفاء ${legendText(item)} من المباني والقاعات`}
-                              title={folded ? `إظهار ${legendText(item)}` : `إخفاء ${legendText(item)} مؤقتاً — لا يُحذف شيء`}
-                              onClick={() => toggleHueHidden(item.key)}
-                            >
-                              {folded ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                            </button>
-                          </span>
-                        );
-                      })}
-                    </ScheduleLegendScroller>
-                    {hueHidden.size ? (
-                      <button type="button" className="week-legend-clear is-folded-clear" onClick={() => setHueHidden(new Set())}>
-                        <EyeOff aria-hidden="true" />أعد المطوي <b className="num">{hueHidden.size.toLocaleString("ar-KW-u-nu-latn")}</b>
-                      </button>
-                    ) : null}
-                    {hueFocus.size ? (
-                      <button type="button" className="week-legend-clear" data-guide-ignore="مسح المرشح البصري لمفتاح الألوان فقط" onClick={() => setHueFocus(new Set())}>
-                        <X aria-hidden="true" />عرض الكل
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null);
-            const boardDragNote = (physicsActive && dragComparison ? (
-                    <div className="rooms-drag-compare" aria-live="polite">
-                      <GripVertical aria-hidden="true" />
-                      <span><b dir="ltr">{dragComparison.before}</b><ChevronLeft aria-hidden="true" /><b dir="ltr">{dragComparison.after}</b></span>
-                      <em dir="ltr">{dragComparison.place}</em>
-                    </div>
-                  ) : null);
-            const boardWeek = ((weekKeys, includeNone) => {
-                    const weekRooms = weekKeys.map(key => roomsWithAfterglow.find(room => room.key === key)).filter(Boolean) as typeof roomsWithAfterglow;
-                    return (
-                <>
-                <div
-                  ref={roomsRulerScrollRef}
-                  className="rooms-ruler-scroll"
-                  onPointerDown={(e) => claimScroller(e.currentTarget)}
-                  onTouchStart={(e) => claimScroller(e.currentTarget)}
-                  onWheel={(e) => claimScroller(e.currentTarget)}
-                  onScroll={(e) => syncRoomsScroll("ruler", e.currentTarget.scrollLeft, e.currentTarget)}
-                  aria-label="شريط ساعات القاعات"
-                >
-                  <div
-                    className={`rooms-scale ${matrixDay === "week" ? "rooms-scale-week" : ""}`}
-                    style={{
-                      ["--rooms-canvas-width" as any]: `${roomsCanvasWidth}px`,
-                      ["--rooms-day-label" as any]: `${ROOM_DAY_LABEL_WIDTH}px`,
-                      ["--rooms-fixed-label" as any]: `${ROOM_FIXED_WIDTH}px`,
-                    }}
-                    aria-hidden="true"
-                  >
-                    <small className="rooms-scale-identity">
-                      <span className="schedule-ruler-day-title">{matrixDay === "week" ? "اليوم" : ""}</span>
-                    </small>
-                    <div style={{ width: `${timelineWidth}px` }}>
-                      {timeSlots.map(slot => (
-                        <i
-                          key={`rooms-scale-line-${slot}`}
-                          className={`rooms-scale-line schedule-time-line ${mins(slot) % 60 === 0 ? "major rooms-scale-line-major" : "half rooms-scale-line-half"} ${slot === SCHEDULE_DAY_END_TIME ? "terminal rooms-scale-line-terminal" : ""}`}
-                          style={{ insetInlineStart: `${roomOffset(mins(slot))}px` }}
-                        />
-                      ))}
-                      {hourMarks.filter(mark => mark !== gridWindow.end).map(mark => (
-                        <span
-                          className={`schedule-time-label ${mark === gridWindow.start ? "schedule-time-label-start" : ""}`}
-                          key={mark}
-                          style={{ right: `${roomOffset(mark)}px` }}
-                          dir="ltr"
-                        >
-                          {scheduleClockForDisplay(timeFromMins(mark))}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div
-                  ref={roomsMainScrollRef}
-                  className="rooms-main-scroll"
-                  onPointerDown={(e) => claimScroller(e.currentTarget)}
-                  onTouchStart={(e) => claimScroller(e.currentTarget)}
-                  onWheel={(e) => claimScroller(e.currentTarget)}
-                  onScroll={(e) => syncRoomsScroll("main", e.currentTarget.scrollLeft, e.currentTarget)}
-                >
-                  <div
-                    className="rooms-rows"
-                    style={{
-                      ["--rooms-canvas-width" as any]: `${roomsCanvasWidth}px`,
-                      ["--rooms-day-label" as any]: `${ROOM_DAY_LABEL_WIDTH}px`,
-                      ["--rooms-fixed-label" as any]: `${ROOM_FIXED_WIDTH}px`,
-                    }}
-                  >
-                  {weekRooms.map(room => (
-                    <RoomsRoomBoundary key={room.key} sig={roomSig(room)} draw={() => (
-                    <section className={`rooms-week-room ${unfitKeys.has(room.key) ? "is-unfit" : ""}`} aria-label={`القاعة ${room.label}${unfitKeys.has(room.key) ? " — لا تناسب الحاجة" : ""}`} title={room.label}>
-                      <div className="rooms-week-days">
-                        {displayDays.map((day, dayIndex) => {
-                          const roomLayout = layoutFor(day.key as DayKey, room.key);
-                          const roomTrackHeight = trackHeight(roomLayout.lanes);
-                          return (
-                            <div className="rooms-row" key={`${room.key}|${day.key}`} style={{ minHeight: roomTrackHeight }}>
-                              <small
-                                className={`rooms-day-label ${dayIndex === 0 ? "has-room-identity" : ""}`}
-                                title={dayIndex === 0 ? `مبنى ${room.building || "—"} · قاعة ${room.hall || room.label || "—"} · ${day.label}` : day.label}
-                              >
-                                {dayIndex === 0 ? (
-                                  <span className="rooms-room-identity-compact" aria-label={`مبنى ${room.building || "—"}، قاعة ${room.hall || room.label || "—"}`}>
-                                    <Building2 aria-hidden="true" />
-                                    <b dir="ltr">{room.building || "—"}</b>
-                                    <i aria-hidden="true">›</i>
-                                    <strong dir="ltr">{room.hall || room.label || "—"}</strong>
-                                  </span>
-                                ) : null}
-                                <span className="rooms-day-name">{day.label}</span>
-                              </small>
-                              <div
-                                className="rooms-track"
-                                style={{ height: roomTrackHeight }}
-                                data-physics-day-column="true"
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={(e) => roomsDropRef.current(room.roomCode, room.roomHall, day.key as DayKey)(e)}
-                              >
-                                <RoomsTrackGrid
-                                  geo={roomsSlotGeo}
-                                  day={day.key}
-                                  dayLabel={day.label}
-                                  placeLabel={room.label}
-                                  roomCode={room.roomCode}
-                                  roomHall={room.roomHall}
-                                  roomAttr={`${room.roomCode}|${room.roomHall}`}
-                                  trackKey={`${room.key}|${day.key}`}
-                                  slotClassSig={slotSigFor(room.roomCode, room.roomHall, day.key as DayKey)}
-                                  handlers={roomsSlotHandlers}
-                                />
-                                {moveTraces
-                                  .filter(trace => trace.dayKey === day.key && trace.roomKey === room.key)
-                                  .map(trace => (
-                                    <div
-                                      key={`room-trace-${trace.key}`}
-                                      className="week-move-trace rooms-move-trace"
-                                      style={roomTraceStyle(trace)}
-                                      aria-hidden="true"
-                                      title={`${trace.label} · نُقل من هنا`}
-                                    >
-                                      <span><CornerUpRight aria-hidden="true" />نُقل من هنا</span>
-                                    </div>
-                                  ))}
-                                {paint?.trackKey === `${room.key}|${day.key}` ? (
-                                  <div className="rooms-paint" style={{ right: `${pct(mins(paint.from))}%`, width: `${Math.max(roomSpanPct(mins(paint.from), mins(paint.to)), roomSpanPct(mins(paint.from), mins(paint.from) + SCHEDULE_SLOT_MINUTES))}%` }} aria-hidden="true">
-                                    <b dir="ltr">{formatScheduleTimeRange(paint.from, paint.to)}</b><span>موعد جديد</span>
-                                  </div>
-                                ) : null}
-                                {todayKey === day.key ? <RoomsNowLine source={roomsNowRef} stamp={`${gridWindow.start}|${gridWindow.end}|${weekStripConfig.timelineWidth}`} /> : null}
-                                {roomLayout.items.map(({ row, lane }) => renderTrackCard(row, day.key as DayKey, { lane }))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                    )} />
-                  ))}
-                  {includeNone && displayDays.some(day => (noRoomByDay.get(day.key as DayKey) || []).length || moveTraces.some(trace => trace.roomKey === "|" && trace.dayKey === day.key)) ? (
-                    <section className="rooms-week-room rooms-row-none" aria-label="بلا قاعة" title="بلا قاعة">
-                      <div className="rooms-week-days">
-                        {displayDays.map(day => {
-                          const homelessLayout = noRoomLayout.get(day.key as DayKey) || { items: [], lanes: 1 };
-                          const homelessTrackHeight = trackHeight(homelessLayout.lanes);
-                          return (
-                          <div className="rooms-row" key={`none|${day.key}`} style={{ minHeight: homelessTrackHeight }}>
-                            <small className="rooms-day-label">{day.label}</small>
-                            <div className="rooms-track" style={{ height: homelessTrackHeight }} data-physics-day-column="true" onDragOver={(e) => e.preventDefault()} onDrop={(e) => roomsDropRef.current("", "", day.key as DayKey)(e)}>
-                              <RoomsTrackGrid
-                                geo={roomsSlotGeo}
-                                day={day.key}
-                                dayLabel={day.label}
-                                placeLabel="بلا قاعة"
-                                roomCode=""
-                                roomHall=""
-                                roomAttr="|"
-                                trackKey={`none|${day.key}`}
-                                slotClassSig={slotSigFor("", "", day.key as DayKey)}
-                                handlers={roomsSlotHandlers}
-                              />
-                              {moveTraces
-                                .filter(trace => trace.dayKey === day.key && trace.roomKey === "|")
-                                .map(trace => (
-                                  <div
-                                    key={`room-trace-${trace.key}`}
-                                    className="week-move-trace rooms-move-trace"
-                                    style={roomTraceStyle(trace)}
-                                    aria-hidden="true"
-                                    title={`${trace.label} · نُقل من هنا`}
-                                  >
-                                    <span><CornerUpRight aria-hidden="true" />نُقل من هنا</span>
-                                  </div>
-                                ))}
-                              {paint?.trackKey === `none|${day.key}` ? <div className="rooms-paint" style={{ right: `${pct(mins(paint.from))}%`, width: `${Math.max(roomSpanPct(mins(paint.from), mins(paint.to)), roomSpanPct(mins(paint.from), mins(paint.from) + SCHEDULE_SLOT_MINUTES))}%` }} aria-hidden="true"><b dir="ltr">{formatScheduleTimeRange(paint.from, paint.to)}</b><span>موعد جديد</span></div> : null}
-                              {homelessLayout.items.map(({ row, lane }) => renderTrackCard(row, day.key as DayKey, { lane }))}
-                            </div>
-                          </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ) : null}
-                  </div>
-                </div>
-                </>
-                    );
-                  });
-            const boardHint = !focusMode && !phoneReadOnly ? "اسحب لتنقل · اضغط فراغاً لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل" : "";
-            /* الكمبيوتر: اللوحة التي ترى فيها كل قاعات المبنى معاً مقابل الأوقات. الهاتف (للقراءة): قاعةٌ واحدة في المستكشف. */
-            if (!phoneReadOnly) {
-              const rxBuildingBy = new Map<string, RxBuilding>(rxModel.buildings.map(item => [item.key, item] as [string, RxBuilding]));
-              const fitCount = boardNeedOn ? roomFilterMatches.filter(room => !unfitKeys.has(room.key)).length : null;
-              return (
-                <>
-                  <div className="rooms-head">
-                    <Segmented
-                      value={matrixDay}
-                      instant
-                      options={[{ value: "week", label: "الأسبوع كامل" }, ...days.map(day => ({ value: day.key, label: day.label }))]}
-                      onChange={(value) => setMatrixDay(value as DayKey | "week")}
-                    />
-                    {boardDragNote}
-                  </div>
-                  {boardHint ? (
-                    <div className={`week-note rooms-note ${physicsActive ? "gravity-note-active" : ""}`}>
-                      <GripVertical aria-hidden="true" />
-                      <span aria-live="polite">{boardHint}</span>
-                    </div>
-                  ) : null}
-                  <RoomsBoardBar
-                    buildings={allBuildings.map(building => ({ key: building.key, label: building.label, occupancy: rxBuildingBy.get(building.key)?.occupancy ?? 0, roomCount: rxBuildingBy.get(building.key)?.roomCount ?? 0 }))}
-                    chosenBuildings={matrixBuildings}
-                    onBuilding={(key) => setMatrixBuildings(current => {
-                      if (key == null) return new Set();
-                      const next = new Set(current);
-                      if (next.has(key)) next.delete(key); else next.add(key);
-                      return next;
-                    })}
-                    rooms={roomFilterMatches.map(room => ({ key: room.key, label: displayRoomBadge(room), fits: !unfitKeys.has(room.key) }))}
-                    chosenRooms={matrixRooms}
-                    onRoom={(key) => setMatrixRooms(current => {
-                      if (key == null) return new Set();
-                      const next = new Set(current);
-                      if (next.has(key)) next.delete(key); else next.add(key);
-                      return next;
-                    })}
-                    query={roomFilterQuery}
-                    onQuery={setRoomFilterQuery}
-                    needText={boardNeedOn ? needLabel(boardNeed, rxDays) : ""}
-                    fitCount={fitCount}
-                    hideUnfit={rxHideUnfit}
-                    onHideUnfit={setRxHideUnfit}
-                    readOnly={phoneReadOnly}
-                  />
-                  {boardTools}
-                  {roomList.length === 0 ? <p className="rooms-filter-empty">لا توجد قاعة مطابقة.</p> : null}
-                  {boardWeek(roomList.map(room => room.key), true)}
-                  {rxInfoNode}
-                </>
-              );
-            }
-            return (
-              <>
-                <RoomsExplorer
-                  buildings={rxModel.buildings}
-                  rooms={rxRooms}
-                  days={days.map(day => ({ key: day.key, label: day.label }))}
-                  windowStart={gridWindow.start}
-                  windowEnd={gridWindow.end}
-                  noRoomCount={rxModel.noRoomCount}
-                  readOnly={phoneReadOnly}
-                  goto={rxGoto}
-                  hint={!focusMode && !phoneReadOnly ? "اسحب لتنقل · اضغط فراغاً لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل" : ""}
-                  info={rxInfoNode}
-                  onNavigate={() => setRxInfoId(null)}
-                  onCreate={(room, dayIndex, from) => {
-                    const known = roomsWithAfterglow.find(item => item.key === room.key);
-                    openCreate({ day: days[dayIndex].key as DayKey, start: timeFromMins(from), roomCode: known?.roomCode || "", roomHall: known?.roomHall || "" });
-                  }}
-                  dragNote={boardDragNote}
-                  tools={boardTools}
-                  renderWeek={boardWeek}
-                />
-              </>
-            );
-          })()}
-        </Surface>
-      ) : (
+</>
+  );
+  const schedWeekPane = (
+<>
         <>
           <Surface
             /* A scope change keeps the old week on screen while the new one is
@@ -14107,6 +12969,1171 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             )}
           </Surface>
         </>
+</>
+  );
+  return (
+    <div className={`content-stack schedule-page ${phoneReadOnly ? "schedule-phone" : ""} ${duoSplit ? "duo-full" : ""}`.trim()}>
+      {/* Lifted clear of the board's horizontal scroller so nothing can clip it,
+          and given one line per wall instead of a sentence stitched with dashes. */}
+      {refusal ? (
+        <div className="move-refusal no-print" role="alertdialog" aria-modal="false" aria-live="assertive" aria-label="تعذر نقل الموعد">
+          <span className="move-refusal-mark" aria-hidden="true"><ShieldAlert /></span>
+          <div className="move-refusal-body">
+            <strong>تعذّر النقل</strong>
+            <ul>
+              {refusal.reasons.map((item, index) => (
+                <li key={`${item.kind}-${index}`} className={`is-${item.kind}`} title={item.text}>
+                  {item.kind === "room" ? <Building2 aria-hidden="true" />
+                    : item.kind === "instructor" ? <UsersRound aria-hidden="true" />
+                      : item.kind === "cohort" ? <GraduationCap aria-hidden="true" />
+                        : <AlertTriangle aria-hidden="true" />}
+                  <b>{item.entity}</b>
+                  {item.state ? <em>{item.state}</em> : null}
+                </li>
+              ))}
+            </ul>
+            <small>الموعد لم يتحرّك.</small>
+          </div>
+          <button type="button" onClick={() => setRefusal(null)} aria-label="إغلاق" title="إغلاق"
+            data-guide-ignore="إغلاق رسالة رفض النقل فقط ولا يغيّر الجدول"><X aria-hidden="true" /></button>
+        </div>
+      ) : null}
+      {focusMode ? (
+        <button
+          type="button"
+          className="schedule-focus-exit no-print"
+          data-guide-ignore="زر خروج خافت من وضع التركيز؛ Escape ينفذ الإجراء نفسه"
+          onClick={() => {
+            setFocusExitPending(true);
+          }}
+          aria-label="إنهاء وضع التركيز"
+          title="إنهاء التركيز · Esc"
+        >
+          <X aria-hidden="true" />
+        </button>
+      ) : null}
+      <PageTitle
+        eyebrow="مركز الجدول"
+        subtitle="نطاق · مراجعة · نشر"
+        action={<PrimaryButton onClick={() => openCreate()} disabled={Boolean(approvalLock)} title={approvalLock || undefined} data-guide-ignore="فتح محرّر إضافة موعد — يُعطَّل بسببٍ مكتوب حين يكون الجدول عند التسجيل، والحفظ داخله مسجّل"><Plus aria-hidden="true" />إضافة موعد</PrimaryButton>}
+      >
+        الجدول الدراسي
+      </PageTitle>
+      {guideGhostDiff ? (
+        <section className="schedule-guide-ghost-diff no-print" aria-label="معاينة التغيير دون حفظ">
+          <header><Eye aria-hidden="true" /><div><small>معاينة فقط</small><strong>{guideGhostDiff.before.AdCourseName || "المقرر المحدد"}</strong></div><button type="button" onClick={() => setGuideGhostDiff(null)} aria-label="إلغاء المعاينة"><X /></button></header>
+          <div className="schedule-guide-ghost-flow">
+            <span><small>قبل</small><b>{arabicDays(guideGhostDiff.before)} · {formatScheduleTimeRange(guideGhostDiff.before.fstarttime, guideGhostDiff.before.fendtime)}</b><em>{[guideGhostDiff.before.AdRoomCode,guideGhostDiff.before.AdRoomHall].filter(Boolean).join("/")}</em></span>
+            <ChevronLeft aria-hidden="true" />
+            <span className="after"><small>بعد</small><b>{arabicDays(guideGhostDiff.after)} · {formatScheduleTimeRange(guideGhostDiff.after.fstarttime, guideGhostDiff.after.fendtime)}</b><em>{[guideGhostDiff.after.AdRoomCode,guideGhostDiff.after.AdRoomHall].filter(Boolean).join("/")}</em></span>
+          </div>
+          <p className={guideGhostDiff.conflicts ? "warn" : "ok"}>{guideGhostDiff.summary}</p>
+          <footer><button type="button" onClick={() => setGuideGhostDiff(null)}>إلغاء</button><button type="button" data-guide-ignore="اعتماد يدوي من معاينة شبحية يفتح المحرر ولا يحفظ تلقائيًا" className="primary" onClick={() => { setGuideGhostDiff(null); const row=rows.find(item=>item.id===guideGhostDiff.before.id); if(row) openEdit(row); }}>اعتماد يدوي</button></footer>
+        </section>
+      ) : null}
+      {historicalChoice ? (
+        <div ref={trapFocusRef} className="historical-time-backdrop no-print" role="dialog" aria-modal="true" aria-label="تنبيه التوقيت التاريخي">
+          <section className="historical-time-dialog">
+            <button type="button" className="historical-time-close" data-guide-ignore="إلغاء نافذة اقتراح التوقيت فقط وإرجاع الموعد لمكانه السابق؛ لا ينفذ نقلاً" onClick={() => settleHistoricalTimeChoice("cancel")} aria-label="إلغاء النقل والعودة للوضع السابق" title="إلغاء"><X /></button>
+            <header><span><Clock3 aria-hidden="true" /></span><div><small>{historicalChoice.source}</small><strong>{historicalChoice.dayLabel} · وقت غير معتاد</strong></div></header>
+            <div className="historical-time-compare" dir="ltr"><b>{scheduleClockForDisplay(historicalChoice.picked)}</b><ChevronLeft aria-hidden="true" /><strong>{scheduleClockForDisplay(historicalChoice.preferred)}</strong></div>
+            <p>النمط الأقرب يشير إلى <b dir="ltr">{scheduleClockForDisplay(historicalChoice.preferred)}</b>. الوقت الذي اخترته <b dir="ltr">{scheduleClockForDisplay(historicalChoice.picked)}</b> يبقى مسموحاً.</p>
+            <footer><button type="button" data-guide-ignore="اختيار صريح داخل تنبيه التوقيت لتثبيت الموعد المسحوب كما اختاره المستخدم" onClick={() => settleHistoricalTimeChoice("picked")}>ثبّت {scheduleClockForDisplay(historicalChoice.picked)}</button><button type="button" className="primary" data-guide-ignore="اختيار صريح داخل تنبيه التوقيت لاعتماد الوقت التاريخي المقترح بدلاً من الوقت المسحوب" onClick={() => settleHistoricalTimeChoice("preferred")}>استخدم {scheduleClockForDisplay(historicalChoice.preferred)}</button></footer>
+          </section>
+        </div>
+      ) : null}
+      {mobileViewGate ? (
+        <div ref={trapFocusRef} className="mobile-desktop-gate no-print" role="dialog" aria-modal="true" aria-label="بعض عروض الجدول للقراءة فقط على الهاتف">
+          <div className="mobile-desktop-gate-card">
+            <span className="mobile-desktop-gate-icon">
+              {mobileViewGate === "week" ? <CalendarDays /> : <MapPin />}
+            </span>
+            <div>
+              <strong>{mobileViewGate === "week" ? "عرض الأسبوع" : "عرض المباني والقاعات"} للقراءة فقط على الهاتف</strong>
+              {/* Two facts and a way out — a state, a limit, and where to go
+                  instead. The sentence spent twenty-nine words saying that,
+                  and the reader wanted to know which of the three applied to
+                  them. Three marks answer that at a glance. */}
+              <ul className="gate-facts">
+                <li><Eye aria-hidden="true" /><b>القراءة</b><span>كاملة هنا</span></li>
+                <li><Move aria-hidden="true" /><b>السحب</b><span>من الكمبيوتر</span></li>
+                <li><ListIcon aria-hidden="true" /><b>للتعديل</b><span>افتح «قائمة»</span></li>
+              </ul>
+            </div>
+            <button type="button" onClick={() => setMobileViewGate(null)}>فهمت · متابعة العرض</button>
+          </div>
+        </div>
+      ) : null}
+      {/* ── فصلٌ انتهى ────────────────────────────────────────────────────
+          يُقال قبل المحاولة لا بعدها: من يكتشف المنعَ عند الحفظ يكون قد أعاد
+          بناءَ موعدٍ كاملاً في نموذجٍ لن يُقبل. ولا يُخفى شيء — القراءةُ
+          والطباعةُ والاستعلامُ كما هي. */}
+      {returnNote || error || message ? <div className="schedule-feedback-stack" aria-live="polite">
+        {returnNote ? <Notice type="success">{returnNote}</Notice> : null}
+        {error ? <Notice>{error}</Notice> : null}
+        {message ? <Notice type="success">{message}</Notice> : null}
+        {saveImpact && editor === "index" ? <FitImpact impact={saveImpact} /> : null}
+      </div> : null}
+      {/* Silent intelligence: routine timing/physics feedback no longer owns
+          vertical space above the timetable. The same state is kept for assistive
+          technology and diagnostics; blocking problems still use the existing
+          conflict/error UI, and undo remains in the compact undo bar. */}
+      {physicsNotice ? <span className="sr-only" role="status" aria-live="polite">{physicsNotice}</span> : null}
+      {!rowsForeign && rows.length > 0 ? (
+      <div className="schedule-overview-stack no-print">
+        {/* An empty term shows no zero counters — only the genesis scene it asked for. */}
+        {/* The cards count what is SHOWN: a filter that matches nothing shows none. */}
+        <LivingScheduleLayer
+          user={user}
+          rows={filteredRows}
+          courses={courses}
+          instructors={instructors}
+          terms={terms}
+          colleges={colleges}
+          sections={sections}
+          collegeId={filterCollege}
+          sectionId={filterSection}
+          termId={filterTerm}
+          onOpenRow={openEdit}
+          onRefresh={loadRows}
+          experience={experience}
+          onEnsureWeek={() => setViewMode("week")}
+          onPanelOpenChange={onLivingPanelOpenChange}
+          onOpenHealth={() => openIntelligenceCard("command", "quality")}
+        />
+      </div>
+      ) : null}
+      <Surface className="schedule-control">
+        {/* ── حالُ الجدول في موضعٍ واحد ─────────────────────────────────────
+            كانت شرائطَ متراكبةً فوق البيانات: وضعُ التجربة، والفصلُ المنتهي،
+            والقاعاتُ المعلّقة، والعدّادات، وحالُ الاتصال. صارت رأساً هادئاً
+            واحداً وحبوباً بأعدادها داخل بطاقة المرشّحات — بالشروط والأفعال
+            نفسها، لا يسقط منها شيء. */}
+        {termFrozen || practiceMode || (pendingNoticeVisible && pendingOwnRows.length) || (!rowsForeign && filteredRows.length > 0)
+          || !networkOnline || offlinePending || liveCollaborators || liveEditors + liveHolders || pendingOwnRows.length || (parkedOpen && parked.length) ? (
+        <div className="schedule-status no-print">
+          {termFrozen ? (
+            <div className="schedule-frozen-status" data-tone="frozen">
+              <DnaStatusHeader
+                as="div"
+                className="schedule-status-head"
+                icon={<Lock />}
+                tone="neutral"
+                title="انتهى هذا الفصل."
+                subtitle={<>جدولُه محفوظٌ للاطّلاع والتقارير، و<b>لجنةُ الجدول</b> وحدَها تعمل فيه.</>}
+              />
+            </div>
+          ) : null}
+          {practiceMode ? (
+            <div className="schedule-practice-strip" data-guide-target="schedule.practice" role="status">
+              <DnaStatusHeader
+                as="div"
+                className="schedule-status-head"
+                icon={<ShieldCheck />}
+                tone="mint"
+                title="وضع تجربة"
+                subtitle="السحب والتعديل والحذف مؤقتة على هذا الجهاز فقط؛ وما يكتب في الجدول الحقيقي (التراجع والإصلاح وأدوات الجدول) موقوفٌ حتى تُنهي التجربة."
+                actions={<>{practiceRealChanged ? <small className="practice-real-changed" role="status">تغيّر الجدول الحقيقي</small> : null}<button type="button" onClick={() => window.dispatchEvent(new CustomEvent("schedule-smart-guide-command", { detail:{ scope:"schedule", type:"practice.stop", featureId:"schedule.practice" } }))}>إنهاء</button></>}
+              />
+            </div>
+          ) : null}
+          {pendingNoticeVisible && pendingOwnRows.length ? (
+            <DnaStatusHeader
+              as="div"
+              className="schedule-status-head pending-room-status"
+              icon={<CircleAlert />}
+              tone="warn"
+              title={<>لم تُثبَّت بعد قاعات <b>{pendingOwnRows.length.toLocaleString("ar-KW-u-nu-latn")}</b> {nounFor(pendingOwnRows.length, AR.section)} لديك.</>}
+              actions={<><SecondaryButton type="button" data-guide-ignore="فلتر القاعات المعلقة" onClick={()=>{setPendingOnly(true);setPendingNoticeVisible(false)}}>استكمال القاعات</SecondaryButton><button type="button" data-guide-ignore="إخفاء تنبيه القاعات المعلقة" className="pending-room-dismiss dna-ibtn" aria-label="إخفاء التنبيه" onClick={()=>setPendingNoticeVisible(false)}><X/></button></>}
+            />
+          ) : null}
+          <div className="schedule-status-pills">
+            {!rowsForeign && filteredRows.length > 0 ? (
+            <section className="schedule-mini-stats">
+              <DnaCount icon={<CalendarDays aria-hidden="true" />} value={filteredRows.length.toLocaleString("ar-KW-u-nu-latn")} label="موعد ظاهر" />
+              <DnaCount icon={<DoorOpen aria-hidden="true" />} value={new Set(filteredRows.map((x) => roomIdentityKey(x)).filter(Boolean)).size.toLocaleString("ar-KW-u-nu-latn")} label="قاعة مستخدمة" />
+              <DnaCount icon={<UsersRound aria-hidden="true" />} value={new Set(filteredRows.map((x) => x.AdInstructorId)).size.toLocaleString("ar-KW-u-nu-latn")} label="أستاذ مقرر" />
+            </section>
+            ) : null}
+          {!networkOnline || offlinePending || liveCollaborators || liveEditors + liveHolders || pendingOwnRows.length ? (
+            <div className="schedule-ops-strip" aria-label="حالة العمل الذكي">
+              {pendingOwnRows.length?<button type="button" data-guide-ignore="فلتر القاعات المعلقة" className={`schedule-ops-pill warn ${pendingOnly?"on":""}`} onClick={()=>setPendingOnly(value=>!value)}><CircleAlert aria-hidden="true"/><b>{pendingOwnRows.length.toLocaleString("ar-KW-u-nu-latn")} بانتظار قاعة</b></button>:null}
+              {!networkOnline ? <span className="schedule-ops-pill warn"><Radio aria-hidden="true"/><b>دون اتصال · التغييرات الآمنة محلية</b></span> : null}
+              {offlinePending ? <span className="schedule-ops-pill warn"><Upload aria-hidden="true"/><b>{offlinePending.toLocaleString("ar-KW-u-nu-latn")} بانتظار المزامنة</b></span> : null}
+              {/* A refusal is not a pending sync: it needs a person, so it gets its
+                  own pill that does not clear until the shelf is empty. */}
+              {parked.length ? <button type="button" data-guide-ignore="فتح قائمة التغييرات التي رفضها الخادم بعد انقطاع الاتصال" className={`schedule-ops-pill warn ${parkedOpen?"on":""}`} onClick={()=>setParkedOpen(value=>!value)}><ShieldAlert aria-hidden="true"/><b>{countOf(parked.length, AR.change)} رفضها الخادم</b></button> : null}
+              {liveCollaborators ? <span className="schedule-ops-pill"><UsersRound aria-hidden="true"/><b>{liveCollaborators.toLocaleString("ar-KW-u-nu-latn")} يعمل الآن</b></span> : null}
+              {liveEditors + liveHolders ? <span className="schedule-ops-pill"><Bookmark aria-hidden="true"/><b>تحت التحرير: {countOf(liveEditors + liveHolders, AR.card)}</b></span> : null}
+            </div>
+          ) : null}
+          </div>
+          {/* ── ما رفضه الخادم، معروضاً أخيراً ────────────────────────────────────
+              One line per refusal: what it was trying to do, when, and the server's
+              own sentence for why. Two ways out, and no third: send it again now,
+              or let it go. Nothing here decides on the person's behalf, because
+              the reason it is on this shelf at all is that the software could not. */}
+          {parkedOpen && parked.length ? (
+            <div className="parked-review no-print" role="region" aria-label="تغييرات رفضها الخادم">
+              <header>
+                <ShieldAlert aria-hidden="true" />
+                <div>
+                  <strong>تغييرات رفضها الخادم بعد عودة الاتصال</strong>
+                  <small>حُفظت كما هي ولم تُطبَّق. أعد إرسال ما تريده، وتجاهل ما لم يعد صالحاً.</small>
+                </div>
+                <button type="button" data-guide-ignore="إغلاق قائمة التغييرات المرفوضة" onClick={() => setParkedOpen(false)} aria-label="إغلاق"><X aria-hidden="true" /></button>
+              </header>
+              <ul>
+                {[...parked].reverse().map(item => {
+                  const target = rows.find(row => Number(row.id) === Number(String(item.url).match(/\/api\/schedules\/(\d+)/)?.[1] || 0));
+                  const what = item.method === "DELETE" ? "حذف موعد"
+                    : String(item.url).includes("move-batch") ? "نقل مجموعة مواعيد"
+                      : "تعديل موعد";
+                  const name = target ? `${target.AdCourseName || courseById.get(Number(target.AdCourseId))?.CourseName || "مقرر"} · شعبة ${target.SCode || "—"}` : "";
+                  return (
+                    <li key={item.id}>
+                      <div className="parked-review-what">
+                        <strong>{what}{name ? ` — ${name}` : ""}</strong>
+                        <small>{item.reviewReason}</small>
+                        <time dir="ltr">{new Date(item.reviewAt).toLocaleString("ar-KW-u-nu-latn", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}</time>
+                      </div>
+                      <div className="parked-review-actions">
+                        <SecondaryButton type="button" data-guide-ignore="إعادة إرسال تغيير رفضه الخادم" disabled={parkedBusy === item.id}
+                          onClick={async () => {
+                            setParkedBusy(item.id);
+                            const result = await retryParkedMutation(item.id);
+                            setParkedBusy(null);
+                            setParked(parkedMutations());
+                            if (result.ok) { setMessage("أُرسل التغيير ونُفِّذ."); void loadRows({ silent: true }); }
+                            else setError(result.error || "تعذر الإرسال");
+                          }}>{parkedBusy === item.id ? "جارٍ الإرسال…" : "أعد الإرسال"}</SecondaryButton>
+                        <SecondaryButton type="button" className="danger" data-guide-ignore="تجاهل تغيير رفضه الخادم"
+                          onClick={async () => {
+                            const sure = await visualConfirm({ title: "تجاهل هذا التغيير؟", message: "سيُحذف من القائمة ولن يُطبَّق. لا يمكن استرجاعه.", confirmLabel: "تجاهل", tone: "danger", compact: true });
+                            if (!sure) return;
+                            discardParkedMutation(item.id);
+                            setParked(parkedMutations());
+                          }}>تجاهل</SecondaryButton>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+        ) : null}
+        <div className="filter-strip">
+          {hidesCollege(scopeShape(scopes, isPowerAdmin)) ? null : <Field label="الكلية"><select data-guide-target="schedule.filter.college" value={filterCollege || ""} onChange={(e)=>{const id=Number(e.target.value)||0;setFilterCollege(id);setFilterSection(id && !isPowerAdmin ? (resolveScopeSelection(scopes,id,false).defaultSectionId||0) : 0)}}><option value="">اختر الكلية</option>{filterColleges.map(c=><option key={c.AdCollegeId} value={c.AdCollegeId}>{c.AdCollegeName}</option>)}</select></Field>}
+          {!hidesSection(scopeShape(scopes, isPowerAdmin)) && singleDepartmentOf(scopes, filterCollege, isPowerAdmin) === null ? <Field label="القسم العلمي"><select data-guide-target="schedule.filter.section" value={filterSection || ""} disabled={!filterCollege} onChange={(e)=>setFilterSection(Number(e.target.value)||0)}><option value="">كل الأقسام</option>{filterSections.map(s=><option key={s.AdSectionId} value={s.AdSectionId}>{s.AdSectionName}</option>)}</select></Field> : null}
+          <Field label="الفصل الدراسي">
+            <TermSelect
+              data-guide-target="schedule.filter.term"
+              value={filterTerm || ""}
+              onValueChange={(id) => setFilterTerm(id)}
+            >
+              <option value="">اختر الفصل</option>
+              {scopedTerms.map((t) => (
+                <option key={t.AdTermId} value={t.AdTermId}>
+                  {t.AdTermName}
+                </option>
+              ))}
+            </TermSelect>
+          </Field>
+          {rowsLoading ? <span className="filter-strip-busy" role="status"><MicroLoader size={16} label="يقرأ الجدول…" />يقرأ الجدول…</span> : null}
+        </div>
+        <div className="schedule-tools" role="toolbar" aria-label="أدوات عرض الجدول">
+          <div className="schedule-view-cluster">
+          <div className="segmented" role="group" aria-label="طريقة عرض الجدول">
+            <button data-guide-target="schedule.view.list" type="button" className={viewMode === "list" || duoSplit ? "active" : ""} aria-pressed={viewMode === "list" || duoSplit} onClick={() => changeView("list")}>
+              <LayoutList aria-hidden="true" /> قائمة
+            </button>
+            {!phoneReadOnly ? (<>
+              <button data-guide-target="schedule.view.week" type="button" className={viewMode === "week" ? "active" : ""} aria-pressed={viewMode === "week"} onClick={() => changeView("week")}>
+                <CalendarDays aria-hidden="true" /> أسبوع
+              </button>
+              <button data-guide-target="schedule.view.rooms" type="button" className={viewMode === "rooms" ? "active" : ""} aria-pressed={viewMode === "rooms"} onClick={() => changeView("rooms")}>
+                <MapPin aria-hidden="true" /> المباني والقاعات
+              </button>
+            </>) : null}
+          </div>
+          {/* A way of looking at the board, remembered by name. Absent entirely
+              until the reader has saved one — no empty menu on behalf of a
+              feature nobody has used. */}
+          <ScheduleViewsMenu
+            views={savedViews}
+            activeId={activeViewId}
+            dirty={viewDirty}
+            onOpenView={applyView}
+            onUpdateActive={() => {
+              if (!activeView) return;
+              viewsStore.update(activeView.id, captureView(activeView.name));
+              setSavedViews(viewsStore.list());
+              setMessage("حُدِّث العرض");
+            }}
+            onRestoreActive={() => { if (activeView) applyView(activeView); }}
+            onSaveAs={() => setViewDialog({ mode: "create" })}
+            onRename={view => setViewDialog({ mode: "rename", view })}
+            onDelete={async view => {
+              if (!(await visualConfirm({ title: `حذف العرض «${view.name}»`, message: "سيُحذف هذا العرض المحفوظ من قائمتك.", confirmLabel: "حذف", tone: "danger", compact: true }))) return;
+              viewsStore.remove(view.id);
+              setSavedViews(viewsStore.list());
+              if (activeViewId === view.id) setActiveViewId(null);
+            }}
+            onToggleFavorite={view => { viewsStore.toggleFavorite(view.id); setSavedViews(viewsStore.list()); }}
+            focusMode={focusMode}
+            onToggleFocus={phoneReadOnly ? undefined : () => { physics.cancel(); setFocusMode(!focusMode); setPresentationMode(false); }}
+          />
+          {viewMode === "week" ? (
+            <WeekLayerTools
+              rows={rows}
+              selectedId={context?.selected?.id ? Number(context.selected.id) : null}
+              replayReady={Boolean(filterCollege && filterSection && filterTerm)}
+              replay={{
+                scope: { collegeId: Number(filterCollege), sectionId: Number(filterSection), termId: Number(filterTerm) },
+                current: rows.filter(row => Number(row.AdCollegeId) === Number(filterCollege) && Number(row.AdSectionId) === Number(filterSection) && Number(row.AdTermId) === Number(filterTerm)),
+                instructorName: (id: number) => instructorById.get(id)?.AdInstructorName || "",
+              }}
+              whyNot={{
+                days, slots: timeSlots, gridEnd: gridWindow.end, mins,
+                buildCandidate: (row, target) => buildPhysicsTargetCandidate(row, target as any),
+                blockers: localPhysicsBlockers as any,
+                patternSwitchFor: (row, day) => Boolean(rhythmSwitchForTarget(row, day as DayKey)),
+                hours: { start: activeScheduleWindow.start, end: activeScheduleWindow.end },
+                locked: approvalLock || (termFrozen ? "الفصل مجمَّد" : null),
+                readOnly: phoneReadOnly || !canEditSchedule,
+                scope: { collegeId: Number(filterCollege), sectionId: Number(filterSection), termId: Number(filterTerm) },
+                onMove: (row, day, start, label) => {
+                  const sourceDay = (days.find(d => Boolean((row as any)[d.key]))?.key || day) as any;
+                  void commitMove({ row, sourceDay, target: { day: day as any, start, label }, decision: null });
+                },
+              }}
+            />
+          ) : null}
+          {/* The live radar: what the board knows about itself, always visible.
+              Counted locally on every change, so the number never waits for a
+              request — pressing it takes you to the offending cards. */}
+          {/* Two ways of being connected, and the dot says which: a stream
+              shared with a colleague here now, or the pulse that keeps a board
+              you have to yourself up to date within seconds. */}
+          <span
+            className={`schedule-live-dot ${liveFeed || liveState.connected ? "on" : ""}`}
+            title={liveFeed
+              ? "بث مباشر: أي تغيير من زميل يظهر هنا تلقائياً"
+              : liveState.connected
+                ? "متصل: أي تغيير من زميل يصل هنا خلال ثوانٍ، ويصبح لحظياً حين يفتح زميلٌ هذا الجدول"
+                : "البث المباشر غير متصل — يحدَّث عند القراءة"}
+            role="status"
+            aria-label={liveFeed || liveState.connected ? "البث المباشر متصل" : "البث المباشر غير متصل"}
+          />
+          {/* Who else is on this board. It only ever names the people it can
+              see — it never claims you are alone, because a colleague served by
+              another instance is invisible from here, and being confidently
+              wrong about that is worse than saying nothing. */}
+          {peers.length ? (
+            <span className="presence-strip no-print" role="status"
+              aria-label={`${countOf(peers.length, AR.colleague)} معك على هذا الجدول`}>
+              {peers.slice(0, 5).map(peer => (
+                <span key={peer.connId} className="presence-chip"
+                  data-busy={peer.holding || peer.editing ? "1" : "0"}
+                  style={{ ["--presence-hue" as string]: PRESENCE_HUES[presenceHue(peer.userId) - 1] }}
+                  title={peer.holding ? `${peer.name} — يحمل موعداً الآن`
+                       : peer.editing ? `${peer.name} — يعدّل موعداً الآن`
+                       : `${peer.name} — معك على هذا الجدول`}>
+                  {peer.name.replace(/^د\.\s*/, "").trim().charAt(0) || "؟"}
+                </span>
+              ))}
+              {peers.length > 5 ? <span className="presence-chip" title={`و${countOf(peers.length - 5, AR.colleague)} غيرهم`}>+{peers.length - 5}</span> : null}
+            </span>
+          ) : null}
+          {/* التداخلات تُراجع من «مراجعة الاعتماد» ومن تمييز البطاقات نفسها؛
+              أزيل العداد المنفصل لأنه كان يكرر المعلومة بصياغة غير واضحة. */}
+          {/* What arrived from the department's own instructors. It is the only
+              chip here that is about people rather than rows, so it says who,
+              not how many. */}
+          {inbox.length ? (
+            <button
+              type="button"
+              className="schedule-radar radar-inbox"
+              onClick={() => setInboxOpen(true)}
+              title={`${countOf(inbox.length, AR.message)} من أساتذة القسم — اضغط للقراءة`}
+            >
+              <Inbox aria-hidden="true" />
+              {inbox.length.toLocaleString("ar-KW-u-nu-latn")} من الأساتذة
+            </button>
+          ) : null}
+          {/* The settled term. It appears only when it has something to say, and
+              what it says is about a term nobody is editing — so it is a mark,
+              not a colour, and it never joins the counters above. */}
+          {drift ? (
+            <button
+              type="button"
+              className={`schedule-radar radar-drift ${drift.foreign ? "radar-drift-foreign" : ""}`}
+              onClick={() => setDriftOpen(true)}
+              title={`${drift.headline} — اضغط للتفصيل`}
+            >
+              <History aria-hidden="true" />
+              {drift.term?.name || "الفصل المعتمد"}
+            </button>
+          ) : null}
+          {!liveClash.pairs && !liveNotes.length && filteredRows.length ? (
+            <span className="schedule-radar radar-clean" title="لا تداخل ولا ملاحظات لائحة على النطاق المفتوح">
+              <CheckCircle2 aria-hidden="true" /> سليم
+            </span>
+          ) : null}
+          </div>
+          <label className="schedule-quick-search" role="search" data-guide-target="schedule.search.quick">
+            <Search aria-hidden="true" />
+            <input
+              type="search"
+              ref={searchRef}
+              value={quickSearch}
+              onChange={e => setQuickSearch(e.target.value)}
+              placeholder="بحث سريع"
+              aria-label="بحث سريع داخل مواعيد الجدول"
+            />
+            {quickSearch ? <button type="button" data-guide-ignore="مسح البحث السريع فقط" onClick={() => setQuickSearch("")} aria-label="مسح البحث السريع" title="مسح"><X aria-hidden="true" /></button> : null}
+          </label>
+          <div className="schedule-tool-actions" role="group" aria-label="أدوات الجدول الإضافية">
+            {/* The schedule lens was retired: its one distinct trick — dimming
+                instead of removing — did not earn a permanent button in a busy
+                toolbar when the quick search answers the same question by name
+                and the query centre covers the structured cases in full. */}
+            <PatternLibraryButton data-guide-ignore="يفتح مكتبة الأنماط للعرض فقط؛ لا يغير بيانات الجدول" />
+            {/* المسح الكامل يكتب في الجدول الحقيقي، فيغيب أثناء التجربة. */}
+            {practiceMode ? null : <WipeScheduleButton data-guide-ignore="زر مسح الجدول بالكامل وإرجاعه؛ يفتح تحذيرات ولا يمسح بنفسه" rowCount={rows.length} collegeId={Number(filterCollege)} sectionId={Number(filterSection)} termId={Number(filterTerm)} onChanged={() => { void loadRows(); }} />}
+            <GhostButton
+              type="button"
+              className={workspaceToolsOpen ? "schedule-tools-toggle is-close" : "schedule-tools-toggle"}
+              data-guide-target="schedule.tool.more"
+              onClick={() => setWorkspaceToolsOpen(open => !open)}
+              aria-expanded={workspaceToolsOpen}
+              aria-label={workspaceToolsOpen ? "إغلاق الأدوات" : "المزيد من الأدوات"}
+              title={workspaceToolsOpen ? "إغلاق الأدوات" : "إظهار أدوات التركيز والمراجعة والنشر"}
+            >
+              {workspaceToolsOpen ? <X aria-hidden="true" /> : <><Layers aria-hidden="true" /> المزيد</>}
+            </GhostButton>
+            {/* «تركيز» و«حفظ العرض الحالي» في قائمة العروض وحدها (المالك 2026-11-14). */}
+            {/* باب «تجربة آمنة» الظاهر: المرشد يشير إليه هنا قبل التجربة، وإلى شريطها بعد بدئها. */}
+            {workspaceToolsOpen && !practiceMode && !phoneReadOnly && mode === "schedule" ? <GhostButton
+              type="button"
+              data-guide-target="schedule.practice"
+              onClick={() => window.dispatchEvent(new CustomEvent("schedule-smart-guide-command", { detail: { scope: "schedule", type: "practice.start", featureId: "schedule.practice" } }))}
+              title="جرّب السحب والتعديل والحذف على نسخة مؤقتة؛ لا يتغير الجدول الحقيقي"
+            >
+              <FlaskConical aria-hidden="true" /> تجربة آمنة
+            </GhostButton> : null}
+            {workspaceToolsOpen ? <GhostButton data-guide-target="schedule.tool.review" type="button" onClick={() => setReviewOpen(true)} title="فحص الجدول كاملاً قبل الاعتماد">
+              <ClipboardCheck /> مراجعة الاعتماد
+            </GhostButton> : null}
+            {workspaceToolsOpen && filterTerm ? <GhostButton
+              type="button"
+              data-guide-ignore="أداة قراءة فقط: تعرض النوافذ الأسبوعية المشتركة ولا تغيّر الجدول"
+              onClick={() => setMeetingOpen(true)}
+              title="اختر أساتذة ليعرض الجدول النوافذ الأسبوعية التي يتفرغون فيها معاً"
+            >
+              <CalendarSearch aria-hidden="true" /> متى نلتقي؟
+            </GhostButton> : null}
+            {/* «تحويل هيئة التدريب» انتقل إلى «أدوات الجدول ← الأساتذة» بنسخته الآمنة وتراجعه. */}
+            {workspaceToolsOpen ? <GhostButton
+              type="button"
+              data-guide-target="schedule.tool.data"
+              onClick={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab(undefined); setTransferOpen(true); } }}
+              title="التخطيط والأساتذة والملفات"
+            >
+              <ArrowLeftRight /> أدوات الجدول
+            </GhostButton> : null}
+            {/* Borrowing a room from another department only means something while
+                the term is still being taught. On a term marked as finished the
+                whole market is withdrawn rather than left to offer windows in a
+                week nobody will attend. */}
+            {workspaceToolsOpen && !practiceMode && mode === "schedule" && workspaceReady && filterCollege && filterSection && filterTerm && !selectedTermClosed ? (
+              <HallBarterBoard
+                collegeId={filterCollege}
+                sectionId={filterSection}
+                termId={filterTerm}
+                liveSerial={liveFeedSerial}
+                openSignal={barterOpenSignal}
+                onReservationsChange={setHallBarterReservations}
+                onPendingChange={setBarterInbox}
+              />
+            ) : null}
+          </div>
+        </div>
+      </Surface>
+      {/* ── شريط الاعتماد ───────────────────────────────────────────────────
+          يقف تحت أدوات الجدول وفوقه: أوّل ما تقع عليه العين بعد اختيار
+          القسم، وآخرُ ما يُقرأ قبل النظر في المواعيد. ولا يرسم شيئاً حين
+          لا ينتظر صاحبه شيء — فالهدوء هو الحال الطبيعية لا الاستثناء. */}
+      {/* في التجربة الآمنة لا توقيعَ ولا إرسال ولا ملاحظات: الشريط يكتب في سجل الاعتماد الحقيقي. */}
+      {mode === "schedule" && practiceMode && filterCollege && filterSection && filterTerm ? (
+        <div className="practice-approval-paused" role="status">شريط الاعتماد موقوف أثناء التجربة الآمنة؛ يعود عند الخروج منها.</div>
+      ) : null}
+      {mode === "schedule" && !practiceMode && filterCollege && filterSection && filterTerm
+        && !termIsArchive(terms.find(row => Number(row.AdTermId) === Number(filterTerm)), terms) ? (
+        <ApprovalBar
+          collegeId={filterCollege}
+          sectionId={filterSection}
+          termId={filterTerm}
+          signatureStage={approvalStage}
+          canSign={canSign}
+          powerAdmin={Boolean(user?.IsAdminUser || user?.IsRootAdmin)}
+          demoMode={Boolean(user?.IsDemo)}
+          /* ── الشريط يسمع ما يقع في الجدول تحته ──────────────────────────
+             تعديلُ موعدٍ يغيّر سجلَّ الاعتماد على الخادم: جدولٌ مقبول يعود
+             جولةً جديدة، وشعبةٌ تُضاف بعد التوقيع تنتظر إقراراً. وكان الشريط
+             لا يقرأ إلا عند تبدّل القسم أو الفصل — فيبقى يقول «معتمد» بعد أن
+             زال الاعتماد، وهو بالضبط الخبرُ الذي وُجد ليقوله. */
+          refreshSignal={liveFeedSerial}
+          canEditCourses={permissions.includes(6)}
+          onOpenRow={id => { const target = rows.find(item => Number(item.id) === id); if (target) openEdit(target); }}
+          onChanged={() => setLiveFeedSerial(value => value + 1)}
+          onSigned={onOpenQueryCentre}
+          onLockChange={setApprovalLock}
+          onOpenNotes={onNavigate ? () => onNavigate("scheduleChanges") : undefined}
+          onOpenCourses={onNavigate ? () => onNavigate("courses") : undefined}
+          onOpenInstructors={() => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab("roster"); setTransferOpen(true); } }}
+          onStudentGaps={setStudentGaps}
+          onPlanningGaps={setPlanningGaps}
+        />
+      ) : null}
+      {/* تنبيه النصاب: شارةٌ صغيرة تظهر فقط إن فعّل المسؤول الميزة وتجاوز عضوٌ نصابه؛ قراءةٌ فقط ولا تمنع تعديلاً. */}
+      {mode === "schedule" && filterCollege && filterSection && filterTerm ? (
+        <TeachingLoadNotice collegeId={filterCollege} sectionId={filterSection} termId={filterTerm} refreshSignal={liveFeedSerial + rows.length} />
+      ) : null}
+      <ScheduleExperienceLayer experience={experience} />
+      {(rowsLoading && !rows.length) || rowsForeign ? (
+        <Surface className="sched-skeleton-surface">
+          <ScheduleSkeleton viewMode={viewMode} />
+        </Surface>
+      ) : presentationMode ? (
+        <CinemaView />
+      ) : duoSplit && viewMode !== "rooms" ? (
+        <div className="duo-split"><div className="duo-split-week">{schedWeekPane}</div><aside className="duo-split-list" aria-label="قائمة المواعيد">{schedListPane}</aside></div>
+      ) : viewMode === "list" ? (
+        <>{schedListPane}</>
+      ) : viewMode === "rooms" ? (
+        <Surface className="rooms-surface" data-guide-target="schedule.rooms.board">
+          {(() => {
+            /* --- The paper timetable, alive -----------------------------------
+               The sheet this program replaces lists rooms as rows and the day
+               as columns of hours — the mind of the building itself. Same here:
+               room is now a five-day card: the paper's day column becomes five
+               living lanes sharing one hour line. A reader can still fold it
+               down to one day, but the default finally answers the real room
+               question: what happens here across the whole week? */
+            const { displayDays, allBuildings, allRooms, byDayRoom, byDayRoomLayout, noRoomByDay, noRoomLayout, roomCounts, hourMarks, span } = roomsMatrix;
+            /* Pinning rooms narrows the matrix to the ones being worked on —
+               a building's four labs instead of every room in the college. */
+            const tracedRooms = moveTraces
+              .filter(trace => trace.roomKey !== "|")
+              .map(trace => ({
+                key: trace.roomKey,
+                building: trace.roomBuilding,
+                hall: trace.roomHall,
+                roomCode: trace.roomBuilding,
+                roomHall: trace.roomHall,
+                buildingKey: trace.roomBuildingKey,
+                hallKey: trace.roomHallKey,
+                label: trace.roomLabel,
+              }));
+            // Keep a room on screen for the seven-second afterglow even if the
+            // moved lecture was its last appointment. Without this merge the
+            // source row vanished at the exact instant we tried to say
+            // «نُقل من هنا», which made room-to-room moves feel less physical
+            // than the week view.
+            const roomsWithAfterglow = [...new Map(
+              [...allRooms, ...tracedRooms].map(room => [room.key, room] as const),
+            ).values()].sort(byRoomIdentity);
+            const buildingScopedRooms = matrixBuildings.size
+              ? roomsWithAfterglow.filter(room => matrixBuildings.has(room.buildingKey))
+              : roomsWithAfterglow;
+            /* البحث يفهم الحاجة («٤٠ مقعداً الأحد ١٠»): ما فهمه شرطٌ، وما بقي نصٌّ يُطابَق على رمز القاعة.
+               قاعةٌ لا تناسب الحاجة تخفت في اللوحة (أو تُطوى بزرٍّ) ولا تُحذف؛ والمجهولُ السعة/النوع يبقى مناسباً موسوماً. */
+            const boardNeed = parseRoomQuery(roomFilterQuery);
+            const boardNeedOn = Boolean(boardNeed.day || boardNeed.from || boardNeed.minCapacity || boardNeed.lab);
+            const rxDays = days.map(day => ({ key: day.key, label: day.label }));
+            const rxByKey = new Map<string, RxRoom>(rxModel.rooms.map(item => [item.key, item] as [string, RxRoom]));
+            const roomFilterKey = normalizeRoomToken(boardNeedOn ? boardNeed.rest : roomFilterQuery);
+            const roomFilterMatches = roomFilterKey
+              ? buildingScopedRooms.filter(room =>
+                  normalizeRoomToken(`${room.building} ${room.hall} ${room.label}`).includes(roomFilterKey),
+                )
+              : buildingScopedRooms;
+            const unfitKeys = new Set<string>();
+            if (boardNeedOn) {
+              for (const room of roomFilterMatches) {
+                const known = rxByKey.get(room.key);
+                if (!known || !roomMatchesNeed(known, rowsOfRoom(known, rxDays), boardNeed).match) unfitKeys.add(room.key);
+              }
+            }
+            const roomPicked = matrixRooms.size
+              ? roomFilterMatches.filter(room => matrixRooms.has(room.key))
+              : roomFilterMatches;
+            const roomList = boardNeedOn && rxHideUnfit ? roomPicked.filter(room => !unfitKeys.has(room.key)) : roomPicked;
+            // The rooms board and dense week now literally share the same
+            // horizontal clock geometry. There is no second formula to drift:
+            // same hour width, same 19:30 terminal expansion, same pixel for
+            // every label and vertical guide.
+            const ROOM_DAY_LABEL_WIDTH = Math.max(weekStripConfig.labelWidth, 96);
+            const ROOM_FIXED_WIDTH = ROOM_DAY_LABEL_WIDTH;
+            const ROOM_LANE_HEIGHT = 48;
+            const roomOffset = weekStripOffset;
+            const timelineWidth = weekStripConfig.timelineWidth;
+            const roomsCanvasWidth = ROOM_FIXED_WIDTH + timelineWidth;
+            const pct = (minutesAt: number) => (roomOffset(minutesAt) / timelineWidth) * 100;
+            const roomSpanPct = (from: number, to: number) => Math.max(0.18, ((roomOffset(to) - roomOffset(from)) / timelineWidth) * 100);
+            const trackHeight = (lanes: number) => Math.max(54, 8 + Math.max(1, lanes) * ROOM_LANE_HEIGHT);
+            const roomTraceStyle = (trace: { from: number; to: number }): React.CSSProperties => {
+              // Use the exact same positioning system as renderTrackCard
+              // to ensure the trace is always bound to the original slot geometry.
+              return {
+                right: `${pct(trace.from)}%`,
+                width: `${Math.max(0.18, roomSpanPct(trace.from, trace.to))}%`,
+              };
+            };
+            const layoutFor = (day: DayKey, roomKey: string) => byDayRoomLayout.get(`${day}|${roomKey}`) || { items: [], lanes: 1 };
+            const renderTrackCard = (row: FSchedule, sourceDay: DayKey, placement?: { lane: number }) => {
+              const course = courseById.get(row.AdCourseId);
+              const instructor = instructorById.get(row.AdInstructorId);
+              const code = String(course?.CourseCode || "").trim() || "—";
+              const title = row.AdCourseName || course?.CourseName || code;
+              const who = instructor?.AdInstructorName ? firstLast(instructor.AdInstructorName) : "بدون أستاذ";
+              const activeRoomDays = days.filter(day => Boolean((row as any)[day.key]));
+              const dayNames = activeRoomDays.map(day => day.label).join(" · ") || "بلا يوم";
+              const undoId = recentMoves[row.id];
+              const undoEntry = undoId ? undoLog.find(item => item.id === undoId && !item.usedAt) : null;
+              const actualFrom = mins(row.fstarttime), actualTo = mins(row.fendtime);
+              const cardStyle: React.CSSProperties = {
+                ["--hue" as any]: hueFor(code, title, instructor?.AdInstructorName, placeOf(row)),
+                right: `${pct(actualFrom)}%`,
+                width: `${Math.max(0.18, roomSpanPct(actualFrom, actualTo))}%`,
+                ...(placement ? {
+                  top: `${4 + placement.lane * ROOM_LANE_HEIGHT}px`,
+                  bottom: "auto",
+                  height: "56px",
+                } : {}),
+              };
+              // The card is bound to the same drag engine the week uses, so it
+              // lifts, floats, is judged and lands with the identical behaviour
+              // — not an imitation of it.
+              const rowPending = pendingWriteIds.has(row.id);
+              const trackGrip = rowPending ? {} : physics.bindEvent(row, sourceDay as any);
+              return (
+                <article
+                  {...trackGrip}
+                  key={row.id}
+                  data-row-id={row.id}
+                  data-guide-description="بطاقة موعد داخل الجدول: اضغطها لقراءة الموعد وتحليله، أو اسحبها إلى يوم أو ساعة أو قاعة أخرى لنقلها بعد فحص التعارض."
+                  className={`rooms-card ${xrayClass(row)} ${physicsRelationClass(row)} ${draggingId === row.id ? "ripple-source" : ""} ${justChangedId === row.id ? "just-changed" : ""} ${liveClash.ids.has(row.id) ? "live-clash" : ""} ${outsideClash.notes[row.id] ? "live-clash-outside" : ""} ${physicsActive && physicsOrigin?.id === row.id ? "physics-source-lift" : ""} ${keyMove?.rowId === row.id ? "week-keymove-source" : ""} ${rowPending ? "schedule-row-pending" : ""} ${hueFocusClass(row)}`}
+                  style={cardStyle}
+                  draggable={!physics.supported && !rowPending && !dragBlocked}
+                  onDragStart={(e) => {
+                    if (approvalLock) { e.preventDefault(); setPhysicsNotice(approvalLock); return; }
+                    e.dataTransfer.setData("text/schedule-id", String(row.id));
+                    e.dataTransfer.effectAllowed = "move";
+                    beginRipple(row);
+                  }}
+                  onDragEnd={clearRipple}
+                  title={`${title} · ${withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}`}
+                  aria-label={`${title} · ${withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))} · ${dayNames} · ${formatScheduleTimeRange(row.fstarttime, row.fendtime)}${liveClash.ids.has(row.id) ? " · يوجد تعارض" : ""}`}
+                  onPointerDown={(e) => {
+                    pressOrigin.current = { x: e.clientX, y: e.clientY }; explainApprovalLock();
+                    if (rowPending) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setPhysicsNotice("هذا الموعد ما زال بانتظار تثبيت نقله السابق. يمكنك سحب بقية المواعيد الآن، ثم العودة إليه بعد اكتمال الحفظ.");
+                      return;
+                    }
+                    trackGrip.onPointerDown?.(e);
+                  }}
+                  onClick={(e) => {
+                    if (rowPending || physics.didDrag() || physicsActive) return;
+                    const from = pressOrigin.current;
+                    if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
+                    setRxInfoId(row.id);
+                  }}
+                  onPointerEnter={(e) => { if (!physicsActive) openPeek(row, e.currentTarget); }}
+                  onPointerLeave={() => closePeek(row.id)}
+                  onFocus={(e) => openPeek(row, e.currentTarget)}
+                  onBlur={() => closePeek(row.id)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { setRxInfoId(row.id); return; }
+                    if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); pickUpWithKeyboard(row); }
+                  }}
+                >
+                  <GripVertical data-physics-handle="true" className="rooms-drag-handle" aria-hidden="true" />
+                  <div className="rooms-identity-line">
+                    <b>{courseLabel(title, 0.82).text}</b>
+                    <em dir="ltr">{code}</em>
+                  </div>
+                  <span className="schedule-instructor-with-badge" title={withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(row.AdInstructorId))}>{who}{visitingIds.has(row.AdInstructorId) ? <VisitingBadge compact /> : null}</span>
+                  {undoEntry ? (
+                    <button
+                      type="button"
+                      className="week-moved-pill"
+                      data-guide-target="schedule.undo"
+                      title={`${undoEntry.label} — اضغط للتراجع`}
+                      onClick={(e) => { e.stopPropagation(); void runUndoEntry(undoEntry); setRecentMoves(current => { const next = { ...current }; delete next[row.id]; return next; }); }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <Undo2 aria-hidden="true" />تراجع
+                    </button>
+                  ) : null}
+                </article>
+              );
+            };
+            const trackDrop = (building: string, hall: string, day: DayKey) => async (e: React.DragEvent<HTMLDivElement>) => {
+              e.preventDefault();
+              const id = Number(e.dataTransfer.getData("text/schedule-id"));
+              const row = rows.find(item => item.id === id);
+              if (!row) return;
+              const track = e.currentTarget.getBoundingClientRect();
+              /* RTL: the track starts at its right edge; the drop's share of the
+                 width, snapped to the half hour, is the new start. */
+              const share = Math.min(1, Math.max(0, (track.right - e.clientX) / track.width));
+              const start = timeFromMins(Math.round((gridWindow.start + share * span) / SCHEDULE_SLOT_MINUTES) * SCHEDULE_SLOT_MINUTES);
+              await commitRoomMove(row, day, start, building, hall);
+            };
+            /* ── البصمات: ما يقرؤه رسمُ القاعة ومعالجاتُها، فلا تُعاد قاعةٌ لم يتغيّر منه شيء (RoomsBoard.tsx) ── */
+            roomsDropRef.current = trackDrop;
+            roomsNowRef.current = { minutes: nowMinutes, start: gridWindow.start, end: gridWindow.end, pct, clock: minutesAt => scheduleClockForDisplay(timeFromMins(minutesAt)) };
+            const fieldLive = Boolean(physics.state.target) || !dragFieldIdle || suggestionRank.size > 0 || Object.keys(physicsField).length > 0;
+            const slotSigFor = (roomCode: string, roomHall: string, dayKey: DayKey) =>
+              fieldLive ? timeSlots.map(slot => physicsSlotClass(dayKey, slot, `${roomCode}|${roomHall}`)).join("\u0001") : "";
+            const roomsGlobalSig = [
+              objectId(rows), objectId(courseById), objectId(instructorById), objectId(visitingIds), objectId(displayDays), objectId(timeSlots),
+              objectId(roomsSlotGeo), objectId(weekStripConfig), objectId(gridWindow), matrixDay, hueBy, physicsActive, physics.supported, dragBlocked,
+              String(approvalLock || ""), mode, editor, picking, presentationMode, todayKey,
+            ].join("\u0003");
+            const roomCardSig = (row: FSchedule) => {
+              const course = courseById.get(row.AdCourseId);
+              const instructor = instructorById.get(row.AdInstructorId);
+              const code = String(course?.CourseCode || "").trim() || "—";
+              const title = row.AdCourseName || course?.CourseName || code;
+              const undoId = recentMoves[row.id];
+              const undoEntry = undoId ? undoLog.find(item => item.id === undoId && !item.usedAt) : null;
+              return `${objectId(row)}|${pendingWriteIds.has(row.id) ? 1 : 0}${draggingId === row.id ? 1 : 0}${justChangedId === row.id ? 1 : 0}${liveClash.ids.has(row.id) ? 1 : 0}${outsideClash.notes[row.id] ? 1 : 0}${physicsActive && physicsOrigin?.id === row.id ? 1 : 0}${keyMove?.rowId === row.id ? 1 : 0}|${hueFor(code, title, instructor?.AdInstructorName, placeOf(row))}|${xrayClass(row)}|${physicsRelationClass(row)}|${hueFocusClass(row)}|${undoEntry ? undoEntry.id : ""}`;
+            };
+            const roomSig = (room: { key: string; building: string; hall: string; label: string; roomCode: string; roomHall: string }) => {
+              const parts: string[] = [roomsGlobalSig, room.key, room.building, room.hall, room.label, room.roomCode, room.roomHall, unfitKeys.has(room.key) ? "unfit" : ""];
+              for (const day of displayDays) {
+                const layout = byDayRoomLayout.get(`${day.key}|${room.key}`);
+                parts.push(String(layout ? objectId(layout) : 0), slotSigFor(room.roomCode, room.roomHall, day.key as DayKey));
+                if (layout) for (const item of layout.items) parts.push(roomCardSig(item.row));
+              }
+              for (const trace of moveTraces) if (trace.roomKey === room.key) parts.push(`${trace.key}:${trace.dayKey}:${trace.from}:${trace.to}:${trace.label}`);
+              if (paint?.trackKey?.startsWith(`${room.key}|`)) parts.push(`${paint.trackKey}:${paint.from}:${paint.to}`);
+              return parts.join("\u0002");
+            };
+            /* ── مستكشف القاعات: المباني والقاعات في قائمتين، وأسبوعُ القاعة يُرسَم بجدول اللوحة نفسه عند فتحه ── */
+            const rxRooms: RxRoom[] = [
+              ...rxModel.rooms,
+              ...tracedRooms
+                .filter(trace => !rxModel.rooms.some(item => item.key === trace.key))
+                .map(trace => ({ key: trace.key, buildingKey: trace.buildingKey, label: displayRoomBadge(trace), building: trace.building, perDay: days.map(() => []), occupancy: 0, lectures: 0 })),
+            ];
+            const rxRow = rxInfoId != null ? rows.find(item => item.id === rxInfoId) : undefined;
+            const rxInfoNode = rxRow ? (() => {
+              const course = courseById.get(rxRow.AdCourseId);
+              const instructor = instructorById.get(rxRow.AdInstructorId);
+              const code = String(course?.CourseCode || "").trim() || "—";
+              const title = rxRow.AdCourseName || course?.CourseName || code;
+              const rowDays = days.filter(day => Boolean((rxRow as any)[day.key]));
+              const here = roomIdentity(rxRow.AdRoomCode, rxRow.AdRoomHall);
+              const undoId = recentMoves[rxRow.id];
+              const undoEntry = undoId ? undoLog.find(item => item.id === undoId && !item.usedAt) : null;
+              const sourceDay = (rowDays[0]?.key || days[0].key) as DayKey;
+              return (
+                <RoomsInfoBar
+                  title={title}
+                  code={code}
+                  who={withVisitingSuffix(instructor?.AdInstructorName || "بدون أستاذ", visitingIds.has(rxRow.AdInstructorId))}
+                  when={`${rowDays.map(day => day.label).join(" · ") || "بلا يوم"} ${formatScheduleTimeRange(rxRow.fstarttime, rxRow.fendtime)}`}
+                  place={here.label ? `القاعة ${here.label}` : "بلا قاعة"}
+                  canMove={!phoneReadOnly && !dragBlocked && Boolean(rxRow.fstarttime)}
+                  undo={undoEntry ? { label: `${undoEntry.label} — اضغط للتراجع`, run: () => { void runUndoEntry(undoEntry); setRecentMoves(current => { const next = { ...current }; delete next[rxRow.id]; return next; }); } } : null}
+                  onDetails={() => { void openContext(rxRow); }}
+                  onClose={() => setRxInfoId(null)}
+                  moveOptions={() => rxRooms
+                    .filter(item => !here.buildingKey || item.buildingKey === here.buildingKey)
+                    .map(item => {
+                      const known = roomsWithAfterglow.find(room => room.key === item.key);
+                      const cell = whyNotCell({
+                        subject: rxRow, days, slots: timeSlots, gridEnd: gridWindow.end, mins,
+                        buildCandidate: (source, target) => buildPhysicsTargetCandidate(source, { ...(target as any), label: "", room: { code: known?.roomCode || "", hall: known?.roomHall || "" } }),
+                        blockers: localPhysicsBlockers as any,
+                      }, sourceDay, rxRow.fstarttime);
+                      /* تبديلُ القاعة لا يغيّر انشغالَ الأستاذ: تعارضُه إن وُجد قائمٌ قبل النقل وبعده، فلا يمنع هذه القائمة (ويظهر في تأكيد النقل نفسه). */
+                      const hard = cell.reasons.find(reason => WHY_META[reason.kind].hard && reason.kind !== "instructor");
+                      return { key: item.key, label: item.label, current: item.key === here.key, free: !hard, reason: hard ? WHY_META[hard.kind].label : "" };
+                    })}
+                  onMove={async (key) => {
+                    const target = roomsWithAfterglow.find(room => room.key === key);
+                    if (!target) return;
+                    await commitRoomMove(rxRow, sourceDay, rxRow.fstarttime, target.roomCode, target.roomHall);
+                    await new Promise(resolve => window.setTimeout(resolve, 80));
+                    const moved = liveCmd.current.rows.find(item => item.id === rxRow.id);
+                    if (moved && roomIdentity(moved.AdRoomCode, moved.AdRoomHall).key === key) setRxGoto({ key, n: Date.now() });
+                  }}
+                />
+              );
+            })() : null;
+            const boardTools = (hueLegend.length > 1 || scheduledVisitingIds.size ? (
+                  <div className="week-legend rooms-legend" role="group" aria-label="مفتاح ألوان المباني والقاعات">
+                    <div className="week-legend-basis" role="group" aria-label="معنى اللون">
+                      {([
+                        { key: "course", label: "المقررات" },
+                        { key: "instructor", label: "الأساتذة" },
+                        { key: "room", label: "المباني والقاعات" },
+                      ] as const).map(basis => (
+                        <button
+                          key={basis.key}
+                          type="button"
+                          data-guide-ignore="تغيير أساس ألوان المباني والقاعات عرض بصري فقط"
+                          className={hueBy === basis.key ? "is-on" : ""}
+                          aria-pressed={hueBy === basis.key}
+                          onClick={() => changeHueBasis(basis.key)}
+                          title={`لوّن المباني والقاعات حسب ${basis.label}`}
+                        >
+                          {basis.label}
+                        </button>
+                      ))}
+                      <b className="num">
+                        {legendQuery
+                          ? `${legendShown.length.toLocaleString("ar-KW-u-nu-latn")}/${hueLegend.length.toLocaleString("ar-KW-u-nu-latn")}`
+                          : hueLegend.length.toLocaleString("ar-KW-u-nu-latn")}
+                      </b>
+                    </div>
+                    {visitingFilterButton()}
+                    {legendSearchable ? (
+                      <span className="week-legend-search">
+                        <Search aria-hidden="true" />
+                        <input
+                          type="search"
+                          value={legendQuery}
+                          onChange={e => setLegendQuery(e.target.value)}
+                          placeholder={hueBy === "course" ? "ابحث عن مقرر…" : hueBy === "room" ? "ابحث عن قاعة…" : "ابحث عن أستاذ…"}
+                          aria-label="تصفية مفتاح الألوان"
+                        />
+                      </span>
+                    ) : null}
+                    <ScheduleLegendScroller memoryKey={`${viewMode}:${hueBy}`} onWheel={horizontalWheel} label="استخدم السهمين أو عجلة الماوس للتنقل يميناً ويساراً">
+                      {legendShown.length === 0 ? <span className="week-legend-none">لا مطابقة</span> : null}
+                      {legendShown.map(item => {
+                        const folded = hueHidden.has(item.key);
+                        return (
+                          <span className={`week-legend-item ${folded ? "is-folded" : ""}`} key={item.key} style={{ ["--hue" as any]: item.hue }}>
+                            <button
+                              type="button"
+                              data-guide-ignore="تصفية بصرية لمفتاح ألوان المباني والقاعات"
+                              className={`week-legend-chip ${hueFocus.has(item.key) ? "is-on" : ""}`}
+                              aria-pressed={hueFocus.has(item.key)}
+                              disabled={folded}
+                        title={`${legendText(item)} — ${countOf(item.count, AR.appointment)} · اضغط لتصفية المباني والقاعات عليه؛ اختيار غيره يمسح هذا الفلتر`}
+                              onClick={() => toggleHueFocus(item.key)}
+                            >
+                              <i aria-hidden="true" /><span>{item.label}{item.visiting ? <VisitingBadge compact /> : null}</span><em className="num">{item.count.toLocaleString("ar-KW-u-nu-latn")}</em>
+                              {needMark(item.key)}
+                            </button>
+                            <button
+                              type="button"
+                              data-guide-ignore="إخفاء عنصر من مفتاح الألوان مؤقتاً عرض بصري فقط"
+                              className="week-legend-eye"
+                              aria-pressed={folded}
+                              aria-label={folded ? `إظهار ${legendText(item)}` : `إخفاء ${legendText(item)} من المباني والقاعات`}
+                              title={folded ? `إظهار ${legendText(item)}` : `إخفاء ${legendText(item)} مؤقتاً — لا يُحذف شيء`}
+                              onClick={() => toggleHueHidden(item.key)}
+                            >
+                              {folded ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </ScheduleLegendScroller>
+                    {hueHidden.size ? (
+                      <button type="button" className="week-legend-clear is-folded-clear" onClick={() => setHueHidden(new Set())}>
+                        <EyeOff aria-hidden="true" />أعد المطوي <b className="num">{hueHidden.size.toLocaleString("ar-KW-u-nu-latn")}</b>
+                      </button>
+                    ) : null}
+                    {hueFocus.size ? (
+                      <button type="button" className="week-legend-clear" data-guide-ignore="مسح المرشح البصري لمفتاح الألوان فقط" onClick={() => setHueFocus(new Set())}>
+                        <X aria-hidden="true" />عرض الكل
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null);
+            const boardDragNote = (physicsActive && dragComparison ? (
+                    <div className="rooms-drag-compare" aria-live="polite">
+                      <GripVertical aria-hidden="true" />
+                      <span><b dir="ltr">{dragComparison.before}</b><ChevronLeft aria-hidden="true" /><b dir="ltr">{dragComparison.after}</b></span>
+                      <em dir="ltr">{dragComparison.place}</em>
+                    </div>
+                  ) : null);
+            const boardWeek = ((weekKeys, includeNone) => {
+                    const weekRooms = weekKeys.map(key => roomsWithAfterglow.find(room => room.key === key)).filter(Boolean) as typeof roomsWithAfterglow;
+                    return (
+                <>
+                <div
+                  ref={roomsRulerScrollRef}
+                  className="rooms-ruler-scroll"
+                  onPointerDown={(e) => claimScroller(e.currentTarget)}
+                  onTouchStart={(e) => claimScroller(e.currentTarget)}
+                  onWheel={(e) => claimScroller(e.currentTarget)}
+                  onScroll={(e) => syncRoomsScroll("ruler", e.currentTarget.scrollLeft, e.currentTarget)}
+                  aria-label="شريط ساعات القاعات"
+                >
+                  <div
+                    className={`rooms-scale ${matrixDay === "week" ? "rooms-scale-week" : ""}`}
+                    style={{
+                      ["--rooms-canvas-width" as any]: `${roomsCanvasWidth}px`,
+                      ["--rooms-day-label" as any]: `${ROOM_DAY_LABEL_WIDTH}px`,
+                      ["--rooms-fixed-label" as any]: `${ROOM_FIXED_WIDTH}px`,
+                    }}
+                    aria-hidden="true"
+                  >
+                    <small className="rooms-scale-identity">
+                      <span className="schedule-ruler-day-title">{matrixDay === "week" ? "اليوم" : ""}</span>
+                    </small>
+                    <div style={{ width: `${timelineWidth}px` }}>
+                      {timeSlots.map(slot => (
+                        <i
+                          key={`rooms-scale-line-${slot}`}
+                          className={`rooms-scale-line schedule-time-line ${mins(slot) % 60 === 0 ? "major rooms-scale-line-major" : "half rooms-scale-line-half"} ${slot === SCHEDULE_DAY_END_TIME ? "terminal rooms-scale-line-terminal" : ""}`}
+                          style={{ insetInlineStart: `${roomOffset(mins(slot))}px` }}
+                        />
+                      ))}
+                      {hourMarks.filter(mark => mark !== gridWindow.end).map(mark => (
+                        <span
+                          className={`schedule-time-label ${mark === gridWindow.start ? "schedule-time-label-start" : ""}`}
+                          key={mark}
+                          style={{ right: `${roomOffset(mark)}px` }}
+                          dir="ltr"
+                        >
+                          {scheduleClockForDisplay(timeFromMins(mark))}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  ref={roomsMainScrollRef}
+                  className="rooms-main-scroll"
+                  onPointerDown={(e) => claimScroller(e.currentTarget)}
+                  onTouchStart={(e) => claimScroller(e.currentTarget)}
+                  onWheel={(e) => claimScroller(e.currentTarget)}
+                  onScroll={(e) => syncRoomsScroll("main", e.currentTarget.scrollLeft, e.currentTarget)}
+                >
+                  <div
+                    className="rooms-rows"
+                    style={{
+                      ["--rooms-canvas-width" as any]: `${roomsCanvasWidth}px`,
+                      ["--rooms-day-label" as any]: `${ROOM_DAY_LABEL_WIDTH}px`,
+                      ["--rooms-fixed-label" as any]: `${ROOM_FIXED_WIDTH}px`,
+                    }}
+                  >
+                  {weekRooms.map(room => (
+                    <RoomsRoomBoundary key={room.key} sig={roomSig(room)} draw={() => (
+                    <section className={`rooms-week-room ${unfitKeys.has(room.key) ? "is-unfit" : ""}`} aria-label={`القاعة ${room.label}${unfitKeys.has(room.key) ? " — لا تناسب الحاجة" : ""}`} title={room.label}>
+                      <div className="rooms-week-days">
+                        {displayDays.map((day, dayIndex) => {
+                          const roomLayout = layoutFor(day.key as DayKey, room.key);
+                          const roomTrackHeight = trackHeight(roomLayout.lanes);
+                          return (
+                            <div className="rooms-row" key={`${room.key}|${day.key}`} style={{ minHeight: roomTrackHeight }}>
+                              <small
+                                className={`rooms-day-label ${dayIndex === 0 ? "has-room-identity" : ""}`}
+                                title={dayIndex === 0 ? `مبنى ${room.building || "—"} · قاعة ${room.hall || room.label || "—"} · ${day.label}` : day.label}
+                              >
+                                {dayIndex === 0 ? (
+                                  <span className="rooms-room-identity-compact" aria-label={`مبنى ${room.building || "—"}، قاعة ${room.hall || room.label || "—"}`}>
+                                    <Building2 aria-hidden="true" />
+                                    <b dir="ltr">{room.building || "—"}</b>
+                                    <i aria-hidden="true">›</i>
+                                    <strong dir="ltr">{room.hall || room.label || "—"}</strong>
+                                  </span>
+                                ) : null}
+                                <span className="rooms-day-name">{day.label}</span>
+                              </small>
+                              <div
+                                className="rooms-track"
+                                style={{ height: roomTrackHeight }}
+                                data-physics-day-column="true"
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => roomsDropRef.current(room.roomCode, room.roomHall, day.key as DayKey)(e)}
+                              >
+                                <RoomsTrackGrid
+                                  geo={roomsSlotGeo}
+                                  day={day.key}
+                                  dayLabel={day.label}
+                                  placeLabel={room.label}
+                                  roomCode={room.roomCode}
+                                  roomHall={room.roomHall}
+                                  roomAttr={`${room.roomCode}|${room.roomHall}`}
+                                  trackKey={`${room.key}|${day.key}`}
+                                  slotClassSig={slotSigFor(room.roomCode, room.roomHall, day.key as DayKey)}
+                                  handlers={roomsSlotHandlers}
+                                />
+                                {moveTraces
+                                  .filter(trace => trace.dayKey === day.key && trace.roomKey === room.key)
+                                  .map(trace => (
+                                    <div
+                                      key={`room-trace-${trace.key}`}
+                                      className="week-move-trace rooms-move-trace"
+                                      style={roomTraceStyle(trace)}
+                                      aria-hidden="true"
+                                      title={`${trace.label} · نُقل من هنا`}
+                                    >
+                                      <span><CornerUpRight aria-hidden="true" />نُقل من هنا</span>
+                                    </div>
+                                  ))}
+                                {paint?.trackKey === `${room.key}|${day.key}` ? (
+                                  <div className="rooms-paint" style={{ right: `${pct(mins(paint.from))}%`, width: `${Math.max(roomSpanPct(mins(paint.from), mins(paint.to)), roomSpanPct(mins(paint.from), mins(paint.from) + SCHEDULE_SLOT_MINUTES))}%` }} aria-hidden="true">
+                                    <b dir="ltr">{formatScheduleTimeRange(paint.from, paint.to)}</b><span>موعد جديد</span>
+                                  </div>
+                                ) : null}
+                                {todayKey === day.key ? <RoomsNowLine source={roomsNowRef} stamp={`${gridWindow.start}|${gridWindow.end}|${weekStripConfig.timelineWidth}`} /> : null}
+                                {roomLayout.items.map(({ row, lane }) => renderTrackCard(row, day.key as DayKey, { lane }))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                    )} />
+                  ))}
+                  {includeNone && displayDays.some(day => (noRoomByDay.get(day.key as DayKey) || []).length || moveTraces.some(trace => trace.roomKey === "|" && trace.dayKey === day.key)) ? (
+                    <section className="rooms-week-room rooms-row-none" aria-label="بلا قاعة" title="بلا قاعة">
+                      <div className="rooms-week-days">
+                        {displayDays.map(day => {
+                          const homelessLayout = noRoomLayout.get(day.key as DayKey) || { items: [], lanes: 1 };
+                          const homelessTrackHeight = trackHeight(homelessLayout.lanes);
+                          return (
+                          <div className="rooms-row" key={`none|${day.key}`} style={{ minHeight: homelessTrackHeight }}>
+                            <small className="rooms-day-label">{day.label}</small>
+                            <div className="rooms-track" style={{ height: homelessTrackHeight }} data-physics-day-column="true" onDragOver={(e) => e.preventDefault()} onDrop={(e) => roomsDropRef.current("", "", day.key as DayKey)(e)}>
+                              <RoomsTrackGrid
+                                geo={roomsSlotGeo}
+                                day={day.key}
+                                dayLabel={day.label}
+                                placeLabel="بلا قاعة"
+                                roomCode=""
+                                roomHall=""
+                                roomAttr="|"
+                                trackKey={`none|${day.key}`}
+                                slotClassSig={slotSigFor("", "", day.key as DayKey)}
+                                handlers={roomsSlotHandlers}
+                              />
+                              {moveTraces
+                                .filter(trace => trace.dayKey === day.key && trace.roomKey === "|")
+                                .map(trace => (
+                                  <div
+                                    key={`room-trace-${trace.key}`}
+                                    className="week-move-trace rooms-move-trace"
+                                    style={roomTraceStyle(trace)}
+                                    aria-hidden="true"
+                                    title={`${trace.label} · نُقل من هنا`}
+                                  >
+                                    <span><CornerUpRight aria-hidden="true" />نُقل من هنا</span>
+                                  </div>
+                                ))}
+                              {paint?.trackKey === `none|${day.key}` ? <div className="rooms-paint" style={{ right: `${pct(mins(paint.from))}%`, width: `${Math.max(roomSpanPct(mins(paint.from), mins(paint.to)), roomSpanPct(mins(paint.from), mins(paint.from) + SCHEDULE_SLOT_MINUTES))}%` }} aria-hidden="true"><b dir="ltr">{formatScheduleTimeRange(paint.from, paint.to)}</b><span>موعد جديد</span></div> : null}
+                              {homelessLayout.items.map(({ row, lane }) => renderTrackCard(row, day.key as DayKey, { lane }))}
+                            </div>
+                          </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ) : null}
+                  </div>
+                </div>
+                </>
+                    );
+                  });
+            const boardHint = !focusMode && !phoneReadOnly ? "اسحب لتنقل · اضغط فراغاً لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل" : "";
+            /* الكمبيوتر: اللوحة التي ترى فيها كل قاعات المبنى معاً مقابل الأوقات. الهاتف (للقراءة): قاعةٌ واحدة في المستكشف. */
+            if (!phoneReadOnly) {
+              const rxBuildingBy = new Map<string, RxBuilding>(rxModel.buildings.map(item => [item.key, item] as [string, RxBuilding]));
+              const fitCount = boardNeedOn ? roomFilterMatches.filter(room => !unfitKeys.has(room.key)).length : null;
+              return (
+                <>
+                  <div className="rooms-head">
+                    <Segmented
+                      value={matrixDay}
+                      instant
+                      options={[{ value: "week", label: "الأسبوع كامل" }, ...days.map(day => ({ value: day.key, label: day.label }))]}
+                      onChange={(value) => setMatrixDay(value as DayKey | "week")}
+                    />
+                    {boardDragNote}
+                  </div>
+                  {boardHint ? (
+                    <div className={`week-note rooms-note ${physicsActive ? "gravity-note-active" : ""}`}>
+                      <GripVertical aria-hidden="true" />
+                      <span aria-live="polite">{boardHint}</span>
+                    </div>
+                  ) : null}
+                  <RoomsBoardBar
+                    buildings={allBuildings.map(building => ({ key: building.key, label: building.label, occupancy: rxBuildingBy.get(building.key)?.occupancy ?? 0, roomCount: rxBuildingBy.get(building.key)?.roomCount ?? 0 }))}
+                    chosenBuildings={matrixBuildings}
+                    onBuilding={(key) => setMatrixBuildings(current => {
+                      if (key == null) return new Set();
+                      const next = new Set(current);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      return next;
+                    })}
+                    rooms={roomFilterMatches.map(room => ({ key: room.key, label: displayRoomBadge(room), fits: !unfitKeys.has(room.key) }))}
+                    chosenRooms={matrixRooms}
+                    onRoom={(key) => setMatrixRooms(current => {
+                      if (key == null) return new Set();
+                      const next = new Set(current);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      return next;
+                    })}
+                    query={roomFilterQuery}
+                    onQuery={setRoomFilterQuery}
+                    needText={boardNeedOn ? needLabel(boardNeed, rxDays) : ""}
+                    fitCount={fitCount}
+                    hideUnfit={rxHideUnfit}
+                    onHideUnfit={setRxHideUnfit}
+                    readOnly={phoneReadOnly}
+                  />
+                  {boardTools}
+                  {roomList.length === 0 ? <p className="rooms-filter-empty">لا توجد قاعة مطابقة.</p> : null}
+                  {boardWeek(roomList.map(room => room.key), true)}
+                  {rxInfoNode}
+                </>
+              );
+            }
+            return (
+              <>
+                <RoomsExplorer
+                  buildings={rxModel.buildings}
+                  rooms={rxRooms}
+                  days={days.map(day => ({ key: day.key, label: day.label }))}
+                  windowStart={gridWindow.start}
+                  windowEnd={gridWindow.end}
+                  noRoomCount={rxModel.noRoomCount}
+                  readOnly={phoneReadOnly}
+                  goto={rxGoto}
+                  hint={!focusMode && !phoneReadOnly ? "اسحب لتنقل · اضغط فراغاً لتضيف · Tab ثم مسافة للأسهم · تراجعٌ بعد كل نقل" : ""}
+                  info={rxInfoNode}
+                  onNavigate={() => setRxInfoId(null)}
+                  onCreate={(room, dayIndex, from) => {
+                    const known = roomsWithAfterglow.find(item => item.key === room.key);
+                    openCreate({ day: days[dayIndex].key as DayKey, start: timeFromMins(from), roomCode: known?.roomCode || "", roomHall: known?.roomHall || "" });
+                  }}
+                  dragNote={boardDragNote}
+                  tools={boardTools}
+                  renderWeek={boardWeek}
+                />
+              </>
+            );
+          })()}
+        </Surface>
+      ) : (
+        <>{schedWeekPane}</>
       )}
       {/* Shared interaction overlays live outside the individual view branches.
           Rooms and week now open the same Quick Create card, the same peek and

@@ -131,3 +131,40 @@
     white-space:nowrap;padding-inline:10px;gap:6px;font-size:13px;min-width:0;overflow:hidden;
   }
 }
+
+/* الشاشة الداخلية كاملةً بالعرض (لا وضع الكتاب) في «الجدول»: صفحةٌ واحدة بعرض الشاشة كلها،
+   الأسبوع بجانب القائمة. نعيد ضبط متغيّرات اللوحين لتصير الصفحة كلها لوحاً واحداً. */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  html[data-device="duo"] body:has(.schedule-page.duo-full){
+    --pane-gap:0px;--pane-r:100vw;--pane-l:100vw;--pane-tint:var(--canvas);
+    background:var(--canvas) !important;
+  }
+  html[data-device="duo"] body:has(.schedule-page.duo-full) .app-shell{background:var(--canvas) !important}
+  html[data-device="duo"] body:has(.schedule-page.duo-full) .mobile-topbar{width:100%;left:0;right:0;background:var(--canvas)}
+  html[data-device="duo"] body:has(.schedule-page.duo-full) .notify-bell{left:calc(60px + env(safe-area-inset-left))}
+  html[data-device="duo"] body:has(.schedule-page.duo-full) .smart-guide-fab{left:calc(106px + env(safe-area-inset-left))}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full{grid-template-columns:minmax(0,1fr);padding-inline:calc(16px + env(safe-area-inset-left)) calc(16px + env(safe-area-inset-right))}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>*{margin-inline:0}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.rooms-surface{
+    grid-column:1;grid-row:auto;position:static;height:auto;overflow:visible;-webkit-mask-image:none;mask-image:none;padding:16px;
+  }
+  html[data-device="duo"] .duo-split{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(300px,1fr);gap:14px;align-items:start}
+  html[data-device="duo"] .duo-split-week,html[data-device="duo"] .duo-split-list{min-width:0}
+  html[data-device="duo"] .duo-split-list{
+    position:sticky;top:12px;max-height:calc(100dvh - 24px - 72px);overflow:auto;overscroll-behavior:contain;
+  }
+  html[data-device="duo"] #root .duo-split .schedule-agenda-surface>.agenda-head{position:static;margin:0 0 8px;padding:0;background:none}
+}
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  html[data-device="duo"] body:has(.schedule-page.duo-full) .app-shell::before{display:none}
+}
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  /* الشاشة كاملة: البطاقات العليا صفٌّ من عمودين (المرشّحات والأدوات | الحالة)، ثم الأسبوع والقائمة بعرض الشاشة. */
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px;grid-auto-flow:row}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>*{grid-column:1 / -1}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.schedule-control{grid-column:1;grid-row:2 / span 2}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.schedule-overview-stack{grid-column:2;grid-row:2}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.approval-bar{grid-column:2;grid-row:3}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.schedule-dock,
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.hall-barter-inbox{grid-column:auto}
+}
