@@ -8,6 +8,7 @@ import {BUILD_STAMP} from "./generated/buildStamp";
 import {toEnglishDigits} from "./utils/digits";
 import {primeUniversityDay,syncUniversityDay} from "./utils/universityDayClient";
 import {unregisterAppWorkers} from "./utils/pushClient";
+import {installDockMotion} from "./utils/dockMotion";
 import {isNativeApp,isStandalonePwa} from "./utils/nativeApp";
 import {isPlatformUpdating, SERVER_BACK_EVENT, showUpdatingNotice, UPDATING_MESSAGE, UPDATING_WRITE_MESSAGE} from "./utils/updatingNotice";
 import "./index.css";
@@ -320,6 +321,7 @@ function AppRoot(){
   return <App key={epoch}/>;
 }
 createRoot(container).render(<StrictMode><ErrorBoundary><AppRoot/><EntranceOverture/></ErrorBoundary></StrictMode>);
+installDockMotion({dock:".mobile-bottom-dock",link:".mobile-dock-link",active:".mobile-dock-link.active"});
 
 // Tell the document-level boot guard that the screen is alive. It waits for a
 // real paint rather than for render() to return, because React commits later.
