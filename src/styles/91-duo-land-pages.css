@@ -1,0 +1,15 @@
+/* ==========================================================================
+   الدوو — الشاشة الداخلية عرضاً، الصفحات ذات اللوحين (85-duo-pages-panes.css). لقطة المالك 2026-11-23:
+   في «الاستعلامات» بعد التمرير صار اللوح الأيمن فارغاً.
+   السبب: اللوح الثاني يمتدّ على 60 صفّاً، وفجوة 12px بين الصفوف تضيف ≈700px فارغة إلى طول الصفحة،
+   فتتمرّر الصفحة كلها ويخرج محتوى اللوح الأول من الشاشة بينما يبقى الثاني ملتصقاً.
+   هنا: الصفوف بلا فجوة والمسافة هامشٌ تحت كل بطاقة في اللوح الأول، فلا تطول الصفحة إلا بقدر محتواها.
+   ومعه: شريط العدسات يتمرّر داخل لوحه لا عبر المفصل، و«طباعة» يظهر اسمه كاملاً.
+   ========================================================================== */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen):not(.schedule-page,.schedule-editor,.dashboard-page,[role="dialog"]){row-gap:0}
+  html[data-device="duo"] #root .content-frame>:is(.content-stack,.changes-screen):not(.schedule-page,.schedule-editor,.dashboard-page,[role="dialog"])>:not(:last-child,aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"],.sr-only){margin-bottom:12px}
+  html[data-device="duo"] #root .content-frame .lens-strip{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+  html[data-device="duo"] #root .content-frame .lens-strip::-webkit-scrollbar{display:none}
+  html[data-device="duo"] #root .query-canvas-actions>.query-report-action>.query-print-icon.has-label{width:auto;padding-inline:12px}
+}
