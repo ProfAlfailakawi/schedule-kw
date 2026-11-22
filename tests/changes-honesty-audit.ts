@@ -29,7 +29,7 @@ const routes = read("src/server/routes/instructorsRoutes.ts");
 check(/isTraineeRankName\(pickedRank\?\.name\) \? "ta" : null/.test(routes), "T3 الخادمُ يقرأ «مدرب» من الدرجة نفسها");
 
 const login = read("src/components/Login.tsx");
-check(login.indexOf("<AppHandoffEntry />") > login.indexOf("</form>") && !/ادخل بحسابك/.test(read("src/components/AppHandoffEntry.tsx").replace(/\/\*[\s\S]*?\*\//g, "")), "H1 الخيارُ بعد النموذج وبصياغةٍ هادئة لا «ادخل بحسابك»");
+check(!login.includes("AppHandoffEntry"), "H1 لا زرّ تسليم من Safari في شاشة الدخول (طلب المالك)");
 check(/border:1px solid color-mix/.test(read("src/styles/71-official-app.css")) && !/\.app-handoff-go\{[^}]*background:var\(--accent\);/.test(read("src/styles/71-official-app.css").replace(/\n/g, "")), "H2 ليس زراً رئيسياً مملوءاً");
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
