@@ -58,5 +58,14 @@ check(!/ta-trainee-names|quick-swap/.test(read("src/server/routes/scheduleToolsR
   const ta = route.slice(route.indexOf('app.get("/api/ta-trainees"'), route.indexOf("/** F3: المقررات المسموحة"));
   check(/AdInstructorCategory === "ta"/.test(ta) && /getSchedulesByScope\(\{ collegeId: scope\.collegeId/.test(ta) && /res\.json\(\{ ids \}\)/.test(ta) && !/AdInstructorName|mobile/.test(ta), "E6 المدرّبُ بتصنيفه (ta) يُعدّ ما دامت له شعبةٌ في عائلة القسم، والمعرّفاتُ وحدها");
 }
+// ── قرار المالك: الاختيار يعرض بطاقة مراجعة، والنقل لا يُحفظ إلا بزرّ «حفظ» ──
+{
+  const c = read("src/components/AppointmentQuickSwap.tsx"), sch = read("src/components/Schedules.tsx");
+  check(/onClick=\{\(\) => setPending\(\{ item, mode: "its" \}\)\}/.test(c) && /onClick=\{\(\) => setPending\(\{ item, mode: "mine" \}\)\}/.test(c), "R1 «بوقتها» و«بوقتي» يفتحان المراجعة فقط");
+  check((c.match(/onApply\(/g) || []).length === 1 && /const save = async[\s\S]{0,120}await onApply\(pending\.item, pending\.mode\)/.test(c), "R2 الحفظ من زرّ «حفظ» وحده");
+  check(/className="qs-go qs-save"[\s\S]{0,200}"حفظ"/.test(c) && /className="qs-go qs-cancel"[\s\S]{0,200}>إلغاء</.test(c), "R3 زرّا «حفظ» و«إلغاء» في البطاقة");
+  check(/<small>من<\/small>/.test(c) && /<small>إلى<\/small>/.test(c) && /facts\(after\)/.test(c) && /يتداخل مع موعدٍ آخر للأستاذ/.test(c), "R4 البطاقة: من/إلى والوقت بعد النقل وتنبيه التداخل");
+  check(/onApply=\{applyQuickSwap\}/.test(sch) && /applyQuickSwap = async \(source: QuickSwapSource, mode: "its" \| "mine"\): Promise<boolean>/.test(sch), "R5 الأب يعيد نجاح الحفظ فتُغلق البطاقة");
+}
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

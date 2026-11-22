@@ -424,16 +424,16 @@ body:has(.mini-week.is-sheet.is-open) .smart-guide-fab{opacity:0;pointer-events:
 .lecture-stick-head svg{width:16px;height:16px;color:var(--accent);transform:rotate(180deg)}
 .lecture-stick-head b{color:var(--ink);font-size:var(--t-sm)}
 .lecture-stick-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:8px}
-.lecture-stick-chip{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:48px;padding:6px 10px 6px 8px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.lecture-stick-chip{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:center;row-gap:5px;gap:8px;min-height:48px;padding:6px 10px 6px 8px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer;transition:border-color .15s,box-shadow .15s}
 .lecture-stick-chip:hover,.lecture-stick-chip:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 14%,transparent);outline:none}
 .lecture-stick-chip.is-active{border-color:var(--accent);background:var(--accent-softer)}
 .lecture-stick-side{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:var(--accent-softer);color:var(--accent)}
 .lecture-stick-side svg{width:16px;height:16px}
 .lecture-stick-copy{display:grid;gap:1px;min-width:0}
-.lecture-stick-copy b{overflow:hidden;font-size:var(--t-xs);font-weight:800;white-space:nowrap;text-overflow:ellipsis}
+.lecture-stick-copy b{font-size:var(--t-xs);font-weight:800;line-height:1.45;white-space:normal;overflow-wrap:anywhere}
 .lecture-stick-copy small{color:var(--muted);font-size:11px}
-.lecture-stick-copy time{font:700 11px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink-2)}
-.lecture-stick-room{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font:700 11px/1.3 var(--font-mono)}
+.lecture-stick-copy time{white-space:nowrap;font:700 11px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.lecture-stick-room{grid-column:2;justify-self:start;display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font:700 11px/1.3 var(--font-mono)}
 .lecture-stick-room svg{width:12px;height:12px;color:var(--muted)}
 .lecture-stick-more{justify-self:start;min-height:28px;padding:2px 12px;border:1px dashed var(--line);border-radius:999px;background:none;color:var(--accent-ink);font:inherit;font-size:var(--t-xs);font-weight:800;cursor:pointer}
 

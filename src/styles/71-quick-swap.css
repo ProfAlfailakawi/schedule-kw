@@ -42,7 +42,23 @@
 .qs-go.good{border-color:color-mix(in srgb,var(--success) 55%,var(--line))}.qs-go.good svg{color:var(--success)}
 .qs-go.bad{border-color:color-mix(in srgb,var(--danger) 55%,var(--line))}.qs-go.bad svg{color:var(--danger)}
 .qs-go:disabled{opacity:.55;cursor:progress}
+.qs-review{display:grid;gap:10px;padding:12px;border:1.5px solid color-mix(in srgb,var(--brass) 55%,var(--line));border-radius:14px;background:color-mix(in srgb,var(--brass-soft) 45%,var(--surface))}
+.qs-review-title{margin:0;font-size:var(--t-sm);font-weight:800;color:var(--ink)}
+.qs-who{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.qs-who>span{display:grid;gap:1px;min-inline-size:0;padding:6px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.qs-who>span.is-to{border-color:color-mix(in srgb,var(--success) 55%,var(--line))}
+.qs-who small,.qs-after>small,.qs-was>small{font-size:11px;font-weight:700;color:var(--muted)}
+.qs-who b{font-size:var(--t-sm);font-weight:800;color:var(--ink)}
+.qs-who>svg{inline-size:18px;block-size:18px;color:var(--muted);flex:none}
+.qs-after,.qs-was{display:grid;gap:5px;margin:0}
+.qs-was{opacity:.7}
+.qs-verdict{display:flex;align-items:center;gap:6px;margin:0;font-size:var(--t-sm);font-weight:700}
+.qs-verdict svg{inline-size:16px;block-size:16px;flex:none}
+.qs-verdict.good{color:var(--success)}.qs-verdict.bad{color:var(--danger)}
+.qs-save{border-color:var(--accent);background:var(--accent);color:var(--accent-contrast)}
+.qs-save:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 88%,black)}
+.qs-save svg{color:currentColor}
 .qs-more,.qs-empty{margin:0;padding:8px 4px;color:var(--muted);font-size:12px;text-align:center}
-.qs-btn:focus-visible,.qs-go:focus-visible,.qs-tabs button:focus-visible,.qs-close:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.qs-btn:focus-visible,.qs-go:focus-visible,.qs-save:focus-visible,.qs-tabs button:focus-visible,.qs-close:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 @media (max-width:640px){.qs-panel{position:fixed;inset-inline:12px;inset-block-start:auto;inset-block-end:calc(12px + env(safe-area-inset-bottom,0px));inline-size:auto;max-block-size:min(78dvh,620px)}}
 @media (prefers-reduced-motion:reduce){.qs-btn,.qs-go{transition:none}}

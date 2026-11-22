@@ -3744,6 +3744,14 @@
         {
           "ar": "بجانب عنوان خطوة «الوقت» في المحرّر الكامل أيقونة «تبديل سريع» تظهر بعد اختيار المقرر وأستاذٍ حقيقي (لا مدرّب ولا شاغر)، وفيها تبويبان «تدريب» و«هيئة تدريسية»: شعب القسم والفصل المختارين التي عند مدرّبٍ أو على «شاغر». تُعرض كلُّ شعب القسم والفصل (لا مقررُ الموعد وحده): مقررُ الموعد أولاً ثم «مقررات أخرى» بالاسم، وبحثٌ بالاسم أو الرمز أو رقم الشعبة حين تكثر، وأول ٦٠ فقط. لكل شعبة بطاقةٌ بأيامها حبّاتٍ ووقتها وقاعتها (بلا شريحة نصاب، بقرار المالك)، وزرّ «بوقتها» (تبقى في وقتها وقاعتها ويتبدّل صاحبها) وزرّ «بوقتي» لشعب مقرر الموعد وحدها (تأخذ أيام الموعد الجاري ووقته وقاعته)، بحلقة خضراء أو حمراء لتداخل الأستاذ لا تخفي الخيار؛ والنقل بنقرةٍ واحدة عبر مسار التعديل القائم بزرّ «تراجع»، بلا موافقةٍ تُطلب من الأستاذ ولا نصابِ مدرّبين؛ ولموعدٍ محفوظٍ شاغر خانة «أسند إلى…» تمرّ بمسار الإسناد القائم نفسه.",
           "en": "Beside the «time» step title in the full editor a «quick swap» icon appears once a course and a real instructor (not a trainee or a vacancy) are chosen, with two tabs, «trainee» and «faculty vacancy»: sections across the selected department and term held by a trainee or by a vacancy. Every section of the department and term is listed (not only the appointment course): the appointment course first, then «other courses» by name, with a search by name, code or section number and only the first 60 shown. Each section is a card with its days as pills, time and room (no load chip, by the owner decision), and has «at its time» (keeps its time and room, only the owner changes) and, for sections of the appointment course only, «at my time» (takes the days, time and room of the appointment being built), with a green or red ring for an instructor clash that never hides the choice; the move is one tap through the existing update route with an undo bar, with no approval requested from the instructor, no trainee load and no counter; a saved vacant appointment keeps its «assign to…» field through the existing assignment path."
+        },
+        {
+          "ar": "«بوقتها» و«بوقتي» في «التبديل السريع» لا ينقلان شيئاً: يعرضان بطاقةَ مراجعة (المقرر والشعبة، من المدرّب أو الشاغر إلى الأستاذ، والأيام والوقت والقاعة بعد النقل، وتنبيهُ التداخل)، ولا يُحفظ النقل إلا بزرّ «حفظ» فيها؛ و«إلغاء» يعيد إلى القائمة بلا تغيير.",
+          "en": "«at its time» and «at my time» in quick swap move nothing: they show a review card (course and section, from the trainee or vacancy to the instructor, days, time and hall after the move, and an overlap warning), and the move is saved only by its «save» button; «cancel» returns to the list unchanged."
+        },
+        {
+          "ar": "بطاقاتُ «لاصق بمحاضرتي» تعرض اسم المقرر كاملاً (يلتفّ على أكثر من سطر)، والقاعةُ في سطرٍ منفصل تحته.",
+          "en": "«stick to my lecture» cards show the full course name (wrapping onto more lines), with the hall on its own line below."
         }
       ],
       "evidence": {
@@ -4914,6 +4922,10 @@
         {
           "ar": "لا سلسلة آمنة تعرض سبباً واحداً بأيقونة وكلمة.",
           "en": "When no safe chain exists a single reason is shown with an icon and a word."
+        },
+        {
+          "ar": "زرّ «حلّ بسلسلة» لا يظهر إلا بعد فحصٍ مسبق بالمحرّك نفسه يجد سلسلةً فعلاً؛ تعارضٌ بلا سلسلة آمنة لا يعرض الزرّ.",
+          "en": "The chain-solve button appears only after a pre-check with the same engine actually finds a chain; a conflict without a safe chain shows no button."
         }
       ],
       "evidence": {
