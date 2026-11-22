@@ -100,3 +100,17 @@
   }
   html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .mobile-bottom-dock{right:auto;left:calc((var(--duo-land-col) - 60px) / 2)}
 }
+/* عرضٌ أقصر (أقل من 620pt): العمود لا يتّسع للتنقّل و«تبادل» والأدوات معاً دون تراكب،
+   فتصير الأدوات و«تبادل» صفّاً أفقياً في ركن المحتوى الأسفل بجوار العمود، والتنقّل وحده في العمود. */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:619.98px){
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body .schedule-dock{
+    flex-direction:row;width:auto;max-width:none;
+    right:calc(var(--duo-land-col) + 8px);bottom:calc(12px + env(safe-area-inset-bottom));
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    right:calc(var(--duo-land-col) + 8px + 184px) !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) #root .content-stack.schedule-page.duo-full{padding-bottom:84px !important}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .schedule-dock{right:auto;left:calc(var(--duo-land-col) + 8px)}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] .hall-barter-inbox:not(.hall-barter-inbox-decision){right:auto !important;left:calc(var(--duo-land-col) + 8px + 184px) !important}
+}
