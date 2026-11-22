@@ -77,5 +77,13 @@ check(/schedule-passkey-device/.test(util) && /schedule-passkey-offer/.test(util
 check(!/localStorage|sessionStorage/.test(all), "U9 لا وصولَ مباشراً إلى localStorage (يفشل في وضع الخصوصية)");
 check(!/console\./.test(all), "U9 لا طباعةَ للطرفية في الواجهة");
 
+/* U10: الدخولُ بالبصمة تلقائياً (طلب المالك، طريقة «مراس») */
+check(/safeStorage\.get\(AUTO_KEY, "session"\)/.test(entry) && /if \(!ready \|\| skipAuto\.current \|\| autoTried\(\)\) return;\s*markAutoTried\(\);/.test(entry), "U10 محاولةٌ تلقائية واحدة لكل تبويب، تُعلَّم قبل أن تبدأ");
+check(/visibilityState !== "visible"/.test(entry) && /AUTO_SETTLE_MS = 450/.test(entry), "U10 بعد ظهور الصفحة واستقرار الواجهة");
+check(/if \(ceremonyBusy\) return;/.test(entry) && /let ceremonyBusy = false;/.test(entry), "U10 لا نافذتا بصمة في آنٍ واحد");
+check(/isInvitationHash\(window\.location\.hash\)/.test(entry) && /has\("username"\)/.test(entry), "U10 لا تلقائيةَ عند فتح بطاقة دخول أو رابطٍ باسم مستخدم");
+check(/arrivedForAnotherLogin\(\)\) \{ skipAuto\.current = true; markAutoTried\(\); \}/.test(entry), "U10 بطاقةُ دخولٍ لغيره تُعلَّم في التبويب فلا تعود التلقائيةُ بعد حذف الرابط");
+check((app.match(/suppressPasskeyAuto\(\);/g) || []).length === 2, "U10 الخروجُ الصريح يوقف التلقائية في التبويب");
+check(/!\(automatic && failure\?\.failure === "cancelled"\)/.test(entry), "U10 إلغاءُ النافذة التلقائية صامت");
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
