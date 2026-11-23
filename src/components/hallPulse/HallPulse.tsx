@@ -1224,7 +1224,7 @@ export default function HallPulse(props: HallPulseProps) {
                 <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.zoomBy(0.86)} aria-label="تقريب">+</button>
                 <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.zoomBy(1.16)} aria-label="تبعيد">−</button>
                 <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.resetView()} aria-label="عودة إلى المنظر الكامل">⟲</button>
-                {exploded ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon hp-icon-wide" onClick={() => setSelected(null)} aria-label="أعد الطوابق إلى أماكنها">كل الطوابق</button> : null}
+                {exploded && !insideKey ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon hp-icon-wide" onClick={() => setSelected(null)} aria-label="أعد الطوابق إلى أماكنها">كل الطوابق</button> : null}
               </div>
               {hovered && !selected && !insideKey && cine === "off" && model.hallByKey.get(hovered) ? <div className="hp-hover" aria-hidden="true">{hoverText(model, occ, hovered, day, heat)}</div> : null}
               {cine !== "off" && nowPoint ? (

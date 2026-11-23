@@ -22,7 +22,7 @@ export interface InteriorData {
 
 const TIER = 0.17, ROOM_H = 3.6, FRONT = 3.4, BACK = 2.9, SIDE = 1.7;
 const WHITE = new THREE.Color(0xffffff), DOOR_WARM = new THREE.Color(0xffe2a8);
-const EMPTY = new THREE.Color(0x2c4d45), BRASS = new THREE.Color(0xe2bd76), OVER = new THREE.Color(0xf0674f);
+const EMPTY = new THREE.Color(0x3b655a), BRASS = new THREE.Color(0xe2bd76), OVER = new THREE.Color(0xf0674f);
 const WIN_MORNING = new THREE.Color(0xffd9ad), WIN_NOON = new THREE.Color(0xf4fff9), WIN_EVENING = new THREE.Color(0xffa672);
 
 function spillTexture() {
@@ -266,6 +266,8 @@ export class HallInterior {
     const byW = (Math.hypot(W, D * 0.7) * 0.56) / Math.tan(hfov / 2), byH = (D * 0.62 + 3.2) / Math.tan(vfov / 2) * 0.6;
     this.home = Math.max(9, byW, byH) * 1.2;
     this.radiusT = this.home; this.polT = aspect < 0.9 ? 0.78 : 0.93; this.azT = -0.62;
+    /* اللوحة الضيّقة أو القصيرة: القاعة أعلى الإطار، فلا يغطّيها التعليق السفلي. */
+    this.target.y = aspect < 1.05 ? -1.3 : 0.1;
     if (arrive && !this.opts.reduced) { this.radius = this.home * 0.42; this.pol = 1.3; this.az = -0.95; }
     else if (arrive) { this.radius = this.radiusT; this.pol = this.polT; this.az = this.azT; }
     this.settled = false;
