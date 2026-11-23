@@ -10,7 +10,7 @@
 import fs from "fs";
 import path from "path";
 import {
-  applyPlan, borrowCandidates, buildPulseModel, compatible, doubleBookings, fitClass, floorOf, hallFreeFor, layoutHalls, metrics, originalAssignment,
+  applyPlan, borrowCandidates, buildPulseModel, busiestMinute, compatible, occupantsAt, slotStats, doubleBookings, fitClass, floorOf, hallFreeFor, layoutHalls, metrics, originalAssignment,
   planDay, planMoves, suggestHalls, toggleGroup, weeklyHeat, PULSE_DAYS, type PulseDay,
 } from "../src/utils/hallPulse";
 
@@ -214,6 +214,18 @@ check(movedIds.has(pressed.id) && fitClass(pressed.students, model.hallByKey.get
   check(!specialised.options.length, "والقاعة المتخصّصة لقسمٍ آخر لا تُقترح");
 }
 
+/* ── عدّادات الرأس من الإشغال نفسه الذي يُلوَّن به المشهد ── */
+{
+  const at = occupantsAt(model, base, "fsunday", 10 * 60 + 5);
+  const st = slotStats(model, at);
+  check(st.busy === at.size && st.busy === 6, `الأحد 10:05: مشغولة ${st.busy} قاعات كما في المشهد`);
+  check(st.over === 1, "والمضغوطة واحدة (104: 41 في 30) — لا «مضغوطة 0» وقاعةٌ حمراء أمام القارئ");
+  check(st.wide === 1 && st.busy === st.over + st.full + st.fit + st.wide, "والواسعة 301، والمجموع يساوي المشغولة المعروفة السعة");
+  const best = busiestMinute(model, base, "fsunday");
+  check(best !== null && occupantsAt(model, base, "fsunday", best).size >= at.size, "أزحم لحظةٍ في اليوم لا تقل إشغالاً عن أي لحظة");
+  check(busiestMinute(model, base, "fwednesday") === null, "يومٌ بلا محاضرات: لا لحظة، فلا يُقفز إلى ساعةٍ فارغة");
+}
+
 /* حرارة الأسبوع والتخطيط المكاني */
 const heat = weeklyHeat(model, base);
 check(heat.get("id:r104")!.days[0] > 0 && heat.get("id:r104")!.days[1] === 0, "حرارة الأسبوع لكل يوم: 104 تعمل الأحد ولا تعمل الاثنين");
@@ -245,7 +257,8 @@ check(/prefers-reduced-motion/.test(pulse) && /useState\(reduced\)/.test(pulse),
 check(/changeView\("pulse"\)/.test(schedules) && /> مجسّم/.test(schedules), "«مجسّم» وضعٌ رابع في الورشة");
 const commit = schedules.slice(schedules.indexOf("const commitHallPulseMoves"), schedules.indexOf("const pulseInstructorName"));
 check(/\/api\/schedules\/move-batch/.test(commit) && !/fetch\(/.test(commit), "حفظ النبض من باب النقل المعتاد (move-batch) لا غيره");
-check(/if \(dragBlocked\)/.test(commit) && /canSave=\{canEditSchedule && !dragBlocked\}/.test(schedules), "الحفظ لمن يملك تعديل الجدول (الشاشة 7) وحده");
+check(/if \(dragBlocked\)/.test(commit) && /canSave=\{canEditSchedule && !dragBlocked && !phoneReadOnly\}/.test(schedules), "الحفظ لمن يملك تعديل الجدول (الشاشة 7) وحده، ولا حفظ على الهاتف (للقراءة)");
+check(/requested === "pulse" \? "pulse" : "list"/.test(schedules), "الهاتف: القائمة افتراضاً، و«مجسّم» يُفتح بطلبه للقراءة");
 check(/context="report"/.test(reports) && !/context="report"[\s\S]{0,400}onSaveMoves/.test(reports), "عدسة القاعات: مجسّم للقراءة فقط");
 check(/roleId==="dean"\|\|roleId==="viceDean"/.test(dashboard), "لوحة العميدين وحدها تعرض بطاقة الكلية");
 check(/context === "workshop"/.test(pulse), "لا حفظ خارج الورشة ولو مُرّر onSaveMoves");
