@@ -125,5 +125,5 @@
   html[data-device="duo"] .spotlight-body{padding-bottom:var(--s4)}
 }
 /* كل وضعيات الدوو: الرقم سطرٌ واحد يصغر بقدر خانته (كانت «1س 28د» تنكسر أيضاً في الداخلية طولاً). */
-html[data-device="duo"] .dashboard-page .deck-signals article{container-type:inline-size}
-html[data-device="duo"] .dashboard-page .deck-signals article>b{white-space:nowrap;font-size:clamp(26px,29cqi,40px)}
+html[data-device="duo"] .dashboard-page .deck-signals article{container-type:inline-size;padding-inline:var(--s4)}
+html[data-device="duo"] .dashboard-page .deck-signals article>b{white-space:nowrap;font-size:clamp(24px,30cqi,40px)}
