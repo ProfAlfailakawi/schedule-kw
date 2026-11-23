@@ -147,6 +147,7 @@ const Onboarding = safeLazy(() => import("./components/Onboarding"));
 const ScheduleChanges = safeLazy(() => import("./components/ScheduleChanges"));
 const DepartmentSchedule = safeLazy(() => import("./components/DepartmentSchedule"));
 const TermFilmPage = safeLazy(() => import("./components/TermFilm"));
+const DeptFingerprintPage = safeLazy(() => import("./components/DeptFingerprint"));
 const InstructorInbox = safeLazy(() => import("./components/InstructorInbox"));
 const StudentRegistration = safeLazy(() => import("./components/StudentRegistration"));
 const PlanReview = safeLazy(() => import("./components/PlanReview"));
@@ -170,6 +171,7 @@ type View =
   | "schedules"
   | "departmentSchedule"
   | "termFilm"
+  | "deptFingerprint"
   | "scheduleCopy"
   | "intelligence"
   | "scheduleChanges"
@@ -313,6 +315,7 @@ const pathByView: Record<View, string> = {
   schedules: "/FSchedule/Index",
   departmentSchedule: "/FSchedule/DepartmentSchedule",
   termFilm: "/FSchedule/TermFilm",
+  deptFingerprint: "/FSchedule/Fingerprint",
   scheduleCopy: "/FSchedule/CopySchedule",
   /* The rail's own name for the same screen — translated before it is ever
      navigated to, and mapped here so the route table stays total. */
@@ -1907,6 +1910,12 @@ export default function App() {
            الحارسُ الحقيقي في الخادم (src/server/routes/termFilmRoutes.ts). */
         return isPowerAdmin || ["committeeChair", "departmentHead", "dean", "viceDean"].includes(sessionRole.id) || (sessionRole.id === "standard" && hasPerm(7))
           ? <TermFilmPage />
+          : unauthorized();
+      case "deptFingerprint":
+        /* بصمة القسم فيها قاعاته: لأصحاب جدوله فقط، والأستاذ لا يراها.
+           الحارسُ الحقيقي في الخادم (src/server/routes/deptFingerprintRoutes.ts). */
+        return isPowerAdmin || ["committeeChair", "departmentHead"].includes(sessionRole.id) || (sessionRole.id === "standard" && hasPerm(7))
+          ? <DeptFingerprintPage />
           : unauthorized();
       case "departmentSchedule":
         return sessionRole.id === "departmentHead" && hasPerm(14) ? (

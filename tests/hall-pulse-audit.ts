@@ -14,7 +14,7 @@ import {
   planDay, planMoves, suggestHalls, toggleGroup, weeklyHeat, PULSE_DAYS, type PulseDay,
 } from "../src/utils/hallPulse";
 import {
-  beforeAfter, cinemaLegs, cinemaMinute, cinemaSteps, glide, hallStatesAt, peakMoment, pressureAt, pressureCurve, seatLayout, soundLevels, worstMoment,
+  beforeAfter, cinemaLegs, cinemaMinute, cinemaSteps, glide, hallStatesAt, peakMoment, playbackKind, pressureAt, pressureCurve, seatLayout, soundLevels, worstMoment,
   CINEMA_SECONDS, SEAT_DRAW_MAX, STAND_DRAW_MAX,
 } from "../src/utils/hallPulseDay";
 
@@ -275,6 +275,24 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   const steps = cinemaSteps(model.dayStart, model.dayEnd, 10 * 60 + 10);
   check(steps.includes(10 * 60 + 10) && steps[0] === model.dayStart && steps.every((m, i) => i === 0 || m > steps[i - 1]) && steps[steps.length - 1] <= model.dayEnd - 5, "تقليل الحركة: خطواتٌ متصاعدة كل نصف ساعة، وأشدّ لحظةٍ خطوةٌ منها بعينها");
 
+  /* مراجعة #637: آخر خطوةٍ آخرُ اليوم، فينتهي عرض تقليل الحركة ولا يدور على 19:30. */
+  const plain = cinemaSteps(8 * 60, 20 * 60, null);
+  check(plain[plain.length - 1] === 20 * 60 - 5 && plain[plain.length - 2] === 19 * 60 + 30 && new Set(plain).size === plain.length, "تقليل الحركة: آخر خطوةٍ 19:55 بعينها بعد 19:30، بلا تكرار");
+  check(cinemaSteps(8 * 60, 20 * 60, 20 * 60 - 5).filter(m => m === 20 * 60 - 5).length === 1 && cinemaSteps(8 * 60, 8 * 60 + 5, null).join() === String(8 * 60), "وأشدّ لحظةٍ في آخر اليوم أو يومٌ من خطوةٍ واحدة لا يكسران القائمة");
+  /* مراجعة #637: أشدّ لحظةٍ في أول دقيقةٍ من اليوم يوقف عندها (مقطعٌ أول بلا طول)، ثم اليوم كله. */
+  const opening = cinemaLegs(8 * 60, 20 * 60, 8 * 60);
+  check(opening.length === 2 && opening[0].from === 8 * 60 && opening[0].to === 8 * 60 && opening[0].seconds === 0 && opening[1].to === 20 * 60 - 5 && opening[1].seconds === 30, "أشدّ لحظةٍ عند بداية اليوم: يقف العرض عندها فوراً ثم يكمل اليوم في ثلاثين ثانية");
+  check(cinemaMinute(opening[0], 0) === 8 * 60 && cinemaMinute(opening[0], 1) === 8 * 60, "والمقطع الذي بلا طول يبقى عند بدايته");
+  check(cinemaSteps(8 * 60, 20 * 60, 8 * 60)[0] === 8 * 60 && cinemaLegs(8 * 60, 20 * 60, 7 * 60).length === 1 && cinemaLegs(8 * 60, 20 * 60, 20 * 60 - 5).length === 1, "وخطوتها الأولى في تقليل الحركة هي نفسها؛ ولحظةٌ خارج اليوم أو في آخره لا تقسم العرض");
+  {
+    /* شعبةٌ فائضة من 08:00 ولا أسوأ بعدها: أشدّ لحظةٍ هي بداية اليوم. */
+    const early = buildPulseModel({ rows: [row(1, "r104", ["wed"], "08:00", "09:00")], courses, registry, includeUnusedRegistryHalls: true });
+    const w0 = worstMoment(early, originalAssignment(early), "fwednesday")!;
+    check(w0.minute === early.dayStart && cinemaLegs(early.dayStart, early.dayEnd, w0.minute)[0].seconds === 0, "شعبةٌ فائضة من 08:00: أشدّ لحظةٍ بداية اليوم، والعرض يقف عندها");
+  }
+  /* مراجعة #637: العرض الذي يقف عند أشدّ لحظة للمجسّم وحده؛ المسطّح والمسارات ساعةٌ تمشي بلا وقوف. */
+  check(playbackKind({ mode: "halls", flat: false }) === "cinema" && playbackKind({ mode: "halls", flat: true }) === "clock" && playbackKind({ mode: "paths", flat: false }) === "clock" && playbackKind({ mode: "paths", flat: true }) === "clock", "«شغّل اليوم»: عرضٌ في المجسّم، وساعةٌ عادية في المسطّح وفي مسارات التنقّل");
+
   /* النغمة: تعلو مع الازدحام وتهدأ مع الفراغ، والتوتّر من التجاوز. */
   const loud = soundLevels(at, peak.students), quiet = soundLevels(pressureAt(model, base, "fsunday", 9 * 60), peak.students);
   check(loud.crowd === 1 && quiet.crowd === 0 && quiet.tension === 0 && loud.tension > 0 && loud.tension <= 1, "النغمة: ازدحام 1 عند الذروة و0 في الفراغ، وتوتّرٌ حين تفيض قاعة");
@@ -365,11 +383,13 @@ check(/تقدير/.test(pulse), "عدد الطلبة موسومٌ بأنه تق�
   check(/e\.key === "Escape"/.test(pulse) && /اخرج/.test(pulse) && /ادخل القاعة/.test(pulse), "«ادخل القاعة» زرٌّ ظاهر، و«اخرج» ومفتاح Escape يعيدان");
   check(/readSoundChoice/.test(pulse) && /getItem\(KEY\) === "1"/.test(sound) && /try \{[^}]*localStorage/.test(sound), "النغمة مطفأةٌ افتراضاً، واختيارها محفوظٌ بحمايةٍ من التصفّح الخاص");
   check(!/new Audio\(|<audio|\.mp3|\.wav|\.ogg/.test(sound + pulse) && /createOscillator/.test(sound), "النغمة مركّبة بـWeb Audio وحده: لا ملف صوت");
-  check(/webkitAudioContext/.test(sound) && /catch \{ this\.silence\(\); return false; \}/.test(sound) && /canSound && mode === "halls"/.test(pulse), "وحيث لا AudioContext: لا زرّ ولا خطأ");
+  check(/webkitAudioContext/.test(sound) && /catch \{ this\.silence\(\); return false; \}/.test(sound) && /canSound && playbackKind\(\{ mode, flat \}\) === "cinema"/.test(pulse), "وحيث لا AudioContext: لا زرّ ولا خطأ");
   check(/visibilitychange/.test(pulse) && /if \(cine !== "run"\) soundRef\.current\?\.stop\(\)/.test(pulse) && /soundRef\.current\?\.dispose\(\)/.test(pulse), "النغمة تسكت حين يقف العرض أو يُخفى التبويب أو تُغلق الشاشة");
   const starts = pulse.match(/soundRef\.current\.start\(\)/g) || [];
   check(starts.length === 3 && !/useEffect\([^]*?soundRef\.current\.start\(\)[^]*?\}, \[/.test(pulse.slice(pulse.indexOf("const toggleSound"))), "ولا تبدأ إلا من ضغطة المستخدم (تشغيل العرض، أكمل، زرّ النغمة)");
-  check(/if \(reduced\) \{[\s\S]{0,200}setInterval/.test(pulse) && /if \(!this\.cineFree && !this\.opts\.reduced/.test(scene), "تقليل الحركة: خطواتٌ بدل الانزلاق، ولا حركة كاميرا آلية");
+  check(/playbackKind\(\{ mode, flat \}\) === "cinema"\) startCinema\(\); else setPlaying\(true\)/.test(pulse) && /if \(cine !== "off" && playbackKind\(\{ mode, flat \}\) !== "cinema"\) setCine\("off"\)/.test(pulse), "المسطّح لا يدخل العرض، والانتقال إليه أثناءه ينهيه: لا وقوف بلا «أكمل»");
+  check(/if \(st\.idx >= st\.steps\.length - 1\) \{ window\.clearInterval\(timer\);[^}]*setCine\("end"\)/.test(pulse) && /st\.steps\[st\.idx\] === st\.stop && arrive\(/.test(pulse), "خطوات تقليل الحركة تنتهي صراحةً، وأشدّ لحظةٍ في أولها يوقف عندها");
+  check(/if \(reduced\) \{[\s\S]{0,400}setInterval/.test(pulse) && /if \(!this\.cineFree && !this\.opts\.reduced/.test(scene), "تقليل الحركة: خطواتٌ بدل الانزلاق، ولا حركة كاميرا آلية");
   check(/canSave \? <button[^>]*onClick=\{arrange\}/.test(pulse), "«رتّب قاعاتي» في تعليق أشدّ لحظة لرئيس اللجنة وحده");
   check(/@media \(prefers-reduced-motion:reduce\)\{\s*\.hp-hud,\.hp-caption,\.hp-exit,\.hp-split\{animation:none\}/.test(css), "وحركات الواجهة الجديدة تتوقف مع تقليل الحركة");
 }

@@ -13,6 +13,8 @@
     "test:instructor-requests-owner-notes": "tsx tests/instructor-requests-owner-notes-audit.ts",
     "test:proposal-open-row": "tsx tests/proposal-open-row-audit.ts",
     "test:term-film": "tsx tests/term-film-audit.ts",
+    "test:dept-fingerprint": "tsx tests/dept-fingerprint-audit.ts",
+    "test:my-film": "tsx tests/my-film-audit.ts",
     "test:visiting-badge-g1": "tsx tests/visiting-badge-group1-audit.ts",
     "test:visiting-badge-g2": "tsx tests/visiting-badge-group2-audit.ts",
     "test:visiting-badge-g3": "tsx tests/visiting-badge-group3-audit.ts",

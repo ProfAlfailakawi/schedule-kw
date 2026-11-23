@@ -102,7 +102,9 @@ export const glide = (u: number) => {
  */
 export function cinemaLegs(dayStart: number, dayEnd: number, stop: number | null, seconds = CINEMA_SECONDS): CinemaLeg[] {
   const end = dayEnd - 5;
-  if (stop == null || stop <= dayStart || stop >= end) return [{ from: dayStart, to: end, seconds }];
+  /* أشدّ لحظةٍ في أول دقيقةٍ من اليوم: مقطعٌ أول بلا طول يقف عندها فوراً، ثم اليوم كله بعد «أكمل». */
+  if (stop != null && stop === dayStart && end > dayStart) return [{ from: dayStart, to: dayStart, seconds: 0 }, { from: dayStart, to: end, seconds }];
+  if (stop == null || stop < dayStart || stop >= end) return [{ from: dayStart, to: end, seconds }];
   const span = Math.max(1, end - dayStart);
   const first = Math.max(3, Math.min(seconds - 3, (seconds * (stop - dayStart)) / span));
   return [{ from: dayStart, to: stop, seconds: first }, { from: stop, to: end, seconds: seconds - first }];
@@ -117,8 +119,19 @@ export function cinemaMinute(leg: CinemaLeg, elapsed: number): number {
 export function cinemaSteps(dayStart: number, dayEnd: number, stop: number | null, step = 30): number[] {
   const out = new Set<number>();
   for (let m = dayStart; m <= dayEnd - 5; m += step) out.add(m);
+  /* آخر خطوةٍ آخرُ اليوم بعينه: به ينتهي العرض ويظهر ملخّصه، ولا يدور على خطوته الأخيرة. */
+  out.add(dayEnd - 5);
   if (stop != null && stop >= dayStart && stop <= dayEnd - 5) out.add(stop);
   return [...out].sort((a, b) => a - b);
+}
+
+/**
+ * ما يفعله «شغّل اليوم»: العرض (cinema) في المجسّم وحده حيث يظهر تعليق أشدّ لحظة و«أكمل»؛
+ * وفي العرض المسطّح (ومنه تقليل الحركة وتعذّر WebGL) وفي مسارات التنقّل تمشي الساعة كما كانت (clock)،
+ * فلا يقف التشغيل عند لحظةٍ لا زرّ يكمله.
+ */
+export function playbackKind(input: { mode: "halls" | "paths"; flat: boolean }): "cinema" | "clock" {
+  return input.mode === "halls" && !input.flat ? "cinema" : "clock";
 }
 
 /* ── النغمة الخافتة ──────────────────────────────────────────────────────── */

@@ -130,6 +130,7 @@ export const AR = {
   cell:        { one: "خلية", two: "خليتان", few: "خلايا", many: "خلية" },
   note:        { one: "ملاحظة", two: "ملاحظتان", few: "ملاحظات", many: "ملاحظة" },
   request:     { one: "طلب", two: "طلبان", few: "طلبات", many: "طلباً" },
+  wish:        { one: "رغبة", two: "رغبتان", few: "رغبات", many: "رغبة" },
   message:     { one: "رسالة", two: "رسالتان", few: "رسائل", many: "رسالة" },
   reply:       { one: "ردّ", two: "ردّان", few: "ردود", many: "ردّاً" },
   clash:       { one: "تداخل", two: "تداخلان", few: "تداخلات", many: "تداخلاً" },

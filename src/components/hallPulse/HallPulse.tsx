@@ -20,7 +20,7 @@ import {
 import { AR, countOf, type ArabicNoun } from "../../utils/arabicCount";
 import type { HallVisual, InteriorData, PulseScene as PulseSceneType } from "./pulseScene";
 import {
-  beforeAfter, cinemaLegs, cinemaMinute, cinemaSteps, peakMoment, pressureAt, pressureCurve, seatLayout, soundLevels, worstMoment,
+  beforeAfter, cinemaLegs, cinemaMinute, cinemaSteps, peakMoment, playbackKind, pressureAt, pressureCurve, seatLayout, soundLevels, worstMoment,
   type CinemaLeg, type HallState, type PressurePoint,
 } from "../../utils/hallPulseDay";
 import { PulseSound, readSoundChoice, soundAvailable, writeSoundChoice } from "./pulseSound";
@@ -289,9 +289,12 @@ export default function HallPulse(props: HallPulseProps) {
       return false;
     };
     if (reduced) {
-      /* تقليل الحركة: خطواتٌ لا انزلاق، ولا حركة كاميرا. */
+      /* تقليل الحركة: خطواتٌ لا انزلاق، ولا حركة كاميرا. أشدّ لحظةٍ في أول اليوم يُوقف عندها قبل أي خطوة. */
+      if (st.stop != null && st.steps[st.idx] === st.stop && arrive(st.steps[st.idx])) return;
       const timer = window.setInterval(() => {
-        st.idx = Math.min(st.steps.length - 1, st.idx + 1);
+        /* الخطوات انتهت: العرض ينتهي صراحةً ولا يعيد خطوته الأخيرة. */
+        if (st.idx >= st.steps.length - 1) { window.clearInterval(timer); setMinute(model.dayEnd - 5); setCine("end"); return; }
+        st.idx += 1;
         if (arrive(st.steps[st.idx])) window.clearInterval(timer);
       }, 800);
       return () => window.clearInterval(timer);
@@ -314,6 +317,8 @@ export default function HallPulse(props: HallPulseProps) {
   }, [cine, reduced, model.dayStart, model.dayEnd]);
   /* النغمة: تجري مع العرض وحده، وتعلو مع الازدحام؛ تسكت حين يقف أو يُخفى التبويب أو تُغلق الشاشة. */
   useEffect(() => { if (cine !== "run") soundRef.current?.stop(); }, [cine]);
+  /* العرض للمجسّم وحده: الانتقال إلى المسطّح أو إلى المسارات أثناءه ينهيه، فلا يقف عند تعليقٍ لا يُرى. */
+  useEffect(() => { if (cine !== "off" && playbackKind({ mode, flat }) !== "cinema") setCine("off"); }, [cine, mode, flat]);
   useEffect(() => {
     if (cine !== "run" || !nowPoint) return;
     const lv = soundLevels(nowPoint, peak ? peak.students : 0);
@@ -1335,10 +1340,10 @@ export default function HallPulse(props: HallPulseProps) {
         </aside>
         <div className="hp-bar">
           <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-main hp-play" disabled={day === "week"} aria-pressed={playing || cine === "run"}
-            onClick={() => { if (playing || cine === "run") { stopPlay(); return; } setPending(null); setFreeGlow(false); if (mode === "halls") startCinema(); else setPlaying(true); }}>
+            onClick={() => { if (playing || cine === "run") { stopPlay(); return; } setPending(null); setFreeGlow(false); if (playbackKind({ mode, flat }) === "cinema") startCinema(); else setPlaying(true); }}>
             <span aria-hidden="true" className="hp-play-glyph">{playing || cine === "run" ? "❚❚" : "▶"}</span>{playing || cine === "run" ? "أوقف" : "شغّل اليوم"}
           </button>
-          {canSound && mode === "halls" ? (
+          {canSound && playbackKind({ mode, flat }) === "cinema" ? (
             <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-sound" aria-pressed={soundOn} onClick={toggleSound} disabled={day === "week"}
               aria-label={soundOn ? "أطفئ النغمة الخافتة مع العرض" : "شغّل نغمةً خافتة مع العرض"} title={soundOn ? "النغمة الخافتة مع العرض: مفعّلة" : "نغمة خافتة مع العرض تعلو مع الازدحام (مطفأة)"}>
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
