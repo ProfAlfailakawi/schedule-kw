@@ -6,6 +6,7 @@
  * ويُوقف نفسه بعد جملةٍ واحدة: السؤال جملةٌ لا خطبة.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isNativeApp } from "../utils/nativeApp";
 import { toEnglishDigits } from "../utils/naturalQuery";
 
 type Recognition = {
@@ -34,7 +35,8 @@ export const SPEECH_ERRORS: Record<string, string> = {
 };
 
 export function useSpeechAsk(onText: (text: string, final: boolean) => void) {
-  const supported = Boolean(ctor());
+  /* داخل التطبيق لا زرّ للإملاء حتى يحمل الغلاف نصوص إذن الميكروفون والتعرّف على الكلام. */
+  const supported = !isNativeApp() && Boolean(ctor());
   const [listening, setListening] = useState(false);
   const [problem, setProblem] = useState("");
   const recRef = useRef<Recognition | null>(null);

@@ -43,7 +43,9 @@ function viJoin(base,chunk,limit){
 /* ── المتحكّم ───────────────────────────────────────────────────────────── */
 var VI={active:null,closing:null,pending:null,limit:__VI_LIMIT__,seconds:__VI_SECONDS__,onText:null,restarts:0};
 VI.Rec=function(){return window.SpeechRecognition||window.webkitSpeechRecognition||null};
-VI.ok=function(){return !!VI.Rec()};
+VI.native=function(){return !!((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.appHandoff))};
+/* داخل التطبيق لا إملاء حتى يحمل الغلاف نصوص إذن الميكروفون والتعرّف على الكلام. */
+VI.ok=function(){return !VI.native()&&!!VI.Rec()};
 VI.RING='<svg class="vi-ring" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle class="vi-track" cx="24" cy="24" r="21"/><circle class="vi-arc" cx="24" cy="24" r="21" pathLength="100"/></svg>';
 VI.MIC='<svg class="vi-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
 VI.html=function(key){
