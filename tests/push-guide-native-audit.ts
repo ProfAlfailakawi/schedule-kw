@@ -2,6 +2,7 @@
  * داخل التطبيق الرسمي (WKWebView) لا تظهر خطوات «مشاركة ← الشاشة الرئيسية ← الجرس»؛ وفي المتصفح لا يتغير شيء.
  */
 import { pushSupport } from "../src/utils/pushClient";
+import { PUSH_CARD_JS } from "../src/server/pushCard";
 import { STUDENT_EXTRAS_SCRIPT } from "../src/server/studentExtrasScript";
 
 let failed = 0;
@@ -16,5 +17,6 @@ check(pushSupport() === "ios-install", "Safari على iPhone: تبقى خطوا�
 setEnv(true);
 check(pushSupport() === "none", "داخل التطبيق: لا خطوات ولا بطاقة");
 check(/function gxNative\(\)/.test(STUDENT_EXTRAS_SCRIPT) && /gxPushState\(\)\{var d=GX\.d&&GX\.d\.push;if\(!d\|\|gxNative\(\)\)/.test(STUDENT_EXTRAS_SCRIPT), "كرت الطالب: لا بطاقة تنبيهات داخل التطبيق");
+check(/PC\.ready=true;var e=pcEnv\(\);\s*if\(\(window\.Capacitor/.test(PUSH_CARD_JS), "كرت الأستاذ: لا شارة تنبيهات داخل التطبيق");
 if (failed) { console.log(`${failed} failed`); process.exit(1); }
 console.log("ok");
