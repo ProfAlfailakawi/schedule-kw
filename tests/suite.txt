@@ -385,3 +385,4 @@ test:duo-widget-css
 test:public-pages
 test:term-film
 test:dept-fingerprint
+test:my-film

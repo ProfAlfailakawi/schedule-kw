@@ -60,6 +60,9 @@ import { RECOVERY_MAX_FAILURES, calendarFingerprint, calendarToken, calendarToke
 import { buildReminder, calendarSubscribeLinks, type CalendarLecture } from "../utils/icalendar";
 import { sendCalendar } from "./routes/publicCalendarRoutes";
 import { registerStudentExtras, voidedStudentSecrets } from "./studentExtras";
+import { studentFilm, studentFilmInputFrom } from "../utils/myFilm";
+import { myFilmPage } from "./myFilmPage";
+import { publicPageNonce } from "./core/publicPages";
 
 export interface StudentDoorDeps {
   surveyFingerprint: (civil: string) => Promise<string>;
@@ -599,6 +602,39 @@ export function registerStudentDoorRoutes(app: Express, deps: StudentDoorDeps): 
       parts[key] = verdict === "slow" ? { ok: false, status: 504, d: {} } : out;
     }));
     res.json({ parts });
+  });
+
+  /* ── فيلمي: قصةُ الطالب القصيرة مما تعرضه «مساري» له أصلاً — ملخّصُ ملفّه، و«المطروح»، و«التذكرة» ──
+     قراءةٌ فقط بجلسة الباب نفسها: صاحبُ الفيلم صاحبُ الجلسة، ولا يُقبل معرّفٌ من العنوان. الجزءان يُستدعيان
+     بمعالجَيهما كما يفعل ‎/home‎ فلا رقمَ هنا يخالف ما في الصفحة، وجزءٌ تعذّر يسقط مشهدُه وحده. */
+  app.get("/api/public/me/film", requireDoor, async (req: Request, res: Response) => {
+    noStore(res);
+    const door = doorOf(res);
+    const part = async (key: "offered" | "ticket"): Promise<any> => {
+      const handler = homeHandlers.get(key);
+      if (!handler) return null;
+      const out = { ok: true, d: null as any };
+      const fake = {
+        locals: { door },
+        setHeader() { return fake; },
+        status(code: number) { out.ok = code < 400; return fake; },
+        json(body: unknown) { out.d = body; return fake; },
+      };
+      try { await handler(req, fake as unknown as Response); } catch { return null; }
+      return out.ok ? out.d : null;
+    };
+    const [summary, offered, ticket, terms] = await Promise.all([summaryOf(door.profile), part("offered"), part("ticket"), Repository.getTerms()]);
+    const term = pickDoorTerm(terms as any);
+    const film = studentFilm(studentFilmInputFrom({
+      termId: Number(term?.AdTermId || 0), termName: String(term?.AdTermName || ""), summary, offered, ticket,
+    }));
+    if (!film) { fail(res, 404, "أكمل ملفّك في «مساري» أولاً ليُروى فيلمك.", "no-film"); return; }
+    res.json({ film });
+  });
+  /* صفحةُ الفيلم ساكنة بلا بيانات: تقرأ المسارَ أعلاه بجلسة الطالب، ومن لا جلسةَ له يعود إلى «مساري». */
+  app.get("/me/film", (_req: Request, res: Response) => {
+    res.setHeader("Cache-Control", "no-store"); res.setHeader("X-Robots-Tag", "noindex");
+    res.type("text/html; charset=utf-8").send(myFilmPage({ api: "/api/public/me/film", back: "/me", backLabel: "مساري", nonce: publicPageNonce(res) }));
   });
 
   homeGet("map", async (_req: Request, res: Response) => {
