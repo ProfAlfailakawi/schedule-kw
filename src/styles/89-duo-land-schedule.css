@@ -126,3 +126,30 @@
     left:calc(16px + 172px + env(safe-area-inset-left)) !important;
   }
 }
+
+/* ==========================================================================
+   الشاشة الداخلية عرضاً (طلب المالك 2026-11-23): «العرض الذكي» (مواعيد القسم) فوق، ثم الأسبوع والقاعات
+   بعرض الصفحة كلها. كان اللوحان متجاورين: الأسبوع يُحشر في نحو ٥٥٪ من العرض والقائمة طويلةً ملتصقةً بجانبه.
+   الآن: بطاقة «العرض الذكي» أولاً (الخريطة الحرارية بجانب مفتاح الألوان، ثم المواعيد صفوفاً قصيرة بارتفاع محدود
+   تُمرَّر داخلها)، ثم الأسبوع بعرض كامل. بصريٌّ فقط: لا يُضاف عنصر ولا يُحذف، وأزرار البطاقة في قائمة «⋯».
+   ========================================================================== */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  html[data-device="duo"] .duo-split{grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+  html[data-device="duo"] .duo-split-list{order:-1;position:static;max-height:none;overflow:visible}
+  html[data-device="duo"] .duo-split-week{order:0}
+  html[data-device="duo"] #root .duo-split .schedule-agenda-surface.is-split-list{
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px;row-gap:10px;align-items:start;padding:14px 16px 16px;
+  }
+  html[data-device="duo"] #root .duo-split .schedule-agenda-surface>.agenda-head{grid-column:1 / -1;margin:0}
+  html[data-device="duo"] #root .duo-split .schedule-agenda-surface>.week-heat{grid-column:1;grid-row:2;margin:0}
+  html[data-device="duo"] #root .duo-split .schedule-agenda-surface>.week-legend{grid-column:2;grid-row:2;margin:0;min-width:0}
+  html[data-device="duo"] #root .duo-split .schedule-agenda-surface>.schedule-agenda{
+    grid-column:1 / -1;grid-row:3;max-height:230px;overflow:auto;overscroll-behavior:contain;
+  }
+  html[data-device="duo"] #root .duo-split .schedule-agenda .agenda-card{
+    grid-template-columns:minmax(0,1.7fr) minmax(0,1fr) minmax(0,1fr) auto 44px !important;
+    grid-template-areas:"core time place meta actions" !important;
+    gap:10px 12px;padding:10px 14px;align-items:center;
+  }
+  html[data-device="duo"] #root .duo-split .schedule-agenda .agenda-card>.agenda-actions{display:none !important}
+}
