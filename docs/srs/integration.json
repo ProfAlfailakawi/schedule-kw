@@ -626,6 +626,51 @@
         }
       },
       {
+        "name": "APNS_KEY_P8",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "مفتاح مزوّد APNs (.p8) لتنبيهات التطبيق الرسمي؛ يُقرأ من البيئة وحدها ولا يُكتب في المستودع.",
+          "en": "The APNs provider key (.p8) for official app notifications; read from the environment alone and never written to the repository."
+        }
+      },
+      {
+        "name": "APNS_KEY_ID",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "معرّف مفتاح APNs.",
+          "en": "The APNs key identifier."
+        }
+      },
+      {
+        "name": "APNS_TEAM_ID",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "معرّف فريق المطوّر لدى Apple.",
+          "en": "The Apple developer team identifier."
+        }
+      },
+      {
+        "name": "APNS_TOPIC",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "معرّف حزمة التطبيق الرسمي؛ بدون هذه الأربعة يتوقف إرسال تنبيهات التطبيق بهدوء.",
+          "en": "The official app's bundle identifier; without these four, app notifications quietly stop."
+        }
+      },
+      {
+        "name": "APNS_ENV",
+        "group": "services",
+        "default": "—",
+        "effect": {
+          "ar": "اختياري: sandbox لبناءات المطوّر، وما سواه production (TestFlight وApp Store).",
+          "en": "Optional: sandbox for developer builds; anything else is production (TestFlight and the App Store)."
+        }
+      },
+      {
         "name": "MORNING_BRIEF_TOKEN",
         "group": "services",
         "default": "—",
