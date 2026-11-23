@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Check, Copy, ImageDown, Link2, MessageCircle, QrCode } from "lucide-react";
 import BrandMark from "./BrandMark";
+import { isNativeApp } from "../utils/nativeApp";
 import { copyText, dataUrlToBlob, loadQrFactory, qrMatrix, qrPngDataUrl, renderAccessCardPng, saveImage, type QrFactory, type SaveOutcome } from "../utils/accessCardImage";
 
 /**
@@ -111,7 +112,7 @@ export default function AccessCard({
   };
   const copy = async (what: "message" | "link") => {
     const ok = await copyText(what === "message" ? message : url);
-    setStatus(ok ? (what === "message" ? "نُسخت الرسالة، جاهزة للصق في واتساب." : "نُسخ الرابط.") : "تعذّر النسخ. حاول مرة أخرى من متصفح يدعم الحافظة.");
+    setStatus(ok ? (what === "message" ? "نُسخت الرسالة، جاهزة للصق في واتساب." : "نُسخ الرابط.") : (isNativeApp() ? "تعذّر النسخ. حاول مرة أخرى." : "تعذّر النسخ. حاول مرة أخرى من متصفح يدعم الحافظة."));
   };
 
   return (
