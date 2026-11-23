@@ -7,6 +7,8 @@
  * عالقةً على إصدارٍ قديم، وإسقاطُ عامل الدفع يُلغي اشتراكَ الجهاز بصمت.
  */
 
+import { isNativeApp } from "./nativeApp";
+
 export const PUSH_WORKER_URL = "/push-sw.js";
 export const APP_PUSH_SCOPE = "/push/";
 /** رسالةُ العامل حين يُلمس تنبيه: افتح هذا الرابط في اللسان المفتوح. */
@@ -48,6 +50,8 @@ export function isStandalone(): boolean {
 /** «ok» يُدفع إليه هنا؛ «ios-install» يحتاج الشاشة الرئيسية أولاً (iOS 16.4+)؛ «none» لا. */
 export function pushSupport(): PushSupport {
   if (typeof window === "undefined") return "none";
+  /* داخل التطبيق الرسمي: Web Push غير متاح في WKWebView ولا معنى لخطوات «الشاشة الرئيسية» هناك. */
+  if (isNativeApp()) return "none";
   const api = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && window.isSecureContext;
   if (api) return "ok";
   return isIos() && !isStandalone() ? "ios-install" : "none";

@@ -158,6 +158,7 @@ function pcSheetBlocked(){var e=pcEnv();SK.sheet('<div class="sk-h"><span class=
  '<button type="button" class="sk-btn" id="pcOk">'+pcIcon("check")+'فهمت</button>');var ok=document.getElementById("pcOk");if(ok)ok.onclick=function(){SK.close()}}
 function pcTap(){var s=PC.state;if(s==="busy")return;if(s==="ios"){pcSheetIos();return}if(s==="blocked"){pcSheetBlocked();return}if(s==="on"){pcSheetOn();return}pcEnable()}
 function pcInit(){if(PC.ready||typeof TOKEN!=="string"||!host)return;PC.ready=true;var e=pcEnv();
+ if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.appHandoff))return;
  if(!e.api&&!(e.ios&&!e.standalone))return;
  var chip=document.createElement("button");chip.type="button";chip.className="pc";chip.hidden=true;chip.onclick=pcTap;PC.chip=chip;
  new MutationObserver(pcMount).observe(host,{childList:true});
