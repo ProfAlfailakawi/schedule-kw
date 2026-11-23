@@ -13,3 +13,102 @@
   html[data-device="duo"] #root .content-frame .lens-strip::-webkit-scrollbar{display:none}
   html[data-device="duo"] #root .query-canvas-actions>.query-report-action>.query-print-icon.has-label{width:auto;padding-inline:12px}
 }
+
+/* ==========================================================================
+   الدوو — الشاشة الداخلية عرضاً، مراجعة صفحةً صفحة (2026-11-23):
+   - «مراجعة الصحيفة» و«رادار التسجيل» ليستا صفحتي لوحين: كانتا بعرض الشاشة تحت شريط التطبيق، تعبران المفصل
+     وتمتدّان تحت كبسولة التنقّل والساعة. صارتا صفحةً واحدة بعرض الشاشة تقف قبل العمود، والشريط بعرضها.
+   - شريط «كشف التسجيل | رادار التسجيل» كان يقع تحت شريط التطبيق نصفه: صار في رأس اللوح الثاني.
+   - «من نحن»: كل المحتوى في اللوح الأول واللوح الثاني بطاقةٌ بيضاء فارغة؛ صار التعريف يميناً والملاحظة يساراً.
+   - «المقاعد والفرق»: قائمة الفرق وتفاصيلها كانتا عمودين داخل لوحٍ واحد فتُقصّ التفاصيل عند حافة الشاشة: عمودٌ واحد.
+   - «النسخة الاحتياطية»: اللوح الثاني كان يحمل ملاحظةً قصيرة وحدها، وأدوات النسخ تحت اللوح الأول: تبادلا.
+   - «نسخ جدول فصل»: بطاقة النموذج كانت تنقسم بين اللوحين في منتصف حقل: الانقسام بين الحقول.
+   ========================================================================== */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  /* ── صفحاتٌ بعرض الشاشة ── */
+  html[data-device="duo"] body:has(#root .content-frame>:is(.pr-page,.sm-page)){background:var(--canvas) !important}
+  html[data-device="duo"] body:has(#root .content-frame>:is(.pr-page,.sm-page)) .app-shell{background:var(--canvas) !important}
+  html[data-device="duo"] body:has(#root .content-frame>:is(.pr-page,.sm-page)) .mobile-topbar{width:100%;left:0;right:0;background:var(--canvas)}
+  html[data-device="duo"] body:has(#root .content-frame>:is(.pr-page,.sm-page)) .notify-bell{left:calc(60px + env(safe-area-inset-left))}
+  html[data-device="duo"] body:has(#root .content-frame>:is(.pr-page,.sm-page)) .smart-guide-fab{left:calc(106px + env(safe-area-inset-left))}
+  html[data-device="duo"] body:has(#root .content-frame>:is(.pr-page,.sm-page)) #root .content-frame{
+    padding:calc(68px + env(safe-area-inset-top)) calc(16px + max(env(safe-area-inset-right),0px)) 32px calc(16px + env(safe-area-inset-left)) !important;
+    box-sizing:border-box;
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body:has(#root .content-frame>:is(.pr-page,.sm-page)) #root .content-frame{
+    padding-right:calc(var(--duo-land-col,84px) + 12px) !important;
+  }
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body:has(#root .content-frame>:is(.pr-page,.sm-page)) #root .content-frame{
+    padding-right:16px !important;padding-left:calc(var(--duo-land-col,84px) + 12px) !important;
+  }
+  html[data-device="duo"] #root .content-frame>:is(.pr-page,.sm-page){max-width:none;width:auto;margin:0}
+  html[data-device="duo"] body:has(#root .content-frame>.sm-page) #root .content-frame>.registration-tabs{position:static;margin:0 auto 12px;inline-size:min(520px,100%)}
+
+  /* ── شريط «كشف التسجيل | رادار التسجيل» في صفحة اللوحين: رأس اللوح الثاني. ── */
+  html[data-device="duo"] body:has(#root .content-frame>.registration-tabs+.content-stack) #root .content-frame>.registration-tabs{
+    position:fixed;z-index:49;top:calc(10px + env(safe-area-inset-top));margin:0;
+    left:calc(env(safe-area-inset-left) + 16px);inline-size:calc(var(--pane-l) - 32px);max-inline-size:none;box-sizing:border-box;
+  }
+  html[data-device="duo"] #root .content-frame>.registration-tabs+.content-stack>:nth-last-child(1 of :not(aside,dialog,[role="dialog"],[class*="backdrop"],[class*="drawer"],.tl-save)):not(:first-child){
+    padding-top:calc(70px + env(safe-area-inset-top)) !important;
+  }
+
+  /* «كشف التسجيل»: آخر أبناء الصفحة (سجلّ الحالات) قصيرٌ وقد يكون فارغاً، فكان اللوح الثاني خالياً.
+     اللوح الثاني لطلبات الطلبة (المحتوى الرئيس)، والسجلّ في الأول. */
+  html[data-device="duo"] #root .content-frame>.registration-tabs+.content-stack>.srq{
+    grid-column:2 !important;grid-row:1 / span 60 !important;position:sticky !important;top:0;align-self:start;
+    height:100svh;max-height:100svh;overflow:auto;overscroll-behavior:contain;box-sizing:border-box;
+    margin:0 !important;padding:calc(70px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)) !important;
+  }
+  html[data-device="duo"] #root .content-frame>.registration-tabs+.content-stack:has(>.srq)>.student-cases-register{
+    grid-column:1 !important;grid-row:auto !important;position:static !important;height:auto !important;max-height:none !important;
+    overflow:visible !important;margin:0 20px 28px !important;padding:16px !important;
+  }
+
+  /* ── «من نحن»: صفحتان. ── */
+  html[data-device="duo"] #root .content-frame>.about-editorial.about-editorial{
+    display:grid !important;column-count:auto;grid-template-columns:var(--pane-r) var(--pane-l);column-gap:var(--pane-gap);
+    align-content:start;padding:calc(72px + env(safe-area-inset-top)) env(safe-area-inset-right) 28px env(safe-area-inset-left);
+    background:none;border:0;box-shadow:none;border-radius:0;
+  }
+  html[data-device="duo"] #root .content-frame>.about-editorial.about-editorial>*{margin:0 20px 12px !important}
+  html[data-device="duo"] #root .content-frame>.about-editorial.about-editorial>.about-editorial-hero{grid-column:1;grid-row:1 / span 2}
+  html[data-device="duo"] #root .content-frame>.about-editorial.about-editorial>:not(.about-editorial-hero){grid-column:2}
+
+  /* ── المقاعد والفرق: عمودٌ واحد في اللوح الثاني. ── */
+  html[data-device="duo"] #root .seats-admin .seats-layout{grid-template-columns:minmax(0,1fr)}
+
+  /* ── النسخة الاحتياطية: أدوات النسخ في اللوح الثاني، والملاحظة في الأول. ── */
+  html[data-device="duo"] #root .content-frame>.system-vault-page>.vault-safety-note.vault-safety-note{grid-column:1 !important;grid-row:auto !important;position:static !important;height:auto !important;max-height:none !important;overflow:visible !important;margin:0 20px 28px !important;padding:16px !important;border:1px solid var(--line) !important;border-radius:var(--r-lg,18px) !important;}
+  html[data-device="duo"] #root .content-frame>.system-vault-page>.system-vault-grid{grid-column:2 !important;grid-row:1 / span 60 !important;position:sticky !important;top:0 !important;align-self:start !important;height:100svh !important;max-height:100svh !important;overflow:auto !important;overscroll-behavior:contain !important;box-sizing:border-box !important;margin:0 !important;padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)) !important;}
+
+  /* ── نسخ جدول فصل: بطاقة النموذج كانت تنقسم بين اللوحين في منتصف حقل. صارت لوحين:
+     التعريف والحقول الأربعة يميناً، والمعاينة وزرّ التنفيذ يساراً. ── */
+  html[data-device="duo"] #root .content-frame>.content-stack.copy-page.copy-page{column-count:auto !important;display:block !important}
+  html[data-device="duo"] #root .content-frame>.copy-page>.page-heading{max-width:calc(var(--pane-r) - 40px);margin:0 20px 12px auto !important}
+  html[data-device="duo"] #root .content-frame>.copy-page>.copy-workspace{
+    display:grid;grid-template-columns:var(--pane-r) var(--pane-l);column-gap:var(--pane-gap);row-gap:12px;align-items:start;
+    margin:0 !important;padding:0;background:none;border:0;box-shadow:none;border-radius:0;
+  }
+  html[data-device="duo"] #root .copy-page>.copy-workspace>form{display:contents}
+  html[data-device="duo"] #root .copy-page>.copy-workspace .form-grid{grid-template-columns:minmax(0,1fr) !important;height:auto}
+  html[data-device="duo"] #root .copy-page>.copy-workspace :is(.form-intro,.form-grid,.copy-preview,.form-actions){
+    margin:0 20px;min-width:0;padding:16px;border:1px solid var(--line);border-radius:var(--r-lg,18px);background:var(--surface);
+  }
+  html[data-device="duo"] #root .copy-page>.copy-workspace>.form-intro{grid-column:1 !important;grid-row:1 !important}
+  html[data-device="duo"] #root .copy-page>.copy-workspace .form-grid{grid-column:1 !important;grid-row:2 !important}
+  html[data-device="duo"] #root .copy-page>.copy-workspace .copy-preview{grid-column:2 !important;grid-row:1 !important}
+  html[data-device="duo"] #root .copy-page>.copy-workspace .form-actions{grid-column:2 !important;grid-row:2 !important}
+
+  /* رأس الصفحة حين تكون أدواته مجموعةً كبيرة («رادار التسجيل»، «كشف التسجيل»): كانت تعصر العنوان. */
+  html[data-device="duo"] #root .content-frame .page-heading:not(.schedule-editor .page-heading){flex-wrap:wrap}
+  html[data-device="duo"] #root .content-frame .page-heading:not(.schedule-editor .page-heading) .page-heading-copy{flex:1 0 auto}
+  html[data-device="duo"] #root .content-frame .page-heading:not(.schedule-editor .page-heading) .page-heading-action{max-width:100%;min-width:0}
+}
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  /* «موعد جديد» و«تعديل موعد» داخل التطبيق: كبسولة التنقّل في عمود الساعة كانت تغطّي حافة بطاقة الخطوة الأولى،
+     والعنوان تحت الساعة. الإطار يبتعد عن العمود من الجهتين بالقدر نفسه، فيبقى منتصف الفجوة على المفصل. */
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body:has(.schedule-editor.is-studio) .content-frame{
+    padding-inline:calc(var(--duo-land-col,84px) + 12px) !important;
+  }
+}

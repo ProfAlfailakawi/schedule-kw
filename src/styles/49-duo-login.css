@@ -86,3 +86,17 @@
   .apex-login .apex-login-principles b{margin-top:0}
   .apex-login .apex-login-principles small{display:none}
 }
+/* iPhone Duo — الشاشة الخارجية عرضاً (≈678×466): شاشة الدخول ثابتةٌ بلا تمرير (قاعدة الهواتف)، فكانت القصة
+   والشارات فوق البطاقة تدفعها إلى أسفل الشاشة فيُقصّ زرّ الدخول، والشارات تلامس حافتها.
+   هنا: القصة والبطاقة جنباً إلى جنب، بلا شارات، والصفحة تتمرّر إن لزم. */
+@media screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"] .apex-login{overflow-y:auto!important;overscroll-behavior:contain!important}
+  html[data-device="duo"] .apex-login .apex-login-stage{
+    grid-template-columns:minmax(0,1fr) minmax(0,360px)!important;grid-template-rows:auto!important;
+    column-gap:20px!important;align-items:center!important;align-content:center!important;
+    height:auto!important;min-height:100%;overflow:visible!important;
+  }
+  html[data-device="duo"] .apex-login .apex-login-story{display:block!important;grid-column:1!important;grid-row:1!important;text-align:start;max-inline-size:none}
+  html[data-device="duo"] .apex-login .apex-login-access{grid-column:2!important;grid-row:1!important;max-inline-size:none!important}
+  html[data-device="duo"] .apex-login .apex-login-principles{display:none!important}
+}

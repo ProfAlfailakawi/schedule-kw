@@ -146,3 +146,22 @@ html[data-device="duo"][data-shell="app"] .apex-login{
 html[data-device="duo"][data-shell="app"] .apex-login .apex-login-story h1,
 html[data-device="duo"][data-shell="app"] .apex-login .apex-login-kicker,
 html[data-device="duo"][data-shell="app"] .apex-login .apex-login-story>p{transform:none !important}
+
+/* ── الخارجية عرضاً داخل التطبيق: العمود أقصر (466pt) من أن يحمل الساعة ثم «+» و«تبادل» ثم كبسولة التنقّل،
+   فكان «+» و«تبادل» يقعان تحت الساعة، والجرس كذلك حين يكون العمود يساراً.
+   الكبسولة وحدها في العمود تحت الساعة، و«+» و«تبادل» صفٌّ في ركن المحتوى الأسفل بجوار العمود. ── */
+@media screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"][data-shell="app"]:is([data-widget-side="left"],[data-widget-side="right"]) body .schedule-dock{
+    top:auto;bottom:calc(12px + env(safe-area-inset-bottom));
+  }
+  html[data-device="duo"][data-shell="app"][data-widget-side="right"] body .schedule-dock{right:calc(env(safe-area-inset-right) + 10px)}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .schedule-dock{left:calc(env(safe-area-inset-left) + 10px)}
+  html[data-device="duo"][data-shell="app"]:is([data-widget-side="left"],[data-widget-side="right"]) .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    top:auto !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+  html[data-device="duo"][data-shell="app"][data-widget-side="right"] .hall-barter-inbox:not(.hall-barter-inbox-decision){right:calc(env(safe-area-inset-right) + 10px + 72px) !important}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] .hall-barter-inbox:not(.hall-barter-inbox-decision){left:calc(env(safe-area-inset-left) + 10px + 72px) !important}
+  html[data-device="duo"][data-shell="app"]:is([data-widget-side="left"],[data-widget-side="right"]) body:has(.schedule-dock) .content-frame{padding-bottom:88px !important}
+  /* الجرس بجانب البحث بعد العمود لا تحت الساعة. */
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] .notify-bell{inset-inline-end:calc(62px + env(safe-area-inset-left))}
+}

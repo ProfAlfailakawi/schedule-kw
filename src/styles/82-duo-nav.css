@@ -76,3 +76,11 @@ html[data-device="duo"] .sidebar.open .side-nav::before{display:none}
   html[data-device="duo"] .sidebar.open .sidebar-brand{min-height:0;padding-block:4px}
   html[data-device="duo"] .sidebar.open .command-search{min-height:40px}
 }
+
+/* الرأس المضغوط حين تكون أدوات الصفحة مجموعةً كبيرة («رادار التسجيل»، «كشف التسجيل»): كانت تعصر العنوان
+   إلى صفر وتخرج من حافة الشاشة. تنزل الأدوات سطراً تحت العنوان حين لا يتّسع لهما سطرٌ واحد. */
+@media screen and (orientation:portrait),screen and (orientation:landscape) and (max-height:480px){
+  html[data-device="duo"] #root .page-heading:not(.schedule-editor .page-heading){flex-wrap:wrap}
+  html[data-device="duo"] #root .page-heading:not(.schedule-editor .page-heading) .page-heading-copy{flex:1 0 auto}
+  html[data-device="duo"] #root .page-heading:not(.schedule-editor .page-heading) .page-heading-action{max-width:100%;min-width:0}
+}
