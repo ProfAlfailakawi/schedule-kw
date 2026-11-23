@@ -24,6 +24,10 @@
     "src/utils/onboardingKey.ts",
     "src/utils/naturalQuery.ts",
     "src/styles/28-dashboard-canvas.css",
+    "src/components/TermFilm.tsx",
+    "src/server/routes/termFilmRoutes.ts",
+    "src/utils/termFilm.ts",
+    "src/styles/term-film.css",
     "docs/DEMO_GUIDE.md",
     "docs/dashboard-term/*"
   ],
@@ -736,6 +740,27 @@
         { "ar": "المرحلة المكتملة ذات التوقيع تعرض أحرفه خَتماً، والمرحلة الحالية تحمل aria-current=step، ومقدّمة الرحلة الاختيارية لا تغيّر شيئاً حين لا تُطلب.", "en": "A completed stage with a signature shows its initials as a stamp, the current stage carries aria-current=step, and the optional journey intro changes nothing when not requested." }
       ],
       "evidence": { "code": ["src/components/dna/DnaKit.tsx#DnaStepper", "src/components/dna/DnaKit.tsx#DnaRing", "src/components/dna/DnaKit.tsx#DnaSpark", "src/components/dna/DnaKit.tsx#DnaHeat", "src/components/dna/DnaKit.tsx#DnaHubMap"], "tests": ["tests/journey-reveal-audit.ts"] },
+      "inferred": false
+    },
+    {
+      "id": "FR-DSH-031",
+      "kind": "functional",
+      "title": { "ar": "فيلم الفصل: قصة الجدول بأرقامه الحقيقية", "en": "Term film: the schedule's story in its real figures" },
+      "text": {
+        "ar": "يجب على النظام أن يعرض «فيلم الفصل» مشغّلاً من سبعة مشاهد (العنوان، وبناء الجدول بشبكة أسبوعه وعدّاداته، ورغبات الأساتذة المحقّقة، والتعارضات المانعة تتناقص، والطلبة الذين أوصلوا احتياجهم عبر «مساري»، وخطوات التسليم إلى التسجيل بتواريخها، والشكر) بأرقامٍ تُحسب من بيانات النظام وحدها، ويُسقط منه المشهد الذي لا رقم له. ويُتاح لرئيس لجنة الجدول ورئيس القسم في لوحتهما متى كان للفصل جدول: قبل الاعتماد النهائي يُروى «حتى الآن» فتظهر الخطوات الباقية «بانتظار …» ولا يدّعي العنوان انتهاء الفصل، وبعد اعتماد التسجيل يصبح نهائياً ويبقى في «السجل» لذلك الفصل. وللعميد ومساعده نسخةٌ تجمع أقسام الكلية في أي وقت. والمشاركة زرّ «انسخ الرابط» يرسله صاحبه بيده، ولا يرسل الخادم رسالة.",
+        "en": "The system shall present a «Term film»: a player of seven scenes (title; schedule build with its week grid and counters; teacher wishes honoured; blocking conflicts counting down; students who sent their needs through «Masari»; delivery steps to the registrar with dates; thanks) whose every figure is computed from system data only, dropping any scene that has no figure. It is offered to the schedule committee chair and the department head on their dashboard as soon as the term has a schedule: before the registrar's final acceptance it is told «so far», with the remaining steps shown as pending and a title that does not claim the term is finished; after final acceptance it becomes final and is kept in the «Record» area of that term. The dean and vice dean get a college version summarising all departments at any time. Sharing is a «Copy link» button the user sends by hand; the server sends no message."
+      },
+      "rationale": { "ar": "يعرض القسم في مجلسه والعميد في كليته ما أُنجز في الفصل بصورة واحدة قصيرة، بأرقامٍ لا تُكتب باليد.", "en": "A department council or a dean sees what the term achieved in one short picture, with figures nobody types by hand." },
+      "priority": "could",
+      "status": "implemented",
+      "actors": ["committeeChair", "departmentHead", "dean", "viceDean"],
+      "acceptance": [
+        { "ar": "جدولٌ اعتمده التسجيل يُظهر فيلماً نهائياً عنوانه «كيف بُني جدولنا» وخطوته الأخيرة «اعتمد»، وبطاقةَ «فيلم الفصل» في «السجل»؛ وجدولٌ ما زال عند التسجيل يُظهر «كيف يُبنى جدولنا · حتى الآن» وخطوة «بانتظار الاعتماد النهائي»، ولا بطاقة له في «السجل».", "en": "A schedule accepted by the registrar shows a final film titled «how our schedule was built» whose last step reads accepted, and a «Term film» card in the Record; a schedule still with the registrar shows «how our schedule is being built · so far» with an «awaiting final acceptance» step, and no Record card." },
+        { "ar": "قسمٌ بلا احتياجات طلبة من «مساري» يُعرض فيلمه بلا مشهد الطلبة، وبنود طلبات الأساتذة المعلّقة أو الملغاة أو المستبدَلة لا تدخل نسبة الرغبات، والتعارضات تُعدّ من أعلى ما ظهر في نسخ الجدول المحفوظة إلى ما بقي الآن.", "en": "A department with no student needs from «Masari» shows its film without the students scene; pending, cancelled or superseded teacher request items do not enter the wishes ratio; conflicts count from the highest seen in the saved schedule versions down to what remains now." },
+        { "ar": "المساران GET /api/term-film وGET /api/term-film/college يقرآن فقط: نسخة القسم تُرفض لغير لجنة الجدول ورئيس القسم (والحساب بلا صفة إلا بشاشة الجدول 7)، ونسخة الكلية لغير العميد ومساعده، وكلاهما خارج النطاق؛ ولا يحمل الجواب اسم قاعة ولا رقماً مدنياً، والأستاذ لا يرى الفيلم.", "en": "GET /api/term-film and GET /api/term-film/college only read: the department version is refused to anyone but the committee chair and department head (or a role-less account holding schedule screen 7), the college version to anyone but the dean and vice dean, and both out of scope; the response carries no room name and no civil ID, and teachers do not see the film." },
+        { "ar": "من طلب تقليل الحركة يرى كل مشهد ساكناً بأرقامه النهائية ولا يبدأ الفيلم وحده؛ وعلى عرض الهاتف يصبح المشغّل عمودياً بلا تمرير أفقي.", "en": "With reduced motion requested, each scene shows still with its final figures and the film does not start on its own; at phone width the player turns portrait with no horizontal scroll." }
+      ],
+      "evidence": { "code": ["src/utils/termFilm.ts#deliveryFromApproval", "src/utils/termFilm.ts#deptFilm", "src/utils/termFilm.ts#deanFilm", "src/server/routes/termFilmRoutes.ts", "src/components/TermFilm.tsx#TermFilmPlayer", "src/components/Dashboard.tsx", "src/components/IntelligenceWorkspace.tsx"], "tests": ["tests/term-film-audit.ts"] },
       "inferred": false
     }
   ],

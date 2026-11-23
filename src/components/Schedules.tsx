@@ -86,7 +86,9 @@ import {
   ArrowDown,
   FlaskConical,
   Ruler,
+  Box,
 } from "lucide-react";
+import HallPulseLazy, { type HallPulseMove } from "./hallPulse/HallPulseLazy";
 import { DnaCount, DnaStatusHeader } from "./dna";
 import RegistrarCheckNote, { undoRowIds } from "./RegistrarCheckNote";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
@@ -737,7 +739,7 @@ const WeekCardBoundary = React.memo(
  * presentation; it renders nothing but shimmering placeholders and reads no
  * scheduling state.
  */
-function ScheduleSkeleton({ viewMode }: { viewMode: "week" | "list" | "rooms" }) {
+function ScheduleSkeleton({ viewMode }: { viewMode: "week" | "list" | "rooms" | "pulse" }) {
   if (viewMode === "list") {
     return (
       <div className="sched-skeleton sched-skeleton-list" role="status" aria-label="يجري تحميل المواعيد">
@@ -1042,7 +1044,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     /* لوحة القاعات: طيُّ القاعات التي لا تناسب الحاجة المكتوبة في البحث (عرضٌ فقط). */
     [rxHideUnfit, setRxHideUnfit] = useState(false),
     [rxGoto, setRxGoto] = useState<{ key: string; n: number } | null>(null),
-    [viewMode, setViewMode] = useState(
+    /* «مجسّم» (نبض القاعات) لا يُستعاد من التفضيلات: يُفتح بطلبه، فلا تُحمَّل three.js عند كل دخول. */
+    [viewMode, setViewMode] = useState<"list" | "week" | "rooms" | "pulse">(
       isPhoneDevice() ? "list" : savedPrefs.viewMode === "week" ? "week" : savedPrefs.viewMode === "rooms" ? "rooms" : "list",
     ),
     [conflicts, setConflicts] = useState<any[]>([]),
@@ -2901,7 +2904,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   }, [hueBy, courseById, instructorById]);
 
   const changeView = useCallback((value: string) => {
-    const requested = value === "week" ? "week" : value === "rooms" ? "rooms" : "list";
+    const requested = value === "week" ? "week" : value === "rooms" ? "rooms" : value === "pulse" ? "pulse" : "list";
     const next = phoneReadOnly ? "list" : requested;
 
     // Any move between list / week / rooms starts clean: every filter from the
@@ -6741,6 +6744,84 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setSaving(false);
     }
   };
+
+  /**
+   * «نبض القاعات»: نقل شعبةٍ أو خطة يومٍ كاملة إلى قاعاتٍ أخرى.
+   *
+   * ليس باباً جديداً للكتابة: هو باب النقل نفسه (/api/schedules/move-batch) الذي
+   * يستعمله السحب في الأسبوع والقاعات — يعيد الخادم فحص كل نقلة، ويعامل الشعب
+   * المنقولة معاً كأنها انتقلت (فالسلسلة «تُفرغ قاعة ثم تملؤها» تمرّ)، ويكتبها
+   * دفعةً واحدة أو يرفضها كلها. ويُقدَّم التراجع كأي نقل.
+   */
+  const commitHallPulseMoves = async (moves: HallPulseMove[]): Promise<boolean> => {
+    if (!moves.length) return false;
+    if (dragBlocked) { setError(approvalLock || (termFrozen ? "الفصل مجمَّد؛ لا يمكن نقل المواعيد." : "ليست لديك صلاحية تعديل الجدول.")); return false; }
+    const pairs = moves.map(move => {
+      const before = rows.find(item => Number(item.id) === Number(move.sessionId));
+      if (!before) return null;
+      const location = move.roomId
+        ? { roomId: move.roomId, buildingId: move.buildingId, locationStatus: "VERIFIED" as const }
+        : { roomId: undefined, buildingId: undefined, locationStatus: undefined };
+      return { before, after: { ...before, AdRoomCode: move.building, AdRoomHall: move.hall, ...location } as FSchedule, move };
+    }).filter((pair): pair is { before: FSchedule; after: FSchedule; move: HallPulseMove } => Boolean(pair));
+    if (pairs.length !== moves.length) { setError("تغيّر الجدول أثناء العرض؛ لم يُنقل شيء. أعد المحاولة."); return false; }
+    const patched = new Map(pairs.map(pair => [pair.before.id, pair.after]));
+    const originals = new Map(pairs.map(pair => [pair.before.id, pair.before]));
+    if (practiceModeRef.current) {
+      setRows(current => current.map(item => patched.get(item.id) || item));
+      markChanged(pairs[0].before.id);
+      leaveMoveTraces(pairs);
+      setPhysicsNotice("وضع تجربة · النقل محلي ومؤقت");
+      setMessage("نجحت التجربة. لم يتغير جدولك الحقيقي.");
+      return true;
+    }
+    const ids = pairs.map(pair => pair.before.id);
+    setSaving(true);
+    setError(null);
+    markPendingWrites(ids, true);
+    setRows(current => current.map(item => patched.get(item.id) || item));
+    try {
+      const outcome = await fetchJson("/api/schedules/move-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          strict: strictNoConflict,
+          moves: pairs.map(({ before, move }) => ({
+            id: before.id,
+            rev: before.rev,
+            fields: {
+              AdRoomCode: move.building,
+              AdRoomHall: move.hall,
+              ...(move.roomId
+                ? { buildingId: move.buildingId || null, roomId: move.roomId, locationStatus: "VERIFIED" }
+                : { buildingId: null, roomId: null, locationStatus: null }),
+            },
+          })),
+        }),
+      });
+      if (Array.isArray(outcome?.rows) && outcome.rows.length) {
+        const confirmed = new Map<number, FSchedule>(outcome.rows.map((item: FSchedule) => [item.id, item]));
+        setRows(current => current.map(item => confirmed.get(item.id) || item));
+      }
+      markChanged(ids[0]);
+      leaveMoveTraces(pairs);
+      offerUndo(pairs.length === 1
+        ? `نُقل ${pairs[0].before.AdCourseName || "الموعد"} إلى ${[pairs[0].move.building, pairs[0].move.hall].filter(Boolean).join("/")}`
+        : `نُقلت ${countOf(pairs.length, AR.section)} إلى قاعات أنسب`, pairs.map(pair => restoreStep(pair.before)));
+      setMessage(pairs.length === 1 ? "حُفظ النقل." : `حُفظ نقلُ ${countOf(pairs.length, AR.section)} دفعةً واحدة.`);
+      return true;
+    } catch (e: any) {
+      setRows(current => current.map(item => originals.get(item.id) || item));
+      if (e?.revisionConflict) setClash({ current: e.current, yours: null });
+      else setError(e?.code === "slot-taken" ? slotTakenWords(e) : friendlyError(e));
+      void loadRows({ silent: true });
+      return false;
+    } finally {
+      markPendingWrites(ids, false);
+      setSaving(false);
+    }
+  };
+  const pulseInstructorName = useCallback((id: number) => instructorById.get(id)?.AdInstructorName || "", [instructorById]);
 
   const undoPhysicsDecision = async () => {
     if (showMobileReadOnlyGate()) return;
@@ -13278,6 +13359,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <button data-guide-target="schedule.view.rooms" type="button" className={viewMode === "rooms" ? "active" : ""} aria-pressed={viewMode === "rooms"} onClick={() => changeView("rooms")}>
                 <MapPin aria-hidden="true" /> المباني والقاعات
               </button>
+              <button type="button" className={viewMode === "pulse" ? "active" : ""} aria-pressed={viewMode === "pulse"} onClick={() => changeView("pulse")}
+                data-guide-ignore="يفتح نبض القاعات: مجسّم القاعات وملاءمتها لشعبها" title="نبض القاعات: مجسّم القاعات وملاءمتها لشعبها">
+                <Box aria-hidden="true" /> مجسّم
+              </button>
             </>) : null}
           </div>
           {/* A way of looking at the board, remembered by name. Absent entirely
@@ -13531,6 +13616,21 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         </Surface>
       ) : presentationMode ? (
         <CinemaView />
+      ) : viewMode === "pulse" ? (
+        <div className="hp-host">
+          <HallPulseLazy
+            context="workshop"
+            collegeId={Number(filterCollege) || 0}
+            sectionId={Number(filterSection) || 0}
+            termId={Number(filterTerm) || 0}
+            rows={rows}
+            courses={courses}
+            instructorName={pulseInstructorName}
+            canSave={canEditSchedule && !dragBlocked}
+            practice={practiceMode}
+            onSaveMoves={commitHallPulseMoves}
+          />
+        </div>
       ) : duoSplit && viewMode !== "rooms" ? (
         <div className="duo-split"><div className="duo-split-week">{schedWeekPane}</div><aside className="duo-split-list" aria-label="قائمة المواعيد">{schedListPane}</aside></div>
       ) : viewMode === "list" ? (
@@ -14251,6 +14351,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 type="button" className={viewMode === "rooms" ? "on" : ""} aria-pressed={viewMode === "rooms"}
                 onClick={() => changeView("rooms")} title="عرض المباني والقاعات" aria-label="عرض المباني والقاعات"
               ><MapPin aria-hidden="true" /></button>
+              <button
+                type="button" className={viewMode === "pulse" ? "on" : ""} aria-pressed={viewMode === "pulse"}
+                onClick={() => changeView("pulse")} title="نبض القاعات (مجسّم)" aria-label="نبض القاعات (مجسّم)"
+                data-guide-ignore="يفتح نبض القاعات"
+              ><Box aria-hidden="true" /></button>
             </>) : null}
           </div>
           <span className="dock-split" aria-hidden="true" />

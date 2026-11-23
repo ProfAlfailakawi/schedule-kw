@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useRef,useState}from"react";
+import React,{Suspense,lazy,useEffect,useMemo,useRef,useState}from"react";
 import HealthGlance from "./HealthGlance";
 import{ArrowLeft,BookOpen,CalendarClock,CalendarDays,CheckCircle2,ChevronDown,DoorOpen,GraduationCap,ShieldAlert,Sparkles,TrendingDown,TrendingUp,UsersRound}from"lucide-react";
 import{Notice,PrimaryButton}from"./ui";
@@ -7,11 +7,17 @@ import GetAppSheet from"./GetAppSheet";
 import MiniRing from"./MiniRing";
 import{Counted,useMotionScope}from"./dna";
 import TermForecast from"./TermForecast";
+import DeanHallPulseCard from"./hallPulse/DeanHallPulseCard";
 import{SCHEDULE_DAY_END,SCHEDULE_DAY_SPAN,SCHEDULE_DAY_START, formatCompactDurationArabic, scheduleClockForDisplay }from"../utils/scheduleTime";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { readSharedScope, useSharedScope } from "../utils/sharedScope";
+import { singleDepartmentOf } from "../utils/scopeContext";
+import type { TermFilmScope } from "./TermFilm";
 
-interface DashboardProps{user:any;scopes:any[];canManageSchedule?:boolean;onNavigate?:(view:string)=>void;searchView?:string;reportView?:string}
+/* فيلم الفصل يُحمَّل حين يُحتاج فقط: اللوحة في الحمولة الأولى، والفيلم ليس فيها. */
+const TermFilmCard=lazy(()=>import("./TermFilm").then(module=>({default:module.TermFilmCard})));
+
+interface DashboardProps{user:any;scopes:any[];canManageSchedule?:boolean;onNavigate?:(view:string)=>void;searchView?:string;reportView?:string;roleId?:string}
 interface DashboardData{history?:Array<{termId:number;termName:string;schedules:number;rooms:number;instructors:number}>;previous?:{termId:number;termName:string;schedules:number;rooms:number;instructors:number}|null;metrics:{courses:number;schedules:number;terms:number;instructors:number};latestTermId?:number;latestTermName:string;home?:HomeTerm;dayName:string;weekend?:boolean;dashboardTotal:number;today:Array<{id:number;instructorName:string;courseCode:string;courseName:string;startTime:string;endTime:string;roomCode:string;roomHall:string}>;workspace?:{mode:"admin"|"personal"|"scope";activeSchedules:number;uniqueRooms:number;uniqueInstructors:number;roomOccupancyPeak:number;peakOccupiedRooms:number;weekdayLoad:Array<{key:string;label:string;count:number}>;busiestHours:Array<{hour:string;count:number}>;busiestRooms:Array<{room:string;count:number}>;scopeCount:number;linkedInstructorName:string;personalToday:any[]}}
 /** أيُّ فصلٍ تعرضه اللوحة ولماذا (src/utils/homeTerm.ts). */
 interface HomeTerm{termId:number;defaultTermId:number;defaultTermName:string;currentTermId:number;explicit:boolean;fallback:boolean;empty:boolean;awaitingApproval:boolean;upcoming:{termId:number;termName:string}|null}
@@ -80,7 +86,7 @@ function Spark({series,label}:{series:number[];label:string}){
  </svg>;
 }
 
-export default function Dashboard({user,scopes,canManageSchedule=false,onNavigate,searchView,reportView}:DashboardProps){
+export default function Dashboard({user,scopes,canManageSchedule=false,onNavigate,searchView,reportView,roleId}:DashboardProps){
  const[data,setData]=useState<DashboardData|null>(null),[overview,setOverview]=useState<any>(null),[living,setLiving]=useState<any>(null),[error,setError]=useState<string|null>(null),[attentionOpen,setAttentionOpen]=useState(false),[detailsOpen,setDetailsOpen]=useState(false);
  /**
   * ── لوحة البداية لا تُفرَّغ بسبب لوحة جانبية ────────────────────────────────
@@ -225,6 +231,28 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
    ?{key:"ready",label:"الجاهزية",value:`${num(percent(living.health.quality))}%`,ring:percent(living.health.quality)}
    :insightsPending?{key:"ready",label:"الجاهزية",value:"—",awaiting:true}:null,
  ].filter(Boolean) as Array<{key:string;label:string;value:string;tone?:"danger";awaiting?:boolean;ring?:number;count?:number}>;
+ /**
+  * ── فيلم الفصل (FR-DSH-031) ────────────────────────────────────────────────
+  * لرئيس لجنة الجدول ورئيس القسم نسخةُ قسمه، وللعميد ومساعده نسخةُ كليته. تظهر
+  * البطاقة متى كان للفصل جدول — قبل الاعتماد النهائي «حتى الآن»، وبعده نهائية.
+  * الأستاذ وصفات التسجيل والمرشد لا يرونها.
+  */
+ const filmScope=useMemo<TermFilmScope|null>(()=>{
+  const termId=Number(home?.termId||data?.latestTermId||0);
+  if(!termId||termEmpty)return null;
+  const role=String(user?.Role||"");
+  if(role==="dean"||role==="viceDean"){
+   const collegeId=Number((scopes||[]).find((row:any)=>Number(row?.AdCollegeId))?.AdCollegeId||0);
+   return collegeId?{version:"dean",collegeId,termId}:null;
+  }
+  const chair=role==="committeeChair"||role==="departmentHead"||((!role||role==="standard")&&canManageSchedule);
+  if(!chair)return null;
+  const only=singleDepartmentOf(scopes,0,false);
+  const row=only?(scopes||[]).find((item:any)=>Number(item?.AdSectionId)===only):null;
+  const shared=readSharedScope();
+  const collegeId=Number(row?.AdCollegeId||shared.collegeId||0),sectionId=Number(only||shared.sectionId||0);
+  return collegeId&&sectionId?{version:"dept",collegeId,sectionId,termId}:null;
+ },[home?.termId,data?.latestTermId,termEmpty,user?.Role,scopes,canManageSchedule]);
  /* رقمٌ وصل متأخراً بعد «—»: يظهر بتلاشٍ واحد، ولا يتكرّر مع التحديث. */
  const awaitedSignals=useRef(new Set<string>());
  signals.forEach(item=>{if(item.awaiting)awaitedSignals.current.add(item.key);});
@@ -278,6 +306,8 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
      <span>{item.label}</span>
     </article>)}
    </section>:null}
+
+   {filmScope?<Suspense fallback={null}><TermFilmCard scope={filmScope}/></Suspense>:null}
 
    {decisions.length>1?<section className={`dashboard-insights dashboard-attention ${attentionOpen?"open":""}`} aria-labelledby="dashboard-attention-title">
     <button className="dashboard-insights-toggle" type="button" onClick={()=>setAttentionOpen(v=>!v)} aria-expanded={attentionOpen} aria-controls="dashboard-attention-list">
@@ -426,6 +456,8 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
     {/* «ذروة الأوقات» و«أكثر القاعات استخداماً» انتقلتا إلى مركز الاستعلام (عدستا «الأوقات» و«نسبة الإشغال»). */}
    </section>:null}
 
+   {/* نبض القاعات للعميدين: بطاقةٌ تُفتح عند الطلب، للقراءة فقط. */}
+   {(roleId==="dean"||roleId==="viceDean")&&!termEmpty?<DeanHallPulseCard scopes={scopes} termId={home?.termId||data.latestTermId||0}/>:null}
    {power&&ws&&!termEmpty?<section className={`dashboard-insights ${detailsOpen?"open":""}`}>
     <button className="dashboard-insights-toggle" type="button" onClick={()=>setDetailsOpen(v=>!v)} aria-expanded={detailsOpen}>
      <span><Sparkles aria-hidden="true"/><strong>تفاصيل</strong></span>

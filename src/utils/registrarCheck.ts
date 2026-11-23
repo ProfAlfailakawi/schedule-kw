@@ -527,6 +527,21 @@ export function checkRegistrarPdf(input: RegistrarCheckInput): RegistrarCheckRes
     if (crn) originalByCrn.set(crn, [...(originalByCrn.get(crn) || []), row]);
   }
   const pdf = groupPdfRows(pdfRows, pdfCode, pdfName);
+  /* ملفُّ فرعٍ يطبع الشعبة بخانتين (01، 2، 03) وجدولُنا يرقّمها 501، 502، 503: الرقمُ نفسه بصيغتين.
+     تُقرأ شعبتُهم n شعبتَنا 500+n حين يكون لمقررها عندنا 500+n ولا يكون n؛ فتُعرف بمفتاحها ولا تقع في «تحتاج نظرك». */
+  {
+    const ourKeys = new Set(live.keys());
+    for (const [key, s] of [...pdf.sections]) {
+      if (!/^\d{1,2}$/.test(s.section) || !Number(s.section) || !s.tail) continue;
+      const wide = String(500 + Number(s.section));
+      if (ourKeys.has(`${s.tail}|${s.section}`) || !ourKeys.has(`${s.tail}|${wide}`)) continue;
+      if (key.startsWith("#")) { s.section = wide; continue; }
+      const next = `${s.tail}|${wide}`;
+      if (pdf.sections.has(next)) continue;
+      s.section = wide;
+      pdf.sections.delete(key); s.key = next; pdf.sections.set(next, s);
+    }
+  }
 
   const liveCrns = new Set([...live.values()].map(s => s.crn).filter(Boolean));
   const knownCrns = new Set<string>([...liveCrns, ...sentByCrn.keys(), ...originalByCrn.keys()]);

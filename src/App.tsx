@@ -146,6 +146,7 @@ import { forgetPushDevice, markPushActive } from "./utils/pushClient";
 const Onboarding = safeLazy(() => import("./components/Onboarding"));
 const ScheduleChanges = safeLazy(() => import("./components/ScheduleChanges"));
 const DepartmentSchedule = safeLazy(() => import("./components/DepartmentSchedule"));
+const TermFilmPage = safeLazy(() => import("./components/TermFilm"));
 const InstructorInbox = safeLazy(() => import("./components/InstructorInbox"));
 const StudentRegistration = safeLazy(() => import("./components/StudentRegistration"));
 const PlanReview = safeLazy(() => import("./components/PlanReview"));
@@ -168,6 +169,7 @@ type View =
   | "courses"
   | "schedules"
   | "departmentSchedule"
+  | "termFilm"
   | "scheduleCopy"
   | "intelligence"
   | "scheduleChanges"
@@ -310,6 +312,7 @@ const pathByView: Record<View, string> = {
   courses: "/AdCourse/Index",
   schedules: "/FSchedule/Index",
   departmentSchedule: "/FSchedule/DepartmentSchedule",
+  termFilm: "/FSchedule/TermFilm",
   scheduleCopy: "/FSchedule/CopySchedule",
   /* The rail's own name for the same screen — translated before it is ever
      navigated to, and mapped here so the route table stays total. */
@@ -1866,6 +1869,7 @@ export default function App() {
             searchView={smartSearchView}
             reportView={smartReportView}
             onNavigate={(view: string) => go(view as View)}
+            roleId={sessionRole.id}
           />
           {!user.IsDemo ? <AdSlot slot="dashboard" /> : null}
           </>
@@ -1898,6 +1902,12 @@ export default function App() {
         ) : (
           unauthorized()
         );
+      case "termFilm":
+        /* فيلم الفصل من رابطٍ منسوخ: لأصحاب الجدول وللعميد ومساعده؛ والأستاذ لا يراه.
+           الحارسُ الحقيقي في الخادم (src/server/routes/termFilmRoutes.ts). */
+        return isPowerAdmin || ["committeeChair", "departmentHead", "dean", "viceDean"].includes(sessionRole.id) || (sessionRole.id === "standard" && hasPerm(7))
+          ? <TermFilmPage />
+          : unauthorized();
       case "departmentSchedule":
         return sessionRole.id === "departmentHead" && hasPerm(14) ? (
           <DepartmentSchedule scopes={scopes} onBack={() => go("scheduleChanges")} />

@@ -17,6 +17,7 @@ import { roleDefinition } from "../utils/academicRoles";
 import { mergeOperationsReadings, mergeDecisionReadings, scopedReadingList, sameIntelligenceScope, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
 import { DEMO_STAGE_SECTION_ID, isDemoSession } from "../utils/demoSession";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TermFilmPanel } from "./TermFilm";
 import { TimeField } from "./TimeField";
 import { DnaStepper } from "./dna";
 import { CampusTravelMap, EquationChips } from "./VisualBits";
@@ -78,6 +79,7 @@ import {
   Printer,
   Plus,
   X,
+  Clapperboard,
 } from "lucide-react";
 import {
   Badge,
@@ -193,7 +195,7 @@ type InsightScene =
    their own the moment a scenario existed. */
 type TwinCard = "hero" | "lab" | "board" | "editor" | "ledger" | "genesis";
 /* «السجل» (كان «اعتمد»): ودفترُ القرار بطاقةٌ واحدة بثلاثة ألسنة — دفتر القرارات، ومحضر القرار، وذاكرة القرار. */
-type ApproveCard = "compare" | "drafts" | "versions" | "decisions";
+type ApproveCard = "compare" | "drafts" | "versions" | "decisions" | "film";
 /* ── المرحلةُ والبطاقةُ في الرابط ───────────────────────────────────────────
    «لما أضغط أي بطاقة كيف أرجع؟»: زرُّ الرجوع في المتصفح كان يخرج من المركز كله،
    لأن فتح البطاقة لم يكن خطوةً في التاريخ. الآن كلُّ فتحٍ خطوة: ?stage=…&card=…،
@@ -609,6 +611,19 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
     const nav = readIntelNav(initialTab || "command");
     return nav?.tab === "history" ? (nav.card as ApproveCard | null) : null;
   });
+
+  /* فيلم الفصل يبقى في «السجل» بعد اعتماد التسجيل النهائي (FR-DSH-031): البطاقة لا تظهر قبله. */
+  const [filmFinal, setFilmFinal] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setFilmFinal(false);
+    if (tab !== "history" || !collegeId || !sectionId || !termId) return;
+    fetch(`/api/term-film?collegeId=${collegeId}&sectionId=${sectionId}&termId=${termId}&brief=1`)
+      .then(response => (response.ok ? response.json() : null))
+      .then(body => { if (alive) setFilmFinal(Boolean(body?.available && body?.final)); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [tab, collegeId, sectionId, termId]);
 
   const showScene = (value: InsightScene | null) => {
     setInsightScene(value);
@@ -4520,8 +4535,12 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
               { value: "versions", label: "سجل النسخ", detail: "كل نسخة، وما يفعله استرجاعها", icon: <History /> },
               { value: "decisions", label: "دفتر القرار", detail: "القرارات والمحاضر والذاكرة", icon: <BookOpen />,
                 metric: decisionInbox?.totalOpen ? String(decisionInbox.totalOpen) : undefined },
+              ...(filmFinal ? [{ value: "film", label: "فيلم الفصل", detail: "قصة الجدول بعد اعتماده النهائي", icon: <Clapperboard /> }] : []),
             ]}
           />
+          {approveCard === "film" && filmFinal && collegeId && sectionId && termId ? (
+            <TermFilmPanel scope={{ version: "dept", collegeId, sectionId, termId }} />
+          ) : null}
           {approveCard === "compare" ? (
           <Surface className="term-compare">
             <div className="surface-head">

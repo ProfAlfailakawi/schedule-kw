@@ -1,0 +1,179 @@
+/* ── فيلم الفصل ─────────────────────────────────────────────────────────────
+   The card and panel follow the app's light/dark tokens. The player itself is
+   a deliberate night stage in both themes (the approved reference), so its
+   palette is local to it. Every size inside the player is a multiple of --u,
+   one per cent of the player's own width, so the film scales as one picture;
+   below 560px wide the player turns portrait and --u grows so text stays
+   readable on a phone. */
+
+.tf-card{
+  display:grid;gap:12px;
+  border:1px solid color-mix(in srgb,var(--brass) 30%,var(--line));
+  border-radius:var(--radius-card,18px);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--brass) 7%,var(--surface)),var(--surface) 60%);
+  box-shadow:var(--shadow-sm);
+  padding:14px 16px;
+  min-width:0;
+}
+.tf-card-row{display:flex;align-items:center;gap:12px;min-width:0}
+.tf-card-mark{flex:none;display:grid;place-items:center;width:42px;height:42px;border-radius:12px;
+  background:linear-gradient(160deg,#143730,#0d241f);color:#e2bd76;box-shadow:inset 0 0 0 1px rgb(226 189 118 / .25)}
+.tf-card-mark svg{width:20px;height:20px}
+.tf-card-text{display:grid;gap:2px;min-width:0;flex:1}
+.tf-card-text strong{font-size:15px}
+.tf-card-text small{color:var(--muted);font-size:12.5px;line-height:1.5}
+.tf-card-open{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;min-width:72px;border:0;border-radius:999px;cursor:pointer;
+  padding:8px 16px;font:inherit;font-weight:600;font-size:14px;background:var(--accent);color:var(--surface);
+  transition:transform .2s var(--ease,ease),box-shadow .2s var(--ease,ease)}
+.tf-card-open svg{width:15px;height:15px}
+.tf-card-open:hover{transform:translateY(-1px);box-shadow:0 6px 16px -8px var(--accent)}
+.tf-card-open:focus-visible,.tf-copy:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+
+.tf-panel{display:grid;gap:12px;min-width:0}
+.tf-panel-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px}
+.tf-panel-head > div{display:grid;gap:2px;min-width:0}
+.tf-kicker{display:inline-flex;align-items:center;gap:6px;color:var(--brass);font-size:12.5px;font-weight:600}
+.tf-kicker svg{width:15px;height:15px}
+.tf-panel-head strong{font-size:16px}
+.tf-panel-head small{color:var(--muted);font-size:12.5px}
+.tf-copy{display:inline-flex;align-items:center;gap:6px;min-height:40px;border:1px solid var(--line);border-radius:999px;background:var(--surface);
+  color:inherit;font:inherit;font-size:13.5px;padding:6px 14px;cursor:pointer}
+.tf-copy svg{width:15px;height:15px}
+.tf-error{color:var(--danger);margin:0}
+.tf-page{max-width:1080px;margin-inline:auto;width:100%}
+
+/* ── The stage ── */
+.tf-player{
+  --stage:#0d241f;--stage-2:#143730;--ink:#eef5f0;--dim:#9fbab0;--rule:#2a4c43;
+  --calm:#4fd3a1;--warm:#f0b24a;--hot:#f0674f;--gold:#e2bd76;
+  --u:1cqw;
+  position:relative;aspect-ratio:16/9;width:100%;max-width:100%;border-radius:22px;overflow:hidden;
+  container-type:inline-size;isolation:isolate;
+  background:radial-gradient(120% 90% at 80% 0%,var(--stage-2),var(--stage) 70%);
+  color:var(--ink);font-family:var(--font-ui);
+  box-shadow:0 24px 60px -28px rgb(4 18 15 / .7),inset 0 0 0 1px rgb(255 255 255 / .06);
+}
+.tf-player:focus-visible{outline:3px solid var(--brass);outline-offset:3px}
+.tf-player.is-full{border-radius:0;aspect-ratio:auto;height:100%}
+.tf-glow{position:absolute;inset:-20%;z-index:-1;pointer-events:none;
+  background:radial-gradient(40% 35% at 20% 80%,rgb(79 211 161 / .10),transparent 70%),radial-gradient(35% 30% at 85% 15%,rgb(226 189 118 / .12),transparent 70%);
+  animation:tf-drift 18s ease-in-out infinite alternate}
+@keyframes tf-drift{to{transform:translate3d(4%,-3%,0) scale(1.05)}}
+.tf-loading{display:grid;place-items:center;color:var(--dim)}
+.tf-loading span{font-size:max(13px,calc(var(--u)*2.2));animation:tf-breathe 1.6s ease-in-out infinite}
+@keyframes tf-breathe{50%{opacity:.45}}
+
+.tf-scenes{position:absolute;inset:0}
+.tf-scene{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  gap:calc(var(--u)*2.2);padding:calc(var(--u)*6) calc(var(--u)*7) calc(var(--u)*9);
+  opacity:0;visibility:hidden;transition:opacity .6s,visibility 0s .6s}
+.tf-scene.on{opacity:1;visibility:visible;transition:opacity .6s}
+.tf-scene > *{transform:translateY(calc(var(--u)*2.4));opacity:0;transition:transform .8s cubic-bezier(.2,.7,.2,1),opacity .8s}
+.tf-scene.on > *{transform:none;opacity:1}
+.tf-scene.on > :nth-child(2){transition-delay:.25s}
+.tf-scene.on > :nth-child(3){transition-delay:.5s}
+.tf-scene.on > :nth-child(4){transition-delay:.75s}
+
+.tf-eyebrow{font-size:calc(var(--u)*2.3);color:var(--gold);font-weight:600;letter-spacing:.01em}
+.tf-big{font-weight:700;font-size:calc(var(--u)*6.2);line-height:1.25;text-wrap:balance;max-width:100%}
+.tf-headline{font-size:calc(var(--u)*3.8)}
+.is-sofar .tf-headline{color:var(--gold)}
+.tf-badge{border:1px dashed var(--rule);border-radius:999px;padding:calc(var(--u)*.4) calc(var(--u)*2);font-size:calc(var(--u)*2.1);color:var(--dim)}
+.tf-num{font-weight:700;font-size:calc(var(--u)*15);line-height:1;color:var(--gold);font-variant-numeric:tabular-nums}
+.tf-num-left{color:var(--warm)}
+.tf-cap{font-size:calc(var(--u)*2.7);color:var(--dim);max-width:calc(var(--u)*76);text-wrap:balance;line-height:1.6}
+
+.tf-trio{display:flex;gap:calc(var(--u)*6);justify-content:center;flex-wrap:wrap}
+.tf-trio div{display:flex;flex-direction:column;gap:calc(var(--u)*.6)}
+.tf-trio b{font-size:calc(var(--u)*7.2);line-height:1.1;color:var(--gold);font-variant-numeric:tabular-nums}
+.tf-trio span{font-size:calc(var(--u)*2.4);color:var(--dim)}
+
+.tf-week,.tf-days{display:grid;grid-template-columns:repeat(5,calc(var(--u)*7));gap:calc(var(--u)*.9)}
+.tf-scene .tf-days{margin-top:calc(var(--u)*-1.4);font-size:calc(var(--u)*1.7);color:var(--dim);font-weight:600}
+.tf-rule{display:block;width:calc(var(--u)*10);height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.tf-scene.on > .tf-rule{transition:transform 1s .35s cubic-bezier(.2,.7,.2,1),opacity 1s .35s;transform:scaleX(1)}
+.tf-scene > .tf-rule{transform:scaleX(0)}
+.tf-week i{height:calc(var(--u)*2.4);border-radius:calc(var(--u)*.7);background:var(--rule);transition:background-color .5s var(--d,0s),box-shadow .5s var(--d,0s)}
+.tf-scene.on .tf-week i.l1{background:color-mix(in srgb,var(--calm) 45%,var(--rule))}
+.tf-scene.on .tf-week i.l2{background:var(--calm)}
+.tf-scene.on .tf-week i.l3{background:var(--gold);box-shadow:0 0 calc(var(--u)*1.4) rgb(226 189 118 / .45)}
+
+.tf-ring{width:calc(var(--u)*22);height:calc(var(--u)*22);position:relative}
+.tf-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.tf-ring circle{fill:none;stroke-width:9;stroke:var(--rule)}
+.tf-ring circle.v{stroke:var(--gold);stroke-linecap:round;transition:stroke-dashoffset 1.8s .5s cubic-bezier(.2,.7,.2,1)}
+.tf-ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--u)*6);font-variant-numeric:tabular-nums}
+
+.tf-dots{display:flex;flex-wrap:wrap;gap:calc(var(--u)*1);justify-content:center;max-width:calc(var(--u)*62)}
+.tf-dots i{width:calc(var(--u)*2);height:calc(var(--u)*2);border-radius:50%;background:var(--hot);transition:background-color .4s var(--d,0s),transform .4s var(--d,0s)}
+.tf-scene.on .tf-dots i.fixed{background:var(--calm);transform:scale(.82)}
+
+.tf-scene:has(.tf-steps){gap:calc(var(--u)*1.8);padding-bottom:calc(var(--u)*10)}
+.tf-steps{display:flex;flex-direction:column;gap:calc(var(--u)*1);align-items:stretch;width:min(calc(var(--u)*78),100%)}
+.tf-steps div{display:flex;justify-content:space-between;align-items:center;gap:calc(var(--u)*2);border:1px solid var(--rule);border-radius:calc(var(--u)*1.6);
+  padding:calc(var(--u)*.9) calc(var(--u)*2.4);font-size:calc(var(--u)*2.4);
+  opacity:0;transform:translateX(calc(var(--u)*-3));transition:opacity .6s var(--d,0s),transform .6s var(--d,0s)}
+.tf-scene.on .tf-steps div{opacity:1;transform:none}
+.tf-steps span{display:inline-flex;align-items:center;gap:calc(var(--u)*.8);font-weight:600}
+.tf-steps svg{width:calc(var(--u)*2.4);height:calc(var(--u)*2.4)}
+.tf-steps .is-done span{color:var(--calm)}
+.tf-steps .is-done:last-child{border-color:var(--gold)}
+.tf-steps .is-pending{border-style:dashed}
+.tf-steps .is-pending span{color:var(--dim);font-weight:500}
+
+/* ── Reel ── */
+.tf-reel{position:absolute;inset:auto 0 0 0;padding:0 calc(var(--u)*3) calc(var(--u)*2.6);display:flex;gap:calc(var(--u)*1);align-items:center}
+.tf-reel > button{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--rule);background:rgb(9 26 22 / .6);color:var(--ink);border-radius:999px;
+  font:inherit;font-size:max(12px,calc(var(--u)*1.8));padding:2px max(12px,calc(var(--u)*1.6));line-height:1.9;cursor:pointer;
+  min-height:40px;min-width:40px;justify-content:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:border-color .2s,background-color .2s}
+.tf-reel > button:hover{border-color:var(--gold)}
+.tf-reel > button:focus-visible,.tf-track button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.tf-reel > button svg{width:max(13px,calc(var(--u)*1.8));height:max(13px,calc(var(--u)*1.8))}
+.tf-reel .tf-icon{padding-inline:max(8px,calc(var(--u)*1.1))}
+.tf-track{flex:1;display:flex;gap:calc(var(--u)*.8);min-width:0}
+.tf-track button{flex:1;min-width:0;border:0;background:none;padding:14px 0;cursor:pointer}
+.tf-track i{display:block;height:4px;border-radius:4px;background:var(--rule);overflow:hidden}
+.tf-track b{display:block;height:100%;width:0;background:var(--ink)}
+.tf-track button[aria-current="true"] i{background:color-mix(in srgb,var(--ink) 22%,var(--rule))}
+
+/* Portrait on a phone: the film keeps its words readable instead of shrinking to a stamp. */
+@container (max-width:560px){
+  .tf-scene{--u:1.85cqw;gap:calc(var(--u)*1.8);padding:calc(var(--u)*5) calc(var(--u)*4.5) calc(var(--u)*14)}
+  .tf-scene:has(.tf-steps){padding-bottom:calc(var(--u)*14)}
+  .tf-trio{gap:calc(var(--u)*3.4);flex-wrap:nowrap}
+  .tf-trio b{font-size:calc(var(--u)*5.6)}
+  .tf-trio span{font-size:calc(var(--u)*2.2)}
+  .tf-week,.tf-days{grid-template-columns:repeat(5,calc(var(--u)*6.4));gap:calc(var(--u)*.8)}
+  .tf-week i{height:calc(var(--u)*2)}
+  .tf-num{font-size:calc(var(--u)*13)}
+  .tf-big{font-size:calc(var(--u)*5.4)}
+  .tf-headline{font-size:calc(var(--u)*3.4)}
+  .tf-steps div{padding:calc(var(--u)*.8) calc(var(--u)*1.8);font-size:calc(var(--u)*2.3)}
+  .tf-reel{padding:0 10px 10px;gap:6px}
+  .tf-reel > button{width:var(--ix-tap,44px);height:var(--ix-tap,44px);padding:0;justify-content:center}
+  .tf-track button{padding:20px 0}
+  .tf-reel > button span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .tf-reel > button svg{width:16px;height:16px}
+  .tf-track{gap:3px}
+}
+@media (max-width:600px){
+  .tf-player:not(.is-full){aspect-ratio:4/5}
+  .tf-card-row{flex-wrap:wrap}
+  .tf-card-text{flex-basis:calc(100% - 60px)}
+  .tf-card-open{margin-inline-start:auto}
+}
+/* Duo / tablet held portrait and narrow panes: a little taller than 16:9 so captions breathe. */
+@media (min-width:601px) and (max-width:900px) and (orientation:portrait){
+  .tf-player:not(.is-full){aspect-ratio:4/3}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .tf-glow,.tf-loading span{animation:none}
+  .tf-scene,.tf-scene > *,.tf-week i,.tf-dots i,.tf-steps div,.tf-ring circle.v,.tf-card-open{transition:none}
+}
+
+/* The shared-link page: the film is the page, so its heading reads as a page title. */
+.tf-page{padding-block:8px 24px}
+.tf-page .tf-panel{gap:16px}
+.tf-page .tf-panel-head strong{font-size:clamp(18px,2.4vw,24px);letter-spacing:-.01em;line-height:1.35}
