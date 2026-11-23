@@ -27,6 +27,7 @@ import type { PlanCourseFact } from "../utils/sectionPlan";
 import PeriodBalanceInfographic from "./PeriodBalanceInfographic";
 import { ReachReviewNotes } from "./CourseReach";
 import { shortCourseCode } from "../utils/courseReach";
+import { isNativeApp } from "../utils/nativeApp";
 
 /**
  * The last read before a schedule is adopted.
@@ -632,7 +633,7 @@ export default function ScheduleReview({ rows: rowsProp, courses: coursesProp, c
     window.addEventListener("afterprint", resume, { once: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
     let invoked = false;
-    if (!invoked && isWebKitSafari && typeof document.execCommand === "function") {
+    if (!invoked && isWebKitSafari && !isNativeApp() && typeof document.execCommand === "function") {
       try { invoked = document.execCommand("print"); } catch { invoked = false; }
     }
     if (!invoked) window.print();

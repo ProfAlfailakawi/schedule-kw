@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Building2, Copy, DoorOpen, ExternalLink, MonitorPlay, Printer, QrCode, X } from "lucide-react";
 import { SecondaryButton, useDialogDismiss } from "./ui";
 import { roomDoorStickerSheet, type DoorStickerRoom } from "../utils/roomDoorStickers";
+import { printInPage, POPUP_BLOCKED_MESSAGE } from "../utils/printEngine";
+import { isNativeApp } from "../utils/nativeApp";
 import "./room-door.css";
 
 /**
@@ -53,9 +55,10 @@ async function qrSvg(url: string): Promise<string> {
  * الورقةُ حين تُرسم الرموز، وتُطبع بعد أن تُحمَّل الخطوط.
  */
 async function printStickers(links: RoomDoorLinks, rooms: RoomDoorLinks["rooms"]): Promise<string | null> {
-  const win = window.open("", "_blank");
-  if (!win) return "سمح المتصفّح بالنوافذ المنبثقة لهذه الصفحة ثم أعد المحاولة.";
-  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>ملصقات الأبواب</title></head><body style="font-family:Tahoma,sans-serif;display:grid;place-items:center;min-height:90vh;color:#5b6660">جارٍ تجهيز الملصقات…</body></html>`);
+  const native = isNativeApp();
+  const win = native ? null : window.open("", "_blank");
+  if (!native && !win) return POPUP_BLOCKED_MESSAGE;
+  win?.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>ملصقات الأبواب</title></head><body style="font-family:Tahoma,sans-serif;display:grid;place-items:center;min-height:90vh;color:#5b6660">جارٍ تجهيز الملصقات…</body></html>`);
   try {
     const stickers: DoorStickerRoom[] = [];
     for (const room of rooms) {
@@ -63,6 +66,7 @@ async function printStickers(links: RoomDoorLinks, rooms: RoomDoorLinks["rooms"]
       stickers.push({ code: room.code, floor: room.floor, url, qrSvg: await qrSvg(url) });
     }
     const html = roomDoorStickerSheet({ building: links.building, rooms: stickers, origin: window.location.origin });
+    if (native || !win) { printInPage(html); return null; }
     win.document.open();
     win.document.write(html);
     win.document.close();
@@ -71,7 +75,7 @@ async function printStickers(links: RoomDoorLinks, rooms: RoomDoorLinks["rooms"]
     Promise.resolve(ready).then(() => win.setTimeout(() => win.print(), 200), () => win.print());
     return null;
   } catch (error: any) {
-    win.close();
+    win?.close();
     return error?.message || "تعذّر تجهيز الملصقات.";
   }
 }

@@ -53,6 +53,7 @@ test:changes-baseline
 test:notifications
 test:bell-yield
 test:web-push
+test:apns-push
 test:updating-page
 test:id-types
 test:inbox-live
@@ -76,6 +77,8 @@ test:hall-pulse
 test:movement-paths
 test:occupancy-slot-panel
 test:request-handoff
+test:native-print
+test:native-app-copy
 test:request-signature
 test:teacher-card
 test:teacher-card-2

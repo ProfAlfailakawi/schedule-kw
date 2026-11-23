@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { printSheet, POPUP_BLOCKED_MESSAGE } from "../utils/printEngine";
 import { createPortal } from "react-dom";
 import { Copy, Download, Printer, QrCode, X } from "lucide-react";
 import { SecondaryButton, useDialogDismiss } from "./ui";
@@ -59,17 +60,13 @@ export default function MasariQrButton({ sectionName }: { sectionName?: string; 
   };
   const print = () => {
     if (!qr) return;
-    const win = window.open("", "_blank", "width=720,height=900");
-    if (!win) return;
     const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
-    win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>مساري</title>
+    const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>مساري</title>
 <style>body{font-family:"Plex Arabic",Tahoma,sans-serif;text-align:center;margin:0;padding:48px 24px;color:#111}
 h1{font-size:44px;margin:0 0 6px;color:#1f6b5c}h2{font-size:20px;margin:0 0 8px;color:#333}p{font-size:18px;color:#444;margin:0 0 28px;line-height:1.9}.qr{width:340px;height:340px;margin:0 auto}
 .qr svg{width:100%;height:100%}small{display:block;margin-top:22px;font-size:13px;color:#666;direction:ltr}</style></head>
-<body><h1>مساري</h1>${sectionName ? `<h2>${esc(sectionName)}</h2>` : ""}<p>امسح الرمز: جدولك المتوقع قبل التسجيل، ورغباتك، وتذكرتك — في مكانٍ واحد</p><div class="qr">${qr.svg}</div><small>${esc(qr.url)}</small></body></html>`);
-    win.document.close();
-    win.focus();
-    win.setTimeout(() => win.print(), 250);
+<body><h1>مساري</h1>${sectionName ? `<h2>${esc(sectionName)}</h2>` : ""}<p>امسح الرمز: جدولك المتوقع قبل التسجيل، ورغباتك، وتذكرتك — في مكانٍ واحد</p><div class="qr">${qr.svg}</div><small>${esc(qr.url)}</small></body></html>`;
+    if (!printSheet(html, "width=720,height=900")) setError(POPUP_BLOCKED_MESSAGE);
   };
   const copy = async () => {
     if (!qr) return;

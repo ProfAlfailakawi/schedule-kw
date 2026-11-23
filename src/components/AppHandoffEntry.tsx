@@ -10,8 +10,8 @@ import { nativeHandoffAvailable, runNativeHandoff, type HandoffFailure } from ".
  * ويدخل بحسابه. والرسالةُ تظهر بعد الضغط وحده. في المتصفح لا يظهر شيء.
  */
 const MESSAGES: Record<Exclude<HandoffFailure, "cancelled">, string> = {
-  "no-session": "لم نجد دخولاً سابقاً على هذا الجهاز. افتح بطاقتك من Safari أولاً، ثم ارجع واضغط الزر.",
-  "password-first": "اختر كلمة سرّك من المتصفح أولاً، ثم ارجع واضغط الزر.",
+  "no-session": "لم نجد دخولاً سابقاً على هذا الجهاز. ادخل بالاسم وكلمة السر، أو افتح بطاقتك من الرابط الذي وصلك.",
+  "password-first": "اختر كلمة سرّك أولاً من رابط بطاقتك، ثم ارجع واضغط الزر.",
   failed: "تعذّر الدخول الآن. أعد المحاولة، أو ادخل بالاسم وكلمة السر.",
 };
 
@@ -26,9 +26,9 @@ export default function AppHandoffEntry() {
     if (failure !== "cancelled") setMessage(MESSAGES[failure]);
   };
   return (
-    <div className="app-handoff" data-guide-ignore="ينقل دخول Safari إلى التطبيق بإذنٍ من آبل؛ لا يغيّر كلمة سر ولا بيانات">
-      <button type="button" className="app-handoff-go" onClick={go} disabled={busy} data-guide-ignore="ينقل دخول Safari إلى التطبيق بإذنٍ من آبل؛ لا يغيّر كلمة سر ولا بيانات">
-        {busy ? <span className="button-spinner" /> : <><LogIn aria-hidden="true" /> دخلتُ من Safari — انتقل بلمسة</>}
+    <div className="app-handoff" data-guide-ignore="ينقل دخولك السابق إلى التطبيق بإذنٍ من آبل؛ لا يغيّر كلمة سر ولا بيانات">
+      <button type="button" className="app-handoff-go" onClick={go} disabled={busy} data-guide-ignore="ينقل دخولك السابق إلى التطبيق بإذنٍ من آبل؛ لا يغيّر كلمة سر ولا بيانات">
+        {busy ? <span className="button-spinner" /> : <><LogIn aria-hidden="true" /> ادخل بحسابك السابق بلمسة</>}
       </button>
       {message ? <p role="alert">{message}</p> : null}
     </div>

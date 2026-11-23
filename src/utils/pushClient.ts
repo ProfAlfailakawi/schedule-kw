@@ -8,6 +8,7 @@
  */
 
 import { isNativeApp } from "./nativeApp";
+import { isNativePushAvailable } from "./nativePush";
 
 export const PUSH_WORKER_URL = "/push-sw.js";
 export const APP_PUSH_SCOPE = "/push/";
@@ -35,7 +36,7 @@ export async function unregisterAppWorkers(container: { getRegistrations?: () =>
   return stale.length;
 }
 
-export type PushSupport = "ok" | "ios-install" | "none";
+export type PushSupport = "ok" | "ios-install" | "native" | "none";
 
 export function isIos(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -47,11 +48,11 @@ export function isStandalone(): boolean {
   return (window.navigator as any).standalone === true || Boolean(window.matchMedia?.("(display-mode: standalone)").matches);
 }
 
-/** «ok» يُدفع إليه هنا؛ «ios-install» يحتاج الشاشة الرئيسية أولاً (iOS 16.4+)؛ «none» لا. */
+/** «ok» يُدفع إليه هنا؛ «ios-install» يحتاج الشاشة الرئيسية أولاً (iOS 16.4+)؛ «native» التطبيق الرسمي (APNs)؛ «none» لا. */
 export function pushSupport(): PushSupport {
   if (typeof window === "undefined") return "none";
   /* داخل التطبيق الرسمي: Web Push غير متاح في WKWebView ولا معنى لخطوات «الشاشة الرئيسية» هناك. */
-  if (isNativeApp()) return "none";
+  if (isNativeApp()) return isNativePushAvailable() ? "native" : "none";
   const api = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && window.isSecureContext;
   if (api) return "ok";
   return isIos() && !isStandalone() ? "ios-install" : "none";

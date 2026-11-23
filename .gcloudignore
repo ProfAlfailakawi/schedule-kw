@@ -10,3 +10,4 @@ dist/
 .DS_Store
 database/db.json
 # database/db.json.gz is intentionally deployed as the verified bootstrap snapshot.
+google

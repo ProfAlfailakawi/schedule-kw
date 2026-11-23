@@ -1,0 +1,26 @@
+{
+  "appId": "kw.edu.schedule.app",
+  "appName": "SCHEDULE",
+  "webDir": "www",
+  "server": {
+    "url": "https://schedule-kw.com",
+    "errorPath": "offline.html",
+    "allowNavigation": [
+      "schedule-kw.com",
+      "*.firebaseapp.com",
+      "*.googleapis.com"
+    ]
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "launchAutoHide": true,
+      "backgroundColor": "#F2F3EF",
+      "showSpinner": false
+    }
+  },
+  "android": {
+    "backgroundColor": "#F2F3EF",
+    "allowMixedContent": false
+  }
+}
