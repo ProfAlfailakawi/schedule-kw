@@ -204,7 +204,7 @@ export default function HallPulse(props: HallPulseProps) {
       if (day === "week") {
         const w = heat.get(h.key);
         const t = w ? w.week : 0;
-        out.set(h.key, { color: weekRamp(t), level: t, occupied: t > 0.005, label: `${h.code} · ${n(t * 100)}٪`, showLabel: !manyHalls || t > 0.6 });
+        out.set(h.key, { color: weekRamp(t), level: t, occupied: t > 0.005, label: `${h.code} · ${n(t * 100)}%`, showLabel: !manyHalls || t > 0.6 });
         continue;
       }
       const s = occ.get(h.key);
@@ -416,7 +416,7 @@ export default function HallPulse(props: HallPulseProps) {
     setSaving(false);
     if (ok) {
       setPlan(null);
-      setNotice({ tone: "ok", text: `حُفظت ${countOf(moves.length, MOVE)}. المضغوطة من ${n(planBefore?.over || 0)} إلى ${n(after.over)}، والتناسب من ${n(planBefore?.pct || 0)}٪ إلى ${n(after.pct)}٪.` });
+      setNotice({ tone: "ok", text: `حُفظت ${countOf(moves.length, MOVE)}. المضغوطة من ${n(planBefore?.over || 0)} إلى ${n(after.over)}، والتناسب من ${n(planBefore?.pct || 0)}% إلى ${n(after.pct)}%.` });
       announce("حُفظت الخطة دفعةً واحدة عبر مسار النقل المعتاد، وأعاد الخادم فحص كل نقلة.");
     } else {
       setNotice({ tone: "warn", text: "لم تُحفظ الخطة: رفض فحصُ التعارض إحدى النقلات فلم يتغيّر شيء. الخطة باقية لتراجعها." });
@@ -515,7 +515,7 @@ export default function HallPulse(props: HallPulseProps) {
         <div className="hp-metrics">
           {metric("شعب مضغوطة في اليوم", b4.over, after.over, n, true)}
           {metric("مقاعد مهدرة في قاعات واسعة", b4.waste, after.waste, n, true)}
-          {metric("شعب في قاعة تناسبها", b4.pct, after.pct, v => `${n(v)}٪`, false)}
+          {metric("شعب في قاعة تناسبها", b4.pct, after.pct, v => `${n(v)}%`, false)}
         </div>
         <div className="hp-slots" role="group" aria-label="أوقات فيها نقلات">
           {starts.map(st => (
@@ -671,7 +671,7 @@ export default function HallPulse(props: HallPulseProps) {
               const h = model.hallByKey.get(key)!;
               return (
                 <li key={key}><button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" onClick={() => selectHall(key)} aria-current={selected === key}>
-                  <span>{hallTitle(h)}</span><span className="hp-meter"><i style={{ width: `${Math.round(w.week * 100)}%` }} /></span><b>{n(w.week * 100)}٪</b>
+                  <span>{hallTitle(h)}</span><span className="hp-meter"><i style={{ width: `${Math.round(w.week * 100)}%` }} /></span><b>{n(w.week * 100)}%</b>
                 </button></li>
               );
             })}
@@ -806,10 +806,10 @@ export default function HallPulse(props: HallPulseProps) {
         </div>
       </div>
       <div className="hp-walk" role="group" aria-label="أسئلة سريعة">
-        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 1} onClick={() => runWalk(1)}><i>١</i> أين الضغط الآن؟</button>
-        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 2} onClick={() => runWalk(2)}><i>٢</i> أين الهدر؟</button>
-        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 3} onClick={() => runWalk(3)}><i>٣</i> أين أضع شعبة جديدة؟</button>
-        {canSave ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="is-magic" aria-pressed={walk === 4} onClick={() => runWalk(4)}><i>٤</i> رتّب كل شيء بضغطة</button> : null}
+        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 1} onClick={() => runWalk(1)}><i>1</i> أين الضغط الآن؟</button>
+        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 2} onClick={() => runWalk(2)}><i>2</i> أين الهدر؟</button>
+        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 3} onClick={() => runWalk(3)}><i>3</i> أين أضع شعبة جديدة؟</button>
+        {canSave ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="is-magic" aria-pressed={walk === 4} onClick={() => runWalk(4)}><i>4</i> رتّب كل شيء بضغطة</button> : null}
       </div>
       <p className="hp-say" aria-live="polite">{say || "ابدأ بسؤالٍ من الأسئلة أعلاه، أو حرّك الساعة واضغط أي قاعة بنفسك."}</p>
 
@@ -910,7 +910,7 @@ function planNotesFor(plan: DayPlan, key: string, model: PulseModel): string {
 
 function hoverText(model: PulseModel, occ: Map<string, PulseSession>, key: string, day: PulseDay | "week", heat: ReturnType<typeof weeklyHeat>): string {
   const h = model.hallByKey.get(key)!;
-  if (day === "week") return `${h.code} · إشغال الأسبوع ${n((heat.get(key)?.week || 0) * 100)}٪`;
+  if (day === "week") return `${h.code} · إشغال الأسبوع ${n((heat.get(key)?.week || 0) * 100)}%`;
   const s = occ.get(key);
   if (!s) return `${h.code} · فارغة${h.capacity ? ` · ${countOf(h.capacity, AR.seat)}` : ""}`;
   return `${h.code} · ${s.courseName} · ${FIT_LABEL[fitClass(s.students, h.capacity)]}`;
@@ -925,10 +925,10 @@ function WeekStrip({ hall, heat, onDay }: { hall: PulseHall; heat: ReturnType<ty
   if (!w) return null;
   return (
     <div className="hp-week">
-      <div className="hp-fine">أسبوع القاعة · {n(w.week * 100)}٪{w.worst !== "unknown" ? ` · أسوأ حالاتها: ${FIT_LABEL[w.worst]}` : ""}</div>
+      <div className="hp-fine">أسبوع القاعة · {n(w.week * 100)}%{w.worst !== "unknown" ? ` · أسوأ حالاتها: ${FIT_LABEL[w.worst]}` : ""}</div>
       <div className="hp-week-cells">
         {PULSE_DAYS.map((d, i) => (
-          <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={d.key} type="button" onClick={() => onDay(d.key)} title={`${d.label}: ${n(w.days[i] * 100)}٪`}>
+          <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={d.key} type="button" onClick={() => onDay(d.key)} title={`${d.label}: ${n(w.days[i] * 100)}%`}>
             <i style={{ ["--h" as any]: `${Math.round(w.days[i] * 100)}%` }} />
             <span>{d.short}</span>
           </button>
