@@ -10,7 +10,7 @@
 import fs from "fs";
 import path from "path";
 import {
-  applyPlan, buildPulseModel, compatible, doubleBookings, fitClass, floorOf, hallFreeFor, layoutHalls, metrics, originalAssignment,
+  applyPlan, borrowCandidates, buildPulseModel, compatible, doubleBookings, fitClass, floorOf, hallFreeFor, layoutHalls, metrics, originalAssignment,
   planDay, planMoves, suggestHalls, toggleGroup, weeklyHeat, PULSE_DAYS, type PulseDay,
 } from "../src/utils/hallPulse";
 
@@ -168,6 +168,52 @@ check(movedIds.has(pressed.id) && fitClass(pressed.students, model.hallByKey.get
   check(typeBreaks === 0, "لا نقلة تعبر بين المختبر والقاعة النظرية");
 }
 
+/* ── قاعةٌ في سجل القسم لم يستعملها بعد: لا تُعدّ فارغةً قبل أن يُقرأ إشغالها ── */
+{
+  let k = 3000;
+  const r = (course: number, room: string, start = "09:00", end = "10:00") => ({ id: k++, AdSectionId: 9, AdCourseId: course, fstarttime: start, fendtime: end, roomId: room, fsunday: true, ftuesday: true });
+  const reg = { buildings: registry.buildings, rooms: [
+    { id: "p", buildingId: "b1", canonicalCode: "101", capacity: 30 },
+    { id: "big", buildingId: "b1", canonicalCode: "201", capacity: 60 }, // لا يستعملها القسم
+  ] };
+  const cs = [{ AdCourseId: 1, MaxStudent: 41 }];
+  const rows3 = [r(1, "p")];
+  /* room-load القديم: قاعات النطاق وحدها؛ 201 غائبة عن الرد. */
+  const legacy = { rooms: [{ room: "012B01", hall: "101", roomId: "p", busy: [{ day: 0, from: 540, to: 600, mine: true }] }] };
+  const blind = buildPulseModel({ rows: rows3, courses: cs, registry: reg, roomLoad: legacy, includeUnusedRegistryHalls: true, requireOccupancyCheck: true });
+  check(suggestHalls(blind, originalAssignment(blind), 3000).length === 0 && planDay(blind, originalAssignment(blind), "fsunday").groups.length === 0,
+    "قاعةٌ لم يُقرأ إشغالها لا تُقترح فارغة، لا في الاقتراح ولا في «رتّب قاعاتي»");
+  /* بعد طلب roomIds: قسمٌ آخر يشغل 201 الأحد 09:00. */
+  const busy = { checkedRoomIds: ["p", "big"], rooms: [legacy.rooms[0], { room: "012B01", hall: "201", roomId: "big", busy: [{ day: 0, from: 540, to: 600, mine: false }] }] };
+  const seen = buildPulseModel({ rows: rows3, courses: cs, registry: reg, roomLoad: busy, includeUnusedRegistryHalls: true, requireOccupancyCheck: true });
+  check(suggestHalls(seen, originalAssignment(seen), 3000).length === 0 && planDay(seen, originalAssignment(seen), "fsunday").groups.length === 0,
+    "قاعةٌ يشغلها قسمٌ آخر في وقت الشعبة لا تُقترح ولو لم يستعملها قسمنا");
+  /* وفارغةٌ مفحوصة (checkedRoomIds بلا أوقات): تُقترح. */
+  const free = buildPulseModel({ rows: rows3, courses: cs, registry: reg, roomLoad: { checkedRoomIds: ["p", "big"], rooms: legacy.rooms }, includeUnusedRegistryHalls: true, requireOccupancyCheck: true });
+  check(suggestHalls(free, originalAssignment(free), 3000)[0]?.key === "id:big", "وقاعةٌ مفحوصةٌ فارغة تُقترح");
+}
+
+/* ── الاستعارة تحترم النوع لا الملكية وحدها ── */
+{
+  const labSession = model.sessions.find(s => s.hallKey === "id:rL2")!; // شعبة مختبر (CourseRoomType مختبر حاسوب)، الاثنين 08:00–10:00
+  const theory = model.sessions.find(s => s.hallKey === "id:r104")!; // نظرية، أحد·ثلاثاء·خميس 10:00–11:00
+  const op = (roomId: string, day: string, roomType: string, capacity: number, start = "08:00", end = "12:00") =>
+    ({ id: `${roomId}-${day}`, roomId, buildingId: "nb", roomCode: "013B01", roomHall: roomId, day, startTime: start, endTime: end, ownerSectionName: "القسم المجاور", roomType, fit: { capacity, specialised: false } });
+  const ops = [
+    op("LEC", "monday", "قاعة تدريسية", 80), op("LAB", "monday", "مختبر حاسوب", 30),
+    ...["sunday", "tuesday", "thursday"].flatMap(d => [op("LEC", d, "قاعة تدريسية", 80), op("LAB", d, "مختبر حاسوب", 60)]),
+    op("SMALL", "sunday", "قاعة تدريسية", 20), op("SMALL", "tuesday", "قاعة تدريسية", 20), op("SMALL", "thursday", "قاعة تدريسية", 20),
+    op("PART", "sunday", "قاعة تدريسية", 90), // يوم واحد من ثلاثة
+  ];
+  const forLab = borrowCandidates(model, labSession, ops);
+  check(forLab.options.map(o => o.roomId).join() === "LAB", "شعبة المختبر لا تُقترح لها قاعة محاضرات واسعة، بل مختبرٌ يتّسع لها");
+  const forTheory = borrowCandidates(model, theory, ops);
+  check(forTheory.options.map(o => o.roomId).join() === "LEC", "الشعبة النظرية: قاعة نظرية تتّسع وتفرغ في أيامها الثلاثة، لا المختبر ولا الصغيرة ولا فارغة يومٍ واحد");
+  check(forTheory.others.some(o => o.roomId === "PART"), "وفارغة اليوم الأول وحده تُرسم باهتة لا تُقترح");
+  const specialised = borrowCandidates(model, theory, ops.map(o => o.roomId === "LEC" ? { ...o, fit: { capacity: 80, specialised: true } } : o));
+  check(!specialised.options.length, "والقاعة المتخصّصة لقسمٍ آخر لا تُقترح");
+}
+
 /* حرارة الأسبوع والتخطيط المكاني */
 const heat = weeklyHeat(model, base);
 check(heat.get("id:r104")!.days[0] > 0 && heat.get("id:r104")!.days[1] === 0, "حرارة الأسبوع لكل يوم: 104 تعمل الأحد ولا تعمل الاثنين");
@@ -205,6 +251,12 @@ check(/roleId==="dean"\|\|roleId==="viceDean"/.test(dashboard), "لوحة الع
 check(/context === "workshop"/.test(pulse), "لا حفظ خارج الورشة ولو مُرّر onSaveMoves");
 check(/\/api\/hall-barter\/requests/.test(pulse) && /\/api\/hall-barter\?/.test(pulse), "الاستعارة عبر طلب استعارة القاعات الموجود");
 check(/تقدير/.test(pulse), "عدد الطلبة موسومٌ بأنه تقدير");
+const reportsRoutes = read("src/server/routes/reportsRoutes.ts");
+const barterRoutes = read("src/server/routes/hallBarterRoutes.ts");
+const roomLoadRoute = reportsRoutes.slice(reportsRoutes.indexOf('app.get("/api/reports/room-load"'));
+check(/wantedRoomIds/.test(roomLoadRoute) && /checkedRoomIds/.test(roomLoadRoute) && /requireAnyPermission\(\[7, 8, 9, 10, 14, 16, 17\]\)/.test(roomLoadRoute), "room-load يقرأ أوقات قاعات السجل المطلوبة (roomIds) بالصلاحية نفسها");
+check(/roomIds/.test(pulse) && /requireOccupancyCheck: true/.test(pulse), "الشاشة تطلب إشغال قاعات السجل كلها ولا تعدّ غير المفحوصة فارغة");
+check(/roomType:roomTypeIn\(room,sectionId,registry\.roomTypeScopes\)/.test(barterRoutes) && /borrowCandidates\(model, session, ops\)/.test(pulse), "نوع قاعة الاستعارة يُقرأ من اللوحة ويُحكم بحكم اقتراح القسم");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

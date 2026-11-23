@@ -3344,8 +3344,8 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
           <div className="lens-rooms">
             <div className="occupancy-head no-print">
               <div className="hp-lens-switch" role="group" aria-label="شكل عرض القاعات">
-                <button type="button" aria-pressed={false} onClick={() => setRoomPulse(false)}>شبكة</button>
-                <button type="button" aria-pressed onClick={() => setRoomPulse(true)}>مجسّم</button>
+                <button data-guide-ignore="يبدّل عدسة القاعات بين الشبكة والمجسّم؛ عرض فقط" type="button" aria-pressed={false} onClick={() => setRoomPulse(false)}>شبكة</button>
+                <button data-guide-ignore="يبدّل عدسة القاعات بين الشبكة والمجسّم؛ عرض فقط" type="button" aria-pressed onClick={() => setRoomPulse(true)}>مجسّم</button>
               </div>
             </div>
             <HallPulseLazy
@@ -3362,8 +3362,8 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
             <div className="occupancy-head no-print">
               {filters.collegeId && filters.termId ? (
                 <div className="hp-lens-switch" role="group" aria-label="شكل عرض القاعات">
-                  <button type="button" aria-pressed onClick={() => setRoomPulse(false)}>شبكة</button>
-                  <button type="button" aria-pressed={false} onClick={() => setRoomPulse(true)} title="نبض القاعات: مجسّم يقرأ ملاءمة كل قاعة لشعبتها">مجسّم</button>
+                  <button data-guide-ignore="يبدّل عدسة القاعات بين الشبكة والمجسّم؛ عرض فقط" type="button" aria-pressed onClick={() => setRoomPulse(false)}>شبكة</button>
+                  <button data-guide-ignore="يبدّل عدسة القاعات بين الشبكة والمجسّم؛ عرض فقط" type="button" aria-pressed={false} onClick={() => setRoomPulse(true)} title="نبض القاعات: مجسّم يقرأ ملاءمة كل قاعة لشعبتها">مجسّم</button>
                 </div>
               ) : null}
               <div className="occupancy-days">

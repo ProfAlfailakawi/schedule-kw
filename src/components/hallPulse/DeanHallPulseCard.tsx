@@ -27,7 +27,7 @@ export default function DeanHallPulseCard({ scopes, termId }: { scopes: any[]; t
             <strong><Box aria-hidden="true" style={{ width: 18, height: 18, verticalAlign: -3, marginInlineEnd: 6 }} />نبض القاعات في الكلية</strong>
             <small>مباني الكلية مجسّمةً: أين القاعات المضغوطة، وأين الهدر، وحرارة الأسبوع لكل قاعة. للقراءة فقط.</small>
           </div>
-          <button type="button" className="hp-plain-btn" onClick={() => setOpen(true)} aria-expanded={false}>
+          <button data-guide-ignore="يفتح نبض القاعات للعميد أو يغلقه؛ قراءة فقط" type="button" className="hp-plain-btn" onClick={() => setOpen(true)} aria-expanded={false}>
             افتح المجسّم <ChevronDown aria-hidden="true" style={{ width: 16, height: 16 }} />
           </button>
         </div>
@@ -35,7 +35,7 @@ export default function DeanHallPulseCard({ scopes, termId }: { scopes: any[]; t
         <>
           <HallPulseLazy context="dean" collegeId={collegeId} sectionId={sectionId} termId={term} />
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-            <button type="button" className="hp-plain-btn" onClick={() => setOpen(false)} aria-expanded>إغلاق المجسّم</button>
+            <button data-guide-ignore="يفتح نبض القاعات للعميد أو يغلقه؛ قراءة فقط" type="button" className="hp-plain-btn" onClick={() => setOpen(false)} aria-expanded>إغلاق المجسّم</button>
           </div>
         </>
       )}

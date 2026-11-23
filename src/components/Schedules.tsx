@@ -6807,8 +6807,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       leaveMoveTraces(pairs);
       offerUndo(pairs.length === 1
         ? `نُقل ${pairs[0].before.AdCourseName || "الموعد"} إلى ${[pairs[0].move.building, pairs[0].move.hall].filter(Boolean).join("/")}`
-        : `نُقلت ${pairs.length} شعب إلى قاعات أنسب`, pairs.map(pair => restoreStep(pair.before)));
-      setMessage(pairs.length === 1 ? "حُفظ النقل." : `حُفظت ${pairs.length} نقلات دفعةً واحدة.`);
+        : `نُقلت ${countOf(pairs.length, AR.section)} إلى قاعات أنسب`, pairs.map(pair => restoreStep(pair.before)));
+      setMessage(pairs.length === 1 ? "حُفظ النقل." : `حُفظ نقلُ ${countOf(pairs.length, AR.section)} دفعةً واحدة.`);
       return true;
     } catch (e: any) {
       setRows(current => current.map(item => originals.get(item.id) || item));

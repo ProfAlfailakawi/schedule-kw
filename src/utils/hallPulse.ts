@@ -96,6 +96,11 @@ export interface PulseModel {
   sessionById: Map<number, PulseSession>;
   /** أوقاتٌ تشغلها جهاتٌ أخرى في قاعاتنا (من /api/reports/room-load): لا يُنقل إليها. */
   foreignBusy: Map<string, BusyWindow[]>;
+  /**
+   * القاعات التي عُرف إشغالها كله (من room-load): لا يُقترح النقل إلى قاعةٍ خارجها.
+   * null = لم يُطلب الفحص (الاختبارات ومن يملك الإشغال كاملاً).
+   */
+  checked: Set<string> | null;
   dayStart: number;
   dayEnd: number;
 }
@@ -156,7 +161,9 @@ export function buildPulseModel(input: {
   rows: readonly PulseRowInput[];
   courses: readonly PulseCourseInput[];
   registry?: PulseRegistryInput | null;
-  roomLoad?: { rooms?: Array<{ room?: string; hall?: string; roomId?: string; busy?: Array<{ day: number; from: number; to: number; mine: boolean }> }> } | null;
+  roomLoad?: { rooms?: Array<{ room?: string; hall?: string; roomId?: string; busy?: Array<{ day: number; from: number; to: number; mine: boolean }> }>; checkedRoomIds?: string[] } | null;
+  /** لا تُعدّ قاعةٌ فارغةً إلا إن غطّاها room-load (أو قراءةٌ فاشلة = لا مقترحات). */
+  requireOccupancyCheck?: boolean;
   instructorName?: (id: number) => string;
   dayStart?: number;
   dayEnd?: number;
@@ -231,12 +238,21 @@ export function buildPulseModel(input: {
     const list = (room.busy || []).filter(b => !b.mine && PULSE_DAYS[b.day]).map(b => ({ day: PULSE_DAYS[b.day].key as PulseDay, from: b.from, to: b.to }));
     if (list.length) foreignBusy.set(key, list);
   }
+  let checked: Set<string> | null = null;
+  if (input.requireOccupancyCheck) {
+    checked = new Set<string>();
+    for (const id of input.roomLoad?.checkedRoomIds || []) { const key = keyByRoomId.get(String(id)); if (key) checked.add(key); }
+    for (const room of input.roomLoad?.rooms || []) {
+      const key = (room.roomId && keyByRoomId.get(String(room.roomId))) || keyByText.get(hallKeyOf(room.room, room.hall));
+      if (key) checked.add(key);
+    }
+  }
   const hallList = [...halls.values()].sort((a, b) =>
     a.buildingCode.localeCompare(b.buildingCode, "en", { numeric: true }) || a.floor - b.floor || a.code.localeCompare(b.code, "en", { numeric: true }));
   return {
     halls: hallList, hallByKey: new Map(hallList.map(h => [h.key, h])),
     sessions, sessionById: new Map(sessions.map(s => [s.id, s])),
-    foreignBusy, dayStart: input.dayStart ?? 8 * 60, dayEnd: input.dayEnd ?? 20 * 60,
+    foreignBusy, checked, dayStart: input.dayStart ?? 8 * 60, dayEnd: input.dayEnd ?? 20 * 60,
   };
 }
 
@@ -281,12 +297,54 @@ export function hallFreeFor(model: PulseModel, assignment: Assignment, hallKey: 
  * سعتها مجهولة أو متخصّصةٍ لقسمٍ آخر.
  */
 export function compatible(model: PulseModel, session: PulseSession, target: PulseHall): boolean {
+  /* إشغالٌ لم يُقرأ لا يُعدّ فراغاً: قد يشغلها قسمٌ آخر فيردّ النقلَ فحصُ التعارض. */
+  if (model.checked && !model.checked.has(target.key)) return false;
+  return typeFits(model, session, target);
+}
+
+/** السعة والنوع وحدهما (بلا الإشغال): يحكم بها اقتراح القسم واقتراح الاستعارة معاً. */
+export function typeFits(model: PulseModel, session: PulseSession, target: Pick<PulseHall, "capacity" | "type" | "lab" | "foreignSpecialised">): boolean {
   if (!target.capacity || target.foreignSpecialised) return false;
   if (session.students && target.capacity < session.students) return false;
   if (session.expectedType) return target.type === session.expectedType || (!target.type && !isLabType(session.expectedType) && !target.lab);
   const current = model.hallByKey.get(session.hallKey);
   const wantsLab = current ? current.lab : /applied|practical/.test(session.mode);
   return target.lab === wantsLab;
+}
+
+export interface BarterOpportunityInput {
+  id: string; roomId: string; buildingId?: string; roomCode: string; roomHall: string; day: string; startTime: string; endTime: string;
+  ownerSectionName?: string; roomType?: string; fit?: { capacity?: number; specialised?: boolean };
+}
+export interface BorrowCandidate {
+  roomId: string; buildingId?: string; roomCode: string; roomHall: string; capacity: number | null; type: string; owner: string;
+  opportunities: BarterOpportunityInput[];
+}
+
+/**
+ * قاعات الأقسام الأخرى التي تصلح لاستعارةٍ لهذه الشعبة: فارغةٌ (نافذة استعارة) في أيامها كلها
+ * طوال وقتها، وسعتها معروفة وتكفي، ونوعها يوافق نوع الشعبة بالحكم نفسه في اقتراح القسم
+ * (typeFits) — فلا تُقترح قاعة محاضرات لشعبة مختبر، ولا قاعةٌ متخصّصة لغير قسمنا.
+ * وما لا يصلح لكنه فارغٌ في يومها الأول يُعاد في `others` ليُرسم باهتاً.
+ */
+export function borrowCandidates(model: PulseModel, session: PulseSession, opportunities: readonly BarterOpportunityInput[]): { options: BorrowCandidate[]; others: BorrowCandidate[] } {
+  const dayKeys = session.days.map(d => d.replace(/^f/, ""));
+  const same = (o: BarterOpportunityInput, d: string) => o.day === d || o.day === `f${d}`;
+  const byRoom = new Map<string, BarterOpportunityInput[]>();
+  opportunities.forEach(o => { const list = byRoom.get(o.roomId) || []; list.push(o); byRoom.set(o.roomId, list); });
+  const options: BorrowCandidate[] = [], others: BorrowCandidate[] = [];
+  for (const [roomId, list] of byRoom) {
+    const first = list[0];
+    const cap = Math.round(Number(first?.fit?.capacity || 0)) || null;
+    const type = String(first?.roomType || "").trim();
+    const covering = dayKeys.map(d => list.find(o => same(o, d) && minutesOf(o.startTime) <= session.start && minutesOf(o.endTime) >= session.end));
+    const fits = Boolean(session.students) && typeFits(model, session, { capacity: cap, type, lab: isLabType(type), foreignSpecialised: Boolean(first?.fit?.specialised) });
+    const candidate: BorrowCandidate = { roomId, buildingId: first.buildingId, roomCode: first.roomCode, roomHall: first.roomHall, capacity: cap, type, owner: String(first.ownerSectionName || ""), opportunities: covering.filter(Boolean) as BarterOpportunityInput[] };
+    if (covering.every(Boolean) && fits) options.push(candidate);
+    else if (list.some(o => same(o, dayKeys[0]))) others.push(candidate);
+  }
+  options.sort((a, b) => fitScore(session.students || 0, a.capacity) - fitScore(session.students || 0, b.capacity));
+  return { options, others };
 }
 
 /** حتى ثلاث قاعاتٍ أنسب وفارغة في وقت الشعبة كله، الأقرب إلى 120٪ من طلبتها أولاً. */

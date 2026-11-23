@@ -5620,6 +5620,10 @@
         {
           "ar": "الميزة وthree.js يُحمَّلان عند الطلب خارج الحزمة الأولى، وتقليل الحركة يبدأ بالعرض المسطّح، وتُفرَغ موارد WebGL عند الإغلاق.",
           "en": "The feature and three.js load on demand outside the initial bundle, reduced motion starts on the flat view, and WebGL resources are released on close."
+        },
+        {
+          "ar": "لا تُعدّ قاعةٌ فارغةً في الاقتراح ولا في «رتّب قاعاتي» إلا بعد قراءة إشغالها كله: تطلب الشاشة أوقات كل قاعات سجل القسم من /api/reports/room-load (roomIds، قراءةٌ فقط وبالصلاحية نفسها)، وقاعةٌ لم يُقرأ إشغالها لا تُقترح؛ وقاعة الاستعارة تُقبل بنوعها في عين القسم الطالب (roomType في لوحة الاستعارة) بالحكم نفسه، فلا تُقترح قاعة محاضرات لشعبة مختبر.",
+          "en": "A hall counts as free in suggestions and in «arrange my halls» only after its full occupancy is read: the screen asks /api/reports/room-load for the times of every hall in the department's registry (roomIds, read-only, same permission), and a hall whose occupancy was not read is never suggested; a borrowing hall is accepted by its type as the requesting department sees it (roomType on the borrowing board) under the same rule, so a lecture hall is never suggested for a lab section."
         }
       ],
       "evidence": {
@@ -5631,7 +5635,10 @@
           "src/components/hallPulse/DeanHallPulseCard.tsx",
           "src/components/Schedules.tsx#commitHallPulseMoves",
           "src/components/Reports.tsx",
-          "src/components/Dashboard.tsx"
+          "src/components/Dashboard.tsx",
+          "src/server/routes/reportsRoutes.ts",
+          "src/server/routes/hallBarterRoutes.ts",
+          "src/utils/hallPulse.ts#borrowCandidates"
         ],
         "tests": [
           "tests/hall-pulse-audit.ts"

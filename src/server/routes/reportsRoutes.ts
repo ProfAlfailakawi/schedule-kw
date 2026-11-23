@@ -1129,11 +1129,18 @@ app.get("/api/reports/room-load", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]
   const roomKey = (row: FSchedule) => verifiedRoomKey(row);
   const mineKeys = new Set(rows.map(roomKey).filter(Boolean));
 
+  /* ── قاعاتٌ لا يستعملها النطاق بعد (قراءةٌ فقط) ──────────────────────────
+     نبضُ القاعات يقترح نقل شعبةٍ إلى قاعةٍ من سجل القسم لم يُدرَّس فيها بعد؛ فلا
+     يكفي إشغالُ قاعات النطاق وحدها، وإلا ظهرت قاعةٌ يشغلها قسمٌ آخر فارغةً ثم ردّ
+     النقلَ فحصُ التعارض. فمن طلب `roomIds` (معرّفات سجلٍّ يراها في /api/location-registry)
+     يُعطى أوقاتَها كذلك — أوقاتاً بلا مقررٍ ولا أستاذٍ ولا قسم — ويُعاد في `checkedRoomIds`
+     ما فُحص منها ولو كان فارغاً. الصلاحية والنطاق كما هما أعلاه. */
+  const wantedRoomIds = new Set(String((req.query as any).roomIds || "").split(",").map(id => id.trim()).filter(Boolean).slice(0, 400));
   const rooms = new Map<string, { room: string; hall: string; roomId: string; buildingId?: string; mine: boolean; busy: Array<{ day: number; from: number; to: number; mine: boolean }> }>();
   const mineIds = new Set(rows.map(row => row.id));
   universe.forEach(row => {
     const key = roomKey(row);
-    if (!key || !mineKeys.has(key)) return;
+    if (!key || (!mineKeys.has(key) && !wantedRoomIds.has(String(row.roomId || "")))) return;
     const entry = rooms.get(key) || { room: String(row.AdRoomCode||"").trim(), hall: String(row.AdRoomHall||"").trim(), roomId: String(row.roomId||""), buildingId: row.buildingId, mine: mineKeys.has(key), busy: [] };
     const from = toMinutes(row.fstarttime), to = toMinutes(row.fendtime);
     if (to > from) {
@@ -1151,7 +1158,8 @@ app.get("/api/reports/room-load", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]
     /* Building first, hall second, each by its NUMBER: «7/31» before «8/22»,
        and «9» before «10» — a plain locale compare read them as words and put
        ten before nine. */
-    rooms: [...rooms.values()].sort((a, b) => byRoom(a.room, a.hall, b.room, b.hall))
+    rooms: [...rooms.values()].sort((a, b) => byRoom(a.room, a.hall, b.room, b.hall)),
+    ...(wantedRoomIds.size ? { checkedRoomIds: [...wantedRoomIds] } : {}),
   });
 });
 }

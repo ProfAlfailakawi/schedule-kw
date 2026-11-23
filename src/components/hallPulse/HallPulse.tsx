@@ -13,7 +13,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./hallPulse.css";
 import {
   FIT_LABEL, PULSE_DAYS, applyPlan, buildPulseModel, clockText, fitClass, fitScore, layoutHalls, metrics,
-  occupantsAt, foreignAt, originalAssignment, planDay, planMoves, suggestHalls, toggleGroup, weeklyHeat, floorOf,
+  occupantsAt, foreignAt, originalAssignment, borrowCandidates, planDay, planMoves, suggestHalls, toggleGroup, weeklyHeat, floorOf,
   type Assignment, type DayPlan, type FitClass, type PulseCourseInput, type PulseDay, type PulseHall, type PulseModel,
   type PulseRegistryInput, type PulseRowInput, type PulseSession,
 } from "../../utils/hallPulse";
@@ -70,7 +70,7 @@ function todayDefaults(dayStart: number, dayEnd: number): { day: PulseDay; minut
 
 interface BarterOpportunity {
   id: string; roomId: string; buildingId: string; roomCode: string; roomHall: string; day: string; startTime: string; endTime: string;
-  ownerSectionName: string; ownerCollegeName: string; fit?: { capacity?: number; specialised?: boolean };
+  ownerSectionName: string; ownerCollegeName: string; roomType?: string; fit?: { capacity?: number; specialised?: boolean };
 }
 interface BorrowState {
   sessionId: number;
@@ -101,9 +101,18 @@ export default function HallPulse(props: HallPulseProps) {
     const q = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId || 0), termId: String(termId) });
     const get = (url: string) => fetch(url, { credentials: "include", signal: controller.signal }).then(r => (r.ok ? r.json() : null)).catch(() => null);
     setLoading(true); setLoadError("");
+    /* السجل أولاً، ثم إشغال قاعاته كلها (لا قاعات النطاق وحدها): قاعةٌ لم يُدرَّس فيها
+       القسم بعد قد يشغلها قسمٌ آخر، فلا تُقترح فارغةً قبل أن يُعرف وقتها. */
+    const registryRead = get(`/api/location-registry?${q}`);
+    const loadRead = registryRead.then(reg => {
+      const ids = (Array.isArray(reg?.rooms) ? reg.rooms : []).map((room: any) => String(room?.id || "")).filter(Boolean).slice(0, 400);
+      const lq = new URLSearchParams(q);
+      if (ids.length) lq.set("roomIds", ids.join(","));
+      return get(`/api/reports/room-load?${lq}`);
+    });
     Promise.all([
-      get(`/api/location-registry?${q}`),
-      get(`/api/reports/room-load?${q}`),
+      registryRead,
+      loadRead,
       props.rows ? Promise.resolve(null) : get(`/api/schedules?${new URLSearchParams({ termId: String(termId), collegeId: String(collegeId), ...(sectionId ? { sectionId: String(sectionId) } : {}) })}`),
       props.courses ? Promise.resolve(null) : get(sectionId ? `/api/courses?sectionId=${sectionId}` : "/api/courses"),
     ]).then(([reg, load, rows, courses]) => {
@@ -122,6 +131,7 @@ export default function HallPulse(props: HallPulseProps) {
     rows, courses, registry, roomLoad, instructorName: props.instructorName,
     dayStart: Number(roomLoad?.dayStart) || 8 * 60, dayEnd: Number(roomLoad?.dayEnd) || 20 * 60,
     includeUnusedRegistryHalls: Boolean(sectionId),
+    requireOccupancyCheck: true,
   }), [rows, courses, registry, roomLoad, props.instructorName, sectionId]);
   const original = useMemo(() => originalAssignment(model), [model]);
   const narrow = useNarrow();
@@ -302,22 +312,10 @@ export default function HallPulse(props: HallPulseProps) {
       if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || "تعذّرت قراءة قاعات الأقسام المجاورة.");
       const board = await response.json();
       const ops: BarterOpportunity[] = Array.isArray(board?.opportunities) ? board.opportunities : [];
-      const dayKeys = session.days.map(d => d.replace(/^f/, ""));
-      const byRoom = new Map<string, BarterOpportunity[]>();
-      ops.forEach(o => { const list = byRoom.get(o.roomId) || []; list.push(o); byRoom.set(o.roomId, list); });
-      const options: BorrowState["options"] = [];
-      const others: BorrowState["others"] = [];
-      for (const [roomId, list] of byRoom) {
-        const cap = Number(list[0]?.fit?.capacity || 0) || null;
-        const covering = dayKeys.map(d => list.find(o => (o.day === d || o.day === `f${d}`) && minutesOf(o.startTime) <= session.start && minutesOf(o.endTime) >= session.end));
-        const fits = cap != null && session.students != null && cap >= session.students && !list[0]?.fit?.specialised;
-        if (covering.every(Boolean) && fits) {
-          options.push({ roomId, buildingId: list[0].buildingId, roomCode: list[0].roomCode, roomHall: list[0].roomHall, capacity: cap, owner: list[0].ownerSectionName, opportunities: covering as BarterOpportunity[] });
-        } else if (list.some(o => o.day === dayKeys[0] || o.day === `f${dayKeys[0]}`)) {
-          others.push({ roomId, roomCode: list[0].roomCode, roomHall: list[0].roomHall, capacity: cap });
-        }
-      }
-      options.sort((a, b) => fitScore(session.students || 0, a.capacity) - fitScore(session.students || 0, b.capacity));
+      /* السعة والنوع بحكم اقتراح القسم نفسه (borrowCandidates ← typeFits). */
+      const { options: found, others: rest } = borrowCandidates(model, session, ops);
+      const options: BorrowState["options"] = found.map(o => ({ roomId: o.roomId, buildingId: o.buildingId || "", roomCode: o.roomCode, roomHall: o.roomHall, capacity: o.capacity, owner: o.owner, opportunities: o.opportunities as BarterOpportunity[] }));
+      const others: BorrowState["others"] = rest.map(o => ({ roomId: o.roomId, roomCode: o.roomCode, roomHall: o.roomHall, capacity: o.capacity }));
       /* المبنى المجاور الأقرب: مبنى أنسب قاعة، ولا يُرسم غيره. */
       const building = options[0]?.roomCode;
       setBorrow({
@@ -329,7 +327,7 @@ export default function HallPulse(props: HallPulseProps) {
     } catch (error: any) {
       setBorrow({ sessionId: session.id, stage: "error", options: [], others: [], error: String(error?.message || error) });
     }
-  }, [collegeId, sectionId, termId]);
+  }, [collegeId, sectionId, termId, model]);
 
   pickRef.current = (key, neighbour) => {
     if (neighbour && key && borrow && (borrow.stage === "pick" || borrow.stage === "form")) {
@@ -447,13 +445,13 @@ export default function HallPulse(props: HallPulseProps) {
       const h = model.hallByKey.get(original.get(worst.id)!)!;
       setMinute(worst.start + 5); selectHall(h.key);
       const cls = fitClass(worst.students, h.capacity);
-      announce(`${PULSE_DAYS.find(x => x.key === d)!.label} ${clockText(worst.start)}: ${hallTitle(h)} ${cls === "pressed" ? "حمراء" : "صفراء"} — نحو ${n(worst.students!)} طالباً (تقدير) في ${n(h.capacity!)} مقعداً. اضغطها لترى قاعاتٍ أنسب، أو اطلب استعارة إن لم تجد.`);
+      announce(`${PULSE_DAYS.find(x => x.key === d)!.label} ${clockText(worst.start)}: ${hallTitle(h)} ${cls === "pressed" ? "حمراء" : "صفراء"} — نحو ${countOf(worst.students!, AR.student)} (تقدير) في ${countOf(h.capacity!, AR.seat)}. اضغطها لترى قاعاتٍ أنسب، أو اطلب استعارة إن لم تجد.`);
     } else if (step === 2) {
       const waste = todays.filter(s => s.students && capOf(s) && s.students / capOf(s) < 0.45).sort((a, b) => (capOf(b) - b.students!) - (capOf(a) - a.students!))[0];
       if (!waste) { announce("لا قاعة واسعة على شعبتها في هذا اليوم: الهدر صفر."); return; }
       const h = model.hallByKey.get(original.get(waste.id)!)!;
       setMinute(waste.start + 5); selectHall(h.key);
-      announce(`${hallTitle(h)} زرقاء: تسع ${n(h.capacity!)} وفيها نحو ${n(waste.students!)} طالباً. شريط «أسبوع القاعة» في اللوحة يريك إن كانت واسعة كل يوم.`);
+      announce(`${hallTitle(h)} زرقاء: تسع ${countOf(h.capacity!, AR.seat)} وفيها نحو ${countOf(waste.students!, AR.student)}. شريط «أسبوع القاعة» في اللوحة يريك إن كانت واسعة كل يوم.`);
     } else if (step === 3) {
       const at = minute;
       const free = model.halls.filter(h => h.capacity && !occupantsAt(model, original, d, at).has(h.key) && !foreignAt(model, h.key, d, at));
@@ -521,7 +519,7 @@ export default function HallPulse(props: HallPulseProps) {
         </div>
         <div className="hp-slots" role="group" aria-label="أوقات فيها نقلات">
           {starts.map(st => (
-            <button key={st} type="button" aria-current={minuteShown >= st && minuteShown < st + 60} onClick={() => { stopPlay(); setMinute(st + 5); }}>
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={st} type="button" aria-current={minuteShown >= st && minuteShown < st + 60} onClick={() => { stopPlay(); setMinute(st + 5); }}>
               <bdi dir="ltr">{clockText(st)}</bdi><i>×{n(plan.groups.filter(g => g.start === st && g.on).reduce((t, g) => t + g.moves.length, 0))}</i>
             </button>
           ))}
@@ -529,13 +527,13 @@ export default function HallPulse(props: HallPulseProps) {
         <ul className="hp-moves">
           {plan.groups.slice().sort((a, b) => a.start - b.start || a.id - b.id).map(g => (
             <li key={g.id} className={g.on ? "" : "is-off"}>
-              <button type="button" role="switch" className="hp-switch" aria-checked={g.on} aria-label="تضمين هذه النقلة" onClick={() => toggle(g.id)} />
-              <button type="button" className="hp-move-what" onClick={() => { stopPlay(); setMinute(g.start + 5); selectHall(g.moves[g.moves.length - 1].to); }}>
+              <button type="button" data-guide-ignore="يضمّ نقلةً إلى خطة الترتيب أو يستبعدها؛ معاينة لا تحفظ شيئاً" role="switch" className="hp-switch" aria-checked={g.on} aria-label="تضمين هذه النقلة" onClick={() => toggle(g.id)} />
+              <button type="button" data-guide-ignore="ينقل الساعة إلى وقت النقلة ويحدّد قاعتها؛ عرض فقط" className="hp-move-what" onClick={() => { stopPlay(); setMinute(g.start + 5); selectHall(g.moves[g.moves.length - 1].to); }}>
                 {g.moves.map(mv => {
                   const s = model.sessionById.get(mv.sessionId)!, from = model.hallByKey.get(mv.from)!, to = model.hallByKey.get(mv.to)!;
                   return (
                     <span key={mv.sessionId} className="hp-move-line">
-                      <b>{sessionLine(s)}</b> <em>{s.students ? `نحو ${n(s.students)} طالباً` : ""}</em>
+                      <b>{sessionLine(s)}</b> <em>{s.students ? `نحو ${countOf(s.students, AR.student)}` : ""}</em>
                       <span className="hp-move-path">
                         {from.code} <Pill cls={fitClass(s.students, from.capacity)} /> <em aria-hidden="true">←</em> {to.code} <Pill cls={fitClass(s.students, to.capacity)} />
                       </span>
@@ -555,8 +553,8 @@ export default function HallPulse(props: HallPulseProps) {
         <footer className="hp-review-foot">
           <span className="hp-fine">كل نقلة مفحوصة هنا على أيام الشعبة كلها: لا قاعة تستقبل شعبتين في الوقت نفسه، ولا تنتقل شعبة إلى قاعة من نوع آخر. ويعيد الخادم الفحص عند الحفظ.</span>
           <div className="hp-row">
-            {canSave ? <button type="button" className="hp-btn is-main" disabled={!total || saving || total > 60} onClick={savePlan}>{saving ? "يحفظ…" : `حفظ الكل (${n(total)})`}</button> : null}
-            <button type="button" className="hp-btn" onClick={cancelPlan} disabled={saving}>إلغاء</button>
+            {canSave ? <button type="button" data-guide-ignore="يحفظ نقلات الخطة عبر مسار النقل المعتاد في الورشة" className="hp-btn is-main" disabled={!total || saving || total > 60} onClick={savePlan}>{saving ? "يحفظ…" : `حفظ الكل (${n(total)})`}</button> : null}
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" onClick={cancelPlan} disabled={saving}>إلغاء</button>
           </div>
           {total > 60 ? <span className="hp-fine">الحفظ الواحد حتى ستين نقلة: استبعد بعضها ثم احفظ.</span> : null}
         </footer>
@@ -613,13 +611,13 @@ export default function HallPulse(props: HallPulseProps) {
     const opt = borrow.options.find(o => o.roomId === borrow.pick);
     if (borrow.stage === "loading") return <div className="hp-alert"><span className="hp-spinner" aria-hidden="true" /> يقرأ قاعات الأقسام المجاورة…</div>;
     if (borrow.stage === "error") return <div className="hp-alert is-warn"><strong>تعذّر عرض الاستعارة</strong><span>{borrow.error}</span></div>;
-    if (borrow.stage === "none") return <div className="hp-alert is-warn"><strong>لا قاعة مناسبة فارغة في الأقسام المجاورة أيضاً</strong><span>لا قاعة تتّسع لنحو {n(borrowSession.students || 0)} طالباً وتفرغ في أيام الشعبة كلها. جرّب «رتّب قاعاتي».</span></div>;
+    if (borrow.stage === "none") return <div className="hp-alert is-warn"><strong>لا قاعة مناسبة فارغة في الأقسام المجاورة أيضاً</strong><span>لا قاعة تتّسع لنحو {countOf(borrowSession.students || 0, AR.student)} وتفرغ في أيام الشعبة كلها. جرّب «رتّب قاعاتي».</span></div>;
     if (borrow.stage === "pick") return (
       <div className="hp-alert is-warn">
         <strong>لا قاعة أوسع فارغة في القسم الآن</strong>
         <span>هذه قاعات فارغة في مبنى {borrow.options[0]?.roomCode} طوال وقت الشعبة في أيامها كلها:</span>
         <div className="hp-row">{borrow.options.map(o => (
-          <button key={o.roomId} type="button" className="hp-btn" onClick={() => setBorrow({ ...borrow, stage: "form", pick: o.roomId })}>{o.roomHall} · {o.capacity ? countOf(o.capacity, AR.seat) : "سعة غير مسجّلة"}</button>
+          <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={o.roomId} type="button" className="hp-btn" onClick={() => setBorrow({ ...borrow, stage: "form", pick: o.roomId })}>{o.roomHall} · {o.capacity ? countOf(o.capacity, AR.seat) : "سعة غير مسجّلة"}</button>
         ))}</div>
         <small>أو اضغط قاعةً مضيئة في المبنى المجاور.</small>
       </div>
@@ -632,7 +630,7 @@ export default function HallPulse(props: HallPulseProps) {
           <dt>القاعة</dt><dd>{opt.roomHall} · {opt.capacity ? countOf(opt.capacity, AR.seat) : "سعة غير مسجّلة"} · مبنى {opt.roomCode}</dd>
           <dt>القسم المضيف</dt><dd>{opt.owner}</dd>
           <dt>الوقت</dt><dd>{borrowSession.days.map(d => PULSE_DAYS.find(x => x.key === d)!.label).join(" و")} · <bdi dir="ltr">{clockText(borrowSession.start)}–{clockText(borrowSession.end)}</bdi></dd>
-          <dt>الشعبة</dt><dd>{sessionLine(borrowSession)}{borrowSession.students ? ` · نحو ${n(borrowSession.students)} طالباً` : ""}</dd>
+          <dt>الشعبة</dt><dd>{sessionLine(borrowSession)}{borrowSession.students ? ` · نحو ${countOf(borrowSession.students, AR.student)}` : ""}</dd>
           <dt>بعد النقل</dt><dd><Pill cls={fitClass(borrowSession.students, opt.capacity)} /></dd>
         </dl>
         {borrow.error ? <p className="hp-fine is-warn">{borrow.error}</p> : null}
@@ -640,21 +638,21 @@ export default function HallPulse(props: HallPulseProps) {
           <>
             <p className="hp-fine">يُرسل عبر «استعارة القاعات» الموجودة في البرنامج: {countOf(opt.opportunities.length, { one: "طلب", two: "طلبان", few: "طلبات", many: "طلباً" })} (طلب لكل يوم)، ولا يُحجز شيء قبل موافقة القسم المضيف.</p>
             <div className="hp-row">
-              <button type="button" className="hp-btn is-main" disabled={borrow.stage === "sending"} onClick={sendBorrow}>{borrow.stage === "sending" ? "يرسل…" : "اطلب استعارة"}</button>
-              <button type="button" className="hp-btn" onClick={() => setBorrow({ ...borrow, stage: "pick", pick: undefined, error: undefined })}>رجوع</button>
+              <button type="button" data-guide-ignore="يرسل طلب الاستعارة عبر استعارة القاعات الموجودة" className="hp-btn is-main" disabled={borrow.stage === "sending"} onClick={sendBorrow}>{borrow.stage === "sending" ? "يرسل…" : "اطلب استعارة"}</button>
+              <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" onClick={() => setBorrow({ ...borrow, stage: "pick", pick: undefined, error: undefined })}>رجوع</button>
             </div>
           </>
         ) : borrow.stage === "sent" ? (
           <>
             <span className="hp-status">بانتظار موافقة القسم المضيف</span>
-            <div className="hp-row"><button type="button" className="hp-btn" onClick={checkBorrow}>تحقّق من الرد</button></div>
+            <div className="hp-row"><button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" onClick={checkBorrow}>تحقّق من الرد</button></div>
           </>
         ) : (
           <>
             <span className="hp-status is-ok">وافق القسم المضيف</span>
             <div className="hp-row">
-              <button type="button" className="hp-btn is-main" disabled={saving} onClick={saveBorrow}>{saving ? "يحفظ…" : "حفظ النقل"}</button>
-              <button type="button" className="hp-btn" onClick={() => setBorrow(null)}>لاحقاً</button>
+              <button type="button" data-guide-ignore="يحفظ نقل الشعبة إلى القاعة المستعارة عبر مسار النقل المعتاد" className="hp-btn is-main" disabled={saving} onClick={saveBorrow}>{saving ? "يحفظ…" : "حفظ النقل"}</button>
+              <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" onClick={() => setBorrow(null)}>لاحقاً</button>
             </div>
           </>
         )}
@@ -672,7 +670,7 @@ export default function HallPulse(props: HallPulseProps) {
             {top.map(([key, w]) => {
               const h = model.hallByKey.get(key)!;
               return (
-                <li key={key}><button type="button" onClick={() => selectHall(key)} aria-current={selected === key}>
+                <li key={key}><button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" onClick={() => selectHall(key)} aria-current={selected === key}>
                   <span>{hallTitle(h)}</span><span className="hp-meter"><i style={{ width: `${Math.round(w.week * 100)}%` }} /></span><b>{n(w.week * 100)}٪</b>
                 </button></li>
               );
@@ -687,7 +685,7 @@ export default function HallPulse(props: HallPulseProps) {
         <p><b>اضغط قاعة</b> في المجسّم لترى شعبتها، وسعتها، وأين تذهب إن لم تناسبها.</p>
         <label className="hp-select">
           <span>أو اختر من القائمة</span>
-          <select value="" onChange={e => selectHall(e.target.value || null)}>
+          <select data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" value="" onChange={e => selectHall(e.target.value || null)}>
             <option value="">اختر قاعة…</option>
             {model.halls.map(h => <option key={h.key} value={h.key}>{h.buildingLabel} · {h.code}{h.capacity ? ` · ${n(h.capacity)}` : ""}</option>)}
           </select>
@@ -708,7 +706,7 @@ export default function HallPulse(props: HallPulseProps) {
         </div>
         <label className="hp-select is-compact">
           <span className="hp-sr">انتقل إلى قاعة</span>
-          <select value={selHall.key} onChange={e => selectHall(e.target.value || null)}>
+          <select data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" value={selHall.key} onChange={e => selectHall(e.target.value || null)}>
             {model.halls.map(h => <option key={h.key} value={h.key}>{h.buildingLabel} · {h.code}</option>)}
           </select>
         </label>
@@ -718,7 +716,7 @@ export default function HallPulse(props: HallPulseProps) {
             {selSession.instructor ? <div className="hp-fine">{selSession.instructor}</div> : null}
             <div className="hp-fitline">
               <Pill cls={cls!} />
-              <span>{selSession.students ? <>نحو <b>{n(selSession.students)}</b> طالباً <em className="hp-est" title="سعة المقرر لكل شعبة، لا عدد المسجّلين">تقدير</em></> : "عدد الطلبة غير مسجّل"}{selHall.capacity ? ` في ${countOf(selHall.capacity, AR.seat)}` : ""}</span>
+              <span>{selSession.students ? <>نحو <b>{countOf(selSession.students, AR.student)}</b> <em className="hp-est" title="سعة المقرر لكل شعبة، لا عدد المسجّلين">تقدير</em></> : "عدد الطلبة غير مسجّل"}{selHall.capacity ? ` في ${countOf(selHall.capacity, AR.seat)}` : ""}</span>
             </div>
             <div className="hp-fine"><bdi dir="ltr">{clockText(selSession.start)}–{clockText(selSession.end)}</bdi> · {selSession.days.map(d => PULSE_DAYS.find(x => x.key === d)!.label).join(" و")}</div>
           </div>
@@ -738,11 +736,11 @@ export default function HallPulse(props: HallPulseProps) {
             <strong>مراجعة قبل الحفظ</strong>
             {(() => {
               const s = model.sessionById.get(pending.sessionId)!, from = model.hallByKey.get(pending.from)!, to = model.hallByKey.get(pending.to)!;
-              return <span>من {from.code} إلى {to.code} · نحو {n(s.students || 0)} طالباً في {countOf(to.capacity || 0, AR.seat)} · {FIT_LABEL[fitClass(s.students, to.capacity)]}. تنتقل القاعة في أيام الشعبة كلها.</span>;
+              return <span>من {from.code} إلى {to.code} · نحو {countOf(s.students || 0, AR.student)} في {countOf(to.capacity || 0, AR.seat)} · {FIT_LABEL[fitClass(s.students, to.capacity)]}. تنتقل القاعة في أيام الشعبة كلها.</span>;
             })()}
             <div className="hp-row">
-              <button type="button" className="hp-btn is-main" disabled={saving} onClick={savePending}>{saving ? "يحفظ…" : "حفظ"}</button>
-              <button type="button" className="hp-btn" disabled={saving} onClick={cancelPending}>إلغاء</button>
+              <button type="button" data-guide-ignore="يحفظ نقل الشعبة عبر مسار النقل المعتاد في الورشة" className="hp-btn is-main" disabled={saving} onClick={savePending}>{saving ? "يحفظ…" : "حفظ"}</button>
+              <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" disabled={saving} onClick={cancelPending}>إلغاء</button>
             </div>
           </div>
         ) : plan ? (
@@ -752,7 +750,7 @@ export default function HallPulse(props: HallPulseProps) {
             <div className="hp-fine">قاعات أنسب وفارغة في وقت الشعبة كله، من النوع نفسه</div>
             <div className="hp-row">
               {suggestions.map(h => canSave ? (
-                <button key={h.key} type="button" className="hp-btn" onClick={() => previewMove(h)}>{h.code} · {countOf(h.capacity || 0, AR.seat)}</button>
+                <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={h.key} type="button" className="hp-btn" onClick={() => previewMove(h)}>{h.code} · {countOf(h.capacity || 0, AR.seat)}</button>
               ) : (
                 <span key={h.key} className="hp-chip">{h.code} · {countOf(h.capacity || 0, AR.seat)}</span>
               ))}
@@ -763,7 +761,7 @@ export default function HallPulse(props: HallPulseProps) {
           <div className="hp-alert is-warn">
             <strong>لا قاعة أوسع فارغة في القسم</strong>
             <span>كل قاعات القسم التي تتّسع لهذه الشعبة مشغولة في وقتها.</span>
-            <div className="hp-row"><button type="button" className="hp-btn is-main" onClick={() => startBorrow(selSession!)}>اعرض قاعات القسم المجاور</button></div>
+            <div className="hp-row"><button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-main" onClick={() => startBorrow(selSession!)}>اعرض قاعات القسم المجاور</button></div>
           </div>
         ) : null}
         {notice ? <div className={`hp-alert ${notice.tone === "ok" ? "is-ok" : "is-warn"}`} role="status"><span>{notice.text}</span></div> : null}
@@ -803,15 +801,15 @@ export default function HallPulse(props: HallPulseProps) {
           <p>كل قاعة غرفةٌ تضيء حين تُشغل، ومنسوبها ولونها يقولان هل تتّسع لشعبتها.{context !== "workshop" ? " للقراءة فقط." : ""}</p>
         </div>
         <div className="hp-mode" role="group" aria-label="طريقة الرسم">
-          <button type="button" aria-pressed={!flat} disabled={sceneFailed} onClick={() => setFlat(false)} title={sceneFailed ? "تعذّر الرسم ثلاثي الأبعاد على هذا الجهاز" : undefined}>مجسّم</button>
-          <button type="button" aria-pressed={flat} onClick={() => setFlat(true)}>مسطّح</button>
+          <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={!flat} disabled={sceneFailed} onClick={() => setFlat(false)} title={sceneFailed ? "تعذّر الرسم ثلاثي الأبعاد على هذا الجهاز" : undefined}>مجسّم</button>
+          <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={flat} onClick={() => setFlat(true)}>مسطّح</button>
         </div>
       </div>
       <div className="hp-walk" role="group" aria-label="أسئلة سريعة">
-        <button type="button" aria-pressed={walk === 1} onClick={() => runWalk(1)}><i>١</i> أين الضغط الآن؟</button>
-        <button type="button" aria-pressed={walk === 2} onClick={() => runWalk(2)}><i>٢</i> أين الهدر؟</button>
-        <button type="button" aria-pressed={walk === 3} onClick={() => runWalk(3)}><i>٣</i> أين أضع شعبة جديدة؟</button>
-        {canSave ? <button type="button" className="is-magic" aria-pressed={walk === 4} onClick={() => runWalk(4)}><i>٤</i> رتّب كل شيء بضغطة</button> : null}
+        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 1} onClick={() => runWalk(1)}><i>١</i> أين الضغط الآن؟</button>
+        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 2} onClick={() => runWalk(2)}><i>٢</i> أين الهدر؟</button>
+        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 3} onClick={() => runWalk(3)}><i>٣</i> أين أضع شعبة جديدة؟</button>
+        {canSave ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="is-magic" aria-pressed={walk === 4} onClick={() => runWalk(4)}><i>٤</i> رتّب كل شيء بضغطة</button> : null}
       </div>
       <p className="hp-say" aria-live="polite">{say || "ابدأ بسؤالٍ من الأسئلة أعلاه، أو حرّك الساعة واضغط أي قاعة بنفسك."}</p>
 
@@ -825,9 +823,9 @@ export default function HallPulse(props: HallPulseProps) {
               <div className="hp-labels" ref={labelsRef} aria-hidden="true" />
               {!sceneReady ? <div className="hp-loading"><span className="hp-spinner" aria-hidden="true" /> يجهّز المجسّم…</div> : null}
               <div className="hp-view-tools">
-                <button type="button" className="hp-icon" onClick={() => sceneRef.current?.zoomBy(0.86)} aria-label="تقريب">+</button>
-                <button type="button" className="hp-icon" onClick={() => sceneRef.current?.zoomBy(1.16)} aria-label="تبعيد">−</button>
-                <button type="button" className="hp-icon" onClick={() => sceneRef.current?.resetView()} aria-label="عودة إلى المنظر الكامل">⟲</button>
+                <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.zoomBy(0.86)} aria-label="تقريب">+</button>
+                <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.zoomBy(1.16)} aria-label="تبعيد">−</button>
+                <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.resetView()} aria-label="عودة إلى المنظر الكامل">⟲</button>
               </div>
               {hovered && !selected && model.hallByKey.get(hovered) ? <div className="hp-hover" aria-hidden="true">{hoverText(model, occ, hovered, day, heat)}</div> : null}
             </>
@@ -835,7 +833,7 @@ export default function HallPulse(props: HallPulseProps) {
           {!hintSeen && !flat ? (
             <div className="hp-hint" role="note">
               <span><b>ابدأ هنا:</b> اضغط قاعة لترى شعبتها · اسحب للتدوير · {narrow ? "قرّب بإصبعين" : "قرّب بالعجلة أو بإصبعين"}</span>
-              <button type="button" onClick={() => { setHintSeen(true); writeHint(); }} aria-label="إخفاء التلميح">فهمت</button>
+              <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" onClick={() => { setHintSeen(true); writeHint(); }} aria-label="إخفاء التلميح">فهمت</button>
             </div>
           ) : null}
         </div>
@@ -862,21 +860,21 @@ export default function HallPulse(props: HallPulseProps) {
           </div>
         </aside>
         <div className="hp-bar">
-          <button type="button" className="hp-btn is-main hp-play" onClick={() => { setPlaying(p => !p); setPending(null); setFreeGlow(false); }} disabled={day === "week"} aria-pressed={playing}>
+          <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-main hp-play" onClick={() => { setPlaying(p => !p); setPending(null); setFreeGlow(false); }} disabled={day === "week"} aria-pressed={playing}>
             {playing ? "أوقف" : "شغّل اليوم"}
           </button>
-          {canSave ? <button type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving || day === "week"}>✦ رتّب قاعاتي</button> : null}
+          {canSave ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving || day === "week"}>✦ رتّب قاعاتي</button> : null}
           <label className="hp-range">
             <span className="hp-sr">الساعة</span>
-            <input type="range" min={model.dayStart} max={model.dayEnd - 5} step={5} value={minuteShown} disabled={day === "week"}
+            <input data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="range" min={model.dayStart} max={model.dayEnd - 5} step={5} value={minuteShown} disabled={day === "week"}
               aria-valuetext={clockText(minuteShown)}
               onChange={e => { setMinute(Number(e.target.value)); stopPlay(); setPending(null); setFreeGlow(false); }} />
           </label>
           <div className="hp-days" role="group" aria-label="اليوم">
             {PULSE_DAYS.map(d => (
-              <button key={d.key} type="button" aria-pressed={day === d.key} onClick={() => { setDay(d.key); setPlan(null); setPending(null); setBorrow(null); setWalk(0); setSay(""); }}>{d.short}</button>
+              <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={d.key} type="button" aria-pressed={day === d.key} onClick={() => { setDay(d.key); setPlan(null); setPending(null); setBorrow(null); setWalk(0); setSay(""); }}>{d.short}</button>
             ))}
-            <button type="button" aria-pressed={day === "week"} onClick={() => { setDay("week"); setPlaying(false); setPlan(null); setPending(null); setBorrow(null); setFreeGlow(false); setWalk(0); setSay("الأسبوع كله: ارتفاع كل قاعة ولونها نسبةُ ساعاتها المشغولة. اضغط يوماً تحت القاعة لتنتقل إليه."); }}>الأسبوع</button>
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={day === "week"} onClick={() => { setDay("week"); setPlaying(false); setPlan(null); setPending(null); setBorrow(null); setFreeGlow(false); setWalk(0); setSay("الأسبوع كله: ارتفاع كل قاعة ولونها نسبةُ ساعاتها المشغولة. اضغط يوماً تحت القاعة لتنتقل إليه."); }}>الأسبوع</button>
           </div>
         </div>
         {planView}
@@ -914,7 +912,7 @@ function hoverText(model: PulseModel, occ: Map<string, PulseSession>, key: strin
   const h = model.hallByKey.get(key)!;
   if (day === "week") return `${h.code} · إشغال الأسبوع ${n((heat.get(key)?.week || 0) * 100)}٪`;
   const s = occ.get(key);
-  if (!s) return `${h.code} · فارغة${h.capacity ? ` · ${n(h.capacity)} مقعداً` : ""}`;
+  if (!s) return `${h.code} · فارغة${h.capacity ? ` · ${countOf(h.capacity, AR.seat)}` : ""}`;
   return `${h.code} · ${s.courseName} · ${FIT_LABEL[fitClass(s.students, h.capacity)]}`;
 }
 
@@ -930,7 +928,7 @@ function WeekStrip({ hall, heat, onDay }: { hall: PulseHall; heat: ReturnType<ty
       <div className="hp-fine">أسبوع القاعة · {n(w.week * 100)}٪{w.worst !== "unknown" ? ` · أسوأ حالاتها: ${FIT_LABEL[w.worst]}` : ""}</div>
       <div className="hp-week-cells">
         {PULSE_DAYS.map((d, i) => (
-          <button key={d.key} type="button" onClick={() => onDay(d.key)} title={`${d.label}: ${n(w.days[i] * 100)}٪`}>
+          <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={d.key} type="button" onClick={() => onDay(d.key)} title={`${d.label}: ${n(w.days[i] * 100)}٪`}>
             <i style={{ ["--h" as any]: `${Math.round(w.days[i] * 100)}%` }} />
             <span>{d.short}</span>
           </button>
@@ -964,9 +962,9 @@ function FlatBoard({ model, visuals, selected, onPick, day }: { model: PulseMode
                   const v = visuals.get(h.key);
                   const level = v?.occupied ? Math.min(1.1, Math.max(0.08, v.level)) : 0;
                   return (
-                    <button key={h.key} type="button" className={`hp-flat-room${selected === h.key ? " is-selected" : ""}${v?.glow ? " is-glow" : ""}${v?.pulse ? " is-pulse" : ""}${v?.dim ? " is-dim" : ""}`}
+                    <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={h.key} type="button" className={`hp-flat-room${selected === h.key ? " is-selected" : ""}${v?.glow ? " is-glow" : ""}${v?.pulse ? " is-pulse" : ""}${v?.dim ? " is-dim" : ""}`}
                       aria-pressed={selected === h.key} onClick={() => onPick(h.key)}
-                      aria-label={`${h.code}${h.capacity ? `، ${h.capacity} مقعداً` : ""}${day === "week" ? "" : v?.occupied && !v.dim ? "، مشغولة" : "، فارغة"}`}>
+                      aria-label={`${h.code}${h.capacity ? `، ${countOf(h.capacity, AR.seat)}` : ""}${day === "week" ? "" : v?.occupied && !v.dim ? "، مشغولة" : "، فارغة"}`}>
                       <i style={{ height: `${Math.min(100, level * 100)}%`, background: v?.occupied ? hex(v.color) : undefined }} />
                       <span>{h.code}</span>
                     </button>
