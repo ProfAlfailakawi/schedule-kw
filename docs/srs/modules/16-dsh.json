@@ -8,7 +8,7 @@
     "ar": "تجمع الوحدة ما يراه المستخدم أول ما يدخل: لوحة البداية بنطاقها وفصلها المعروض وأرقامها وقراءة يومها وأسبوعها، وبطاقة «قصة الفصل» لدورة الاعتماد، ولوحة «جاهزية الفصل» في الرادار، ورسم نسبة الفترتين، والحلقات الصغيرة وبقية الرسوم المساعدة، ومسار «الرحلة» العام، والبحث العام والبحث بالجملة، والجولة التعريفية بحسب الصفة، وشبكة الأمان التي تعيد رسم الشاشة عند عطل العرض. كل رقم يُقرأ من البيانات لحظة الطلب، والنطاق والفصل يُحسمان في الخادم لا في الشاشة.",
     "en": "This module gathers what a user sees first on entering: the home dashboard with its scope, displayed term, figures and day-and-week reading; the Term story card of the approval cycle; the Semester readiness panel of the rehearsal radar; the period-balance drawing; the mini rings and other helper drawings; the public Journey reading; the global search and sentence search; the welcome tour by role; and the safety net that redraws a screen after a rendering fault. Every number is read from the data at request time, and scope and term are decided on the server, not in the screen."
   },
-  "actors": ["committeeChair", "departmentHead", "dean", "viceDean", "registrarHead", "collegeRegistrar", "registrarStaff", "registrarDean", "admin", "rootAdmin", "standard", "instructor", "visitor"],
+  "actors": ["committeeChair", "departmentHead", "dean", "viceDean", "registrarHead", "collegeRegistrar", "registrarStaff", "registrarDean", "admin", "rootAdmin", "standard", "instructor", "student", "visitor"],
   "sources": [
     "src/server/routes/dashboardRoutes.ts",
     "src/components/Dashboard.tsx",
@@ -32,6 +32,9 @@
     "src/server/routes/deptFingerprintRoutes.ts",
     "src/utils/deptFingerprint.ts",
     "src/styles/dept-fingerprint.css",
+    "src/server/routes/myFilmRoutes.ts",
+    "src/utils/myFilm.ts",
+    "src/server/myFilmPage.ts",
     "docs/DEMO_GUIDE.md",
     "docs/dashboard-term/*"
   ],
@@ -817,6 +820,67 @@
         ],
         "tests": [
           "tests/dept-fingerprint-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-DSH-033",
+      "kind": "functional",
+      "title": {
+        "ar": "فيلمي: القصة الشخصية القصيرة للأستاذ من رابطه وللطالب داخل «مساري»",
+        "en": "My film: the short personal story, for a teacher from their own link and for a student inside «Masari»"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض «فيلمي»، نسخةً شخصية قصيرة من «فيلم الفصل» بلوحته ومشغّله نفسيهما، تملأ الشاشة ولا تمرير فيها. للأستاذ من رابط جدوله: عنوانٌ باسمه وفصله، ثم «أسبوعك» بشبكة أيامه وأوقاته وعدد شعبه ومقرراته وأيام تدريسه ومجموع ساعات محاضراته وأول بدايةٍ وآخر نهاية، ثم «أزحم أيامك» بمحاضرات ذلك اليوم، ثم «أيامك الحرّة»، ثم «رغباتك» بعدد ما ثبّته القسم مما قرّر فيه وأسماء ما ثُبّت بوقته الذي كُتب في الجدول، ثم الختام. يُقرأ ذلك من جدوله الرسمي في فصل طلبه ومن قرارات القسم في بنود طلبه وحدها، ولا يحمل الجواب اسم قاعةٍ ولا رمزها ولا مبنى ولا رقماً مدنياً ولا اسم أحدٍ غيره. وقبل اعتماد التسجيل جدولَ كل قسمٍ يدرّس فيه يُروى الفيلم «حتى الآن»، وبعده يصبح نهائياً. وللطالب داخل «مساري»: ترحيبٌ باسمه الأول، وما أنجز من صحيفته، وما طُرح له هذا الفصل مما بقي، ورغباته لهذا الفصل، وأسبوعه المقترح من خطته الأولى موسوماً «مقترح فقط»، ثم الختام؛ كله مما تعرضه له «مساري» أصلاً. والمشهد الذي لا بيانات له يسقط ولا يُخترع له رقم. وصاحب الفيلم هو صاحب الرابط أو صاحب الجلسة وحده، والفيلم لا يكتب شيئاً.",
+        "en": "The system shall present «My film», a short personal version of the «Term film» with the same palette and player, filling the screen with no scrolling. For a teacher, from their own schedule link: a title with their name and term; «your week» with a grid of their days and times, their sections, courses, teaching days, total lecture time, earliest start and latest end; «your busiest day» with that day's lectures; «your free days»; «your wishes» with how many of the decided ones the department fixed and the names of those fixed at the time actually written to the schedule; and a closing card. It reads only their official schedule in the term of their request and the department's decisions on their request items; the response carries no hall name or code, no building, no civil ID and nobody else's name. Until the registrar has accepted the schedule of every department they teach in, the film is told «so far»; afterwards it is final. For a student, inside «Masari»: a greeting by first name, what they have completed of their plan, what is offered to them this term out of what remains, their wishes for this term, and their suggested week from their first plan marked as a suggestion only, then a closing card; all of it is what «Masari» already shows them. A scene with no data is dropped and no figure is invented. The film belongs to the owner of the link or of the session only, and it writes nothing."
+      },
+      "rationale": {
+        "ar": "يرى الأستاذ والطالب فصلهما في نصف دقيقة على الهاتف بأرقامهما هما، فيصير الجدول قصةً شخصية لا تقريراً.",
+        "en": "A teacher or a student sees their own term in half a minute on a phone, in their own figures: a personal story rather than a report."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "instructor",
+        "student"
+      ],
+      "acceptance": [
+        {
+          "ar": "رابط أستاذٍ له محاضرات يعيد فيلماً باسمه هو ولو حمل العنوان رقم زميله، ولا يحمل الجواب حقل قاعةٍ أو مبنى بأي عمق ولا اسم قاعةٍ من صفوف جدوله ولا رقمه المدني؛ ورابطٌ لا وجود له أو أُوقف أو ليس رابط طلب جدول لا يعيد فيلماً.",
+          "en": "A teacher link with lectures returns a film in that teacher's own name even when the address carries a colleague's number; the response has no hall or building field at any depth, no hall name from their schedule rows and no civil ID; an unknown, revoked or non-request link returns no film."
+        },
+        {
+          "ar": "قبل الاعتماد النهائي يحمل العنوان ومشهد الأسبوع والختام «حتى الآن»، وبعده لا تبقى شارةٌ ولا «حتى الآن»؛ وموعدٌ مكرّر لشعبتين في الوقت نفسه يُحسب لقاءً واحداً، والمدة تُقال بدقائقها («6 ساعات و15 دقيقة»).",
+          "en": "Before final acceptance the title, week and closing scenes say «so far»; afterwards no badge and no «so far» remain; a duplicate appointment of two sections at the same time counts as one meeting, and durations are stated to the minute."
+        },
+        {
+          "ar": "«كما هو» والبند المخفيّ وما وضعه القسم أو ألغاه من عنده ليست رغبات؛ والمثبَّت يُعرض بوقته المكتوب في الجدول؛ ومن لم يُثبَّت له شيء وله رغبات قيد النظر يرى سطراً واحداً، ومن لا رغبات له لا يرى المشهد؛ ومن تساوت أيامه لا يرى «أزحم أيامك»، ومن لا يوم حرّ له لا يرى «أيامك الحرّة»، ومن لا محاضرات له لا فيلم له.",
+          "en": "«Keep as is», hidden items and items the department placed or cancelled itself are not wishes; a fixed wish shows the time written to the schedule; a teacher with nothing fixed but wishes pending sees one line, and one with no wishes sees no such scene; equal days drop «your busiest day», no free day drops «your free days», and no lectures means no film."
+        },
+        {
+          "ar": "فيلم الطالب يُقرأ بجلسة «مساري» وحدها بلا معرّفٍ من العنوان، ولا يحمل اسمه الكامل ولا رقمه المدني؛ ورغبات فصلٍ آخر لا تُعرض، ومواعيد قسمٍ لم يُعتمد جدوله لا تدخل أسبوعه المقترح، وطالبٌ لم يكمل ملفه لا فيلم له.",
+          "en": "The student film is read with the «Masari» session only, with no identifier from the address, and carries neither their full name nor their civil ID; another term's wishes are not shown, times from a department whose schedule is not accepted do not enter the suggested week, and a student who has not completed their profile has no film."
+        },
+        {
+          "ar": "المسارات GET /api/public/request/:token/film وGET /r/:token/film وGET /api/public/me/film وGET /me/film تقرأ فقط ولا تسجّل فتحاً للرابط؛ ومن طلب تقليل الحركة يرى كل مشهدٍ ساكناً بأرقامه النهائية ولا يبدأ الفيلم وحده؛ وعلى عرض 375 وعلى مقاسات الهاتف المطويّ الأربعة لا تمرير أفقياً ولا شيء تحت الشريطين، وبطاقتا الدخول لا تُطبعان.",
+          "en": "GET /api/public/request/:token/film, GET /r/:token/film, GET /api/public/me/film and GET /me/film only read and record no link open; with reduced motion requested each scene shows still with its final figures and the film does not start on its own; at 375px wide and at the four foldable sizes there is no horizontal scroll and nothing sits under the two bars, and the two entry cards are not printed."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/myFilm.ts#instructorFilm",
+          "src/utils/myFilm.ts#studentFilm",
+          "src/utils/myFilm.ts#lecturesFromRows",
+          "src/utils/myFilm.ts#wishesFromItems",
+          "src/server/routes/myFilmRoutes.ts",
+          "src/server/studentDoorRoutes.ts",
+          "src/server/myFilmPage.ts#myFilmPage",
+          "src/server/pages/instructorRequestPage.ts",
+          "src/server/studentHomePage.ts"
+        ],
+        "tests": [
+          "tests/my-film-audit.ts"
         ]
       },
       "inferred": false
