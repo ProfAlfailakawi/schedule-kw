@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Building2, Copy, DoorOpen, ExternalLink, MonitorPlay, Printer, QrCode, X } from "lucide-react";
 import { SecondaryButton, useDialogDismiss } from "./ui";
 import { roomDoorStickerSheet, type DoorStickerRoom } from "../utils/roomDoorStickers";
-import { printInPage, POPUP_BLOCKED_MESSAGE } from "../utils/printSheet";
+import { printInPage, POPUP_BLOCKED_MESSAGE } from "../utils/printEngine";
 import { isNativeApp } from "../utils/nativeApp";
 import "./room-door.css";
 

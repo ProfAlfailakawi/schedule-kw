@@ -4,7 +4,7 @@
  * ولا مسارَ Safari (execCommand) ولا إشعارُ «افتح في Safari». والمتصفح كما كان.
  */
 import fs from "node:fs";
-import { extractPrintParts, printInPage, PRINT_SHEET_ID } from "../src/utils/printSheet";
+import { extractPrintParts, printInPage, PRINT_SHEET_ID } from "../src/utils/printEngine";
 
 let failed = 0;
 const check = (ok: unknown, label: string) => { if (ok) console.log(`\x1b[32m✓ ${label}\x1b[0m`); else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -24,7 +24,7 @@ const overlay = nodes.find(n => n.id === PRINT_SHEET_ID);
 check(overlay && /sheet/.test(overlay.innerHTML), "P2 الورقةُ في طبقةٍ داخل الصفحة (لا نافذة)");
 close(); check(overlay.removed, "P3 الإغلاق يزيل الطبقة");
 
-const sheet = read("src/utils/printSheet.ts");
+const sheet = read("src/utils/printEngine.ts");
 check(/if \(isNativeApp\(\)\) \{ printInPage\(html\); return true; \}\n\s*const win = window\.open/.test(sheet), "P4 التطبيق: طبقةٌ داخلية قبل أي window.open؛ المتصفح: نافذةٌ كما كان");
 check(/@media print\{body>\*:not\(#\$\{PRINT_SHEET_ID\}\)\{display:none/.test(sheet), "P5 @media print تُخفي بقيّة التطبيق");
 check(!/سمح المتصفّح/.test(read("src/components/RoomDoorTools.tsx")) && !/اسمح بالنوافذ المنبثقة/.test(read("src/components/PlanSheetPublisher.tsx")), "P6 لا رسالةُ «النوافذ المنبثقة» ");

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { printSheet, POPUP_BLOCKED_MESSAGE } from "../utils/printSheet";
+import { printSheet, POPUP_BLOCKED_MESSAGE } from "../utils/printEngine";
 import { createPortal } from "react-dom";
 import { Copy, Download, Printer, QrCode, X } from "lucide-react";
 import { SecondaryButton, useDialogDismiss } from "./ui";
