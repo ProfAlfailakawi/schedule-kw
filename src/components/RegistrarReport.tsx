@@ -125,15 +125,23 @@ export default function RegistrarReport({ collegeId, sectionId, termId, scopeLin
   const latestId = docs?.[0]?.id || null;
   const [live, setLive] = useState<{ id: string; view: LiveRequestView | null } | null>(null);
   const [view, setView] = useState<"now" | "saved">("now");
+  /* يُعاد الحسابُ كلما عاد القارئ إلى الصفحة: من عدّل جدوله في نافذةٍ أخرى ثم رجع لا يرى فرقاً زال. */
+  const [liveTick, setLiveTick] = useState(0);
+  useEffect(() => {
+    const again = () => { if (document.visibilityState === "visible") setLiveTick(tick => tick + 1); };
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", again);
+    return () => { window.removeEventListener("focus", again); document.removeEventListener("visibilitychange", again); };
+  }, []);
   useEffect(() => {
     if (!latestId) { setLive(null); return; }
     let alive = true;
-    setLive(null);
+    setLive(current => (current && current.id === latestId ? current : null));
     call(`/api/schedules/registrar-requests/${encodeURIComponent(latestId)}/live`)
       .then(data => { if (alive) setLive({ id: latestId, view: data?.live || null }); })
-      .catch(() => { if (alive) setLive({ id: latestId, view: null }); });
+      .catch(() => { if (alive) setLive(current => (current && current.id === latestId ? current : { id: latestId, view: null })); });
     return () => { alive = false; };
-  }, [latestId, docs?.[0]?.at]);
+  }, [latestId, docs?.[0]?.at, liveTick]);
   const liveView = live && saved && live.id === saved.id ? live.view : null;
   const liveLoading = Boolean(saved && saved.id === latestId && (!live || live.id !== saved.id));
   const showingNow = Boolean(liveView && view === "now");
