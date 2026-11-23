@@ -8,6 +8,7 @@ import {BUILD_STAMP} from "./generated/buildStamp";
 import {toEnglishDigits} from "./utils/digits";
 import {primeUniversityDay,syncUniversityDay} from "./utils/universityDayClient";
 import {unregisterAppWorkers} from "./utils/pushClient";
+import {installNativePushOpen} from "./utils/nativePush";
 import {installDockMotion} from "./utils/dockMotion";
 import {isNativeApp,isStandalonePwa} from "./utils/nativeApp";
 import {isPlatformUpdating, SERVER_BACK_EVENT, showUpdatingNotice, UPDATING_MESSAGE, UPDATING_WRITE_MESSAGE} from "./utils/updatingNotice";
@@ -23,6 +24,9 @@ void import("./styles/deferred.css");
 
 /* أين تعمل الصفحة: «app» داخل التطبيق الرسمي أو تطبيق الشاشة الرئيسية، وإلا «browser».
    يُقرأ في CSS (ركن ودجت الدوو في 01-foundation.css يُحجز داخل التطبيق وحده). */
+/* لمسُ تنبيه التطبيق الرسمي (APNs) يفتح صفحتَه؛ يُسجَّل قبل الرسم ليلتقط لمسةَ التشغيل البارد. */
+installNativePushOpen();
+
 document.documentElement.dataset.shell = isNativeApp() || isStandalonePwa() ? "app" : "browser";
 /* «duo»: شاشةٌ شبه مربّعة (iPhone Duo: الخارجية 466×678، الداخلية 669×951؛ النسبة ≤1.48). كل iPhone نسبته ≥1.7،
    وiPad أعرض من 700. فقواعد الدوو لا تمسّ الهاتف العادي ولا iPad. يُعاد عند تبدّل الشاشة (فتحٌ أو إغلاق). */

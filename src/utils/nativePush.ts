@@ -78,3 +78,50 @@ export async function nativePushSubscriptionId(token: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`apns:${token.toLowerCase()}`));
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
 }
+
+/**
+ * لمسُ تنبيه التطبيق: الرابطُ الذي يحمله جسمُ APNs (url، هو نفسه رابطُ Web Push) يُحوَّل إلى مسارٍ
+ * من الموقع نفسه، وإلا فلا شيء. لا يُتبَع رابطٌ إلى أصلٍ آخر ولا مخطّطٌ غير http(s).
+ */
+export function nativePushTargetPath(action: unknown, origin: string): string {
+  try {
+    const raw = (action as any)?.notification?.data?.url;
+    if (typeof raw !== "string" || !raw.trim() || raw.length > 2048) return "";
+    const base = new URL(origin);
+    const url = new URL(raw.trim(), base);
+    if (url.origin !== base.origin || (url.protocol !== "https:" && url.protocol !== "http:")) return "";
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return "";
+  }
+}
+
+let openInstalled = false;
+/**
+ * يُسجَّل في main.tsx قبل رسم التطبيق: الإضافةُ تحتفظ بلمسة التشغيل البارد حتى يُضاف المستمع،
+ * فتُسلَّم هنا ويُفتح المسارُ داخل الصفحة نفسها (App يقرأ المسار من popstate) بلا إعادة تحميل.
+ * خارج التطبيق لا يفعل شيئاً.
+ */
+export function installNativePushOpen(navigate?: (path: string) => void): boolean {
+  const plugin = getPlugin();
+  if (!plugin || openInstalled) return false;
+  openInstalled = true;
+  const go = navigate || ((path: string) => {
+    if (window.location.pathname + window.location.search + window.location.hash === path) return;
+    window.history.pushState({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  try {
+    void plugin.addListener("pushNotificationActionPerformed", (action: unknown) => {
+      const path = nativePushTargetPath(action, window.location.origin);
+      if (path) go(path);
+    }).catch(() => { openInstalled = false; });
+  } catch {
+    openInstalled = false;
+    return false;
+  }
+  return true;
+}
+
+/** للاختبار وحده. */
+export function resetNativePushOpenForTest(): void { openInstalled = false; }
