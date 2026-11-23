@@ -80,6 +80,13 @@ const only = (result: ReturnType<typeof run>, group: string) => result.findings.
   const untouched = settleSavedItems(saved, liveSectionTexts([live(1, "501", [1, 3], "11:00", "12:20", { AdRoomHall: "G23", referenceNumber: "1825" }), live(2, "501", [0], "08:00", "09:00", { AdRoomHall: "G23", referenceNumber: "1900" })], names));
   check(untouched.gone === 0 && untouched.items.every(item => !item.since), "جدولٌ لم يتغيّر: التقريرُ كما حُفظ", untouched);
   check(settleSavedItems(saved, new Map()).items.length === 2, "شعبةٌ لا تُعرف في الجدول تبقى كما حُفظت");
+  const ticked = saved.map(item => ({ ...item, done: { by: 1, byName: "التسجيل", at: "2026-11-22T08:00:00Z" }, state: "confirmed" as const }));
+  const reopened = settleSavedItems(ticked, liveSectionTexts(nowRows, names)).items[0];
+  check(!reopened.done && !reopened.state && reopened.lastDone?.byName === "التسجيل", "بندٌ تغيّر مطلوبُه لا يحمل «نُفّذ» ولا «تأكّد»؛ يبقى الشطبُ القديم أثراً", reopened);
+  const twoRooms = [{ id: "edit:#7", action: "edit" as const, group: "mismatch" as const, kind: "fields" as const, crn: "7", courseCode: "0109105", courseName: "أسس", section: "501",
+    fields: [{ field: "room" as const, label: "القاعة", ours: "012B07 / A1 · 012B07 / B2", pdf: "012B07 / A1 · 012B07 / B2" }] }];
+  const lossy = settleSavedItems(twoRooms as any, new Map([["#7", { days: "—", time: "—", room: "012B07 / A1 · 012B07 / B2", instructor: "—" }]]));
+  check(lossy.gone === 0 && lossy.items.length === 1, "قاعتان موزّعتان على اللقاءات: تساوي النص المختصر لا يُسقط الفرق", lossy);
 }
 
 /* ٢) الخلل بحسب الخانة */

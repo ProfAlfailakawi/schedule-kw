@@ -98,12 +98,18 @@ export function settleSavedItems(saved: readonly RegistrarRequestItem[], texts: 
       if (!SETTLE_FIELDS.has(f.field)) return [f];
       const mine = String(now[f.field] ?? "");
       if (!mine || mine === "—") return [f];
-      if (foldValue(mine) === foldValue(f.pdf) || (f.field === "instructor" && namesAgree(mine, f.pdf))) { changed = true; return []; }
+      /* قاعتان أو أستاذان موزّعان على اللقاءات: النصُّ المختصر لا يقول أيُّهما في أيّ يوم، فتساويه لا يُثبت الزوال — يبقى. */
+      const many = f.field !== "days" && [mine, f.pdf].some(text => String(text).includes(" · "));
+      if (!many && (foldValue(mine) === foldValue(f.pdf) || (f.field === "instructor" && namesAgree(mine, f.pdf)))) { changed = true; return []; }
       if (foldValue(mine) !== foldValue(f.ours)) { changed = true; return [{ ...f, ours: mine.slice(0, 160) }]; }
       return [f];
     });
     if (!fields.length) { gone++; continue; }
-    items.push(changed ? { ...item, fields, since: "changed" as const } : item);
+    if (!changed) { items.push(item); continue; }
+    /* المطلوبُ تغيّر: لا يحمل شطباً ولا «تأكّد» على غيره (كما في liveRequestItems)؛ الشطبُ القديم أثرٌ. */
+    const { done, state, stateAt, lastDone, ...rest } = item;
+    const was = done || lastDone;
+    items.push({ ...rest, fields, ...(was ? { lastDone: was } : {}), since: "changed" as const });
   }
   return { items, gone };
 }
