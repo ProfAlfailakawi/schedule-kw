@@ -379,3 +379,4 @@ test:room-query
 test:rooms-capacity
 test:duo-widget-css
 test:public-pages
+test:term-film
