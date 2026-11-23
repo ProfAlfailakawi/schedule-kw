@@ -13,12 +13,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./hallPulse.css";
 import {
   FIT_LABEL, PULSE_DAYS, applyPlan, buildPulseModel, clockText, fitClass, fitScore, layoutHalls, metrics,
-  occupantsAt, foreignAt, originalAssignment, borrowCandidates, planDay, planMoves, suggestHalls, toggleGroup, weeklyHeat, floorOf,
+  occupantsAt, foreignAt, originalAssignment, borrowCandidates, buildingLabelOf, planDay, planMoves, suggestHalls, toggleGroup, weeklyHeat, floorOf, slotStats, busiestMinute,
   type Assignment, type DayPlan, type FitClass, type PulseCourseInput, type PulseDay, type PulseHall, type PulseModel,
   type PulseRegistryInput, type PulseRowInput, type PulseSession,
 } from "../../utils/hallPulse";
 import { AR, countOf, type ArabicNoun } from "../../utils/arabicCount";
 import type { HallVisual, PulseScene as PulseSceneType } from "./pulseScene";
+import { HOP_FLAG_LABEL, HOP_KIND_LABEL, buildPaths, markerAt, nearerHalls, rankHops, type CohortInput, type Hop, type MovePath } from "../../utils/movementPaths";
+import { loadPlanFacts } from "../../utils/planFactsCache";
 
 export interface HallPulseMove {
   row: unknown;
@@ -42,10 +44,14 @@ export interface HallPulseProps {
   practice?: boolean;
   onSaveMoves?: (moves: HallPulseMove[]) => Promise<boolean>;
   heading?: string;
+  /** الهاتف في الورشة: مجسّمٌ للقراءة بلوحةٍ سفلية (قاعدة الهاتف: العروض الواسعة للقراءة). */
+  phone?: boolean;
 }
 
 const MOVE: ArabicNoun = { one: "نقلة", two: "نقلتان", few: "نقلات", many: "نقلة" };
 const FIT_HEX: Record<FitClass, number> = { pressed: 0xf0674f, full: 0xf0b24a, fit: 0x4fd3a1, wide: 0x6aa9d8, unknown: 0xa8b5af };
+/** شكلٌ مع كل لون: لا يُعتمد على اللون وحده (عمى الألوان، والوضع الداكن). */
+export const FIT_GLYPH: Record<FitClass, string> = { pressed: "▲", full: "■", fit: "●", wide: "◆", unknown: "?" };
 const FIT_TOKEN: Record<FitClass, string> = { pressed: "pressed", full: "full", fit: "fit", wide: "wide", unknown: "unknown" };
 const HINT_KEY = "hall-pulse-hint-v1";
 const n = (v: number) => Math.round(v).toLocaleString("ar-KW-u-nu-latn");
@@ -55,6 +61,21 @@ const weekRamp = (t: number) => {
   const k = Math.max(0, Math.min(1, t));
   return (Math.round(a[0] + (b[0] - a[0]) * k) << 16) | (Math.round(a[1] + (b[1] - a[1]) * k) << 8) | Math.round(a[2] + (b[2] - a[2]) * k);
 };
+
+/** سماء المسرح تتبع الساعة: فجرٌ أزرق، وظهرٌ أخضر صافٍ، وغروبٌ دافئ — بالرموز الليلية نفسها في الوضعين. */
+function skyAt(minute: number, start: number, end: number): { top: string; mid: string } {
+  const t = Math.max(0, Math.min(1, (minute - start) / Math.max(1, end - start)));
+  const stops: Array<[number, number[], number[]]> = [
+    [0, [0x23, 0x45, 0x5c], [0x10, 0x2c, 0x2c]],
+    [0.45, [0x1f, 0x5a, 0x4e], [0x0d, 0x26, 0x21]],
+    [1, [0x5a, 0x37, 0x3c], [0x14, 0x21, 0x22]],
+  ];
+  let i = 0; while (i < stops.length - 2 && t > stops[i + 1][0]) i++;
+  const [t0, a0, b0] = stops[i], [t1, a1, b1] = stops[i + 1];
+  const k = (t - t0) / Math.max(1e-6, t1 - t0);
+  const mix = (a: number[], b: number[]) => `rgb(${a.map((v, j) => Math.round(v + (b[j] - v) * k)).join(" ")})`;
+  return { top: mix(a0, a1), mid: mix(b0, b1) };
+}
 
 function readHint(): boolean { try { return window.localStorage.getItem(HINT_KEY) === "1"; } catch { return false; } }
 function writeHint() { try { window.localStorage.setItem(HINT_KEY, "1"); } catch { /* تصفّحٌ خاص */ } }
@@ -161,7 +182,14 @@ export default function HallPulse(props: HallPulseProps) {
   const [sceneFailed, setSceneFailed] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [mode, setMode] = useState<"halls" | "paths">("halls");
+  const [pathId, setPathId] = useState<string | null>(null);
+  const [nearFor, setNearFor] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [exploded, setExploded] = useState(false);
   const viewDay: PulseDay = day === "week" ? defaults.day : day;
+  /* مسارات التنقّل لرئيس اللجنة ورئيس القسم (الورشة) وللعميد وحدهم؛ لا تظهر في عدسة التقارير. */
+  const pathsAllowed = context === "workshop" || context === "dean";
 
   const assignment: Assignment = useMemo(() => {
     const a = applyPlan(original, plan);
@@ -175,6 +203,19 @@ export default function HallPulse(props: HallPulseProps) {
   const selHall = selected ? model.hallByKey.get(selected) || null : null;
   const selSession = selected ? occ.get(selected) || null : null;
   const suggestions = useMemo(() => (selSession && !plan && !pending ? suggestHalls(model, assignment, selSession.id) : []), [model, assignment, selSession, plan, pending]);
+
+  /* ── أول ما يُرى: أزحم لحظةٍ في اليوم المختار، لا ساعةٌ فارغة ── */
+  const autoDayRef = useRef<string>("");
+  useEffect(() => {
+    if (day === "week" || !model.sessions.length) return;
+    const key = `${day}|${model.sessions.length}`;
+    if (autoDayRef.current.startsWith(`${day}|`) ) return;
+    autoDayRef.current = key;
+    if (occupantsAt(model, original, day, minute).size) return;
+    const best = busiestMinute(model, original, day);
+    if (best != null) setMinute(best + 5);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day, model]);
 
   /* ── الساعة تمشي ── */
   useEffect(() => {
@@ -198,8 +239,52 @@ export default function HallPulse(props: HallPulseProps) {
     return out;
   }, [freeGlow, model, occ, viewDay, minuteShown, suggestions, day]);
   const manyHalls = model.halls.length > 36;
+  /* ── مسارات التنقّل ── */
+  const [nameState, setNameState] = useState<{ scope: string; map: Map<number, string> } | null>(null);
+  const nameScope = `${collegeId}|${sectionId || 0}|${termId}`;
+  const nameMap = nameState && nameState.scope === nameScope ? nameState.map : null;
+  const [cohorts, setCohorts] = useState<CohortInput[]>([]);
+  useEffect(() => {
+    if (mode !== "paths" || props.instructorName || nameMap) return;
+    let live = true;
+    const q = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId || 0), termId: String(termId), limit: "60" });
+    fetch(`/api/instructors?${q}`, { credentials: "include" }).then(r => (r.ok ? r.json() : [])).then(list => {
+      if (!live) return;
+      setNameState({ scope: nameScope, map: new Map((Array.isArray(list) ? list : []).map((x: any) => [Number(x.AdInstructorId), String(x.AdInstructorName || "")])) });
+    }).catch(() => { if (live) setNameState({ scope: nameScope, map: new Map() }); });
+    return () => { live = false; };
+  }, [mode, props.instructorName, nameMap, collegeId, sectionId, termId, nameScope]);
+  useEffect(() => {
+    if (mode !== "paths" || !sectionId || context !== "workshop") { setCohorts(c => (c.length ? [] : c)); return; }
+    let live = true;
+    const nameOf = new Map(courses.map(c => [Number(c.AdCourseId), String(c.CourseName || "")]));
+    void loadPlanFacts(collegeId, sectionId).then(facts => {
+      if (!live) return;
+      setCohorts(facts.levelGroups.filter(g => g.courseIds.length >= 2).map((g, i) => {
+        const names = g.courseIds.map(id => nameOf.get(Number(id))).filter(Boolean) as string[];
+        return { key: String(i), label: `دفعة: ${names.slice(0, 2).join("، ")}${names.length > 2 ? "…" : ""}`, courseIds: new Set(g.courseIds.map(Number)) };
+      }));
+    });
+    return () => { live = false; };
+  }, [mode, collegeId, sectionId, context, courses]);
+  const teacherName = useCallback((id: number) => props.instructorName?.(id) || nameMap?.get(id) || "", [props.instructorName, nameMap]);
+  const paths: MovePath[] = useMemo(() => (mode === "paths" && pathsAllowed && day !== "week"
+    ? buildPaths(model, assignment, layout, viewDay, { instructorName: teacherName, cohorts })
+    : []), [mode, pathsAllowed, day, model, assignment, layout, viewDay, teacherName, cohorts]);
+  const ranked = useMemo(() => rankHops(paths), [paths]);
+  const activePath = paths.find(x => x.id === pathId) || null;
+  const pathKeys = useMemo(() => new Set(activePath ? activePath.stops.map(st => st.hallKey) : []), [activePath]);
+  useEffect(() => {
+    sceneRef.current?.setPath(mode === "paths" && activePath ? activePath.stops.map(st => st.hallKey) : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, activePath?.id, activePath?.stops.map(st => st.hallKey).join("|"), sceneReady]);
+  useEffect(() => {
+    if (mode === "paths" && activePath) sceneRef.current?.setMarker(markerAt(activePath, minute));
+  }, [mode, activePath, minute, sceneReady]);
   const visuals = useMemo(() => {
     const out = new Map<string, HallVisual>();
+    const order = new Map<string, number[]>();
+    if (activePath) activePath.stops.forEach((st, i) => order.set(st.hallKey, [...(order.get(st.hallKey) || []), i + 1]));
     for (const h of model.halls) {
       if (day === "week") {
         const w = heat.get(h.key);
@@ -213,7 +298,7 @@ export default function HallPulse(props: HallPulseProps) {
         const cls = fitClass(s.students, h.capacity);
         out.set(h.key, {
           color: FIT_HEX[cls], level: cls === "unknown" ? 0.55 : (s.students || 0) / (h.capacity || 1), occupied: true,
-          pulse: cls === "pressed", ghost: pending?.to === h.key, label: h.code,
+          pulse: cls === "pressed", ghost: pending?.to === h.key, label: `${FIT_GLYPH[cls]} ${h.code}`,
           showLabel: !manyHalls || cls === "pressed" || pending?.to === h.key || pending?.from === h.key,
         });
       } else {
@@ -223,8 +308,15 @@ export default function HallPulse(props: HallPulseProps) {
         });
       }
     }
+    if (activePath && mode === "paths") {
+      for (const [key, v] of out) {
+        const nums = order.get(key);
+        if (nums) out.set(key, { ...v, dim: false, showLabel: true, label: `${nums.join("، ")} · ${model.hallByKey.get(key)!.code}` });
+        else out.set(key, { ...v, dim: true, glow: false, pulse: false, showLabel: false });
+      }
+    }
     return out;
-  }, [model, occ, day, heat, viewDay, minuteShown, glowKeys, pending, manyHalls, freeGlow]);
+  }, [model, occ, day, heat, viewDay, minuteShown, glowKeys, pending, manyHalls, freeGlow, activePath, mode]);
 
   /* ── المشهد ── */
   const viewRef = useRef<HTMLDivElement>(null);
@@ -245,7 +337,7 @@ export default function HallPulse(props: HallPulseProps) {
       if (!webglAvailable()) { setSceneFailed(true); setFlat(true); return; }
       try {
         scene = new PulseScene({
-          canvas, host: viewRef.current, labels: labelsRef.current, layout, reduced, topDown: narrow,
+          canvas, host: viewRef.current, labels: labelsRef.current, layout, reduced, topDown: narrow, ambient: !narrow,
           onPick: (key, nb) => pickRef.current(key, nb), onHover: setHovered,
         });
         sceneRef.current = scene;
@@ -262,12 +354,23 @@ export default function HallPulse(props: HallPulseProps) {
     };
   }, [flat, hasHalls, layout, reduced, narrow]);
   useEffect(() => { sceneRef.current?.setVisuals(visuals, selected); }, [visuals, selected, sceneReady]);
+  useEffect(() => { sceneRef.current?.setTimeOfDay(day === "week" ? (model.dayStart + model.dayEnd) / 2 : minute, model.dayStart, model.dayEnd); }, [minute, day, model.dayStart, model.dayEnd, sceneReady]);
+  /* القاعة المختارة في طابقٍ تحته طوابق: تنفرج الطوابق فوقها لتُرى. */
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const spot = selected ? layout.spots.get(selected) : null;
+    const building = spot ? layout.buildings.find(b => b.code === spot.building) : null;
+    const open = Boolean(spot && building && spot.floorIndex < building.floors - 1 && day !== "week" && mode === "halls");
+    scene.explode(open ? spot!.building : null, spot ? spot.floorIndex : 0);
+    setExploded(open);
+  }, [selected, layout, day, mode, sceneReady]);
 
   /* ── الجار: مبنى القسم المجاور حين لا تتّسع قاعات القسم ── */
   const nb = useMemo(() => {
     if (!borrow || !["pick", "form", "sending", "sent", "approved"].includes(borrow.stage)) return null;
     const halls: PulseHall[] = [...borrow.options.map(o => ({ ...o, free: true })), ...borrow.others.map(o => ({ ...o, free: false }))].map(o => ({
-      key: `nb:${o.roomId}`, roomId: o.roomId, buildingCode: o.roomCode, buildingLabel: `مبنى ${o.roomCode}`, code: o.roomHall,
+      key: `nb:${o.roomId}`, roomId: o.roomId, buildingCode: o.roomCode, buildingLabel: buildingLabelOf(o.roomCode), code: o.roomHall,
       capacity: o.capacity, type: "", lab: false, floor: floorOf(o.roomHall),
     }));
     const L = layoutHalls(halls, { perRow: 5, offsetX: layout.cx + layout.width / 2 + 6 });
@@ -301,6 +404,7 @@ export default function HallPulse(props: HallPulseProps) {
   const selectHall = useCallback((key: string | null) => {
     setSelected(key);
     setNotice(null);
+    if (key) setSheetOpen(true);
     if (key) sceneRef.current?.focus(key);
   }, []);
 
@@ -323,7 +427,7 @@ export default function HallPulse(props: HallPulseProps) {
         options: options.filter(o => o.roomCode === building).slice(0, 12),
         others: others.filter(o => o.roomCode === building).slice(0, 16), // فارغة في جزءٍ من اليوم فقط: تُرسم باهتة
       });
-      if (options.length) announce(`لا قاعة أوسع فارغة في القسم لهذه الشعبة. ظهر ${options[0].roomCode === building ? `مبنى ${building}` : "المبنى المجاور"} بقاعاته الفارغة في وقتها كله: اختر واحدة واطلب استعارتها.`);
+      if (options.length) announce(`لا قاعة أوسع فارغة في القسم لهذه الشعبة. ظهر ${buildingLabelOf(building)} بقاعاته الفارغة في وقتها كله: اختر واحدة واطلب استعارتها.`);
     } catch (error: any) {
       setBorrow({ sessionId: session.id, stage: "error", options: [], others: [], error: String(error?.message || error) });
     }
@@ -354,6 +458,16 @@ export default function HallPulse(props: HallPulseProps) {
     sceneRef.current?.fly([{ from: selected, to: to.key, color: FIT_HEX[fitClass(selSession.students, to.capacity)] }]);
     setSelected(to.key);
     announce(`معاينة فقط: ظهرت الشعبة في ${hallTitle(to)} ولم يُحفظ شيء. «حفظ» للتأكيد أو «إلغاء» للتراجع.`);
+  };
+  const previewSessionMove = (sessionId: number, to: PulseHall) => {
+    const s = model.sessionById.get(sessionId);
+    if (!s) return;
+    const from = assignment.get(sessionId) || s.hallKey;
+    stopPlay();
+    setPending({ sessionId, from, to: to.key });
+    sceneRef.current?.fly([{ from, to: to.key, color: FIT_HEX[fitClass(s.students, to.capacity)] }]);
+    setNearFor(null);
+    announce(`معاينة فقط: ${s.courseName} في ${hallTitle(to)} ولم يُحفظ شيء. «حفظ» للتأكيد أو «إلغاء» للتراجع.`);
   };
   const cancelPending = () => {
     if (!pending) return;
@@ -397,6 +511,11 @@ export default function HallPulse(props: HallPulseProps) {
     const pairs = p.groups.flatMap(g => g.moves.map((mv, k) => ({ from: mv.from, to: mv.to, color: FIT_HEX[fitClass(model.sessionById.get(mv.sessionId)!.students, model.hallByKey.get(mv.to)!.capacity)], delay: k * 0.35 })));
     sceneRef.current?.fly(pairs.slice(0, 24));
     announce("هذه خطة لليوم كله ولم يُحفظ شيء بعد: كل شعبة ذهبت إلى أنسب قاعة فارغة من نوعها، ولا قاعة تستقبل شعبتين في الوقت نفسه. استبعد ما لا تريده ثم احفظ.");
+    /* أرقام «قبل/بعد» تُرى فوراً: لوحةٌ مختصرة في الجانب، والمراجعة الكاملة تُجلب إلى العين. */
+    window.setTimeout(() => {
+      const el = document.querySelector(".hp-review");
+      el?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    }, reduced ? 0 : 450);
   };
   const cancelPlan = () => {
     if (plan) {
@@ -476,14 +595,8 @@ export default function HallPulse(props: HallPulseProps) {
     for (const w of model.foreignBusy.get(key) || []) if (w.day === viewDay && w.from > minuteShown && w.from < next) next = w.from;
     return next >= model.dayEnd ? "نهاية اليوم" : clockText(next);
   };
-  const stats = useMemo(() => {
-    let busy = 0, over = 0, wide = 0;
-    for (const h of model.halls) {
-      const s = occ.get(h.key); if (!s) continue; busy++;
-      const c = fitClass(s.students, h.capacity); if (c === "pressed") over++; else if (c === "wide") wide++;
-    }
-    return { busy, over, wide };
-  }, [occ, model]);
+  /* الرأس والقاعات من الإشغال نفسه (slotStats): لا عدّادٌ يخالف ما يُرى. */
+  const stats = useMemo(() => slotStats(model, occ), [occ, model]);
 
   const dayStrip = (key: string) => {
     const cells: React.ReactNode[] = [];
@@ -603,7 +716,7 @@ export default function HallPulse(props: HallPulseProps) {
     setSaving(true);
     const ok = await props.onSaveMoves([{ row: borrowSession.source, sessionId: borrowSession.id, building: opt.roomCode, hall: opt.roomHall, roomId: opt.roomId, buildingId: opt.buildingId }]).catch(() => false);
     setSaving(false);
-    if (ok) { setBorrow(null); setNotice({ tone: "ok", text: `نُقلت الشعبة إلى ${opt.roomHall} في مبنى ${opt.roomCode} بالاستعارة.` }); }
+    if (ok) { setBorrow(null); setNotice({ tone: "ok", text: `نُقلت الشعبة إلى ${opt.roomHall} في ${buildingLabelOf(opt.roomCode)} بالاستعارة.` }); }
     else setNotice({ tone: "warn", text: "لم يُحفظ النقل: رفضه فحص التعارض. الاستعارة باقية." });
   };
 
@@ -615,7 +728,7 @@ export default function HallPulse(props: HallPulseProps) {
     if (borrow.stage === "pick") return (
       <div className="hp-alert is-warn">
         <strong>لا قاعة أوسع فارغة في القسم الآن</strong>
-        <span>هذه قاعات فارغة في مبنى {borrow.options[0]?.roomCode} طوال وقت الشعبة في أيامها كلها:</span>
+        <span>هذه قاعات فارغة في {buildingLabelOf(borrow.options[0]?.roomCode)} طوال وقت الشعبة في أيامها كلها:</span>
         <div className="hp-row">{borrow.options.map(o => (
           <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={o.roomId} type="button" className="hp-btn" onClick={() => setBorrow({ ...borrow, stage: "form", pick: o.roomId })}>{o.roomHall} · {o.capacity ? countOf(o.capacity, AR.seat) : "سعة غير مسجّلة"}</button>
         ))}</div>
@@ -627,7 +740,7 @@ export default function HallPulse(props: HallPulseProps) {
       <div className="hp-request">
         <h4>طلب استعارة قاعة</h4>
         <dl>
-          <dt>القاعة</dt><dd>{opt.roomHall} · {opt.capacity ? countOf(opt.capacity, AR.seat) : "سعة غير مسجّلة"} · مبنى {opt.roomCode}</dd>
+          <dt>القاعة</dt><dd>{opt.roomHall} · {opt.capacity ? countOf(opt.capacity, AR.seat) : "سعة غير مسجّلة"} · {buildingLabelOf(opt.roomCode)}</dd>
           <dt>القسم المضيف</dt><dd>{opt.owner}</dd>
           <dt>الوقت</dt><dd>{borrowSession.days.map(d => PULSE_DAYS.find(x => x.key === d)!.label).join(" و")} · <bdi dir="ltr">{clockText(borrowSession.start)}–{clockText(borrowSession.end)}</bdi></dd>
           <dt>الشعبة</dt><dd>{sessionLine(borrowSession)}{borrowSession.students ? ` · نحو ${countOf(borrowSession.students, AR.student)}` : ""}</dd>
@@ -659,6 +772,90 @@ export default function HallPulse(props: HallPulseProps) {
       </div>
     );
   })() : null;
+
+  const pendingCard = pending ? (
+    <div className="hp-alert is-ok">
+      <strong>مراجعة قبل الحفظ</strong>
+      {(() => {
+        const s = model.sessionById.get(pending.sessionId)!, from = model.hallByKey.get(pending.from)!, to = model.hallByKey.get(pending.to)!;
+        return <span>{s.courseName}: من {from.code} إلى {to.code} · نحو {countOf(s.students || 0, AR.student)} في {countOf(to.capacity || 0, AR.seat)} · {FIT_LABEL[fitClass(s.students, to.capacity)]}. تنتقل القاعة في أيام الشعبة كلها.</span>;
+      })()}
+      <div className="hp-row">
+        {canSave ? <button type="button" data-guide-ignore="يحفظ نقل الشعبة عبر مسار النقل المعتاد في الورشة" className="hp-btn is-main" disabled={saving} onClick={savePending}>{saving ? "يحفظ…" : "حفظ"}</button> : null}
+        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" disabled={saving} onClick={cancelPending}>إلغاء</button>
+      </div>
+    </div>
+  ) : null;
+
+  const planMini = plan && planBefore ? (() => {
+    const after = metrics(model, assignment, plan.day);
+    return (
+      <div className="hp-mini-plan" role="status">
+        <strong>الخطة قبل الحفظ</strong>
+        <span><i data-tone="pressed">{FIT_GLYPH.pressed}</i> مضغوطة <s>{n(planBefore.over)}</s> <b>{n(after.over)}</b></span>
+        <span><i data-tone="fit">{FIT_GLYPH.fit}</i> تناسب <s>{n(planBefore.pct)}%</s> <b>{n(after.pct)}%</b></span>
+        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-link" onClick={() => document.querySelector(".hp-review")?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" })}>راجع النقلات</button>
+      </div>
+    );
+  })() : null;
+
+  const hopLine = (path: MovePath, hop: Hop, ranked = false) => {
+    const from = model.hallByKey.get(hop.from.hallKey), to = model.hallByKey.get(hop.to.hallKey);
+    const key = `${path.id}|${hop.index}`;
+    const nears = nearFor === key ? nearerHalls(model, assignment, layout, hop) : [];
+    return (
+      <div className={`hp-hop${hop.flags.length ? " is-flagged" : ""}`} key={key}>
+        <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-hop-main" onClick={() => { setPathId(path.id); setMinute(Math.max(model.dayStart, hop.from.end - 4)); setPlaying(!reduced); }}>
+          {ranked ? <b className="hp-hop-who">{path.label}</b> : null}
+          <span className="hp-hop-path"><bdi dir="ltr">{clockText(hop.from.end)}</bdi> {from?.code} <em aria-hidden="true">←</em> {to?.code} <bdi dir="ltr">{clockText(hop.to.start)}</bdi></span>
+          <small>{HOP_KIND_LABEL[hop.kind]} · فجوة {countOf(hop.gap, AR.minute)} · مشي نحو {countOf(Math.max(1, Math.round(hop.walk)), AR.minute)} <em className="hp-est">تقدير</em></small>
+          {hop.flags.length ? <span className="hp-flags">{hop.flags.map(f => <i key={f} data-flag={f}>{HOP_FLAG_LABEL[f]}</i>)}</span> : null}
+        </button>
+        {canSave && hop.flags.length && !pending ? (
+          nearFor === key ? (
+            <div className="hp-row">
+              {nears.length ? nears.map(x => (
+                <button key={`${x.sessionId}-${x.hall.key}`} data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" onClick={() => previewSessionMove(x.sessionId, x.hall)}>
+                  {model.sessionById.get(x.sessionId)?.courseName} ← {x.hall.code} · مشي {countOf(Math.max(1, Math.round(x.walk)), AR.minute)}
+                </button>
+              )) : <span className="hp-fine">لا قاعة أقرب فارغة من النوع نفسه في وقتها.</span>}
+            </div>
+          ) : <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn hp-btn-small" onClick={() => setNearFor(key)}>اقترح قاعة أقرب</button>
+        ) : null}
+      </div>
+    );
+  };
+
+  const pathsPanel = mode === "paths" ? (
+    <div className="hp-info">
+      {!pathsAllowed ? <p className="hp-fine">مسارات التنقّل لرئيس لجنة الجدول ورئيس القسم والعميد.</p> : day === "week" ? (
+        <p className="hp-fine">اختر يوماً لترى مسارات التنقّل فيه.</p>
+      ) : (
+        <>
+          <label className="hp-select">
+            <span>مسار من؟</span>
+            <select data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" value={pathId || ""} onChange={e => { setPathId(e.target.value || null); setNearFor(null); const pth = paths.find(x => x.id === e.target.value); if (pth) setMinute(Math.max(model.dayStart, pth.stops[0].start - 5)); }}>
+              <option value="">اختر أستاذاً أو دفعة…</option>
+              {paths.filter(x => x.kind === "teacher").length ? <optgroup label="الأساتذة">{paths.filter(x => x.kind === "teacher").map(x => <option key={x.id} value={x.id}>{x.label}{x.score ? " ⚠" : ""}</option>)}</optgroup> : null}
+              {paths.filter(x => x.kind === "cohort").length ? <optgroup label="الدفعات (المستوى نفسه)">{paths.filter(x => x.kind === "cohort").map(x => <option key={x.id} value={x.id}>{x.label}{x.score ? " ⚠" : ""}</option>)}</optgroup> : null}
+            </select>
+          </label>
+          {pendingCard}
+          {activePath ? (
+            <div className="hp-path-detail">
+              <div className="hp-path-head"><strong>{activePath.label}</strong><span>{countOf(activePath.stops.length, AR.lecture)}</span></div>
+              {activePath.hops.length ? activePath.hops.map(h => hopLine(activePath, h)) : <p className="hp-fine">لا انتقال بين محاضرتين في هذا اليوم.</p>}
+            </div>
+          ) : null}
+          <div className="hp-ranked">
+            <div className="hp-path-head"><strong>أصعب التنقلات اليوم</strong>{ranked.length ? <span>{countOf(ranked.length, { one: "انتقال", two: "انتقالان", few: "انتقالات", many: "انتقالاً" })}</span> : null}</div>
+            {ranked.length ? ranked.map(r => hopLine(r.path, r.hop, true)) : <p className="hp-fine">لا انتقال صعب في هذا اليوم: لا مبنى آخر بفجوةٍ ضيّقة، ولا فراغٌ طويل، ولا ذهابٌ وإياب.</p>}
+          </div>
+          <p className="hp-fine">المشي تقديرٌ من مواضع القاعات في المجسّم (الطابق نفسه، طابقٌ آخر، مبنى آخر)، لا قياسٌ على الأرض.</p>
+        </>
+      )}
+    </div>
+  ) : null;
 
   const panel = (() => {
     if (day === "week") {
@@ -731,19 +928,7 @@ export default function HallPulse(props: HallPulseProps) {
           <div className="hp-strip" aria-hidden="true">{dayStrip(selHall.key)}</div>
         </div>
         <WeekStrip hall={selHall} heat={heat} onDay={d => setDay(d)} />
-        {pending ? (
-          <div className="hp-alert is-ok">
-            <strong>مراجعة قبل الحفظ</strong>
-            {(() => {
-              const s = model.sessionById.get(pending.sessionId)!, from = model.hallByKey.get(pending.from)!, to = model.hallByKey.get(pending.to)!;
-              return <span>من {from.code} إلى {to.code} · نحو {countOf(s.students || 0, AR.student)} في {countOf(to.capacity || 0, AR.seat)} · {FIT_LABEL[fitClass(s.students, to.capacity)]}. تنتقل القاعة في أيام الشعبة كلها.</span>;
-            })()}
-            <div className="hp-row">
-              <button type="button" data-guide-ignore="يحفظ نقل الشعبة عبر مسار النقل المعتاد في الورشة" className="hp-btn is-main" disabled={saving} onClick={savePending}>{saving ? "يحفظ…" : "حفظ"}</button>
-              <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" disabled={saving} onClick={cancelPending}>إلغاء</button>
-            </div>
-          </div>
-        ) : plan ? (
+        {pending ? pendingCard : plan ? (
           <p className="hp-fine">{planNotesFor(plan, selHall.key, model)}</p>
         ) : borrowCard ? borrowCard : suggestions.length ? (
           <div>
@@ -756,6 +941,7 @@ export default function HallPulse(props: HallPulseProps) {
               ))}
             </div>
             {!canSave ? <p className="hp-fine">للاطلاع: النقل لرئيس لجنة الجدول في ورشة القسم.</p> : null}
+            {canSave && cls === "pressed" && sectionId ? <button data-guide-ignore="يعرض قاعات القسم المجاور الفارغة؛ الطلب لا يُرسل إلا بضغطةٍ أخرى" type="button" className="hp-link" onClick={() => startBorrow(selSession!)}>أو اطلب قاعةً من قسمٍ مجاور</button> : null}
           </div>
         ) : needsBorrow ? (
           <div className="hp-alert is-warn">
@@ -800,20 +986,26 @@ export default function HallPulse(props: HallPulseProps) {
           <h2>{heading}</h2>
           <p>كل قاعة غرفةٌ تضيء حين تُشغل، ومنسوبها ولونها يقولان هل تتّسع لشعبتها.{context !== "workshop" ? " للقراءة فقط." : ""}</p>
         </div>
+        {pathsAllowed ? (
+          <div className="hp-mode hp-lens" role="group" aria-label="ما يُعرض">
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={mode === "halls"} onClick={() => { setMode("halls"); setPathId(null); setNearFor(null); }}>القاعات</button>
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={mode === "paths"} onClick={() => { setMode("paths"); setSelected(null); setPlan(null); setFreeGlow(false); setWalk(0); setSay("مسارات التنقّل: اختر أستاذاً أو دفعة، أو اضغط انتقالاً من «أصعب التنقلات اليوم» ليُعرض مساره ويمشي مع الساعة."); setSheetOpen(true); }}>مسارات التنقّل</button>
+          </div>
+        ) : null}
         <div className="hp-mode" role="group" aria-label="طريقة الرسم">
           <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={!flat} disabled={sceneFailed} onClick={() => setFlat(false)} title={sceneFailed ? "تعذّر الرسم ثلاثي الأبعاد على هذا الجهاز" : undefined}>مجسّم</button>
           <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={flat} onClick={() => setFlat(true)}>مسطّح</button>
         </div>
       </div>
-      <div className="hp-walk" role="group" aria-label="أسئلة سريعة">
+      {mode === "halls" ? <div className="hp-walk" role="group" aria-label="أسئلة سريعة">
         <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 1} onClick={() => runWalk(1)}><i>1</i> أين الضغط الآن؟</button>
         <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 2} onClick={() => runWalk(2)}><i>2</i> أين الهدر؟</button>
         <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 3} onClick={() => runWalk(3)}><i>3</i> أين أضع شعبة جديدة؟</button>
         {canSave ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="is-magic" aria-pressed={walk === 4} onClick={() => runWalk(4)}><i>4</i> رتّب كل شيء بضغطة</button> : null}
-      </div>
+      </div> : null}
       <p className="hp-say" aria-live="polite">{say || "ابدأ بسؤالٍ من الأسئلة أعلاه، أو حرّك الساعة واضغط أي قاعة بنفسك."}</p>
 
-      <div className="hp-stage">
+      <div className={`hp-stage${narrow ? " is-narrow" : ""}`} style={(() => { const sky = skyAt(day === "week" ? model.dayStart + (model.dayEnd - model.dayStart) * 0.45 : minute, model.dayStart, model.dayEnd); return { ["--hp-sky-top" as any]: sky.top, ["--hp-sky-mid" as any]: sky.mid }; })()}>
         <div className="hp-view" ref={viewRef} tabIndex={flat ? -1 : 0} onKeyDown={onStageKey}
           aria-label={flat ? undefined : "مجسّم القاعات: الأسهم للتدوير، و+ و− للتقريب، و0 للعودة"} role={flat ? undefined : "application"}>
           {flat ? (
@@ -826,6 +1018,7 @@ export default function HallPulse(props: HallPulseProps) {
                 <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.zoomBy(0.86)} aria-label="تقريب">+</button>
                 <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.zoomBy(1.16)} aria-label="تبعيد">−</button>
                 <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.resetView()} aria-label="عودة إلى المنظر الكامل">⟲</button>
+                {exploded ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon hp-icon-wide" onClick={() => setSelected(null)} aria-label="أعد الطوابق إلى أماكنها">كل الطوابق</button> : null}
               </div>
               {hovered && !selected && model.hallByKey.get(hovered) ? <div className="hp-hover" aria-hidden="true">{hoverText(model, occ, hovered, day, heat)}</div> : null}
             </>
@@ -833,37 +1026,41 @@ export default function HallPulse(props: HallPulseProps) {
           {!hintSeen && !flat ? (
             <div className="hp-hint" role="note">
               <span><b>ابدأ هنا:</b> اضغط قاعة لترى شعبتها · اسحب للتدوير · {narrow ? "قرّب بإصبعين" : "قرّب بالعجلة أو بإصبعين"}</span>
-              <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" onClick={() => { setHintSeen(true); writeHint(); }} aria-label="إخفاء التلميح">فهمت</button>
+              <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-hint-close" onClick={() => { setHintSeen(true); writeHint(); }} aria-label="إخفاء التلميح">فهمت <span aria-hidden="true">✕</span></button>
             </div>
           ) : null}
         </div>
-        <aside className="hp-side" aria-label="تفاصيل القاعة">
+        <aside className={`hp-side${narrow ? " hp-sheet" : ""}${narrow && sheetOpen ? " is-open" : ""}`} aria-label="تفاصيل القاعة">
           <div className="hp-clock">
+            {narrow ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-sheet-handle" aria-expanded={sheetOpen} onClick={() => setSheetOpen(o => !o)}><span aria-hidden="true" /><b className="hp-sr">{sheetOpen ? "طيّ اللوحة" : "فتح اللوحة"}</b></button> : null}
             <div className="hp-clock-time"><bdi dir="ltr">{day === "week" ? "الأسبوع" : `${clockText(minuteShown)}`}</bdi></div>
-            <div className="hp-fine">{dayLabel}{day !== "week" ? ` · مشغولة ${n(stats.busy)} من ${countOf(model.halls.length, AR.room)} · مضغوطة ${n(stats.over)} · واسعة ${n(stats.wide)}` : ` · ${countOf(model.halls.length, AR.room)}`}</div>
+            <div className="hp-fine" data-stats={`${stats.busy}|${stats.over}|${stats.wide}`}>{dayLabel}{day !== "week" ? ` · مشغولة ${n(stats.busy)} من ${countOf(model.halls.length, AR.room)} · مضغوطة ${n(stats.over)} · واسعة ${n(stats.wide)}` : ` · ${countOf(model.halls.length, AR.room)}`}</div>
           </div>
-          {panel}
           <div className="hp-legend" aria-label="مفتاح الألوان">
             {day === "week" ? (
               <span className="hp-ramp"><i />قليلة الإشغال ← كثيرة الإشغال</span>
             ) : (
               <>
-                <span data-tone="fit">مناسبة</span>
-                <span data-tone="full">ممتلئة</span>
-                <span data-tone="pressed">مضغوطة</span>
-                <span data-tone="wide">واسعة على شعبتها</span>
-                <span data-tone="empty">فارغة</span>
+                <span data-tone="fit"><i aria-hidden="true">{FIT_GLYPH.fit}</i>مناسبة</span>
+                <span data-tone="full"><i aria-hidden="true">{FIT_GLYPH.full}</i>ممتلئة</span>
+                <span data-tone="pressed"><i aria-hidden="true">{FIT_GLYPH.pressed}</i>مضغوطة</span>
+                <span data-tone="wide"><i aria-hidden="true">{FIT_GLYPH.wide}</i>واسعة على شعبتها</span>
+                <span data-tone="empty"><i aria-hidden="true">○</i>فارغة</span>
                 {model.foreignBusy.size ? <span data-tone="foreign">جهة أخرى</span> : null}
               </>
             )}
             <small>عدد الطلبة تقدير: سعة المقرر لكل شعبة، لا المسجّلون فعلاً.</small>
+          </div>
+          <div className="hp-sheet-body">
+            {planMini}
+            {mode === "paths" ? pathsPanel : panel}
           </div>
         </aside>
         <div className="hp-bar">
           <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-main hp-play" onClick={() => { setPlaying(p => !p); setPending(null); setFreeGlow(false); }} disabled={day === "week"} aria-pressed={playing}>
             {playing ? "أوقف" : "شغّل اليوم"}
           </button>
-          {canSave ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving || day === "week"}>✦ رتّب قاعاتي</button> : null}
+          {canSave && mode === "halls" ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving || day === "week"}>✦ رتّب قاعاتي</button> : null}
           <label className="hp-range">
             <span className="hp-sr">الساعة</span>
             <input data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="range" min={model.dayStart} max={model.dayEnd - 5} step={5} value={minuteShown} disabled={day === "week"}
@@ -917,7 +1114,7 @@ function hoverText(model: PulseModel, occ: Map<string, PulseSession>, key: strin
 }
 
 function Pill({ cls }: { cls: FitClass }) {
-  return <span className="hp-pill" data-tone={FIT_TOKEN[cls]}>{FIT_LABEL[cls]}</span>;
+  return <span className="hp-pill" data-tone={FIT_TOKEN[cls]}><i aria-hidden="true">{FIT_GLYPH[cls]}</i>{FIT_LABEL[cls]}</span>;
 }
 
 function WeekStrip({ hall, heat, onDay }: { hall: PulseHall; heat: ReturnType<typeof weeklyHeat>; onDay: (d: PulseDay) => void }) {

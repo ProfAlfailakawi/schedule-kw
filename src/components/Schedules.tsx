@@ -2905,7 +2905,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 
   const changeView = useCallback((value: string) => {
     const requested = value === "week" ? "week" : value === "rooms" ? "rooms" : value === "pulse" ? "pulse" : "list";
-    const next = phoneReadOnly ? "list" : requested;
+    /* الهاتف: القائمة افتراضاً، والعروض الواسعة للقراءة؛ و«مجسّم» يُفتح عليه للقراءة بطلبه. */
+    const next = phoneReadOnly ? (requested === "pulse" ? "pulse" : "list") : requested;
 
     // Any move between list / week / rooms starts clean: every filter from the
     // previous view is dropped so the next board never opens partially filtered.
@@ -2946,7 +2947,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   }, [phoneReadOnly, viewMode]);
   useEffect(() => {
     if (!phoneReadOnly) return;
-    if (viewMode !== "list") startTransition(() => setViewMode("list"));
+    if (viewMode !== "list" && viewMode !== "pulse") startTransition(() => setViewMode("list"));
     setMobileViewGate(null);
     setFocusMode(false);
     setPresentationMode(false);
@@ -13359,11 +13360,11 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
               <button data-guide-target="schedule.view.rooms" type="button" className={viewMode === "rooms" ? "active" : ""} aria-pressed={viewMode === "rooms"} onClick={() => changeView("rooms")}>
                 <MapPin aria-hidden="true" /> المباني والقاعات
               </button>
-              <button type="button" className={viewMode === "pulse" ? "active" : ""} aria-pressed={viewMode === "pulse"} onClick={() => changeView("pulse")}
-                data-guide-ignore="يفتح نبض القاعات: مجسّم القاعات وملاءمتها لشعبها" title="نبض القاعات: مجسّم القاعات وملاءمتها لشعبها">
-                <Box aria-hidden="true" /> مجسّم
-              </button>
             </>) : null}
+            <button type="button" className={viewMode === "pulse" ? "active" : ""} aria-pressed={viewMode === "pulse"} onClick={() => changeView("pulse")}
+              data-guide-ignore="يفتح نبض القاعات: مجسّم القاعات وملاءمتها لشعبها" title="نبض القاعات: مجسّم القاعات وملاءمتها لشعبها">
+              <Box aria-hidden="true" /> مجسّم
+            </button>
           </div>
           {/* A way of looking at the board, remembered by name. Absent entirely
               until the reader has saved one — no empty menu on behalf of a
@@ -13626,7 +13627,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             rows={rows}
             courses={courses}
             instructorName={pulseInstructorName}
-            canSave={canEditSchedule && !dragBlocked}
+            canSave={canEditSchedule && !dragBlocked && !phoneReadOnly}
+            phone={phoneReadOnly}
             practice={practiceMode}
             onSaveMoves={commitHallPulseMoves}
           />
@@ -14351,12 +14353,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
                 type="button" className={viewMode === "rooms" ? "on" : ""} aria-pressed={viewMode === "rooms"}
                 onClick={() => changeView("rooms")} title="عرض المباني والقاعات" aria-label="عرض المباني والقاعات"
               ><MapPin aria-hidden="true" /></button>
-              <button
-                type="button" className={viewMode === "pulse" ? "on" : ""} aria-pressed={viewMode === "pulse"}
-                onClick={() => changeView("pulse")} title="نبض القاعات (مجسّم)" aria-label="نبض القاعات (مجسّم)"
-                data-guide-ignore="يفتح نبض القاعات"
-              ><Box aria-hidden="true" /></button>
             </>) : null}
+            <button
+              type="button" className={viewMode === "pulse" ? "on" : ""} aria-pressed={viewMode === "pulse"}
+              onClick={() => changeView("pulse")} title="نبض القاعات (مجسّم)" aria-label="نبض القاعات (مجسّم)"
+              data-guide-ignore="يفتح نبض القاعات"
+            ><Box aria-hidden="true" /></button>
           </div>
           <span className="dock-split" aria-hidden="true" />
           <button

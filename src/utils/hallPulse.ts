@@ -73,6 +73,9 @@ export interface PulseSession {
   id: number;
   rev?: number;
   sectionId: number;
+  courseId: number;
+  /** رقم الأستاذ لمسارات التنقّل (لا يُعرض؛ الاسم من instructorName وحده). */
+  instructorId: number;
   courseName: string;
   sectionCode: string;
   instructor: string;
@@ -117,6 +120,13 @@ export const hallKeyOf = (building: unknown, hall: unknown) => {
   const b = normalizeToken(building), h = normalizeToken(hall);
   return b || h ? `${b}|${h}` : "";
 };
+
+/** «مبنى 3» من الرمز الرسمي «901A03» (رقم المبنى آخر خانتين بعد حرف الموقع)، وإلا الرمز كما هو. */
+export function buildingLabelOf(code: unknown): string {
+  const raw = String(code ?? "").trim();
+  const m = raw.match(/^\d+[A-Za-z](\d{1,3})$/);
+  return m ? `مبنى ${Number(m[1])}` : raw ? `مبنى ${raw}` : "بلا مبنى";
+}
 
 export const isLabType = (type: unknown) => /lab|مختبر|معمل|ورشة|استوديو/i.test(String(type ?? ""));
 
@@ -177,7 +187,7 @@ export function buildPulseModel(input: {
   const keyByText = new Map<string, string>();
   const buildingLabel = (code: string, b?: { buildingNumber?: string; siteName?: string; description?: string }) => {
     const number = String(b?.buildingNumber || "").trim();
-    return number ? `مبنى ${number}` : code ? `مبنى ${code}` : "بلا مبنى";
+    return number ? `مبنى ${number}` : buildingLabelOf(code);
   };
   for (const room of input.registry?.rooms || []) {
     if (room.bookingPolicy && room.bookingPolicy !== "normal") continue;
@@ -217,6 +227,7 @@ export function buildPulseModel(input: {
     used.add(key);
     sessions.push({
       id: Number(row.id), rev: row.rev, sectionId: Number(row.AdSectionId || 0),
+      courseId: Number(row.AdCourseId || 0), instructorId: Number(row.AdInstructorId || 0),
       courseName: String(row.AdCourseName || course?.CourseName || "مقرر"),
       sectionCode: String(row.SCode || "").trim(),
       instructor: input.instructorName ? input.instructorName(Number(row.AdInstructorId || 0)) : "",
@@ -272,6 +283,32 @@ export function occupantsAt(model: PulseModel, assignment: Assignment, day: Puls
     if (!prev || Number(s.students || 0) > Number(prev.students || 0)) out.set(key, s);
   }
   return out;
+}
+
+/**
+ * عدّادات اللحظة من الإشغال نفسه الذي يُلوَّن به المشهد: مصدرٌ واحد للرأس وللقاعات،
+ * فلا يقول الرأس «مشغولة 0» وقاعةٌ حمراء أمامه.
+ */
+export function slotStats(model: PulseModel, occ: ReadonlyMap<string, PulseSession>): { busy: number; over: number; full: number; fit: number; wide: number } {
+  const out = { busy: 0, over: 0, full: 0, fit: 0, wide: 0 };
+  for (const h of model.halls) {
+    const s = occ.get(h.key);
+    if (!s) continue;
+    out.busy++;
+    const c = fitClass(s.students, h.capacity);
+    if (c === "pressed") out.over++; else if (c === "full") out.full++; else if (c === "fit") out.fit++; else if (c === "wide") out.wide++;
+  }
+  return out;
+}
+
+/** أزحم لحظةٍ في اليوم (أكثر القاعات المشغولة، والأبكر عند التساوي): بها يُفتح المشهد بدل قاعاتٍ فارغة. */
+export function busiestMinute(model: PulseModel, assignment: Assignment, day: PulseDay): number | null {
+  let best: number | null = null, bestCount = 0;
+  for (let m = model.dayStart; m < model.dayEnd; m += 5) {
+    const count = occupantsAt(model, assignment, day, m).size;
+    if (count > bestCount) { bestCount = count; best = m; }
+  }
+  return best;
 }
 
 export function foreignAt(model: PulseModel, hallKey: string, day: PulseDay, minute: number): boolean {
@@ -550,7 +587,7 @@ export function firstUnsolvedPressed(model: PulseModel, assignment: Assignment, 
 
 /* ── التخطيط المكاني: المباني صفوفاً، والطابق فوق الطابق، والقاعات إلى العمق ── */
 export const HALL_W = 2.6, HALL_D = 2.6, HALL_H = 1.45, GAP_X = 0.32, GAP_Z = 0.5, FLOOR_H = 2.05;
-export interface HallSpot { key: string; x: number; y: number; z: number }
+export interface HallSpot { key: string; x: number; y: number; z: number; building: string; floorIndex: number }
 export interface BuildingSpot { code: string; label: string; cx: number; cz: number; w: number; d: number; floors: number; top: number }
 export interface PulseLayout { spots: Map<string, HallSpot>; buildings: BuildingSpot[]; width: number; depth: number; height: number; cx: number; cz: number }
 
@@ -575,7 +612,7 @@ export function layoutHalls(halls: readonly PulseHall[], opts: { perRow?: number
     byFloor.forEach(row => row.forEach((h, i) => {
       const r = Math.floor(i / across), c = i % across;
       spots.set(h.key, {
-        key: h.key,
+        key: h.key, building: code, floorIndex: floorIndex.get(h.floor)!,
         x: x0 + GAP_X + c * (HALL_W + GAP_X) + HALL_W / 2,
         y: floorIndex.get(h.floor)! * FLOOR_H + HALL_H / 2 + 0.08,
         z: z0 - (GAP_Z + r * (HALL_D + GAP_Z) + HALL_D / 2),
