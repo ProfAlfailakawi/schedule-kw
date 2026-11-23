@@ -194,3 +194,26 @@ export function markerAt(path: Pick<MovePath, "stops">, minute: number): { stop:
   }
   return { stop: stops.length - 1, hop: null, progress: 0 };
 }
+
+/**
+ * من يقرأ دفعات القسم (أرقام مقررات كل مستوى) عبر ‎/api/reports/pulse-cohorts‎: العميد والعميد المساعد
+ * لقسمٍ من كليتهما وحدها (والمدير). قراءةٌ فقط؛ رئيس اللجنة يقرؤها من مسار الصحيفة بصلاحية الجدول.
+ * يعيد 200 أو 400 (بلا كلية أو قسم) أو 403.
+ */
+export function pulseCohortsAccess(input: {
+  isAdmin: boolean;
+  /** العميد أو العميد المساعد (readsFinalSchedulesOnly). */
+  deanReader: boolean;
+  /** نطاق الحساب يغطّي الكلية والقسم (isScopeAllowed). */
+  scopeAllowed: boolean;
+  collegeId: number;
+  sectionId: number;
+  /** كلية القسم المطلوب كما في جدول الأقسام؛ 0 = قسمٌ غير موجود. */
+  sectionCollegeId: number;
+}): 200 | 400 | 403 {
+  if (!(input.collegeId > 0) || !(input.sectionId > 0)) return 400;
+  if (!input.sectionCollegeId || input.sectionCollegeId !== input.collegeId) return 403;
+  if (input.isAdmin) return 200;
+  if (!input.deanReader || !input.scopeAllowed) return 403;
+  return 200;
+}

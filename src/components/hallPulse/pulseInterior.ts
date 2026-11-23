@@ -96,7 +96,8 @@ export class HallInterior {
     const L = this.layout;
     const W = L.width + SIDE * 2, zFront = -FRONT, zBack = L.depth + BACK, D = zBack - zFront;
     const top = (L.rows - 1) * TIER;
-    this.target.set(0, 0.9 + top * 0.4, L.depth * 0.42);
+    /* الهدف منخفضٌ ومائلٌ نحو الباب: فتقع القاعة فوق التعليق السفلي ويُرى الواقفون كلهم. */
+    this.target.set(W * 0.07, 0.1, L.depth * 0.5);
 
     this.scene.add(new THREE.HemisphereLight(0xe6f5ee, 0x0c211c, 0.95));
     const sun = new THREE.DirectionalLight(0xfff1dc, 1.15);
@@ -263,7 +264,7 @@ export class HallInterior {
     const W = L.width + SIDE * 2, D = L.depth + BACK + FRONT;
     const vfov = (this.camera.fov * Math.PI) / 180, hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
     const byW = (Math.hypot(W, D * 0.7) * 0.56) / Math.tan(hfov / 2), byH = (D * 0.62 + 3.2) / Math.tan(vfov / 2) * 0.6;
-    this.home = Math.max(9, byW, byH) * 1.04;
+    this.home = Math.max(9, byW, byH) * 1.2;
     this.radiusT = this.home; this.polT = aspect < 0.9 ? 0.78 : 0.93; this.azT = -0.62;
     if (arrive && !this.opts.reduced) { this.radius = this.home * 0.42; this.pol = 1.3; this.az = -0.95; }
     else if (arrive) { this.radius = this.radiusT; this.pol = this.polT; this.az = this.azT; }

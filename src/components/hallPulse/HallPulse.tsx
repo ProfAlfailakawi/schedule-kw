@@ -108,6 +108,7 @@ interface BorrowState {
   requestIds?: string[];
 }
 
+const NO_COHORTS: CohortInput[] = [];
 const minutesOf = (value: string) => { const [h, m] = String(value || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
 
 export default function HallPulse(props: HallPulseProps) {
@@ -237,7 +238,7 @@ export default function HallPulse(props: HallPulseProps) {
     if (!playing) return;
     let raf = 0, last = performance.now();
     const step = (now: number) => {
-      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;
       setMinute(m => { const next = m + dt * 36; return next >= model.dayEnd - 5 ? model.dayStart : next; });
       raf = requestAnimationFrame(step);
     };
@@ -342,7 +343,9 @@ export default function HallPulse(props: HallPulseProps) {
   const [nameState, setNameState] = useState<{ scope: string; map: Map<number, string> } | null>(null);
   const nameScope = `${collegeId}|${sectionId || 0}|${termId}`;
   const nameMap = nameState && nameState.scope === nameScope ? nameState.map : null;
-  const [cohorts, setCohorts] = useState<CohortInput[]>([]);
+  /* الدفعات تتبع القسم والفصل المختارين كأسماء الأساتذة: ما جُلب لقسمٍ لا يُعرض لغيره. */
+  const [cohortState, setCohortState] = useState<{ scope: string; list: CohortInput[] } | null>(null);
+  const cohorts = cohortState && cohortState.scope === nameScope ? cohortState.list : NO_COHORTS;
   useEffect(() => {
     if (mode !== "paths" || props.instructorName || nameMap) return;
     let live = true;
@@ -354,18 +357,23 @@ export default function HallPulse(props: HallPulseProps) {
     return () => { live = false; };
   }, [mode, props.instructorName, nameMap, collegeId, sectionId, termId, nameScope]);
   useEffect(() => {
-    if (mode !== "paths" || !sectionId || context !== "workshop") { setCohorts(c => (c.length ? [] : c)); return; }
+    if (mode !== "paths" || !sectionId || (context !== "workshop" && context !== "dean")) return;
     let live = true;
     const nameOf = new Map(courses.map(c => [Number(c.AdCourseId), String(c.CourseName || "")]));
-    void loadPlanFacts(collegeId, sectionId).then(facts => {
+    /* الورشة تقرأ حقائق الصحيفة بصلاحية الجدول؛ والعميد يقرأ أرقام مقررات كل مستوى وحدها من مساره للقراءة فقط. */
+    const groups: Promise<Array<{ courseIds: number[] }>> = context === "workshop"
+      ? loadPlanFacts(collegeId, sectionId).then(facts => facts.levelGroups)
+      : fetch(`/api/reports/pulse-cohorts?${new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId) })}`, { credentials: "include" })
+        .then(r => (r.ok ? r.json() : null)).then(data => (Array.isArray(data?.levelGroups) ? data.levelGroups : [])).catch(() => []);
+    void groups.then(levelGroups => {
       if (!live) return;
-      setCohorts(facts.levelGroups.filter(g => g.courseIds.length >= 2).map((g, i) => {
+      setCohortState({ scope: nameScope, list: levelGroups.filter(g => Array.isArray(g.courseIds) && g.courseIds.length >= 2).map((g, i) => {
         const names = g.courseIds.map(id => nameOf.get(Number(id))).filter(Boolean) as string[];
         return { key: String(i), label: `دفعة: ${names.slice(0, 2).join("، ")}${names.length > 2 ? "…" : ""}`, courseIds: new Set(g.courseIds.map(Number)) };
-      }));
+      }) });
     });
     return () => { live = false; };
-  }, [mode, collegeId, sectionId, context, courses]);
+  }, [mode, collegeId, sectionId, context, courses, nameScope]);
   const teacherName = useCallback((id: number) => props.instructorName?.(id) || nameMap?.get(id) || "", [props.instructorName, nameMap]);
   const paths: MovePath[] = useMemo(() => (mode === "paths" && pathsAllowed && day !== "week"
     ? buildPaths(model, assignment, layout, viewDay, { instructorName: teacherName, cohorts })
@@ -512,7 +520,8 @@ export default function HallPulse(props: HallPulseProps) {
     if (!insideHall || !insideLayout) return null;
     const cls = insideSession ? fitClass(insideSession.students, insideHall.capacity) : null;
     return {
-      layout: insideLayout, color: cls ? FIT_HEX[cls] : 0x7fb3a3,
+      /* الجالسون بلون الامتلاء حين تفيض القاعة، ليبقى الأحمر للواقفين عند الباب وحدهم. */
+      layout: insideLayout, color: cls ? FIT_HEX[cls === "pressed" ? "full" : cls] : 0x7fb3a3,
       standTag: insideLayout.standingReal ? `${FIT_GLYPH.pressed} ${countOf(insideLayout.standingReal, AR.student)} بلا مقعد` : "",
       sun: (minute - model.dayStart) / Math.max(1, model.dayEnd - model.dayStart),
     };
@@ -1374,7 +1383,7 @@ function LiveCount({ value }: { value: number }) {
     if (prefersReduced()) { ref.current = value; setShown(value); return; }
     let raf = 0, last = performance.now();
     const step = (now: number) => {
-      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;
       ref.current += (value - ref.current) * (1 - Math.exp(-dt * 7));
       if (Math.abs(value - ref.current) < 0.5) { ref.current = value; setShown(value); return; }
       setShown(Math.round(ref.current));

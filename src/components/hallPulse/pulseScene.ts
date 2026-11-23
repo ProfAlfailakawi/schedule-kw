@@ -810,7 +810,8 @@ export class PulseScene {
   private frame = (now: number) => {
     this.raf = 0;
     if (this.disposed) return;
-    const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
+    /* وقت الإطار قد يسبق لحظة الإيقاظ على جهازٍ مثقل: لا زمن سالب، وإلا انقلب التخفيف تباعداً. */
+    const dt = Math.max(0, Math.min(0.05, (now - this.last) / 1000)); this.last = now;
     const reduced = this.opts.reduced;
     const k = reduced ? 1 : 1 - Math.exp(-dt * 7);
     let busy = false;
