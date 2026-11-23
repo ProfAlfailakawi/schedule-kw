@@ -156,6 +156,21 @@ export const instructorNamesOf = (item: Pick<RegistrarRequestItem, "fields">): s
 /** رمزُ المقرر كما يُقرأ على الورقة: ثلاثُ خاناتٍ (112) لا سبع (0109112) — كبقية خانات الورقة. */
 export const shortCourseCode = (code: string): string => (/^\d{7}$/.test(String(code || "").trim()) ? String(code).trim().slice(-3) : String(code || ""));
 
+/**
+ * فرقُ «المقرر» على جانبي السهم بالرقم ذي السبع خانات (0109114 ← 0109112)، لا سبعٌ على جانبٍ وثلاثٌ على الآخر:
+ * المختصرُ يأخذ مفتاح الكلية والقسم من رمز البند الكامل أو من الجانب الآخر. ما لا مفتاح له يبقى كما هو.
+ * يُطبَّق عند العرض، فيصحّ في التقارير المحفوظة قبله أيضاً. دالّةٌ نقيّة.
+ */
+export function withFullCourseCodes<T extends Pick<RegistrarRequestItem, "courseCode" | "fields">>(item: T): T {
+  const course = item.fields.find(f => f.field === "course");
+  if (!course) return item;
+  const lead = (value: string) => /^\s*(\d+)/.exec(String(value || ""))?.[1] || "";
+  const prefix = [String(item.courseCode || "").trim(), lead(course.pdf), lead(course.ours)].find(code => /^\d{7}$/.test(code))?.slice(0, 4);
+  if (!prefix) return item;
+  const full = (value: string) => String(value || "").replace(/^(\s*)(\d{1,3})(?!\d)/, (_, space: string, code: string) => `${space}${prefix}${code.padStart(3, "0")}`);
+  return { ...item, fields: item.fields.map(f => f === course ? { ...f, pdf: full(f.pdf), ours: full(f.ours), ...(f.was ? { was: full(f.was) } : {}) } : f) };
+}
+
 const text = (value: unknown, max: number) => String(value ?? "").slice(0, max);
 
 export function requestItemId(finding: Pick<RegistrarFinding, "crn" | "courseCode" | "section" | "pdfSection"> & { action: RequestAction }): string {

@@ -5,7 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { civilNoteFor, instructorNamesOf } from "../src/utils/registrarRequest";
+import { civilNoteFor, instructorNamesOf, withFullCourseCodes } from "../src/utils/registrarRequest";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string) => { if (ok) { passed++; console.log(`\x1b[32m✓ ${label}\x1b[0m`); } else { failed++; console.log(`\x1b[31m✗ ${label}\x1b[0m`); } };
@@ -27,6 +27,19 @@ const checkCss = read("src/styles/72-registrar-check.css");
 check(/printRegistrarRequest/.test(comp) && /export function printRegistrarRequest/.test(requests) && /print-color-adjust:exact/.test(checkCss) && /--rq-edit:#9a6a12/.test(checkCss), "P1 الطباعةُ بثلاثة ألوانٍ تحمل المعنى");
 check(/<PrintLetterhead\b/.test(requests) && /className="print-report print-wide print-query-report print-registrar-report rrq-sheet"/.test(requests) && /className="print-explicit-page"/.test(requests) && /className="print-explicit-page-meta"/.test(requests), "P3 الورقة كبقية تقارير الاستعلام: صفحاتٌ عرضية صريحة، لكل صفحةٍ ترويستُها وترقيمُها");
 check(/\.query-canvas-head\[data-lens="registrar"\]\{display:none\}/.test(css) && /data-lens=\{lens\}/.test(reports), "P2 رأسُ القائمة المشترك مخفيٌّ فوق التقرير");
+{
+  /* سطر 10212: «0109114 …» على جانبٍ و«112 …» على الآخر أربك التسجيل؛ الرقمُ ذو السبع خانات على الجانبين. */
+  const mixed = { courseCode: "112", fields: [
+    { field: "course" as const, label: "المقرر", pdf: "0109114 تكنولوجيا الأجهزة التعليمية", ours: "112 مقدمة في تكنولوجيا التعلم" },
+    { field: "room" as const, label: "القاعة", pdf: "012B08 / G20", ours: "012B08 / G26" },
+  ] };
+  const fixed = withFullCourseCodes(mixed);
+  check(fixed.fields[0].ours === "0109112 مقدمة في تكنولوجيا التعلم" && fixed.fields[0].pdf === "0109114 تكنولوجيا الأجهزة التعليمية", "N1 فرقُ المقرر بسبع خاناتٍ على جانبي السهم");
+  check(fixed.fields[1].ours === "012B08 / G26" && fixed.fields[1].pdf === "012B08 / G20", "N2 القاعةُ لا تُمسّ");
+  const bare = { courseCode: "112", fields: [{ field: "course" as const, label: "المقرر", pdf: "114 أ", ours: "112 ب" }] };
+  check(withFullCourseCodes(bare) === bare, "N3 بلا رمزٍ كاملٍ في البند: يبقى كما هو ولا يُختلق مفتاح");
+  check(/withFullCourseCodes\(item\)\.fields\.map/.test(requests) && /withFullCourseCodes\(item\)\.fields\.map/.test(comp), "N4 الورقةُ والشاشةُ والإكسل تمرّ بالتوحيد");
+}
 check(!/<RegistrarRequests\b|<RegistrarRequestInbox\b/.test(changes), "C1 لا شريطَ طلباتٍ ولا واردَ للتسجيل في «تغييرات الجدول»");
 check(/75-registrar-report\.css/.test(index), "C2 ملف التنسيق مستورد");
 check(!/localStorage|sessionStorage/.test(comp), "S1 لا تخزين محلي: المصدر مسار الطلبات القائم");

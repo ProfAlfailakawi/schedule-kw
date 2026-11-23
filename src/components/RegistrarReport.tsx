@@ -12,7 +12,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeftRight, CheckCircle2, CircleDashed, ClipboardCheck, FileSpreadsheet, FilePlus2, FilePenLine, FileX2, History, Printer, ScrollText, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { isTheirs, REQUEST_ACTION_LABEL, requestProgress, type LiveRequestView, type RegistrarRequestDoc, type RegistrarRequestItem } from "../utils/registrarRequest";
+import { isTheirs, REQUEST_ACTION_LABEL, requestProgress, withFullCourseCodes, type LiveRequestView, type RegistrarRequestDoc, type RegistrarRequestItem } from "../utils/registrarRequest";
 import type { RequestAction } from "../utils/registrarCheck";
 import { downloadSheets, exportFileName, type ExportSheet } from "../utils/lensExport";
 import { armRegistrarPrint, ItemLine, printRegistrarRequest, RequestSheet, requestDay, requestStamp } from "./RegistrarRequests";
@@ -65,7 +65,7 @@ function sheetOf(doc: RegistrarRequestDoc): ExportSheet {
       "الأيام والوقت": [field(item, "days")?.ours, field(item, "time")?.ours].filter(Boolean).join(" · "),
       "القاعة": field(item, "room")?.ours || "",
       "الأستاذ": field(item, "instructor")?.ours || "",
-      "الفرق": item.action === "edit" ? item.fields.map(f => `${f.label}: ${f.pdf} ← ${f.ours}`).join(" | ") : "",
+      "الفرق": item.action === "edit" ? withFullCourseCodes(item).fields.map(f => `${f.label}: ${f.pdf} ← ${f.ours}`).join(" | ") : "",
       "الحالة": statusOf(item),
       "نفّذه": item.done?.byName || "",
       "وقت التنفيذ": item.done ? requestStamp(item.done.at) : "",
