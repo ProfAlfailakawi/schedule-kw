@@ -112,3 +112,18 @@
     padding-inline:calc(var(--duo-land-col,84px) + 12px) !important;
   }
 }
+
+/* ==========================================================================
+   الدوو — الشاشة الداخلية عرضاً، جولة التشطيب (2026-11-23):
+   - البحث الشامل كان ورقةً سفلية بعرض الشاشة كلها (قاعدة الجوال)، فابتعدت أسهم الأوامر عن عناوينها بنحو 800px.
+     في الشاشة العريضة يعود لوحاً موسّطاً بعرضٍ مقروء أعلى الشاشة، كما على الحاسوب، والمدخل في مكانه أعلى الشريط.
+   - مؤشر «متوسط الفراغ» في اللوحة الرئيسية («1س 28د») كان ينكسر سطرين في خانته الضيّقة.
+   ========================================================================== */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  html[data-device="duo"] .spotlight-backdrop{place-items:start center;padding-top:max(44px,7dvh);padding-bottom:24px}
+  html[data-device="duo"] .spotlight{width:min(640px,100%);max-height:min(82dvh,560px);border-radius:var(--r-2xl)}
+  html[data-device="duo"] .spotlight-body{padding-bottom:var(--s4)}
+}
+/* كل وضعيات الدوو: الرقم سطرٌ واحد يصغر بقدر خانته (كانت «1س 28د» تنكسر أيضاً في الداخلية طولاً). */
+html[data-device="duo"] .dashboard-page .deck-signals article{container-type:inline-size;padding-inline:var(--s4)}
+html[data-device="duo"] .dashboard-page .deck-signals article>b{white-space:nowrap;font-size:clamp(24px,30cqi,40px)}
