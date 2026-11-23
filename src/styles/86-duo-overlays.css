@@ -89,3 +89,13 @@ html[data-device="duo"] .apb-pop{max-inline-size:min(320px,calc(100vw - 24px))}
     padding-bottom:calc(var(--dock-h) + 12px + 52px + 24px + env(safe-area-inset-bottom));
   }
 }
+
+/* الشاشة الخارجية عرضاً (678×466): لوحة المرشد كانت تُحسب من أسفل الشاشة فوق الأزرار العائمة، فيخرج رأسها
+   وزرّ إغلاقها من أعلى الشاشة، ويقع أوّلها تحت الساعة حين يكون العمود يساراً. تبدأ من أعلى بهامشٍ ثابت،
+   بعد العمود، وتتمرّر داخلها. */
+@media screen and (orientation:landscape) and (min-width:641px) and (max-width:720px) and (max-height:520px){
+  html[data-device="duo"] .guide-panel{
+    inset-block:12px auto;inset-inline-end:auto;left:calc(12px + env(safe-area-inset-left));
+    max-block-size:calc(100dvh - 24px - env(safe-area-inset-bottom));
+  }
+}
