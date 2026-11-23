@@ -63,6 +63,12 @@ const moved = buildFingerprint({ ...input, rows: rows.map((row, n) => (n ? row :
 assert.notEqual(moved.code, data.code, "نقلُ محاضرةٍ يبدّل رمز البصمة");
 const twice = buildFingerprint({ ...input, rows: [...rows, rows[0]] });
 assert.equal(twice.halls[0].slots.length, data.halls[0].slots.length, "الصف المكرر لا يرسم قوسين");
+assert.equal(twice.stats.lectures, data.stats.lectures, "الصف المكرر لا يزيد عدد المحاضرات");
+assert.equal(twice.stats.weeklyHours, data.stats.weeklyHours, "ولا الساعات الأسبوعية");
+assert.deepEqual(twice.hours, data.hours, "ولا حمل الساعات");
+assert.equal(twice.code, data.code, "ولا يغيّر الرمز");
+const loose = (start: string, end: string) => buildFingerprint({ ...input, rows: [...rows, { ...rows[0], hallKey: "", hallName: "", section: "77", days: days(2), start, end }] });
+assert.notEqual(loose("10:00", "11:00").code, loose("15:00", "16:00").code, "نقل موعدٍ بلا قاعة يغيّر الرمز");
 
 /* ── الهندسة: حلقةٌ لكل قاعة، وقوسٌ لكل محاضرة في قطاع يومها، والسُّمك بالامتلاء ── */
 const geo = fingerprintGeometry(data);

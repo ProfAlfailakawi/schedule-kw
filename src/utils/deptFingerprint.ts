@@ -117,6 +117,7 @@ export function buildFingerprint(input: {
   const sections = new Set<string>();
   const timed: Array<{ day: number; start: number; end: number }> = [];
   let minutes = 0, roomless = 0, lectures = 0;
+  const counted = new Set<string>();
   for (const row of input.rows) {
     const start = fingerprintMinutes(row.start), end = fingerprintMinutes(row.end);
     const valid = Number.isFinite(start) && Number.isFinite(end) && end > start;
@@ -129,12 +130,13 @@ export function buildFingerprint(input: {
     const fill = seats && capacity ? Math.round((seats / capacity) * 100) / 100 : null;
     for (let day = 0; day < 5; day += 1) {
       if (!row.days[day]) continue;
-      if (!row.companion) { minutes += end - start; lectures += 1; timed.push({ day, start, end }); }
+      const id = `${day}|${start}|${end}|${row.courseId}|${row.section}`;
+      /* الموعد المكرّر يُحسب مرةً واحدة في الأرقام كما يُرسم قوساً واحداً. */
+      if (!row.companion && !counted.has(id)) { counted.add(id); minutes += end - start; lectures += 1; timed.push({ day, start, end }); }
       if (!row.hallKey) continue;
       let hall = halls.get(row.hallKey);
       if (!hall) { hall = { name: row.hallName, capacity, minutes: 0, slots: [], seen: new Set() }; halls.set(row.hallKey, hall); }
       if (hall.capacity == null && capacity) hall.capacity = capacity;
-      const id = `${day}|${start}|${end}|${row.courseId}|${row.section}`;
       if (hall.seen.has(id)) continue;
       hall.seen.add(id);
       hall.minutes += end - start;
@@ -159,7 +161,8 @@ export function buildFingerprint(input: {
     halls: ordered,
     stats: { halls: ordered.length, sections: sections.size, weeklyHours: Math.round(minutes / 60), lectures, overfull: slots.filter(slot => slot.over).length, roomless, peak },
     span, hours,
-    code: hashCode(JSON.stringify(ordered.map(hall => hall.slots.map(s => [s.day, s.start, s.end, s.code, s.section, s.fill])))),
+    /* الحمل والمدى يدخلان الرمز: موعدٌ بلا قاعة يغيّر الزهرة فيغيّر الرمز. */
+    code: hashCode(JSON.stringify([ordered.map(hall => hall.slots.map(s => [s.day, s.start, s.end, s.code, s.section, s.fill])), span.from, span.to, hours])),
   };
 }
 
