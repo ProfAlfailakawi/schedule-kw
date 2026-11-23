@@ -102,12 +102,32 @@ assert.match(dean.delivery.headline, /اعتُمد 1 من/);
 assert.equal(dean.clash?.from, 6);
 assert.equal(dean.clash?.to, 1);
 
+/* طالبٌ أرسل لقسمين يُعدّ مرةً واحدة في نسخة الكلية (اتحادُ البصمات). */
+const deanUnion = deanFilm({
+  termName: "الفصل الأول", collegeName: "العلوم", studentsTotal: 13,
+  departments: [
+    { sectionName: "الرياضيات", build: built, wishes, clash: clashFromCounts([4], 0), students: 12, delivery: after },
+    { sectionName: "الفيزياء", build: built, wishes: null, clash: clashFromCounts([2], 1), students: 3, delivery: before },
+  ],
+});
+assert.match(JSON.stringify(deanUnion.students), /13/);
+assert.doesNotMatch(JSON.stringify(deanUnion.students), /15/);
+
+/* الموعدُ الفعلي: تمديدٌ سابقٌ لا يقصّر موعدَ فصلٍ أُجِّل بعده. */
+const postponed = deliveryFromApproval({
+  status: "submitted", extensionUntil: "2026-11-04",
+  signatures: [{ stage: "committee", at: "2026-11-01T09:00:00Z" }, { stage: "head", at: "2026-11-02T09:00:00Z" }],
+  rounds: [{ number: 1, submittedAt: "2026-11-03T09:00:00Z" }],
+} as any, "2026-11-10");
+assert.equal(postponed.daysEarly, 7, "الأبعدُ من موعد الفصل والتمديد");
+
 /* ── الرابط: أرقام النطاق وحدها ── */
 assert.equal(termFilmPath({ version: "dept", collegeId: 1, sectionId: 2, termId: 3 }), "/FSchedule/TermFilm?v=dept&college=1&term=3&section=2");
 assert.equal(termFilmPath({ version: "dean", collegeId: 1, termId: 3 }), "/FSchedule/TermFilm?v=dean&college=1&term=3");
 
 /* ── الخادم: قراءة فقط، والحارس بالصفة والنطاق ── */
 const routes = source("src/server/routes/termFilmRoutes.ts");
+assert.match(routes, /Repository\.currentDemoSessionId\(\)/, "مخبأ الفيلم يفصل صناديق التجربة عن البيانات الحقيقية");
 assert.match(routes, /app\.get\("\/api\/term-film"/);
 assert.match(routes, /app\.get\("\/api\/term-film\/college"/);
 assert.doesNotMatch(routes, /app\.(post|put|patch|delete)\(/, "الفيلم لا يكتب شيئاً");

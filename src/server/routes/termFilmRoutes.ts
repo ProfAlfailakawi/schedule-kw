@@ -45,7 +45,9 @@ function mayReadCollegeFilm(req: AuthenticatedRequest): boolean {
 /* قراءةٌ ثقيلة نسبياً (نسخ الجدول وموانعها): تُحفظ دقيقةً لكل نطاق، فلا يعيدها كل فتحٍ للوحة. */
 const CACHE_MS = 60_000;
 const cache = new Map<string, { at: number; value: unknown }>();
-async function cached<T>(key: string, read: () => Promise<T>): Promise<T> {
+async function cached<T>(scopeKey: string, read: () => Promise<T>): Promise<T> {
+  /* جلسةُ التجربة تقرأ صندوقها وحده: مفتاحُها في المخبأ، فلا يرى زائرُ التجربة بياناتٍ حقيقية ولا صندوقَ غيره. */
+  const key = `${Repository.currentDemoSessionId() || "live"}|${scopeKey}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.value as T;
   const value = await read();
@@ -75,27 +77,29 @@ async function clashFor(collegeId: number, sectionId: number, termId: number, sc
   }
 }
 
-async function studentsFor(collegeId: number, sectionId: number, termId: number): Promise<number> {
+/** بصماتُ الطلبة الذين أرسلوا احتياجهم للقسم (بلا تكرار): العددُ للقسم، والاتحادُ للكلية. */
+async function studentPrintsFor(collegeId: number, sectionId: number, termId: number): Promise<Set<string>> {
   try {
     const needs = await Repository.getStudentNeeds(collegeId, sectionId, termId);
-    return new Set(needs.map(need => String(need.fingerprint || "")).filter(Boolean)).size;
-  } catch { return 0; }
+    return new Set(needs.map(need => String(need.fingerprint || "")).filter(Boolean));
+  } catch { return new Set(); }
 }
 
 async function departmentInput(collegeId: number, sectionId: number, termId: number, termRows: FSchedule[], placeholders: Set<number>, termDeadline: string | undefined, versionLimit: number) {
   const scopeRows = termRows.filter(row => sameScope(row, collegeId, sectionId));
-  const [requests, approval, clash, students] = await Promise.all([
+  const [requests, approval, clash, prints] = await Promise.all([
     Repository.getInstructorRequests(collegeId, sectionId, termId).catch(() => []),
     Repository.getScheduleApproval(collegeId, sectionId, termId).catch(() => undefined),
     scopeRows.length ? clashFor(collegeId, sectionId, termId, scopeRows, termRows, versionLimit) : Promise.resolve(null),
-    studentsFor(collegeId, sectionId, termId),
+    studentPrintsFor(collegeId, sectionId, termId),
   ]);
   return {
     rowCount: scopeRows.length,
     build: buildFromRows(scopeRows, placeholders),
     wishes: wishesFromRequests(requests as any[]),
     clash,
-    students,
+    students: prints.size,
+    prints,
     delivery: deliveryFromApproval(approval as any, termDeadline),
   };
 }
@@ -136,7 +140,7 @@ app.get("/api/term-film", requireAuth, async (req: AuthenticatedRequest, res: Re
       if (!input.rowCount) return null;
       return deptFilm({
         termName: String((term as any)?.AdTermName || ""), sectionName: String(section?.AdSectionName || ""),
-        collegeName: String(college?.AdCollegeName || ""), ...input,
+        collegeName: String(college?.AdCollegeName || ""), ...(({ prints, ...rest }) => rest)(input),
       });
     });
     if (!film) { res.status(404).json({ error: "لا جدول لهذا القسم في هذا الفصل بعد." }); return; }
@@ -173,13 +177,15 @@ app.get("/api/term-film/college", requireAuth, async (req: AuthenticatedRequest,
       const deadline = (term as any)?.AdTermSubmissionDeadline;
       const own = (sections as any[]).filter(row => Number(row.AdCollegeId) === collegeId
         && (termRows as FSchedule[]).some(r => sameScope(r, collegeId, Number(row.AdSectionId))));
-      const departments: DeanDepartmentInput[] = await Promise.all(own.map(async row => {
+      const departments: Array<DeanDepartmentInput & { prints: Set<string> }> = await Promise.all(own.map(async row => {
         const input = await departmentInput(collegeId, Number(row.AdSectionId), termId, termRows as FSchedule[], placeholders, deadline, 8);
-        return { sectionName: String(row.AdSectionName || ""), ...input };
+        const { prints, ...rest } = input;
+        return { sectionName: String(row.AdSectionName || ""), ...rest, prints };
       }));
       if (!departments.length) return null;
+      const studentsTotal = new Set(departments.flatMap(dep => [...dep.prints])).size;
       const college: any = (colleges as any[]).find(row => Number(row.AdCollegeId) === collegeId);
-      return deanFilm({ termName: String((term as any)?.AdTermName || ""), collegeName: String(college?.AdCollegeName || ""), departments });
+      return deanFilm({ termName: String((term as any)?.AdTermName || ""), collegeName: String(college?.AdCollegeName || ""), departments: departments.map(({ prints, ...dep }) => dep), studentsTotal });
     });
     if (!film) { res.status(404).json({ error: "لا جداول لأقسام الكلية في هذا الفصل بعد." }); return; }
     res.json({ film });

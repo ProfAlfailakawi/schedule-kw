@@ -16,6 +16,7 @@
  * لا أسماء قاعات ولا أرقام مدنية ولا أسماء أساتذة: أعدادٌ فقط، فيصلح الرابط
  * لأن يُعرض في مجلس.
  */
+import { effectiveSubmissionDate } from "./approvalWorkflow";
 import { AR, countOf, nounFor } from "./arabicCount";
 
 /** مدة كل مشهد بالملّي ثانية، بترتيب المشاهد السبعة. */
@@ -222,7 +223,8 @@ export function deliveryFromApproval(approval: TermFilmApprovalLike | null | und
         : status === "returned" ? "أعاده بملاحظات" : "بانتظار الاعتماد النهائي",
     },
   ];
-  const deadline = dayOf(approval?.extensionUntil) || dayOf(termDeadline);
+  /* الموعدُ الفعلي كما في سير الاعتماد: الأبعدُ من موعد الفصل والتمديد، فلا يقصّر التمديدُ موعداً أُجِّل بعده. */
+  const deadline = dayOf(effectiveSubmissionDate(termDeadline, approval?.extensionUntil));
   const daysEarly = deadline && firstSubmittedAt ? daysBetween(dayOf(firstSubmittedAt), deadline) : null;
   const early = earlyPhrase(daysEarly);
   const headline = final
@@ -328,7 +330,11 @@ export interface DeanDepartmentInput {
   delivery: TermFilmDelivery;
 }
 
-export function deanFilm(input: { termName: string; collegeName: string; departments: DeanDepartmentInput[]; now?: Date }): TermFilmData {
+export function deanFilm(input: {
+  termName: string; collegeName: string; departments: DeanDepartmentInput[]; now?: Date;
+  /** طلبةُ الكلية بلا تكرار (اتحادُ بصماتهم): طالبٌ أرسل لقسمين يُعدّ مرةً واحدة. غائبٌ: مجموعُ الأقسام. */
+  studentsTotal?: number;
+}): TermFilmData {
   const departments = input.departments.filter(dep => dep.build.sections > 0);
   const total = departments.length;
   const acceptedCount = departments.filter(dep => dep.delivery.final).length;
@@ -336,7 +342,7 @@ export function deanFilm(input: { termName: string; collegeName: string; departm
   const sum = (pick: (dep: DeanDepartmentInput) => number) => departments.reduce((s, dep) => s + pick(dep), 0);
   const sections = sum(dep => dep.build.sections);
   const teachers = sum(dep => dep.build.teachers);
-  const students = sum(dep => dep.students);
+  const students = input.studentsTotal ?? sum(dep => dep.students);
   const wishes = mergeWishes(departments.map(dep => dep.wishes));
   const clashes = departments.map(dep => dep.clash).filter(Boolean) as TermFilmClash[];
   const peak = clashes.reduce((s, c) => s + c.peak, 0), now = clashes.reduce((s, c) => s + c.now, 0);
