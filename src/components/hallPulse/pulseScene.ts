@@ -318,7 +318,7 @@ export class PulseScene {
       const edges = new THREE.LineSegments(this.edgeGeo, new THREE.LineBasicMaterial({ color: EDGE, transparent: true, opacity: neighbour ? 0 : 0.55 }));
       shell.userData.key = spot.key; shell.userData.neighbour = neighbour;
       /* نافذةٌ على الواجهة الأمامية: تضيء دافئةً حين تُشغل القاعة. */
-      const win = new THREE.Mesh(this.winGeo, new THREE.MeshBasicMaterial({ color: WINDOW_WARM, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      const win = new THREE.Mesh(this.winGeo, new THREE.MeshBasicMaterial({ color: WINDOW_WARM, transparent: true, opacity: 0, depthWrite: false, toneMapped: false }));
       win.position.set(0, HALL_H * 0.12, HALL_D / 2 + 0.012);
       const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xf0674f, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
       halo.scale.set(HALL_W * 2.2, HALL_W * 2.2, 1);
@@ -720,8 +720,8 @@ export class PulseScene {
       fillMat.opacity *= fk; shell.opacity *= fk; rig.edges.material.opacity *= fk;
       /* النافذة تضيء بلونٍ دافئ يميل إلى لون الملاءمة. */
       const winMat = rig.win.material;
-      winMat.color.copy(WINDOW_WARM).lerp(rig.color, 0.35);
-      winMat.opacity += (((v.occupied && !v.dim ? 0.85 : 0) * fade * fk) - winMat.opacity) * ck;
+      winMat.color.copy(rig.color).lerp(WINDOW_WARM, 0.45);
+      winMat.opacity += (((v.occupied && !v.dim ? 0.7 : 0) * fade * fk) - winMat.opacity) * ck;
       /* وهجٌ فوق المضغوطة والمختارة. */
       const haloMat = rig.halo.material;
       const haloWant = (v.pulse ? 0.35 + 0.35 * breathe : sel ? 0.28 : 0) * fade * fk;
