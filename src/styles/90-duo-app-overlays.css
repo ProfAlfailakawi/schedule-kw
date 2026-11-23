@@ -25,3 +25,39 @@ html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .ob-roo
   padding-right:calc(10px + env(safe-area-inset-right)) !important;padding-left:calc(10px + env(safe-area-inset-left)) !important;
   box-sizing:border-box;
 }
+
+/* فقاعة «تبادل القاعات» الزجاجية الداكنة: أيقونتها بيضاء لكنّ قرصها الداخلي فاتحٌ من الأصل،
+   فكانت الأيقونة شبه مختفية (أبيض على أخضر باهت). القرص شفّاف فتظهر الأيقونة على الزجاج الداكن. */
+html[data-device="duo"][data-shell="app"] .hall-barter-inbox:not(.hall-barter-inbox-decision) .hall-barter-inbox-mark{
+  background:transparent;color:#fff;
+}
+
+/* البحث الشامل (الشاشة الخارجية): ورقته كانت بعرض الشاشة كلها، فأيقونة البحث ورأس «أوامر» تحت الساعة.
+   الخلفية المعتمة تمتدّ تحت العمود، والورقة تقف قبله. */
+html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .spotlight-backdrop{
+  box-sizing:border-box;
+  padding-right:calc(12px + env(safe-area-inset-right));padding-left:calc(12px + env(safe-area-inset-left));
+}
+
+/* شاشة الدخول (الشاشة الخارجية): البطاقة كانت ملتصقةً بحافة الشاشة اليسرى. هامشٌ متساوٍ من الجهتين قبل العمود. */
+@media screen and (max-width:700px){
+  html[data-device="duo"][data-shell="app"] .apex-login{
+    padding-right:calc(12px + env(safe-area-inset-right)) !important;padding-left:calc(12px + env(safe-area-inset-left)) !important;
+  }
+}
+
+/* لوحة الإشعارات حين يكون عمود الساعة يساراً (الخارجية عرضاً): كانت تبدأ من حافة الشاشة فيقع رأسها
+   وزرّا «تعليم الكل» و«إغلاق» تحت الساعة، وتغطّي كبسولة التنقّل. تبدأ بعد العمود.
+   ومعها في كل اتجاه: لا تتجاوز عرض ما بين العمود والحافة الأخرى. */
+html[data-device="duo"][data-shell="app"][data-widget-side="left"] .notify-panel{
+  inset-inline-end:calc(8px + env(safe-area-inset-left));
+}
+html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .notify-panel{
+  max-width:calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));
+}
+
+/* أسبوع الأستاذ على الشاشة الداخلية طولاً: رأس البطاقة (الاسم والنصاب) كان في شريط الساعة العلوي. */
+html[data-device="duo"][data-shell="app"] .teacher-week-dialog{
+  padding-top:calc(8px + env(safe-area-inset-top));box-sizing:border-box;
+}
+html[data-device="duo"][data-shell="app"] .teacher-week-dialog-card{max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
