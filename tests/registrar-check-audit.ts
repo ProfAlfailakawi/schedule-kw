@@ -54,6 +54,19 @@ const only = (result: ReturnType<typeof run>, group: string) => result.findings.
   check(crnNoCode.counts.matched === 1, "المرجعيُّ وحده يكفي حين لم يُقرأ الرمز ولا الشعبة", crnNoCode.findings);
 }
 
+/* ١-ج) ملفُّ فرعٍ يطبع الشعبة بخانتين (01، 2) وجدولُنا 501، 502: الشعبةُ نفسها، لا «تحتاج نظرك» */
+{
+  const two = run({
+    live: [live(1, "501", [1, 3], "11:00", "12:20"), live(1, "502", [1, 3], "12:30", "13:50"), live(6, "504", [1, 3], "17:00", "18:20")],
+    pdf: [pdf(1, "01", [1, 3], "11:00", "12:20", { referenceNumber: "1825" }), pdf(1, "2", [1, 3], "12:30", "13:50", { referenceNumber: "1826" }), pdf(6, "04", [1, 3], "17:00", "18:20", { referenceNumber: "1241" })],
+  });
+  check(two.counts.matched === 3 && two.counts.review === 0 && two.counts.mismatch === 0, "شعبتُهم 01 و2 و04 هي شعبتنا 501 و502 و504: مطابقةٌ بلا «تحتاج نظرك»", two.findings);
+  const ids = two.identities || [];
+  check(ids.length === 3 && ids.every(item => item.certain && /^50\d$/.test(item.theirs.section) && item.theirs.crn), "وتُعرف بيقين فيُعتمد مرجعيُّها، ورقمُ شعبتنا لا يتغيّر", ids);
+  const same = run({ live: [live(1, "1", [0], "08:00", "09:00"), live(1, "501", [2], "08:00", "09:00")], pdf: [pdf(1, "1", [0], "08:00", "09:00")] });
+  check(same.findings.some(item => item.group === "matched" && item.section === "1"), "شعبةٌ عندنا برقم 1 نفسه تبقى هي النظير، لا 501", same.findings);
+}
+
 /* ٢) الخلل بحسب الخانة */
 {
   const time = run({ live: [live(1, "1", [0, 2], "08:00", "09:15")], pdf: [pdf(1, "1", [0, 2], "09:00", "10:15")] });
