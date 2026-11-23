@@ -8,6 +8,7 @@
     "build": "npm run verify:pwa && npm run audit:brand && npm run audit:guide && npm run test:guide && npm run test:guide:perf && node scripts/stamp-build.mjs && vite build && (node scripts/srs/build.mjs --site || echo \"تنبيه: لم تُبنَ صفحة الوثيقة\") && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && node scripts/stamp-sw.mjs",
     "start": "NODE_ENV=production node dist/server.cjs",
     "test": "node scripts/run-tests.mjs",
+    "test:hall-pulse": "tsx tests/hall-pulse-audit.ts",
     "test:instructor-requests-owner-notes": "tsx tests/instructor-requests-owner-notes-audit.ts",
     "test:proposal-open-row": "tsx tests/proposal-open-row-audit.ts",
     "test:visiting-badge-g1": "tsx tests/visiting-badge-group1-audit.ts",
@@ -440,12 +441,14 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "tesseract.js": "^7.0.0",
+    "three": "^0.186.1",
     "vite": "^6.2.3",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
+    "@types/three": "^0.186.0",
     "esbuild": "^0.25.0",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",

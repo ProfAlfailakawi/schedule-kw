@@ -1866,6 +1866,7 @@ export default function App() {
             searchView={smartSearchView}
             reportView={smartReportView}
             onNavigate={(view: string) => go(view as View)}
+            roleId={sessionRole.id}
           />
           {!user.IsDemo ? <AdSlot slot="dashboard" /> : null}
           </>

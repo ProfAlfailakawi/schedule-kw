@@ -135,7 +135,12 @@
     "src/server/core/specialSection.ts",
     "src/server/demoSpecialNatureSeed.ts",
     "src/server/demoRegistrarReportSeed.ts",
-    "src/server/demoWhatChangedSeed.ts"
+    "src/server/demoWhatChangedSeed.ts",
+    "src/utils/hallPulse.ts",
+    "src/components/hallPulse/HallPulse.tsx",
+    "src/components/hallPulse/HallPulseLazy.tsx",
+    "src/components/hallPulse/DeanHallPulseCard.tsx",
+    "src/components/hallPulse/pulseScene.ts"
   ],
   "screens": [
     {
@@ -145,8 +150,8 @@
       },
       "file": "src/components/Schedules.tsx",
       "note": {
-        "ar": "ثلاثة عروض: أسبوعي وقائمة وقاعات؛ والقائمة افتراضية على الهاتف. نموذج الموعد والفحص الحيّ ولوحة الأوامر Ctrl+K والتراجع Ctrl+Z.",
-        "en": "Three views: week, list and rooms; list is the default on phones. Appointment form, live checks, command palette Ctrl+K and undo Ctrl+Z."
+        "ar": "أربعة عروض: أسبوعي وقائمة وقاعات و«مجسّم» (نبض القاعات)؛ والقائمة افتراضية على الهاتف. نموذج الموعد والفحص الحيّ ولوحة الأوامر Ctrl+K والتراجع Ctrl+Z.",
+        "en": "Four views: week, list, rooms and «3D» (hall pulse); list is the default on phones. Appointment form, live checks, command palette Ctrl+K and undo Ctrl+Z."
       }
     },
     {
@@ -224,6 +229,17 @@
       "note": {
         "ar": "بدل خطوتي الوقت والمكان في «موعد» حين يكون المقرر نظرياً وعملياً: أيام الشعبة ومدة كل يوم من مدد اللائحة، ثم تحديد اللقاء العملي ومكانه، وحفظ واحد.",
         "en": "Replaces the time and place steps of the appointment form when the course is theory plus practical: the section's days and each day's length from the regulation's lengths, then the practical meeting and its place, in one save."
+      }
+    },
+    {
+      "name": {
+        "ar": "نبض القاعات",
+        "en": "Hall pulse"
+      },
+      "file": "src/components/hallPulse/HallPulse.tsx",
+      "note": {
+        "ar": "مجسّم مباني القسم أو الكلية بطوابقها وقاعاتها، يُحمَّل عند الطلب: في الورشة للتعديل، وفي عدسة القاعات ولوحة العميدين للقراءة.",
+        "en": "A 3D model of the department's or college's buildings, floors and halls, loaded on demand: editable in the workshop, read-only in the rooms lens and on the deans' dashboard."
       }
     }
   ],
@@ -5562,6 +5578,63 @@
         ],
         "tests": [
           "tests/special-nature-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-094",
+      "kind": "functional",
+      "title": {
+        "ar": "نبض القاعات: مجسّم الملاءمة وترتيب قاعات اليوم",
+        "en": "Hall pulse: a 3D fit model and whole-day hall arrangement"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض مباني القسم مجسّمةً طوابقَ من القاعات (الطابق من رمز القاعة متى دلّ عليه، وإلا الأرضي)، تُلوَّن كل قاعة مشغولة بملاءمتها لشعبتها: مضغوطة فوق السعة، وممتلئة من 90٪، ومناسبة من 45٪، وواسعة دون ذلك، مع ساعةٍ تتحرّك على اليوم واختيار يوم وحرارة أسبوع لكل قاعة؛ وأن يقترح لشعبةٍ لا تناسبها قاعتها قاعاتٍ أنسب فارغة في وقتها كله من النوع نفسه، وأن يخطّط «رتّب قاعاتي» نقلات يومٍ كامل دفعةً واحدة بنقلاتٍ مترابطة تُراجع وتُستبعد واحدةً واحدة قبل «حفظ الكل»؛ وأن يعرض قاعات قسمٍ مجاور فارغة حين لا تتّسع قاعات القسم، ويطلب استعارتها عبر طلب استعارة القاعات الموجود.",
+        "en": "The system shall render the department's buildings as 3D floors of halls (the floor taken from the hall code when it indicates one, otherwise the ground floor), colouring each occupied hall by its fit for its section: pressed above capacity, full from 90%, fitting from 45%, and wide below that, with a clock that moves through the day, a day selector and a weekly heat for every hall; shall suggest, for a section its hall does not fit, better halls of the same type that are free for its whole time; shall plan «arrange my halls» for a whole day in one pass, with chained moves that are reviewed and excluded one by one before «save all»; and shall show a neighbouring department's free halls when no department hall fits, requesting them through the existing hall-borrowing request."
+      },
+      "rationale": {
+        "ar": "رئيس لجنة الجدول يصلح القاعات قاعةً قاعة؛ والمجسّم يريه الضغط والهدر معاً ويقترح يومه كله، والحفظ يبقى في باب النقل نفسه.",
+        "en": "The schedule committee chair fixes halls one at a time; the model shows pressure and waste together and proposes the whole day, while saving stays behind the same move door."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "41 طالباً في قاعة 30 مقعداً «مضغوطة»، و27 في 30 «ممتلئة»، و18 في 40 «مناسبة»، و16 في 80 «واسعة»؛ وعدد الطلبة سعة المقرر لكل شعبة موسوماً «تقدير».",
+          "en": "41 students in a 30-seat hall are «pressed», 27 in 30 «full», 18 in 40 «fitting», and 16 in 80 «wide»; the student count is the course's per-section capacity, labelled «estimate»."
+        },
+        {
+          "ar": "خطة اليوم لا تحجز قاعةً لشعبتين في وقتٍ متداخل في أيٍّ من أيام الشعبة، ولا تنقل شعبةً بين مختبر وقاعة نظرية أو إلى قاعةٍ متخصّصة لقسمٍ آخر أو مجهولة السعة؛ وإيقاف نقلة يوقف ما يعتمد عليها.",
+          "en": "A day plan never books one hall for two sections at overlapping times on any of the section's days, and never moves a section between a lab and a theory hall or into a hall specialised for another department or of unknown capacity; switching a move off switches off the moves that depend on it."
+        },
+        {
+          "ar": "«حفظ» و«حفظ الكل» يرسلان النقلات في طلبٍ واحد إلى /api/schedules/move-batch الذي يعيد فحص التعارض على الخادم، ولا يظهران إلا في الورشة لمن يملك تعديل الجدول (الشاشة 7)؛ وفي عدسة القاعات ولوحة العميدين يُعرض المجسّم للقراءة فقط.",
+          "en": "«Save» and «save all» send the moves in one request to /api/schedules/move-batch, which re-checks conflicts on the server, and appear only in the workshop for holders of schedule editing (screen 7); in the rooms lens and on the deans' dashboard the model is read-only."
+        },
+        {
+          "ar": "الميزة وthree.js يُحمَّلان عند الطلب خارج الحزمة الأولى، وتقليل الحركة يبدأ بالعرض المسطّح، وتُفرَغ موارد WebGL عند الإغلاق.",
+          "en": "The feature and three.js load on demand outside the initial bundle, reduced motion starts on the flat view, and WebGL resources are released on close."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/hallPulse.ts#planDay",
+          "src/components/hallPulse/HallPulse.tsx",
+          "src/components/hallPulse/pulseScene.ts",
+          "src/components/hallPulse/HallPulseLazy.tsx",
+          "src/components/hallPulse/DeanHallPulseCard.tsx",
+          "src/components/Schedules.tsx#commitHallPulseMoves",
+          "src/components/Reports.tsx",
+          "src/components/Dashboard.tsx"
+        ],
+        "tests": [
+          "tests/hall-pulse-audit.ts"
         ]
       },
       "inferred": false

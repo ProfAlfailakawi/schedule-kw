@@ -1,0 +1,20 @@
+/* نبض القاعات: هيكل الانتظار وحده في الحزمة الأولى؛ بقية الأنماط تصل مع الميزة الكسولة. */
+.hp-boot{min-height:360px;border-radius:var(--r-xl,24px);display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;
+  background:radial-gradient(130% 90% at 85% 0%,color-mix(in srgb,var(--nav-3,#1b2422) 70%,#14483d),color-mix(in srgb,var(--nav,#0e1413) 88%,#0d3a31) 68%);
+  color:color-mix(in srgb,var(--nav-ink,#f0f3ef) 70%,transparent)}
+.hp-boot-dot{width:10px;height:10px;border-radius:50%;background:#e2bd76;animation:hp-boot 1.1s ease-in-out infinite}
+@keyframes hp-boot{50%{opacity:.3;transform:scale(.7)}}
+@media (prefers-reduced-motion:reduce){.hp-boot-dot{animation:none}}
+/* مسافةٌ تحت المسرح لشريط أدوات الجدول العائم، فلا يغطّي الساعة والأيام. */
+.hp-host{margin-block:8px 16px;padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+.hp-lens-switch{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:var(--r-md,14px);background:var(--surface);margin-inline-start:auto}
+.hp-lens-switch button{min-height:34px;border:0;background:transparent;border-radius:11px;padding:0 14px;font:inherit;font-size:13px;color:var(--muted);cursor:pointer}
+.hp-lens-switch button[aria-pressed=true]{background:var(--accent);color:var(--accent-contrast,#fff);font-weight:700}
+.hp-lens-switch button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.hp-dean-card{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-radius:var(--r-lg,18px);border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow-sm)}
+.hp-dean-card strong{display:block;font-size:var(--ix-card,17px)}
+.hp-dean-card small{color:var(--muted);font-size:13px}
+.hp-plain-btn{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 16px;border-radius:12px;border:1px solid var(--line-strong,var(--line));background:var(--surface);color:var(--ink);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .2s}
+.hp-plain-btn:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+.hp-plain-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.hp-plain-btn{transition:none}}
