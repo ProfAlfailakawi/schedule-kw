@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, CalendarDays, CheckCircle2, Circle, Clock3, FileText, MapPin, Printer, RotateCcw, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
-import { civilNoteFor, instructorNamesOf, isTheirs, REQUEST_ACTION_LABEL, REQUEST_ACTION_NOTE, shortCourseCode, theirFields, requestProgress, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
+import { civilNoteFor, instructorNamesOf, isTheirs, REQUEST_ACTION_LABEL, REQUEST_ACTION_NOTE, shortCourseCode, theirFields, requestProgress, withFullCourseCodes, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
 import type { FieldDelta, RequestAction } from "../utils/registrarCheck";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
 import { clearPrintFit, fitPrintPages, packPrintLines } from "../utils/printFit";import { isSafariPrint, stampPrintEngine } from "../utils/printEngine";
@@ -69,7 +69,7 @@ export function ItemLine({ item, canTick, busy, onTick }: { key?: React.Key; ite
       </div>
       {item.action === "edit" && item.fields.length ? (
         <ul className="rrq-fields">
-          {item.fields.map(f => (
+          {withFullCourseCodes(item).fields.map(f => (
             <li key={f.field}>
               <span className="rrq-field-icon" title={f.label}>{FIELD_ICON[f.field]}</span>
               <span className="rrq-field-label">{f.label}</span>
@@ -216,7 +216,7 @@ export function RequestSheet({ doc, scopeLine, college, theirsOnly = false, hist
       <td><bdi dir="ltr">{item.crn || "—"}</bdi></td>
       <td><strong>{item.courseName}</strong><small><bdi dir="ltr">{shortCourseCode(item.courseCode)}</bdi></small>{since(item)}</td>
       <td><bdi dir="ltr">{item.pdfSection || item.section}</bdi></td>
-      <td>{item.fields.map(f => <div key={f.field} className="rrq-delta"><i>{f.label}</i><s><Value field={f.field} text={f.pdf} /></s><span aria-hidden="true">←</span><b><Value field={f.field} text={f.ours} />{f.field === "instructor" ? civilLine(item) : null}</b></div>)}</td>
+      <td>{withFullCourseCodes(item).fields.map(f => <div key={f.field} className="rrq-delta"><i>{f.label}</i><s><Value field={f.field} text={f.pdf} /></s><span aria-hidden="true">←</span><b><Value field={f.field} text={f.ours} />{f.field === "instructor" ? civilLine(item) : null}</b></div>)}</td>
     </tr>
   );
   const addRow = (item: RegistrarRequestItem) => (
