@@ -277,7 +277,8 @@ export class PulseScene {
     sh.updateProjectionMatrix();
     this.keyLight.target.position.set(layout.cx, 0, layout.cz);
     this.buildBlock(layout, this.scene, this.rooms, this.buildingTags, false);
-    this.home.set(layout.cx, Math.min(layout.height, 6) * 0.1 - 0.8, layout.cz);
+    /* الهدف في منتصف حجم المباني: فيقع الإطار الآلي عليها لا على الأرض أمامها. */
+    this.home.set(layout.cx, layout.height * 0.4, layout.cz);
     this.target.copy(this.home); this.targetT.copy(this.home);
   }
 
