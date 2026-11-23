@@ -101,7 +101,8 @@ function gxPaintNext(){var d=GX.d&&GX.d.next;
 function gxOpenWeek(){var t=document.getElementById("ticket");if(t&&hostFilled(t)){reveal(t);return}showTab("plan")}
 
 /* ── ٢) تذكيرٌ يصل وحده ── */
-function gxSupport(){var api="serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window&&window.isSecureContext;if(api)return"ok";
+function gxNative(){return !!((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.appHandoff))}
+function gxSupport(){if(gxNative())return"native";var api="serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window&&window.isSecureContext;if(api)return"ok";
   var ios=/iP(hone|ad|od)/.test(navigator.userAgent||"")||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
   var standalone=navigator.standalone===true||!!(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches);
   return ios&&!standalone?"ios-install":"none"}
@@ -117,7 +118,7 @@ function gxSubscribe(key){var opts={userVisibleOnly:true,applicationServerKey:gx
   return gxFindReg().then(function(reg){if(reg&&reg.active)return reg.pushManager.subscribe(opts);
     return Notification.requestPermission().then(function(p){if(p!=="granted")throw{permission:p};
       return navigator.serviceWorker.register("/push-sw.js",{scope:"/me"}).then(gxActive).then(function(r){return r.pushManager.subscribe(opts)})})})}
-function gxPushState(){var d=GX.d&&GX.d.push;if(!d)return Promise.resolve(null);
+function gxPushState(){var d=GX.d&&GX.d.push;if(!d||gxNative())return Promise.resolve(null);
   var sup=gxSupport(),perm=("Notification" in window)?Notification.permission:"default";
   return gxLocalSub().then(function(sub){return(sub?gxSubId(sub.endpoint):Promise.resolve("")).then(function(id){
     var on=!!sub&&(d.ids.indexOf(id)>=0||(!id&&d.ids.length>0));
