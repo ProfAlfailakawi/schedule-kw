@@ -3,6 +3,7 @@ import { BellOff, BellRing, Handshake, Inbox, Lock, Send, Settings, Share, Smart
 import {
   currentPushSubscription, isIos, markPushActive, prepareThisDevice, pushSupport, subscribeThisDevice, subscriptionId,
 } from "../utils/pushClient";
+import { nativePushSubscriptionId, readNativePushPermission, registerNativePushToken, requestNativePushPermission } from "../utils/nativePush";
 
 /**
  * ── 🔔 «فعّل التنبيهات على جوالك» — بطاقةٌ في مركز الإشعارات ────────────────
@@ -16,6 +17,18 @@ type Phase = "loading" | "hidden" | "ios" | "off" | "on" | "blocked" | "busy";
 
 interface Status { enabled?: boolean; audience?: boolean; publicKey?: string; ids?: string[]; bound?: string[] }
 
+/** يحفظ توكنَ APNs لهذا الجهاز عند الخادم (بجانب اشتراكات المتصفّح). */
+async function saveNativeToken(token: string): Promise<boolean> {
+  try {
+    const response = await fetch("/api/push/subscribe-native", {
+      method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export default function PushCard({ userKey }: { userKey: string }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [publicKey, setPublicKey] = useState("");
@@ -23,6 +36,9 @@ export default function PushCard({ userKey }: { userKey: string }) {
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [note, setNote] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
   const [testing, setTesting] = useState(false);
+  /* داخل التطبيق الرسمي: توكنُ APNs بدل اشتراك المتصفّح. */
+  const [native, setNative] = useState(false);
+  const [nativeToken, setNativeToken] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -34,6 +50,23 @@ export default function PushCard({ userKey }: { userKey: string }) {
       if (!alive) return;
       if (!status?.enabled || !status.audience || !status.publicKey) { setPhase("hidden"); return; }
       setPublicKey(status.publicKey);
+      if (support === "native") {
+        setNative(true);
+        const permission = await readNativePushPermission();
+        if (!alive) return;
+        if (permission === "denied") { setPhase("blocked"); markPushActive(userKey, false); return; }
+        if (permission !== "granted") { setPhase("off"); markPushActive(userKey, false); return; }
+        const token = await registerNativePushToken();
+        if (!alive) return;
+        const id = token ? await nativePushSubscriptionId(token) : "";
+        const on = Boolean(id) && (status.ids || []).includes(id);
+        setNativeToken(token);
+        setPhase(on ? "on" : "off");
+        markPushActive(userKey, on);
+        /* جهازٌ مفعّلٌ سلفاً: يُجدَّد ربطُه بالجلسة الحاضرة. */
+        if (on && !(status.bound || []).includes(id)) void saveNativeToken(token);
+        return;
+      }
       if (support === "ios-install") { setPhase("ios"); return; }
       if (Notification.permission === "denied") { setPhase("blocked"); markPushActive(userKey, false); return; }
       try {
@@ -60,6 +93,23 @@ export default function PushCard({ userKey }: { userKey: string }) {
   const enable = useCallback(() => {
     setNote(null);
     setPhase("busy");
+    if (native) {
+      (async () => {
+        const permission = await requestNativePushPermission();
+        if (permission === "denied") { setPhase("blocked"); return; }
+        if (permission !== "granted") throw new Error("permission");
+        const token = await registerNativePushToken();
+        if (!token || !(await saveNativeToken(token))) throw new Error("save");
+        setNativeToken(token);
+        setPhase("on");
+        markPushActive(userKey, true);
+        setNote({ tone: "ok", text: "✓ تصل التنبيهات هذا الجهاز" });
+      })().catch(() => {
+        setPhase("off");
+        setNote({ tone: "bad", text: "تعذّر التفعيل. حاول مرة أخرى." });
+      });
+      return;
+    }
     subscribeThisDevice(publicKey, registration)
       .then(async next => {
         const response = await fetch("/api/push/subscribe", {
@@ -77,11 +127,24 @@ export default function PushCard({ userKey }: { userKey: string }) {
         setPhase("off");
         setNote({ tone: "bad", text: "تعذّر التفعيل. حاول مرة أخرى." });
       });
-  }, [publicKey, registration, userKey]);
+  }, [native, publicKey, registration, userKey]);
 
   const disable = useCallback(async () => {
     setNote(null);
     setPhase("busy");
+    if (native) {
+      const token = nativeToken || await registerNativePushToken().catch(() => "");
+      if (token) {
+        await fetch("/api/push/unsubscribe", {
+          method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: `apns:${token.toLowerCase()}` }),
+        }).catch(() => undefined);
+      }
+      setNativeToken("");
+      setPhase("off");
+      markPushActive(userKey, false);
+      return;
+    }
     const current = subscription || await currentPushSubscription().catch(() => null);
     await fetch("/api/push/unsubscribe", {
       method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
@@ -91,7 +154,7 @@ export default function PushCard({ userKey }: { userKey: string }) {
     setSubscription(null);
     setPhase("off");
     markPushActive(userKey, false);
-  }, [subscription, userKey]);
+  }, [native, nativeToken, subscription, userKey]);
 
   const test = useCallback(async () => {
     setTesting(true);

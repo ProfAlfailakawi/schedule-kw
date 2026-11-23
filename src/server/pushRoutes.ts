@@ -35,6 +35,7 @@ import {
 } from "./pushMessages";
 import { CARD_TOKEN_PATTERN, cardManifest } from "./pushCard";
 import { registerMorningBriefRoute } from "./morningBriefPush";
+import { APNS_TOKEN_PATTERN, apnsEndpoint, apnsTokenOf, createApnsSender, type ApnsConnect } from "./apnsPush";
 
 export interface PushRouteDeps {
   requireAuth: RequestHandler;
@@ -45,6 +46,9 @@ export interface PushRouteDeps {
   readEnv?: () => { publicKey?: string; privateKey?: string };
   /** للاختبار: خدمةُ دفعٍ وهمية وساعة. */
   fetchImpl?: PushFetch;
+  /** للاختبار: بيئةُ APNs واتصالُ HTTP/2 وهميّان. */
+  apnsEnv?: () => Record<string, string | undefined>;
+  apnsConnect?: ApnsConnect;
   now?: () => number;
 }
 
@@ -92,6 +96,7 @@ function createPushEngine(deps: PushRouteDeps) {
     () => Repository.getSharedServerSecret(),
   );
   const limiter = createPushRateLimiter({ now: clock });
+  const apns = createApnsSender({ env: deps.apnsEnv, connect: deps.apnsConnect, now: clock });
   const contextKey = createDataContextKey(() => Repository.currentDemoSessionId());
   const audienceMemo = createTtlMemo<Audience | null>({ ttlMs: 120_000, now: clock });
   const sectionNames = createTtlMemo<Map<string, string>>({ ttlMs: 10 * 60_000, now: clock });
@@ -104,10 +109,23 @@ function createPushEngine(deps: PushRouteDeps) {
     const report: DeliveryReport = { sent: 0, failed: 0, removed: 0, limited: 0 };
     const unique = [...new Map(records.map(record => [record.id, record])).values()].slice(0, 50);
     if (!unique.length) return report;
-    const keys: VapidKeys = await vapid();
+    const keys: VapidKeys | null = unique.some(record => record.transport !== "apns") ? await vapid() : null;
     await Promise.all(unique.map(async record => {
       if (!limiter.take(record.id)) { report.limited += 1; return; }
-      const result = await sendWebPush(record, message, { vapid: keys, urgency: options.urgency, topic: options.topic, fetchImpl: deps.fetchImpl, nowSeconds: Math.floor(clock() / 1000) });
+      if (record.transport === "apns") {
+        const sent = await apns.send(apnsTokenOf(record.endpoint), message, { urgency: options.urgency, collapseId: options.topic });
+        if (sent.skipped) return;
+        if (sent.ok) { report.sent += 1; return; }
+        if (sent.gone) {
+          report.removed += 1;
+          await Repository.deletePushSubscription(record.id).catch(error => log("delete", error));
+          return;
+        }
+        report.failed += 1;
+        console.warn(`[push] apns ${record.id.slice(0, 8)} → ${sent.status}${sent.error ? ` ${sent.error}` : ""}`);
+        return;
+      }
+      const result = await sendWebPush(record, message, { vapid: keys!, urgency: options.urgency, topic: options.topic, fetchImpl: deps.fetchImpl, nowSeconds: Math.floor(clock() / 1000) });
       if (result.ok) { report.sent += 1; return; }
       if (result.gone) {
         report.removed += 1;
@@ -406,8 +424,30 @@ export function registerPushRoutes(app: Express, deps: PushRouteDeps): PushEngin
     res.json({ ok: true, id: saved.id });
   });
 
+  /** التطبيقُ الرسمي: توكنُ APNs بدل اشتراك المتصفّح، في المجموعة نفسها (الإلغاءُ بـ unsubscribe: endpoint = "apns:<token>"). */
+  app.post("/api/push/subscribe-native", deps.requireAuth, async (req: any, res: Response) => {
+    const token = String(req.body?.token || "").trim();
+    if (!APNS_TOKEN_PATTERN.test(token)) { res.status(400).json({ error: "توكنٌ غير صالح من هذا الجهاز." }); return; }
+    const userId = Number(req.user?.SystemUserId || 0);
+    const cookie = /(?:^|;\s*)session_id=([^;]+)/.exec(String(req.headers.cookie || ""))?.[1];
+    const endpoint = apnsEndpoint(token);
+    const id = pushSubscriptionId(endpoint);
+    const previous = await Repository.getPushSubscription(id);
+    const at = clockIso();
+    const saved = await Repository.savePushSubscription({
+      id, endpoint, keys: { p256dh: "", auth: "" }, transport: "apns", ownerKind: "user", userId,
+      createdAt: previous && previous.ownerKind === "user" && previous.userId === userId ? previous.createdAt : at, updatedAt: at,
+      device: deviceLabel(req.headers["user-agent"]) || "iPhone",
+      ...(cookie ? { session: pushSessionTag(cookie) } : {}),
+    });
+    res.locals.auditEntity = "تنبيهات الجوال";
+    res.locals.auditChanges = "تفعيل التنبيهات على جهازٍ في التطبيق";
+    res.json({ ok: true, id: saved.id });
+  });
+
   app.post("/api/push/unsubscribe", deps.requireAuth, async (req: any, res: Response) => {
-    const id = pushSubscriptionId(String(req.body?.endpoint || ""));
+    const asked = String(req.body?.endpoint || "");
+    const id = pushSubscriptionId(apnsTokenOf(asked) ? apnsEndpoint(apnsTokenOf(asked)) : asked);
     const record = await Repository.getPushSubscription(id);
     if (record && record.ownerKind === "user" && Number(record.userId) === Number(req.user?.SystemUserId)) await Repository.deletePushSubscription(id);
     res.locals.auditEntity = "تنبيهات الجوال";

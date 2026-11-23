@@ -289,6 +289,8 @@ export interface PushSubscriptionRecord {
   lastSentAt?: string;
   /** بصمةُ جلسة الدخول التي فعّلته (لا الجلسةُ نفسها): خروجُها الصريح يُسقطه. */
   session?: string;
+  /** "apns": توكنُ جهازٍ في التطبيق الرسمي (endpoint = "apns:<token>")؛ وغيابُه اشتراكُ متصفّح. */
+  transport?: "apns";
 }
 
 /** بصمةُ جلسة الدخول كما تُحفظ مع اشتراك الحساب. */
