@@ -4,8 +4,8 @@
  * (تعديلٌ بعد آخر إرسال ما زال الملف يعرض قديمه)، وما يحتاج نظراً (التباسٌ
  * ومطابقةٌ تقريبية وخانةٌ غير مؤكدة) — ثم الفراغ، والنطاق، وأنّ المقارنة لا تمسّ مدخلاتها.
  */
-import { checkRegistrarPdf, namesAgree, slimPdfRow, type RegistrarCheckInput } from "../src/utils/registrarCheck";
-import { buildRequestItems, isTheirs, notesCohort, notesProgress, theirFields, requestProgress, tickRequestItem, verifyRequestItems } from "../src/utils/registrarRequest";
+import { checkRegistrarPdf, liveSectionTexts, namesAgree, slimPdfRow, type RegistrarCheckInput } from "../src/utils/registrarCheck";
+import { buildRequestItems, settleSavedItems, isTheirs, notesCohort, notesProgress, theirFields, requestProgress, tickRequestItem, verifyRequestItems } from "../src/utils/registrarRequest";
 
 let passed = 0, failed = 0;
 const check = (ok: boolean, label: string, detail?: unknown) => {
@@ -65,6 +65,21 @@ const only = (result: ReturnType<typeof run>, group: string) => result.findings.
   check(ids.length === 3 && ids.every(item => item.certain && /^50\d$/.test(item.theirs.section) && item.theirs.crn), "وتُعرف بيقين فيُعتمد مرجعيُّها، ورقمُ شعبتنا لا يتغيّر", ids);
   const same = run({ live: [live(1, "1", [0], "08:00", "09:00"), live(1, "501", [2], "08:00", "09:00")], pdf: [pdf(1, "1", [0], "08:00", "09:00")] });
   check(same.findings.some(item => item.group === "matched" && item.section === "1"), "شعبةٌ عندنا برقم 1 نفسه تبقى هي النظير، لا 501", same.findings);
+}
+
+/* ١-د) قبلنا قاعتَهم: فرقٌ في تقريرٍ محفوظ يزول حين يصير جدولُنا كما في ملفهم، ولو لم تُحفظ صفوفُ الملف */
+{
+  const before = run({ live: [live(1, "501", [1, 3], "11:00", "12:20", { AdRoomHall: "G23", referenceNumber: "1825" }), live(2, "501", [0], "08:00", "09:00", { AdRoomHall: "G23", referenceNumber: "1900" })],
+    pdf: [pdf(1, "501", [1, 3], "11:00", "12:20", { AdRoomHall: "G21", referenceNumber: "1825" }), pdf(2, "501", [0], "10:00", "11:00", { AdRoomHall: "G21", referenceNumber: "1900" })] });
+  const saved = buildRequestItems(before);
+  check(saved.length === 2 && saved[0].fields.some(f => f.field === "room"), "قبل التعديل: فرقُ القاعة بندٌ في التقرير", saved);
+  const nowRows = [live(1, "501", [1, 3], "11:00", "12:20", { AdRoomHall: "G21", referenceNumber: "1825" }), live(2, "501", [0], "08:00", "09:00", { AdRoomHall: "G21", referenceNumber: "1900" })];
+  const settled = settleSavedItems(saved, liveSectionTexts(nowRows, names));
+  check(settled.gone === 1 && settled.items.length === 1, "بعد أن جعلنا قاعتَنا قاعتَهم: يزول البندُ الذي لم يبقَ فيه فرق", settled);
+  check(settled.items[0].fields.map(f => f.field).join() === "time" && settled.items[0].since === "changed", "والبندُ الذي بقي فيه فرقُ الوقت يبقى بالوقت وحده", settled.items);
+  const untouched = settleSavedItems(saved, liveSectionTexts([live(1, "501", [1, 3], "11:00", "12:20", { AdRoomHall: "G23", referenceNumber: "1825" }), live(2, "501", [0], "08:00", "09:00", { AdRoomHall: "G23", referenceNumber: "1900" })], names));
+  check(untouched.gone === 0 && untouched.items.every(item => !item.since), "جدولٌ لم يتغيّر: التقريرُ كما حُفظ", untouched);
+  check(settleSavedItems(saved, new Map()).items.length === 2, "شعبةٌ لا تُعرف في الجدول تبقى كما حُفظت");
 }
 
 /* ٢) الخلل بحسب الخانة */

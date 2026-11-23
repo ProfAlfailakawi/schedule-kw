@@ -11,7 +11,7 @@
  *
  * لا رقمَ مدنيّاً ولا شيءَ من الجدول غير ما في البند.
  */
-import { normalizeCrn } from "./registrarCheck";
+import { namesAgree, normalizeCrn } from "./registrarCheck";
 import type { FieldDelta, FindingGroup, FindingKind, RegistrarCheckResult, RegistrarCounts, RegistrarFinding, RequestAction } from "./registrarCheck";
 
 export interface RequestActor { by: number; byName: string; at: string }
@@ -74,6 +74,38 @@ export function liveRequestItems(saved: readonly RegistrarRequestItem[], fresh: 
     return { ...item, ...keep };
   });
   return { items, gone: saved.filter(item => !now.has(item.id)).length };
+}
+
+const foldValue = (value: unknown) => String(value ?? "").normalize("NFKC").replace(/[\s\u200e\u200f]+/g, "").replace(/[–—ـ-]+/g, "-").toUpperCase();
+const SETTLE_FIELDS = new Set(["days", "time", "room", "instructor"]);
+
+/**
+ * تقريرٌ محفوظٌ بلا صفوف ملفّه لا يُعاد حسابُه كاملاً؛ لكنّ ما سوّيناه بأيدينا يُعرف: خانةٌ في بند «تعديل»
+ * صارت في جدولنا الآن كما طبعها ملفُّهم (قبلنا قاعتَهم مثلاً) لم تعد فرقاً، فتسقط؛ والبندُ الذي سقطت خاناتُه كلُّها يزول.
+ * ما لم نعرف شعبتَه يبقى كما حُفظ. `texts` من liveSectionTexts. دالّةٌ نقيّة.
+ */
+export function settleSavedItems(saved: readonly RegistrarRequestItem[], texts: ReadonlyMap<string, Record<string, string>>): { items: RegistrarRequestItem[]; gone: number } {
+  const items: RegistrarRequestItem[] = [];
+  let gone = 0;
+  for (const item of saved) {
+    if (item.action !== "edit" || !item.fields.length) { items.push(item); continue; }
+    const tail = String(item.courseCode || "").replace(/\D/g, "").slice(-3);
+    const section = String(item.section || "").replace(/\D/g, "").replace(/^0+/, "") || String(item.section || "").trim();
+    const now = (item.crn && texts.get(`#${normalizeCrn(item.crn)}`)) || texts.get(`${tail}|${section}`);
+    if (!now) { items.push(item); continue; }
+    let changed = false;
+    const fields = item.fields.flatMap(f => {
+      if (!SETTLE_FIELDS.has(f.field)) return [f];
+      const mine = String(now[f.field] ?? "");
+      if (!mine || mine === "—") return [f];
+      if (foldValue(mine) === foldValue(f.pdf) || (f.field === "instructor" && namesAgree(mine, f.pdf))) { changed = true; return []; }
+      if (foldValue(mine) !== foldValue(f.ours)) { changed = true; return [{ ...f, ours: mine.slice(0, 160) }]; }
+      return [f];
+    });
+    if (!fields.length) { gone++; continue; }
+    items.push(changed ? { ...item, fields, since: "changed" as const } : item);
+  }
+  return { items, gone };
 }
 
 /** مفاتيحُ شعب ملف التسجيل المحفوظ: بها يعرف المحرّرُ أن الشعبة التي تُعدَّل كانت في آخر فحص. */

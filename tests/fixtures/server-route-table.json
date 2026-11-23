@@ -2004,7 +2004,7 @@
    ],
    "path": "/api/schedules/registrar-requests/:id/live",
    "name": "bound dispatch",
-   "call": "00c3aa51ba01dd1b",
+   "call": "20cfa8ae75232b9b",
    "site": "src/server/routes/scheduleImportRoutes.ts:528",
    "regexp": "/^\\/api\\/schedules\\/registrar-requests(?:\\/([^/]+?))\\/live\\/?$/i",
    "end": true
@@ -2017,7 +2017,7 @@
    "path": "/api/schedules/registrar-requests/keys",
    "name": "bound dispatch",
    "call": "d5005d1682de4461",
-   "site": "src/server/routes/scheduleImportRoutes.ts:550",
+   "site": "src/server/routes/scheduleImportRoutes.ts:562",
    "regexp": "/^\\/api\\/schedules\\/registrar-requests\\/keys\\/?$/i",
    "end": true
   },
@@ -2029,7 +2029,7 @@
    "path": "/api/schedules/registrar-requests",
    "name": "bound dispatch",
    "call": "fe6e4eee4e5d2d2b",
-   "site": "src/server/routes/scheduleImportRoutes.ts:571",
+   "site": "src/server/routes/scheduleImportRoutes.ts:583",
    "regexp": "/^\\/api\\/schedules\\/registrar-requests\\/?$/i",
    "end": true
   },
@@ -2041,7 +2041,7 @@
    "path": "/api/schedules/registrar-requests/inbox",
    "name": "bound dispatch",
    "call": "27b8220b304b44dd",
-   "site": "src/server/routes/scheduleImportRoutes.ts:601",
+   "site": "src/server/routes/scheduleImportRoutes.ts:613",
    "regexp": "/^\\/api\\/schedules\\/registrar-requests\\/inbox\\/?$/i",
    "end": true
   },
@@ -2053,7 +2053,7 @@
    "path": "/api/schedules/registrar-requests/:id/tick",
    "name": "bound dispatch",
    "call": "e92283ade85d46be",
-   "site": "src/server/routes/scheduleImportRoutes.ts:623",
+   "site": "src/server/routes/scheduleImportRoutes.ts:635",
    "regexp": "/^\\/api\\/schedules\\/registrar-requests(?:\\/([^/]+?))\\/tick\\/?$/i",
    "end": true
   },
@@ -2065,7 +2065,7 @@
    "path": "/api/schedules/registrar-requests/verify",
    "name": "bound dispatch",
    "call": "02df3214fee73dcf",
-   "site": "src/server/routes/scheduleImportRoutes.ts:647",
+   "site": "src/server/routes/scheduleImportRoutes.ts:659",
    "regexp": "/^\\/api\\/schedules\\/registrar-requests\\/verify\\/?$/i",
    "end": true
   },
@@ -2077,7 +2077,7 @@
    "path": "/api/schedules/registrar-requests/:id",
    "name": "bound dispatch",
    "call": "cff641b80459c4bd",
-   "site": "src/server/routes/scheduleImportRoutes.ts:668",
+   "site": "src/server/routes/scheduleImportRoutes.ts:680",
    "regexp": "/^\\/api\\/schedules\\/registrar-requests(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -2089,7 +2089,7 @@
    "path": "/api/schedules/registrar-numbering",
    "name": "bound dispatch",
    "call": "af7d474848608d21",
-   "site": "src/server/routes/scheduleImportRoutes.ts:688",
+   "site": "src/server/routes/scheduleImportRoutes.ts:700",
    "regexp": "/^\\/api\\/schedules\\/registrar-numbering\\/?$/i",
    "end": true
   },
@@ -2101,7 +2101,7 @@
    "path": "/api/schedules/section-numbers",
    "name": "bound dispatch",
    "call": "b94d198feeb2a929",
-   "site": "src/server/routes/scheduleImportRoutes.ts:723",
+   "site": "src/server/routes/scheduleImportRoutes.ts:735",
    "regexp": "/^\\/api\\/schedules\\/section-numbers\\/?$/i",
    "end": true
   },

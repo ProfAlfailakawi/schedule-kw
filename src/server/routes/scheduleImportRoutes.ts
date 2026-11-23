@@ -27,8 +27,8 @@ import { AR, countOf } from "../../utils/arabicCount";
 import { authorityCourseCode, authorityDepartmentKeys } from "../../utils/authorityAcademicCodes";
 import { SCHEDULE_DAY_KEYS, schedulePayloadIssues } from "../core/scheduleRules";
 import { filterByScope, isScopeAllowed } from "../core/scope";
-import { checkRegistrarPdf, looksForeign, slimPdfRow, type RegistrarCheckResult } from "../../utils/registrarCheck";
-import { buildRequestItems, checkCrnKey, checkPairKey, instructorNamesOf, liveRequestItems, personNameKey, requestSummary, tickRequestItem, verifyRequestItems, type LiveRequestView, type RegistrarCheckKeys, type RegistrarRequestDoc } from "../../utils/registrarRequest";
+import { checkRegistrarPdf, liveSectionTexts, looksForeign, slimPdfRow, type RegistrarCheckResult } from "../../utils/registrarCheck";
+import { buildRequestItems, checkCrnKey, checkPairKey, instructorNamesOf, liveRequestItems, personNameKey, requestSummary, settleSavedItems, tickRequestItem, verifyRequestItems, type LiveRequestView, type RegistrarCheckKeys, type RegistrarRequestDoc } from "../../utils/registrarRequest";
 import { authorityBaselineForScope, authorityDraftForScope, buildAuthorityPdfDiff, buildAuthorityPdfDiffWithHistory } from "../core/authority";
 import { isPowerUser, requireAuth } from "../core/auth";
 import { canReviewSubmissions } from "../../utils/academicRoles";
@@ -528,8 +528,20 @@ async function savedRequestRows(req:AuthenticatedRequest,res:Response,id:string)
 app.get("/api/schedules/registrar-requests/:id/live", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   res.setHeader("Cache-Control","no-store");
   const found=await savedRequestRows(req,res,String(req.params.id||""));if(!found)return;
-  if(!found.rows){res.json({live:null,reason:"no-rows"});return;}
   const {doc}=found;
+  if(!found.rows){
+    /* تقريرٌ حُفظ قبل أن تُحفظ معه صفوفُ ملفّه: لا يُعاد حسابُه كاملاً، لكن يسقط منه ما سوّيناه في جدولنا
+       (قبلنا قاعتَهم فصار جدولُنا كما في ملفهم)، فلا يبقى ملاحظةً بعد أن زال. قراءةٌ محضة. */
+    const [liveRows,instructors,courses]=await Promise.all([Repository.getSchedulesByScope({collegeId:Number(doc.collegeId),sectionId:Number(doc.sectionId),termId:Number(doc.termId)}),Repository.getInstructors(),Repository.getCourses()]);
+    const texts=liveSectionTexts(liveRows as any[],{
+      instructorById:new Map((instructors as any[]).map(row=>[Number(row.AdInstructorId),String(row.AdInstructorName||"")])),
+      courseCodeById:new Map((courses as any[]).map(row=>[Number(row.AdCourseId),String(row.CourseCode||"").trim()])),
+    });
+    const settled=settleSavedItems(doc.items||[],texts);
+    if(!settled.gone&&!settled.items.some(item=>item.since)){res.json({live:null,reason:"no-rows"});return;}
+    const live:LiveRequestView={at:new Date().toISOString(),items:settled.items,counts:doc.counts,reviewCount:Number(doc.reviewCount)||0,gone:settled.gone};
+    res.json({live,reason:"settled"});return;
+  }
   const result=await runRegistrarCheck(Number(doc.collegeId),Number(doc.sectionId),Number(doc.termId),found.rows);
   if(result.empty){res.json({live:null,reason:"empty"});return;}
   const {items,gone}=liveRequestItems(doc.items||[],buildRequestItems(result));
