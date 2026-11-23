@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { printSheet, POPUP_BLOCKED_MESSAGE } from "../utils/printSheet";
 import { Check, Copy, Download, ExternalLink, Printer, QrCode, RefreshCw, Workflow, X } from "lucide-react";
 import { Notice, PrimaryButton, SecondaryButton, MicroLoader, EmptyState } from "./ui";
 import { AR, countOf } from "../utils/arabicCount";
@@ -97,20 +98,16 @@ export default function PlanSheetPublisher({ onChanged, focusSectionId = 0, isAd
   /* ملصقُ A4 للقسم: الاسم والرمز كبيراً، يُعلَّق على لوحة القسم كملصق «مساري». */
   const printPoster = (target: { title: string; url: string; svg: string } | null = qr) => {
     if (!target) return;
-    const win = window.open("", "_blank", "width=720,height=960");
-    if (!win) { setError("اسمح بالنوافذ المنبثقة لطباعة الملصق."); return; }
     const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
-    win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(target.title)}</title>
+    const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(target.title)}</title>
 <style>@page{size:A4;margin:0}body{margin:0;font-family:"Plex Arabic",Tahoma,sans-serif;color:#0B2545;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .p{box-sizing:border-box;min-height:100vh;padding:64px 48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:linear-gradient(#EEF4FF,#fff)}
 .k{font-size:20px;font-weight:700;color:#2563EB;letter-spacing:.5px}h1{margin:0;font-size:46px;line-height:1.3;font-weight:900}
 .bar{width:140px;height:6px;border-radius:6px;background:linear-gradient(90deg,#EA580C 0 25%,#2563EB 25%)}
 .qr{width:360px;height:360px;padding:18px;background:#fff;border-radius:28px;box-shadow:0 10px 40px rgba(11,37,69,.12);margin-top:18px}.qr svg{width:100%;height:100%}
 p{margin:0;font-size:22px;font-weight:700}small{font-size:14px;color:#64748B;direction:ltr}</style></head>
-<body><div class="p"><div class="k">الخطة الدراسية</div><h1>${esc(target.title)}</h1><div class="bar"></div><div class="qr">${target.svg}</div><p>امسح الرمز لتفتح الخطة التفاعلية</p><small>${esc(target.url)}</small></div></body></html>`);
-    win.document.close();
-    win.focus();
-    win.setTimeout(() => win.print(), 250);
+<body><div class="p"><div class="k">الخطة الدراسية</div><h1>${esc(target.title)}</h1><div class="bar"></div><div class="qr">${target.svg}</div><p>امسح الرمز لتفتح الخطة التفاعلية</p><small>${esc(target.url)}</small></div></body></html>`;
+    if (!printSheet(html, "width=720,height=960")) setError(POPUP_BLOCKED_MESSAGE);
   };
 
   if (!state) return <MicroLoader />;

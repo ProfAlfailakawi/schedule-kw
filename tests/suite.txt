@@ -75,6 +75,7 @@ test:occupancy-heat
 test:hall-pulse
 test:occupancy-slot-panel
 test:request-handoff
+test:native-print
 test:request-signature
 test:teacher-card
 test:teacher-card-2
