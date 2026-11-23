@@ -180,7 +180,7 @@ export class PulseScene {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 0.98;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -663,10 +663,11 @@ export class PulseScene {
       this.keyLight.position.set(L.cx + Math.cos(ang) * R * 0.9, 8 + elev * R * 0.75, L.cz + R * 0.55);
       const c1 = t < 0.5 ? SUN_MORNING : SUN_NOON, c2 = t < 0.5 ? SUN_NOON : SUN_EVENING, f = t < 0.5 ? t * 2 : (t - 0.5) * 2;
       this.keyLight.color.copy(c1).lerp(c2, f);
-      this.keyLight.intensity = 0.75 + 0.75 * elev;
+      this.keyLight.intensity = 0.6 + 0.65 * elev;
       const s1 = t < 0.5 ? SKY_MORNING : SKY_NOON, s2 = t < 0.5 ? SKY_NOON : SKY_EVENING;
       this.hemi.color.copy(s1).lerp(s2, f);
-      this.hemi.intensity = 0.85 + 0.35 * elev;
+      /* السماء تلوّن الضوء ولا تغسل الألوان: شدّةٌ معتدلة لتبقى ألوان الملاءمة مشبعة. */
+      this.hemi.intensity = 0.55 + 0.25 * elev;
     }
 
     /* حركةٌ محيطة: انجرافٌ بطيءٌ جداً حين لا يلمس أحدٌ المشهد. */
@@ -701,7 +702,7 @@ export class PulseScene {
       fillMat.color.copy(rig.color);
       fillMat.emissive.copy(rig.color);
       const pulse = v.pulse ? breathe : 0;
-      fillMat.emissiveIntensity = 0.18 + pulse * 0.55 + (sel ? 0.25 : 0) + (hov ? 0.12 : 0);
+      fillMat.emissiveIntensity = 0.34 + pulse * 0.55 + (sel ? 0.25 : 0) + (hov ? 0.12 : 0);
       fillMat.opacity = (v.dim ? 0.35 : 0.95) * fade * (rig.level > 0.01 ? 1 : 0);
       rig.fill.scale.y = Math.max(0.001, rig.level * HALL_H * 0.86);
       const shell = rig.shell.material;

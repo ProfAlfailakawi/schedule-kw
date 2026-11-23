@@ -121,6 +121,13 @@ export const hallKeyOf = (building: unknown, hall: unknown) => {
   return b || h ? `${b}|${h}` : "";
 };
 
+/** «مبنى 3» من الرمز الرسمي «901A03» (رقم المبنى آخر خانتين بعد حرف الموقع)، وإلا الرمز كما هو. */
+export function buildingLabelOf(code: unknown): string {
+  const raw = String(code ?? "").trim();
+  const m = raw.match(/^\d+[A-Za-z](\d{1,3})$/);
+  return m ? `مبنى ${Number(m[1])}` : raw ? `مبنى ${raw}` : "بلا مبنى";
+}
+
 export const isLabType = (type: unknown) => /lab|مختبر|معمل|ورشة|استوديو/i.test(String(type ?? ""));
 
 /**
@@ -180,7 +187,7 @@ export function buildPulseModel(input: {
   const keyByText = new Map<string, string>();
   const buildingLabel = (code: string, b?: { buildingNumber?: string; siteName?: string; description?: string }) => {
     const number = String(b?.buildingNumber || "").trim();
-    return number ? `مبنى ${number}` : code ? `مبنى ${code}` : "بلا مبنى";
+    return number ? `مبنى ${number}` : buildingLabelOf(code);
   };
   for (const room of input.registry?.rooms || []) {
     if (room.bookingPolicy && room.bookingPolicy !== "normal") continue;

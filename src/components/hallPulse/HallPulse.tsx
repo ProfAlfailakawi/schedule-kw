@@ -13,7 +13,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./hallPulse.css";
 import {
   FIT_LABEL, PULSE_DAYS, applyPlan, buildPulseModel, clockText, fitClass, fitScore, layoutHalls, metrics,
-  occupantsAt, foreignAt, originalAssignment, borrowCandidates, planDay, planMoves, suggestHalls, toggleGroup, weeklyHeat, floorOf, slotStats, busiestMinute,
+  occupantsAt, foreignAt, originalAssignment, borrowCandidates, buildingLabelOf, planDay, planMoves, suggestHalls, toggleGroup, weeklyHeat, floorOf, slotStats, busiestMinute,
   type Assignment, type DayPlan, type FitClass, type PulseCourseInput, type PulseDay, type PulseHall, type PulseModel,
   type PulseRegistryInput, type PulseRowInput, type PulseSession,
 } from "../../utils/hallPulse";
@@ -365,7 +365,7 @@ export default function HallPulse(props: HallPulseProps) {
   const nb = useMemo(() => {
     if (!borrow || !["pick", "form", "sending", "sent", "approved"].includes(borrow.stage)) return null;
     const halls: PulseHall[] = [...borrow.options.map(o => ({ ...o, free: true })), ...borrow.others.map(o => ({ ...o, free: false }))].map(o => ({
-      key: `nb:${o.roomId}`, roomId: o.roomId, buildingCode: o.roomCode, buildingLabel: `مبنى ${o.roomCode}`, code: o.roomHall,
+      key: `nb:${o.roomId}`, roomId: o.roomId, buildingCode: o.roomCode, buildingLabel: buildingLabelOf(o.roomCode), code: o.roomHall,
       capacity: o.capacity, type: "", lab: false, floor: floorOf(o.roomHall),
     }));
     const L = layoutHalls(halls, { perRow: 5, offsetX: layout.cx + layout.width / 2 + 6 });
@@ -422,7 +422,7 @@ export default function HallPulse(props: HallPulseProps) {
         options: options.filter(o => o.roomCode === building).slice(0, 12),
         others: others.filter(o => o.roomCode === building).slice(0, 16), // فارغة في جزءٍ من اليوم فقط: تُرسم باهتة
       });
-      if (options.length) announce(`لا قاعة أوسع فارغة في القسم لهذه الشعبة. ظهر ${options[0].roomCode === building ? `مبنى ${building}` : "المبنى المجاور"} بقاعاته الفارغة في وقتها كله: اختر واحدة واطلب استعارتها.`);
+      if (options.length) announce(`لا قاعة أوسع فارغة في القسم لهذه الشعبة. ظهر ${buildingLabelOf(building)} بقاعاته الفارغة في وقتها كله: اختر واحدة واطلب استعارتها.`);
     } catch (error: any) {
       setBorrow({ sessionId: session.id, stage: "error", options: [], others: [], error: String(error?.message || error) });
     }
@@ -711,7 +711,7 @@ export default function HallPulse(props: HallPulseProps) {
     setSaving(true);
     const ok = await props.onSaveMoves([{ row: borrowSession.source, sessionId: borrowSession.id, building: opt.roomCode, hall: opt.roomHall, roomId: opt.roomId, buildingId: opt.buildingId }]).catch(() => false);
     setSaving(false);
-    if (ok) { setBorrow(null); setNotice({ tone: "ok", text: `نُقلت الشعبة إلى ${opt.roomHall} في مبنى ${opt.roomCode} بالاستعارة.` }); }
+    if (ok) { setBorrow(null); setNotice({ tone: "ok", text: `نُقلت الشعبة إلى ${opt.roomHall} في ${buildingLabelOf(opt.roomCode)} بالاستعارة.` }); }
     else setNotice({ tone: "warn", text: "لم يُحفظ النقل: رفضه فحص التعارض. الاستعارة باقية." });
   };
 
@@ -723,7 +723,7 @@ export default function HallPulse(props: HallPulseProps) {
     if (borrow.stage === "pick") return (
       <div className="hp-alert is-warn">
         <strong>لا قاعة أوسع فارغة في القسم الآن</strong>
-        <span>هذه قاعات فارغة في مبنى {borrow.options[0]?.roomCode} طوال وقت الشعبة في أيامها كلها:</span>
+        <span>هذه قاعات فارغة في {buildingLabelOf(borrow.options[0]?.roomCode)} طوال وقت الشعبة في أيامها كلها:</span>
         <div className="hp-row">{borrow.options.map(o => (
           <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={o.roomId} type="button" className="hp-btn" onClick={() => setBorrow({ ...borrow, stage: "form", pick: o.roomId })}>{o.roomHall} · {o.capacity ? countOf(o.capacity, AR.seat) : "سعة غير مسجّلة"}</button>
         ))}</div>
@@ -735,7 +735,7 @@ export default function HallPulse(props: HallPulseProps) {
       <div className="hp-request">
         <h4>طلب استعارة قاعة</h4>
         <dl>
-          <dt>القاعة</dt><dd>{opt.roomHall} · {opt.capacity ? countOf(opt.capacity, AR.seat) : "سعة غير مسجّلة"} · مبنى {opt.roomCode}</dd>
+          <dt>القاعة</dt><dd>{opt.roomHall} · {opt.capacity ? countOf(opt.capacity, AR.seat) : "سعة غير مسجّلة"} · {buildingLabelOf(opt.roomCode)}</dd>
           <dt>القسم المضيف</dt><dd>{opt.owner}</dd>
           <dt>الوقت</dt><dd>{borrowSession.days.map(d => PULSE_DAYS.find(x => x.key === d)!.label).join(" و")} · <bdi dir="ltr">{clockText(borrowSession.start)}–{clockText(borrowSession.end)}</bdi></dd>
           <dt>الشعبة</dt><dd>{sessionLine(borrowSession)}{borrowSession.students ? ` · نحو ${countOf(borrowSession.students, AR.student)}` : ""}</dd>
