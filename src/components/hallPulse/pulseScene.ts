@@ -10,6 +10,9 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { FLOOR_H, HALL_D, HALL_H, HALL_W, type PulseLayout } from "../../utils/hallPulse";
+import { HallInterior, type InteriorData } from "./pulseInterior";
+
+export type { InteriorData } from "./pulseInterior";
 
 export interface HallVisual {
   color: number;
@@ -54,6 +57,15 @@ interface RoomRig {
   liftWant: number;
   fadeK: number;
   fadeWant: number;
+  /** شفافية النافذة والوهج بعد التخفيف (تُحفظ هنا لا في المادة: المادة تُرسم بحالتين عند «قبل وبعد»). */
+  winO: number;
+  haloO: number;
+  /** «قبل وبعد»: حالة القاعة على الجانب الآخر من الفاصل، بتخفيفها الخاص. */
+  alt: HallVisual | null;
+  altLevel: number;
+  altColor: THREE.Color;
+  altWinO: number;
+  altHaloO: number;
 }
 
 interface SlabRig { mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>; building: string; floorIndex: number; baseY: number; liftY: number; fadeK: number }
@@ -161,6 +173,20 @@ export class PulseScene {
   private trees: THREE.InstancedMesh | null = null;
   private lastInput = 0;
   private homePol = 1.08;
+  /** «قبل وبعد»: موضع الفاصل 0–1 من يسار اللوحة؛ يساره «بعد» ويمينه «قبل». null = لا فاصل. */
+  private split: number | null = null;
+  /** «اليوم يمرّ أمامك»: الكاميرا تدور ببطء مع الشمس ما لم يمسك القارئ المشهد. */
+  private cineOn = false;
+  private cineFree = false;
+  private spot = false;
+  private lastTap: { key: string; t: number; x: number; y: number } | null = null;
+  /** «القاعة من الداخل». */
+  private interior: HallInterior | null = null;
+  private mode: "campus" | "entering" | "inside" | "leaving" = "campus";
+  private modeAt = -1e9;
+  private pendingInterior: InteriorData | null = null;
+  private savedView: { az: number; pol: number; radius: number; target: THREE.Vector3 } | null = null;
+  private veil: HTMLDivElement;
 
   constructor(private opts: {
     canvas: HTMLCanvasElement;
@@ -174,6 +200,10 @@ export class PulseScene {
     ambient?: boolean;
     onPick: (key: string | null, neighbour: boolean) => void;
     onHover?: (key: string | null) => void;
+    /** ضغطتان على قاعة: ادخلها. */
+    onEnter?: (key: string) => void;
+    /** ضغطتان داخل القاعة: اخرج. */
+    onLeave?: () => void;
   }) {
     const renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
     this.renderer = renderer;
@@ -210,6 +240,11 @@ export class PulseScene {
     this.winGeo = new THREE.PlaneGeometry(HALL_W * 0.72, HALL_H * 0.3);
     this.disposables.push(this.shellGeo, this.fillGeo, this.edgeGeo, this.ghostGeo, this.winGeo);
 
+    /* ستارٌ يعتم لحظة العبور إلى داخل القاعة والخروج منها. */
+    this.veil = document.createElement("div");
+    this.veil.className = "hp-veil";
+    this.veil.setAttribute("aria-hidden", "true");
+    opts.host.appendChild(this.veil);
     this.build(opts.layout);
     this.scene.add(this.nbGroup, this.pathGroup);
 
@@ -334,6 +369,7 @@ export class PulseScene {
         target: { color: 0xcfe9df, level: 0, occupied: false, label: "" },
         level: 0, color: new THREE.Color(GLASS), base: group.position.clone(), flashAt: 0,
         building: spot.building, floorIndex: spot.floorIndex, liftY: 0, liftWant: 0, fadeK: 1, fadeWant: 1,
+        winO: 0, haloO: 0, alt: null, altLevel: 0, altColor: new THREE.Color(GLASS), altWinO: 0, altHaloO: 0,
       });
     }
   }
@@ -343,10 +379,109 @@ export class PulseScene {
     for (const [key, rig] of this.rooms) {
       const v = visuals.get(key);
       if (v) rig.target = v;
-      if (rig.tag.textContent !== rig.target.label) rig.tag.textContent = rig.target.label;
     }
     if (selected !== this.selected) this.selected = selected;
     this.kick();
+  }
+
+  /**
+   * «قبل وبعد بسحبة»: حالةٌ ثانية للقاعات تُرسم يمين الفاصل (القاعات كما هي الآن)، والحالة
+   * الأساسية يساره (بعد الترتيب) — مشهدٌ واحد يُرسم مرتين بالمقصّ، لا سياق WebGL ثانٍ.
+   */
+  setCompare(visuals: Map<string, HallVisual> | null, split = 0.5) {
+    for (const [key, rig] of this.rooms) {
+      const v = visuals ? visuals.get(key) || null : null;
+      if (v && !rig.alt) {
+        /* أول ظهور: بالحالة كاملةً، لا صعوداً من الفراغ. */
+        rig.altLevel = v.occupied ? Math.min(1.12, Math.max(0.08, v.level)) : 0;
+        rig.altColor.setHex(v.occupied ? v.color : GLASS.getHex());
+        rig.altWinO = v.occupied && !v.dim ? 0.7 : 0;
+        rig.altHaloO = 0;
+      }
+      rig.alt = v;
+    }
+    this.split = visuals ? THREE.MathUtils.clamp(split, 0, 1) : null;
+    this.kick();
+  }
+  setSplit(split: number) {
+    if (this.split == null) return;
+    this.split = THREE.MathUtils.clamp(split, 0, 1);
+    this.kick();
+  }
+
+  /** دوران العرض: 0 أول اليوم و1 آخره؛ null ينهيه ويعيد المنظر. */
+  cinema(progress: number | null) {
+    if (progress == null) {
+      if (this.cineOn && !this.cineFree && !this.spot) this.azT = this.homePol < 1 ? 0.22 : 0.38;
+      this.cineOn = false; this.cineFree = false;
+      this.kick();
+      return;
+    }
+    if (!this.cineOn) { this.cineOn = true; this.cineFree = false; }
+    if (!this.cineFree && !this.opts.reduced && !this.spot) {
+      const sweep = this.homePol < 1 ? 0.26 : 0.52;
+      this.azT = sweep - 2 * sweep * THREE.MathUtils.clamp(progress, 0, 1);
+    }
+    this.kick();
+  }
+
+  /** يقترب من قاعةٍ بعينها (أشدّ لحظة)، و null يعيد المنظر الكامل. */
+  spotlight(key: string | null) {
+    const rig = key ? this.rooms.get(key) : null;
+    if (!rig) {
+      if (this.spot) { this.spot = false; this.targetT.copy(this.home); this.radiusT = this.fitRadius; this.kick(); }
+      return;
+    }
+    if (this.opts.reduced) return;
+    this.spot = true;
+    this.targetT.lerpVectors(this.home, rig.group.getWorldPosition(new THREE.Vector3()), 0.82);
+    this.radiusT = Math.max(this.fitRadius * 0.58, 16);
+    this.kick();
+  }
+
+  /* ── القاعة من الداخل ─────────────────────────────────────────────────── */
+  get inside() { return this.mode === "inside" || this.mode === "entering"; }
+
+  enter(key: string, data: InteriorData) {
+    const rig = this.rooms.get(key);
+    if (!rig || this.mode === "entering" || this.mode === "inside") { if (this.interior) this.interior.apply(data); return; }
+    this.pendingInterior = data;
+    this.veil.style.setProperty("--hp-veil-c", `#${data.color.toString(16).padStart(6, "0")}`);
+    if (!this.savedView) this.savedView = { az: this.azT, pol: this.polT, radius: this.radiusT, target: this.targetT.clone() };
+    this.drag = null; this.pinch = null;
+    if (this.opts.reduced) { this.openInterior(); this.mode = "inside"; this.modeAt = -1e9; this.kick(); return; }
+    this.mode = "entering"; this.modeAt = performance.now();
+    this.targetT.copy(rig.group.getWorldPosition(new THREE.Vector3()));
+    this.radiusT = Math.max(3.6, this.fitRadius * 0.14);
+    this.kick();
+  }
+
+  setInterior(data: InteriorData) {
+    this.pendingInterior = data;
+    this.interior?.apply(data);
+    this.kick();
+  }
+
+  leave() {
+    if (this.mode === "campus" || this.mode === "leaving") return;
+    if (this.mode === "entering" || this.opts.reduced) { this.closeInterior(); this.mode = "campus"; this.modeAt = this.opts.reduced ? -1e9 : performance.now(); this.kick(); return; }
+    this.mode = "leaving"; this.modeAt = performance.now();
+    this.kick();
+  }
+
+  private openInterior() {
+    this.interior?.dispose();
+    this.interior = new HallInterior(this.pendingInterior!, { labels: this.opts.labels, reduced: this.opts.reduced });
+    this.interior.frameFor(this.W / this.H, true);
+    this.opts.labels.classList.add("is-inside");
+  }
+
+  private closeInterior() {
+    this.interior?.dispose();
+    this.interior = null;
+    this.opts.labels.classList.remove("is-inside");
+    const v = this.savedView; this.savedView = null;
+    if (v) { this.azT = v.az; this.polT = v.pol; this.radiusT = v.radius; this.targetT.copy(v.target); }
   }
 
   setNeighbour(layout: PulseLayout | null, visuals: Map<string, HallVisual> | null) {
@@ -383,6 +518,8 @@ export class PulseScene {
   }
 
   resetView() {
+    if (this.interior && this.mode === "inside") { this.interior.reset(); this.kick(); return; }
+    this.spot = false;
     this.azT = this.homePol < 1 ? 0.22 : 0.38; this.polT = this.homePol; this.radiusT = this.fitRadius;
     this.targetT.copy(this.home);
     if (this.nbWanted && this.nbLayout) this.includeNeighbour();
@@ -554,6 +691,7 @@ export class PulseScene {
     this.radiusT = first ? this.fitRadius : this.fitRadius * ratio;
     if (first) { this.radius = this.radiusT; this.sized = true; }
     if (this.nbWanted) this.includeNeighbour();
+    this.interior?.frameFor(this.camera.aspect, false);
     this.kick();
   }
 
@@ -569,6 +707,8 @@ export class PulseScene {
 
   private onDown = (e: PointerEvent) => {
     this.lastInput = performance.now();
+    if (this.mode === "entering" || this.mode === "leaving") return;
+    if (this.cineOn) this.cineFree = true;
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
@@ -581,6 +721,7 @@ export class PulseScene {
     if (this.pinch && this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (this.interior && this.mode === "inside") { this.interior.zoom(this.pinch.d / Math.max(1, d)); this.pinch.d = d; this.kick(); return; }
       this.radiusT = THREE.MathUtils.clamp(this.pinch.r * (this.pinch.d / Math.max(1, d)), this.fitRadius * 0.45, this.fitRadius * 1.8);
       this.kick();
       return;
@@ -592,13 +733,16 @@ export class PulseScene {
       if (this.drag.moved > 6) {
         if (e.pointerType !== "mouse") e.preventDefault();
         this.opts.canvas.setPointerCapture?.(e.pointerId);
-        this.azT = THREE.MathUtils.clamp(this.azT - dx * 0.0065, -1.25, 1.25);
-        this.polT = THREE.MathUtils.clamp(this.polT - dy * 0.005, 0.62, 1.42);
+        if (this.interior && this.mode === "inside") this.interior.orbit(-dx * 0.0065, -dy * 0.005);
+        else {
+          this.azT = THREE.MathUtils.clamp(this.azT - dx * 0.0065, -1.25, 1.25);
+          this.polT = THREE.MathUtils.clamp(this.polT - dy * 0.005, 0.62, 1.42);
+        }
         this.kick();
       }
       return;
     }
-    if (e.pointerType === "mouse") {
+    if (e.pointerType === "mouse" && this.mode === "campus") {
       const hit = this.pick(e.clientX, e.clientY);
       const key = hit ? hit.key : null;
       if (key !== this.hovered) {
@@ -614,7 +758,19 @@ export class PulseScene {
     if (this.pinch) { if (this.pointers.size < 2) this.pinch = null; this.drag = null; return; }
     const d = this.drag; this.drag = null;
     if (!d || d.moved > 8) return;
+    const t = performance.now();
+    const twice = (key: string) => {
+      const last = this.lastTap;
+      const again = Boolean(last && last.key === key && t - last.t < 420 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 28);
+      this.lastTap = again ? null : { key, t, x: e.clientX, y: e.clientY };
+      return again;
+    };
+    /* داخل القاعة: ضغطتان متتاليتان تخرجان منها. */
+    if (this.mode !== "campus") { if (this.mode === "inside" && twice("@inside")) this.opts.onLeave?.(); return; }
     const hit = this.pick(e.clientX, e.clientY);
+    /* ضغطتان على القاعة نفسها: ادخلها (والأولى اختارتها). */
+    if (hit && !hit.neighbour && twice(hit.key)) { this.opts.onEnter?.(hit.key); return; }
+    if (!hit || hit.neighbour) this.lastTap = null;
     this.opts.onPick(hit ? hit.key : null, hit ? hit.neighbour : false);
   };
   private onCancel = (e: PointerEvent) => { this.pointers.delete(e.pointerId); this.drag = null; this.pinch = null; };
@@ -622,10 +778,13 @@ export class PulseScene {
   private onWheel = (e: WheelEvent) => {
     e.preventDefault();
     this.lastInput = performance.now();
+    if (this.mode === "entering" || this.mode === "leaving") return;
+    if (this.interior && this.mode === "inside") { this.interior.zoom(Math.exp(e.deltaY * 0.0012)); this.kick(); return; }
     this.radiusT = THREE.MathUtils.clamp(this.radiusT * Math.exp(e.deltaY * 0.0012), this.fitRadius * 0.45, this.fitRadius * 1.8);
     this.kick();
   };
-  private onDouble = () => this.resetView();
+  /* ضغطتان على الأرض الفارغة تعيدان المنظر؛ وعلى قاعةٍ تدخلانها (من onUp). */
+  private onDouble = (e: MouseEvent) => { if (this.mode === "campus" && !this.pick(e.clientX, e.clientY)) this.resetView(); };
   private onVisibility = () => { if (!document.hidden) this.kick(); };
 
   /** يوقظ حلقة الرسم؛ وتنام وحدها حين يسكن كل شيء. */
@@ -636,11 +795,14 @@ export class PulseScene {
   }
 
   rotateBy(dAz: number, dPol: number) {
+    if (this.interior && this.mode === "inside") { this.interior.orbit(dAz, dPol); this.kick(); return; }
+    if (this.cineOn) this.cineFree = true;
     this.azT = THREE.MathUtils.clamp(this.azT + dAz, -1.25, 1.25);
     this.polT = THREE.MathUtils.clamp(this.polT + dPol, 0.62, 1.42);
     this.kick();
   }
   zoomBy(f: number) {
+    if (this.interior && this.mode === "inside") { this.interior.zoom(f); this.kick(); return; }
     this.radiusT = THREE.MathUtils.clamp(this.radiusT * f, this.fitRadius * 0.45, this.fitRadius * 1.8);
     this.kick();
   }
@@ -671,12 +833,15 @@ export class PulseScene {
     }
 
     /* حركةٌ محيطة: انجرافٌ بطيءٌ جداً حين لا يلمس أحدٌ المشهد. */
-    const drifting = Boolean(this.opts.ambient) && !reduced && now - this.lastInput > 6000 && !this.drag && !this.pinch;
+    const drifting = Boolean(this.opts.ambient) && !reduced && now - this.lastInput > 6000 && !this.drag && !this.pinch && !this.cineOn && this.mode === "campus";
     if (drifting) { this.azT = THREE.MathUtils.clamp(this.azT + dt * 0.012 * Math.sin(now / 14000 + 1), -1.25, 1.25); busy = true; }
 
     /* الكاميرا: تخميدٌ ناعم نحو الهدف. */
-    this.az += (this.azT - this.az) * k; this.pol += (this.polT - this.pol) * k; this.radius += (this.radiusT - this.radius) * k;
-    this.target.lerp(this.targetT, k);
+    /* العبور إلى الداخل والاقتراب من أشدّ لحظة أهدأ من سحب اليد. */
+    const slow = this.mode !== "campus" || this.spot || now - this.modeAt < 1400;
+    const kc = reduced ? 1 : slow ? 1 - Math.exp(-dt * 3.6) : k;
+    this.az += (this.azT - this.az) * (this.cineOn && !this.cineFree && !reduced ? 1 - Math.exp(-dt * 2.2) : k); this.pol += (this.polT - this.pol) * k; this.radius += (this.radiusT - this.radius) * kc;
+    this.target.lerp(this.targetT, kc);
     if (Math.abs(this.azT - this.az) + Math.abs(this.polT - this.pol) + Math.abs(this.radiusT - this.radius) * 0.05 + this.target.distanceTo(this.targetT) > 0.002) busy = true;
     const s = Math.sin(this.pol);
     this.camera.position.set(this.target.x + this.radius * s * Math.sin(this.az), this.target.y + this.radius * Math.cos(this.pol), this.target.z + this.radius * s * Math.cos(this.az));
@@ -687,6 +852,28 @@ export class PulseScene {
     this.nbGroup.visible = this.nbAlpha > 0.01;
 
     const breathe = reduced ? 0.5 : 0.5 + 0.5 * Math.sin(now / 340);
+    /* يلوّن موادّ القاعة من حالةٍ بعينها: الأساسية كل إطار، والأخرى قبل رسم جانبها من الفاصل. */
+    const paint = (rig: RoomRig, v: HallVisual, level: number, color: THREE.Color, winO: number, haloO: number, fade: number, flash: boolean) => {
+      const sel = rig.key === this.selected, hov = rig.key === this.hovered, fk = rig.fadeK;
+      const fillMat = rig.fill.material;
+      fillMat.color.copy(color);
+      fillMat.emissive.copy(color);
+      fillMat.emissiveIntensity = 0.34 + (v.pulse ? breathe : 0) * 0.55 + (sel ? 0.25 : 0) + (hov ? 0.12 : 0);
+      fillMat.opacity = (v.dim ? 0.35 : 0.95) * fade * fk * (level > 0.01 ? 1 : 0);
+      rig.fill.scale.y = Math.max(0.001, level * HALL_H * 0.86);
+      const shell = rig.shell.material;
+      shell.color.copy(v.occupied ? color : (v.glow ? CALM : GLASS));
+      shell.opacity = fade * fk * (v.ghost ? 0.5 : v.glow ? 0.16 + 0.22 * breathe : v.occupied ? (v.dim ? 0.1 : 0.2) : v.dim ? 0.05 : 0.12);
+      const ec = flash ? 0xffffff : sel ? BRASS.getHex() : v.glow ? CALM.getHex() : hov ? 0xe9f5f0 : EDGE.getHex();
+      rig.edges.material.color.setHex(ec);
+      rig.edges.material.opacity = fade * fk * (sel || flash ? 1 : v.glow ? 0.55 + 0.45 * breathe : hov ? 0.9 : v.dim ? 0.18 : 0.5);
+      /* النافذة تضيء بلونٍ دافئ يميل إلى لون الملاءمة، والوهج فوق المضغوطة والمختارة. */
+      rig.win.material.color.copy(color).lerp(WINDOW_WARM, 0.45);
+      rig.win.material.opacity = winO;
+      rig.halo.material.color.copy(sel && !v.pulse ? BRASS : color);
+      rig.halo.material.opacity = haloO;
+      rig.halo.visible = haloO > 0.01;
+    };
     const tick = (rig: RoomRig, fade: number, neighbour: boolean) => {
       const v = rig.target, held = (this.hold.get(rig.key) || 0) > now && !neighbour;
       const sel = rig.key === this.selected, hov = rig.key === this.hovered;
@@ -698,37 +885,25 @@ export class PulseScene {
         rig.level += (wantLevel - rig.level) * ck;
         if (Math.abs(wantLevel - rig.level) > 0.002) busy = true;
       }
-      const fillMat = rig.fill.material;
-      fillMat.color.copy(rig.color);
-      fillMat.emissive.copy(rig.color);
-      const pulse = v.pulse ? breathe : 0;
-      fillMat.emissiveIntensity = 0.34 + pulse * 0.55 + (sel ? 0.25 : 0) + (hov ? 0.12 : 0);
-      fillMat.opacity = (v.dim ? 0.35 : 0.95) * fade * (rig.level > 0.01 ? 1 : 0);
-      rig.fill.scale.y = Math.max(0.001, rig.level * HALL_H * 0.86);
-      const shell = rig.shell.material;
-      shell.color.copy(v.occupied ? rig.color : (v.glow ? CALM : GLASS));
-      shell.opacity = fade * (v.ghost ? 0.5 : v.glow ? 0.16 + 0.22 * breathe : v.occupied ? (v.dim ? 0.1 : 0.2) : v.dim ? 0.05 : 0.12);
-      const flash = now - rig.flashAt < 700;
-      const ec = flash ? 0xffffff : sel ? BRASS.getHex() : v.glow ? CALM.getHex() : hov ? 0xe9f5f0 : EDGE.getHex();
-      rig.edges.material.color.setHex(ec);
-      rig.edges.material.opacity = fade * (sel || flash ? 1 : v.glow ? 0.55 + 0.45 * breathe : hov ? 0.9 : v.dim ? 0.18 : 0.5);
       /* الطوابق المنفرجة: ترتفع وتشفّ بتخفيفٍ ناعم. */
       const ek = reduced ? 1 : 1 - Math.exp(-dt * 4.5);
       rig.liftY += (rig.liftWant - rig.liftY) * ek;
       rig.fadeK += (rig.fadeWant - rig.fadeK) * ek;
       if (Math.abs(rig.liftWant - rig.liftY) + Math.abs(rig.fadeWant - rig.fadeK) > 0.002) busy = true;
-      const fk = rig.fadeK;
-      fillMat.opacity *= fk; shell.opacity *= fk; rig.edges.material.opacity *= fk;
-      /* النافذة تضيء بلونٍ دافئ يميل إلى لون الملاءمة. */
-      const winMat = rig.win.material;
-      winMat.color.copy(rig.color).lerp(WINDOW_WARM, 0.45);
-      winMat.opacity += (((v.occupied && !v.dim ? 0.7 : 0) * fade * fk) - winMat.opacity) * ck;
-      /* وهجٌ فوق المضغوطة والمختارة. */
-      const haloMat = rig.halo.material;
-      const haloWant = (v.pulse ? 0.35 + 0.35 * breathe : sel ? 0.28 : 0) * fade * fk;
-      haloMat.color.copy(sel && !v.pulse ? BRASS : rig.color);
-      haloMat.opacity += (haloWant - haloMat.opacity) * ck;
-      rig.halo.visible = haloMat.opacity > 0.01;
+      const flash = now - rig.flashAt < 700;
+      rig.winO += (((v.occupied && !v.dim ? 0.7 : 0) * fade * rig.fadeK) - rig.winO) * ck;
+      rig.haloO += (((v.pulse ? 0.35 + 0.35 * breathe : sel ? 0.28 : 0) * fade * rig.fadeK) - rig.haloO) * ck;
+      paint(rig, v, rig.level, rig.color, rig.winO, rig.haloO, fade, flash);
+      /* «قبل وبعد»: الحالة الأخرى تتبع الساعة بتخفيفها هي. */
+      const a = rig.alt;
+      if (a && !neighbour) {
+        const want = a.occupied ? Math.min(1.12, Math.max(0.08, a.level)) : 0;
+        if (a.occupied) { this.tmp.setHex(a.color); rig.altColor.lerp(this.tmp, ck); }
+        rig.altLevel += (want - rig.altLevel) * ck;
+        rig.altWinO += (((a.occupied && !a.dim ? 0.7 : 0) * rig.fadeK) - rig.altWinO) * ck;
+        rig.altHaloO += (((a.pulse ? 0.35 + 0.35 * breathe : sel ? 0.28 : 0) * rig.fadeK) - rig.altHaloO) * ck;
+        if (Math.abs(want - rig.altLevel) > 0.002 || a.pulse || a.glow) busy = true;
+      }
       /* الاختيار يرفع القاعة قليلاً، كمن يُخرج درجاً. */
       const lift = (sel ? 0.22 : hov ? 0.08 : 0) + rig.liftY;
       const y = rig.base.y + lift;
@@ -806,26 +981,64 @@ export class PulseScene {
       return this.v3.z < 1;
     };
     const tagFor = (rig: RoomRig, fade: number) => {
-      const v = rig.target, sel = rig.key === this.selected, hov = rig.key === this.hovered;
+      const sel = rig.key === this.selected, hov = rig.key === this.hovered;
+      rig.group.getWorldPosition(this.v3);
+      /* اللافتة على الواجهة الأمامية للقاعة لا فوق سقفها: فلا تغطّي لافتةُ الأرضي قاعةَ الطابق الذي فوقه. */
+      this.v3.y -= HALL_H * 0.08;
+      this.v3.z += HALL_D / 2 + 0.04;
+      const at = this.v3.clone();
+      /* «قبل وبعد»: اللافتة تقول حالة الجانب الذي تقع فيه من الفاصل. */
+      let v = rig.target;
+      if (rig.alt && this.split != null) {
+        this.v3.project(this.camera);
+        if ((this.v3.x * 0.5 + 0.5) > this.split) v = rig.alt;
+      }
       /* على الشاشة الضيّقة: لافتة المختارة والمضغوطة والمضيئة وحدها. */
       const roomy = this.W >= 560;
       const show = fade > 0.6 && rig.fadeK > 0.5 && (sel || hov || (Boolean(v.showLabel) && (roomy || Boolean(v.pulse || v.glow))));
       rig.tag.hidden = !show;
       if (!show) return;
+      if (rig.tag.textContent !== v.label) rig.tag.textContent = v.label;
       rig.tag.classList.toggle("is-selected", sel);
       rig.tag.classList.toggle("is-glow", Boolean(v.glow));
-      rig.group.getWorldPosition(this.v3);
-      /* اللافتة على الواجهة الأمامية للقاعة لا فوق سقفها: فلا تغطّي لافتةُ الأرضي قاعةَ الطابق الذي فوقه. */
-      this.v3.y -= HALL_H * 0.08;
-      this.v3.z += HALL_D / 2 + 0.04;
-      place(rig.tag, this.v3.clone(), true);
+      place(rig.tag, at, true);
     };
     this.rooms.forEach(rig => tagFor(rig, 1));
     this.nbRooms.forEach(rig => tagFor(rig, this.nbAlpha));
     this.buildingTags.forEach(t => place(t.el, t.pos, true));
     this.nbBuildingTags.forEach(t => { t.el.hidden = this.nbAlpha < 0.6; if (!t.el.hidden) place(t.el, t.pos, true); });
 
-    this.renderer.render(this.scene, this.camera);
+    /* العبور إلى داخل القاعة: اقترابٌ ثم ستارٌ يعتم، ثم القاعة من الداخل تنكشف. */
+    const smooth = (u: number) => { const t = THREE.MathUtils.clamp(u, 0, 1); return t * t * (3 - 2 * t); };
+    let veil = 0;
+    if (this.mode === "entering") {
+      const u = (now - this.modeAt) / 720;
+      veil = smooth((u - 0.38) / 0.62);
+      busy = true;
+      if (u >= 1) { this.openInterior(); this.mode = "inside"; this.modeAt = now; veil = 1; }
+    } else if (this.mode === "leaving") {
+      const u = (now - this.modeAt) / 340;
+      veil = smooth(u);
+      busy = true;
+      if (u >= 1) { this.closeInterior(); this.mode = "campus"; this.modeAt = now; veil = 1; }
+    } else if (now - this.modeAt < 520) { veil = 1 - smooth((now - this.modeAt) / 500); busy = true; }
+    this.veil.style.opacity = veil < 0.004 ? "0" : veil.toFixed(3);
+
+    if (this.interior && (this.mode === "inside" || this.mode === "leaving")) {
+      if (this.interior.tick(dt, now, this.W, this.H)) busy = true;
+      this.renderer.render(this.interior.scene, this.interior.camera);
+    } else if (this.split != null) {
+      /* «قبل وبعد»: المشهد نفسه مرتين بالمقصّ — يسار الفاصل «بعد» (الحالة الأساسية)، ويمينه «قبل». */
+      const x = Math.round(this.split * this.W);
+      this.renderer.setScissorTest(true);
+      if (x > 0) { this.renderer.setScissor(0, 0, x, this.H); this.renderer.render(this.scene, this.camera); }
+      if (x < this.W) {
+        for (const rig of this.rooms.values()) if (rig.alt) paint(rig, rig.alt, rig.altLevel, rig.altColor, rig.altWinO, rig.altHaloO, 1, false);
+        this.renderer.setScissor(x, 0, this.W - x, this.H);
+        this.renderer.render(this.scene, this.camera);
+      }
+      this.renderer.setScissorTest(false);
+    } else this.renderer.render(this.scene, this.camera);
     if ((busy || this.drag || this.pinch) && this.visible && !document.hidden) this.raf = requestAnimationFrame(this.frame);
   };
 
@@ -846,6 +1059,9 @@ export class PulseScene {
     for (const f of this.flights) { f.line.geometry.dispose(); (f.line.material as THREE.Material).dispose(); (f.mesh.material as THREE.Material).dispose(); }
     this.flights = [];
     this.clearNeighbour();
+    this.interior?.dispose(); this.interior = null;
+    this.opts.labels.classList.remove("is-inside");
+    this.veil.remove();
     for (const rig of this.rooms.values()) { rig.shell.material.dispose(); rig.fill.material.dispose(); rig.edges.material.dispose(); rig.win.material.dispose(); rig.halo.material.dispose(); rig.tag.remove(); }
     this.clearPath();
     this.rooms.clear();

@@ -141,7 +141,10 @@
     "src/components/hallPulse/HallPulseLazy.tsx",
     "src/components/hallPulse/DeanHallPulseCard.tsx",
     "src/components/hallPulse/pulseScene.ts",
-    "src/utils/movementPaths.ts"
+    "src/utils/movementPaths.ts",
+    "src/utils/hallPulseDay.ts",
+    "src/components/hallPulse/pulseInterior.ts",
+    "src/components/hallPulse/pulseSound.ts"
   ],
   "screens": [
     {
@@ -5705,6 +5708,69 @@
         ],
         "tests": [
           "tests/movement-paths-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-096",
+      "kind": "functional",
+      "title": {
+        "ar": "نبض القاعات: اليوم يمرّ أمامك، وقبل وبعد بسحبة، والقاعة من الداخل",
+        "en": "Hall pulse: the day in thirty seconds, before/after by a drag, and the hall from inside"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يزيد نبض القاعات المجسّم أربعاً للعرض وحده، بلا كتابةٍ جديدة ولا توسيعٍ لمن يراه: (1) «شغّل اليوم» يعرض اليوم المختار كله في ثلاثين ثانية بساعةٍ تنزلق بتخفيفٍ لا بقفزات: الشمس تتحرّك والقاعات تضيء وتخفت، وعدّادٌ حيّ لطلبة القاعات موسومٌ «تقدير»، وخطٌّ زمني نحيل فوق شريط الساعة يرسم منحنى حضور اليوم ويعلّم بالأحمر ما فيه قاعةٌ فوق سعتها ورأسَ التشغيل؛ ويقف العرض وحده عند أشدّ لحظة ضغط (أكبر مجموعٍ لمن هم فوق السعة، ثم أكثر القاعات المضغوطة، ثم الأبكر) بتعليقٍ قصير يقول القاعة والوقت وكم فوق السعة، وزرّي «أكمل» و«رتّب قاعاتي» (الثاني لرئيس لجنة الجدول وحده)؛ ويومٌ بلا قاعةٍ فوق سعتها لا يقف فيه العرض. ومع طلب تقليل الحركة تمشي الساعة خطواتٍ كل نصف ساعة ولا تتحرّك الكاميرا آلياً. (2) نغمةٌ محيطة خافتة اختيارية مع العرض، مركّبة بـWeb Audio وحده بلا ملف صوت، تعلو مع الازدحام وتهدأ مع الفراغ؛ مطفأةٌ افتراضاً، بزرٍّ صغير بجوار «شغّل اليوم» يُحفظ اختياره في المتصفح، ولا تبدأ إلا من ضغطة المستخدم، وتسكت حين يقف العرض أو يُخفى التبويب أو تُغلق الشاشة، وتغيب بصمتٍ حيث لا يتاح الصوت. (3) في مراجعة «رتّب قاعاتي» فاصلٌ عمودي فوق المجسّم يُسحب يميناً ويساراً: يمينه القاعات كما هي الآن ويساره كما تصير بعد النقلات المضمَّنة (لون الملاءمة والمنسوب والنوافذ واللافتات)، مشهدٌ واحد يُرسم مرتين بالمقصّ لا سياق رسمٍ ثانٍ؛ والفاصل منزلقٌ باسمٍ وقيمة تحرّكه الأسهم، ويزول بالخروج من المراجعة، والحفظ من مسار المراجعة المعتاد وحده. (4) الضغط مرتين على قاعة، أو زرّ «ادخل القاعة» في اللوحة الجانبية، ينقل الكاميرا بسلاسة إلى داخلها: مقاعد صفوفاً من سعتها، المشغول منها ملوّن بلون الملاءمة والفارغ هادئ، ومن زاد على السعة يقف عند الباب بالأحمر؛ وتعليقٌ بالمقرر والشعبة والوقت و«نحو N في M» موسوماً «تقدير»، و«اخرج» ومفتاح Escape يعيدان. القاعة التي تزيد على 240 مقعداً تُرسم 240 بالنسبة نفسها ويُقال ذلك، والقاعة بلا سعة مسجّلة لا تُدخل. وكل ذلك في المجسّم وحده: العرض المسطّح (ومن لا يرسم جهازه WebGL) يبقى كما هو بلا فاصلٍ ولا دخول.",
+        "en": "The system shall add four view-only capabilities to the 3D hall pulse, with no new write and without widening who can see it: (1) «Play the day» shows the whole chosen day in thirty seconds with a clock that glides with easing rather than jumps: the sun moves, halls light and dim, a live counter of students in halls labelled «estimate», and a slim timeline above the clock slider drawing the day's attendance curve, marking in red where a hall is over capacity, and the playhead; playback stops by itself at the worst pressure moment (the largest total over capacity, then the most over-capacity halls, then the earliest) with a short caption stating the hall, the time and how many are over, and two actions, «Continue» and «Arrange my halls» (the latter for the schedule committee chair only); on a day with no hall over capacity playback does not stop. With reduced motion requested the clock steps every half hour and the camera does not move by itself. (2) An optional soft ambient tone during playback, synthesised with Web Audio only and no audio file, rising with crowding and calming with emptiness; off by default, with a small toggle beside «Play the day» whose choice is remembered in the browser; it never starts without the user's click, stops when playback stops, when the tab is hidden and when the screen closes, and is silently absent where audio is unavailable. (3) In the «Arrange my halls» review a vertical divider over the 3D scene is dragged left and right: to its right the halls as they are now and to its left as they would be after the included moves (fit colour, level, windows and labels) — one scene drawn twice with a scissor, not a second rendering context; the divider is a slider with a name and a value moved by the arrow keys, it disappears on leaving the review, and saving goes only through the usual review path. (4) Double-clicking a hall, or the «Enter the hall» button in the side panel, moves the camera smoothly inside it: seats in rows from its capacity, occupied ones coloured with the fit colour and empty ones quiet, and those beyond capacity standing at the door in red; a caption with the course, section, time and «about N in M» labelled «estimate», and «Exit» and the Escape key return. A hall of more than 240 seats is drawn as 240 in the same proportion and says so, and a hall with no registered capacity cannot be entered. All of this is in the 3D view only: the flat view (and devices that cannot draw WebGL) stays as it is with no divider and no entering."
+      },
+      "rationale": {
+        "ar": "الضغط يُفهم بالنظر لا بالأرقام: يومٌ يُرى في نصف دقيقة، وخطةٌ تُقارَن بسحبة، وقاعةٌ يُرى من يقف عند بابها.",
+        "en": "Pressure is understood by looking, not by numbers: a day seen in half a minute, a plan compared with one drag, and a hall where you can see who stands at its door."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "في يومٍ فيه قاعةٌ سعتها 30 وشعبتها 41 من 10:00: أشدّ لحظة 10:00 وقاعتها تلك وتعليقها «11 فوق السعة»؛ ومقطعا العرض مجموعهما 30 ثانية يصل أولهما إلى 10:00 بالضبط، والساعة لا ترجع ولا تقفز أكثر من دقيقةٍ وبعض الدقيقة في الإطار؛ ويومٌ بلا قاعةٍ فوق سعتها مقطعٌ واحد لا يقف.",
+          "en": "On a day with a hall of 30 seats whose section has 41 from 10:00: the worst moment is 10:00 at that hall with the caption «11 over capacity»; the two playback legs total 30 seconds and the first arrives exactly at 10:00, and the clock never goes back nor jumps more than about a minute per frame; a day with no hall over capacity is one leg that does not stop."
+        },
+        {
+          "ar": "النغمة مطفأةٌ عند أول فتح، ولا تبدأ إلا من ضغطة (تشغيل العرض أو «أكمل» أو زرّها)، ومستواها 1 عند ذروة اليوم و0 في الساعة الفارغة؛ ولا ملف صوت في الحزمة.",
+          "en": "The tone is off on first open and starts only from a click (starting playback, «Continue» or its toggle); its level is 1 at the day's peak and 0 in an empty hour; no audio file is shipped."
+        },
+        {
+          "ar": "على جانبي الفاصل: القاعة المضغوطة حمراء يميناً، وشعبتها في قاعةٍ تتّسع لها يساراً، وما لم تمسّه الخطة متطابق؛ واستبعاد النقلات كلها يجعل الجانبين متطابقين؛ والأسهم تحرّك الفاصل، و«إلغاء» أو الحفظ يزيله.",
+          "en": "On either side of the divider: the over-capacity hall is red on the right and its section sits in a hall that fits on the left, and what the plan does not touch is identical; excluding every move makes both sides identical; the arrow keys move the divider, and «Cancel» or saving removes it."
+        },
+        {
+          "ar": "داخل قاعةٍ سعتها 30 وشعبتها 41: ثلاثون مقعداً مشغولاً و11 واقفاً خلف الصف الأخير عند الباب؛ و18 في 40 ثمانية عشر مقعداً ملوّناً ولا واقف؛ وقاعة 600 تُرسم 240 مقعداً بالنسبة نفسها؛ ولا مقعدان في الموضع نفسه.",
+          "en": "Inside a hall of 30 seats with a section of 41: thirty occupied seats and 11 standing behind the last row at the door; 18 in 40 gives eighteen coloured seats and no one standing; a hall of 600 is drawn as 240 seats in the same proportion; no two seats share a position."
+        },
+        {
+          "ar": "لا مسار خادمٍ جديد ولا كتابة: الحفظ ما زال عبر /api/schedules/move-batch بعد المراجعة لرئيس لجنة الجدول وحده، ولا يظهر شيءٌ من ذلك للأساتذة.",
+          "en": "No new server route and no write: saving still goes through /api/schedules/move-batch after the review for the schedule committee chair only, and none of this is shown to instructors."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/hallPulseDay.ts#pressureCurve",
+          "src/utils/hallPulseDay.ts#worstMoment",
+          "src/utils/hallPulseDay.ts#cinemaLegs",
+          "src/utils/hallPulseDay.ts#beforeAfter",
+          "src/utils/hallPulseDay.ts#seatLayout",
+          "src/utils/hallPulseDay.ts#soundLevels",
+          "src/components/hallPulse/HallPulse.tsx",
+          "src/components/hallPulse/pulseScene.ts",
+          "src/components/hallPulse/pulseInterior.ts",
+          "src/components/hallPulse/pulseSound.ts"
+        ],
+        "tests": [
+          "tests/hall-pulse-audit.ts"
         ]
       },
       "inferred": false

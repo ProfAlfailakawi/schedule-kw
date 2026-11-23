@@ -13,6 +13,10 @@ import {
   applyPlan, borrowCandidates, buildPulseModel, busiestMinute, compatible, occupantsAt, slotStats, doubleBookings, fitClass, floorOf, hallFreeFor, layoutHalls, metrics, originalAssignment,
   planDay, planMoves, suggestHalls, toggleGroup, weeklyHeat, PULSE_DAYS, type PulseDay,
 } from "../src/utils/hallPulse";
+import {
+  beforeAfter, cinemaLegs, cinemaMinute, cinemaSteps, glide, hallStatesAt, peakMoment, pressureAt, pressureCurve, seatLayout, soundLevels, worstMoment,
+  CINEMA_SECONDS, SEAT_DRAW_MAX, STAND_DRAW_MAX,
+} from "../src/utils/hallPulseDay";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -237,6 +241,90 @@ check(ys.size >= 3, "الطوابق المختلفة على ارتفاعات م�
 const positions = [...L.spots.values()].map(s => `${s.x.toFixed(2)}|${s.y.toFixed(2)}|${s.z.toFixed(2)}`);
 check(new Set(positions).size === positions.length, "لا قاعتان في الموضع نفسه");
 
+/* ── الجولة الثالثة: اليوم يمرّ أمامك ── */
+{
+  const curve = pressureCurve(model, base, "fsunday");
+  check(curve.length === (model.dayEnd - model.dayStart) / 5 && curve[0].minute === model.dayStart, "منحنى اليوم: نقطةٌ كل خمس دقائق من أول اليوم إلى آخره");
+  const at = pressureAt(model, base, "fsunday", 10 * 60 + 5);
+  check(at.students === 41 + 18 + 36 + 38 + 36 + 20 && at.busy === 6, `الأحد 10:05: نحو ${at.students} طالباً في 6 قاعات (مجموع سعات المقررات)`);
+  check(at.over === 11 && at.pressed === 1, "ومن فوق السعة 11 (41 في 30) في قاعةٍ واحدة");
+  check(pressureAt(model, base, "fsunday", 9 * 60).students === 0 && pressureAt(model, base, "fsunday", 9 * 60).over === 0, "وساعةٌ بلا محاضرات: لا طلبة ولا ضغط");
+  const worst = worstMoment(model, base, "fsunday", curve)!;
+  check(worst.minute === 10 * 60 && worst.hallKey === "id:r104", "أشدّ لحظة: أول دقيقةٍ يبلغ فيها التجاوز أقصاه (10:00) وقاعتها 104");
+  check(worst.students === 41 && worst.capacity === 30 && worst.over === 11 && worst.totalOver === 11 && worst.pressed === 1, "وتعليقها: 41 في 30، 11 فوق السعة");
+  check(worstMoment(model, base, "fmonday") === null && worstMoment(model, base, "fwednesday") === null, "يومٌ بلا قاعةٍ فوق سعتها (أو بلا محاضرات): لا لحظة تُخترع، فلا يقف العرض");
+  const peak = peakMoment(curve)!;
+  check(peak.minute === 10 * 60 && peak.students === at.students, "ذروة الحضور أبكر لحظةٍ بأكثر الطلبة");
+  check(peakMoment(pressureCurve(model, base, "fwednesday")) === null, "ويومٌ بلا محاضرات: لا ذروة");
+  /* بعد الخطة يزول الضغط من المنحنى نفسه. */
+  const planned = applyPlan(base, planDay(model, base, "fsunday"));
+  check(worstMoment(model, planned, "fsunday") === null && pressureAt(model, planned, "fsunday", 605).students === at.students, "بعد «رتّب قاعاتي»: الطلبة أنفسهم ولا أحد فوق السعة");
+
+  /* توقيت العرض: ثلاثون ثانية، يقف عند أشدّ لحظة، بتخفيفٍ لا بقفزات. */
+  const legs = cinemaLegs(model.dayStart, model.dayEnd, worst.minute);
+  check(legs.length === 2 && legs[0].from === model.dayStart && legs[0].to === worst.minute && legs[1].from === worst.minute && legs[1].to === model.dayEnd - 5, "العرض مقطعان: إلى أشدّ لحظة ثم منها إلى آخر اليوم");
+  check(Math.abs(legs[0].seconds + legs[1].seconds - CINEMA_SECONDS) < 1e-9 && CINEMA_SECONDS === 30 && legs.every(l => l.seconds >= 3), "ومجموعهما ثلاثون ثانية، ولا مقطع أقصر من ثلاث ثوانٍ");
+  const whole = cinemaLegs(model.dayStart, model.dayEnd, null);
+  check(whole.length === 1 && whole[0].seconds === 30, "وبلا لحظة ضغط: مقطعٌ واحد لا يقف");
+  check(cinemaMinute(legs[0], 0) === legs[0].from && Math.abs(cinemaMinute(legs[0], legs[0].seconds) - worst.minute) < 1e-9, "المقطع يبدأ من أوله ويصل إلى أشدّ لحظة بالضبط");
+  let mono = true, maxJump = 0, prev = legs[1].from;
+  for (let t = 0; t <= legs[1].seconds + 1e-9; t += 1 / 60) { const m = cinemaMinute(legs[1], t); if (m < prev - 1e-9) mono = false; maxJump = Math.max(maxJump, m - prev); prev = m; }
+  check(mono && maxJump < 1.2, `الساعة لا ترجع ولا تقفز: أكبر خطوةٍ في الإطار ${maxJump.toFixed(2)} دقيقة`);
+  const v = (u: number) => (glide(u + 0.001) - glide(u)) / 0.001;
+  check(v(0) < 0.3 && v(0.998) < 0.3 && v(0.5) > 1.5 && glide(0) === 0 && Math.abs(glide(1) - 1) < 1e-9, "تخفيف: هادئ في البداية وعند الوصول، وأسرع في الوسط");
+  const steps = cinemaSteps(model.dayStart, model.dayEnd, 10 * 60 + 10);
+  check(steps.includes(10 * 60 + 10) && steps[0] === model.dayStart && steps.every((m, i) => i === 0 || m > steps[i - 1]) && steps[steps.length - 1] <= model.dayEnd - 5, "تقليل الحركة: خطواتٌ متصاعدة كل نصف ساعة، وأشدّ لحظةٍ خطوةٌ منها بعينها");
+
+  /* النغمة: تعلو مع الازدحام وتهدأ مع الفراغ، والتوتّر من التجاوز. */
+  const loud = soundLevels(at, peak.students), quiet = soundLevels(pressureAt(model, base, "fsunday", 9 * 60), peak.students);
+  check(loud.crowd === 1 && quiet.crowd === 0 && quiet.tension === 0 && loud.tension > 0 && loud.tension <= 1, "النغمة: ازدحام 1 عند الذروة و0 في الفراغ، وتوتّرٌ حين تفيض قاعة");
+  check(soundLevels({ students: 50, over: 0 }, 0).crowd === 0 && soundLevels({ students: 10, over: 0 }, 100).tension === 0, "ولا قسمة على صفر، ولا توتّر بلا تجاوز");
+}
+
+/* ── الجولة الثالثة: قبل وبعد ── */
+{
+  const plan = planDay(model, base, "fsunday");
+  const ba = beforeAfter(model, base, plan, "fsunday", 10 * 60 + 5);
+  check(ba.before.get("id:r104")!.fit === "pressed" && ba.before.get("id:r104")!.level > 1, "قبل: 104 مضغوطة ومنسوبها فوق 1");
+  const movedTo = applyPlan(base, plan).get(model.sessions.find(x => x.hallKey === "id:r104")!.id)!;
+  check(movedTo !== "id:r104" && ba.after.get(movedTo)!.fit !== "pressed" && ba.after.get(movedTo)!.students === 41, "بعد: شعبة 104 في قاعةٍ تتّسع لها");
+  check(ba.changed.has("id:r104") && ba.changed.has(movedTo), "والقاعتان اللتان تغيّرت شعبتاهما موسومتان");
+  const untouched = [...ba.before.keys()].filter(k => !ba.changed.has(k));
+  check(untouched.length > 0 && untouched.every(k => ba.before.get(k)!.sessionId === ba.after.get(k)!.sessionId && ba.before.get(k)!.fit === ba.after.get(k)!.fit), "وما لم تمسّه الخطة متطابقٌ على الجانبين");
+  const same = beforeAfter(model, base, null, "fsunday", 605);
+  check(same.changed.size === 0, "بلا خطة: لا فرق بين الجانبين");
+  const off = planDay(model, base, "fsunday"); off.groups.forEach(g => toggleGroup(off, g.id, false));
+  check(beforeAfter(model, base, off, "fsunday", 605).changed.size === 0, "والنقلات المستبعدة كلها لا تغيّر «بعد»");
+  const quietStates = hallStatesAt(model, base, "fsunday", 9 * 60);
+  check([...quietStates.values()].every(st => st.fit === "empty" && st.level === 0 && st.sessionId === null), "ساعةٌ فارغة: كل القاعات فارغة على الجانبين");
+}
+
+/* ── الجولة الثالثة: القاعة من الداخل ── */
+{
+  const L = seatLayout(30, 41)!;
+  check(L.drawn === 30 && L.seats.length === 30 && !L.capped && L.occupied === 30, "30 مقعداً لقاعةٍ سعتها 30، وكلها مشغولة");
+  check(L.standingReal === 11 && L.standing === 11 && L.stand.length === 11, "ومن زاد على السعة (11) يقف عند الباب");
+  check(L.rows * L.cols >= 30 && L.rows >= 2 && L.cols > L.rows, "المقاعد صفوفٌ أعرض من عمقها");
+  const spots = new Set(L.seats.map(st => `${st.x.toFixed(2)}|${st.z.toFixed(2)}`));
+  check(spots.size === 30, "لا مقعدان في الموضع نفسه");
+  check(L.seats.every(st => Math.abs(st.x) <= L.width / 2 && st.z >= 0 && st.z <= L.depth) && L.seats.some(st => st.x < 0) && L.seats.some(st => st.x > 0), "والمقاعد داخل حدود القاعة على جانبي الممرّ");
+  check(L.stand.every(p => p.z > Math.max(...L.seats.map(st => st.z)) + 0.5 && Math.abs(p.x) <= L.width / 2 + 0.5), "الواقفون خلف الصف الأخير وداخل عرض القاعة، لا بين المقاعد");
+  check(new Set(L.order).size === 30 && L.order.every(i => i >= 0 && i < 30), "ترتيب الجلوس تبديلٌ كامل للمقاعد");
+  const again = seatLayout(30, 41)!;
+  check(again.order.join() === L.order.join(), "والترتيب ثابت بين رسمٍ ورسم");
+  const half = seatLayout(40, 18)!;
+  check(half.occupied === 18 && half.standing === 0 && half.standingReal === 0 && half.drawn === 40, "18 في 40: ثمانية عشر مقعداً ملوّناً والباقي هادئ ولا أحد واقف");
+  const empty = seatLayout(40, 0)!;
+  check(empty.occupied === 0 && empty.standing === 0, "قاعةٌ فارغة: مقاعد بلا طلبة");
+  check(seatLayout(null, 20) === null && seatLayout(0, 20) === null, "سعةٌ غير مسجّلة: لا مقاعد تُخترع");
+  const big = seatLayout(600, 450)!;
+  check(big.capped && big.drawn === SEAT_DRAW_MAX && big.seats.length === SEAT_DRAW_MAX && big.capacity === 600, `القاعة الكبيرة تُرسم ${SEAT_DRAW_MAX} مقعداً ويُقال ذلك`);
+  check(big.occupied === Math.round((450 / 600) * SEAT_DRAW_MAX), "والمشغول منها بالنسبة نفسها (ثلاثة أرباع)");
+  const flood = seatLayout(20, 200)!;
+  check(flood.standingReal === 180 && flood.standing <= STAND_DRAW_MAX && flood.standing < flood.standingReal && flood.stand.length === flood.standing, "والواقفون يُرسمون بحدٍّ ويبقى عددهم الحقيقي في التعليق");
+  check(seatLayout(1, 1)!.seats.length === 1 && seatLayout(2, 5)!.standingReal === 3, "قاعاتٌ صغيرة جداً لا تكسر التخطيط");
+}
+
 /* ── التوصيل ── */
 const read = (p: string) => fs.readFileSync(path.join(process.cwd(), p), "utf8");
 const lazy = read("src/components/hallPulse/HallPulseLazy.tsx");
@@ -264,6 +352,27 @@ check(/roleId==="dean"\|\|roleId==="viceDean"/.test(dashboard), "لوحة الع
 check(/context === "workshop"/.test(pulse), "لا حفظ خارج الورشة ولو مُرّر onSaveMoves");
 check(/\/api\/hall-barter\/requests/.test(pulse) && /\/api\/hall-barter\?/.test(pulse), "الاستعارة عبر طلب استعارة القاعات الموجود");
 check(/تقدير/.test(pulse), "عدد الطلبة موسومٌ بأنه تقدير");
+/* الجولة الثالثة: التوصيل */
+{
+  const interior = read("src/components/hallPulse/pulseInterior.ts");
+  const sound = read("src/components/hallPulse/pulseSound.ts");
+  const css = read("src/components/hallPulse/hallPulse.css");
+  check(/setScissorTest\(true\)/.test(scene) && (scene.match(/new THREE\.WebGLRenderer/g) || []).length === 1 && !/WebGLRenderer/.test(interior), "«قبل وبعد» والقاعة من الداخل بالراسم نفسه (مقصّ)، لا سياق WebGL ثانٍ");
+  check(/role="slider"/.test(pulse) && /aria-valuenow=/.test(pulse) && /ArrowLeft/.test(pulse) && /ArrowRight/.test(pulse) && /aria-label="فاصل قبل وبعد/.test(pulse), "الفاصل منزلقٌ باسمٍ وقيمة، والأسهم تحرّكه");
+  check(/setCompare\(comparing \? beforeVisuals : null/.test(pulse) && /const compare = useMemo\(\(\) => \(plan && day !== "week"/.test(pulse), "الفاصل يظهر مع المراجعة ويزول بزوالها");
+  check(!/fetch\(/.test(read("src/utils/hallPulseDay.ts")) && !/fetch\(/.test(interior) && !/fetch\(/.test(sound) && (pulse.match(/method: "POST"/g) || []).length === 1, "لا كتابة جديدة: الطلب الوحيد المرسَل ما زال طلب الاستعارة الموجود");
+  check(/InstancedMesh/.test(interior) && /dispose\(\)/.test(interior) && /this\.interior\?\.dispose\(\)/.test(scene), "مقاعد القاعة وطلبتها InstancedMesh، وتُفرَغ عند الخروج");
+  check(/e\.key === "Escape"/.test(pulse) && /اخرج/.test(pulse) && /ادخل القاعة/.test(pulse), "«ادخل القاعة» زرٌّ ظاهر، و«اخرج» ومفتاح Escape يعيدان");
+  check(/readSoundChoice/.test(pulse) && /getItem\(KEY\) === "1"/.test(sound) && /try \{[^}]*localStorage/.test(sound), "النغمة مطفأةٌ افتراضاً، واختيارها محفوظٌ بحمايةٍ من التصفّح الخاص");
+  check(!/new Audio\(|<audio|\.mp3|\.wav|\.ogg/.test(sound + pulse) && /createOscillator/.test(sound), "النغمة مركّبة بـWeb Audio وحده: لا ملف صوت");
+  check(/webkitAudioContext/.test(sound) && /catch \{ this\.silence\(\); return false; \}/.test(sound) && /canSound && mode === "halls"/.test(pulse), "وحيث لا AudioContext: لا زرّ ولا خطأ");
+  check(/visibilitychange/.test(pulse) && /if \(cine !== "run"\) soundRef\.current\?\.stop\(\)/.test(pulse) && /soundRef\.current\?\.dispose\(\)/.test(pulse), "النغمة تسكت حين يقف العرض أو يُخفى التبويب أو تُغلق الشاشة");
+  const starts = pulse.match(/soundRef\.current\.start\(\)/g) || [];
+  check(starts.length === 3 && !/useEffect\([^]*?soundRef\.current\.start\(\)[^]*?\}, \[/.test(pulse.slice(pulse.indexOf("const toggleSound"))), "ولا تبدأ إلا من ضغطة المستخدم (تشغيل العرض، أكمل، زرّ النغمة)");
+  check(/if \(reduced\) \{[\s\S]{0,200}setInterval/.test(pulse) && /if \(!this\.cineFree && !this\.opts\.reduced/.test(scene), "تقليل الحركة: خطواتٌ بدل الانزلاق، ولا حركة كاميرا آلية");
+  check(/canSave \? <button[^>]*onClick=\{arrange\}/.test(pulse), "«رتّب قاعاتي» في تعليق أشدّ لحظة لرئيس اللجنة وحده");
+  check(/@media \(prefers-reduced-motion:reduce\)\{\s*\.hp-hud,\.hp-caption,\.hp-exit,\.hp-split\{animation:none\}/.test(css), "وحركات الواجهة الجديدة تتوقف مع تقليل الحركة");
+}
 const reportsRoutes = read("src/server/routes/reportsRoutes.ts");
 const barterRoutes = read("src/server/routes/hallBarterRoutes.ts");
 const roomLoadRoute = reportsRoutes.slice(reportsRoutes.indexOf('app.get("/api/reports/room-load"'));

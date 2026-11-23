@@ -18,7 +18,12 @@ import {
   type PulseRegistryInput, type PulseRowInput, type PulseSession,
 } from "../../utils/hallPulse";
 import { AR, countOf, type ArabicNoun } from "../../utils/arabicCount";
-import type { HallVisual, PulseScene as PulseSceneType } from "./pulseScene";
+import type { HallVisual, InteriorData, PulseScene as PulseSceneType } from "./pulseScene";
+import {
+  beforeAfter, cinemaLegs, cinemaMinute, cinemaSteps, peakMoment, pressureAt, pressureCurve, seatLayout, soundLevels, worstMoment,
+  type CinemaLeg, type HallState, type PressurePoint,
+} from "../../utils/hallPulseDay";
+import { PulseSound, readSoundChoice, soundAvailable, writeSoundChoice } from "./pulseSound";
 import { HOP_FLAG_LABEL, HOP_KIND_LABEL, buildPaths, markerAt, nearerHalls, rankHops, type CohortInput, type Hop, type MovePath } from "../../utils/movementPaths";
 import { loadPlanFacts } from "../../utils/planFactsCache";
 
@@ -187,6 +192,16 @@ export default function HallPulse(props: HallPulseProps) {
   const [nearFor, setNearFor] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [exploded, setExploded] = useState(false);
+  /* «اليوم يمرّ أمامك»: off لا عرض، run يجري، worst واقفٌ عند أشدّ لحظة، end انتهى اليوم. */
+  const [cine, setCine] = useState<"off" | "run" | "worst" | "end">("off");
+  const cineRef = useRef<{ legs: CinemaLeg[]; leg: number; t0: number; steps: number[]; idx: number; stop: number | null } | null>(null);
+  const [soundOn, setSoundOn] = useState(readSoundChoice);
+  const soundRef = useRef<PulseSound | null>(null);
+  const canSound = useMemo(soundAvailable, []);
+  /* «قبل وبعد بسحبة»: موضع الفاصل من يسار المشهد؛ يساره «بعد الترتيب» ويمينه «الآن». */
+  const [split, setSplit] = useState(0.5);
+  /* «القاعة من الداخل». */
+  const [insideKey, setInsideKey] = useState<string | null>(null);
   const viewDay: PulseDay = day === "week" ? defaults.day : day;
   /* مسارات التنقّل لرئيس اللجنة ورئيس القسم (الورشة) وللعميد وحدهم؛ لا تظهر في عدسة التقارير. */
   const pathsAllowed = context === "workshop" || context === "dean";
@@ -230,6 +245,90 @@ export default function HallPulse(props: HallPulseProps) {
     return () => cancelAnimationFrame(raf);
   }, [playing, model.dayStart, model.dayEnd]);
   const minuteShown = Math.floor(minute / 5) * 5;
+
+  /* ── «اليوم يمرّ أمامك»: منحنى الضغط، وأشدّ لحظة، وعرضٌ من ثلاثين ثانية يقف عندها ── */
+  const curve: PressurePoint[] = useMemo(() => (day === "week" ? [] : pressureCurve(model, assignment, viewDay)), [model, assignment, viewDay, day]);
+  const worst = useMemo(() => (day === "week" ? null : worstMoment(model, assignment, viewDay, curve)), [model, assignment, viewDay, day, curve]);
+  const peak = useMemo(() => peakMoment(curve), [curve]);
+  const nowPoint = useMemo(() => (day === "week" ? null : pressureAt(model, assignment, viewDay, minute)), [model, assignment, viewDay, minute, day]);
+  const startCinema = () => {
+    if (day === "week") return;
+    setPlaying(false); setPending(null); setFreeGlow(false); setInsideKey(null); setSelected(null); setWalk(0);
+    cineRef.current = {
+      legs: cinemaLegs(model.dayStart, model.dayEnd, worst ? worst.minute : null), leg: 0, t0: performance.now(),
+      steps: cinemaSteps(model.dayStart, model.dayEnd, worst ? worst.minute : null), idx: 0, stop: worst ? worst.minute : null,
+    };
+    setMinute(model.dayStart);
+    setCine("run");
+    if (soundOn) { soundRef.current = soundRef.current || new PulseSound(); soundRef.current.start(); }
+    announce("اليوم يمرّ أمامك في ثلاثين ثانية: الشمس تتحرّك، والقاعات تضيء وتخفت، والعرض يقف عند أشدّ لحظة ضغط.");
+  };
+  const continueCinema = () => {
+    const st = cineRef.current;
+    if (!st) return;
+    st.leg = Math.min(st.legs.length - 1, 1); st.t0 = performance.now(); st.stop = null;
+    setSelected(null);
+    setCine("run");
+    if (soundOn) { soundRef.current = soundRef.current || new PulseSound(); soundRef.current.start(); }
+  };
+  const closeCinema = () => {
+    setCine("off");
+    /* لا يُترك القارئ على آخر اليوم الفارغ: يعود إلى أشدّ لحظة أو ذروة الحضور. */
+    const back = worst ? worst.minute : peak ? peak.minute : null;
+    if (back != null) setMinute(back + 5);
+  };
+  useEffect(() => {
+    if (cine !== "run") return;
+    const st = cineRef.current;
+    if (!st) { setCine("off"); return; }
+    const arrive = (m: number) => {
+      setMinute(m);
+      if (st.stop != null && Math.abs(m - st.stop) < 0.01) { setCine("worst"); return true; }
+      if (m >= model.dayEnd - 5 - 0.01) { setCine("end"); return true; }
+      return false;
+    };
+    if (reduced) {
+      /* تقليل الحركة: خطواتٌ لا انزلاق، ولا حركة كاميرا. */
+      const timer = window.setInterval(() => {
+        st.idx = Math.min(st.steps.length - 1, st.idx + 1);
+        if (arrive(st.steps[st.idx])) window.clearInterval(timer);
+      }, 800);
+      return () => window.clearInterval(timer);
+    }
+    let raf = 0;
+    const span = Math.max(1, model.dayEnd - 5 - model.dayStart);
+    const step = (now: number) => {
+      const leg = st.legs[st.leg];
+      const elapsed = (now - st.t0) / 1000;
+      const done = elapsed >= leg.seconds;
+      const m = done ? leg.to : cinemaMinute(leg, elapsed);
+      sceneRef.current?.cinema((m - model.dayStart) / span);
+      if (done) { arrive(leg.to); return; }
+      setMinute(m);
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cine, reduced, model.dayStart, model.dayEnd]);
+  /* النغمة: تجري مع العرض وحده، وتعلو مع الازدحام؛ تسكت حين يقف أو يُخفى التبويب أو تُغلق الشاشة. */
+  useEffect(() => { if (cine !== "run") soundRef.current?.stop(); }, [cine]);
+  useEffect(() => {
+    if (cine !== "run" || !nowPoint) return;
+    const lv = soundLevels(nowPoint, peak ? peak.students : 0);
+    soundRef.current?.set(lv.crowd, lv.tension);
+  }, [cine, nowPoint, peak]);
+  useEffect(() => {
+    const onHide = () => { if (document.hidden) { soundRef.current?.stop(); setPlaying(false); setCine(c => (c === "run" ? "off" : c)); } };
+    document.addEventListener("visibilitychange", onHide);
+    return () => { document.removeEventListener("visibilitychange", onHide); soundRef.current?.dispose(); soundRef.current = null; };
+  }, []);
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next); writeSoundChoice(next);
+    if (!next) soundRef.current?.stop();
+    else if (cine === "run") { soundRef.current = soundRef.current || new PulseSound(); soundRef.current.start(); }
+  };
 
   /* ── الألوان للمشهد ── */
   const glowKeys = useMemo(() => {
@@ -281,6 +380,10 @@ export default function HallPulse(props: HallPulseProps) {
   useEffect(() => {
     if (mode === "paths" && activePath) sceneRef.current?.setMarker(markerAt(activePath, minute));
   }, [mode, activePath, minute, sceneReady]);
+  const compare = useMemo(() => (plan && day !== "week" ? beforeAfter(model, original, plan, viewDay, minute) : null),
+    // planRev: تبديل نقلة داخل الخطة نفسها.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [plan, planRev, day, model, original, viewDay, minute]);
   const visuals = useMemo(() => {
     const out = new Map<string, HallVisual>();
     const order = new Map<string, number[]>();
@@ -308,6 +411,7 @@ export default function HallPulse(props: HallPulseProps) {
         });
       }
     }
+    if (compare) for (const key of compare.changed) { const v = out.get(key); if (v) out.set(key, { ...v, showLabel: true }); }
     if (activePath && mode === "paths") {
       for (const [key, v] of out) {
         const nums = order.get(key);
@@ -316,13 +420,21 @@ export default function HallPulse(props: HallPulseProps) {
       }
     }
     return out;
-  }, [model, occ, day, heat, viewDay, minuteShown, glowKeys, pending, manyHalls, freeGlow, activePath, mode]);
+  }, [model, occ, day, heat, viewDay, minuteShown, glowKeys, pending, manyHalls, freeGlow, activePath, mode, compare]);
+  /* القاعات كما هي الآن (قبل الخطة): تُرسم يمين الفاصل بألوان الملاءمة والنوافذ واللافتات نفسها. */
+  const beforeVisuals = useMemo(() => {
+    if (!compare) return null;
+    const out = new Map<string, HallVisual>();
+    for (const h of model.halls) out.set(h.key, visualOfState(h, compare.before.get(h.key)!, !manyHalls || compare.changed.has(h.key)));
+    return out;
+  }, [compare, model, manyHalls]);
 
   /* ── المشهد ── */
   const viewRef = useRef<HTMLDivElement>(null);
   const labelsRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<PulseSceneType | null>(null);
   const pickRef = useRef<(key: string | null, nb: boolean) => void>(() => undefined);
+  const enterRef = useRef<(key: string) => void>(() => undefined);
   const hasHalls = model.halls.length > 0;
   useEffect(() => {
     if (flat || !hasHalls || !viewRef.current || !labelsRef.current) return;
@@ -339,6 +451,7 @@ export default function HallPulse(props: HallPulseProps) {
         scene = new PulseScene({
           canvas, host: viewRef.current, labels: labelsRef.current, layout, reduced, topDown: narrow, ambient: !narrow,
           onPick: (key, nb) => pickRef.current(key, nb), onHover: setHovered,
+          onEnter: key => enterRef.current(key), onLeave: () => setInsideKey(null),
         });
         sceneRef.current = scene;
         setSceneReady(true);
@@ -354,6 +467,70 @@ export default function HallPulse(props: HallPulseProps) {
     };
   }, [flat, hasHalls, layout, reduced, narrow]);
   useEffect(() => { sceneRef.current?.setVisuals(visuals, selected); }, [visuals, selected, sceneReady]);
+  const splitRef = useRef(split);
+  splitRef.current = split;
+  /* «قبل وبعد»: الفاصل يظهر مع المراجعة ويزول بزوالها؛ لا كتابة جديدة. */
+  const comparing = Boolean(beforeVisuals) && !flat && !insideKey;
+  useEffect(() => { sceneRef.current?.setCompare(comparing ? beforeVisuals : null, splitRef.current); }, [comparing, beforeVisuals, sceneReady]);
+  useEffect(() => { sceneRef.current?.setSplit(split); }, [split, sceneReady]);
+  const hasPlan = Boolean(plan);
+  useEffect(() => {
+    if (!hasPlan) return;
+    /* الفاصل يدخل من اليمين كاشفاً «بعد الترتيب» حتى المنتصف. */
+    if (reduced) { setSplit(0.5); return; }
+    let raf = 0; const t0 = performance.now();
+    const step = (now: number) => {
+      const u = Math.min(1, (now - t0) / 1100), e = 1 - Math.pow(1 - u, 3);
+      setSplit(0.04 + 0.46 * e);
+      if (u < 1) raf = requestAnimationFrame(step);
+    };
+    setSplit(0.04);
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [hasPlan, reduced]);
+  /* العرض والكاميرا: تعود إلى المنظر الكامل حين ينتهي، وتقترب من القاعة عند أشدّ لحظة. */
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (cine === "off" || cine === "end") { scene.cinema(null); scene.spotlight(null); }
+    else if (cine === "run") scene.spotlight(null);
+    else if (cine === "worst" && worst) scene.spotlight(worst.hallKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cine, sceneReady]);
+  useEffect(() => {
+    if (cine !== "worst" || !worst) return;
+    setSelected(worst.hallKey);
+    const h = model.hallByKey.get(worst.hallKey);
+    if (h) setSay(`أشدّ لحظة في ${PULSE_DAYS.find(x => x.key === viewDay)!.label}: ${clockText(worst.minute)}، ${h.lab ? h.code : `قاعة ${h.code}`} فيها نحو ${countOf(worst.students, AR.student)} في ${countOf(worst.capacity, AR.seat)}.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cine]);
+  /* القاعة من الداخل: مقاعدها من سعتها، ومن يجلس ومن يقف من شعبتها في هذه اللحظة. */
+  const insideHall = insideKey ? model.hallByKey.get(insideKey) || null : null;
+  const insideSession = insideKey ? occ.get(insideKey) || null : null;
+  const insideLayout = useMemo(() => seatLayout(insideHall?.capacity, insideSession?.students || 0), [insideHall?.capacity, insideSession?.students]);
+  const insideData: InteriorData | null = useMemo(() => {
+    if (!insideHall || !insideLayout) return null;
+    const cls = insideSession ? fitClass(insideSession.students, insideHall.capacity) : null;
+    return {
+      layout: insideLayout, color: cls ? FIT_HEX[cls] : 0x7fb3a3,
+      standTag: insideLayout.standingReal ? `${FIT_GLYPH.pressed} ${countOf(insideLayout.standingReal, AR.student)} بلا مقعد` : "",
+      sun: (minute - model.dayStart) / Math.max(1, model.dayEnd - model.dayStart),
+    };
+  }, [insideHall, insideLayout, insideSession, minute, model.dayStart, model.dayEnd]);
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (insideKey && insideData) scene.enter(insideKey, insideData); else scene.leave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insideKey, sceneReady]);
+  useEffect(() => { if (insideKey && insideData) sceneRef.current?.setInterior(insideData); }, [insideKey, insideData]);
+  useEffect(() => { if (insideKey && (flat || selected !== insideKey || !model.hallByKey.get(insideKey)?.capacity)) setInsideKey(null); }, [insideKey, flat, selected, model]);
+  useEffect(() => {
+    if (!insideKey) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); setInsideKey(null); } };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [insideKey]);
   useEffect(() => { sceneRef.current?.setTimeOfDay(day === "week" ? (model.dayStart + model.dayEnd) / 2 : minute, model.dayStart, model.dayEnd); }, [minute, day, model.dayStart, model.dayEnd, sceneReady]);
   /* القاعة المختارة في طابقٍ تحته طوابق: تنفرج الطوابق فوقها لتُرى. */
   useEffect(() => {
@@ -397,7 +574,7 @@ export default function HallPulse(props: HallPulseProps) {
 
   /* ── أفعال ── */
   const announce = (text: string) => setSay(text);
-  const stopPlay = () => setPlaying(false);
+  const stopPlay = () => { setPlaying(false); setCine("off"); };
   const hallTitle = (h: PulseHall) => (h.lab ? h.code : `قاعة ${h.code}`);
   const sessionLine = (s: PulseSession) => [s.courseName, s.sectionCode ? `ش ${s.sectionCode}` : ""].filter(Boolean).join(" · ");
 
@@ -432,6 +609,21 @@ export default function HallPulse(props: HallPulseProps) {
       setBorrow({ sessionId: session.id, stage: "error", options: [], others: [], error: String(error?.message || error) });
     }
   }, [collegeId, sectionId, termId, model]);
+
+  enterRef.current = key => {
+    const h = model.hallByKey.get(key);
+    if (!h || flat || mode !== "halls" || pending || borrow) return;
+    if (!h.capacity) { setSelected(key); announce(`${hallTitle(h)}: السعة غير مسجّلة، فلا مقاعد تُرسم من الداخل.`); return; }
+    if (day === "week") setDay(viewDay);
+    setSelected(key); setNotice(null); setSheetOpen(true);
+    setInsideKey(key);
+    if (!hintSeen) { setHintSeen(true); writeHint(); }
+    const s = occ.get(key);
+    const L = seatLayout(h.capacity, s?.students || 0);
+    announce(s && L
+      ? `داخل ${hallTitle(h)}: نحو ${countOf(s.students || 0, AR.student)} في ${countOf(h.capacity, AR.seat)}${L.standingReal ? `، و${countOf(L.standingReal, AR.student)} بلا مقعد عند الباب` : ""}. اضغط «اخرج» أو مفتاح Escape للعودة.`
+      : `داخل ${hallTitle(h)}: فارغة الآن، ${countOf(h.capacity, AR.seat)}. اضغط «اخرج» أو مفتاح Escape للعودة.`);
+  };
 
   pickRef.current = (key, neighbour) => {
     if (neighbour && key && borrow && (borrow.stage === "pick" || borrow.stage === "form")) {
@@ -901,6 +1093,11 @@ export default function HallPulse(props: HallPulseProps) {
           </div>
           <b>{selHall.capacity ? countOf(selHall.capacity, AR.seat) : <span className="hp-unknown">السعة غير مسجّلة</span>}</b>
         </div>
+        {!flat && sceneReady && mode === "halls" && !pending && !borrow ? (
+          insideKey === selHall.key
+            ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn hp-enter is-in" onClick={() => setInsideKey(null)}><span aria-hidden="true">↩</span> اخرج من القاعة</button>
+            : <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn hp-enter" disabled={!selHall.capacity} title={selHall.capacity ? "أو اضغط القاعة مرتين في المجسّم" : "السعة غير مسجّلة: لا مقاعد تُرسم"} onClick={() => enterRef.current(selHall.key)}><span aria-hidden="true">⤢</span> ادخل القاعة</button>
+        ) : null}
         <label className="hp-select is-compact">
           <span className="hp-sr">انتقل إلى قاعة</span>
           <select data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" value={selHall.key} onChange={e => selectHall(e.target.value || null)}>
@@ -1006,7 +1203,7 @@ export default function HallPulse(props: HallPulseProps) {
       <p className="hp-say" aria-live="polite">{say || "ابدأ بسؤالٍ من الأسئلة أعلاه، أو حرّك الساعة واضغط أي قاعة بنفسك."}</p>
 
       <div className={`hp-stage${narrow ? " is-narrow" : ""}`} style={(() => { const sky = skyAt(day === "week" ? model.dayStart + (model.dayEnd - model.dayStart) * 0.45 : minute, model.dayStart, model.dayEnd); return { ["--hp-sky-top" as any]: sky.top, ["--hp-sky-mid" as any]: sky.mid }; })()}>
-        <div className="hp-view" ref={viewRef} tabIndex={flat ? -1 : 0} onKeyDown={onStageKey}
+        <div className={`hp-view${insideKey ? " is-inside" : ""}${cine !== "off" ? " is-cinema" : ""}`} ref={viewRef} tabIndex={flat ? -1 : 0} onKeyDown={onStageKey}
           aria-label={flat ? undefined : "مجسّم القاعات: الأسهم للتدوير، و+ و− للتقريب، و0 للعودة"} role={flat ? undefined : "application"}>
           {flat ? (
             <FlatBoard model={model} visuals={visuals} selected={selected} onPick={key => pickRef.current(key, false)} day={day} />
@@ -1020,12 +1217,83 @@ export default function HallPulse(props: HallPulseProps) {
                 <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.resetView()} aria-label="عودة إلى المنظر الكامل">⟲</button>
                 {exploded ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon hp-icon-wide" onClick={() => setSelected(null)} aria-label="أعد الطوابق إلى أماكنها">كل الطوابق</button> : null}
               </div>
-              {hovered && !selected && model.hallByKey.get(hovered) ? <div className="hp-hover" aria-hidden="true">{hoverText(model, occ, hovered, day, heat)}</div> : null}
+              {hovered && !selected && !insideKey && cine === "off" && model.hallByKey.get(hovered) ? <div className="hp-hover" aria-hidden="true">{hoverText(model, occ, hovered, day, heat)}</div> : null}
+              {cine !== "off" && nowPoint ? (
+                <div className="hp-hud" role="status" aria-live="off">
+                  <span className="hp-hud-clock"><bdi dir="ltr">{clockText(minuteShown)}</bdi><small>{dayLabel}</small></span>
+                  <span className="hp-hud-count"><LiveCount value={nowPoint.students} /><small>في القاعات الآن <em className="hp-est">تقدير</em></small></span>
+                  <span className="hp-hud-bar" aria-hidden="true"><i style={{ width: `${peak ? Math.min(100, Math.round((nowPoint.students / peak.students) * 100)) : 0}%` }} data-over={nowPoint.over > 0 || undefined} /></span>
+                </div>
+              ) : null}
+              {comparing ? (
+                <div className="hp-split-layer"><div className="hp-split" style={{ left: `${(split * 100).toFixed(2)}%` }}>
+                  <span className="hp-split-line" aria-hidden="true" />
+                  <span className="hp-split-tag is-after" aria-hidden="true">بعد الترتيب</span>
+                  <span className="hp-split-tag is-before" aria-hidden="true">الآن</span>
+                  <div className="hp-split-grip" role="slider" tabIndex={0} aria-label="فاصل قبل وبعد: يساره القاعات بعد الترتيب ويمينه القاعات كما هي الآن" aria-orientation="horizontal"
+                    aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(split * 100)} aria-valuetext={`بعد الترتيب ${n(split * 100)}% من المشهد`}
+                    onKeyDown={e => {
+                      const move = e.key === "ArrowLeft" ? -0.04 : e.key === "ArrowRight" ? 0.04 : e.key === "PageDown" ? -0.2 : e.key === "PageUp" ? 0.2 : 0;
+                      if (move) setSplit(v => Math.max(0.04, Math.min(0.96, v + move)));
+                      else if (e.key === "Home") setSplit(0.04);
+                      else if (e.key === "End") setSplit(0.96);
+                      else return;
+                      e.preventDefault(); e.stopPropagation();
+                    }}
+                    onPointerDown={e => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); e.currentTarget.focus(); }}
+                    onPointerMove={e => {
+                      if (!e.currentTarget.hasPointerCapture?.(e.pointerId)) return;
+                      const r = viewRef.current?.getBoundingClientRect();
+                      if (r && r.width) setSplit(Math.max(0.04, Math.min(0.96, (e.clientX - r.left) / r.width)));
+                    }}>
+                    <span aria-hidden="true">‹ ›</span>
+                  </div>
+                </div></div>
+              ) : null}
+              {cine === "worst" && worst && !insideKey ? (() => {
+                const h = model.hallByKey.get(worst.hallKey)!;
+                return (
+                  <div className="hp-caption is-worst" role="status">
+                    <strong><i aria-hidden="true">{FIT_GLYPH.pressed}</i> أشدّ لحظة في اليوم · <bdi dir="ltr">{clockText(worst.minute)}</bdi></strong>
+                    <span>{hallTitle(h)} · {h.buildingLabel}: نحو {countOf(worst.students, AR.student)} في {countOf(worst.capacity, AR.seat)} — <b>{countOf(worst.over, AR.student)} فوق السعة</b> <em className="hp-est">تقدير</em>{worst.pressed > 1 ? ` · ومعها ${countOf(worst.pressed - 1, AR.room)} مضغوطة أخرى` : ""}</span>
+                    <div className="hp-row">
+                      <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-main" onClick={continueCinema}>أكمل</button>
+                      {canSave ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving}>✦ رتّب قاعاتي</button> : null}
+                    </div>
+                  </div>
+                );
+              })() : null}
+              {cine === "end" && !insideKey ? (
+                <div className="hp-caption" role="status">
+                  <strong>انتهى اليوم</strong>
+                  <span>{peak ? <>ذروة الحضور <bdi dir="ltr">{clockText(peak.minute)}</bdi> بنحو {countOf(peak.students, AR.student)} <em className="hp-est">تقدير</em></> : "لا محاضرات في هذا اليوم"}{peak ? (worst ? <> · أشدّ ضغط <bdi dir="ltr">{clockText(worst.minute)}</bdi></> : " · لا قاعة فوق سعتها") : ""}</span>
+                  <div className="hp-row">
+                    <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-main" onClick={startCinema}>أعد العرض</button>
+                    <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" onClick={closeCinema}>إغلاق</button>
+                  </div>
+                </div>
+              ) : null}
+              {insideKey && insideHall && insideLayout ? (
+                <>
+                  <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-exit" onClick={() => setInsideKey(null)}>اخرج <span aria-hidden="true">✕</span></button>
+                  <div className="hp-caption is-inside" role="status">
+                    <strong>{hallTitle(insideHall)} من الداخل <small>{insideHall.buildingLabel}</small></strong>
+                    {insideSession ? (
+                      <>
+                        <span className="hp-inside-course">{sessionLine(insideSession)} · <bdi dir="ltr">{clockText(insideSession.start)}–{clockText(insideSession.end)}</bdi></span>
+                        <span className="hp-fitline"><Pill cls={fitClass(insideSession.students, insideHall.capacity)} /> نحو {countOf(insideSession.students || 0, AR.student)} في {countOf(insideLayout.capacity, AR.seat)} <em className="hp-est" title="سعة المقرر لكل شعبة، لا عدد المسجّلين">تقدير</em></span>
+                        {insideLayout.standingReal ? <span className="hp-inside-over"><i aria-hidden="true">{FIT_GLYPH.pressed}</i> {countOf(insideLayout.standingReal, AR.student)} بلا مقعد: يقفون عند الباب{insideLayout.standing < insideLayout.standingReal ? ` (يُرسم منهم ${n(insideLayout.standing)})` : ""}</span> : null}
+                      </>
+                    ) : <span className="hp-fitline"><span className="hp-pill is-empty">فارغة الآن</span> {countOf(insideLayout.capacity, AR.seat)}</span>}
+                    {insideLayout.capped ? <small>القاعة كبيرة: يُرسم {countOf(insideLayout.drawn, AR.seat)} من {n(insideLayout.capacity)} بالنسبة نفسها.</small> : null}
+                  </div>
+                </>
+              ) : null}
             </>
           )}
-          {!hintSeen && !flat ? (
+          {!hintSeen && !flat && cine === "off" && !insideKey ? (
             <div className="hp-hint" role="note">
-              <span><b>ابدأ هنا:</b> اضغط قاعة لترى شعبتها · اسحب للتدوير · {narrow ? "قرّب بإصبعين" : "قرّب بالعجلة أو بإصبعين"}</span>
+              <span><b>ابدأ هنا:</b> اضغط قاعة لترى شعبتها، ومرتين لتدخلها · اسحب للتدوير · {narrow ? "قرّب بإصبعين" : "قرّب بالعجلة أو بإصبعين"}</span>
               <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-hint-close" onClick={() => { setHintSeen(true); writeHint(); }} aria-label="إخفاء التلميح">فهمت <span aria-hidden="true">✕</span></button>
             </div>
           ) : null}
@@ -1057,26 +1325,114 @@ export default function HallPulse(props: HallPulseProps) {
           </div>
         </aside>
         <div className="hp-bar">
-          <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-main hp-play" onClick={() => { setPlaying(p => !p); setPending(null); setFreeGlow(false); }} disabled={day === "week"} aria-pressed={playing}>
-            {playing ? "أوقف" : "شغّل اليوم"}
+          <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-main hp-play" disabled={day === "week"} aria-pressed={playing || cine === "run"}
+            onClick={() => { if (playing || cine === "run") { stopPlay(); return; } setPending(null); setFreeGlow(false); if (mode === "halls") startCinema(); else setPlaying(true); }}>
+            <span aria-hidden="true" className="hp-play-glyph">{playing || cine === "run" ? "❚❚" : "▶"}</span>{playing || cine === "run" ? "أوقف" : "شغّل اليوم"}
           </button>
+          {canSound && mode === "halls" ? (
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-sound" aria-pressed={soundOn} onClick={toggleSound} disabled={day === "week"}
+              aria-label={soundOn ? "أطفئ النغمة الخافتة مع العرض" : "شغّل نغمةً خافتة مع العرض"} title={soundOn ? "النغمة الخافتة مع العرض: مفعّلة" : "نغمة خافتة مع العرض تعلو مع الازدحام (مطفأة)"}>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor" fillOpacity=".18" />
+                {soundOn ? <><path d="M15.5 9a4.2 4.2 0 0 1 0 6" /><path d="M18 6.5a7.6 7.6 0 0 1 0 11" /></> : <path d="M16 9.5l5 5m0-5l-5 5" />}
+              </svg>
+            </button>
+          ) : null}
           {canSave && mode === "halls" ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving || day === "week"}>✦ رتّب قاعاتي</button> : null}
           <label className="hp-range">
             <span className="hp-sr">الساعة</span>
+            {day !== "week" && curve.length ? <DayTimeline curve={curve} peak={peak ? peak.students : 0} minute={minute} worst={worst ? worst.minute : null} start={model.dayStart} end={model.dayEnd} /> : null}
             <input data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="range" min={model.dayStart} max={model.dayEnd - 5} step={5} value={minuteShown} disabled={day === "week"}
               aria-valuetext={clockText(minuteShown)}
               onChange={e => { setMinute(Number(e.target.value)); stopPlay(); setPending(null); setFreeGlow(false); }} />
           </label>
           <div className="hp-days" role="group" aria-label="اليوم">
             {PULSE_DAYS.map(d => (
-              <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={d.key} type="button" aria-pressed={day === d.key} onClick={() => { setDay(d.key); setPlan(null); setPending(null); setBorrow(null); setWalk(0); setSay(""); }}>{d.short}</button>
+              <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={d.key} type="button" aria-pressed={day === d.key} onClick={() => { stopPlay(); setDay(d.key); setPlan(null); setPending(null); setBorrow(null); setWalk(0); setSay(""); }}>{d.short}</button>
             ))}
-            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={day === "week"} onClick={() => { setDay("week"); setPlaying(false); setPlan(null); setPending(null); setBorrow(null); setFreeGlow(false); setWalk(0); setSay("الأسبوع كله: ارتفاع كل قاعة ولونها نسبةُ ساعاتها المشغولة. اضغط يوماً تحت القاعة لتنتقل إليه."); }}>الأسبوع</button>
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={day === "week"} onClick={() => { setDay("week"); stopPlay(); setInsideKey(null); setPlan(null); setPending(null); setBorrow(null); setFreeGlow(false); setWalk(0); setSay("الأسبوع كله: ارتفاع كل قاعة ولونها نسبةُ ساعاتها المشغولة. اضغط يوماً تحت القاعة لتنتقل إليه."); }}>الأسبوع</button>
           </div>
         </div>
         {planView}
       </div>
     </div>
+  );
+}
+
+/** حالة قاعةٍ (قبل الخطة) إلى ما يرسمه المشهد: اللون والمنسوب واللافتة كما في الحالة الأساسية. */
+function visualOfState(h: PulseHall, st: HallState, showLabel: boolean): HallVisual {
+  if (st.fit === "empty") return { color: 0xcfe9df, level: 0, occupied: false, label: h.code, showLabel };
+  if (st.fit === "foreign") return { color: 0x5d6f67, level: 0.5, occupied: true, dim: true, label: `${h.code} · جهة أخرى`, showLabel: false };
+  return { color: FIT_HEX[st.fit], level: st.level, occupied: true, pulse: st.fit === "pressed", label: `${FIT_GLYPH[st.fit]} ${h.code}`, showLabel: showLabel || st.fit === "pressed" };
+}
+
+/** عدّاد الطلبة الحيّ: يصعد ويهبط بتخفيفٍ إلى القيمة، ويعيد رسم نفسه وحده. */
+function LiveCount({ value }: { value: number }) {
+  const [shown, setShown] = useState(value);
+  const ref = useRef(value);
+  useEffect(() => {
+    if (prefersReduced()) { ref.current = value; setShown(value); return; }
+    let raf = 0, last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      ref.current += (value - ref.current) * (1 - Math.exp(-dt * 7));
+      if (Math.abs(value - ref.current) < 0.5) { ref.current = value; setShown(value); return; }
+      setShown(Math.round(ref.current));
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <b>{shown > 0 ? `نحو ${countOf(shown, AR.student)}` : "لا طلبة"}</b>;
+}
+
+/**
+ * الخط الزمني النحيل فوق شريط الساعة: منحنى حضور اليوم، وما تحته أحمر حيث قاعةٌ فوق سعتها،
+ * وعلامة أشدّ لحظة، ورأس التشغيل. يُقرأ من اليمين إلى اليسار كشريط الساعة تحته.
+ */
+function DayTimeline({ curve, peak, minute, worst, start, end }: { curve: readonly PressurePoint[]; peak: number; minute: number; worst: number | null; start: number; end: number }) {
+  const W = 1000, H = 40, base = 34, top = 5;
+  const span = Math.max(1, end - 5 - start);
+  const x = (m: number) => W - (Math.max(0, Math.min(span, m - start)) / span) * W;
+  const y = (v: number) => base - (peak > 0 ? v / peak : 0) * (base - top);
+  const shape = useMemo(() => {
+    let area = `M ${x(start).toFixed(1)} ${base}`, line = "";
+    curve.forEach((p, i) => {
+      const next = curve[i + 1];
+      const x0 = x(p.minute).toFixed(1), x1 = x(next ? next.minute : end - 5).toFixed(1), yy = y(p.students).toFixed(1);
+      area += ` L ${x0} ${yy} L ${x1} ${yy}`;
+      line += `${i ? " L" : "M"} ${x0} ${yy} L ${x1} ${yy}`;
+    });
+    area += ` L ${x(end - 5).toFixed(1)} ${base} Z`;
+    const over: Array<[number, number]> = [];
+    curve.forEach((p, i) => {
+      if (!p.over) return;
+      const to = curve[i + 1] ? curve[i + 1].minute : end - 5;
+      const lastSeg = over[over.length - 1];
+      if (lastSeg && lastSeg[1] === p.minute) lastSeg[1] = to; else over.push([p.minute, to]);
+    });
+    return { area, line, over };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curve, peak, start, end]);
+  const hours: number[] = [];
+  for (let m = Math.ceil(start / 120) * 120; m < end; m += 120) if (m > start) hours.push(m);
+  const head = x(minute);
+  return (
+    <span className="hp-timeline" aria-hidden="true">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" focusable="false">
+        <defs>
+          <linearGradient id="hp-tl-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e2bd76" stopOpacity=".55" /><stop offset="1" stopColor="#4fd3a1" stopOpacity=".08" /></linearGradient>
+        </defs>
+        {hours.map(m => <line key={m} x1={x(m)} x2={x(m)} y1={top} y2={base} className="hp-tl-hour" />)}
+        <path d={shape.area} fill="url(#hp-tl-fill)" />
+        <path d={shape.line} className="hp-tl-line" />
+        <line x1={0} x2={W} y1={base + 3} y2={base + 3} className="hp-tl-base" />
+        {shape.over.map(([a, b]) => <line key={a} x1={x(a)} x2={x(b)} y1={base + 3} y2={base + 3} className="hp-tl-over" />)}
+        {worst != null ? <line x1={x(worst)} x2={x(worst)} y1={top - 3} y2={base + 3} className="hp-tl-worst" /> : null}
+        <line x1={head} x2={head} y1={0} y2={H} className="hp-tl-head" />
+      </svg>
+      <span className="hp-tl-hours">{hours.map(m => <i key={m} style={{ right: `${((m - start) / span) * 100}%` }}>{String(Math.floor(m / 60)).padStart(2, "0")}</i>)}</span>
+    </span>
   );
 }
 
