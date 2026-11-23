@@ -67,6 +67,7 @@ import { registerStudentRecoveryRoutes } from "./src/server/studentRecovery";
 import { studentRecoveryDeps } from "./src/server/studentRecoveryWiring";
 import { registerCoursesRoutes } from "./src/server/routes/coursesRoutes";
 import { registerDashboardRoutes } from "./src/server/routes/dashboardRoutes";
+import { registerTermFilmRoutes } from "./src/server/routes/termFilmRoutes";
 import { registerDraftsRoutes } from "./src/server/routes/draftsRoutes";
 import { registerGuideRoutes } from "./src/server/routes/guideRoutes";
 import { registerHallBarterRoutes } from "./src/server/routes/hallBarterRoutes";
@@ -438,6 +439,7 @@ registerAccountDeletionRoutes(app, accountDeletionDeps());
 /* «رمز استعادة لطالب»: موظفُ القسم يُصدره بعد رؤية البطاقة المدنية (src/server/studentRecovery.ts). */
 registerStudentRecoveryRoutes(app, studentRecoveryDeps());
 registerDashboardRoutes(app);
+registerTermFilmRoutes(app);
 registerReferenceRoutes(app);
 registerInstructorsRoutes(app);
 registerCoursesRoutes(app);
