@@ -19,3 +19,9 @@ html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .mini-w
   right:calc(8px + env(safe-area-inset-right));left:calc(8px + env(safe-area-inset-left));
   max-width:none;
 }
+
+/* الجولة التعريفية (الشاشة الخارجية): بطاقتها كانت تمتدّ تحت الساعة فتغطّي عنوانها وسطرها الأول. */
+html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .ob-root{
+  padding-right:calc(10px + env(safe-area-inset-right)) !important;padding-left:calc(10px + env(safe-area-inset-left)) !important;
+  box-sizing:border-box;
+}
