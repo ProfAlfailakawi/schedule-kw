@@ -240,17 +240,22 @@ export default function HallPulse(props: HallPulseProps) {
   }, [freeGlow, model, occ, viewDay, minuteShown, suggestions, day]);
   const manyHalls = model.halls.length > 36;
   /* ── مسارات التنقّل ── */
-  const [nameMap, setNameMap] = useState<Map<number, string> | null>(null);
+  const [nameState, setNameState] = useState<{ scope: string; map: Map<number, string> } | null>(null);
+  const nameScope = `${collegeId}|${sectionId || 0}|${termId}`;
+  const nameMap = nameState && nameState.scope === nameScope ? nameState.map : null;
   const [cohorts, setCohorts] = useState<CohortInput[]>([]);
   useEffect(() => {
     if (mode !== "paths" || props.instructorName || nameMap) return;
+    let live = true;
     const q = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId || 0), termId: String(termId), limit: "60" });
     fetch(`/api/instructors?${q}`, { credentials: "include" }).then(r => (r.ok ? r.json() : [])).then(list => {
-      setNameMap(new Map((Array.isArray(list) ? list : []).map((x: any) => [Number(x.AdInstructorId), String(x.AdInstructorName || "")])));
-    }).catch(() => setNameMap(new Map()));
-  }, [mode, props.instructorName, nameMap, collegeId, sectionId, termId]);
+      if (!live) return;
+      setNameState({ scope: nameScope, map: new Map((Array.isArray(list) ? list : []).map((x: any) => [Number(x.AdInstructorId), String(x.AdInstructorName || "")])) });
+    }).catch(() => { if (live) setNameState({ scope: nameScope, map: new Map() }); });
+    return () => { live = false; };
+  }, [mode, props.instructorName, nameMap, collegeId, sectionId, termId, nameScope]);
   useEffect(() => {
-    if (mode !== "paths" || !sectionId || context !== "workshop") return;
+    if (mode !== "paths" || !sectionId || context !== "workshop") { setCohorts(c => (c.length ? [] : c)); return; }
     let live = true;
     const nameOf = new Map(courses.map(c => [Number(c.AdCourseId), String(c.CourseName || "")]));
     void loadPlanFacts(collegeId, sectionId).then(facts => {
