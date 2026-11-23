@@ -18,6 +18,7 @@ export const APP_VIEW_PATHS = {
   courses: "/AdCourse/Index",
   schedules: "/FSchedule/Index",
   departmentSchedule: "/FSchedule/DepartmentSchedule",
+  termFilm: "/FSchedule/TermFilm",
   scheduleCopy: "/FSchedule/CopySchedule",
   /* The rail's own name for the same screen — translated before it is ever
      navigated to, and mapped here so the route table stays total. */
