@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SCHEDULE</string>
+    <string name="title_activity_main">SCHEDULE</string>
+    <string name="package_name">kw.edu.schedule.app</string>
+    <string name="custom_url_scheme">kw.edu.schedule.app</string>
+</resources>

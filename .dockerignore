@@ -15,3 +15,4 @@ database/*.backup
 database/*.firestore-verification.json
 schedule-backups/
 cookies.txt
+google
