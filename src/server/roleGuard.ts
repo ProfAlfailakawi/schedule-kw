@@ -38,7 +38,7 @@ export const SESSION_WRITE_PATHS = new Set([
   // department head leaves a board exactly like anyone else.
   "/schedules/pulse",
   // تنبيهاتُ الجوال (pushRoutes.ts): جهازُ صاحب الحساب وحده، لا بياناتُ الجدول.
-  "/push/subscribe", "/push/unsubscribe", "/push/test",
+  "/push/subscribe", "/push/subscribe-native", "/push/unsubscribe", "/push/test",
 ]);
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);

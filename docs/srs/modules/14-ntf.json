@@ -41,6 +41,7 @@
     "src/server/pushCard.ts",
     "src/server/pushMessages.ts",
     "src/server/webPush.ts",
+    "src/server/apnsPush.ts",
     "src/server/activityTrail.ts",
     "src/server/livePulse.ts",
     "src/server/calendarSecret.ts",
@@ -53,6 +54,7 @@
     "src/utils/icalendar.ts",
     "src/utils/livePulse.ts",
     "src/utils/pushClient.ts",
+    "src/utils/nativePush.ts",
     "src/utils/notifyFocus.ts",
     "src/utils/staleWrite.ts",
     "src/utils/teamWork.ts",
@@ -2242,6 +2244,50 @@
         "tests": [
           "tests/student-push-audit.ts",
           "tests/student-extras-live-audit.ts"
+        ]
+      }
+    },
+    {
+      "id": "FR-NTF-034",
+      "kind": "functional",
+      "title": {
+        "ar": "تنبيهات التطبيق الرسمي (APNs)",
+        "en": "Official app notifications (APNs)"
+      },
+      "text": {
+        "ar": "يجب أن يدعم النظام تنبيهات التطبيق الرسمي على iOS عبر APNs إلى جانب Web Push: يطلب مفتاح بطاقة التنبيهات داخل التطبيق إذن النظام ثم يسجّل الجهاز ويحفظ توكنه (POST /api/push/subscribe-native) في مجموعة الاشتراكات نفسها بالرابط apns:<token>، ويُلغى بالمسار نفسه الذي يُلغى به اشتراك المتصفح؛ ويرسل الخادم إليه عبر HTTP/2 بمفتاح المزوّد من البيئة وحدها (APNS_KEY_P8 وAPNS_KEY_ID وAPNS_TEAM_ID وAPNS_TOPIC)، فإن غاب منها شيء لم يُرسل شيء بصمت، ويُحذف التوكن حين ترفضه Apple بـ 410 أو BadDeviceToken أو Unregistered.",
+        "en": "The system shall support official iOS app notifications over APNs alongside Web Push: inside the app the notification card's switch asks for the system permission, registers the device and stores its token (POST /api/push/subscribe-native) in the same subscriptions collection under the endpoint apns:<token>, cancelled through the same route that cancels a browser subscription; the server sends to it over HTTP/2 with the provider key taken from the environment alone (APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID, APNS_TOPIC), sending nothing silently when any is missing, and deletes the token when Apple rejects it with 410, BadDeviceToken or Unregistered."
+      },
+      "priority": "must",
+      "status": "implemented",
+      "actors": [
+        "standard",
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "بلا متغيرات APNS_* لا اتصال ولا حذف توكنات ولا خطأ.",
+          "en": "Without the APNS_* variables there is no connection, no token deletion and no error."
+        },
+        {
+          "ar": "410 أو BadDeviceToken أو Unregistered يحذف التوكن، وأي خطأ عابر آخر يُبقيه.",
+          "en": "410, BadDeviceToken or Unregistered deletes the token; any other transient error keeps it."
+        },
+        {
+          "ar": "اشتراك المتصفح (Web Push) يعمل كما كان.",
+          "en": "Browser Web Push subscriptions behave as before."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/server/apnsPush.ts",
+          "src/server/pushRoutes.ts",
+          "src/utils/nativePush.ts",
+          "src/components/PushCard.tsx"
+        ],
+        "tests": [
+          "tests/apns-push-audit.ts"
         ]
       }
     }

@@ -7593,7 +7593,7 @@
    "path": "/api/public/push/key",
    "name": "bound dispatch",
    "call": "f45e567638d10548",
-   "site": "src/server/pushRoutes.ts:379",
+   "site": "src/server/pushRoutes.ts:397",
    "regexp": "/^\\/api\\/public\\/push\\/key\\/?$/i",
    "end": true
   },
@@ -7605,7 +7605,7 @@
    "path": "/api/push/status",
    "name": "bound dispatch",
    "call": "d3ba59c2dd7225c0",
-   "site": "src/server/pushRoutes.ts:385",
+   "site": "src/server/pushRoutes.ts:403",
    "regexp": "/^\\/api\\/push\\/status\\/?$/i",
    "end": true
   },
@@ -7617,8 +7617,20 @@
    "path": "/api/push/subscribe",
    "name": "bound dispatch",
    "call": "7b69da436ef27d06",
-   "site": "src/server/pushRoutes.ts:398",
+   "site": "src/server/pushRoutes.ts:416",
    "regexp": "/^\\/api\\/push\\/subscribe\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "post"
+   ],
+   "path": "/api/push/subscribe-native",
+   "name": "bound dispatch",
+   "call": "19405be0d23c2347",
+   "site": "src/server/pushRoutes.ts:428",
+   "regexp": "/^\\/api\\/push\\/subscribe-native\\/?$/i",
    "end": true
   },
   {
@@ -7628,8 +7640,8 @@
    ],
    "path": "/api/push/unsubscribe",
    "name": "bound dispatch",
-   "call": "962f303af7442bf5",
-   "site": "src/server/pushRoutes.ts:409",
+   "call": "88fa641b07c13f70",
+   "site": "src/server/pushRoutes.ts:448",
    "regexp": "/^\\/api\\/push\\/unsubscribe\\/?$/i",
    "end": true
   },
@@ -7641,7 +7653,7 @@
    "path": "/api/push/test",
    "name": "bound dispatch",
    "call": "02470f3e9ef5a137",
-   "site": "src/server/pushRoutes.ts:418",
+   "site": "src/server/pushRoutes.ts:458",
    "regexp": "/^\\/api\\/push\\/test\\/?$/i",
    "end": true
   },
@@ -7653,7 +7665,7 @@
    "path": "/api/public/push/rotate",
    "name": "bound dispatch",
    "call": "4768c671895eeb90",
-   "site": "src/server/pushRoutes.ts:435",
+   "site": "src/server/pushRoutes.ts:475",
    "regexp": "/^\\/api\\/public\\/push\\/rotate\\/?$/i",
    "end": true
   },
@@ -7665,7 +7677,7 @@
    "path": "/api/public/request/:token/push",
    "name": "bound dispatch",
    "call": "4079035cd504bea9",
-   "site": "src/server/pushRoutes.ts:459",
+   "site": "src/server/pushRoutes.ts:499",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/push\\/?$/i",
    "end": true
   },
@@ -7677,7 +7689,7 @@
    "path": "/api/public/request/:token/push",
    "name": "bound dispatch",
    "call": "0ed304ae15900768",
-   "site": "src/server/pushRoutes.ts:467",
+   "site": "src/server/pushRoutes.ts:507",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/push\\/?$/i",
    "end": true
   },
@@ -7689,7 +7701,7 @@
    "path": "/api/public/request/:token/push/off",
    "name": "bound dispatch",
    "call": "fc3ec2972fc829f6",
-   "site": "src/server/pushRoutes.ts:476",
+   "site": "src/server/pushRoutes.ts:516",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/push\\/off\\/?$/i",
    "end": true
   },
@@ -7701,7 +7713,7 @@
    "path": "/api/public/request/:token/push/test",
    "name": "bound dispatch",
    "call": "4198ea921cef8d41",
-   "site": "src/server/pushRoutes.ts:485",
+   "site": "src/server/pushRoutes.ts:525",
    "regexp": "/^\\/api\\/public\\/request(?:\\/([^/]+?))\\/push\\/test\\/?$/i",
    "end": true
   },
@@ -7713,7 +7725,7 @@
    "path": "/r/:token/manifest.webmanifest",
    "name": "bound dispatch",
    "call": "1b3fe184d33e6b59",
-   "site": "src/server/pushRoutes.ts:498",
+   "site": "src/server/pushRoutes.ts:538",
    "regexp": "/^\\/r(?:\\/([^/]+?))\\/manifest\\.webmanifest\\/?$/i",
    "end": true
   },
