@@ -46,7 +46,8 @@
     "scripts/mobile-overflow-sweep.ts",
     "scripts/guide-performance-audit.mjs",
     "scripts/loadtest/*",
-    "public/native-polish.js"
+    "public/native-polish.js",
+    "src/utils/dockMotion.ts"
   ],
   "screens": [
     {
