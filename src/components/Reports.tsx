@@ -103,6 +103,7 @@ import { canSeeDecisionBoard, decisionBoardScope } from "../utils/decisionBoardS
 import { longestWaitMinutes } from "../utils/professorWeekShape";
 import { RoomInsight, RoomInsightDrawer, WeekShapeDrawer } from "./ReportInsightDrawers";
 import HallPulseLazy from "./hallPulse/HallPulseLazy";
+import { isNativeApp } from "../utils/nativeApp";
 
 /**
  * One question, seven lenses.
@@ -2187,7 +2188,7 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     let invoked = false;
-    if (!invoked && SAFARI_PRINT_ENGINE && typeof document.execCommand === "function") {
+    if (!invoked && SAFARI_PRINT_ENGINE && !isNativeApp() && typeof document.execCommand === "function") {
       try { invoked = document.execCommand("print"); } catch { invoked = false; }
     }
     if (!invoked) window.print();

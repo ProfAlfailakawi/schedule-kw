@@ -13,7 +13,7 @@ import { AR, countOf } from "../utils/arabicCount";
 import { civilNoteFor, instructorNamesOf, isTheirs, REQUEST_ACTION_LABEL, REQUEST_ACTION_NOTE, shortCourseCode, theirFields, requestProgress, withFullCourseCodes, type RegistrarRequestDoc, type RegistrarRequestItem, type RequestProgress } from "../utils/registrarRequest";
 import type { FieldDelta, RequestAction } from "../utils/registrarCheck";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
-import { clearPrintFit, fitPrintPages, packPrintLines } from "../utils/printFit";import { isSafariPrint, stampPrintEngine } from "../utils/printEngine";
+import { clearPrintFit, fitPrintPages, packPrintLines } from "../utils/printFit";import { canExecCommandPrint, stampPrintEngine } from "../utils/printEngine";
 import { GhostButton, Notice, PrintLetterhead, PrintPortal, SecondaryButton, visualConfirm } from "./ui";
 
 const call = async (url: string, init?: RequestInit) => {
@@ -109,7 +109,7 @@ export function printRegistrarRequest() {
   if (showPwaPrintHelp()) return;
   const done = armRegistrarPrint();
   let invoked = false;
-  if (isSafariPrint() && typeof document.execCommand === "function") { try { invoked = document.execCommand("print"); } catch { invoked = false; } }
+  if (canExecCommandPrint() && typeof document.execCommand === "function") { try { invoked = document.execCommand("print"); } catch { invoked = false; } }
   if (!invoked) { try { window.print(); } catch { done(); } }
 }
 
