@@ -139,6 +139,18 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
     } catch { setLatest(null); return null; }
   }, [collegeId, sectionId, termId]);
   useEffect(() => { void loadLatest(); }, [loadLatest]);
+  /* عددُ فروق آخر فحصٍ كما هي على الجدول الآن: ما سوّيناه بعد الفحص لا يُعدّ. */
+  const [liveCount, setLiveCount] = useState<number | null>(null);
+  useEffect(() => {
+    setLiveCount(null);
+    if (!latest?.id) return;
+    let alive = true;
+    fetch(`/api/schedules/registrar-requests/${encodeURIComponent(latest.id)}/live`, { cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (alive && Array.isArray(data?.live?.items)) setLiveCount(data.live.items.length); })
+      .catch(() => undefined);
+    return () => { alive = false; };
+  }, [latest?.id, latest?.at]);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const resultRef = useRef<HTMLDivElement | null>(null);
@@ -320,7 +332,7 @@ export default function RegistrarPdfCheck({ collegeId, sectionId, termId, onOpen
               <History aria-hidden="true" />
               <p>
                 <strong>آخر فحص محفوظ: {requestDay(latest.at)}</strong>
-                <span><bdi dir="auto">{latest.fileName}</bdi> · {countOf((latest.items || []).length, AR.difference)}</span>
+                <span><bdi dir="auto">{latest.fileName}</bdi> · {countOf(liveCount ?? (latest.items || []).length, AR.difference)}{liveCount !== null ? " على جدولكم الآن" : ""}</span>
               </p>
               <SecondaryButton type="button" data-guide-ignore="يفتح تقرير المطابقة في الاستعلامات — لا يغيّر شيئاً" onClick={openMatchReport}><ClipboardCheck aria-hidden="true" /> افتح التقرير</SecondaryButton>
             </div>

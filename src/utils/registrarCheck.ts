@@ -472,6 +472,23 @@ function groupPdfRows(rows: readonly Row[], codeOf: (row: Row) => string, nameOf
   return { sections, keyless };
 }
 
+/**
+ * نصوصُ شعبنا كما هي في الجدول الآن (الأيام والوقت والقاعة والأستاذ)، بمفتاحَي الشعبة: «#المرجعي» و«نهاية المقرر|الشعبة».
+ * بها يُعرف أن فرقاً في تقريرٍ محفوظٍ بلا صفوف ملفّه قد زال: عدّلنا جدولنا فصار كما في ملفهم. دالّةٌ نقيّة.
+ */
+export function liveSectionTexts(live: readonly Row[], names: RegistrarCheckNames = {}): Map<string, Record<"days" | "time" | "room" | "instructor", string>> {
+  const code = (row: Row) => String(names.courseCodeById?.get(Number(row.AdCourseId || 0)) || row.CourseCodeSnapshot || row.CourseCode || "");
+  const name = (row: Row) => String(names.courseNameById?.get(Number(row.AdCourseId || 0)) || row.AdCourseName || "");
+  const sections = indexSections(live.filter(row => row && typeof row === "object"), code, name, row => normalizeCrn(row.referenceNumber));
+  const out = new Map<string, Record<"days" | "time" | "room" | "instructor", string>>();
+  for (const s of sections.values()) {
+    const texts = { days: valueText("days", s.rows), time: valueText("time", s.rows), room: valueText("room", s.rows), instructor: valueText("instructor", s.rows, names.instructorById) };
+    out.set(`${s.tail}|${s.section}`, texts);
+    if (s.crn) out.set(`#${s.crn}`, texts);
+  }
+  return out;
+}
+
 const isCrossBranch = (row: Row) => String(row?.scopeMismatchType || "") === "CROSS_BRANCH";
 
 /** ما يُطلب من التسجيل لهذه النتيجة. */
