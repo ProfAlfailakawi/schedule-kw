@@ -79,8 +79,8 @@
       },
       "file": "src/components/NotificationCenter.tsx",
       "note": {
-        "ar": "جرس وشارة ولوحة بثلاث مجموعات وإشعار عائم، وفيها بطاقة «فعّل التنبيهات على جوالك».",
-        "en": "A bell, badge, three-group panel and floating notice, holding the \"enable alerts on your phone\" card."
+        "ar": "جرس وشارة ولوحة بثلاث مجموعات وإشعار عائم، وفيها بطاقة «فعّل التنبيهات على جوالك» (تُخفى داخل التطبيق الرسمي لأن Web Push لا يعمل فيه).",
+        "en": "A bell, badge, three-group panel and floating notice, holding the \"enable alerts on your phone\" card (hidden inside the native app, where Web Push is unavailable)."
       }
     },
     {
