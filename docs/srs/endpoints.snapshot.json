@@ -1,6 +1,6 @@
 {
  "note": "لقطة مسارات الخادم. تُحدَّث بـ npm run srs:sync عند إضافة مسار أو إزالته، وبعدها يُحدَّث متطلبه.",
- "count": 653,
+ "count": 654,
  "endpoints": [
   "DELETE /api/admin/ads/campaigns/:id",
   "DELETE /api/admin/ads/campaigns/:id/creatives/:crid",
@@ -506,6 +506,7 @@
   "POST /api/public/team/:token",
   "POST /api/public/verify",
   "POST /api/push/subscribe",
+  "POST /api/push/subscribe-native",
   "POST /api/push/test",
   "POST /api/push/unsubscribe",
   "POST /api/report-stamps",
