@@ -16,6 +16,7 @@ import type { TermFilmScope } from "./TermFilm";
 
 /* فيلم الفصل يُحمَّل حين يُحتاج فقط: اللوحة في الحمولة الأولى، والفيلم ليس فيها. */
 const TermFilmCard=lazy(()=>import("./TermFilm").then(module=>({default:module.TermFilmCard})));
+const DeptFingerprintCard=lazy(()=>import("./DeptFingerprint").then(module=>({default:module.DeptFingerprintCard})));
 
 interface DashboardProps{user:any;scopes:any[];canManageSchedule?:boolean;onNavigate?:(view:string)=>void;searchView?:string;reportView?:string;roleId?:string}
 interface DashboardData{history?:Array<{termId:number;termName:string;schedules:number;rooms:number;instructors:number}>;previous?:{termId:number;termName:string;schedules:number;rooms:number;instructors:number}|null;metrics:{courses:number;schedules:number;terms:number;instructors:number};latestTermId?:number;latestTermName:string;home?:HomeTerm;dayName:string;weekend?:boolean;dashboardTotal:number;today:Array<{id:number;instructorName:string;courseCode:string;courseName:string;startTime:string;endTime:string;roomCode:string;roomHall:string}>;workspace?:{mode:"admin"|"personal"|"scope";activeSchedules:number;uniqueRooms:number;uniqueInstructors:number;roomOccupancyPeak:number;peakOccupiedRooms:number;weekdayLoad:Array<{key:string;label:string;count:number}>;busiestHours:Array<{hour:string;count:number}>;busiestRooms:Array<{room:string;count:number}>;scopeCount:number;linkedInstructorName:string;personalToday:any[]}}
@@ -308,6 +309,8 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
    </section>:null}
 
    {filmScope?<Suspense fallback={null}><TermFilmCard scope={filmScope}/></Suspense>:null}
+   {/* بصمة القسم (FR-DSH-032): لأصحاب جدول القسم أنفسهم، ففيها قاعاته. */}
+   {filmScope?.version==="dept"&&filmScope.sectionId?<Suspense fallback={null}><DeptFingerprintCard scope={{collegeId:filmScope.collegeId,sectionId:filmScope.sectionId,termId:filmScope.termId}}/></Suspense>:null}
 
    {decisions.length>1?<section className={`dashboard-insights dashboard-attention ${attentionOpen?"open":""}`} aria-labelledby="dashboard-attention-title">
     <button className="dashboard-insights-toggle" type="button" onClick={()=>setAttentionOpen(v=>!v)} aria-expanded={attentionOpen} aria-controls="dashboard-attention-list">
