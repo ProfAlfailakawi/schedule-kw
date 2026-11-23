@@ -4,6 +4,7 @@
  * صفحته الطولية (html[data-print-rotate]). وChromium المكتبي يأخذ العرضيّ من `@page`، وتُثبَّت له هندسة A4
  * (html[data-print-chromium]). نسخةٌ من فحص Reports.tsx نفسه، لأوراقٍ تُطبع خارج مطبعته (ورقة المطابقة).
  */
+import { isNativeApp } from "./nativeApp";
 const ua = () => (typeof navigator !== "undefined" ? navigator.userAgent || "" : "");
 export const isSafariPrint = () => /AppleWebKit/i.test(ua()) && !/(Chrome|Chromium|CriOS|FxiOS|Edg|EdgiOS|OPR|Android)/i.test(ua());
 export const isChromiumPrint = () => /(Chrome|Chromium|Edg)\//i.test(ua()) && !/(CriOS|EdgiOS|OPR|Android)/i.test(ua());
@@ -15,3 +16,6 @@ export function stampPrintEngine(root: HTMLElement): () => void {
   if (isChromiumPrint()) root.dataset.printChromium = "1";
   return () => { delete root.dataset.printRotate; delete root.dataset.printChromium; };
 }
+
+/** document.execCommand("print") مسارُ Safari وحده: التطبيق (WKWebView) يطبع بـ window.print() عبر جسره الأصلي. */
+export const canExecCommandPrint = () => isSafariPrint() && !isNativeApp();

@@ -302,6 +302,7 @@
     "test:activity-trail": "tsx tests/activity-trail-audit.ts",
     "test:seat-access-card": "tsx tests/seat-access-card-audit.tsx",
     "test:app-handoff": "tsx tests/app-handoff-audit.ts",
+    "test:native-print": "tsx tests/native-print-audit.ts",
     "test:passkeys": "tsx tests/passkey-audit.ts",
     "test:passkeys-ui": "tsx tests/passkey-ui-audit.ts",
     "test:passkey-seat-revoke": "tsx tests/passkey-seat-revoke-audit.ts",

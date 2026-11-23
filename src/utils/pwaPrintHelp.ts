@@ -1,3 +1,5 @@
+import { isNativeApp } from "./nativeApp";
+
 /** iOS Home Screen apps cannot reliably open the native print sheet. */
 export function isIosStandalonePwa(): boolean {
   if (typeof navigator === "undefined" || typeof window === "undefined") return false;
@@ -9,7 +11,7 @@ export function isIosStandalonePwa(): boolean {
 
 /** Keep print layouts intact in the installed iOS app and explain the supported path. */
 export function showPwaPrintHelp(): boolean {
-  if (!isIosStandalonePwa()) return false;
+  if (isNativeApp() || !isIosStandalonePwa()) return false;
   document.querySelector(".pwa-print-notice")?.remove();
   const notice = document.createElement("div");
   notice.className = "pwa-print-notice";
