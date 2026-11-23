@@ -9,6 +9,7 @@
     "start": "NODE_ENV=production node dist/server.cjs",
     "test": "node scripts/run-tests.mjs",
     "test:hall-pulse": "tsx tests/hall-pulse-audit.ts",
+    "test:movement-paths": "tsx tests/movement-paths-audit.ts",
     "test:instructor-requests-owner-notes": "tsx tests/instructor-requests-owner-notes-audit.ts",
     "test:proposal-open-row": "tsx tests/proposal-open-row-audit.ts",
     "test:term-film": "tsx tests/term-film-audit.ts",

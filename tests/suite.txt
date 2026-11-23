@@ -73,6 +73,7 @@ test:print-attestation
 test:print-fit
 test:occupancy-heat
 test:hall-pulse
+test:movement-paths
 test:occupancy-slot-panel
 test:request-handoff
 test:request-signature

@@ -140,7 +140,8 @@
     "src/components/hallPulse/HallPulse.tsx",
     "src/components/hallPulse/HallPulseLazy.tsx",
     "src/components/hallPulse/DeanHallPulseCard.tsx",
-    "src/components/hallPulse/pulseScene.ts"
+    "src/components/hallPulse/pulseScene.ts",
+    "src/utils/movementPaths.ts"
   ],
   "screens": [
     {
@@ -5624,6 +5625,14 @@
         {
           "ar": "لا تُعدّ قاعةٌ فارغةً في الاقتراح ولا في «رتّب قاعاتي» إلا بعد قراءة إشغالها كله: تطلب الشاشة أوقات كل قاعات سجل القسم من /api/reports/room-load (roomIds، قراءةٌ فقط وبالصلاحية نفسها)، وقاعةٌ لم يُقرأ إشغالها لا تُقترح؛ وقاعة الاستعارة تُقبل بنوعها في عين القسم الطالب (roomType في لوحة الاستعارة) بالحكم نفسه، فلا تُقترح قاعة محاضرات لشعبة مختبر.",
           "en": "A hall counts as free in suggestions and in «arrange my halls» only after its full occupancy is read: the screen asks /api/reports/room-load for the times of every hall in the department's registry (roomIds, read-only, same permission), and a hall whose occupancy was not read is never suggested; a borrowing hall is accepted by its type as the requesting department sees it (roomType on the borrowing board) under the same rule, so a lecture hall is never suggested for a lab section."
+        },
+        {
+          "ar": "يُفتح المشهد على أزحم لحظةٍ في اليوم المختار، وعدّادات الرأس (مشغولة/مضغوطة/واسعة) تُحسب من الإشغال نفسه الذي تُلوَّن به القاعات؛ ولكل لونٍ شكلٌ يصحبه في المفتاح واللافتات (▲ مضغوطة، ■ ممتلئة، ● مناسبة، ◆ واسعة)؛ والشمس والسماء تتبعان الساعة، والقاعة المختارة تُفرج الطوابق فوقها.",
+          "en": "The scene opens at the busiest moment of the selected day, and the header counters (occupied/pressed/wide) are computed from the same occupancy that colours the halls; every colour has a shape beside it in the legend and the labels (▲ pressed, ■ full, ● fitting, ◆ wide); the sun and sky follow the clock, and a selected hall lifts the floors above it apart."
+        },
+        {
+          "ar": "على الهاتف تبقى القائمة العرضَ الأول، ويُفتح «مجسّم» من مبدّل العرض للقراءة فقط بكاميرا من أعلى ولوحةٍ سفلية تُطوى، بلا حفظ.",
+          "en": "On a phone the list stays the first view, and «3D» opens from the view switch read-only, with a top-down camera and a collapsible bottom sheet, without saving."
         }
       ],
       "evidence": {
@@ -5642,6 +5651,60 @@
         ],
         "tests": [
           "tests/hall-pulse-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-095",
+      "kind": "functional",
+      "title": {
+        "ar": "مسارات التنقّل بين القاعات",
+        "en": "Movement paths between halls"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يعرض داخل نبض القاعات، لرئيس لجنة الجدول ورئيس القسم والعميد وحدهم، مسار أستاذٍ أو دفعةٍ (شعب مقررات المستوى نفسه في الصحيفة بالرمز نفسه) في يومٍ مختار: أنبوبٌ متوهّج من قاعةٍ إلى قاعة بترتيب المحاضرات وعلامةٌ تمشي مع ساعة المشهد وتقف عند القاعة أثناء المحاضرة؛ وأن يحسب لكل انتقالٍ الفجوة بالدقائق وتقدير المشي (القاعة نفسها، الطابق نفسه، طابقٌ آخر، مبنى آخر) من مواضع القاعات موسوماً «تقدير»، وينبّه إلى الانتقال الضيّق (مبنى آخر بفجوةٍ لا تزيد على 10 دقائق أو مشيٌ أطول من الفجوة) والفراغ الطويل للدفعة (180 دقيقة فأكثر) والذهاب والإياب بين مبنيين، ويرتّب «أصعب التنقلات اليوم»، ويقترح لرئيس اللجنة «قاعة أقرب» من النوع نفسه فارغةً ومقروءاً إشغالها تمرّ بالمراجعة ثم الحفظ المعتاد.",
+        "en": "The system shall show inside the hall pulse, to the schedule committee chair, the department head and the dean only, the path of an instructor or a cohort (sections of same-level courses in one plan with the same section code) on a chosen day: a glowing tube from hall to hall in lecture order with a marker that moves with the scene clock and rests at the hall during the lecture; shall compute for every transition the gap in minutes and a walking estimate (same hall, same floor, another floor, another building) from the hall positions, labelled «estimate», and flag a tight transition (another building with a gap of at most 10 minutes, or a walk longer than the gap), a long idle gap for a cohort (180 minutes or more) and back-and-forth between two buildings; shall rank «today's hardest transitions»; and shall offer the chair a «nearer hall» of the same type that is free and whose occupancy was read, going through the review and the usual save."
+      },
+      "rationale": {
+        "ar": "التنقّل بين المباني في فجوةٍ قصيرة يؤخّر المحاضرة التالية؛ ورؤيته على المباني أوضح من جدول.",
+        "en": "Moving between buildings in a short gap delays the next lecture; seeing it on the buildings is clearer than a table."
+      },
+      "priority": "should",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "مبنى آخر بفجوة 10 دقائق «انتقالٌ ضيّق»، وبفجوة 31 دقيقة ليس ضيّقاً؛ والقاعة نفسها بلا تنبيه؛ ودفعةٌ بفجوة 255 دقيقة «فراغٌ طويل».",
+          "en": "Another building with a 10-minute gap is a «tight transition», with a 31-minute gap it is not; the same hall raises no flag; a cohort with a 255-minute gap has a «long idle gap»."
+        },
+        {
+          "ar": "«أصعب التنقلات اليوم» مرتّبةٌ تنازلياً والضيّق أولاً، والضغط على واحدٍ يعرض مساره ويشغّل الساعة عنده.",
+          "en": "«Today's hardest transitions» are ranked descending with tight ones first, and tapping one shows its path and plays the clock from it."
+        },
+        {
+          "ar": "كل «قاعة أقرب» أقرب فعلاً ومن النوع نفسه وفارغةٌ في أيام الشعبة ووقتها كله، ولا تُقترح قاعةٌ لم يُقرأ إشغالها؛ والحفظ عبر /api/schedules/move-batch بعد «مراجعة قبل الحفظ».",
+          "en": "Every «nearer hall» is actually nearer, of the same type and free on all the section's days for its whole time, and a hall whose occupancy was not read is never offered; saving goes through /api/schedules/move-batch after «review before saving»."
+        },
+        {
+          "ar": "لا تظهر المسارات في عدسة القاعات في مركز الاستعلامات ولا للأساتذة، ولا رقم مدني فيها.",
+          "en": "Paths do not appear in the query centre's rooms lens or to instructors, and carry no civil ID."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/movementPaths.ts#buildPaths",
+          "src/utils/movementPaths.ts#rankHops",
+          "src/utils/movementPaths.ts#nearerHalls",
+          "src/components/hallPulse/HallPulse.tsx",
+          "src/components/hallPulse/pulseScene.ts"
+        ],
+        "tests": [
+          "tests/movement-paths-audit.ts"
         ]
       },
       "inferred": false

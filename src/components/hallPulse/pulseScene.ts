@@ -28,6 +28,9 @@ export interface HallVisual {
 
 export interface FlightPair { from: string; to: string; color: number; delay?: number }
 
+/** علامة مسار التنقّل: عند محطةٍ (hop = null) أو بين محطتين بنسبةٍ من الطريق. */
+export interface PathMarker { stop: number; hop: number | null; progress: number }
+
 interface RoomRig {
   key: string;
   group: THREE.Group;
@@ -40,12 +43,48 @@ interface RoomRig {
   color: THREE.Color;
   base: THREE.Vector3;
   flashAt: number;
+  /** نافذةٌ أمامية تضيء حين تُشغل القاعة. */
+  win: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  /** وهجٌ رخيص (sprite إضافي) فوق المضغوطة والمختارة، بدل معالجةٍ لاحقة ثقيلة. */
+  halo: THREE.Sprite;
+  building: string;
+  floorIndex: number;
+  /** الطوابق المنفرجة: ارتفاعٌ إضافي وشفافية للطوابق فوق الطابق المختار. */
+  liftY: number;
+  liftWant: number;
+  fadeK: number;
+  fadeWant: number;
 }
+
+interface SlabRig { mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>; building: string; floorIndex: number; baseY: number; liftY: number; fadeK: number }
+
+/** نسبة ما تملؤه المباني من اللوحة عند الإطار الآلي. */
+const FRAME_FILL = 0.74;
 
 const GLASS = new THREE.Color(0xcfe9df);
 const BRASS = new THREE.Color(0xe2bd76);
 const CALM = new THREE.Color(0x4fd3a1);
 const EDGE = new THREE.Color(0x7fb3a3);
+const WINDOW_WARM = new THREE.Color(0xffe2a8);
+const PATH_GLOW = new THREE.Color(0x7fe0ff);
+
+function glowTexture() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d")!;
+  const r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  r.addColorStop(0, "rgba(255,255,255,0.9)");
+  r.addColorStop(0.25, "rgba(255,255,255,0.45)");
+  r.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = r; g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** ألوان الشمس على مدار اليوم الدراسي: صباحٌ دافئ، وظهرٌ أبيض، ومساءٌ برتقالي. */
+const SUN_MORNING = new THREE.Color(0xffd2a0), SUN_NOON = new THREE.Color(0xfff6e6), SUN_EVENING = new THREE.Color(0xff9a62);
+const SKY_MORNING = new THREE.Color(0xd8ecff), SKY_NOON = new THREE.Color(0xeefaf4), SKY_EVENING = new THREE.Color(0xffc9a6);
 
 function groundTexture() {
   const c = document.createElement("canvas");
@@ -78,6 +117,7 @@ export class PulseScene {
   private fillGeo: THREE.BufferGeometry;
   private edgeGeo: THREE.BufferGeometry;
   private ghostGeo: THREE.BufferGeometry;
+  private winGeo: THREE.BufferGeometry;
   private flights: Array<{ curve: THREE.QuadraticBezierCurve3; line: THREE.Line; mesh: THREE.Mesh; start: number; end: number; color: THREE.Color; to: string }> = [];
   private hold = new Map<string, number>();
   private raf = 0;
@@ -101,6 +141,25 @@ export class PulseScene {
   private tmp = new THREE.Color();
   private disposed = false;
   private sized = false;
+  private slabs: SlabRig[] = [];
+  private keyLight!: THREE.DirectionalLight;
+  private hemi!: THREE.HemisphereLight;
+  private glowTex!: THREE.CanvasTexture;
+  private sunT = 0.3;
+  private sunWant = 0.3;
+  private explodeOf: { building: string; floor: number } | null = null;
+  private pathGroup = new THREE.Group();
+  private pathCurves: Array<THREE.Curve<THREE.Vector3> | null> = [];
+  private pathStops: THREE.Vector3[] = [];
+  private pathMarker: THREE.Mesh | null = null;
+  private pathHalo: THREE.Sprite | null = null;
+  private pathMats: THREE.Material[] = [];
+  private pathGeos: THREE.BufferGeometry[] = [];
+  private markerState: PathMarker | null = null;
+  private markerPos = new THREE.Vector3();
+  private markerHas = false;
+  private trees: THREE.InstancedMesh | null = null;
+  private lastInput = 0;
   private homePol = 1.08;
 
   constructor(private opts: {
@@ -111,6 +170,8 @@ export class PulseScene {
     reduced: boolean;
     /** الهاتف: المباني في عمود، والكاميرا من أعلى ليظهر كل مبنى. */
     topDown?: boolean;
+    /** حركةٌ محيطة هادئة (دورانٌ بطيء جداً) على الشاشات الواسعة، لا مع تقليل الحركة. */
+    ambient?: boolean;
     onPick: (key: string | null, neighbour: boolean) => void;
     onHover?: (key: string | null) => void;
   }) {
@@ -124,14 +185,19 @@ export class PulseScene {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.scene.fog = new THREE.Fog(0x0b1f1b, 70, 220);
-    this.scene.add(new THREE.HemisphereLight(0xe4f6ee, 0x0b1d19, 1.15));
+    this.hemi = new THREE.HemisphereLight(0xe4f6ee, 0x0b1d19, 1.1);
+    this.scene.add(this.hemi);
     const key = new THREE.DirectionalLight(0xfff4e2, 1.25);
     key.position.set(-14, 26, 18);
     key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
-    key.shadow.radius = 6;
-    key.shadow.bias = -0.0008;
-    this.scene.add(key);
+    key.shadow.mapSize.set(opts.topDown ? 1024 : 2048, opts.topDown ? 1024 : 2048);
+    key.shadow.radius = 8;
+    key.shadow.bias = -0.0006;
+    key.shadow.normalBias = 0.02;
+    this.keyLight = key;
+    this.scene.add(key, key.target);
+    this.glowTex = glowTexture();
+    this.disposables.push(this.glowTex);
     const rim = new THREE.DirectionalLight(0x8fd6ff, 0.45);
     rim.position.set(18, 10, -20);
     this.scene.add(rim);
@@ -141,10 +207,11 @@ export class PulseScene {
     this.fillGeo.translate(0, 0.5, 0);
     this.edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(HALL_W * 0.985, HALL_H * 0.985, HALL_D * 0.985));
     this.ghostGeo = new RoundedBoxGeometry(HALL_W * 0.78, HALL_H * 0.72, HALL_D * 0.78, 2, 0.12);
-    this.disposables.push(this.shellGeo, this.fillGeo, this.edgeGeo, this.ghostGeo);
+    this.winGeo = new THREE.PlaneGeometry(HALL_W * 0.72, HALL_H * 0.3);
+    this.disposables.push(this.shellGeo, this.fillGeo, this.edgeGeo, this.ghostGeo, this.winGeo);
 
     this.build(opts.layout);
-    this.scene.add(this.nbGroup);
+    this.scene.add(this.nbGroup, this.pathGroup);
 
     this.resize();
     this.ro = new ResizeObserver(() => this.resize());
@@ -181,6 +248,34 @@ export class PulseScene {
     halo.position.set(layout.cx, -0.14, layout.cz);
     this.scene.add(halo);
     this.disposables.push(ground.geometry, ground.material as THREE.Material, halo.geometry, halo.material as THREE.Material, haloTex);
+    /* منظرٌ هادئ: أشجارٌ قليلة منخفضة الكلفة (InstancedMesh) حول المباني. */
+    const treeGeo = new THREE.ConeGeometry(0.55, 1.5, 7);
+    treeGeo.translate(0, 0.75, 0);
+    const treeMat = new THREE.MeshStandardMaterial({ color: 0x2f6f58, roughness: 0.9, flatShading: true });
+    const span = Math.max(layout.width, layout.depth) * 0.5 + 5;
+    const count = Math.min(46, 18 + Math.round(span * 1.2));
+    const trees = new THREE.InstancedMesh(treeGeo, treeMat, count);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
+    let seed = 17;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + rnd() * 0.25;
+      const r = span + 1.5 + rnd() * 5;
+      const h = 0.7 + rnd() * 0.9;
+      pos.set(layout.cx + Math.cos(a) * r * 1.05, -0.16, layout.cz + Math.sin(a) * r * 0.85);
+      sc.set(h, h * (0.9 + rnd() * 0.5), h);
+      m4.compose(pos, q, sc);
+      trees.setMatrixAt(i, m4);
+    }
+    trees.castShadow = true; trees.receiveShadow = true;
+    this.trees = trees;
+    this.scene.add(trees);
+    this.disposables.push(treeGeo, treeMat);
+    const sh = this.keyLight.shadow.camera as THREE.OrthographicCamera;
+    const ext = span + 8;
+    sh.left = -ext; sh.right = ext; sh.top = ext; sh.bottom = -ext; sh.near = 1; sh.far = 160;
+    sh.updateProjectionMatrix();
+    this.keyLight.target.position.set(layout.cx, 0, layout.cz);
     this.buildBlock(layout, this.scene, this.rooms, this.buildingTags, false);
     this.home.set(layout.cx, Math.min(layout.height, 6) * 0.1 - 0.8, layout.cz);
     this.target.copy(this.home); this.targetT.copy(this.home);
@@ -193,10 +288,13 @@ export class PulseScene {
       const slabGeo = new RoundedBoxGeometry(b.w + 0.5, 0.16, b.d + 0.5, 2, 0.07);
       this.disposables.push(slabGeo);
       for (let f = 0; f < b.floors; f++) {
-        const slab = new THREE.Mesh(slabGeo, slabMat);
+        const mat = neighbour ? slabMat : slabMat.clone();
+        if (!neighbour) { mat.transparent = true; this.disposables.push(mat); }
+        const slab = new THREE.Mesh(slabGeo, mat);
         slab.position.set(b.cx, f * FLOOR_H - 0.06, b.cz);
         slab.receiveShadow = true; slab.castShadow = !neighbour;
         parent.add(slab);
+        if (!neighbour) this.slabs.push({ mesh: slab, building: b.code, floorIndex: f, baseY: slab.position.y, liftY: 0, fadeK: 1 });
       }
       const el = document.createElement("div");
       el.className = `hp-tag hp-tag-building${neighbour ? " is-neighbour" : ""}`;
@@ -218,16 +316,23 @@ export class PulseScene {
       fill.castShadow = !neighbour;
       const edges = new THREE.LineSegments(this.edgeGeo, new THREE.LineBasicMaterial({ color: EDGE, transparent: true, opacity: neighbour ? 0 : 0.55 }));
       shell.userData.key = spot.key; shell.userData.neighbour = neighbour;
-      group.add(fill, shell, edges);
+      /* نافذةٌ على الواجهة الأمامية: تضيء دافئةً حين تُشغل القاعة. */
+      const win = new THREE.Mesh(this.winGeo, new THREE.MeshBasicMaterial({ color: WINDOW_WARM, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      win.position.set(0, HALL_H * 0.12, HALL_D / 2 + 0.012);
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: 0xf0674f, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      halo.scale.set(HALL_W * 2.2, HALL_W * 2.2, 1);
+      halo.position.set(0, HALL_H * 0.2, 0);
+      group.add(fill, shell, edges, win, halo);
       parent.add(group);
       const tag = document.createElement("div");
       tag.className = `hp-tag${neighbour ? " is-neighbour" : ""}`;
       tag.hidden = true;
       this.opts.labels.appendChild(tag);
       into.set(spot.key, {
-        key: spot.key, group, shell, fill, edges, tag,
+        key: spot.key, group, shell, fill, edges, tag, win, halo,
         target: { color: 0xcfe9df, level: 0, occupied: false, label: "" },
         level: 0, color: new THREE.Color(GLASS), base: group.position.clone(), flashAt: 0,
+        building: spot.building, floorIndex: spot.floorIndex, liftY: 0, liftWant: 0, fadeK: 1, fadeWant: 1,
       });
     }
   }
@@ -258,7 +363,7 @@ export class PulseScene {
   }
 
   private clearNeighbour() {
-    for (const rig of this.nbRooms.values()) { rig.shell.material.dispose(); rig.fill.material.dispose(); rig.edges.material.dispose(); rig.tag.remove(); }
+    for (const rig of this.nbRooms.values()) { rig.shell.material.dispose(); rig.fill.material.dispose(); rig.edges.material.dispose(); rig.win.material.dispose(); rig.halo.material.dispose(); rig.tag.remove(); }
     this.nbRooms.clear();
     this.nbBuildingTags.forEach(t => t.el.remove());
     this.nbBuildingTags = [];
@@ -288,13 +393,92 @@ export class PulseScene {
     const minX = Math.min(this.opts.layout.cx - this.opts.layout.width / 2, this.nbLayout.cx - this.nbLayout.width / 2);
     const maxX = Math.max(this.opts.layout.cx + this.opts.layout.width / 2, this.nbLayout.cx + this.nbLayout.width / 2);
     this.targetT.set((minX + maxX) / 2, this.home.y, this.home.z);
-    this.radiusT = this.radiusFor(maxX - minX, Math.max(this.opts.layout.depth, this.nbLayout.depth), this.opts.layout.height);
+    const depth = Math.max(this.opts.layout.depth, this.nbLayout.depth);
+    this.radiusT = this.fitExact(minX, maxX, this.home.z - depth / 2, this.home.z + depth / 2, this.opts.layout.height, this.targetT);
   }
 
   showNeighbourView(on: boolean) {
     if (on) this.includeNeighbour();
     else { this.targetT.copy(this.home); this.radiusT = this.fitRadius; }
     this.kick();
+  }
+
+  /** الشمس تتبع ساعة المشهد: زاويتها ولونها وشدّتها، والسماء معها. */
+  setTimeOfDay(minute: number, dayStart: number, dayEnd: number) {
+    this.sunWant = THREE.MathUtils.clamp((minute - dayStart) / Math.max(1, dayEnd - dayStart), 0, 1);
+    if (this.opts.reduced) this.sunT = this.sunWant;
+    this.kick();
+  }
+
+  /** الطوابق المنفرجة: ما فوق الطابق المختار من المبنى نفسه يرتفع ويشفّ؛ null يعيدها. */
+  explode(building: string | null, floor: number) {
+    const next = building == null ? null : { building, floor };
+    if (JSON.stringify(next) === JSON.stringify(this.explodeOf)) return;
+    this.explodeOf = next;
+    for (const rig of this.rooms.values()) {
+      const above = next && rig.building === next.building && rig.floorIndex > next.floor;
+      rig.liftWant = above ? 1.9 + (rig.floorIndex - next!.floor) * 0.9 : 0;
+      rig.fadeWant = above ? 0.12 : 1;
+    }
+    this.kick();
+  }
+  get exploded() { return this.explodeOf != null; }
+
+  /** مسار التنقّل: أنبوبٌ متوهّج من قاعة إلى قاعة بترتيب المحاضرات. null يمحوه. */
+  setPath(keys: string[] | null) {
+    this.clearPath();
+    if (!keys || keys.length < 1) { this.kick(); return; }
+    const stops = keys.map(key => {
+      const rig = this.rooms.get(key);
+      const p = rig ? rig.group.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3();
+      p.y += HALL_H * 0.62;
+      return p;
+    });
+    this.pathStops = stops;
+    const core = new THREE.MeshBasicMaterial({ color: PATH_GLOW, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending });
+    const glow = new THREE.MeshBasicMaterial({ color: PATH_GLOW, transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending });
+    this.pathMats.push(core, glow);
+    for (let i = 0; i + 1 < stops.length; i++) {
+      const a = stops[i], b = stops[i + 1];
+      const d = a.distanceTo(b);
+      if (d < 0.05) { this.pathCurves.push(null); continue; }
+      const mid = a.clone().add(b).multiplyScalar(0.5).add(new THREE.Vector3(0, 1.4 + d * 0.22, 0));
+      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+      this.pathCurves.push(curve);
+      const g1 = new THREE.TubeGeometry(curve, 48, 0.07, 8, false);
+      const g2 = new THREE.TubeGeometry(curve, 48, 0.22, 8, false);
+      this.pathGeos.push(g1, g2);
+      this.pathGroup.add(new THREE.Mesh(g1, core), new THREE.Mesh(g2, glow));
+    }
+    /* حلقةٌ عند كل محطة. */
+    const ringGeo = new THREE.TorusGeometry(0.55, 0.05, 8, 40);
+    ringGeo.rotateX(Math.PI / 2);
+    this.pathGeos.push(ringGeo);
+    stops.forEach(p => { const ring = new THREE.Mesh(ringGeo, core); ring.position.copy(p); ring.position.y -= 0.05; this.pathGroup.add(ring); });
+    const markerGeo = new THREE.SphereGeometry(0.26, 20, 14);
+    this.pathGeos.push(markerGeo);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const haloMat = new THREE.SpriteMaterial({ map: this.glowTex, color: PATH_GLOW, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
+    this.pathMats.push(markerMat, haloMat);
+    this.pathMarker = new THREE.Mesh(markerGeo, markerMat);
+    this.pathHalo = new THREE.Sprite(haloMat);
+    this.pathHalo.scale.set(2.2, 2.2, 1);
+    this.pathGroup.add(this.pathMarker, this.pathHalo);
+    this.markerHas = false;
+    this.kick();
+  }
+
+  setMarker(state: PathMarker | null) {
+    this.markerState = state;
+    this.kick();
+  }
+
+  private clearPath() {
+    this.pathGroup.clear();
+    this.pathGeos.forEach(g => g.dispose());
+    this.pathMats.forEach(m => m.dispose());
+    this.pathGeos = []; this.pathMats = []; this.pathCurves = []; this.pathStops = [];
+    this.pathMarker = null; this.pathHalo = null; this.markerState = null; this.markerHas = false;
   }
 
   fly(pairs: FlightPair[]) {
@@ -332,6 +516,26 @@ export class PulseScene {
     return Math.max(14, Math.max(byW, byH) * 1.12);
   }
 
+  /** الإطار الآلي: أقرب بُعدٍ تملأ فيه حدودُ المباني FRAME_FILL من اللوحة من زاوية النظر الحالية. */
+  private fitExact(minX: number, maxX: number, minZ: number, maxZ: number, height: number, target: THREE.Vector3) {
+    const corners: THREE.Vector3[] = [];
+    for (const x of [minX, maxX]) for (const z of [minZ, maxZ]) for (const y of [-0.2, height]) corners.push(new THREE.Vector3(x, y, z));
+    const cam = this.camera.clone();
+    const az = this.azT, pol = this.polT;
+    const fits = (r: number) => {
+      const s = Math.sin(pol);
+      cam.position.set(target.x + r * s * Math.sin(az), target.y + r * Math.cos(pol), target.z + r * s * Math.cos(az));
+      cam.lookAt(target);
+      cam.updateMatrixWorld();
+      let m = 0;
+      for (const c of corners) { const p = c.clone().project(cam); if (p.z > 1) return false; m = Math.max(m, Math.abs(p.x), Math.abs(p.y)); }
+      return m <= FRAME_FILL;
+    };
+    let lo = 4, hi = 400;
+    for (let i = 0; i < 26; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
+    return hi;
+  }
+
   private resize() {
     const r = this.opts.host.getBoundingClientRect();
     this.W = Math.max(1, Math.round(r.width)); this.H = Math.max(1, Math.round(r.height));
@@ -342,7 +546,9 @@ export class PulseScene {
     const first = !this.sized;
     if (first && (this.opts.topDown || this.camera.aspect < 0.9)) { this.homePol = 0.72; this.pol = this.polT = 0.72; this.az = this.azT = 0.22; }
     const ratio = this.radiusT / this.fitRadius;
-    this.fitRadius = this.radiusFor(L.width, L.depth, L.height);
+    this.fitRadius = this.fitExact(L.cx - L.width / 2 - 0.4, L.cx + L.width / 2 + 0.4, L.cz - L.depth / 2 - 0.4, L.cz + L.depth / 2 + 0.4, L.height, this.home);
+    /* اللافتات تكبر مع اللوحة: مقروءةٌ على الحاسوب الكبير، ولا تزحم الهاتف. */
+    this.opts.labels.style.setProperty("--hp-tag-size", `${THREE.MathUtils.clamp(Math.round(this.W / 82), 11, 16)}px`);
     /* أول قياسٍ يضع الكاميرا مباشرةً؛ وما بعده يحفظ نسبة التقريب التي اختارها القارئ. */
     this.radiusT = first ? this.fitRadius : this.fitRadius * ratio;
     if (first) { this.radius = this.radiusT; this.sized = true; }
@@ -361,6 +567,7 @@ export class PulseScene {
   }
 
   private onDown = (e: PointerEvent) => {
+    this.lastInput = performance.now();
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
@@ -413,6 +620,7 @@ export class PulseScene {
   private onLeave = () => { if (this.hovered) { this.hovered = null; this.opts.onHover?.(null); this.kick(); } };
   private onWheel = (e: WheelEvent) => {
     e.preventDefault();
+    this.lastInput = performance.now();
     this.radiusT = THREE.MathUtils.clamp(this.radiusT * Math.exp(e.deltaY * 0.0012), this.fitRadius * 0.45, this.fitRadius * 1.8);
     this.kick();
   };
@@ -443,6 +651,26 @@ export class PulseScene {
     const reduced = this.opts.reduced;
     const k = reduced ? 1 : 1 - Math.exp(-dt * 7);
     let busy = false;
+
+    /* الشمس: من الشرق صباحاً إلى الغرب مساءً، ولونها يدفأ في الطرفين. */
+    this.sunT += (this.sunWant - this.sunT) * (reduced ? 1 : 1 - Math.exp(-dt * 2.5));
+    if (Math.abs(this.sunWant - this.sunT) > 0.0005) busy = true;
+    {
+      const t = this.sunT, L = this.opts.layout;
+      const ang = Math.PI * (0.12 + 0.76 * t), elev = Math.sin(Math.PI * (0.15 + 0.7 * t));
+      const R = Math.max(30, L.width + L.depth);
+      this.keyLight.position.set(L.cx + Math.cos(ang) * R * 0.9, 8 + elev * R * 0.75, L.cz + R * 0.55);
+      const c1 = t < 0.5 ? SUN_MORNING : SUN_NOON, c2 = t < 0.5 ? SUN_NOON : SUN_EVENING, f = t < 0.5 ? t * 2 : (t - 0.5) * 2;
+      this.keyLight.color.copy(c1).lerp(c2, f);
+      this.keyLight.intensity = 0.75 + 0.75 * elev;
+      const s1 = t < 0.5 ? SKY_MORNING : SKY_NOON, s2 = t < 0.5 ? SKY_NOON : SKY_EVENING;
+      this.hemi.color.copy(s1).lerp(s2, f);
+      this.hemi.intensity = 0.85 + 0.35 * elev;
+    }
+
+    /* حركةٌ محيطة: انجرافٌ بطيءٌ جداً حين لا يلمس أحدٌ المشهد. */
+    const drifting = Boolean(this.opts.ambient) && !reduced && now - this.lastInput > 6000 && !this.drag && !this.pinch;
+    if (drifting) { this.azT = THREE.MathUtils.clamp(this.azT + dt * 0.012 * Math.sin(now / 14000 + 1), -1.25, 1.25); busy = true; }
 
     /* الكاميرا: تخميدٌ ناعم نحو الهدف. */
     this.az += (this.azT - this.az) * k; this.pol += (this.polT - this.pol) * k; this.radius += (this.radiusT - this.radius) * k;
@@ -482,14 +710,65 @@ export class PulseScene {
       const ec = flash ? 0xffffff : sel ? BRASS.getHex() : v.glow ? CALM.getHex() : hov ? 0xe9f5f0 : EDGE.getHex();
       rig.edges.material.color.setHex(ec);
       rig.edges.material.opacity = fade * (sel || flash ? 1 : v.glow ? 0.55 + 0.45 * breathe : hov ? 0.9 : v.dim ? 0.18 : 0.5);
+      /* الطوابق المنفرجة: ترتفع وتشفّ بتخفيفٍ ناعم. */
+      const ek = reduced ? 1 : 1 - Math.exp(-dt * 4.5);
+      rig.liftY += (rig.liftWant - rig.liftY) * ek;
+      rig.fadeK += (rig.fadeWant - rig.fadeK) * ek;
+      if (Math.abs(rig.liftWant - rig.liftY) + Math.abs(rig.fadeWant - rig.fadeK) > 0.002) busy = true;
+      const fk = rig.fadeK;
+      fillMat.opacity *= fk; shell.opacity *= fk; rig.edges.material.opacity *= fk;
+      /* النافذة تضيء بلونٍ دافئ يميل إلى لون الملاءمة. */
+      const winMat = rig.win.material;
+      winMat.color.copy(WINDOW_WARM).lerp(rig.color, 0.35);
+      winMat.opacity += (((v.occupied && !v.dim ? 0.85 : 0) * fade * fk) - winMat.opacity) * ck;
+      /* وهجٌ فوق المضغوطة والمختارة. */
+      const haloMat = rig.halo.material;
+      const haloWant = (v.pulse ? 0.35 + 0.35 * breathe : sel ? 0.28 : 0) * fade * fk;
+      haloMat.color.copy(sel && !v.pulse ? BRASS : rig.color);
+      haloMat.opacity += (haloWant - haloMat.opacity) * ck;
+      rig.halo.visible = haloMat.opacity > 0.01;
       /* الاختيار يرفع القاعة قليلاً، كمن يُخرج درجاً. */
-      const lift = sel ? 0.22 : hov ? 0.08 : 0;
+      const lift = (sel ? 0.22 : hov ? 0.08 : 0) + rig.liftY;
       const y = rig.base.y + lift;
       if (Math.abs(rig.group.position.y - y) > 0.001) { rig.group.position.y += (y - rig.group.position.y) * ck; busy = true; }
-      if (v.pulse || v.glow || flash) busy = true;
+      if (v.pulse || v.glow || flash || held) busy = true;
     };
     for (const rig of this.rooms.values()) tick(rig, 1, false);
     for (const rig of this.nbRooms.values()) tick(rig, this.nbAlpha, true);
+    {
+      const ek = reduced ? 1 : 1 - Math.exp(-dt * 4.5);
+      for (const sl of this.slabs) {
+        const ex = this.explodeOf;
+        /* سقف الطابق المختار (أي أرضية الطابق الذي فوقه) يرتفع مع ما فوقه. */
+        const above = ex && sl.building === ex.building && sl.floorIndex > ex.floor;
+        const lw = above ? 1.9 + (sl.floorIndex - ex!.floor) * 0.9 : 0, fw = above ? 0.1 : 1;
+        sl.liftY += (lw - sl.liftY) * ek; sl.fadeK += (fw - sl.fadeK) * ek;
+        if (Math.abs(lw - sl.liftY) + Math.abs(fw - sl.fadeK) > 0.002) busy = true;
+        sl.mesh.position.y = sl.baseY + sl.liftY;
+        sl.mesh.material.opacity = sl.fadeK;
+        sl.mesh.castShadow = sl.fadeK > 0.5;
+      }
+    }
+
+    /* مسار التنقّل: العلامة تمشي على الأنبوب، وتنبض عند المحطة. */
+    if (this.pathMarker && this.pathHalo && this.pathStops.length) {
+      const st = this.markerState;
+      const want = new THREE.Vector3();
+      if (!st) want.copy(this.pathStops[0]);
+      else if (st.hop != null && this.pathCurves[st.hop]) {
+        const p = THREE.MathUtils.clamp(st.progress, 0, 1);
+        const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+        want.copy(this.pathCurves[st.hop]!.getPoint(e));
+      } else want.copy(this.pathStops[Math.min(this.pathStops.length - 1, st.stop)] || this.pathStops[0]);
+      const bob = reduced ? 0 : Math.sin(now / 280) * 0.08;
+      if (!this.markerHas) { this.markerPos.copy(want); this.markerHas = true; }
+      this.markerPos.lerp(want, reduced ? 1 : 1 - Math.exp(-dt * 9));
+      this.pathMarker.position.copy(this.markerPos); this.pathMarker.position.y += 0.25 + bob;
+      this.pathHalo.position.copy(this.pathMarker.position);
+      const pm = this.pathHalo.material as THREE.SpriteMaterial;
+      pm.opacity = 0.65 + (reduced ? 0 : 0.3 * Math.sin(now / 220));
+      if (!reduced) busy = true;
+    }
 
     for (let i = this.flights.length - 1; i >= 0; i--) {
       const f = this.flights[i], p = (now - f.start) / (f.end - f.start);
@@ -528,7 +807,7 @@ export class PulseScene {
       const v = rig.target, sel = rig.key === this.selected, hov = rig.key === this.hovered;
       /* على الشاشة الضيّقة: لافتة المختارة والمضغوطة والمضيئة وحدها. */
       const roomy = this.W >= 560;
-      const show = fade > 0.6 && (sel || hov || (Boolean(v.showLabel) && (roomy || Boolean(v.pulse || v.glow))));
+      const show = fade > 0.6 && rig.fadeK > 0.5 && (sel || hov || (Boolean(v.showLabel) && (roomy || Boolean(v.pulse || v.glow))));
       rig.tag.hidden = !show;
       if (!show) return;
       rig.tag.classList.toggle("is-selected", sel);
@@ -565,7 +844,8 @@ export class PulseScene {
     for (const f of this.flights) { f.line.geometry.dispose(); (f.line.material as THREE.Material).dispose(); (f.mesh.material as THREE.Material).dispose(); }
     this.flights = [];
     this.clearNeighbour();
-    for (const rig of this.rooms.values()) { rig.shell.material.dispose(); rig.fill.material.dispose(); rig.edges.material.dispose(); rig.tag.remove(); }
+    for (const rig of this.rooms.values()) { rig.shell.material.dispose(); rig.fill.material.dispose(); rig.edges.material.dispose(); rig.win.material.dispose(); rig.halo.material.dispose(); rig.tag.remove(); }
+    this.clearPath();
     this.rooms.clear();
     this.buildingTags.forEach(t => t.el.remove());
     this.disposables.forEach(d => d.dispose());
