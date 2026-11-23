@@ -1,0 +1,27 @@
+/* ==========================================================================
+   الدوو داخل التطبيق — الطبقات فوق الصفحة (لقطات المالك 2026-11-23، الشاشة الخارجية):
+   - الدرج الجانبي كان يحجز عمود الساعة مرّتين: حدود النظام (env) + ما يكتبه الغلاف (--duo-widget-*)،
+     فضاق حتى قُصّت أسماء الصفحات («الجـ…»، «مركز…») وركب زرّ الإغلاق على الشعار.
+     في التطبيق الحدود وحدها تكفي.
+   - أسبوع الأستاذ كان يمتدّ تحت الساعة فتقع على اسمه.
+   - ورقة نصاب الأستاذ في «تعديل موعد» كانت تمتدّ تحت كبسولة التنقّل.
+   بصريّ فقط: Safari وiPhone لا يتغيّران.
+   ========================================================================== */
+html[data-device="duo"][data-shell="app"] body .sidebar{padding-right:env(safe-area-inset-right)}
+html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .sidebar{padding-left:env(safe-area-inset-left)}
+
+html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .teacher-week-dialog{
+  padding-right:calc(8px + env(safe-area-inset-right));padding-left:calc(8px + env(safe-area-inset-left));
+}
+
+html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .mini-week.is-sheet{
+  inset-inline:auto;margin-inline:0;
+  right:calc(8px + env(safe-area-inset-right));left:calc(8px + env(safe-area-inset-left));
+  max-width:none;
+}
+
+/* الجولة التعريفية (الشاشة الخارجية): بطاقتها كانت تمتدّ تحت الساعة فتغطّي عنوانها وسطرها الأول. */
+html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .ob-root{
+  padding-right:calc(10px + env(safe-area-inset-right)) !important;padding-left:calc(10px + env(safe-area-inset-left)) !important;
+  box-sizing:border-box;
+}

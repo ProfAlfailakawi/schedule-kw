@@ -1,0 +1,116 @@
+/* ==========================================================================
+   «الجدول الدراسي» على الدوو — الشاشة الداخلية عرضاً داخل التطبيق (لقطات المالك 2026-11-23):
+   كانت كبسولة التنقّل تغطّي حافة البطاقة، وعنوان الصفحة تحت الساعة، وشريط الأدوات عائماً فوق المحتوى
+   في منتصف الأسفل، ونصف الشاشة الأيسر فارغاً حين لا تظهر بطاقة الحالة.
+   هنا: عمودٌ يمينيّ محجوز تحت الساعة يجمع التنقّل ثم «تبادل» ثم أدوات الجدول عموديّة، والمحتوى يقف قبله؛
+   وبطاقة الاختيار بعرض الصفحة في صفوفٍ مدمجة (الكلية | القسم | الفصل، ثم العرض والأدوات والبحث)،
+   فيظهر الأسبوع والقائمة أبكر. بصريٌّ فقط: لا زرّ يُضاف ولا يُحذف.
+   ========================================================================== */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]){
+    --duo-land-col:max(76px,env(safe-area-inset-right));
+  }
+  /* المحتوى يقف قبل العمود. */
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) #root .content-stack.schedule-page.duo-full{
+    padding-right:calc(var(--duo-land-col) + 12px) !important;padding-left:calc(16px + env(safe-area-inset-left)) !important;
+  }
+
+  /* البطاقات العليا: الاختيار بعرض الصفحة، ثم الحالة والاعتماد متجاورتين (أو واحدةٌ بالعرض كله). */
+  html[data-device="duo"][data-shell="app"] #root .content-stack.schedule-page.duo-full>.schedule-control{
+    grid-column:1 / -1 !important;grid-row:2 !important;
+    display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-content:start;
+  }
+  html[data-device="duo"][data-shell="app"] #root .content-stack.schedule-page.duo-full>.schedule-overview-stack{grid-column:1 !important;grid-row:3 !important}
+  html[data-device="duo"][data-shell="app"] #root .content-stack.schedule-page.duo-full>.approval-bar{grid-column:2 !important;grid-row:3 !important}
+  html[data-device="duo"][data-shell="app"] #root .content-stack.schedule-page.duo-full>.page-heading{grid-row:1}
+  html[data-device="duo"][data-shell="app"] #root .content-stack.schedule-page.duo-full:not(:has(>.approval-bar))>.schedule-overview-stack,
+  html[data-device="duo"][data-shell="app"] #root .content-stack.schedule-page.duo-full:not(:has(>.schedule-overview-stack))>.approval-bar{grid-column:1 / -1 !important}
+
+  /* داخل بطاقة الاختيار: الحقول الثلاثة في صفّ، ثم العرض وأدواته والبحث في صفّ. */
+  html[data-device="duo"][data-shell="app"] .schedule-page.duo-full .schedule-control>.filter-strip{
+    display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end;
+  }
+  html[data-device="duo"][data-shell="app"] .schedule-page.duo-full .schedule-control>.filter-strip>.field{min-width:0;margin:0}
+  html[data-device="duo"][data-shell="app"] .schedule-page.duo-full .schedule-control>.schedule-tools{
+    display:grid !important;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 12px;
+  }
+  html[data-device="duo"][data-shell="app"] .schedule-page.duo-full .schedule-control .schedule-view-cluster{
+    display:flex !important;flex-wrap:nowrap;align-items:center;gap:8px;margin:0;grid-column:1 / -1;
+  }
+  html[data-device="duo"][data-shell="app"] .schedule-page.duo-full .schedule-control .schedule-view-cluster>.segmented,
+  html[data-device="duo"][data-shell="app"] .schedule-page.duo-full .schedule-control .schedule-view-cluster>.wk-tools{
+    display:flex !important;flex-wrap:nowrap;flex:none;margin:0;
+  }
+  html[data-device="duo"][data-shell="app"] .schedule-page.duo-full .schedule-control .schedule-view-cluster>.segmented>button{white-space:nowrap}
+  html[data-device="duo"][data-shell="app"] .schedule-page.duo-full .schedule-control .schedule-quick-search{margin:0;min-width:0}
+  html[data-device="duo"][data-shell="app"] .schedule-page.duo-full .schedule-control .schedule-tool-actions{
+    display:flex !important;flex-wrap:nowrap;gap:8px;margin:0;
+  }
+  html[data-device="duo"][data-shell="app"] .schedule-page.duo-full .schedule-control .schedule-tool-actions>.btn{width:auto;white-space:nowrap}
+
+  /* ── العمود: التنقّل تحت الساعة (83-duo-app-nav.css)، ثم «تبادل»، ثم أدوات الجدول كبسولةً عموديّة في أسفله. ── */
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body .schedule-dock{
+    display:flex !important;flex-direction:column;align-items:center;gap:8px;
+    position:fixed;z-index:60;left:auto;top:auto;transform:none;margin:0;
+    right:calc((var(--duo-land-col) - 60px) / 2);bottom:calc(16px + env(safe-area-inset-bottom));
+    width:60px;max-width:60px;min-width:0;height:auto;padding:6px;border-radius:30px;
+    background:rgb(30 34 32 / .9);border:1px solid rgb(255 255 255 / .09);
+    box-shadow:0 1px 0 rgb(255 255 255 / .06) inset,0 12px 32px rgb(10 14 12 / .28);
+    -webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-views,
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-split{display:none !important}
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-act,
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-add{
+    display:grid !important;place-items:center;width:48px;height:48px;min-width:48px;min-height:48px;
+    padding:0;margin:0;border-radius:50%;font-size:0;gap:0;border:0;box-shadow:none;flex:none;
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-act{background:none;color:rgb(255 255 255 / .82)}
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-act.on{background:rgb(0 0 0 / .38);color:#fff}
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-add{background:var(--accent);color:#fff;order:-1}
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock svg{width:22px;height:22px}
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    left:auto !important;top:auto !important;width:48px;height:48px;z-index:60;
+    right:calc((var(--duo-land-col) - 48px) / 2) !important;
+    bottom:calc(16px + 172px + 14px + env(safe-area-inset-bottom)) !important;
+    background:rgb(30 34 32 / .9) !important;color:#fff;border:1px solid rgb(255 255 255 / .09);
+    box-shadow:0 10px 26px rgb(10 14 12 / .26);
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .hall-barter-inbox:not(.hall-barter-inbox-decision) *{color:#fff}
+
+  /* العمود على اليسار بعد التدوير. */
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"]{--duo-land-col:max(76px,env(safe-area-inset-left))}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] #root .content-stack.schedule-page.duo-full{
+    padding-left:calc(var(--duo-land-col) + 12px) !important;padding-right:calc(16px + env(safe-area-inset-right)) !important;
+  }
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .schedule-dock{right:auto;left:calc((var(--duo-land-col) - 60px) / 2)}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    right:auto !important;left:calc((var(--duo-land-col) - 48px) / 2) !important;
+  }
+}
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  /* رأس القائمة بجانب الأسبوع: «عرض ذكي» والعنوان داخل البطاقة لا على حافتها. */
+  html[data-device="duo"][data-shell="app"] #root .duo-split .schedule-agenda-surface>.agenda-head{padding:12px 14px 0 !important;overflow:visible}
+}
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
+  /* كبسولة التنقّل في عمود الساعة على كل الصفحات لا «الجدول» وحده: بدونها لا تنقّل في العرضي إلا من القائمة. */
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body .mobile-bottom-dock{
+    display:flex !important;position:fixed;z-index:55;top:var(--duo-clock-end-wide);bottom:auto;left:auto;
+    right:calc((var(--duo-land-col) - 60px) / 2);
+  }
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .mobile-bottom-dock{right:auto;left:calc((var(--duo-land-col) - 60px) / 2)}
+}
+/* عرضٌ أقصر (أقل من 620pt): العمود لا يتّسع للتنقّل و«تبادل» والأدوات معاً دون تراكب،
+   فتصير الأدوات و«تبادل» صفّاً أفقياً في ركن المحتوى الأسفل بجوار العمود، والتنقّل وحده في العمود. */
+@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:619.98px){
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body .schedule-dock{
+    flex-direction:row;width:auto;max-width:none;
+    right:calc(var(--duo-land-col) + 8px);bottom:calc(12px + env(safe-area-inset-bottom));
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    right:calc(var(--duo-land-col) + 8px + 184px) !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) #root .content-stack.schedule-page.duo-full{padding-bottom:84px !important}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .schedule-dock{right:auto;left:calc(var(--duo-land-col) + 8px)}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] .hall-barter-inbox:not(.hall-barter-inbox-decision){right:auto !important;left:calc(var(--duo-land-col) + 8px + 184px) !important}
+}

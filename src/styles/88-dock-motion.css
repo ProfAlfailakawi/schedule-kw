@@ -1,0 +1,58 @@
+/* ==========================================================================
+   حركة شريط التنقّل (src/utils/dockMotion.ts) — بصرية فقط، على الهاتف والدوو.
+   المؤشّر عنصرٌ واحد (.dm-ind) ينزلق تحت الوجهة النشطة بدل خلفيةٍ تقفز من زرّ إلى زرّ،
+   والزرّ ينضغط تحت الإصبع فورًا ويعود بنعومة. الموضع والحجم والترتيب كما هي.
+   ========================================================================== */
+.mobile-bottom-dock[data-dm-ready]{
+  --dm-ind-bg:color-mix(in srgb,var(--accent) 13%,transparent);
+  --dm-ind-ring:color-mix(in srgb,var(--accent) 22%,transparent);
+  --dm-ind-radius:16px;
+  transition:transform .32s cubic-bezier(.32,.72,0,1),opacity .22s ease;
+}
+.mobile-bottom-dock .dm-ind{
+  position:absolute;z-index:0;pointer-events:none;opacity:0;
+  border-radius:var(--dm-ind-radius);background:var(--dm-ind-bg);
+  box-shadow:inset 0 0 0 1px var(--dm-ind-ring);
+  transition:transform .26s cubic-bezier(.34,1.56,.64,1),opacity .2s ease;
+}
+.mobile-bottom-dock .dm-ind.dm-press{transform:scale(.94);transition-duration:.09s;transition-timing-function:ease-out}
+
+.mobile-bottom-dock[data-dm-ready] .mobile-dock-link{
+  position:relative;z-index:1;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .26s cubic-bezier(.34,1.56,.64,1),color .2s ease;
+}
+/* الخلفية النشطة صار يرسمها المؤشّر المنزلق؛ وظلّ :active صار الضغطة نفسها. */
+.mobile-bottom-dock[data-dm-ready] .mobile-dock-link.active,
+.mobile-bottom-dock[data-dm-ready] .mobile-dock-link:active{background:transparent}
+.mobile-bottom-dock[data-dm-ready] .mobile-dock-link.dm-press{transform:scale(.9);transition-duration:.09s;transition-timing-function:ease-out}
+/* الأيقونة التي صارت نشطة تتنفّس مرّةً واحدة، فيُفهم الانتقال دون لونٍ وحده. */
+.mobile-bottom-dock[data-dm-ready] .mobile-dock-link.active .mobile-dock-icon{animation:dm-pop .38s cubic-bezier(.32,.72,0,1)}
+@keyframes dm-pop{0%{transform:scale(.84)}55%{transform:scale(1.07)}100%{transform:none}}
+.mobile-bottom-dock[data-dm-ready] .mobile-dock-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* لوحة المفاتيح: يتنحّى الشريط ويعود حين تُغلق. */
+.mobile-bottom-dock.dm-kb{transform:translateY(calc(100% + 28px));opacity:0;pointer-events:none}
+
+/* الدوو داخل التطبيق: الكبسولة الداكنة — مؤشّرٌ دائري بلون الحالة النشطة السابقة. */
+html[data-device="duo"][data-shell="app"] .mobile-bottom-dock[data-dm-ready]{
+  --dm-ind-bg:rgb(0 0 0 / .38);--dm-ind-ring:rgb(255 255 255 / .1);--dm-ind-radius:999px;
+}
+html[data-device="duo"][data-duonav="rail"] .mobile-bottom-dock[data-dm-ready]{
+  --dm-ind-bg:rgb(255 255 255 / .16);--dm-ind-ring:rgb(255 255 255 / .08);--dm-ind-radius:999px;
+}
+html[data-device="duo"] .mobile-bottom-dock[data-dm-ready] .mobile-dock-link.active,
+html[data-device="duo"] .mobile-bottom-dock[data-dm-ready] .mobile-dock-link:active{background:transparent}
+
+@media (prefers-reduced-motion:reduce){
+  .mobile-bottom-dock[data-dm-ready],
+  .mobile-bottom-dock .dm-ind,
+  .mobile-bottom-dock[data-dm-ready] .mobile-dock-link{transition:none}
+  .mobile-bottom-dock[data-dm-ready] .mobile-dock-link.dm-press{transform:scale(.96)}
+  .mobile-bottom-dock[data-dm-ready] .mobile-dock-link.active .mobile-dock-icon{animation:none}
+}
+@media (prefers-contrast:more){
+  .mobile-bottom-dock[data-dm-ready]{--dm-ind-ring:var(--accent)}
+}
+/* مرجعٌ للمؤشّر حين لا يكون الشريط مُموضَعًا أصلًا؛ أدنى أولوية فلا يغلب «fixed» في أي صفحة. */
+:where(.mobile-bottom-dock){position:relative}
