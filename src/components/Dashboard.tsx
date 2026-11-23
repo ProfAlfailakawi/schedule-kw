@@ -7,6 +7,7 @@ import GetAppSheet from"./GetAppSheet";
 import MiniRing from"./MiniRing";
 import{Counted,useMotionScope}from"./dna";
 import TermForecast from"./TermForecast";
+import DeanHallPulseCard from"./hallPulse/DeanHallPulseCard";
 import{SCHEDULE_DAY_END,SCHEDULE_DAY_SPAN,SCHEDULE_DAY_START, formatCompactDurationArabic, scheduleClockForDisplay }from"../utils/scheduleTime";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { readSharedScope, useSharedScope } from "../utils/sharedScope";
@@ -16,7 +17,7 @@ import type { TermFilmScope } from "./TermFilm";
 /* فيلم الفصل يُحمَّل حين يُحتاج فقط: اللوحة في الحمولة الأولى، والفيلم ليس فيها. */
 const TermFilmCard=lazy(()=>import("./TermFilm").then(module=>({default:module.TermFilmCard})));
 
-interface DashboardProps{user:any;scopes:any[];canManageSchedule?:boolean;onNavigate?:(view:string)=>void;searchView?:string;reportView?:string}
+interface DashboardProps{user:any;scopes:any[];canManageSchedule?:boolean;onNavigate?:(view:string)=>void;searchView?:string;reportView?:string;roleId?:string}
 interface DashboardData{history?:Array<{termId:number;termName:string;schedules:number;rooms:number;instructors:number}>;previous?:{termId:number;termName:string;schedules:number;rooms:number;instructors:number}|null;metrics:{courses:number;schedules:number;terms:number;instructors:number};latestTermId?:number;latestTermName:string;home?:HomeTerm;dayName:string;weekend?:boolean;dashboardTotal:number;today:Array<{id:number;instructorName:string;courseCode:string;courseName:string;startTime:string;endTime:string;roomCode:string;roomHall:string}>;workspace?:{mode:"admin"|"personal"|"scope";activeSchedules:number;uniqueRooms:number;uniqueInstructors:number;roomOccupancyPeak:number;peakOccupiedRooms:number;weekdayLoad:Array<{key:string;label:string;count:number}>;busiestHours:Array<{hour:string;count:number}>;busiestRooms:Array<{room:string;count:number}>;scopeCount:number;linkedInstructorName:string;personalToday:any[]}}
 /** أيُّ فصلٍ تعرضه اللوحة ولماذا (src/utils/homeTerm.ts). */
 interface HomeTerm{termId:number;defaultTermId:number;defaultTermName:string;currentTermId:number;explicit:boolean;fallback:boolean;empty:boolean;awaitingApproval:boolean;upcoming:{termId:number;termName:string}|null}
@@ -85,7 +86,7 @@ function Spark({series,label}:{series:number[];label:string}){
  </svg>;
 }
 
-export default function Dashboard({user,scopes,canManageSchedule=false,onNavigate,searchView,reportView}:DashboardProps){
+export default function Dashboard({user,scopes,canManageSchedule=false,onNavigate,searchView,reportView,roleId}:DashboardProps){
  const[data,setData]=useState<DashboardData|null>(null),[overview,setOverview]=useState<any>(null),[living,setLiving]=useState<any>(null),[error,setError]=useState<string|null>(null),[attentionOpen,setAttentionOpen]=useState(false),[detailsOpen,setDetailsOpen]=useState(false);
  /**
   * ── لوحة البداية لا تُفرَّغ بسبب لوحة جانبية ────────────────────────────────
@@ -455,6 +456,8 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
     {/* «ذروة الأوقات» و«أكثر القاعات استخداماً» انتقلتا إلى مركز الاستعلام (عدستا «الأوقات» و«نسبة الإشغال»). */}
    </section>:null}
 
+   {/* نبض القاعات للعميدين: بطاقةٌ تُفتح عند الطلب، للقراءة فقط. */}
+   {(roleId==="dean"||roleId==="viceDean")&&!termEmpty?<DeanHallPulseCard scopes={scopes} termId={home?.termId||data.latestTermId||0}/>:null}
    {power&&ws&&!termEmpty?<section className={`dashboard-insights ${detailsOpen?"open":""}`}>
     <button className="dashboard-insights-toggle" type="button" onClick={()=>setDetailsOpen(v=>!v)} aria-expanded={detailsOpen}>
      <span><Sparkles aria-hidden="true"/><strong>تفاصيل</strong></span>

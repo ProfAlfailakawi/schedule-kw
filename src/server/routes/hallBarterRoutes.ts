@@ -7,6 +7,7 @@
  * الطرقُ في دالة التسجيل بعمودها الأصلي بلا إزاحة، فلا يتغيّر حرفٌ في قالبٍ نصّيّ تُرسله.
  */
 import { borrowFit } from "../../utils/roomSuitability";
+import { roomTypeIn } from "../../utils/roomTypeForSection";
 import type { Express } from "express";
 import { RequestReservationConflict, reservationRows } from "../../utils/instructorRequestReservations";
 import { approvedBarterWindowMatchesSchedule } from "../../utils/hallBarterWindow";
@@ -264,6 +265,8 @@ async function buildHallBarterBoard(req:AuthenticatedRequest,collegeId:number,se
               ownerCollegeName:ownerCollege.AdCollegeName,ownerSectionName:ownerSection.AdSectionName,
               ownerSections,shared:ownerSections.length>1,
               fit:borrowFit(room,sectionId,expectedSeats,registry.roomTypeScopes),
+              /* نوعُ القاعة في عين القسم الطالب (قراءةٌ فقط): ليُطابِق نبضُ القاعات نوعَها بنوع الشعبة قبل اقتراحها. */
+              roomType:roomTypeIn(room,sectionId,registry.roomTypeScopes),
             });
           }
         }

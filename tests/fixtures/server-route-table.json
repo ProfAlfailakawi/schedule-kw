@@ -1873,7 +1873,7 @@
    "path": "/api/hall-barter",
    "name": "bound dispatch",
    "call": "ca4dbaef8c80cbb0",
-   "site": "src/server/routes/hallBarterRoutes.ts:361",
+   "site": "src/server/routes/hallBarterRoutes.ts:364",
    "regexp": "/^\\/api\\/hall-barter\\/?$/i",
    "end": true
   },
@@ -1885,7 +1885,7 @@
    "path": "/api/hall-barter/requests",
    "name": "bound dispatch",
    "call": "8aa615af0dfa5a18",
-   "site": "src/server/routes/hallBarterRoutes.ts:368",
+   "site": "src/server/routes/hallBarterRoutes.ts:371",
    "regexp": "/^\\/api\\/hall-barter\\/requests\\/?$/i",
    "end": true
   },
@@ -1897,7 +1897,7 @@
    "path": "/api/hall-barter/requests/:id/respond",
    "name": "bound dispatch",
    "call": "2124602dc1bb44aa",
-   "site": "src/server/routes/hallBarterRoutes.ts:389",
+   "site": "src/server/routes/hallBarterRoutes.ts:392",
    "regexp": "/^\\/api\\/hall-barter\\/requests(?:\\/([^/]+?))\\/respond\\/?$/i",
    "end": true
   },
@@ -1909,7 +1909,7 @@
    "path": "/api/hall-barter/requests/:id/cancel",
    "name": "bound dispatch",
    "call": "5446ca133e90843d",
-   "site": "src/server/routes/hallBarterRoutes.ts:448",
+   "site": "src/server/routes/hallBarterRoutes.ts:451",
    "regexp": "/^\\/api\\/hall-barter\\/requests(?:\\/([^/]+?))\\/cancel\\/?$/i",
    "end": true
   },
@@ -1921,7 +1921,7 @@
    "path": "/api/hall-barter/requests/:id/end",
    "name": "bound dispatch",
    "call": "96543d627d498dbc",
-   "site": "src/server/routes/hallBarterRoutes.ts:469",
+   "site": "src/server/routes/hallBarterRoutes.ts:472",
    "regexp": "/^\\/api\\/hall-barter\\/requests(?:\\/([^/]+?))\\/end\\/?$/i",
    "end": true
   },
@@ -1933,7 +1933,7 @@
    "path": "/api/hall-barter/inbox",
    "name": "bound dispatch",
    "call": "e3cc52be2c55f360",
-   "site": "src/server/routes/hallBarterRoutes.ts:489",
+   "site": "src/server/routes/hallBarterRoutes.ts:492",
    "regexp": "/^\\/api\\/hall-barter\\/inbox\\/?$/i",
    "end": true
   },
@@ -2557,7 +2557,7 @@
    ],
    "path": "/api/reports/room-load",
    "name": "bound dispatch",
-   "call": "fc4e4ba1f6ecda24",
+   "call": "9987abacfe6fd3c3",
    "site": "src/server/routes/reportsRoutes.ts:1106",
    "regexp": "/^\\/api\\/reports\\/room-load\\/?$/i",
    "end": true

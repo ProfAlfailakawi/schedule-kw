@@ -102,6 +102,7 @@ import OccupancySlotPanel from "./OccupancySlotPanel";
 import { canSeeDecisionBoard, decisionBoardScope } from "../utils/decisionBoardScope";
 import { longestWaitMinutes } from "../utils/professorWeekShape";
 import { RoomInsight, RoomInsightDrawer, WeekShapeDrawer } from "./ReportInsightDrawers";
+import HallPulseLazy from "./hallPulse/HallPulseLazy";
 
 /**
  * One question, seven lenses.
@@ -738,6 +739,8 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   const [occupancy, setOccupancy] = useState<any>(null);
   const [occupancyLoading, setOccupancyLoading] = useState(false);
   const [roomDay, setRoomDay] = useState<number | "week">("week");
+  /* عدسة القاعات: «شبكة» كما كانت، أو «مجسّم» (نبض القاعات) للقراءة فقط. */
+  const [roomPulse, setRoomPulse] = useState(false);
   /** Which square of the occupancy grid the reader asked about. */
   const [roomPick, setRoomPick] = useState<{ room: string; roomId?: string; point: number | null } | null>(null);
   /* «شكل الأسبوع» لأستاذ، ونافذة قاعةٍ من «الأكثر استخداماً» في نسبة الإشغال. */
@@ -3337,9 +3340,32 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
               <div className="query-empty"><EmptyState title="لا قاعات في هذا النطاق" /></div>
             )}
           </div>
+        ) : lens === "room" && roomPulse && filters.collegeId && filters.termId ? (
+          <div className="lens-rooms">
+            <div className="occupancy-head no-print">
+              <div className="hp-lens-switch" role="group" aria-label="شكل عرض القاعات">
+                <button data-guide-ignore="يبدّل عدسة القاعات بين الشبكة والمجسّم؛ عرض فقط" type="button" aria-pressed={false} onClick={() => setRoomPulse(false)}>شبكة</button>
+                <button data-guide-ignore="يبدّل عدسة القاعات بين الشبكة والمجسّم؛ عرض فقط" type="button" aria-pressed onClick={() => setRoomPulse(true)}>مجسّم</button>
+              </div>
+            </div>
+            <HallPulseLazy
+              context="report"
+              collegeId={Number(filters.collegeId) || 0}
+              sectionId={Number(filters.sectionId) || 0}
+              termId={Number(filters.termId) || 0}
+              rows={all}
+              courses={courses}
+            />
+          </div>
         ) : lens === "room" ? (
           <div className="lens-rooms">
             <div className="occupancy-head no-print">
+              {filters.collegeId && filters.termId ? (
+                <div className="hp-lens-switch" role="group" aria-label="شكل عرض القاعات">
+                  <button data-guide-ignore="يبدّل عدسة القاعات بين الشبكة والمجسّم؛ عرض فقط" type="button" aria-pressed onClick={() => setRoomPulse(false)}>شبكة</button>
+                  <button data-guide-ignore="يبدّل عدسة القاعات بين الشبكة والمجسّم؛ عرض فقط" type="button" aria-pressed={false} onClick={() => setRoomPulse(true)} title="نبض القاعات: مجسّم يقرأ ملاءمة كل قاعة لشعبتها">مجسّم</button>
+                </div>
+              ) : null}
               <div className="occupancy-days">
                 <button type="button" className={roomDay === "week" ? "active" : ""} aria-pressed={roomDay === "week"} onClick={() => setRoomDay("week")}>الأسبوع</button>
                 {DAYS.map((day, index) => (
