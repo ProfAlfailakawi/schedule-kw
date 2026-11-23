@@ -296,3 +296,9 @@ ol.hp-toplist b{font-variant-numeric:tabular-nums;text-align:end}
   .hp-mini-plan{animation:none}
   .hp-stage.is-narrow .hp-sheet .hp-sheet-body{transition:none}
 }
+/* الارتفاع المضغوط (الدوو مطوياً بالعرض 594×368، والآيفون بالعرض): المشهد بقدر ما تتّسع له الشاشة بين الشريطين. */
+@media (max-height:480px){
+  .hp-view{min-height:max(220px,calc(100vh - 150px))}
+  .hp-hint{display:none}
+  .hp-icon{width:34px;height:34px;font-size:16px}
+}
