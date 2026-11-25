@@ -1993,8 +1993,8 @@
         "en": "Accounts born with a college or a department"
       },
       "text": {
-        "ar": "يجب على النظام حين ينشئ مدير النظام كلية أن ينشئ لها حسابي «عميد الكلية» و«العميد المساعد» فعّالين بنطاق الكلية كلها، وأن يجهّز كرسي «رئيس تسجيل الكلية»، وحين يُنشأ قسم من استيراد صحيفة أن ينشئ له حسابات «رئيس القسم» و«رئيس لجنة الجدول» و«مرشد القسم» بنطاقه؛ لكلٍّ كلمة أولى عشوائية تُعرض للمسؤول مرة واحدة ويُطلب تغييرها عند أول دخول.",
-        "en": "When a system administrator creates a college the system shall create active College dean and Vice dean accounts scoped to the whole college and prepare a College registrar seat, and when a department is created from a sheet import it shall create Department head, Schedule committee chair and Department advisor accounts scoped to it; each gets a random initial password shown to the administrator once and to be changed at first sign-in."
+        "ar": "يجب على النظام حين ينشئ مدير النظام كلية أن ينشئ لها حسابي «عميد الكلية» و«العميد المساعد» فعّالين بنطاق الكلية كلها، وأن يجهّز كرسي «رئيس تسجيل الكلية»، وحين يُنشأ قسم من استيراد صحيفة أن ينشئ له حسابات «رئيس القسم» و«رئيس لجنة الجدول» و«مرشد القسم» بنطاقه؛ لكلٍّ الكلمة الأولى الافتراضية تُعرض للمسؤول وتعبّئها بطاقة الدخول مع اسم الدخول، ويُطلب تغييرها عند أول دخول وتسقط بعد سبعة أيام.",
+        "en": "When a system administrator creates a college the system shall create active College dean and Vice dean accounts scoped to the whole college and prepare a College registrar seat, and when a department is created from a sheet import it shall create Department head, Schedule committee chair and Department advisor accounts scoped to it; each gets the default initial password, shown to the administrator and prefilled with the user name by the access card, to be changed at first sign-in and expiring after seven days."
       },
       "rationale": {
         "ar": "لا كلمة موحّدة: أسماء الدخول تُخمَّن من اسم القسم أو رمز الكلية.",

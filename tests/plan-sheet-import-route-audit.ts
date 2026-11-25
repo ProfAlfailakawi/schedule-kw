@@ -428,7 +428,7 @@ const check = (ok: boolean, label: string, detail?: unknown) => {
       const after = (await call("root", "GET", "/api/plan-review/section-accounts")).json.rows.find((item: any) => item.sectionId === did);
       const created = ((await Repository.getUsers()) as any[]).filter(user => /^Music(dept|advisor)/.test(user.SystemUserLogin));
       const issued = (made.json.credentials || []) as Array<{ login: string; password: string }>;
-      check(made.json.created === 2 && !after && created.length === 2 && created.every(user => user.IsActive === true && user.MustChangePassword === true && !Repository.verifyPassword("12345678", user.SystemUserPass) && issued.some(item => item.login === user.SystemUserLogin && Repository.verifyPassword(item.password, user.SystemUserPass))), "الإنشاء للناقص وحده: حسابان فعّالان، لكلٍّ كلمته الأولى تُعاد للمسؤول، ولا يتكرر", made.json.logins);
+      check(made.json.created === 2 && !after && created.length === 2 && created.every(user => user.IsActive === true && user.MustChangePassword === true && Repository.verifyPassword("12345678", user.SystemUserPass) && issued.some(item => item.login === user.SystemUserLogin && Repository.verifyPassword(item.password, user.SystemUserPass))), "الإنشاء للناقص وحده: حسابان فعّالان، لكلٍّ كلمته الأولى تُعاد للمسؤول، ولا يتكرر", made.json.logins);
     }
 
     {

@@ -1,14 +1,15 @@
 /**
  * حسابات القسم الجديد: يُنشأ القسم من الصحيفة فتُنشأ معه صفاتُه الثلاث (رئيس القسم، رئيس الجدول، المرشد)
- * فعّالةً، كلٌّ بكلمة سرٍّ أولى عشوائية خاصةٍ به (تُعاد في النتيجة ليسلّمها المسؤول) ويُطلب تغييرها عند
- * أول دخول، مقيَّدةً بكليته وقسمه. لا كلمة موحّدة: أسماءُ الدخول تُخمَّن من اسم القسم.
+ * فعّالةً بالكلمة الأولى الافتراضية DEFAULT_FIRST_PASSWORD (قرارُ المالك 2026-11-24: لتعبّئها بطاقةُ الدخول
+ * بضغطةٍ على رمز QR)، تُعاد في النتيجة ليسلّمها المسؤول، ويُطلب تغييرها عند أول دخول، ويسقط عملُها بعد
+ * سبعة أيام (adminSetPasswordFields)، مقيَّدةً بكليته وقسمه.
  *
  * العميد والعميد المساعد وموظفو التسجيل نطاقهم الكلية كلها (قسم صفر)، والمدير يرى كل شيء؛ فيشمل نطاقُهم
  * القسمَ الجديد بلا ربطٍ إضافي. لا يُلمس حسابٌ موجود، والإعادة لا تكرّر شيئاً.
  */
 import { ACADEMIC_ROLES, roleDefinition } from "../utils/academicRoles";
 import { englishPrefixOf } from "../utils/englishPrefix";
-import { adminSetPasswordFields, generateInitialPassword } from "./accountPassword";
+import { adminSetPasswordFields, DEFAULT_FIRST_PASSWORD } from "./accountPassword";
 
 /** صفات القسم ولاحقة اسم الدخول لكلٍّ منها. */
 export const SECTION_ACCOUNT_ROLES: Array<{ id: string; suffix: string }> = [
@@ -55,7 +56,7 @@ export async function provisionSectionUsers(Repository: any, college: { AdColleg
       out.push({ login, role: id, label: role.label, status: filled ? "completed" : "exists" });
       continue;
     }
-    const initial = password || generateInitialPassword();
+    const initial = password || DEFAULT_FIRST_PASSWORD;
     const user = await Repository.createUser({
       Name: `${role.label} — ${section.AdSectionName}`, SystemUserLogin: login,
       SystemUserPass: Repository.hashPassword(initial), SystemUserPassVault: Repository.encryptPasswordForVault(initial),
@@ -92,7 +93,7 @@ export async function provisionCollegeUsers(Repository: any, college: { AdColleg
       }
     }
     if (found) { out.push({ login, role: id, label: role.label, status: "exists" }); continue; }
-    const initial = password || generateInitialPassword();
+    const initial = password || DEFAULT_FIRST_PASSWORD;
     const user = await Repository.createUser({
       Name: `${role.label} — ${college.AdCollegeName}`, SystemUserLogin: login,
       SystemUserPass: Repository.hashPassword(initial), SystemUserPassVault: Repository.encryptPasswordForVault(initial),
