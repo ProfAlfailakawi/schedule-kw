@@ -25,11 +25,12 @@ const util = read("src/utils/passkeys.ts"), login = read("src/components/Login.t
 check(/typeof window\.PublicKeyCredential === "undefined"/.test(util) && /isUserVerifyingPlatformAuthenticatorAvailable/.test(util), "U1 كشفُ الدعم: PublicKeyCredential ثم منصّةٌ تتحقّق من صاحبها");
 check(/if \(!passkeyDeviceRemembered\(\)\) return;/.test(entry) && /if \(!ready\) return null;/.test(entry), "U1 الزرُّ يُحجب ما لم يُسجَّل الجهازُ ويُدعم");
 check(/if \(failure\?\.failure === "not-registered"\) \{ forgetPasskeyDevice\(\)/.test(entry), "U1 مفتاحٌ أُزيل من الحساب: يُنسى الجهازُ فيختفي الزرّ");
-check(/<PasskeyEntry onSuccess=\{onLoginSuccess\} \/>/.test(login) && /\{recovery \? null : <PasskeyEntry/.test(login), "U1 يُعرض في شاشة الدخول لا في استعادة كلمة السر");
+check(/<PasskeyEntry onSuccess=\{onLoginSuccess\} \/>/.test(login) && /\{recovery \? null : passkeyOnly/.test(login) && /<PasskeyEntry compact onSuccess=\{onLoginSuccess\}/.test(login), "U1 يُعرض في شاشة الدخول (بطاقةً مضغوطة على جهازٍ مسجَّل) لا في استعادة كلمة السر");
+check(/\{recovery \|\| passkeyOnly \? null : \(/.test(login), "U1 البطاقةُ المضغوطة تُخفي حقلَي الدخول حتى يُختار «كلمة السر» (على طريقة مراس)");
 
 /* U2: تعديلُ Login.tsx محصور */
 const loginLines = login.split("\n").filter(line => /Passkey/.test(line));
-check(loginLines.length === 2, "U2 Login.tsx: سطران يذكران البصمة (استيرادٌ وموضع)");
+check(loginLines.length <= 4, "U2 Login.tsx: ذِكرُ البصمة محصور (استيرادٌ وكشفُ الجهاز وموضعا العرض)");
 check(read("src/components/AppHandoffEntry.tsx").indexOf("Passkey") < 0, "U8 AppHandoffEntry لم يُمسّ");
 check(!/Passkey/.test(read("src/utils/nativeApp.ts")) && !/Passkey/.test(read("src/server/appHandoff.ts")), "U8 التسليمُ إلى التطبيق لم يُمسّ");
 check(!/isNativeApp\(\)|Capacitor|navigator\.userAgent.*wv/.test(entry + util.replace(/suggestedDeviceLabel[\s\S]*?\n}\n/, "")), "U8 يُكشف الدعم بالميزة لا بتخمين المنصّة (فيسقط الزرُّ تلقائياً في غلافٍ لا يعرضها)");
@@ -73,7 +74,7 @@ check(/max-width:480px/.test(css) && /inset-inline:var\(--s3\)/.test(css) && /bo
 check(/@import "\.\/styles\/73-passkeys\.css";/.test(read("src/index.css")), "U7 الملفُّ مستورَدٌ");
 
 /* U9 */
-check(/schedule-passkey-device/.test(util) && /schedule-passkey-offer/.test(util) && (util.match(/safeStorage\.set\(/g) || []).length === 2, "U9 علامتان فقط في المتصفح، عبر التخزين الآمن");
+check(/schedule-passkey-device/.test(util) && /schedule-passkey-offer/.test(util) && /schedule-passkey-name/.test(util) && (util.match(/safeStorage\.set\(/g) || []).length === 3, "U9 ثلاث علامات فقط في المتصفح عبر التخزين الآمن: الجهاز، والعرض، واسمُ الترحيب");
 check(!/localStorage|sessionStorage/.test(all), "U9 لا وصولَ مباشراً إلى localStorage (يفشل في وضع الخصوصية)");
 check(!/console\./.test(all), "U9 لا طباعةَ للطرفية في الواجهة");
 

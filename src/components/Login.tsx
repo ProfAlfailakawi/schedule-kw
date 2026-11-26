@@ -16,6 +16,8 @@ import ScheduleJourney from "./ScheduleJourney";
 import BrandMark from "./BrandMark";
 import { parseInvitationHash } from "../utils/invitationLink";
 import PasskeyEntry from "./PasskeyEntry";
+import { passkeyDeviceRemembered } from "../utils/passkeys";
+import { isInvitationHash } from "../utils/invitationLink";
 interface LoginProps {
   onLoginSuccess: (data: {
     user: any;
@@ -52,6 +54,15 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       const initial = new URLSearchParams(window.location.search).get("username")?.slice(0, 200) || "";
       return wasSeen(initial);
     });
+
+  /* على طريقة «مراس»: جهازٌ سُجّلت فيه البصمة يرى بطاقةً مضغوطة (الاسم + البصمة + زر كلمة السر)
+     بلا حقول. حقلُ كلمة السر وحده يجعل iOS يعرض اقتراح التعبئة ولوحة المفاتيح فيزاحمان نافذة البصمة
+     التلقائية؛ إخفاؤه يُبقي نافذةً واحدة نظيفة. كلمةُ السر على بُعد ضغطة. */
+  const [passkeyOnly, setPasskeyOnly] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const forAnother = isInvitationHash(window.location.hash) || new URLSearchParams(window.location.search).has("username");
+    return passkeyDeviceRemembered() && !forAnother;
+  });
 
   const updateUsername = (value: string) => {
     setUsername(value);
@@ -248,7 +259,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               <Notice inline>{error}</Notice>
             </div>
           ) : null}
-          {recovery ? null : (
+          {recovery || passkeyOnly ? null : (
           <form className="apex-login-form" onSubmit={submit}>
             <Field label="اسم المستخدم" required>
               <input
@@ -281,7 +292,9 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             </PrimaryButton>
           </form>
           )}
-          {recovery ? null : <PasskeyEntry onSuccess={onLoginSuccess} />}
+          {recovery ? null : passkeyOnly
+            ? <PasskeyEntry compact onSuccess={onLoginSuccess} onUsePassword={() => setPasskeyOnly(false)} onUnavailable={() => setPasskeyOnly(false)} />
+            : <PasskeyEntry onSuccess={onLoginSuccess} />}
           {recovery ? null : (
             <button type="button" className="demo-entry-link login-forgot-toggle" onClick={openRecovery} data-guide-ignore="يفتح استعادة كلمة السر بالرقم المدني">
               <KeyRound aria-hidden="true" /> نسيت كلمة السر؟
