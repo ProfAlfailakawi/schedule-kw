@@ -25,6 +25,10 @@ export interface HallVisual {
   glow?: boolean;
   /** قاعةٌ في معاينة النقل. */
   ghost?: boolean;
+  /** طبقة التسجيل: لونٌ هادئ يتنفّس في الإطار والوهج (ثابتٌ مع تقليل الحركة) — فيها فرقٌ مع ملف التسجيل. */
+  mark?: number;
+  /** شارةٌ بجانب اللافتة: عدد الفروق. */
+  badge?: string;
   label: string;
   showLabel?: boolean;
 }
@@ -151,6 +155,8 @@ export class PulseScene {
   private ndc = new THREE.Vector2();
   private v3 = new THREE.Vector3();
   private tmp = new THREE.Color();
+  /** لون طبقة التسجيل للقاعة التي تُرسم الآن (لا يُنشأ لونٌ في كل إطار). */
+  private markColor = new THREE.Color();
   private disposed = false;
   private sized = false;
   private slabs: SlabRig[] = [];
@@ -857,21 +863,25 @@ export class PulseScene {
     const paint = (rig: RoomRig, v: HallVisual, level: number, color: THREE.Color, winO: number, haloO: number, fade: number, flash: boolean) => {
       const sel = rig.key === this.selected, hov = rig.key === this.hovered, fk = rig.fadeK;
       const fillMat = rig.fill.material;
+      const mark = v.mark != null ? this.markColor.setHex(v.mark) : null;
       fillMat.color.copy(color);
-      fillMat.emissive.copy(color);
-      fillMat.emissiveIntensity = 0.34 + (v.pulse ? breathe : 0) * 0.55 + (sel ? 0.25 : 0) + (hov ? 0.12 : 0);
+      /* طبقة التسجيل: منسوب القاعة يميل إلى البنفسجي فتُقرأ القاعة كلها، لا إطارها وحده. */
+      if (mark) fillMat.color.lerp(mark, 0.78);
+      fillMat.emissive.copy(fillMat.color);
+      fillMat.emissiveIntensity = 0.34 + (v.pulse || mark ? breathe : 0) * 0.55 + (sel ? 0.25 : 0) + (hov ? 0.12 : 0);
       fillMat.opacity = (v.dim ? 0.35 : 0.95) * fade * fk * (level > 0.01 ? 1 : 0);
       rig.fill.scale.y = Math.max(0.001, level * HALL_H * 0.86);
       const shell = rig.shell.material;
-      shell.color.copy(v.occupied ? color : (v.glow ? CALM : GLASS));
-      shell.opacity = fade * fk * (v.ghost ? 0.5 : v.glow ? 0.16 + 0.22 * breathe : v.occupied ? (v.dim ? 0.1 : 0.2) : v.dim ? 0.05 : 0.12);
-      const ec = flash ? 0xffffff : sel ? BRASS.getHex() : v.glow ? CALM.getHex() : hov ? 0xe9f5f0 : EDGE.getHex();
+      if (mark) shell.color.copy(v.occupied ? color : GLASS).lerp(mark, 0.78);
+      else shell.color.copy(v.occupied ? color : (v.glow ? CALM : GLASS));
+      shell.opacity = fade * fk * (v.ghost ? 0.5 : mark ? 0.34 + 0.22 * breathe : v.glow ? 0.16 + 0.22 * breathe : v.occupied ? (v.dim ? 0.1 : 0.2) : v.dim ? 0.05 : 0.12);
+      const ec = flash ? 0xffffff : sel ? BRASS.getHex() : mark ? v.mark! : v.glow ? CALM.getHex() : hov ? 0xe9f5f0 : EDGE.getHex();
       rig.edges.material.color.setHex(ec);
-      rig.edges.material.opacity = fade * fk * (sel || flash ? 1 : v.glow ? 0.55 + 0.45 * breathe : hov ? 0.9 : v.dim ? 0.18 : 0.5);
+      rig.edges.material.opacity = fade * fk * (sel || flash ? 1 : mark ? 0.6 + 0.4 * breathe : v.glow ? 0.55 + 0.45 * breathe : hov ? 0.9 : v.dim ? 0.18 : 0.5);
       /* النافذة تضيء بلونٍ دافئ يميل إلى لون الملاءمة، والوهج فوق المضغوطة والمختارة. */
       rig.win.material.color.copy(color).lerp(WINDOW_WARM, 0.45);
       rig.win.material.opacity = winO;
-      rig.halo.material.color.copy(sel && !v.pulse ? BRASS : color);
+      rig.halo.material.color.copy(mark && !sel ? mark : sel && !v.pulse ? BRASS : color);
       rig.halo.material.opacity = haloO;
       rig.halo.visible = haloO > 0.01;
     };
@@ -893,7 +903,7 @@ export class PulseScene {
       if (Math.abs(rig.liftWant - rig.liftY) + Math.abs(rig.fadeWant - rig.fadeK) > 0.002) busy = true;
       const flash = now - rig.flashAt < 700;
       rig.winO += (((v.occupied && !v.dim ? 0.7 : 0) * fade * rig.fadeK) - rig.winO) * ck;
-      rig.haloO += (((v.pulse ? 0.35 + 0.35 * breathe : sel ? 0.28 : 0) * fade * rig.fadeK) - rig.haloO) * ck;
+      rig.haloO += (((v.mark != null ? 0.5 + 0.4 * breathe : v.pulse ? 0.35 + 0.35 * breathe : sel ? 0.28 : 0) * fade * rig.fadeK) - rig.haloO) * ck;
       paint(rig, v, rig.level, rig.color, rig.winO, rig.haloO, fade, flash);
       /* «قبل وبعد»: الحالة الأخرى تتبع الساعة بتخفيفها هي. */
       const a = rig.alt;
@@ -909,7 +919,7 @@ export class PulseScene {
       const lift = (sel ? 0.22 : hov ? 0.08 : 0) + rig.liftY;
       const y = rig.base.y + lift;
       if (Math.abs(rig.group.position.y - y) > 0.001) { rig.group.position.y += (y - rig.group.position.y) * ck; busy = true; }
-      if (v.pulse || v.glow || flash || held) busy = true;
+      if (v.pulse || v.glow || v.mark != null || flash || held) busy = true;
     };
     for (const rig of this.rooms.values()) tick(rig, 1, false);
     for (const rig of this.nbRooms.values()) tick(rig, this.nbAlpha, true);
@@ -996,12 +1006,18 @@ export class PulseScene {
       }
       /* على الشاشة الضيّقة: لافتة المختارة والمضغوطة والمضيئة وحدها. */
       const roomy = this.W >= 560;
-      const show = fade > 0.6 && rig.fadeK > 0.5 && (sel || hov || (Boolean(v.showLabel) && (roomy || Boolean(v.pulse || v.glow))));
+      const show = fade > 0.6 && rig.fadeK > 0.5 && (sel || hov || (Boolean(v.showLabel) && (roomy || Boolean(v.pulse || v.glow || v.mark != null))));
       rig.tag.hidden = !show;
       if (!show) return;
-      if (rig.tag.textContent !== v.label) rig.tag.textContent = v.label;
+      const tagKey = `${v.badge || ""}\u0000${v.label}`;
+      if (rig.tag.dataset.k !== tagKey) {
+        rig.tag.dataset.k = tagKey;
+        rig.tag.textContent = v.label;
+        if (v.badge) { const b = document.createElement("b"); b.className = "hp-tag-badge"; b.textContent = v.badge; rig.tag.prepend(b); }
+      }
       rig.tag.classList.toggle("is-selected", sel);
       rig.tag.classList.toggle("is-glow", Boolean(v.glow));
+      rig.tag.classList.toggle("is-mark", v.mark != null);
       place(rig.tag, at, true);
     };
     this.rooms.forEach(rig => tagFor(rig, 1));

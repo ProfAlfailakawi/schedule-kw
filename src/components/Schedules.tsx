@@ -13631,6 +13631,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             phone={phoneReadOnly}
             practice={practiceMode}
             onSaveMoves={commitHallPulseMoves}
+            onOpenRegistrarCheck={canEditSchedule && !phoneReadOnly ? () => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab("check"); setTransferOpen(true); } } : undefined}
           />
         </div>
       ) : duoSplit && viewMode !== "rooms" ? (
