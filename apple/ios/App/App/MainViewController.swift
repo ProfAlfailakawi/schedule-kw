@@ -57,22 +57,42 @@ final class MainViewController: CAPBridgeViewController {
         } else {
             restoreLastPage()
         }
+        NotificationCenter.default.addObserver(self, selector: #selector(focusWebView), name: UIApplication.didBecomeActiveNotification, object: nil)
     }
 
-    /// Universal Link (member card, invitation): load the same address inside the
-    /// web view, so the page runs exactly the flow it runs in Safari.
-    private func openUniversalLink(_ url: URL) {
-        guard let url = AppLinkLogic.destination(for: url) else { return }
-        webView?.load(URLRequest(url: url))
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        focusWebView()
     }
 
-    /// Safari → app login handoff: the page posts { challenge } to `appHandoff`.
-    private func registerAppHandoff(on webView: WKWebView) {
-        let controller = webView.configuration.userContentController
-        controller.removeScriptMessageHandler(forName: AppHandoffLogic.handlerName)
-        let handler = AppHandoffHandler(webView: webView)
-        appHandoff = handler
-        controller.add(handler, name: AppHandoffLogic.handlerName)
+    /// Face ID / passkeys (WebAuthn) refuse a page whose document is "not
+    /// focused". In a WKWebView the document counts as focused only while the
+    /// web view's internal content view (WKContentView) is first responder, and
+    /// on an iPhone (no hardware keyboard) UIKit grants that on the first touch.
+    /// So the automatic sign-in prompt at launch was rejected until the user
+    /// tapped. Calling becomeFirstResponder() on the WKWebView itself does not
+    /// move focus (measured: isFirstResponder stays false); the content view
+    /// has to take it. We do that when the app appears, when it becomes active
+    /// again, and after each new document, with short retries while it loads.
+    @objc private func focusWebView() {
+        for delay in [0.0, 0.3, 1.0, 2.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.focusWebContentNow()
+            }
+        }
+    }
+
+    private func focusWebContentNow() {
+        guard let webView = webView, view.window != nil, presentedViewController == nil,
+              UIApplication.shared.applicationState == .active else { return }
+        let content = webView.scrollView.subviews.first {
+            String(describing: type(of: $0)).hasPrefix("WKContentView")
+        }
+        if let content = content {
+            if !content.isFirstResponder { content.becomeFirstResponder() }
+        } else if !webView.isFirstResponder {
+            webView.becomeFirstResponder()
+        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -183,6 +203,7 @@ final class MainViewController: CAPBridgeViewController {
             self?.publishDuoGeometry()
         }
         UserDefaults.standard.set(url.absoluteString, forKey: Self.lastURLKey)
+        focusWebView()
     }
 
     @objc private func reloadPage() {
