@@ -1,8 +1,8 @@
 /**
  * ── إصلاحاتٌ أقرّها المالك (2026-10-29)، وتُحرس هنا ─────────────────────────────
  *
- *  O1 حساباتُ الأقسام والكليات الجديدة: كلمةٌ أولى عشوائية لكل حساب (تُعاد للمسؤول) وعلامةُ
- *     MustChangePassword — لا 12345678 الموحّدة. ومن يدخل بالموحّدة القديمة يُعلَّم، والخادمُ
+ *  O1 حساباتُ الأقسام والكليات الجديدة: الكلمةُ الأولى الافتراضية (قرار المالك 2026-11-24، تُعاد للمسؤول
+ *     وتعبّئها بطاقة الدخول) بعلامة MustChangePassword ومدّة سبعة أيام. ومن يدخل بالموحّدة القديمة يُعلَّم، والخادمُ
  *     لا يفتح له غير ‎/auth/*‎ حتى يغيّرها. والرابطُ القصير /i/<login> يحمل الاسم وحده.
  *  O2 «بديل اليوم» لا يُرسل جوّالَ أستاذٍ من خارج حلقة أقسام القارئ (contactViaDepartment).
  *  O3 القسمُ لا يغيّر الرقمَ المدني ولا الاسمَ لسجلّ منتدبٍ مشترك؛ والجوّالُ له.
@@ -14,7 +14,7 @@ import { waitForDemoSeed } from "./helpers/demoSeed";
 import { startDemoServer, type LiveServer } from "./helpers/liveServer";
 import { Repository } from "../src/db/repository";
 import { provisionCollegeUsers, provisionSectionUsers } from "../src/server/sectionUsers";
-import { LEGACY_SHARED_PASSWORD, newPasswordProblem, passwordChangeGate } from "../src/server/accountPassword";
+import { DEFAULT_FIRST_PASSWORD, LEGACY_SHARED_PASSWORD, newPasswordProblem, passwordChangeGate } from "../src/server/accountPassword";
 import { validateCivilId } from "../src/utils/civilId";
 
 let passed = 0, failed = 0;
@@ -42,11 +42,10 @@ const check = (ok: boolean, label: string, extra?: unknown) => {
   const section = { AdSectionId: 70, AdSectionCode: "11", AdSectionName: "قسم الاختبار" };
   const made = [...await provisionSectionUsers(fake, college, section), ...await provisionCollegeUsers(fake, college)];
   check(made.length === 5 && made.every(row => row.status === "created"), "O1 أُنشئت حساباتُ القسم الثلاثة والكلية الاثنان", made);
-  check(users.every(user => !Repository.verifyPassword(LEGACY_SHARED_PASSWORD, user.SystemUserPass)), "O1 لا حسابَ جديد يقبل الكلمة الموحّدة 12345678");
+  check(users.every(user => Repository.verifyPassword(DEFAULT_FIRST_PASSWORD, user.SystemUserPass) && Boolean(user.InitialPasswordExpiresAt)), "O1 كلُّ حسابٍ جديد بالكلمة الأولى الافتراضية، ولها مدّتها");
   check(users.every(user => user.MustChangePassword === true), "O1 كلُّ حسابٍ جديد مُعلَّمٌ بتغيير كلمته عند أول دخول");
-  check(made.every(row => typeof row.password === "string" && row.password.length >= 10 && Repository.verifyPassword(row.password, users.find(user => user.SystemUserLogin === row.login).SystemUserPass)),
+  check(made.every(row => row.password === DEFAULT_FIRST_PASSWORD && Repository.verifyPassword(row.password, users.find(user => user.SystemUserLogin === row.login).SystemUserPass)),
     "O1 الكلمةُ الأولى تُعاد للمسؤول وتطابق الحساب");
-  check(new Set(made.map(row => row.password)).size === made.length, "O1 لكل حسابٍ كلمتُه (لا كلمة مشتركة)");
   const again = await provisionSectionUsers(fake, college, section);
   check(again.every(row => row.status === "exists" && !row.password), "O1 إعادةُ الإنشاء لا تمسّ حساباً قائماً ولا تكشف كلمته");
 }
