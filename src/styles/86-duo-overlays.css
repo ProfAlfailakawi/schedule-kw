@@ -21,8 +21,8 @@ html[data-device="duo"] .apb-pop{max-inline-size:min(320px,calc(100vw - 24px))}
    لا ورقةً تعبر المفصل. */
 @media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   html[data-device="duo"] .guide-panel{
-    left:auto !important;right:env(safe-area-inset-right) !important;
-    width:calc(50vw - 22px - env(safe-area-inset-right)) !important;max-width:none !important;
+    left:auto !important;right:var(--duo-ir) !important;
+    width:calc(50vw - 22px - var(--duo-ir)) !important;max-width:none !important;
   }
 }
 /* الداخلية طولاً في Safari: صفٌّ سفليٌّ واحد كالشاشة الخارجية — التبويبات يميناً، والأدوات («موعد» والبحث والتركيز)

@@ -8,7 +8,7 @@
    ========================================================================== */
 @media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]){
-    --duo-land-col:max(76px,env(safe-area-inset-right));
+    --duo-land-col:max(76px,var(--duo-ir));
   }
   /* المحتوى يقف قبل العمود. */
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) #root .content-stack.schedule-page.duo-full{
@@ -81,16 +81,12 @@
   /* العمود على اليسار بعد التدوير. */
   html[data-device="duo"][data-shell="app"][data-widget-side="left"]{--duo-land-col:max(76px,env(safe-area-inset-left))}
   html[data-device="duo"][data-shell="app"][data-widget-side="left"] #root .content-stack.schedule-page.duo-full{
-    padding-left:calc(var(--duo-land-col) + 12px) !important;padding-right:calc(16px + env(safe-area-inset-right)) !important;
+    padding-left:calc(var(--duo-land-col) + 12px) !important;padding-right:calc(16px + var(--duo-ir)) !important;
   }
   html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .schedule-dock{right:auto;left:calc((var(--duo-land-col) - 60px) / 2)}
   html[data-device="duo"][data-shell="app"][data-widget-side="left"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
     right:auto !important;left:calc((var(--duo-land-col) - 48px) / 2) !important;
   }
-}
-@media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
-  /* رأس القائمة بجانب الأسبوع: «عرض ذكي» والعنوان داخل البطاقة لا على حافتها. */
-  html[data-device="duo"][data-shell="app"] #root .duo-split .schedule-agenda-surface>.agenda-head{padding:12px 14px 0 !important;overflow:visible}
 }
 @media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   /* كبسولة التنقّل في عمود الساعة على كل الصفحات لا «الجدول» وحده: بدونها لا تنقّل في العرضي إلا من القائمة. */
@@ -127,32 +123,55 @@
   }
 }
 
+
 /* ==========================================================================
-   الشاشة الداخلية عرضاً (طلب المالك 2026-11-23): «العرض الذكي» (مواعيد القسم) فوق، ثم الأسبوع والقاعات
-   بعرض الصفحة كلها. كان اللوحان متجاورين: الأسبوع يُحشر في نحو ٥٥٪ من العرض والقائمة طويلةً ملتصقةً بجانبه.
-   الآن: بطاقة «العرض الذكي» أولاً (الخريطة الحرارية بجانب مفتاح الألوان، ثم المواعيد صفوفاً قصيرة بارتفاع محدود
-   تُمرَّر داخلها)، ثم الأسبوع بعرض كامل. بصريٌّ فقط: لا يُضاف عنصر ولا يُحذف، وأزرار البطاقة في قائمة «⋯».
+   الشاشة الداخلية عرضاً كالحاسوب (طلب المالك 2026-11-24): صفحةٌ واحدة بعرض الشاشة، والعرض المختار وحده —
+   «قائمة» القائمة وحدها، «أسبوع» الأسبوع وحده، «المباني والقاعات» القاعات وحدها. البطاقات العليا: الاختيار بالعرض،
+   ثم الحالة والاعتماد متجاورتين. كان اللوح السابق يثبّت السطح بارتفاع الشاشة فيطفو فوق البطاقات العليا.
    ========================================================================== */
 @media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
-  html[data-device="duo"] .duo-split{grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
-  html[data-device="duo"] .duo-split-list{order:-1;position:static;max-height:none;overflow:visible}
-  html[data-device="duo"] .duo-split-week{order:0}
-  html[data-device="duo"] #root .duo-split .schedule-agenda-surface.is-split-list{
-    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px;row-gap:10px;align-items:start;padding:14px 16px 16px;
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full{
+    grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px;row-gap:14px;grid-auto-flow:row;align-items:start;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
   }
-  html[data-device="duo"] #root .duo-split .schedule-agenda-surface>.agenda-head{grid-column:1 / -1;margin:0}
-  html[data-device="duo"] #root .duo-split .schedule-agenda-surface>.week-heat{grid-column:1;grid-row:2;margin:0}
-  html[data-device="duo"] #root .duo-split .schedule-agenda-surface>.week-legend{grid-column:2;grid-row:2;margin:0;min-width:0}
-  html[data-device="duo"] #root .duo-split .schedule-agenda-surface>.schedule-agenda{
-    grid-column:1 / -1;grid-row:3;max-height:230px;overflow:auto;overscroll-behavior:contain;
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>*{grid-column:1 / -1;grid-row:auto;margin-inline:0}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.page-heading{grid-row:1}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.schedule-control{grid-column:1 / -1;grid-row:2}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.schedule-overview-stack{grid-column:1;grid-row:3}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.approval-bar{grid-column:2;grid-row:3}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full:not(:has(>.approval-bar))>.schedule-overview-stack,
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full:not(:has(>.schedule-overview-stack))>.approval-bar{grid-column:1 / -1}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>:is(.schedule-agenda-surface,.week-surface,.rooms-surface){
+    grid-column:1 / -1;grid-row:auto;position:static;height:auto;overflow:visible;overscroll-behavior:auto;
+    -webkit-mask-image:none;mask-image:none;margin:0;
+    border:1px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--shadow-sm);padding:16px;
   }
-  html[data-device="duo"] #root .duo-split .schedule-agenda .agenda-card{
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full>.schedule-agenda-surface>.agenda-head{position:static;margin:0 0 10px;padding:0;background:none}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-control>.filter-strip{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-control>.filter-strip>.field{min-width:0;margin:0}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-control>.schedule-tools{display:grid !important;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 12px}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-control .schedule-view-cluster{display:flex !important;flex-wrap:nowrap;align-items:center;gap:8px;margin:0;grid-column:1 / -1}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-control .schedule-view-cluster>:is(.segmented,.wk-tools){display:flex !important;flex-wrap:nowrap;flex:none;margin:0}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-control .schedule-view-cluster>.segmented>button{white-space:nowrap}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-control .schedule-quick-search{margin:0;min-width:0}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-control .schedule-tool-actions{display:flex !important;flex-wrap:nowrap;gap:8px;margin:0}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-control .schedule-tool-actions>.btn{width:auto;white-space:nowrap}
+  /* صفوف المواعيد بشكل الحاسوب: صفٌّ واحد لكل موعد بدل بطاقة الهاتف الطويلة. */
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-agenda .agenda-card{
     grid-template-columns:minmax(0,1.7fr) minmax(0,1fr) minmax(0,1fr) auto auto !important;
     grid-template-areas:"core time place meta actions" !important;
-    gap:10px 12px;padding:10px 14px;align-items:center;
+    gap:10px 14px;padding:12px 16px;align-items:center;
+  }
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-agenda .agenda-time{border-top:0;padding-top:0}
+  /* Safari (بلا عمود ساعة): شريط الأدوات موسّطٌ أسفل الشاشة كالحاسوب، و«تبادل» في الركن. */
+  html[data-device="duo"]:not([data-shell="app"]) body:has(.schedule-page.duo-full) .schedule-dock{
+    left:50% !important;right:auto !important;transform:translateX(-50%) !important;max-width:calc(100vw - 32px);
+  }
+  html[data-device="duo"]:not([data-shell="app"]) body:has(.schedule-page.duo-full) .hall-barter-inbox:not(.hall-barter-inbox-decision){
+    right:auto !important;left:16px !important;top:auto !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important;
   }
 }
-/* قائمة «⋯» (٠٧-responsive) لا تعمل إلا من ارتفاع ٥٢٠؛ فلا تُخفى أزرار البطاقة الأصلية تحتها، وإلا فُقدت أدوات الصف. */
+/* قائمة «⋯» لا تعمل إلا من ارتفاع ٥٢٠ (07-responsive)؛ تحته تبقى أزرار الصفّ ظاهرة. */
 @media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:520px) and (max-height:760px){
-  html[data-device="duo"] #root .duo-split .schedule-agenda .agenda-card>.agenda-actions{display:none !important}
+  html[data-device="duo"] #root .content-stack.schedule-page.duo-full .schedule-agenda .agenda-card>.agenda-actions{display:none !important}
 }

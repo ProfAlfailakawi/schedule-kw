@@ -7,22 +7,22 @@
    - ورقة نصاب الأستاذ في «تعديل موعد» كانت تمتدّ تحت كبسولة التنقّل.
    بصريّ فقط: Safari وiPhone لا يتغيّران.
    ========================================================================== */
-html[data-device="duo"][data-shell="app"] body .sidebar{padding-right:env(safe-area-inset-right)}
+html[data-device="duo"][data-shell="app"] body .sidebar{padding-right:var(--duo-ir)}
 html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .sidebar{padding-left:env(safe-area-inset-left)}
 
 html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .teacher-week-dialog{
-  padding-right:calc(8px + env(safe-area-inset-right));padding-left:calc(8px + env(safe-area-inset-left));
+  padding-right:calc(8px + var(--duo-ir));padding-left:calc(8px + env(safe-area-inset-left));
 }
 
 html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .mini-week.is-sheet{
   inset-inline:auto;margin-inline:0;
-  right:calc(8px + env(safe-area-inset-right));left:calc(8px + env(safe-area-inset-left));
+  right:calc(8px + var(--duo-ir));left:calc(8px + env(safe-area-inset-left));
   max-width:none;
 }
 
 /* الجولة التعريفية (الشاشة الخارجية): بطاقتها كانت تمتدّ تحت الساعة فتغطّي عنوانها وسطرها الأول. */
 html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .ob-root{
-  padding-right:calc(10px + env(safe-area-inset-right)) !important;padding-left:calc(10px + env(safe-area-inset-left)) !important;
+  padding-right:calc(10px + var(--duo-ir)) !important;padding-left:calc(10px + env(safe-area-inset-left)) !important;
   box-sizing:border-box;
 }
 
@@ -36,13 +36,13 @@ html[data-device="duo"][data-shell="app"] .hall-barter-inbox:not(.hall-barter-in
    الخلفية المعتمة تمتدّ تحت العمود، والورقة تقف قبله. */
 html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .spotlight-backdrop{
   box-sizing:border-box;
-  padding-right:calc(12px + env(safe-area-inset-right));padding-left:calc(12px + env(safe-area-inset-left));
+  padding-right:calc(12px + var(--duo-ir));padding-left:calc(12px + env(safe-area-inset-left));
 }
 
 /* شاشة الدخول (الشاشة الخارجية): البطاقة كانت ملتصقةً بحافة الشاشة اليسرى. هامشٌ متساوٍ من الجهتين قبل العمود. */
 @media screen and (max-width:700px){
   html[data-device="duo"][data-shell="app"] .apex-login{
-    padding-right:calc(12px + env(safe-area-inset-right)) !important;padding-left:calc(12px + env(safe-area-inset-left)) !important;
+    padding-right:calc(12px + var(--duo-ir)) !important;padding-left:calc(12px + env(safe-area-inset-left)) !important;
   }
 }
 
@@ -53,7 +53,7 @@ html[data-device="duo"][data-shell="app"][data-widget-side="left"] .notify-panel
   inset-inline-end:calc(8px + env(safe-area-inset-left));
 }
 html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .notify-panel{
-  max-width:calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right));
+  max-width:calc(100vw - 24px - env(safe-area-inset-left) - var(--duo-ir));
 }
 
 /* أسبوع الأستاذ على الشاشة الداخلية طولاً: رأس البطاقة (الاسم والنصاب) كان في شريط الساعة العلوي. */
@@ -72,20 +72,20 @@ html[data-device="duo"][data-shell="app"] .teacher-week-dialog-card{max-height:c
 html[data-device="duo"] .teacher-week-dialog .teacher-week-dialog-card>.mini-week.is-sheet.is-sheet{inset:auto;width:100%;margin:0}
 
 html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .jr-sheet{
-  inset-inline:auto;right:env(safe-area-inset-right);left:env(safe-area-inset-left);
+  inset-inline:auto;right:var(--duo-ir);left:env(safe-area-inset-left);
 }
 html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .jr-close{
   inset-inline:auto;left:calc(14px + env(safe-area-inset-left));
 }
 html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) :is(.plib-modal,.schedule-confirm-backdrop){
   box-sizing:border-box;
-  padding-right:calc(12px + env(safe-area-inset-right));padding-left:calc(12px + env(safe-area-inset-left));
+  padding-right:calc(12px + var(--duo-ir));padding-left:calc(12px + env(safe-area-inset-left));
 }
 /* الدرج الجانبي العام (الدخول بالبصمة، نماذج المرجع…) على الشاشة الخارجية: كان بعرض الشاشة إلا 24px،
    فيقع زرّ إغلاقه تحت الساعة حين يكون العمود يساراً، ويمتدّ تحتها حين يكون يميناً. يقف بين العمود والحافة. */
 @media screen and (max-width:700px){
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .catalog-form-drawer{
-    left:calc(12px + env(safe-area-inset-left));right:calc(12px + env(safe-area-inset-right));
+    left:calc(12px + env(safe-area-inset-left));right:calc(12px + var(--duo-ir));
     width:auto;max-width:none;
   }
 }
