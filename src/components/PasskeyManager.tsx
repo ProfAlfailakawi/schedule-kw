@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Fingerprint, Trash2 } from "lucide-react";
 import { CatalogFormDrawer, Notice } from "./ui";
-import { fetchPasskeys, forgetPasskeyDevice, passkeySupported, PasskeyError, registerPasskey, removePasskey, suggestedDeviceLabel, type PasskeyList } from "../utils/passkeys";
+import { fetchPasskeys, forgetPasskeyDevice, passkeyDeviceName, passkeyDeviceRemembered, passkeySupported, PasskeyError, registerPasskey, removePasskey, suggestedDeviceLabel, type PasskeyList } from "../utils/passkeys";
 import { AR, countOf } from "../utils/arabicCount";
 import { isNativeApp } from "../utils/nativeApp";
 
@@ -28,6 +28,9 @@ export default function PasskeyManager({ onClose }: { onClose: () => void }) {
   const [confirming, setConfirming] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // هذا الجهاز مسجَّلٌ من قبل (سُجّل أو دخل بالبصمة منه): لا نعرض «فعّل» كأنه غير مفعّل.
+  const [thisDevice, setThisDevice] = useState(passkeyDeviceRemembered());
+  const [reRegister, setReRegister] = useState(false);
 
   const load = useCallback(async () => {
     try { setList(await fetchPasskeys()); }
@@ -43,6 +46,7 @@ export default function PasskeyManager({ onClose }: { onClose: () => void }) {
       await registerPasskey({ label: label.trim() || undefined, password: needPassword ? password : undefined });
       setPassword(""); setNeedPassword(false);
       setNotice("فُعّل الدخول بالبصمة على هذا الجهاز.");
+      setThisDevice(true); setReRegister(false);
       await load();
     } catch (e) {
       const failure = e instanceof PasskeyError ? e : null;
@@ -58,7 +62,7 @@ export default function PasskeyManager({ onClose }: { onClose: () => void }) {
       setConfirming("");
       const next = await fetchPasskeys();
       setList(next);
-      if (!next.items.length) forgetPasskeyDevice();
+      if (!next.items.length) { forgetPasskeyDevice(); setThisDevice(false); }
       setNotice("أُزيل الجهاز. لن يدخل بعد الآن بالبصمة.");
     } catch (e) { setError(e instanceof PasskeyError ? e.message : "تعذّرت الإزالة. أعد المحاولة."); }
     finally { setBusy(false); }
@@ -99,6 +103,11 @@ export default function PasskeyManager({ onClose }: { onClose: () => void }) {
             ) : <p className="passkey-empty">لا جهاز مسجَّلاً بعد.</p>}
             {supported === false ? (
               <Notice type="info" inline>{isNativeApp() ? "هذا الجهاز" : "هذا المتصفح أو الجهاز"} لا يدعم الدخول بالبصمة، فلا يمكن تسجيله من هنا. افتح الحساب من جهازٍ يدعمها.</Notice>
+            ) : thisDevice && items.length && !reRegister ? (
+              <div className="passkey-this-device" role="status">
+                <p><Fingerprint aria-hidden="true" /> البصمة مفعّلة على هذا الجهاز{passkeyDeviceName() ? ` (${passkeyDeviceName()})` : ""}.</p>
+                <button type="button" className="passkey-plain" onClick={() => setReRegister(true)} disabled={busy || full} aria-label="تسجيل هذا الجهاز من جديد" data-guide-ignore="يُظهر نموذج تسجيل هذا الجهاز من جديد؛ لا يغيّر شيئاً بمفرده">تسجيل هذا الجهاز من جديد</button>
+              </div>
             ) : full ? (
               <Notice type="info" inline>بلغتَ الحدّ الأقصى ({countOf(list?.limit || 5, AR.device)}). أزل جهازاً لتضيف غيره.</Notice>
             ) : (
