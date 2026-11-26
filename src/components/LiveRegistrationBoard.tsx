@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, AlertTriangle, CircleSlash, Info, RefreshCw, Users } from "lucide-react";
+import { Activity, AlertTriangle, CircleSlash, Info, RadioTower, RefreshCw, Users } from "lucide-react";
 import { MicroLoader, SecondaryButton } from "./ui";
 import { AR, countOf } from "../utils/arabicCount";
 import { request } from "./RadarSchedule";
 import CourseTags from "./CourseTags";
 import { SuggestionCard, type SuggestionRow } from "./RadarSuggestions";
 import { onLiveSignal } from "../utils/livePulse";
+import RegistrationTower from "./RegistrationTower";
 import { alternativeAnchors, asOfLine, SOURCE_LABEL, STATE_LABEL, type BoardHeader, type BoardRow } from "../utils/liveBoard";
 
 /**
@@ -49,6 +50,8 @@ export default function LiveRegistrationBoard({ termId, collegeId = 0, sectionId
   const [reply, setReply] = useState<Reply | null>(null);
   const [error, setError] = useState("");
   const [adopted, setAdopted] = useState<number[]>([]);
+  /* «برج المراقبة»: عرضُ ملء الشاشة للبيانات نفسها، للقراءة فقط. */
+  const [tower, setTower] = useState(false);
   const seq = useRef(0);
   const load = useCallback(async () => {
     const mine = ++seq.current;
@@ -90,6 +93,11 @@ export default function LiveRegistrationBoard({ termId, collegeId = 0, sectionId
         <div><b>يوم التسجيل{roundActive ? " — جارٍ الآن" : ""}</b>
           <small>الشعبُ مرتّبةً بالإلحاح: ما امتلأ وفيه منتظرون أولاً، وتحته الشعبةُ البديلة الجاهزة. أعدادٌ لا أسماء.</small></div>
         <div className="lb-tools no-print">
+          {reply?.ready ? <SecondaryButton type="button" onClick={() => {
+            setTower(true);
+            /* ملء الشاشة حيث يدعمه المتصفّح (لمسةُ المستخدم نفسها)؛ وإلا فالبرج يغطّي النافذة. */
+            if (document.fullscreenEnabled && !document.fullscreenElement) void document.documentElement.requestFullscreen?.().catch(() => undefined);
+          }} aria-label="افتح برج المراقبة بملء الشاشة" data-guide-ignore="يعرض أرقام اللوحة نفسها بملء الشاشة أعمدةً؛ للقراءة فقط"><RadioTower aria-hidden="true" /> برج المراقبة</SecondaryButton> : null}
           <SecondaryButton type="button" onClick={() => void load()} aria-label="حدّث اللوحة الآن" data-guide-ignore="يعيد قراءة اللوحة؛ لا يكتب شيئاً"><RefreshCw aria-hidden="true" /> حدّث</SecondaryButton>
           {!roundActive ? <SecondaryButton type="button" onClick={() => setPick(false)} aria-expanded="true" data-guide-ignore="يغلق لوحة يوم التسجيل؛ لا يكتب شيئاً">أغلق اللوحة</SecondaryButton> : null}
         </div>
@@ -135,6 +143,8 @@ export default function LiveRegistrationBoard({ termId, collegeId = 0, sectionId
               })}
             </div>
           )}
+          {tower ? <RegistrationTower rows={rows} counts={reply.counts} asOf={asOfLine(header, timeText(header.asOf))} stale={header.stale} live={roundActive}
+            onClose={() => { setTower(false); if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => undefined); }} /> : null}
           {reply.more ? <p className="rs-line">و{countOf(reply.more, AR.section)} أخرى أقلّ إلحاحاً؛ ضيّق الكلية أو القسم لتراها.</p> : null}
         </>
       ) : null}

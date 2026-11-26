@@ -74,6 +74,13 @@ export function openCourseSections(code: string, inPlace = false): void {
   try { sessionStorage.setItem(FOCUS_KEY, code); } catch { /* تخزينٌ ممنوع: يُفتح الجدول كما هو. */ }
   window.location.assign("/FSchedule/Index");
 }
+/* «الحرم الحي» في الرئيسية: رمزُ مبنى ينتظر في الجلسة كما ينتظر رمز المقرر، فيفتح الجدولُ
+   بحثَه السريع عليه عند أول تركيب — الطريقُ نفسه، بلا منطق تصفيةٍ جديد. */
+export function seedScheduleQuickSearch(text: string): void {
+  const value = String(text || "").trim();
+  if (!value) return;
+  try { sessionStorage.setItem(FOCUS_KEY, value); } catch { /* تخزينٌ ممنوع: يُفتح الجدول كما هو. */ }
+}
 export function takeFocusedCourse(): string {
   try { const code = sessionStorage.getItem(FOCUS_KEY) || ""; sessionStorage.removeItem(FOCUS_KEY); return code; } catch { return ""; }
 }

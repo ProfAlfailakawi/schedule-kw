@@ -116,7 +116,9 @@
     "src/components/LiveRegistrationBoard.tsx",
     "src/styles/62-live-board.css",
     "tests/live-board-audit.ts",
-    "src/components/SpecialCaseOpening.tsx"
+    "src/components/SpecialCaseOpening.tsx",
+    "src/components/RegistrationTower.tsx",
+    "src/styles/94-registration-tower.css"
   ],
   "screens": [
     {
@@ -228,7 +230,8 @@
         "ar": "مواعيد الرغبات والجولات والإغلاق.",
         "en": "Dates for wishes, rounds and close."
       }
-    }
+    },
+    {"name": {"ar": "برج المراقبة", "en": "Control tower"}, "file": "src/components/RegistrationTower.tsx", "note": {"ar": "صفوف «يوم التسجيل» بملء الشاشة أعمدةً تمتلئ، والأحمر النابض من 80٪. للقراءة فقط.", "en": "«Registration day» rows in full screen as filling columns, pulsing red from 80%. Read-only."}}
   ],
   "journeys": [
     {
@@ -5052,7 +5055,8 @@
         ]
       },
       "inferred": false
-    }
+    },
+    {"id": "FR-STU-087", "kind": "functional", "title": {"ar": "برج المراقبة: يوم التسجيل بملء الشاشة أعمدةً تمتلئ", "en": "Control tower: registration day in full screen as filling columns"}, "text": {"ar": "يجب على النظام أن يتيح في لوحة «يوم التسجيل» زرّ «برج المراقبة» يعرض صفوف اللوحة نفسها بملء الشاشة (ملء الشاشة الحقيقي حيث يدعمه المتصفح، وإلا تغطية النافذة): كل شعبةٍ عمودٌ يمتلئ من أسفله بنسبة امتلائها مع خطٍّ عند 80٪، والعمود الذي بلغ 80٪ فأكثر (حدّ «يمتلئ» نفسه) ينبض بالأحمر، وتحته رقم المقرر ورمز الشعبة وعدد من بلا مقعد، وفي رأسه ملخص اللوحة وسطر «آخر تحديث». ويتجدّد البرج حين تتجدّد اللوحة بنبضتها الحيّة، وهو للقراءة فقط: لا اعتماد شعبةٍ ولا كتابة من داخله، ويُغلق بزرّ الإغلاق أو بمفتاح Esc.", "en": "The system shall offer in the «Registration day» board a «Control tower» button that shows the board's own rows in full screen (true fullscreen where the browser supports it, otherwise covering the window): each section is a column filling from the bottom to its fill ratio with a line at 80%; a column at 80% or more (the same «filling» threshold) pulses red; under it are the course number, section code and the count of students without a seat, and its header carries the board summary and «last updated» line. The tower refreshes when the board refreshes on its live signal and is read-only: no section adoption and no write from inside it; it closes with its close button or the Esc key."}, "rationale": {"ar": "يوم التسجيل يُتابَع على شاشة عرضٍ في غرفة التسجيل؛ الأعمدة تقول أين يضيق المقعد قبل أن يُقرأ أي رقم.", "en": "Registration day is followed on a wall screen in the registrar's room; the columns say where seats run short before any number is read."}, "priority": "could", "status": "implemented", "actors": ["registrarHead", "registrarStaff", "committeeChair", "departmentHead"], "acceptance": [{"ar": "شعبةٌ امتلاؤها 79٪ عمودٌ هادئ، و80٪ و100٪ عمودان ينبضان بالأحمر، وشعبةٌ بلا سعةٍ معروفة عمودٌ متقطّع الحدّ بنسبة «—».", "en": "A section at 79% is a calm column, 80% and 100% pulse red, and a section with no known capacity is a dashed column reading «—»."}, {"ar": "البرج لا يحمل بطاقة «الرادار يقترح الحل» ولا زرّ «اعتمد الشعبة» ولا يطلب شيئاً من الخادم؛ ومع تقليل الحركة يثبت الإطار الأحمر بلا نبض.", "en": "The tower carries no «radar suggests» card and no «adopt the section» button and requests nothing from the server; with reduced motion the red frame stays still without pulsing."}, {"ar": "Esc أو زرّ الإغلاق يغلق البرج ويخرج من ملء الشاشة، وتبقى اللوحة كما كانت؛ وعلى عرض 390 وفي وضع الطاولة 951×350 تُقرأ الأعمدة بالتمرير العمودي بلا تمرير أفقي.", "en": "Esc or the close button closes the tower and leaves fullscreen, with the board as it was; at 390px wide and in the 951×350 table posture the columns read with vertical scrolling and no horizontal scroll."}], "evidence": {"code": ["src/components/RegistrationTower.tsx", "src/components/LiveRegistrationBoard.tsx", "src/utils/liveBoard.ts#FILLING_AT", "src/styles/94-registration-tower.css"], "tests": ["tests/visual-wave-1-audit.ts", "tests/live-board-audit.ts"]}, "inferred": false}
   ],
   "edgeCases": [
     {
