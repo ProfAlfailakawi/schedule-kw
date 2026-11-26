@@ -14,16 +14,18 @@
  * فإذا اعتمد التسجيل الجدول أصبح الفيلم نهائياً وبقي في «السجل».
  *
  * لا أسماء قاعات ولا أرقام مدنية ولا أسماء أساتذة: أعدادٌ فقط، فيصلح الرابط
- * لأن يُعرض في مجلس.
+ * لأن يُعرض في مجلس. وخلفية الفيلم شكلُ بصمة القسم مجرّداً من كل نص
+ * (`FingerprintShape`): أقواسٌ فقط، ولا تُحمل إلا لمن يرى البصمة أصلاً.
  */
 import { effectiveSubmissionDate } from "./approvalWorkflow";
 import { AR, countOf, nounFor } from "./arabicCount";
+import { FINGERPRINT_DAYS, fingerprintClock, type FingerprintShape } from "./deptFingerprint";
 
-/** مدة كل مشهد بالملّي ثانية، بترتيب المشاهد السبعة. */
-export const TERM_FILM_DURATIONS = [3800, 5200, 5400, 5400, 5200, 6200, 4600] as const;
+/** مدة كل مشهد بالملّي ثانية، بترتيب المشاهد الثمانية. */
+export const TERM_FILM_DURATIONS = [3600, 4800, 6400, 5200, 5200, 4800, 6200, 6000] as const;
 
-/** مفاتيح المشاهد بترتيبها. المشهد الذي لا بيانات له يسقط من الفيلم. */
-export const TERM_FILM_SCENES = ["title", "build", "wishes", "clash", "students", "delivery", "thanks"] as const;
+/** مفاتيح المشاهد بترتيبها. المشهد الذي لا بيانات له يسقط من الفيلم. «thanks» هو الختام. */
+export const TERM_FILM_SCENES = ["title", "build", "week", "wishes", "clash", "students", "delivery", "thanks"] as const;
 export type TermFilmSceneKey = typeof TERM_FILM_SCENES[number];
 
 /** أشرطة الوقت في شبكة الأسبوع: من الثامنة إلى الثامنة مساءً، ساعتان لكل شريط. */
@@ -47,6 +49,111 @@ export interface TermFilmBuild {
   weeklyHours: number;
   /** خمسة أيام × ستة أشرطة: كم شعبةً تقع في كل خانة. */
   week: number[][];
+  /** خريطة الأسبوع ساعةً ساعة، لمشهد «أسبوعك في لقطة». */
+  map: TermFilmWeekMap;
+}
+
+/**
+ * خريطة الأسبوع: خمسة أيام × ساعات المدى، وكم محاضرةً تجري في كل ساعة. لا قاعة
+ * فيها ولا مقرر ولا أستاذ: أعدادٌ وأوقات فقط.
+ */
+export interface TermFilmWeekMap {
+  /** أول ساعةٍ وآخر ساعةٍ في الخريطة (بالدقائق من منتصف الليل). */
+  from: number;
+  to: number;
+  hours: number[][];
+  /** كم محاضرةً في كل يوم (الموعد المكرّر يُعدّ مرةً واحدة). */
+  perDay: number[];
+  lectures: number;
+  /** بداية أبكر محاضرة ونهاية آخر محاضرة في الأسبوع؛ `null` بلا مواعيد. */
+  earliest: number | null;
+  latest: number | null;
+}
+
+const WEEK_DEFAULT = { from: 480, to: 1200 } as const;
+
+function weekMapFromTimed(timed: ReadonlyArray<{ day: number; start: number; end: number }>): TermFilmWeekMap {
+  const earliest = timed.length ? Math.min(...timed.map(t => t.start)) : null;
+  const latest = timed.length ? Math.max(...timed.map(t => t.end)) : null;
+  const from = earliest == null ? WEEK_DEFAULT.from : Math.min(WEEK_DEFAULT.from, Math.floor(earliest / 60) * 60);
+  const to = latest == null ? WEEK_DEFAULT.to : Math.max(from + 360, Math.ceil(latest / 60) * 60);
+  const count = Math.max(1, Math.round((to - from) / 60));
+  const hours = DAY_KEYS.map(() => Array.from({ length: count }, () => 0));
+  const perDay = DAY_KEYS.map(() => 0);
+  for (const t of timed) {
+    perDay[t.day] += 1;
+    for (let h = 0; h < count; h += 1) {
+      const at = from + h * 60;
+      if (t.start < at + 60 && t.end > at) hours[t.day][h] += 1;
+    }
+  }
+  return { from, to, hours, perDay, lectures: timed.length, earliest, latest };
+}
+
+/** خريطة أسبوع القسم من صفوف جدوله. الصف المكرّر (اليوم والوقت والمقرر والشعبة أنفسها) يُعدّ مرةً واحدة. */
+export function weekMapFromRows(rows: TermFilmRowLike[]): TermFilmWeekMap {
+  const seen = new Set<string>();
+  const timed: Array<{ day: number; start: number; end: number }> = [];
+  for (const row of rows) {
+    const start = minutesOf(row.fstarttime), end = minutesOf(row.fendtime);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    DAY_KEYS.forEach((key, day) => {
+      if (!row[key]) return;
+      const id = `${day}|${start}|${end}|${Number(row.AdCourseId || 0)}|${String(row.SCode || "").trim()}`;
+      if (seen.has(id)) return;
+      seen.add(id);
+      timed.push({ day, start, end });
+    });
+  }
+  return weekMapFromTimed(timed);
+}
+
+/** يجمع خرائط أسابيع الأقسام في خريطة الكلية على مدًى واحد. */
+export function mergeWeekMaps(maps: TermFilmWeekMap[]): TermFilmWeekMap {
+  const live = maps.filter(map => map.lectures > 0);
+  if (!live.length) return weekMapFromTimed([]);
+  const from = Math.min(...live.map(map => map.from)), to = Math.max(...live.map(map => map.to));
+  const count = Math.max(1, Math.round((to - from) / 60));
+  const hours = DAY_KEYS.map(() => Array.from({ length: count }, () => 0));
+  const perDay = DAY_KEYS.map(() => 0);
+  for (const map of live) {
+    const offset = Math.round((map.from - from) / 60);
+    map.hours.forEach((day, d) => day.forEach((value, h) => { hours[d][h + offset] += Number(value) || 0; }));
+    map.perDay.forEach((value, d) => { perDay[d] += Number(value) || 0; });
+  }
+  return {
+    from, to, hours, perDay, lectures: live.reduce((s, map) => s + map.lectures, 0),
+    earliest: Math.min(...live.map(map => map.earliest ?? Infinity)), latest: Math.max(...live.map(map => map.latest ?? -Infinity)),
+  };
+}
+
+/**
+ * خلفيةٌ مجرّدة من حِمل الأسبوع وحده، حين لا تُحمل بصمة القسم (نسخة الكلية، أو
+ * قسمٌ بلا قاعات): كل حلقةٍ مستوًى من الازدحام، وقوسُها الساعاتُ التي بلغته.
+ * لا قاعة فيها أصلاً، فلا اسم يُكشف. حتميّة: الخريطة نفسها تعطي الشكل نفسه.
+ */
+export function weekContourShape(map: Pick<TermFilmWeekMap, "from" | "to" | "hours">, levels = 7): FingerprintShape {
+  const top = Math.max(0, ...map.hours.flat());
+  const rings = Math.max(0, Math.min(levels, top));
+  const halls: FingerprintShape["halls"] = [];
+  for (let ring = 0; ring < rings; ring += 1) {
+    const threshold = Math.max(1, Math.ceil((top * (ring + 1)) / rings));
+    const slots: FingerprintShape["halls"][number]["slots"] = [];
+    map.hours.forEach((day, d) => {
+      let open = -1;
+      for (let h = 0; h <= day.length; h += 1) {
+        const inside = h < day.length && day[h] >= threshold;
+        if (inside && open < 0) open = h;
+        if (!inside && open >= 0) {
+          const peak = Math.max(...day.slice(open, h));
+          slots.push({ day: d, start: map.from + open * 60, end: map.from + h * 60, fill: Math.round((peak / top) * 100) / 100, over: false });
+          open = -1;
+        }
+      }
+    });
+    if (slots.length) halls.push({ slots });
+  }
+  return { halls, span: { from: map.from, to: map.to }, hours: map.hours.map(day => [...day]) };
 }
 
 const minutesOf = (value?: string) => {
@@ -77,7 +184,7 @@ export function buildFromRows(rows: TermFilmRowLike[], placeholderInstructorIds:
       });
     });
   }
-  return { sections: sections.size, courses: courses.size, teachers: teachers.size, weeklyHours: Math.round(minutes / 60), week };
+  return { sections: sections.size, courses: courses.size, teachers: teachers.size, weeklyHours: Math.round(minutes / 60), week, map: weekMapFromRows(rows) };
 }
 
 /** يجمع شبكات أسابيع الأقسام في شبكة الكلية. */
@@ -245,12 +352,48 @@ export interface TermFilmData {
   collegeName: string;
   title: [string, string];
   build: { eyebrow: string; trio: TermFilmTrioItem[]; week: number[][] } | null;
+  /** «أسبوعك في لقطة»: خريطة الأسبوع ساعةً ساعة وأرقامها. يسقط المشهد بلا مواعيد. */
+  week: TermFilmWeekScene | null;
   wishes: { eyebrow: string; pct: number; caption: string } | null;
   clash: { eyebrow: string; from: number; to: number; caption: string } | null;
   students: { eyebrow: string; count: number; caption: string } | null;
   delivery: { eyebrow: string; rows: Array<{ label: string; text: string; state: "done" | "pending" }>; headline: string };
   thanks: [string, string];
+  /** الختام: اسم القسم (أو الكلية) والفصل وأعداده الحقيقية، تحت شعار بصمته. */
+  closing: { name: string; term: string; line: string; counts: TermFilmTrioItem[] };
+  /**
+   * شكل بصمة القسم مجرّداً من كل نص، خلفيةً للمسرح وشعاراً للختام. لا يُحمل إلا
+   * لمن يرى البصمة؛ وغيابه يجعل الشاشة ترسم خلفيةً من حِمل الأسبوع وحده.
+   */
+  backdrop: FingerprintShape | null;
   generatedAt: string;
+}
+
+export interface TermFilmWeekFact { value: string; label: string }
+export interface TermFilmWeekScene {
+  eyebrow: string;
+  from: number;
+  to: number;
+  hours: number[][];
+  perDay: number[];
+  days: string[];
+  facts: TermFilmWeekFact[];
+}
+
+/** مشهد الأسبوع من خريطته: أكثر الأيام ازدحاماً، وبداية أول محاضرة، ونهاية آخر محاضرة. */
+export function weekScene(map: TermFilmWeekMap, eyebrow: string): TermFilmWeekScene | null {
+  if (!map.lectures || map.earliest == null || map.latest == null) return null;
+  const busiest = map.perDay.reduce((best, value, day) => (value > map.perDay[best] ? day : best), 0);
+  return {
+    eyebrow,
+    from: map.from, to: map.to, hours: map.hours, perDay: map.perDay,
+    days: [...FINGERPRINT_DAYS],
+    facts: [
+      { value: FINGERPRINT_DAYS[busiest], label: `أكثر الأيام ازدحاماً · ${countOf(map.perDay[busiest], AR.lecture)}` },
+      { value: fingerprintClock(map.earliest), label: "بداية أول محاضرة" },
+      { value: fingerprintClock(map.latest), label: "نهاية آخر محاضرة" },
+    ],
+  };
 }
 
 const join = (parts: Array<string | null | undefined | false>) => parts.filter(Boolean).join(" · ");
@@ -287,6 +430,7 @@ export function deptFilm(input: DeptFilmInput): TermFilmData {
       ],
       week: build.week,
     } : null,
+    week: weekScene(build.map, "أسبوعك في لقطة"),
     wishes: wishes ? {
       eyebrow: "رغبات الأساتذة",
       pct: wishes.pct,
@@ -317,6 +461,17 @@ export function deptFilm(input: DeptFilmInput): TermFilmData {
       final ? "شكراً لكل من بنى هذا الجدول" : "شكراً لكل من يبني هذا الجدول",
       join(["لجنة الجدول", build.teachers ? countOf(build.teachers, AR.instructor) : null, input.students ? countOf(input.students, AR.student) : null]),
     ],
+    closing: {
+      name: scope,
+      term: input.termName,
+      line: final ? "شكراً لكل من بنى هذا الجدول" : "شكراً لكل من يبني هذا الجدول",
+      counts: [
+        ...(build.sections ? [{ value: build.sections, label: nounFor(build.sections, AR.section) }] : []),
+        ...(build.teachers ? [{ value: build.teachers, label: nounFor(build.teachers, AR.instructor) }] : []),
+        ...(input.students ? [{ value: input.students, label: nounFor(input.students, AR.student) }] : []),
+      ],
+    },
+    backdrop: null,
     generatedAt: (input.now || new Date()).toISOString(),
   };
 }
@@ -368,6 +523,7 @@ export function deanFilm(input: {
       ],
       week: mergeWeeks(departments.map(dep => dep.build.week)),
     } : null,
+    week: weekScene(mergeWeekMaps(departments.map(dep => dep.build.map)), "أسبوع الكلية في لقطة"),
     wishes: wishes ? {
       eyebrow: "رغبات الأساتذة",
       pct: wishes.pct,
@@ -405,6 +561,17 @@ export function deanFilm(input: {
       final ? "شكراً لأقسام الكلية ولجانها" : "شكراً لأقسام الكلية ولجانها على ما أنجزت",
       join([countOf(total, AR.department), teachers ? countOf(teachers, AR.instructor) : null, students ? countOf(students, AR.student) : null]),
     ],
+    closing: {
+      name: college,
+      term: input.termName,
+      line: final ? "شكراً لأقسام الكلية ولجانها" : "شكراً لأقسام الكلية ولجانها على ما أنجزت",
+      counts: [
+        ...(total ? [{ value: total, label: nounFor(total, AR.department) }] : []),
+        ...(teachers ? [{ value: teachers, label: nounFor(teachers, AR.instructor) }] : []),
+        ...(students ? [{ value: students, label: nounFor(students, AR.student) }] : []),
+      ],
+    },
+    backdrop: null,
     generatedAt: (input.now || new Date()).toISOString(),
   };
 }
