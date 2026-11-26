@@ -313,7 +313,7 @@ const baseWeek = {
   check(Object.keys(exempt.travel).length === 0, "٨ المستثنى لا تنقّلَ له");
   check(facts.term.start === "2026-09-13" && facts.term.end === "2026-12-31" && facts.term.closed === false, "٨ حدّا الفصل من تقويم التطبيق نفسه", facts.term);
   check(teacherWeekFacts({ rows, instructorId: 5, collegeNameOf: () => "", courseNameOf: course, policy, term: { AdTermName: "فصل بلا اسمٍ معروف" } }) === null, "٨ فصلٌ بلا حدّين: لا شيء");
-  check(/week: await teacherWeekOf\(request, term as any\)\.catch\(\(\) => null\)/.test(routes) && /readTravelPolicy\(\)/.test(routes), "٨ الخادم يرسل data.week ويتحمّل فشلها بلا إسقاط الكرت");
+  check(/\.\.\.await teacherWeekOf\(request, term as any\)\.catch\(\(\) => \(\{ week: null, film: false \}\)\)/.test(routes) && /try \{ return teacherWeekFacts\(/.test(routes) && /readTravelPolicy\(\)/.test(routes), "٨ الخادم يرسل data.week ويتحمّل فشلها بلا إسقاط الكرت");
 
   /* الرسم: أدواتُ الصفحة الدنيا ودومٌ مزيّف. */
   const sandbox: any = {

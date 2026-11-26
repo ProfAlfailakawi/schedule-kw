@@ -2,6 +2,8 @@
  * فيلمي (FR-DSH-033): النسخةُ الشخصية القصيرة من «فيلم الفصل».
  *   • للأستاذ من رابطه: محاضراته وأيامه ورغباته التي ثُبّتت — **بلا اسم قاعةٍ ولا رمزها** في الجواب أصلاً،
  *     ولا يأخذ أحدٌ فيلمَ غيره: صاحبُ الفيلم صاحبُ الرابط، ولا يُقبل رقمٌ من العنوان.
+ *   • وللأستاذ من بطاقته ‎/s/:token‎: حاملُ البطاقة كما تعرفه البطاقة (تذكرةٌ موقّعة بعد التحقق أو مفتاحُ جهازه)،
+ *     فيلمُه وحده، ومن لا محاضراتَ له لا بطاقةَ «فيلمي» له ولا فيلم.
  *   • للطالب داخل «مساري»: مما تعرضه له «مساري» أصلاً، بجلسته وحدها.
  *   • أرقامٌ حقيقية فقط، والمشهدُ الذي لا بيانات له يسقط، ويُروى «حتى الآن» قبل الاعتماد النهائي.
  *   • قراءةٌ فقط: لا مسارَ كتابة، ولا كتابةَ في المستودع، ولا رقمَ مدنياً في الجواب.
@@ -15,7 +17,7 @@ import {
   MY_FILM_DURATIONS, type MyFilmData, type MyFilmPart,
 } from "../src/utils/myFilm";
 import { placeFieldsIn } from "../src/utils/teacherSafeFields";
-import { MY_FILM_CSS, MY_FILM_JS, MY_FILM_STAGE_VARS, myFilmPage } from "../src/server/myFilmPage";
+import { MY_FILM_CSS, MY_FILM_ENTRY_BODY, MY_FILM_ENTRY_CSS, MY_FILM_JS, MY_FILM_STAGE_VARS, myFilmPage } from "../src/server/myFilmPage";
 
 const source = (path: string) => readFileSync(path, "utf8");
 const textOf = (film: MyFilmData | null) => JSON.stringify(film);
@@ -238,10 +240,33 @@ assert.doesNotMatch(source("src/utils/myFilm.ts"), /civil|AdRoom|roomId|building
 
 /* ── أماكن الدخول: بطاقةٌ في صفحة الأستاذ (لا تظهر في معاينة المنسّق ولا تُطبع)، وبطاقةٌ في «مساري» ── */
 const requestPage = source("src/server/pages/instructorRequestPage.ts");
-assert.match(requestPage, /function myFilmCard\(\)\{if\(TOKEN==="preview"\|\|!data\|\|!data\.week\|\|!data\.week\.meetings\|\|!data\.week\.meetings\.length\)return "";/);
-assert.match(requestPage, /href="\/r\/'\+encodeURIComponent\(TOKEN\)\+'\/film"/);
+/* البابُ يتبع الفيلمَ نفسه (data.film من محاضراته الرسمية)، لا «أسبوعي الصحي» الذي يغيب بلا تاريخِ بدءٍ للفصل. */
+assert.match(requestPage, /function myFilmCard\(\)\{if\(TOKEN==="preview"\|\|!data\|\|!data\.film\)return "";/);
+const requestRoutes = source("src/server/routes/publicRequestRoutes.ts");
+assert.match(requestRoutes, /const film = lecturesFromRows\(rows as any, Number\(request\.AdInstructorId\)\)\.length > 0;/);
+assert.match(requestRoutes, /\.\.\.await teacherWeekOf\(request, term as any\)\.catch\(\(\) => \(\{ week: null, film: false \}\)\)/);
+assert.match(requestPage, /href="\/r\/'\+encodeURIComponent\(TOKEN\)\+'\/film">'\+\$\{JSON\.stringify\(MY_FILM_ENTRY_BODY\)\}/, "البطاقةُ نفسها في البابين");
 assert.match(requestPage, /myFilmCard\(\)\+tcWeekHtml\(\)/);
-assert.match(requestPage, /@media print\{\.mf-card\{display:none!important\}\}/, "المطبوع لا يتغيّر");
+assert.match(requestPage, /\$\{MY_FILM_ENTRY_CSS\}/);
+assert.match(MY_FILM_ENTRY_CSS, /@media print\{\.mf-card\{display:none!important\}\}/, "المطبوع لا يتغيّر");
+assert.match(MY_FILM_ENTRY_CSS, /\.mf-card\[hidden\]\{display:none!important\}/, "البطاقةُ المخفيّة مخفيّةٌ فعلاً");
+assert.match(MY_FILM_ENTRY_BODY, /<b>فيلمي<\/b>/);
+/* وفي «بطاقتي» (/s/:token): البطاقةُ نفسها، مخفيّةٌ حتى يقول الخادمُ إن له فيلماً في فصل البطاقة. */
+const staffPage = source("src/server/pages/staffCardPage.ts");
+assert.match(staffPage, /<a class="mf-card" id="myFilm" href="\/s\/\$\{encodeURIComponent\(token\)[^"]*\/film" hidden>\$\{MY_FILM_ENTRY_BODY\}<\/a>/);
+assert.match(staffPage, /\$\{MY_FILM_ENTRY_CSS\}/);
+assert.match(staffPage, /if\(myFilm\)myFilm\.hidden=!d\.film;/);
+const staffRoutes = source("src/server/routes/publicStaffRoutes.ts");
+const staffFilm = staffRoutes.slice(staffRoutes.indexOf('app.get("/api/public/staff/:token/film"'), staffRoutes.indexOf('app.get("/s/:token", async'));
+assert.match(staffFilm, /app\.get\("\/s\/:token\/film"/);
+assert.match(staffFilm, /verifyStaffFilmPass\(secret, token, cookies\[STAFF_FILM_COOKIE\]\) \|\| verifyStaffDevice\(secret, token, cookies\[STAFF_DEVICE_COOKIE\]\)/, "حاملُ البطاقة من تذكرتها أو مفتاح جهازه");
+assert.match(staffFilm, /buildStaffCard\(resolved\.link, \{ instructorId \}\)/, "ثم بواباتُ البطاقة نفسها");
+assert.match(staffFilm, /withoutPlaceFields\(film\)/);
+assert.doesNotMatch(staffFilm, /req\.query|req\.body/, "لا رقمَ أستاذٍ من العنوان");
+assert.doesNotMatch(staffFilm, /Repository\.\w+\(|markShareLink|touchShareLink/, "لا قراءةَ مباشرة ولا كتابة، ولا يُسجَّل فتحٌ للرابط");
+assert.doesNotMatch(staffFilm, /[Cc]ivil/, "لا رقمَ مدنياً في البابين");
+assert.match(staffRoutes, /film: Boolean\(filmReady\) && Number\(card\.termId\) === Number\(resolved\.link\.AdTermId\)/);
+assert.match(staffRoutes, /filmRequests: _filmRequests, \.\.\.visible/, "الطلباتُ الداخلية لا تصل صفحة البطاقة");
 const home = source("src/server/studentHomePage.ts");
 assert.match(home, /\(empty\?'':'<a class="mf-card fade" href="\/me\/film">/, "بطاقة «فيلمي» في لسان «الآن» لمن أكمل ملفّه");
 assert.match(home, /@media print\{\.mf-card\{display:none!important\}\}/);
@@ -252,8 +277,11 @@ assert.ok(JSON.stringify(srs).includes("FR-DSH-033"), "FR-DSH-033 في وثيق�
 
 /* ── سلوكٌ حيّ داخل صندوقٍ تجريبي: كلُّ رابطٍ يعيد فيلمَ صاحبه وحده، بلا قاعة ── */
 process.env.DATA_MODE = "demo";
+process.env.STAFF_DEVICE_SECRET = process.env.STAFF_DEVICE_SECRET || "my-film-audit-secret";
 const { Repository } = await import("../src/db/repository");
 const { registerMyFilmRoutes } = await import("../src/server/routes/myFilmRoutes");
+const { registerPublicStaffRoutes } = await import("../src/server/routes/publicStaffRoutes");
+const { signStaffFilmPass, STAFF_FILM_COOKIE } = await import("../src/server/staffDeviceKey");
 const express = (await import("express")).default;
 const sandbox = `demo_myfilm_${Date.now()}`;
 Repository.createDemoSandbox(sandbox, 180_000);
@@ -284,11 +312,23 @@ const seeded = await Repository.withDemoSandbox(sandbox, async () => {
       rooms: [...new Set(own.flatMap(entry => [String(entry.AdRoomCode || ""), String(entry.AdRoomHall || "")]).filter(value => value.length >= 3 && !/^\d+$/.test(value)))],
     });
   }
-  return { issued, termName: String(term?.AdTermName || "") };
+  /* بطاقتا أستاذ: رابطُ القسم العام، ورابطٌ شخصيٌّ للأول. ومن لا يدرّس في الفصل شيئاً (حاملٌ بلا محاضرات). */
+  const own0 = (all as any[]).find(entry => Number(entry.AdInstructorId) === issued[0].id && Number(entry.id) > 0);
+  const staffLink = (personal: number) => Repository.createShareLink({
+    AdCollegeId: Number(own0.AdCollegeId), AdSectionId: Number(own0.AdSectionId), AdTermId: 1, SystemUserId: 1, userName: "اختبار",
+    kind: "staff", ...(personal ? { AdInstructorId: personal } : {}), label: "بطاقة الأستاذ", expiresAt: new Date(Date.now() + 86_400_000).toISOString(), showInstructors: false,
+  } as any);
+  const general = await staffLink(0), personalLink = await staffLink(issued[0].id);
+  const teaching = new Set((all as any[]).map(entry => Number(entry.AdInstructorId)));
+  const idle = (instructors as any[]).find(person => !teaching.has(Number(person.AdInstructorId)) && String(person.AdInstructorCivil || "").replace(/\D/g, "").length >= 8);
+  return { issued, termName: String(term?.AdTermName || ""), general: general.id, personal: personalLink.id,
+    idle: idle ? { id: Number(idle.AdInstructorId), civil: String(idle.AdInstructorCivil) } : null };
 });
 const app = express();
 app.use((_req, _res, next) => { if (!Repository.runDemoSandbox(sandbox, next)) next(); });
+app.use(express.json());
 registerMyFilmRoutes(app);
+registerPublicStaffRoutes(app);
 const server = app.listen(0);
 try {
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -320,6 +360,68 @@ try {
   /* رابطٌ لا وجود له، ورابطٌ ليس طلبَ جدول، ورابطٌ أُوقف: لا فيلم. */
   assert.equal((await fetch(`${base}/api/public/request/demo.not-a-real-token/film`)).status, 404);
   assert.equal((await fetch(`${base}/r/demo.not-a-real-token/film`)).status, 404);
+  /* ── «فيلمي» من «بطاقتي» ‎/s/:token‎ ── */
+  const passOf = (response: Response) => (response.headers.getSetCookie?.() || [String(response.headers.get("set-cookie") || "")])
+    .map(line => line.split(";")[0]).find(pair => pair.startsWith(`${STAFF_FILM_COOKIE}=`)) || "";
+  const openCard = (token: string, civil: string) => fetch(`${base}/api/public/staff/${encodeURIComponent(token)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ civil }) });
+  const filmOf = (token: string, cookie = "", query = "") => fetch(`${base}/api/public/staff/${encodeURIComponent(token)}/film${query}`, cookie ? { headers: { Cookie: cookie } } : {});
+  assert.ok(a.civil, "للأستاذ الأول رقمٌ مدني في الصندوق");
+  const cardResponse = await openCard(seeded.general, a.civil);
+  assert.equal(cardResponse.status, 200, "بطاقتُه تفتح برقمه");
+  const cardBody = await cardResponse.json() as any;
+  assert.equal(cardBody.film, true, "البطاقةُ تقول إن له فيلماً");
+  assert.equal(cardBody.filmReady, undefined); assert.equal(cardBody.filmRequests, undefined, "الحقولُ الداخلية لا تصل الصفحة");
+  const pass = passOf(cardResponse);
+  assert.ok(pass, "وتعطي الجهازَ تذكرةَ الفيلم");
+  const setCookie = (cardResponse.headers.getSetCookie?.() || []).find(line => line.startsWith(`${STAFF_FILM_COOKIE}=`)) || "";
+  assert.match(setCookie, /HttpOnly/); assert.match(setCookie, /SameSite=Strict/);
+  assert.ok(setCookie.includes(`Path=/api/public/staff/${encodeURIComponent(seeded.general)}/film`), "التذكرةُ لمسار الفيلم وحده");
+  assert.ok(!setCookie.includes(a.civil), "ولا تحمل رقماً مدنياً");
+  const staffFilmResponse = await filmOf(seeded.general, pass, `?instructorId=${b.id}&AdInstructorId=${b.id}`);
+  assert.equal(staffFilmResponse.status, 200);
+  assert.match(staffFilmResponse.headers.get("cache-control") || "", /no-store/);
+  const staffText = await staffFilmResponse.text();
+  const staffBody = JSON.parse(staffText) as { film: MyFilmData };
+  assert.equal(partOf(staffBody.film, "title", "big")?.text, a.name, "فيلمُ حامل البطاقة نفسه، ورقمُ الزميل في العنوان لا يغيّر شيئاً");
+  assert.ok(!staffText.includes(b.name), "ولا يحمل اسمَ زميله");
+  assert.deepEqual(placeFieldsIn(staffBody), [], "لا حقلَ قاعةٍ أو مبنى في جواب البطاقة");
+  for (const room of a.rooms) assert.ok(!staffText.includes(room), `لا اسمَ قاعة (${room}) في جواب البطاقة`);
+  assert.ok(!staffText.includes(a.civil), "ولا رقمَه المدني");
+  /* بلا تذكرة، أو بتذكرة رابطٍ آخر، أو بتذكرةٍ مزوّرة: لا فيلم. */
+  assert.equal((await filmOf(seeded.general)).status, 404, "بلا هويةٍ لا فيلم");
+  assert.equal((await filmOf(seeded.personal, pass)).status, 404, "التذكرةُ لرمز رابطها وحده");
+  assert.equal((await filmOf(seeded.general, `${STAFF_FILM_COOKIE}=v1.${b.id}.${Date.now() + 60_000}.forged`)).status, 404, "تذكرةٌ مزوّرة لا تصلح");
+  const secret = process.env.STAFF_DEVICE_SECRET!;
+  const otherPass = `${STAFF_FILM_COOKIE}=${encodeURIComponent(signStaffFilmPass(secret, seeded.personal, b.id, Date.now() + 60_000))}`;
+  assert.equal((await filmOf(seeded.personal, otherPass)).status, 404, "الرابطُ الشخصيُّ لا يفتح فيلمَ زميلٍ ولو بتذكرةٍ موقّعة له");
+  /* رمزٌ لا وجود له، ورابطُ طلبٍ ليس بطاقة: لا صفحة ولا فيلم. */
+  assert.equal((await filmOf("demo.not-a-real-token", pass)).status, 404);
+  assert.equal((await fetch(`${base}/s/demo.not-a-real-token/film`)).status, 404);
+  assert.equal((await fetch(`${base}/s/${encodeURIComponent(a.token)}/film`)).status, 404, "رابطُ الطلب ليس بطاقة");
+  const staffPageResponse = await fetch(`${base}/s/${encodeURIComponent(seeded.general)}/film`);
+  assert.equal(staffPageResponse.status, 200);
+  const staffHtml = await staffPageResponse.text();
+  assert.ok(staffHtml.includes(`data-api="/api/public/staff/${encodeURIComponent(seeded.general)}/film"`));
+  assert.ok(staffHtml.includes(`data-back="/s/${encodeURIComponent(seeded.general)}"`));
+  assert.ok(!staffHtml.includes(a.name), "صفحةُ الفيلم بلا بيانات");
+  /* حاملٌ لا يدرّس في الفصل: لا بطاقة، ولا فيلم ولو بتذكرةٍ موقّعة باسمه. */
+  if (seeded.idle) {
+    const idleCard = await openCard(seeded.general, seeded.idle.civil);
+    assert.equal(idleCard.status, 404, "من لا محاضراتَ له لا بطاقةَ له");
+    assert.equal(passOf(idleCard), "", "ولا تذكرةَ فيلم");
+    const idlePass = `${STAFF_FILM_COOKIE}=${encodeURIComponent(signStaffFilmPass(secret, seeded.general, seeded.idle.id, Date.now() + 60_000))}`;
+    assert.equal((await filmOf(seeded.general, idlePass)).status, 404, "ولا فيلم");
+  } else console.warn("  (لا حاملَ بلا محاضرات في الصندوق؛ تخطّي فحصه)");
+  /* فتحُ الفيلم لا يُسجَّل: لا لمسةَ للرابط ولا علامةَ زيارة. */
+  const linkState = async () => JSON.stringify(await Repository.withDemoSandbox(sandbox, async () => (await Repository.getShareLinksByIds([seeded.general]))[0]));
+  const before = await linkState();
+  await filmOf(seeded.general, pass);
+  await fetch(`${base}/s/${encodeURIComponent(seeded.general)}/film`);
+  assert.equal(await linkState(), before, "فتحُ الفيلم لا يلمس الرابط");
+  await Repository.withDemoSandbox(sandbox, async () => { await Repository.revokeShareLink(seeded.general); });
+  assert.equal((await filmOf(seeded.general, pass)).status, 404, "بطاقةٌ أُوقفت لا تعيد فيلماً");
+
   await Repository.withDemoSandbox(sandbox, async () => { await Repository.revokeShareLink(b.token); });
   assert.equal((await fetch(`${base}/api/public/request/${encodeURIComponent(b.token)}/film`)).status, 404, "رابطٌ أُوقف لا يعيد فيلماً");
 } finally {
@@ -327,5 +429,5 @@ try {
   Repository.dropDemoSandbox(sandbox);
 }
 
-console.log("✓ فيلمي: للأستاذ من رابطه بلا قاعة، وللطالب داخل «مساري» بجلسته، أرقامٌ حقيقية و«حتى الآن» قبل الاعتماد، وقراءةٌ فقط");
+console.log("✓ فيلمي: للأستاذ من رابطه ومن بطاقته (فيلمُه وحده) بلا قاعة، وللطالب داخل «مساري» بجلسته، أرقامٌ حقيقية و«حتى الآن» قبل الاعتماد، وقراءةٌ فقط");
 process.exit(0);

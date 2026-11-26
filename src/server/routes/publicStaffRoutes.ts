@@ -14,7 +14,11 @@ import { currentTermId, termPhase } from "../../utils/termSequence";
 import type { ScheduleShareLink, InstructorRequest } from "../../types";
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { enrichCompanionRoomTypes } from "../../utils/companionRoomDisplay";
-import { clearStaffDeviceCookie, createStaffDeviceSecretResolver, signStaffDevice, staffDeviceCookie, staffDeviceExpiry, verifyStaffDevice, STAFF_DEVICE_COOKIE } from "../staffDeviceKey";
+import { clearStaffDeviceCookie, createStaffDeviceSecretResolver, signStaffDevice, signStaffFilmPass, staffDeviceCookie, staffDeviceExpiry, staffFilmCookie, verifyStaffDevice, verifyStaffFilmPass, STAFF_DEVICE_COOKIE, STAFF_FILM_COOKIE, STAFF_FILM_TTL_MS } from "../staffDeviceKey";
+import { wishesFromItems } from "../../utils/myFilm";
+import { withoutPlaceFields } from "../../utils/teacherSafeFields";
+import { instructorFilmFor } from "./myFilmRoutes";
+import { myFilmPage } from "../myFilmPage";
 import { cardRequestsCloseAt } from "../../utils/instructorRequestWindows";
 import { negotiationState } from "../../utils/instructorRequestThread";
 import { decisionDigest } from "../../utils/requestDecisionDigest";
@@ -328,6 +332,10 @@ async function buildStaffCard(link: ScheduleShareLink, identity: StaffIdentity, 
     upcomingExceptions,
     departmentApprovals,
     requestLinks,
+    /* «فيلمي»: محاضراتٌ رسمية له في فصل الرابط (‎id‎ موجب، كما يقرؤها باني الفيلم). والطلباتُ التي
+       تُروى رغباتُها هي التي تعرضها البطاقةُ نفسُها في فصل الرابط، لا غيرها. حقلان داخليان لا يصلان الصفحة. */
+    filmReady: linkRows.some(row => Number(row.id) > 0),
+    filmRequests: displayTermId === link.AdTermId ? eligibleRequests.map(entry => entry.request) : [],
   };
 }
 const staffDeviceSecret = createStaffDeviceSecretResolver(() => process.env.STAFF_DEVICE_SECRET, () => Repository.getSharedServerSecret());
@@ -489,7 +497,12 @@ app.post("/api/public/staff/:token", async (req: Request, res: Response) => {
   }
   void Repository.touchShareLink(resolved.link.id).catch(() => undefined);
   /* «منذ زيارتك الأخيرة»: ما حُفظ من الزيارة السابقة يُعاد، ثم تُسجَّل هذه. */
-  const { instructorId: cardInstructorId, fingerprint: cardFingerprint, ...visible } = card;
+  const { instructorId: cardInstructorId, fingerprint: cardFingerprint, filmReady, filmRequests: _filmRequests, ...visible } = card;
+  /* «فيلمي»: تذكرةٌ قصيرة لقراءة فيلمه وحده (staffDeviceKey) — تُعطى بعد ثبوت الهوية هنا، ولا تحمل رقماً مدنياً. */
+  if (filmReady) {
+    const filmUntil = Math.min(Date.now() + STAFF_FILM_TTL_MS, Date.parse(String(resolved.link.expiresAt || "")) || Infinity);
+    if (filmUntil > Date.now()) res.append("Set-Cookie", staffFilmCookie(token, signStaffFilmPass(await staffDeviceSecret(), token, Number(cardInstructorId), filmUntil), filmUntil, staffCookieSecure));
+  }
   const previousVisit = resolved.link.marks?.[String(cardInstructorId)];
   if (Number(card.termId) === Number(resolved.link.AdTermId)) {
     void Repository.markShareLinkInstructor(resolved.link.id, cardInstructorId, { seenAt: new Date().toISOString(), seenFingerprint: cardFingerprint }).catch(() => undefined);
@@ -502,6 +515,7 @@ app.post("/api/public/staff/:token", async (req: Request, res: Response) => {
     ...visible,
     remembered,
     planMapUrl,
+    film: Boolean(filmReady) && Number(card.termId) === Number(resolved.link.AdTermId),
     lastSeenAt: previousVisit?.seenAt || "",
     changedSinceLastVisit: Boolean(previousVisit?.seenFingerprint) && Number(card.termId) === Number(resolved.link.AdTermId)
       && previousVisit!.seenFingerprint !== cardFingerprint,
@@ -542,6 +556,50 @@ app.get("/t/:token", async (req: Request, res: Response) => {
   const sections = await Repository.getSections();
   const title = sections.find(row => row.AdSectionId === resolved.link.AdSectionId)?.AdSectionName || "جدول القسم";
   res.send(studentSchedulePage(resolved.link.id, esc(title), publicPageNonce(res)));
+});
+
+/* ── «فيلمي» من بطاقة الأستاذ: قراءةٌ فقط ─────────────────────────────────────
+ * صاحبُ الفيلم حاملُ البطاقة كما تعرفه البطاقةُ نفسها: تذكرةُ الفيلم التي أعطتها بعد التحقق، أو مفتاحُ
+ * جهازه المتذكَّر — كلاهما موقّعٌ على رمز هذا الرابط ويحمل رقمَه الداخلي، ولا رقمَ من العنوان. ثم تُبنى
+ * البطاقةُ من جديد (buildStaffCard) فتمرّ البواباتُ نفسها: الرابطُ الشخصيُّ لصاحبه، وله محاضراتٌ في فصل
+ * الرابط. لا قاعةَ ولا مبنى (instructorFilmFor ثم withoutPlaceFields)، ولا يُلمس الرابطُ ولا يُسجَّل فتحٌ. */
+app.get("/api/public/staff/:token/film", async (req: Request, res: Response) => {
+  const token = String(req.params.token || "");
+  res.setHeader("Cache-Control", "no-store");
+  const gone = () => { res.status(404).json({ error: "لا فيلمَ لهذه البطاقة الآن. افتح بطاقتك أولاً ثم اضغط «فيلمي»." }); };
+  const resolved = await resolveShareToken(token);
+  if ("error" in resolved) { res.status(resolved.status).json({ error: resolved.error }); return; }
+  if (resolved.link.kind !== "staff") { gone(); return; }
+  const cookies = getCookies(req), secret = await staffDeviceSecret();
+  const instructorId = verifyStaffFilmPass(secret, token, cookies[STAFF_FILM_COOKIE]) || verifyStaffDevice(secret, token, cookies[STAFF_DEVICE_COOKIE]);
+  if (!instructorId) { gone(); return; }
+  try {
+    const card = await buildStaffCard(resolved.link, { instructorId });
+    if (!card || !card.filmReady) { gone(); return; }
+    const film = await instructorFilmFor(`staff|${resolved.link.id}|${card.instructorId}`, Number(card.instructorId), Number(resolved.link.AdTermId),
+      () => card.filmRequests.flatMap(request => wishesFromItems(request.items, Boolean(request.submittedAt))));
+    if (!film) { gone(); return; }
+    res.json({ film: withoutPlaceFields(film) });
+  } catch (error) {
+    console.error("[my-film] بطاقة:", error instanceof Error ? error.message : error);
+    res.status(500).json({ error: "تعذّر إعداد فيلمك الآن. أعد المحاولة بعد قليل." });
+  }
+});
+
+app.get("/s/:token/film", async (req: Request, res: Response) => {
+  const resolved = await resolveShareToken(String(req.params.token || ""));
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Robots-Tag", "noindex");
+  if ("error" in resolved || resolved.link.kind !== "staff") {
+    res.status("error" in resolved ? resolved.status : 404).type("text/html; charset=utf-8")
+      .send(publicInvalidLinkPage("error" in resolved ? resolved.error : "هذا الرابط ليس بطاقة أستاذ"));
+    return;
+  }
+  /* الصفحةُ بلا بيانات: تقرأ الفيلمَ من مساره أعلاه، فلا يُكشف هنا شيءٌ لمن لم تُثبت البطاقةُ هويته. */
+  const token = encodeURIComponent(resolved.link.id);
+  res.type("text/html; charset=utf-8").send(myFilmPage({
+    api: `/api/public/staff/${token}/film`, back: `/s/${token}`, backLabel: "بطاقتي", nonce: publicPageNonce(res),
+  }));
 });
 
 app.get("/s/:token", async (req: Request, res: Response) => {

@@ -85,3 +85,25 @@ export function staffDeviceCookie(token: string, value: string, expiresAt: numbe
 export function clearStaffDeviceCookie(token: string, secure: boolean): string {
   return `${STAFF_DEVICE_COOKIE}=; Path=/api/public/staff/${encodeURIComponent(token)}; Max-Age=0; HttpOnly; SameSite=Strict${secure ? "; Secure" : ""}`;
 }
+
+/* ── تذكرةُ «فيلمي» من البطاقة ────────────────────────────────────────────────
+ * صفحةُ الفيلم تقرأ بياناتها بطلب GET، والرقمُ المدنيُّ لا يغادر صفحةَ البطاقة ولا يُكتب في عنوان.
+ * فبعد أن تثبت البطاقةُ هويةَ حاملها (بالرقم المدني أو بمفتاح الجهاز) يُعطى الجهازُ تذكرةً قصيرة
+ * بالتوقيع نفسه، لكن على «film|رمز الرابط» لا على الرمز: فلا تصلح مفتاحَ جهازٍ ولا يصلح مفتاحُ
+ * جهازٍ آخر لها إلا بمساره. ومسارُها قراءةُ الفيلم وحدها، وعمرُها ساعتان. */
+export const STAFF_FILM_COOKIE = "sk_film";
+export const STAFF_FILM_TTL_MS = 2 * 60 * 60 * 1000;
+const filmScope = (token: string) => `film|${token}`;
+
+export function signStaffFilmPass(secret: string, token: string, instructorId: number, expiresAt: number): string {
+  return signStaffDevice(secret, filmScope(token), instructorId, expiresAt);
+}
+
+export function verifyStaffFilmPass(secret: string, token: string, value: unknown, now = Date.now()): number | null {
+  return verifyStaffDevice(secret, filmScope(token), value, now);
+}
+
+export function staffFilmCookie(token: string, value: string, expiresAt: number, secure: boolean, now = Date.now()): string {
+  const maxAge = Math.max(0, Math.floor((expiresAt - now) / 1000));
+  return `${STAFF_FILM_COOKIE}=${encodeURIComponent(value)}; Path=/api/public/staff/${encodeURIComponent(token)}/film; Max-Age=${maxAge}; HttpOnly; SameSite=Strict${secure ? "; Secure" : ""}`;
+}
