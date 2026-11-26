@@ -399,6 +399,8 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   check(!/[٠-٩]/.test(requestBlockText(items)), "أرقام لاتينية في نصّ الطلب");
   const pulseSrc = fs.readFileSync(path.join(process.cwd(), "src/components/hallPulse/HallPulse.tsx"), "utf8");
   check(/\/api\/schedules\/registrar-requests\?/.test(pulseSrc) && /registrar-requests\/\$\{encodeURIComponent\(regDoc\.id\)\}\/live/.test(pulseSrc), "الطبقة تقرأ التقرير المحفوظ ومساره الحيّ الموجودين، لا مقارنةً ثانية");
+  check(/setRegReload\(value => value \+ 1\)/.test(pulseSrc) && /\[regScope, regContext, regReload\]/.test(pulseSrc), "تشغيل الطبقة يعيد قراءة الفحوص المحفوظة: فحصٌ حُفظ للتوّ يظهر بلا مغادرة");
+  check(/setMode\("paths"\); setRegOn\(false\)/.test(pulseSrc) && pulseSrc.includes('{regOn && mode === "halls" ? regPanel : mode === "paths" ? pathsPanel : panel}'), "«مسارات التنقّل» تُطفئ الطبقة ولا تحجب لوحة المسارات");
   check(/regContext = \(context === "workshop" \|\| context === "dean"\)/.test(pulseSrc) && /regContext && regList \?/.test(pulseSrc), "الزرّ في الورشة وبطاقة العميد وحدهما، وبعد أن يقبل الخادم قراءة التقرير (بوابته نفسها)");
   check(!/civils/.test(pulseSrc), "لا رقم مدنياً في الطبقة");
 }

@@ -229,8 +229,10 @@ export default function HallPulse(props: HallPulseProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const regList = regDocs && regDocs.scope === regScope ? regDocs.docs : null;
   const regDoc = regList?.[0] || null;
+  /* تغيّر القسم أو الفصل يطفئ الطبقة؛ وتشغيلها يعيد قراءة القائمة (فحصٌ حُفظ للتوّ من «ارفع ملف التسجيل» يظهر بلا مغادرة). */
+  const [regReload, setRegReload] = useState(0);
+  useEffect(() => { setRegOn(false); setRegLive(null); setRegError(""); }, [regScope, regContext]);
   useEffect(() => {
-    setRegOn(false); setRegLive(null); setRegError("");
     if (!regContext) return;
     let live = true;
     const q = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
@@ -240,7 +242,7 @@ export default function HallPulse(props: HallPulseProps) {
       .catch(() => { /* طبقةٌ إضافية: تعذّرها لا يُسقط المجسّم */ });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regScope, regContext]);
+  }, [regScope, regContext, regReload]);
   /* بصمة الجدول: نقلةٌ تُحفظ أو تعديلٌ في الورشة يعيد قراءة التقرير على الجدول الجديد (بتأخيرٍ قصير). */
   const rowsStamp = useMemo(() => rows.map(r => `${r.id}:${r.rev ?? ""}:${r.roomId || ""}:${r.AdRoomHall || ""}:${r.fstarttime || ""}:${r.AdInstructorId || ""}`).join("|"), [rows]);
   useEffect(() => {
@@ -1253,6 +1255,7 @@ export default function HallPulse(props: HallPulseProps) {
     const next = !regOn;
     setRegOn(next);
     if (!next) { setSay(""); return; }
+    setRegReload(value => value + 1);
     stopPlay(); setMode("halls"); setPathId(null); setNearFor(null); setPlan(null); setPending(null); setBorrow(null);
     setFreeGlow(false); setWalk(0); setInsideKey(null); setSelected(null); setNotice(null); setSheetOpen(true);
     if (!regDoc) announce("لا فحص محفوظ لملف التسجيل في هذا الفصل بعد.");
@@ -1405,7 +1408,7 @@ export default function HallPulse(props: HallPulseProps) {
         {pathsAllowed ? (
           <div className="hp-mode hp-lens" role="group" aria-label="ما يُعرض">
             <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={mode === "halls"} onClick={() => { setMode("halls"); setPathId(null); setNearFor(null); }}>القاعات</button>
-            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={mode === "paths"} onClick={() => { setMode("paths"); setSelected(null); setPlan(null); setFreeGlow(false); setWalk(0); setSay("مسارات التنقّل: اختر أستاذاً أو دفعة، أو اضغط انتقالاً من «أصعب التنقلات اليوم» ليُعرض مساره ويمشي مع الساعة."); setSheetOpen(true); }}>مسارات التنقّل</button>
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={mode === "paths"} onClick={() => { setMode("paths"); setRegOn(false); setSelected(null); setPlan(null); setFreeGlow(false); setWalk(0); setSay("مسارات التنقّل: اختر أستاذاً أو دفعة، أو اضغط انتقالاً من «أصعب التنقلات اليوم» ليُعرض مساره ويمشي مع الساعة."); setSheetOpen(true); }}>مسارات التنقّل</button>
           </div>
         ) : null}
         <div className="hp-mode" role="group" aria-label="طريقة الرسم">
@@ -1553,7 +1556,7 @@ export default function HallPulse(props: HallPulseProps) {
           </div>
           <div className="hp-sheet-body">
             {planMini}
-            {regOn ? regPanel : mode === "paths" ? pathsPanel : panel}
+            {regOn && mode === "halls" ? regPanel : mode === "paths" ? pathsPanel : panel}
           </div>
         </aside>
         <div className="hp-bar">
