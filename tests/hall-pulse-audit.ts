@@ -456,7 +456,7 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   check(m.hallByKey.get(a1.get(5000)!)!.floor === 1 && a1.get(5003) === "id:e202", "شعبة الأحد·الثلاثاء لا تُنقل إلى 202 لأنها مشغولة الثلاثاء، والطابق الذي يجمع الأكثر يبقى");
   check(ep.closed === ep.before.halls - ep.after.halls && ep.closed === 2 && ep.closedHalls.length === 3 && ep.closedFloors.length === 3 && ep.keptFloors.length === 2, "ما يُغلق صافياً (ثلاث تنطفئ وواحدةٌ تضيء: قاعتان) والطوابق التي تنطفئ تُعدّ من الآثار نفسها");
   check(moved.every(mv => { const from = m.hallByKey.get(mv.from)!; return !ep.keptFloors.includes(floorKeyOf(from)); }), "لا نقلة بلا ثمرة: كل نقلةٍ تُطفئ الطابق الذي غادرته");
-  check(ep.plan!.groups.every(g => g.moves.length === 1 && !g.deps.length && g.on), "نقلاتٌ مستقلة بصيغة «رتّب قاعاتي» تُراجع واحدةً واحدة");
+  check(ep.plan!.groups.every(g => g.moves.length === 1 && g.on), "نقلاتٌ بصيغة «رتّب قاعاتي» تُراجع واحدةً واحدة");
   toggleGroup(ep.plan!, ep.plan!.groups[0].id, false);
   check(doubleBookings(m, applyPlan(b0, ep.plan)).length === 0, "واستبعاد نقلةٍ منها لا يحجز قاعةً مرتين");
   check(eveningSummary(3, 1, 4) === "3 قاعات تُغلق مساءً · طابقٌ واحد بدل 4 طوابق" && eveningSummary(1, 2, 3) === "قاعة واحدة تُغلق مساءً · طابقان بدل 3 طوابق" && eveningSummary(2, 1, 2) === "قاعتان تُغلقان مساءً · طابقٌ واحد بدل طابقين", "سطر الملخّص بالعدد والمعدود");
@@ -487,6 +487,49 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
     }
   }
   check(bad === 0, "ثلاثون جدولاً عشوائياً: لا حجز مزدوج، ولا نوع آخر، ولا طوابق أكثر مساءً");
+}
+
+/* «ضمّ المساء»: نقلةٌ تدخل قاعةً أفرغتها نقلةٌ أخرى تعتمد عليها (A→B ثم C→A) */
+{
+  const reg = { buildings: [{ id: "b1", officialCode: "012B01", buildingNumber: "1" }], rooms: [
+    { id: "dA", buildingId: "b1", canonicalCode: "101", capacity: 40 },
+    { id: "dB", buildingId: "b1", canonicalCode: "102", capacity: 40 },
+    { id: "dC", buildingId: "b1", canonicalCode: "201", capacity: 40 },
+  ] };
+  const cs = [{ AdCourseId: 1, MaxStudent: 30 }];
+  const r = (id: number, room: string) => ({ id, AdSectionId: 9, AdCourseId: 1, fstarttime: "14:00", fendtime: "15:00", roomId: room, fsunday: true });
+  const m = buildPulseModel({ rows: [r(1, "dA"), r(2, "dC")], courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+  const b0 = originalAssignment(m);
+  /* خطةٌ بالصيغة نفسها يبنيها planEvening: X من A إلى B، وY من C إلى A في الوقت نفسه. */
+  const plan = { day: "fsunday" as PulseDay, unsolved: [], groups: [
+    { id: 0, moves: [{ sessionId: 1, from: "id:dA", to: "id:dB" }], deps: [] as number[], on: true, start: 840 },
+    { id: 1, moves: [{ sessionId: 2, from: "id:dC", to: "id:dA" }], deps: [] as number[], on: true, start: 840 },
+  ] };
+  const src = fs.readFileSync(path.join(process.cwd(), "src/utils/hallPulseEvening.ts"), "utf8");
+  check(/om\.from === mv\.to && clash\(s, os\)/.test(src), "planEvening يسجّل اعتماد النقلة الداخلة على المُفرِغة");
+  /* تطبيق قاعدة الاعتماد نفسها على الحالة المصنوعة، ثم الاستبعاد. */
+  for (const g of plan.groups) for (const o of plan.groups) if (o !== g && o.moves[0].from === g.moves[0].to) g.deps.push(o.id);
+  check(plan.groups[1].deps.includes(0), "C→A تعتمد على A→B");
+  toggleGroup(plan, 0, false);
+  check(!plan.groups[1].on && doubleBookings(m, applyPlan(b0, plan)).length === 0, "استبعاد A→B يُسقط C→A: لا شعبتان في A");
+  /* ومن planEvening نفسه: كل مجموعةٍ جزئية بعد استبعاد أيّ نقلة تبقى بلا حجزٍ مزدوج. */
+  let seed = 5, bad = 0;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const rooms = ["dA", "dB", "dC"];
+  for (let t = 0; t < 40; t++) {
+    const rows = Array.from({ length: 5 }, (_, i) => ({ id: 100 + i, AdSectionId: 9, AdCourseId: 1, fstarttime: `${14 + Math.floor(rnd() * 3)}:00`, fendtime: `${17}:00`, roomId: rooms[Math.floor(rnd() * 3)], fsunday: true }));
+    const m2 = buildPulseModel({ rows, courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+    const o2 = originalAssignment(m2);
+    if (doubleBookings(m2, o2).length) continue;
+    const p2 = planEvening(m2, o2, "fsunday").plan;
+    if (!p2) continue;
+    for (const g of p2.groups) {
+      const copy = { ...p2, groups: p2.groups.map(x => ({ ...x, deps: [...x.deps] })) };
+      toggleGroup(copy, g.id, false);
+      if (doubleBookings(m2, applyPlan(o2, copy)).length) bad++;
+    }
+  }
+  check(bad === 0, "خطط المساء العشوائية: استبعاد أي نقلة لا يحجز قاعةً مرتين");
 }
 
 /* ── «وضع المجلس»: جولةٌ تلقائية للقراءة وحدها (FR-SCH-099) ── */

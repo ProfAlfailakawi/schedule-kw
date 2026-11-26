@@ -184,7 +184,17 @@ export function planEvening(model: PulseModel, base: Assignment, day: PulseDay):
   const groups: PlanGroup[] = moves
     .map(([sid, from]) => ({ s: model.sessionById.get(sid)!, from }))
     .sort((a, b) => a.s.start - b.s.start || a.s.id - b.s.id)
-    .map(({ s, from }, i) => ({ id: i, moves: [{ sessionId: s.id, from, to: assignment.get(s.id)! }], deps: [], on: true, start: s.start }));
+    .map(({ s, from }, i) => ({ id: i, moves: [{ sessionId: s.id, from, to: assignment.get(s.id)! }], deps: [] as number[], on: true, start: s.start }));
+  /* الاعتماد كما في planDay: نقلةٌ تدخل قاعةً تُفرغها نقلةٌ أخرى في وقتٍ متداخل تعتمد عليها،
+     فاستبعاد المُفرِغة يُسقط الداخلة (toggleGroup) ولا تبقى شعبتان في قاعةٍ واحدة. */
+  for (const g of groups) {
+    const mv = g.moves[0], s = model.sessionById.get(mv.sessionId)!;
+    for (const o of groups) {
+      if (o === g) continue;
+      const om = o.moves[0], os = model.sessionById.get(om.sessionId)!;
+      if (om.from === mv.to && clash(s, os) && !g.deps.includes(o.id)) g.deps.push(o.id);
+    }
+  }
   return {
     day, reason: "ok",
     plan: { day, groups, unsolved: [] },
