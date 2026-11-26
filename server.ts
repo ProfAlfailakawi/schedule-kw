@@ -69,6 +69,7 @@ import { registerCoursesRoutes } from "./src/server/routes/coursesRoutes";
 import { registerDashboardRoutes } from "./src/server/routes/dashboardRoutes";
 import { registerTermFilmRoutes } from "./src/server/routes/termFilmRoutes";
 import { registerDeptFingerprintRoutes } from "./src/server/routes/deptFingerprintRoutes";
+import { registerMyFilmRoutes } from "./src/server/routes/myFilmRoutes";
 import { registerDraftsRoutes } from "./src/server/routes/draftsRoutes";
 import { registerGuideRoutes } from "./src/server/routes/guideRoutes";
 import { registerHallBarterRoutes } from "./src/server/routes/hallBarterRoutes";
@@ -501,6 +502,8 @@ registerInstructorRequestsRoutes(app);
 /* «نشر ← بطاقة الأستاذ» لكل شخص: مقرراتُه، ومعاينتُه، ومتابعتُه، وتذكيرُ من لم يرد. */
 registerPublishCardsRoutes(app);
 registerPublicRequestRoutes(app);
+/* «فيلمي» للأستاذ من رابطه: قراءةٌ فقط، بلا قاعة (src/server/routes/myFilmRoutes.ts). */
+registerMyFilmRoutes(app);
 
 /* ── المقترح الدراسي: ما يعدّه القسم للأستاذ من عدة مواد ─────────────────────
    كلُّ ما يلزمه من هذا الملف يُحقَن حقناً: الفاحصُ هو scheduleConflicts نفسه
