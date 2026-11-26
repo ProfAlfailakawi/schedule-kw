@@ -14,6 +14,7 @@ import {
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { DAY_LETTERS, whatChangedText, type ChangeTag, type WcEntry, type WcSlot, type WcStep } from "../utils/whatChanged";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
+import { isNativeApp } from "../utils/nativeApp";
 import { PrintPortal, SecondaryButton } from "./ui";
 import CourseTags from "./CourseTags";
 
@@ -246,7 +247,9 @@ export default function WhatChanged({ collegeId, sectionId, termId, scopeLabel }
     const done = () => { delete root.dataset.printKind; window.removeEventListener("afterprint", done); };
     window.addEventListener("afterprint", done, { once: true });
     window.setTimeout(() => { try { window.print(); } catch { done(); } }, 30);
-    window.setTimeout(done, 4000);
+    // داخل التطبيق الرسمي تفتح الطباعة ورقةَ iOS ولا ترجع حتى يُغلقها القارئ، والجسر يُطلق afterprint دائماً عند إغلاقها؛
+    // فمهلةُ الأربع ثوانٍ كانت ترفع سمةَ الطباعة قبل أن ترسم iOS الورقة فتخرج الصفحة كاملة في المرة الأولى.
+    if (!isNativeApp()) window.setTimeout(done, 4000);
   };
 
   const total = result?.counts.total || 0;

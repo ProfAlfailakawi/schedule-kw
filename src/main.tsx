@@ -28,6 +28,15 @@ void import("./styles/deferred.css");
 installNativePushOpen();
 
 document.documentElement.dataset.shell = isNativeApp() || isStandalonePwa() ? "app" : "browser";
+/* داخل التطبيق الرسمي يستبدل الجسرُ window.print بورقة iOS، ولا يُطلق beforeprint كما يفعل المتصفح؛
+   فورقةُ طباعة الجدول (usePrintMounted) لم تكن تُركَّب قبل الطباعة الأولى. نُطلقه هنا قبل تسليم الطباعة للجسر. */
+if (isNativeApp() && typeof window.print === "function") {
+  const nativePrint = window.print.bind(window);
+  window.print = () => {
+    try { window.dispatchEvent(new Event("beforeprint")); } catch { /* الطباعة أهمّ من الحدث */ }
+    nativePrint();
+  };
+}
 /* «duo»: شاشةٌ شبه مربّعة (iPhone Duo: الخارجية 466×678، الداخلية 669×951؛ النسبة ≤1.48). كل iPhone نسبته ≥1.7،
    وiPad أعرض من 700. فقواعد الدوو لا تمسّ الهاتف العادي ولا iPad. يُعاد عند تبدّل الشاشة (فتحٌ أو إغلاق). */
 /* الكشف على الجهاز الحقيقي: الشاشة الخارجية فيه نسبتها ≈1.484 (لقطات المالك 2026-11-20)، فحدّ 1.48 المقيس على
