@@ -108,14 +108,14 @@ export default function CampusLiveCard({ today, weekend, canOpenSchedule, onNavi
         <li className={conflicts ? "has" : ""}><i className="cl-dot conflict" aria-hidden="true" />تعارض قاعة · <b>{num(conflicts)}</b></li>
       </ul>
       {three && !failed ? (
-        <div className="cl-stage" ref={host} role="img" aria-label={`مجسّم الحرم: ${buildings.map(b => `${b.code}: ${countOf(b.halls.length, AR.room)}${b.runningNow ? `، ${num(b.runningNow)} الآن` : ""}${b.conflicts ? `، ${num(b.conflicts)} تعارض` : ""}`).join("؛ ")}`}>
+        <div className="cl-stage" ref={host} role="img" aria-label={`مجسّم الحرم: ${buildings.map(b => `${b.code}: ${countOf(b.halls.length, AR.room)}${b.runningNow ? `، ${num(b.runningNow)} الآن` : ""}${b.conflicts ? `، ${countOf(b.conflicts, AR.conflict)}` : ""}`).join("؛ ")}`}>
           <canvas ref={canvas} />
           <div className="cl-labels" ref={labels} />
         </div>
       ) : null}
       <div className={`cl-map${three && !failed ? " is-compact" : ""}`} role="list" aria-label="مباني الحرم">
         {buildings.map(building => {
-          const label = `مبنى ${building.code}: ${countOf(building.halls.length, AR.room)}، ${countOf(building.lectures, AR.lecture)} اليوم${building.runningNow ? `، ${num(building.runningNow)} الآن` : ""}${building.conflicts ? `، ${num(building.conflicts)} تعارض قاعة` : ""}`;
+          const label = `مبنى ${building.code}: ${countOf(building.halls.length, AR.room)}، ${countOf(building.lectures, AR.lecture)} اليوم${building.runningNow ? `، ${num(building.runningNow)} الآن` : ""}${building.conflicts ? `، تعارض القاعة: ${countOf(building.conflicts, AR.conflict)}` : ""}`;
           const body = <>
             <span className="cl-b-code" dir="ltr">{building.code}</span>
             {building.conflicts ? <span className="cl-b-column" aria-hidden="true" /> : null}

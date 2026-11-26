@@ -80,7 +80,7 @@ export default function CurtainCompare({ before, after, context, focus }: { befo
         <span className="tm-curtain-tag is-before" aria-hidden="true">قبل</span>
         <span className="tm-curtain-tag is-after" aria-hidden="true">بعد</span>
         <div className="tm-curtain-handle" style={{ left: `${split}%` }} role="slider" tabIndex={0}
-          aria-label="ستارة قبل وبعد" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(100 - split)} aria-valuetext={`قبل ${Math.round(100 - split)}٪`}
+          aria-label="ستارة قبل وبعد" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(100 - split)} aria-valuetext={`قبل ${Math.round(100 - split)}%`}
           data-guide-ignore="مقبض ستارة المقارنة في آلة الزمن؛ عرضٌ لا يكتب في الجدول"
           onKeyDown={event => {
             if (event.key === "ArrowLeft") { event.preventDefault(); setSplit(v => Math.max(0, v - 5)); }
