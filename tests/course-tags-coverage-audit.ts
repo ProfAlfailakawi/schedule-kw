@@ -35,6 +35,7 @@ const STUDENT = "شاشةُ الطالب/الإعلان — خارج نطاق ا
 const COURSE_EXCEPTIONS: Exception[] = [
   { file: "src/components/hallPulse/HallPulse.tsx", text: `s.courseName`, reason: SENTENCE },
   { file: "src/components/hallPulse/HallPulse.tsx", text: `model.sessionById.get(x.sessionId)?.courseName`, reason: PILL },
+  { file: "src/components/hallPulse/HallPulse.tsx", text: `item.courseName`, reason: "سطرُ طلب التعديل في طبقة التسجيل: بندُ تقرير المطابقة نفسه، يُحفظ بالرقم المرجعي ورمز المقرر بلا رقم كتالوج تُقرأ منه الوسوم" },
   { file: "src/components/RegistrarRequests.tsx", text: `item.courseName`, reason: "بندُ طلب التعديل المحفوظ ومطبوعُه: يُحفظ بالرقم المرجعي ورمز المقرر بلا رقم كتالوج تُقرأ منه الوسوم — بطاقةُ الفحص نفسها تحملها" },
   { file: "src/components/SectionPlan.tsx", text: `row.name`, reason: "مقررٌ في تقرير التسجيل لم يُربط بالكتالوج بعد: لا رقم له تُقرأ وسومه — الربط يجعله سطراً بوسومه" },
   { file: "src/components/ImportCatalogueGaps.tsx", text: `course.name || "—"`, reason: "اسمٌ مطبوع لمقرر لم يُنشأ بعد: لا رقم له تُقرأ وسومه منه" },

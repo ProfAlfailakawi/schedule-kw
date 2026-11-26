@@ -17,6 +17,9 @@ import {
   beforeAfter, cinemaLegs, cinemaMinute, cinemaSteps, glide, hallStatesAt, peakMoment, playbackKind, pressureAt, pressureCurve, seatLayout, soundLevels, worstMoment,
   CINEMA_SECONDS, SEAT_DRAW_MAX, STAND_DRAW_MAX,
 } from "../src/utils/hallPulseDay";
+import { openCountOf, registrarLayer, requestBlockText, requestLineText } from "../src/utils/hallPulseRegistrar";
+import { liveSectionTexts } from "../src/utils/registrarCheck";
+import type { RegistrarRequestItem } from "../src/utils/registrarRequest";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -341,6 +344,65 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   const flood = seatLayout(20, 200)!;
   check(flood.standingReal === 180 && flood.standing <= STAND_DRAW_MAX && flood.standing < flood.standingReal && flood.stand.length === flood.standing, "والواقفون يُرسمون بحدٍّ ويبقى عددهم الحقيقي في التعليق");
   check(seatLayout(1, 1)!.seats.length === 1 && seatLayout(2, 5)!.standingReal === 3, "قاعاتٌ صغيرة جداً لا تكسر التخطيط");
+}
+
+/* ── طبقة التسجيل: بنود تقرير المطابقة على قاعاتها (FR-SCH-097) ── */
+{
+  const reg = { buildings: [{ id: "b1", officialCode: "012B01", buildingNumber: "1" }], rooms: [
+    { id: "r101", buildingId: "b1", canonicalCode: "101", capacity: 40 },
+    { id: "r102", buildingId: "b1", canonicalCode: "102", capacity: 40 },
+    { id: "r104", buildingId: "b1", canonicalCode: "104", capacity: 30 },
+    { id: "r201", buildingId: "b1", canonicalCode: "201", capacity: 45 },
+  ] };
+  const cs = [{ AdCourseId: 1, MaxStudent: 30 }, { AdCourseId: 2, MaxStudent: 20 }, { AdCourseId: 3, MaxStudent: 25 }];
+  const at = (id: number, course: number, sec: string, room: string, extra: Record<string, unknown> = {}) => ({
+    id, AdSectionId: 9, AdCourseId: course, SCode: sec, fstarttime: "10:00", fendtime: "11:00", fsunday: true, ftuesday: true,
+    roomId: `r${room}`, AdRoomCode: "012B01", AdRoomHall: room, AdInstructorId: 7, ...extra,
+  });
+  const rr = [at(1, 1, "01", "104"), at(2, 2, "02", "101", { referenceNumber: "30442" }), at(3, 3, "05", "102")];
+  const m = buildPulseModel({ rows: rr, courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+  const codeOf = (id: number) => `0109${String(100 + id).padStart(3, "0")}`;
+  const base = { group: "notApplied" as const, kind: "fields" as const, courseName: "مقرر" };
+  const item = (x: Partial<RegistrarRequestItem> & Pick<RegistrarRequestItem, "id" | "action" | "fields">): RegistrarRequestItem => ({ ...base, courseCode: "0109101", section: "1", ...x } as RegistrarRequestItem);
+  const roomMove = item({ id: "edit:#30001", action: "edit", crn: "30001", courseCode: "101", section: "1",
+    fields: [{ field: "room", label: "القاعة", pdf: "012B01 / 102", ours: "012B01 / 104" }] });
+  const timeByCrn = item({ id: "edit:#30442", action: "edit", crn: "030442", courseCode: "0109102", section: "99",
+    fields: [{ field: "time", label: "الوقت", pdf: "12:00–13:00", ours: "10:00–11:00" }] });
+  const teacherOnly = item({ id: "edit:#30555", action: "edit", crn: "30555", courseCode: "0109103", section: "5",
+    fields: [{ field: "instructor", label: "الأستاذ", pdf: "أ", ours: "ب" }] });
+  const deletedThere = item({ id: "delete:#30777", action: "delete", crn: "30777", courseCode: "0109103", section: "8",
+    fields: [{ field: "room", label: "القاعة", pdf: "012B01 / 201", ours: "—" }] });
+  const deletedElsewhere = item({ id: "delete:#30888", action: "delete", crn: "30888", courseCode: "0109103", section: "9",
+    fields: [{ field: "room", label: "القاعة", pdf: "999Z09 / 7", ours: "—" }] });
+  const doneOne = item({ id: "edit:#30999", action: "edit", crn: "30999", courseCode: "0109103", section: "05",
+    fields: [{ field: "days", label: "الأيام", pdf: "الأحد", ours: "الأحد · الثلاثاء" }], done: { by: 1, byName: "التسجيل", at: "2026-11-20T08:00:00Z" } });
+  const settled = item({ id: "edit:#31000", action: "edit", crn: "31000", courseCode: "0109103", section: "5",
+    fields: [{ field: "room", label: "القاعة", pdf: "012B01 / 102", ours: "012B01 / 201" }] });
+  const items = [roomMove, timeByCrn, teacherOnly, deletedThere, deletedElsewhere, doneOne, settled];
+  const texts = liveSectionTexts(rr as any[], { courseCodeById: new Map([1, 2, 3].map(id => [id, codeOf(id)])) });
+  const L = registrarLayer(m, items, { courseCodeOf: codeOf, texts });
+  const keysOf = (it: RegistrarRequestItem) => [...L.byHall.entries()].filter(([, list]) => list.some(e => e.item.id === it.id)).map(([k, list]) => `${k}:${list.find(e => e.item.id === it.id)!.role}`).sort();
+  check(keysOf(roomMove).join() === "id:r102:theirs,id:r104:ours", "فرق القاعة: تنبض قاعتها عندنا (بالمقرر والشعبة) والقاعة التي في ملفهم");
+  check(keysOf(timeByCrn).join() === "id:r101:ours", "يُعرف بالرقم المرجعي قبل المقرر والشعبة (والأصفار البادئة لا تفرّق)");
+  check(L.noHall.some(x => x.id === teacherOnly.id) && !keysOf(teacherOnly).length, "فرق الأستاذ وحده بلا قاعة: في «بلا قاعة» لا يختفي");
+  check(keysOf(deletedThere).join() === "id:r201:theirs", "شعبةٌ في ملفهم وحذفناها: تنبض القاعة التي يضعها فيها ملفهم");
+  check(L.noHall.some(x => x.id === deletedElsewhere.id), "وقاعةٌ خارج المجسّم: «بلا قاعة»");
+  check(!keysOf(settled).length && !L.noHall.some(x => x.id === settled.id) && L.total === items.length - 1, "ما سوّيناه بعد الفحص (جدولنا الآن كملفهم) لا يظهر (settleSavedItems)");
+  const r102 = L.byHall.get("id:r102")!;
+  check(r102.some(e => e.item.id === doneOne.id && !e.open) && openCountOf(r102) === 1, "ما شطبه التسجيل «نُفّذ» يبقى في القائمة ولا يُعدّ في النبض");
+  check(L.halls === 4 && L.open === 5, `عدد القاعات النابضة والبنود المفتوحة (${L.halls}، ${L.open})`);
+  const line = requestLineText(item({ id: "edit:#30001", action: "edit", crn: "30001", courseCode: "0109114", section: "1",
+    fields: [{ field: "course", label: "المقرر", pdf: "114", ours: "112" }, { field: "room", label: "القاعة", pdf: "012B01 / 102", ours: "012B01 / 104" }] }));
+  check(line.startsWith("عدّلوا الرقم المرجعي 30001") && line.includes("المقرر: 0109114 ← 0109112") && line.includes("القاعة: 012B01 / 102 ← 012B01 / 104"), "سطر الطلب بالرقم المرجعي، و«كان ← يصير»، والمقرر بسبع خانات على جانبي السهم");
+  check(!/حذف|أضيفوا/.test(line) && requestLineText(deletedThere).startsWith("احذفوا الرقم المرجعي 30777"), "التعديل تعديلٌ بالرقم لا حذفٌ وإضافة؛ والحذف بالرقم أيضاً");
+  check(requestBlockText([roomMove, roomMove, timeByCrn]).split("\n").length === 2, "نصّ القاعة سطرٌ لكل بند بلا تكرار");
+  check(!/[٠-٩]/.test(requestBlockText(items)), "أرقام لاتينية في نصّ الطلب");
+  const pulseSrc = fs.readFileSync(path.join(process.cwd(), "src/components/hallPulse/HallPulse.tsx"), "utf8");
+  check(/\/api\/schedules\/registrar-requests\?/.test(pulseSrc) && /registrar-requests\/\$\{encodeURIComponent\(regDoc\.id\)\}\/live/.test(pulseSrc), "الطبقة تقرأ التقرير المحفوظ ومساره الحيّ الموجودين، لا مقارنةً ثانية");
+  check(/setRegReload\(value => value \+ 1\)/.test(pulseSrc) && /\[regScope, regContext, regReload\]/.test(pulseSrc), "تشغيل الطبقة يعيد قراءة الفحوص المحفوظة: فحصٌ حُفظ للتوّ يظهر بلا مغادرة");
+  check(/setMode\("paths"\); setRegOn\(false\)/.test(pulseSrc) && pulseSrc.includes('{regOn && mode === "halls" ? regPanel : mode === "paths" ? pathsPanel : panel}'), "«مسارات التنقّل» تُطفئ الطبقة ولا تحجب لوحة المسارات");
+  check(/regContext = \(context === "workshop" \|\| context === "dean"\)/.test(pulseSrc) && /regContext && regList \?/.test(pulseSrc), "الزرّ في الورشة وبطاقة العميد وحدهما، وبعد أن يقبل الخادم قراءة التقرير (بوابته نفسها)");
+  check(!/civils/.test(pulseSrc), "لا رقم مدنياً في الطبقة");
 }
 
 /* ── التوصيل ── */

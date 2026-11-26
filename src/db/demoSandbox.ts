@@ -12,6 +12,8 @@ import { TECHNOLOGY_EDUCATION_CURRICULA } from "../data/technologyEducationCurri
 import { seatState, sectionKey, type SeatQuotaConfig } from "../utils/advisorSeats";
 import type { ActivityTrailEntry } from "../utils/activityTrail";
 import { demoShowcaseCourses, demoShowcaseRows, demoTravelPolicyDoc } from "./demoShowcase";
+import { checkRegistrarPdf, slimPdfRow } from "../utils/registrarCheck";
+import { buildRequestItems, type RegistrarRequestDoc } from "../utils/registrarRequest";
 
 /*
  * ── الصندوق التجريبي: كليةٌ واحدة، وعدة أقسام لعرض استعارة القاعات ─────────
@@ -910,6 +912,74 @@ function seedIntelligenceExtras(schedules: FSchedule[], courses: AdCourse[]) {
  * وأربعُ شعبٍ أضاف إليها المرشدان فعلاً — واحدةٌ امتلأت، وأخرى في آخر مقاعدها، واثنتان فيهما متّسع — وطلبا استثناءٍ
  * ينتظران المسؤول على الممتلئة: إشارةُ «تحتاج شعبةً جديدة». الحسابُ كلُّه بالدالة التي يحسب بها الخادم (seatState).
  */
+/*
+ * ── فحصٌ محفوظ لملف التسجيل في التجربة ─────────────────────────────────────────
+ *
+ * «طبقة التسجيل» في نبض القاعات تقرأ آخر فحصٍ محفوظ (registrarRequests) ومساره الحيّ. فللقسم في الفصل
+ * الجاري ملفُّ تسجيلٍ مقروء (صفوفه المختصرة كما يحفظها الخادم) يختلف عن جدولنا في قليل: قاعتان تبادلتا،
+ * وموعدٌ تأخّر ساعة، وأستاذٌ آخر، ويومٌ ناقص، وشعبةٌ لم يضيفوها، وأخرى عندهم حذفناها. والبنود تُبنى
+ * بالدالتين اللتين يبني بهما الخادمُ الطلب (checkRegistrarPdf ← buildRequestItems)، والحساب الحيّ يعيدها
+ * على الجدول متى فُتح. أرقامٌ مرجعية تجريبية من خمس خانات.
+ */
+function demoRegistrarCheck(schedules: readonly FSchedule[], courses: readonly AdCourse[], instructors: readonly AdInstructor[], at: string): Record<string, Record<string, any>> {
+  const live = schedules.filter(row => Number(row.AdTermId) === DEMO_TERM_CURRENT && Number(row.AdSectionId) === DEMO_SECTION_ID && Number(row.AdCollegeId) === DEMO_COLLEGE_ID);
+  const own = courses.filter(course => Number(course.AdSectionId) === DEMO_SECTION_ID);
+  const codeOf = new Map(own.map(course => [Number(course.AdCourseId), String(course.CourseCode || "").trim()]));
+  const sections = new Map<string, FSchedule[]>();
+  for (const row of live) { const key = `${row.AdCourseId}|${row.SCode}`; (sections.get(key) || sections.set(key, []).get(key)!).push(row); }
+  const home = DEMO_HALLS[0].code;
+  const lecture = hallsForSection(DEMO_SECTION_ID).filter(hall => !isLabHall(hall) && hall.code === home);
+  const keys = [...sections.keys()];
+  /* التعديلات على شعبٍ في قاعات المبنى الأول النظرية وحدها، فتبقى القاعة البديلة من نوعها ومبناها. */
+  const eligible = keys.filter(key => sections.get(key)!.every(row => row.AdRoomCode === home && lecture.some(hall => hall.hall === row.AdRoomHall)));
+  if (eligible.length < 7 || lecture.length < 2) return {};
+  const otherHall = (hall: string) => lecture.find(item => item.hall !== hall)!;
+  const shift = (clock: unknown, minutes: number) => { const [h, m] = String(clock || "").split(":").map(Number); const t = (h || 0) * 60 + (m || 0) + minutes; return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
+  const DAY_FLAGS = ["fsunday", "fmonday", "ftuesday", "fwednesday", "fthursday"] as const;
+  const pdf: Record<string, any>[] = [];
+  const asPdf = (row: FSchedule, crn: string, patch: Record<string, unknown> = {}) => slimPdfRow({
+    ...row, referenceNumber: crn, sourceReadMode: "pdf-text", sourceCourseCode: codeOf.get(Number(row.AdCourseId)) || "", sourceSectionText: row.SCode, ...patch,
+  });
+  const role = new Map<string, string>([[eligible[1], "room"], [eligible[3], "room"], [eligible[5], "time"], [eligible[6], "teacher"]]);
+  if (eligible[2]) role.set(eligible[2], "days");
+  if (eligible[4]) role.set(eligible[4], "missing");
+  keys.forEach((key, index) => {
+    const rows = sections.get(key)!;
+    const crn = String(31000 + index * 7);
+    const kind = role.get(key);
+    if (kind === "missing") return; // لم يضيفوها
+    rows.forEach((row, k) => {
+      const on = DAY_FLAGS.filter(flag => Boolean((row as any)[flag]));
+      const patch: Record<string, unknown> =
+        kind === "room" ? { AdRoomHall: otherHall(String(row.AdRoomHall)).hall } // قاعةٌ أخرى في ملفهم
+          : kind === "time" ? { fstarttime: shift(row.fstarttime, 60), fendtime: shift(row.fendtime, 60) } // تأخّر ساعة
+            : kind === "teacher" ? { AdInstructorId: Number(row.AdInstructorId) === 2 ? 3 : 2 } // أستاذٌ آخر (بلا قاعة)
+              : kind === "days" && k === 0 && on.length > 1 ? { [on[on.length - 1]]: false } // يومٌ ناقص
+                : {};
+      pdf.push(asPdf(row, crn, patch));
+    });
+  });
+  /* شعبةٌ في ملفهم حذفناها من جدولنا: في القاعة التي ما زالوا يضعونها فيها. */
+  const gone = sections.get(eligible[0])![0];
+  pdf.push(asPdf(gone, "31907", { SCode: "91", sourceSectionText: "91", AdRoomHall: otherHall(String(gone.AdRoomHall)).hall, fstarttime: "16:00", fendtime: "17:00" }));
+  const result = checkRegistrarPdf({
+    live, pdf,
+    names: {
+      instructorById: new Map(instructors.map(person => [Number(person.AdInstructorId), String(person.AdInstructorName || "")])),
+      courseCodeById: codeOf, courseNameById: new Map(own.map(course => [Number(course.AdCourseId), String(course.CourseName || "").trim()])),
+    },
+  });
+  const items = buildRequestItems(result);
+  if (!items.length) return {};
+  const id = `${DEMO_TERM_CURRENT}:${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:demo0check`;
+  const doc: RegistrarRequestDoc = {
+    id, collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID, termId: DEMO_TERM_CURRENT, round: 1, at, by: 1, byName: COMMITTEE_NAME,
+    fileName: "جدول التسجيل - تكنولوجيا التعليم.pdf", counts: result.counts, reviewCount: result.counts.review, items,
+  };
+  /* بلا صفوف الملف: الصندوق التجريبي يبقى خفيفاً (فحص demo-roles)، والمسار الحيّ يسوّي البنود المحفوظة على الجدول الحالي. */
+  return { registrarRequests: { [id]: doc } };
+}
+
 const DEMO_SEAT_ADVISORS = [{ id: 19, name: "أ. مرشد قسم تكنولوجيا التعليم" }, { id: 21, name: "أ. الإرشاد العام" }] as const;
 function demoAdvisorSeats(schedules: readonly FSchedule[], at: (daysAgo: number) => string): Record<string, Record<string, any>> {
   const scope = `${DEMO_COLLEGE_ID}:${DEMO_SECTION_ID}:${DEMO_TERM_CURRENT}`;
@@ -1144,6 +1214,7 @@ export function createDemoSandboxState(): DemoSandboxState {
     curriculumPlans: sheets.plans, curriculumPlanCourses: sheets.links, curriculumRuleSets: sheets.ruleSets, curriculumRuleDrafts: sheets.drafts,
     featureDocs: {
       ...demoAdvisorSeats(schedules, daysAgo => new Date(Date.now() - daysAgo * 86_400_000).toISOString()),
+      ...demoRegistrarCheck(schedules, courses, instructors, new Date(Date.now() - 2 * 86_400_000).toISOString()),
       /* سياسة التنقّل بين الحرمين: ستون دقيقةً للأزواج الثلاثة في الديمو وحده (الحقيقي يضبطها التسجيل). */
       campusTravelPolicy: { global: demoTravelPolicyDoc() },
       /* «افتحه للطرح»: قرارُ القسم في وثيقة حالة الطرح نفسها — 343 مفتوحٌ في الأول رغم «لم نصل بعد». */

@@ -26,6 +26,11 @@ import {
 import { PulseSound, readSoundChoice, soundAvailable, writeSoundChoice } from "./pulseSound";
 import { HOP_FLAG_LABEL, HOP_KIND_LABEL, buildPaths, markerAt, nearerHalls, rankHops, type CohortInput, type Hop, type MovePath } from "../../utils/movementPaths";
 import { loadPlanFacts } from "../../utils/planFactsCache";
+import { checkDay, openCountOf, registrarLayer, requestBlockText, requestLineText, type HallRegistrarEntry, type RegistrarLayer } from "../../utils/hallPulseRegistrar";
+import { liveSectionTexts } from "../../utils/registrarCheck";
+import { withFullCourseCodes, type RegistrarRequestDoc, type RegistrarRequestItem } from "../../utils/registrarRequest";
+import { openMatchReport } from "../../utils/openMatchReport";
+import { copyText } from "../../utils/accessCardImage";
 
 export interface HallPulseMove {
   row: unknown;
@@ -51,9 +56,14 @@ export interface HallPulseProps {
   heading?: string;
   /** الهاتف في الورشة: مجسّمٌ للقراءة بلوحةٍ سفلية (قاعدة الهاتف: العروض الواسعة للقراءة). */
   phone?: boolean;
+  /** طبقة التسجيل بلا فحصٍ محفوظ: اختصارٌ إلى «افحص جدول التسجيل» الموجود (لمن يملك رفعه، وليس على الهاتف). */
+  onOpenRegistrarCheck?: () => void;
 }
 
 const MOVE: ArabicNoun = { one: "نقلة", two: "نقلتان", few: "نقلات", many: "نقلة" };
+const DIFF: ArabicNoun = { one: "فرق", two: "فرقان", few: "فروق", many: "فرقاً" };
+/** لون طبقة التسجيل: بنفسجيٌّ هادئ لا يشبه ألوان الملاءمة ولا النحاسي ولا مسارات التنقّل. */
+const REG_HEX = 0x8c6cff;
 const FIT_HEX: Record<FitClass, number> = { pressed: 0xf0674f, full: 0xf0b24a, fit: 0x4fd3a1, wide: 0x6aa9d8, unknown: 0xa8b5af };
 /** شكلٌ مع كل لون: لا يُعتمد على اللون وحده (عمى الألوان، والوضع الداكن). */
 export const FIT_GLYPH: Record<FitClass, string> = { pressed: "▲", full: "■", fit: "●", wide: "◆", unknown: "?" };
@@ -207,6 +217,67 @@ export default function HallPulse(props: HallPulseProps) {
   /* مسارات التنقّل لرئيس اللجنة ورئيس القسم (الورشة) وللعميد وحدهم؛ لا تظهر في عدسة التقارير. */
   const pathsAllowed = context === "workshop" || context === "dean";
 
+  /* ── طبقة التسجيل: آخر تقرير مطابقةٍ محفوظ للقسم والفصل، محسوباً على جدولنا الآن (/live) ──
+     البوابة بوابة التقرير نفسها على الخادم (mayReadRequests ونطاق القسم): قائمةٌ تُرفض = لا زرّ. */
+  const regScope = `${collegeId}|${sectionId || 0}|${termId}`;
+  const regContext = (context === "workshop" || context === "dean") && Boolean(sectionId) && Boolean(termId);
+  const [regDocs, setRegDocs] = useState<{ scope: string; docs: RegistrarRequestDoc[] } | null>(null);
+  const [regOn, setRegOn] = useState(false);
+  const [regLive, setRegLive] = useState<{ id: string; items: RegistrarRequestItem[]; at: string } | null>(null);
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
+  const regList = regDocs && regDocs.scope === regScope ? regDocs.docs : null;
+  const regDoc = regList?.[0] || null;
+  /* تغيّر القسم أو الفصل يطفئ الطبقة؛ وتشغيلها يعيد قراءة القائمة (فحصٌ حُفظ للتوّ من «ارفع ملف التسجيل» يظهر بلا مغادرة). */
+  const [regReload, setRegReload] = useState(0);
+  useEffect(() => { setRegOn(false); setRegLive(null); setRegError(""); }, [regScope, regContext]);
+  useEffect(() => {
+    if (!regContext) return;
+    let live = true;
+    const q = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
+    fetch(`/api/schedules/registrar-requests?${q}`, { credentials: "include", cache: "no-store" })
+      .then(r => (r.ok ? r.json() : null))
+      .then(body => { if (live && Array.isArray(body?.requests)) setRegDocs({ scope: regScope, docs: body.requests as RegistrarRequestDoc[] }); })
+      .catch(() => { /* طبقةٌ إضافية: تعذّرها لا يُسقط المجسّم */ });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regScope, regContext, regReload]);
+  /* بصمة الجدول: نقلةٌ تُحفظ أو تعديلٌ في الورشة يعيد قراءة التقرير على الجدول الجديد (بتأخيرٍ قصير). */
+  const rowsStamp = useMemo(() => rows.map(r => `${r.id}:${r.rev ?? ""}:${r.roomId || ""}:${r.AdRoomHall || ""}:${r.fstarttime || ""}:${r.AdInstructorId || ""}`).join("|"), [rows]);
+  useEffect(() => {
+    if (!regOn || !regDoc) return;
+    let live = true;
+    setRegLoading(true); setRegError("");
+    const timer = window.setTimeout(() => {
+      fetch(`/api/schedules/registrar-requests/${encodeURIComponent(regDoc.id)}/live`, { credentials: "include", cache: "no-store" })
+        .then(r => (r.ok ? r.json() : Promise.reject(new Error("تعذّرت قراءة تقرير المطابقة."))))
+        .then(body => {
+          if (!live) return;
+          /* بلا صفوفٍ محفوظة ولا ما سُوّي: البنود كما حُفظت (ويُسقط ما سوّيناه بعدها هنا أيضاً). */
+          const items: RegistrarRequestItem[] = Array.isArray(body?.live?.items) ? body.live.items : body?.reason === "empty" ? [] : regDoc.items || [];
+          setRegLive({ id: regDoc.id, items, at: String(body?.live?.at || regDoc.at) });
+        })
+        .catch((error: any) => { if (live) setRegError(String(error?.message || "تعذّرت قراءة تقرير المطابقة.")); })
+        .finally(() => { if (live) setRegLoading(false); });
+    }, regLive?.id === regDoc.id ? 900 : 0);
+    return () => { live = false; window.clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regOn, regDoc?.id, rowsStamp]);
+  const regTexts = useMemo(() => {
+    if (!regOn) return undefined;
+    /* المكان والزمان وحدهما يُسوّيان هنا: اسم الأستاذ يحكم فيه الخادم بأسمائه، فلا يُعاد كتابة سطر الطلب باسمٍ مختصر. */
+    const courseCodeById = new Map<number, string>(courses.map(c => [Number(c.AdCourseId), String((c as any).CourseCode || "").trim()]));
+    const texts = liveSectionTexts(rows as any[], { courseCodeById });
+    for (const [key, value] of texts) texts.set(key, { ...value, instructor: "—" });
+    return texts;
+  }, [regOn, rows, courses]);
+  const regLayer: RegistrarLayer | null = useMemo(() => {
+    if (!regOn || !regLive || regLive.id !== regDoc?.id) return null;
+    const codeOf = new Map<number, string>(courses.map(c => [Number(c.AdCourseId), String((c as any).CourseCode || "").trim()]));
+    return registrarLayer(model, regLive.items, { courseCodeOf: id => codeOf.get(id) || "", texts: regTexts });
+  }, [regOn, regLive, regDoc?.id, model, courses, regTexts]);
+
   const assignment: Assignment = useMemo(() => {
     const a = applyPlan(original, plan);
     if (pending) a.set(pending.sessionId, pending.to);
@@ -254,7 +325,7 @@ export default function HallPulse(props: HallPulseProps) {
   const nowPoint = useMemo(() => (day === "week" ? null : pressureAt(model, assignment, viewDay, minute)), [model, assignment, viewDay, minute, day]);
   const startCinema = () => {
     if (day === "week") return;
-    setPlaying(false); setPending(null); setFreeGlow(false); setInsideKey(null); setSelected(null); setWalk(0);
+    setPlaying(false); setPending(null); setFreeGlow(false); setInsideKey(null); setSelected(null); setWalk(0); setRegOn(false);
     cineRef.current = {
       legs: cinemaLegs(model.dayStart, model.dayEnd, worst ? worst.minute : null), leg: 0, t0: performance.now(),
       steps: cinemaSteps(model.dayStart, model.dayEnd, worst ? worst.minute : null), idx: 0, stop: worst ? worst.minute : null,
@@ -434,6 +505,19 @@ export default function HallPulse(props: HallPulseProps) {
     }
     return out;
   }, [model, occ, day, heat, viewDay, minuteShown, glowKeys, pending, manyHalls, freeGlow, activePath, mode, compare]);
+  /* طبقة التسجيل فوق ما يُرى (اليوم أو الأسبوع): قاعةٌ فيها فرقٌ مفتوح تتنفّس بالبنفسجي بشارة عددها، والباقي يبهت قليلاً. */
+  const shown = useMemo(() => {
+    if (!regOn || !regLayer || mode !== "halls") return visuals;
+    const out = new Map<string, HallVisual>();
+    for (const [key, v] of visuals) {
+      const count = openCountOf(regLayer.byHall.get(key));
+      const h = model.hallByKey.get(key);
+      out.set(key, count
+        ? { ...v, dim: false, glow: false, pulse: false, mark: REG_HEX, badge: n(count), label: h ? h.code : v.label, showLabel: true }
+        : { ...v, color: v.occupied ? 0x6f817a : v.color, dim: true, glow: false, pulse: false, showLabel: false });
+    }
+    return out;
+  }, [visuals, regOn, regLayer, mode, model]);
   /* القاعات كما هي الآن (قبل الخطة): تُرسم يمين الفاصل بألوان الملاءمة والنوافذ واللافتات نفسها. */
   const beforeVisuals = useMemo(() => {
     if (!compare) return null;
@@ -479,7 +563,7 @@ export default function HallPulse(props: HallPulseProps) {
       if (labelsRef.current) labelsRef.current.innerHTML = "";
     };
   }, [flat, hasHalls, layout, reduced, narrow]);
-  useEffect(() => { sceneRef.current?.setVisuals(visuals, selected); }, [visuals, selected, sceneReady]);
+  useEffect(() => { sceneRef.current?.setVisuals(shown, selected); }, [shown, selected, sceneReady]);
   const splitRef = useRef(split);
   splitRef.current = split;
   /* «قبل وبعد»: الفاصل يظهر مع المراجعة ويزول بزوالها؛ لا كتابة جديدة. */
@@ -1166,6 +1250,123 @@ export default function HallPulse(props: HallPulseProps) {
     );
   })();
 
+  /* ── طبقة التسجيل: الزرّ، والسطر، واللوحة ── */
+  const toggleReg = () => {
+    const next = !regOn;
+    setRegOn(next);
+    if (!next) { setSay(""); return; }
+    setRegReload(value => value + 1);
+    stopPlay(); setMode("halls"); setPathId(null); setNearFor(null); setPlan(null); setPending(null); setBorrow(null);
+    setFreeGlow(false); setWalk(0); setInsideKey(null); setSelected(null); setNotice(null); setSheetOpen(true);
+    if (!regDoc) announce("لا فحص محفوظ لملف التسجيل في هذا الفصل بعد.");
+  };
+  useEffect(() => {
+    if (!regOn || !regLayer) return;
+    announce(regLayer.halls
+      ? `${countOf(regLayer.halls, AR.room)} فيها فرق مع ملف التسجيل. اضغط قاعةً تنبض لترى طلبها جاهزاً للنسخ.`
+      : regLayer.open ? `لا قاعة فيها فرق، وفي «بلا قاعة» ${countOf(regLayer.open, DIFF)} في اللوحة.` : "لا فرق مفتوح مع ملف التسجيل: جدولنا وملفهم متطابقان فيما فُحص.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regLayer]);
+  const doCopy = async (key: string, text: string) => {
+    const ok = await copyText(text);
+    setCopied(ok ? key : `fail:${key}`);
+    window.setTimeout(() => setCopied(c => (c === key || c === `fail:${key}` ? null : c)), 2200);
+  };
+  const copyLabel = (key: string, label: string) => (copied === key ? "نُسخ ✓" : copied === `fail:${key}` ? "تعذّر النسخ" : label);
+  const regLine = (item: RegistrarRequestItem, role?: HallRegistrarEntry["role"], open = true) => (
+    <li key={`${item.id}|${role || ""}`} className={`hp-reg-item${open ? "" : " is-done"}`}>
+      <div className="hp-reg-id">
+        {item.crn ? <span className="hp-reg-crn" dir="ltr" title="الرقم المرجعي">{item.crn}</span> : <span className="hp-reg-crn is-none">بلا رقم</span>}
+        <span className="hp-reg-act" data-action={item.action}>{item.action === "edit" ? "عدّلوا" : item.action === "add" ? "أضيفوا" : "احذفوا"}</span>
+        <strong>{item.courseName}</strong>
+        <small>ش<bdi dir="ltr">{item.pdfSection || item.section}</bdi></small>
+      </div>
+      {item.action === "edit" ? (
+        <ul className="hp-reg-fields">
+          {withFullCourseCodes(item).fields.map(f => (
+            <li key={f.field}><span className="hp-reg-label">{f.label}</span><s><RegValue field={f.field} text={f.pdf} /></s><i aria-label="إلى">←</i><b><RegValue field={f.field} text={f.ours} /></b></li>
+          ))}
+        </ul>
+      ) : item.action === "add" ? (
+        <p className="hp-reg-add">{item.fields.filter(f => f.ours && f.ours !== "—").map((f, i) => <React.Fragment key={f.field}>{i ? " · " : ""}<RegValue field={f.field} text={f.ours} /></React.Fragment>)}</p>
+      ) : null}
+      <div className="hp-reg-foot">
+        {role === "theirs" ? <span className="hp-reg-note">ملفهم يضعها في هذه القاعة</span> : null}
+        {!open ? <span className="hp-reg-note is-done">شطبه التسجيل «نُفّذ»</span> : null}
+        {item.since ? <span className="hp-reg-note">{item.since === "new" ? "جديد بعد الفحص" : "تغيّر بعد الفحص"}</span> : null}
+        <button data-guide-ignore="ينسخ سطر الطلب إلى الحافظة؛ لا يرسل شيئاً" type="button" className="hp-btn hp-btn-small hp-reg-copy" onClick={() => void doCopy(item.id, requestLineText(item))}>{copyLabel(item.id, "انسخ الطلب")}</button>
+      </div>
+    </li>
+  );
+  const regPanel = regOn ? (() => {
+    if (!regDoc) return (
+      <div className="hp-info hp-reg">
+        <div className="hp-reg-empty">
+          <strong>لا فحص محفوظ لملف التسجيل</strong>
+          <span>حين يُرفع ملف التسجيل ويُحفظ فحصه، تنبض هنا كل قاعةٍ يختلف فيها ملفهم عن جدولنا.</span>
+          {props.onOpenRegistrarCheck ? <button data-guide-ignore="يفتح «افحص جدول التسجيل» الموجود في أدوات الجدول؛ الرفع والحفظ هناك" type="button" className="hp-btn is-reg" onClick={props.onOpenRegistrarCheck}>ارفع ملف التسجيل</button> : null}
+        </div>
+      </div>
+    );
+    if (regError) return <div className="hp-info hp-reg"><div className="hp-alert is-warn" role="status"><span>{regError}</span></div></div>;
+    if (!regLayer) return <div className="hp-info hp-reg"><p className="hp-fine"><span className="hp-spinner" aria-hidden="true" /> يقرأ تقرير المطابقة على جدولنا الآن…</p></div>;
+    const reportLink = <button data-guide-ignore="يفتح تقرير المطابقة في الاستعلامات — لا يغيّر شيئاً" type="button" className="hp-link" onClick={openMatchReport}>افتح تقرير المطابقة كاملاً</button>;
+    if (selHall) {
+      const entries = regLayer.byHall.get(selHall.key) || [];
+      return (
+        <div className="hp-info hp-reg">
+          <div className="hp-hall-head">
+            <div><h3>{hallTitle(selHall)}</h3><span>{selHall.buildingLabel}</span></div>
+            <b className="hp-reg-count">{entries.length ? countOf(openCountOf(entries), DIFF, "لا فرق مفتوح") : "لا فرق"}</b>
+          </div>
+          {entries.length ? (
+            <>
+              <ul className="hp-reg-list">{entries.map(e => regLine(e.item, e.role, e.open))}</ul>
+              {entries.length > 1 ? <button data-guide-ignore="ينسخ طلبات القاعة إلى الحافظة؛ لا يرسل شيئاً" type="button" className="hp-btn is-reg" onClick={() => void doCopy(`hall:${selHall.key}`, requestBlockText(entries.map(e => e.item)))}>{copyLabel(`hall:${selHall.key}`, `انسخ طلبات القاعة (${n(entries.length)})`)}</button> : null}
+            </>
+          ) : <p className="hp-fine">هذه القاعة كما في ملف التسجيل: لا فرق فيها.</p>}
+          <div className="hp-row">
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" onClick={() => selectHall(null)}>كل القاعات</button>
+            {reportLink}
+          </div>
+        </div>
+      );
+    }
+    const ranked = [...regLayer.byHall.entries()].map(([key, entries]) => ({ key, entries, open: openCountOf(entries) }))
+      .filter(x => x.open).sort((a, b) => b.open - a.open || model.hallByKey.get(a.key)!.code.localeCompare(model.hallByKey.get(b.key)!.code, "en", { numeric: true }));
+    const everything = [...regLayer.byHall.values()].flatMap(list => list.map(e => e.item)).concat(regLayer.noHall);
+    return (
+      <div className="hp-info hp-reg">
+        {!regLayer.total ? (
+          <div className="hp-reg-clear"><strong>لا فرق مع ملف التسجيل</strong><span>كل ما في الملف يطابق جدولنا الآن.</span></div>
+        ) : null}
+        {ranked.length ? (
+          <ol className="hp-reg-halls" aria-label="قاعات فيها فرق">
+            {ranked.map(x => {
+              const h = model.hallByKey.get(x.key)!;
+              return (
+                <li key={x.key}><button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" onClick={() => selectHall(x.key)}>
+                  <i aria-hidden="true">{n(x.open)}</i><span>{hallTitle(h)}</span><small>{h.buildingLabel}</small>
+                </button></li>
+              );
+            })}
+          </ol>
+        ) : null}
+        {regLayer.noHall.length ? (
+          <div className="hp-reg-nohall">
+            <div className="hp-path-head"><strong>بلا قاعة</strong><span>{countOf(regLayer.noHall.length, DIFF)}</span></div>
+            <ul className="hp-reg-list">{regLayer.noHall.map(item => regLine(item, undefined, !item.done))}</ul>
+          </div>
+        ) : null}
+        <div className="hp-row">
+          {everything.length ? <button data-guide-ignore="ينسخ طلبات التقرير كلها إلى الحافظة؛ لا يرسل شيئاً" type="button" className="hp-btn is-reg" onClick={() => void doCopy("all", requestBlockText(everything))}>{copyLabel("all", "انسخ الطلبات كلها")}</button> : null}
+          {reportLink}
+        </div>
+        <p className="hp-fine">النسخ وحده: لا يُرسل شيء من هنا. السطر بالرقم المرجعي كما في تقرير المطابقة، والمقرر بسبع خانات.</p>
+      </div>
+    );
+  })() : null;
+
   /* ── لوحة المفاتيح على المشهد ── */
   const onStageKey = (e: React.KeyboardEvent) => {
     const scene = sceneRef.current; if (!scene) return;
@@ -1197,10 +1398,17 @@ export default function HallPulse(props: HallPulseProps) {
           <h2>{heading}</h2>
           <p>كل قاعة غرفةٌ تضيء حين تُشغل، ومنسوبها ولونها يقولان هل تتّسع لشعبتها.{context !== "workshop" ? " للقراءة فقط." : ""}</p>
         </div>
+        {regContext && regList ? (
+          <button data-guide-ignore="يُظهر فروق ملف التسجيل على القاعات أو يخفيها؛ عرضٌ ونسخ فقط، لا إرسال" type="button" className="hp-reg-toggle" aria-pressed={regOn} onClick={toggleReg}
+            title="طبقة التسجيل: تنبض كل قاعةٍ يختلف فيها ملف التسجيل عن جدولنا">
+            <span className="hp-reg-dot" aria-hidden="true" />التسجيل
+            {regOn && regLayer && regLayer.halls ? <b aria-label={countOf(regLayer.halls, AR.room)}>{n(regLayer.halls)}</b> : null}
+          </button>
+        ) : null}
         {pathsAllowed ? (
           <div className="hp-mode hp-lens" role="group" aria-label="ما يُعرض">
             <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={mode === "halls"} onClick={() => { setMode("halls"); setPathId(null); setNearFor(null); }}>القاعات</button>
-            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={mode === "paths"} onClick={() => { setMode("paths"); setSelected(null); setPlan(null); setFreeGlow(false); setWalk(0); setSay("مسارات التنقّل: اختر أستاذاً أو دفعة، أو اضغط انتقالاً من «أصعب التنقلات اليوم» ليُعرض مساره ويمشي مع الساعة."); setSheetOpen(true); }}>مسارات التنقّل</button>
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={mode === "paths"} onClick={() => { setMode("paths"); setRegOn(false); setSelected(null); setPlan(null); setFreeGlow(false); setWalk(0); setSay("مسارات التنقّل: اختر أستاذاً أو دفعة، أو اضغط انتقالاً من «أصعب التنقلات اليوم» ليُعرض مساره ويمشي مع الساعة."); setSheetOpen(true); }}>مسارات التنقّل</button>
           </div>
         ) : null}
         <div className="hp-mode" role="group" aria-label="طريقة الرسم">
@@ -1208,19 +1416,27 @@ export default function HallPulse(props: HallPulseProps) {
           <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={flat} onClick={() => setFlat(true)}>مسطّح</button>
         </div>
       </div>
-      {mode === "halls" ? <div className="hp-walk" role="group" aria-label="أسئلة سريعة">
+      {regOn ? (
+        <div className="hp-reg-line" role="status">
+          <span className="hp-reg-dot" aria-hidden="true" />
+          {!regDoc ? <span>لا فحص محفوظ لملف التسجيل في هذا الفصل بعد.</span>
+            : !regLayer ? <span>يقرأ تقرير المطابقة على جدولنا الآن…</span>
+              : <span><b>{regLayer.halls ? countOf(regLayer.halls, AR.room) : "لا قاعة"}</b> فيها فرق مع ملف التسجيل{regLayer.noHall.length ? <> · و<b>{countOf(regLayer.noHall.length, DIFF)}</b> بلا قاعة</> : null} · آخر فحص {checkDay(regDoc.at)}</span>}
+          <button data-guide-ignore="يُخفي طبقة التسجيل؛ عرض فقط" type="button" className="hp-link" onClick={toggleReg}>إخفاء الطبقة</button>
+        </div>
+      ) : mode === "halls" ? <div className="hp-walk" role="group" aria-label="أسئلة سريعة">
         <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 1} onClick={() => runWalk(1)}><i>1</i> أين الضغط الآن؟</button>
         <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 2} onClick={() => runWalk(2)}><i>2</i> أين الهدر؟</button>
         <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 3} onClick={() => runWalk(3)}><i>3</i> أين أضع شعبة جديدة؟</button>
         {canSave ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="is-magic" aria-pressed={walk === 4} onClick={() => runWalk(4)}><i>4</i> رتّب كل شيء بضغطة</button> : null}
       </div> : null}
-      <p className="hp-say" aria-live="polite">{say || "ابدأ بسؤالٍ من الأسئلة أعلاه، أو حرّك الساعة واضغط أي قاعة بنفسك."}</p>
+      <p className="hp-say" aria-live="polite" hidden={regOn}>{say || "ابدأ بسؤالٍ من الأسئلة أعلاه، أو حرّك الساعة واضغط أي قاعة بنفسك."}</p>
 
       <div className={`hp-stage${narrow ? " is-narrow" : ""}`} style={(() => { const sky = skyAt(day === "week" ? model.dayStart + (model.dayEnd - model.dayStart) * 0.45 : minute, model.dayStart, model.dayEnd); return { ["--hp-sky-top" as any]: sky.top, ["--hp-sky-mid" as any]: sky.mid }; })()}>
         <div className={`hp-view${insideKey ? " is-inside" : ""}${cine !== "off" ? " is-cinema" : ""}`} ref={viewRef} tabIndex={flat ? -1 : 0} onKeyDown={onStageKey}
           aria-label={flat ? undefined : "مجسّم القاعات: الأسهم للتدوير، و+ و− للتقريب، و0 للعودة"} role={flat ? undefined : "application"}>
           {flat ? (
-            <FlatBoard model={model} visuals={visuals} selected={selected} onPick={key => pickRef.current(key, false)} day={day} />
+            <FlatBoard model={model} visuals={shown} selected={selected} onPick={key => pickRef.current(key, false)} day={day} />
           ) : (
             <>
               <div className="hp-labels" ref={labelsRef} aria-hidden="true" />
@@ -1312,14 +1528,19 @@ export default function HallPulse(props: HallPulseProps) {
             </div>
           ) : null}
         </div>
-        <aside className={`hp-side${narrow ? " hp-sheet" : ""}${narrow && sheetOpen ? " is-open" : ""}`} aria-label="تفاصيل القاعة">
+        <aside className={`hp-side${narrow ? " hp-sheet" : ""}${narrow && sheetOpen ? " is-open" : ""}${regOn ? " is-reg" : ""}`} aria-label="تفاصيل القاعة">
           <div className="hp-clock">
             {narrow ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-sheet-handle" aria-expanded={sheetOpen} onClick={() => setSheetOpen(o => !o)}><span aria-hidden="true" /><b className="hp-sr">{sheetOpen ? "طيّ اللوحة" : "فتح اللوحة"}</b></button> : null}
             <div className="hp-clock-time"><bdi dir="ltr">{day === "week" ? "الأسبوع" : `${clockText(minuteShown)}`}</bdi></div>
             <div className="hp-fine" data-stats={`${stats.busy}|${stats.over}|${stats.wide}`}>{dayLabel}{day !== "week" ? ` · مشغولة ${n(stats.busy)} من ${countOf(model.halls.length, AR.room)} · مضغوطة ${n(stats.over)} · واسعة ${n(stats.wide)}` : ` · ${countOf(model.halls.length, AR.room)}`}</div>
           </div>
           <div className="hp-legend" aria-label="مفتاح الألوان">
-            {day === "week" ? (
+            {regOn ? (
+              <>
+                <span data-tone="reg"><i aria-hidden="true">●</i>فيها فرق مع ملف التسجيل (الرقم عدد الفروق)</span>
+                <span data-tone="empty"><i aria-hidden="true">○</i>باهتة: كما في الملف</span>
+              </>
+            ) : day === "week" ? (
               <span className="hp-ramp"><i />قليلة الإشغال ← كثيرة الإشغال</span>
             ) : (
               <>
@@ -1331,11 +1552,11 @@ export default function HallPulse(props: HallPulseProps) {
                 {model.foreignBusy.size ? <span data-tone="foreign">جهة أخرى</span> : null}
               </>
             )}
-            <small>عدد الطلبة تقدير: سعة المقرر لكل شعبة، لا المسجّلون فعلاً.</small>
+            {!regOn ? <small>عدد الطلبة تقدير: سعة المقرر لكل شعبة، لا المسجّلون فعلاً.</small> : regDoc ? <small>ملف «{regDoc.fileName}» · آخر فحص {checkDay(regDoc.at)}</small> : null}
           </div>
           <div className="hp-sheet-body">
             {planMini}
-            {mode === "paths" ? pathsPanel : panel}
+            {regOn && mode === "halls" ? regPanel : mode === "paths" ? pathsPanel : panel}
           </div>
         </aside>
         <div className="hp-bar">
@@ -1352,7 +1573,7 @@ export default function HallPulse(props: HallPulseProps) {
               </svg>
             </button>
           ) : null}
-          {canSave && mode === "halls" ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving || day === "week"}>✦ رتّب قاعاتي</button> : null}
+          {canSave && mode === "halls" && !regOn ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving || day === "week"}>✦ رتّب قاعاتي</button> : null}
           <label className="hp-range">
             <span className="hp-sr">الساعة</span>
             {day !== "week" && curve.length ? <DayTimeline curve={curve} peak={peak ? peak.students : 0} minute={minute} worst={worst ? worst.minute : null} start={model.dayStart} end={model.dayEnd} /> : null}
@@ -1371,6 +1592,11 @@ export default function HallPulse(props: HallPulseProps) {
       </div>
     </div>
   );
+}
+
+/** قيمة خانةٍ في سطر الطلب: الوقت والقاعة والشعبة من اليسار إلى اليمين كما في تقرير المطابقة. */
+function RegValue({ field, text }: { field: string; text: string }) {
+  return field === "time" || field === "room" || field === "section" ? <bdi dir="ltr">{text}</bdi> : <>{text}</>;
 }
 
 /** حالة قاعةٍ (قبل الخطة) إلى ما يرسمه المشهد: اللون والمنسوب واللافتة كما في الحالة الأساسية. */
@@ -1529,11 +1755,12 @@ function FlatBoard({ model, visuals, selected, onPick, day }: { model: PulseMode
                   const v = visuals.get(h.key);
                   const level = v?.occupied ? Math.min(1.1, Math.max(0.08, v.level)) : 0;
                   return (
-                    <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={h.key} type="button" className={`hp-flat-room${selected === h.key ? " is-selected" : ""}${v?.glow ? " is-glow" : ""}${v?.pulse ? " is-pulse" : ""}${v?.dim ? " is-dim" : ""}`}
+                    <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" key={h.key} type="button" className={`hp-flat-room${selected === h.key ? " is-selected" : ""}${v?.glow ? " is-glow" : ""}${v?.pulse ? " is-pulse" : ""}${v?.dim ? " is-dim" : ""}${v?.mark != null ? " is-mark" : ""}`}
                       aria-pressed={selected === h.key} onClick={() => onPick(h.key)}
-                      aria-label={`${h.code}${h.capacity ? `، ${countOf(h.capacity, AR.seat)}` : ""}${day === "week" ? "" : v?.occupied && !v.dim ? "، مشغولة" : "، فارغة"}`}>
+                      aria-label={`${h.code}${h.capacity ? `، ${countOf(h.capacity, AR.seat)}` : ""}${v?.mark != null ? `، فيها فرق مع ملف التسجيل (${v.badge})` : day === "week" ? "" : v?.occupied && !v.dim ? "، مشغولة" : "، فارغة"}`}>
                       <i style={{ height: `${Math.min(100, level * 100)}%`, background: v?.occupied ? hex(v.color) : undefined }} />
                       <span>{h.code}</span>
+                      {v?.badge ? <b className="hp-flat-badge" aria-hidden="true">{v.badge}</b> : null}
                     </button>
                   );
                 })}

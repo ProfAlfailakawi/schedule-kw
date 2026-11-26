@@ -143,6 +143,7 @@
     "src/components/hallPulse/pulseScene.ts",
     "src/utils/movementPaths.ts",
     "src/utils/hallPulseDay.ts",
+    "src/utils/hallPulseRegistrar.ts",
     "src/components/hallPulse/pulseInterior.ts",
     "src/components/hallPulse/pulseSound.ts"
   ],
@@ -5770,6 +5771,58 @@
           "src/components/hallPulse/pulseScene.ts",
           "src/components/hallPulse/pulseInterior.ts",
           "src/components/hallPulse/pulseSound.ts"
+        ],
+        "tests": [
+          "tests/hall-pulse-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-097",
+      "kind": "functional",
+      "title": {
+        "ar": "نبض القاعات: طبقة التسجيل — كل قاعةٍ يختلف فيها ملف التسجيل عن جدولنا تنبض، وطلبها جاهزٌ للنسخ",
+        "en": "Hall pulse: the registration layer — every hall where the registration file differs from our schedule pulses, with its request ready to copy"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يضيف إلى نبض القاعات (في ورشة القسم وبطاقة العميد) زرّ «التسجيل» يُظهر فروق آخر فحصٍ محفوظ لملف التسجيل على القاعات، بلا مقارنةٍ ثانية ولا كتابةٍ ولا إرسال: (1) البنود بنودُ تقرير المطابقة نفسه، محسوبةً على جدولنا الآن من مسار التقرير الحيّ الموجود (/api/schedules/registrar-requests/:id/live)، وما سوّيناه بعد الفحص فصار جدولنا كملفهم يسقط (settleSavedItems)، وما أكّده ملفٌّ لاحق لا يظهر. (2) يوضع البند على قاعة شعبته في جدولنا (بالرقم المرجعي، وإلا بالمقرر ورقم الشعبة كما يقرن التقرير) حين يخصّ المكان أو الزمان (القاعة أو الأيام أو الوقت، أو شعبةٌ تُضاف)، وعلى القاعة التي يضعها فيها ملفهم أيضاً إن كانت من قاعات المجسّم؛ وما سوى ذلك (الأستاذ وحده، أو قاعةٌ خارج المجسّم، أو حذفٌ بلا قاعة) يظهر في قائمة «بلا قاعة» فلا يختفي شيء. (3) حين تُفعّل الطبقة تتنفّس القاعات التي فيها بندٌ مفتوح بلونٍ بنفسجيٍّ هادئ بشارة عددها، وتبهت البقية قليلاً، مع سطرٍ «N قاعة فيها فرق مع ملف التسجيل · آخر فحص …»؛ في عرض اليوم والأسبوع، وفي العرض المسطّح (ومن لا يرسم جهازه WebGL) بإطارٍ وشارة، ومع طلب تقليل الحركة إبرازٌ ثابت بلا تنفّس. وما شطبه التسجيل «نُفّذ» يبقى في القائمة موسوماً ولا يُعدّ في النبض. (4) الضغط على قاعةٍ نابضة يعرض في اللوحة فروقها، كلٌّ بسطر الطلب: الرقم المرجعي، والخانة، وما في ملفهم ← المطلوب، ورمز المقرر بسبع خانات على جانبي السهم (withFullCourseCodes)؛ مع «انسخ الطلب» لكل بند و«انسخ طلبات القاعة» ونصّها «عدّلوا الرقم المرجعي X (…): الخانة: كان ← يصير» — بالرقم المرجعي تعديلاً لا حذفاً وإضافة — ورابطٍ إلى تقرير المطابقة كاملاً. النسخ وحده: لا يُرسل شيء. (5) يظهر الزرّ لمن يقبل الخادم قراءته التقرير اليوم (بوابة التقرير نفسها: صاحب الجدول بالنموذج 7 ومدير النظام، لا التسجيل المراجع)، ولا يظهر في عدسة التقارير ولا للأساتذة، ولا رقم مدنيّ فيه؛ وبلا فحصٍ محفوظ تقول الطبقة ذلك وتعرض «ارفع ملف التسجيل» اختصاراً إلى «افحص جدول التسجيل» الموجود لمن يملكه، ولا تعرضه على الهاتف (للقراءة).",
+        "en": "The system shall add to the hall pulse (in the department workshop and the dean's card) a «Registration» toggle that lays the latest saved registration-file check over the halls, with no second comparison, no write and no sending: (1) the items are the match report's own items, recomputed against our schedule now through the existing live report route (/api/schedules/registrar-requests/:id/live); what we have since settled so that our schedule equals their file drops out (settleSavedItems), and what a later file confirmed does not show. (2) An item is placed on its section's hall in our schedule (by reference number, else by course and section number as the report pairs them) when it concerns place or time (room, days or time, or a section to add), and also on the hall their file puts it in if that hall is in the scene; anything else (instructor only, a hall outside the scene, or a deletion without a hall) appears in a «No hall» list so nothing is hidden. (3) With the layer on, halls with an open item breathe in a calm violet with a count badge and the rest dim slightly, with a line «N halls differ from the registration file · last check …»; in the day and week views, and in the flat view (and devices that cannot draw WebGL) as an outline and badge; with reduced motion requested the highlight is steady without breathing. Items the registrar ticked «done» stay listed and labelled but are not counted in the pulse. (4) Clicking a pulsing hall lists its differences in the side panel, each as the request line: reference number, field, their file → wanted, with the course code in seven digits on both sides of the arrow (withFullCourseCodes); with «Copy request» per item and «Copy the hall's requests», phrased «Edit reference number X (…): field: was → becomes» — an edit by reference number, never delete plus add — and a link to the full match report. Copy only: nothing is sent. (5) The toggle appears only for whoever the server lets read the report today (the report's own gate: the schedule owner with form 7 and the system administrator, not the reviewing registrar), never in the reports lens nor to instructors, and carries no civil ID; with no saved check the layer says so and offers «Upload the registration file» as a shortcut into the existing «Check the registration schedule» for those who hold it, and not on the phone (read-only)."
+      },
+      "rationale": {
+        "ar": "مشكلة اليوم مع التسجيل تُرى في ثانية: أين تختلف القاعات، وما الذي يُطلب منهم بالرقم المرجعي، دون قراءة التقرير سطراً سطراً.",
+        "en": "The day's registration problem becomes visible in a second: where the halls differ and what to ask them by reference number, without reading the report line by line."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "بندُ قاعةٍ (ملفهم 102 وجدولنا 104) ينبض على 104 بدور «عندنا» وعلى 102 بدور «ملفهم»؛ وبندٌ يُعرف بالرقم المرجعي 030442 يجد شعبته المرقّمة 30442؛ وبند الأستاذ وحده في «بلا قاعة».",
+          "en": "A room item (their file 102, our schedule 104) pulses on 104 as «ours» and on 102 as «theirs»; an item known by reference number 030442 finds the section numbered 30442; an instructor-only item is in «No hall»."
+        },
+        {
+          "ar": "بندٌ قاعتُه في ملفهم صارت قاعتَه في جدولنا الآن لا يظهر؛ وبندٌ شطبه التسجيل «نُفّذ» يبقى في القائمة ولا يُعدّ في شارة القاعة.",
+          "en": "An item whose room in their file is now its room in our schedule does not show; an item the registrar ticked «done» stays listed and is not counted in the hall's badge."
+        },
+        {
+          "ar": "سطر الطلب يبدأ «عدّلوا الرقم المرجعي 30001» وفيه «المقرر: 0109114 ← 0109112» و«القاعة: 012B01 / 102 ← 012B01 / 104» بأرقامٍ لاتينية، ونسخ القاعة سطرٌ لكل بند بلا تكرار.",
+          "en": "The request line starts «Edit reference number 30001» and contains «course: 0109114 → 0109112» and «room: 012B01 / 102 → 012B01 / 104» in Latin digits, and copying a hall gives one line per item without repeats."
+        },
+        {
+          "ar": "لا مسار خادمٍ جديد ولا كتابة: القراءة من /api/schedules/registrar-requests ومساره الحيّ، والزرّ يغيب حين يرفض الخادم القراءة، ولا رقم مدنيّ في الطبقة.",
+          "en": "No new server route and no write: reading is from /api/schedules/registrar-requests and its live route, the toggle is absent when the server refuses the read, and the layer carries no civil ID."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/hallPulseRegistrar.ts#registrarLayer",
+          "src/utils/hallPulseRegistrar.ts#requestLineText",
+          "src/components/hallPulse/HallPulse.tsx",
+          "src/components/hallPulse/pulseScene.ts"
         ],
         "tests": [
           "tests/hall-pulse-audit.ts"
