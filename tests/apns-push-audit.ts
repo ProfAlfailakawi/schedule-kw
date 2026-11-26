@@ -7,6 +7,7 @@
  *   ٤) المسارات: التوكنُ يُحفظ بجانب اشتراكات المتصفّح، ويصله التنبيهُ، ويُحذف الميتُ، ويُلغى بـ unsubscribe.
  *   ٥) اشتراكُ المتصفّح (Web Push) على حاله، وتطبيقٌ بلا بيئةٍ لا يُسقط توكناته.
  *   ٦) جانبُ الصفحة: pushSupport يقول "native" داخل التطبيق إن وُجدت الإضافة، و"none" إن لم توجد.
+ *   ٧) لمسُ التنبيه: الرابطُ (url) يُفتح داخل التطبيق إن كان من الموقع نفسه وحده، ولمسةُ التشغيل البارد تُلتقط.
  *
  * العميلُ HTTP/2 محاكًى: لا اتصالَ بشبكة. والمفتاحُ يُولَّد عند التشغيل، لا مفتاحَ مكتوباً هنا.
  */
@@ -21,6 +22,7 @@ import { pushSubscriptionId } from "../src/server/webPush";
 import { registerPushRoutes } from "../src/server/pushRoutes";
 import { Repository } from "../src/db/repository";
 import { pushSupport } from "../src/utils/pushClient";
+import { installNativePushOpen, nativePushTargetPath, resetNativePushOpenForTest } from "../src/utils/nativePush";
 
 let passed = 0, failed = 0;
 const check = (ok: unknown, label: string) => {
@@ -195,6 +197,33 @@ function fakeApple(answer: (token: string) => { status: number; body?: string } 
   check(pushSupport() === "none", "داخل التطبيق بلا الإضافة: none (كما كان)");
   withCapacitor(undefined);
   check(pushSupport() === "ios-install", "Safari على iPhone: خطواتُ الشاشة الرئيسية كما هي");
+
+  /* ٧) لمسُ التنبيه */
+  const ORIGIN = "https://app.example.test";
+  const tap = (url: unknown) => ({ actionId: "tap", notification: { data: { aps: {}, url } } });
+  check(nativePushTargetPath(tap("/inbox?x=1#a"), ORIGIN) === "/inbox?x=1#a", "مسارٌ من الموقع: يُفتح كما هو");
+  check(nativePushTargetPath(tap(`${ORIGIN}/requests`), ORIGIN) === "/requests", "رابطٌ كاملٌ من الأصل نفسه: مسارُه");
+  for (const bad of ["https://evil.example/x", "//evil.example/x", "/\\evil.example", "javascript:alert(1)", "data:text/html,x", "", "   ", 42, null, "/" + "a".repeat(3000)])
+    check(nativePushTargetPath(tap(bad), ORIGIN) === "", `رابطٌ مرفوض: ${String(bad).slice(0, 30)}`);
+  check(nativePushTargetPath({}, ORIGIN) === "" && nativePushTargetPath(undefined, ORIGIN) === "", "لمسةٌ بلا بيانات: لا شيء");
+
+  const listeners: Record<string, (payload: any) => void> = {};
+  const opened: string[] = [];
+  resetNativePushOpenForTest();
+  withCapacitor(undefined);
+  check(installNativePushOpen(path => opened.push(path)) === false, "في المتصفّح: لا مستمعَ ولا أثر");
+  withCapacitor({ isNativePlatform: () => true, getPlatform: () => "ios", Plugins: { PushNotifications: {
+    addListener: async (event: string, cb: (payload: any) => void) => { listeners[event] = cb; return { remove: async () => undefined }; },
+  } } });
+  (globalThis as any).window.location = { origin: ORIGIN, pathname: "/", search: "", hash: "" };
+  check(installNativePushOpen(path => opened.push(path)) === true, "داخل التطبيق: يُسجَّل المستمع");
+  check(installNativePushOpen(path => opened.push(path)) === false, "مرةً واحدةً فقط");
+  await Promise.resolve();
+  check(typeof listeners.pushNotificationActionPerformed === "function", "المستمعُ على pushNotificationActionPerformed");
+  listeners.pushNotificationActionPerformed?.(tap("/inbox"));
+  listeners.pushNotificationActionPerformed?.(tap("https://evil.example/inbox"));
+  check(opened.length === 1 && opened[0] === "/inbox", "اللمسةُ تفتح الصفحة، والأصلُ الغريب يُهمَل");
+  resetNativePushOpenForTest();
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
