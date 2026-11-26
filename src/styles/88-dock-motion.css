@@ -53,6 +53,9 @@ html[data-device="duo"] .mobile-bottom-dock[data-dm-ready] .mobile-dock-link:act
 }
 @media (prefers-contrast:more){
   .mobile-bottom-dock[data-dm-ready]{--dm-ind-ring:var(--accent)}
+  /* الكبسولة الداكنة على الدوو: حلقةٌ بيضاء واضحة (الأخضر لا يُرى على الأخضر الداكن)، بأولوية تغلب «بلا حلقة» أعلاه. */
+  html[data-device="duo"][data-shell="app"] .mobile-bottom-dock[data-dm-ready],
+  html[data-device="duo"][data-duonav="rail"] .mobile-bottom-dock[data-dm-ready]{--dm-ind-ring:rgb(255 255 255 / .9)}
 }
 /* مرجعٌ للمؤشّر حين لا يكون الشريط مُموضَعًا أصلًا؛ أدنى أولوية فلا يغلب «fixed» في أي صفحة. */
 :where(.mobile-bottom-dock){position:relative}
