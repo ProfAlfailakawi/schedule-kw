@@ -742,11 +742,12 @@ export default function HallPulse(props: HallPulseProps) {
   const flown = useRef<string | null>(null);
   useEffect(() => {
     if (!flyKey || !sceneReady) return;
+    /* يُمسح الطيران المنتظر داخل المؤقّت لا قبله: مسحُه فوراً يعيد تشغيل الأثر فيُلغي المؤقّت قبل أن يطير. */
     const timer = window.setTimeout(() => {
       sceneRef.current?.spotlight(flyKey, { pull: 0.94, zoom: narrow ? 0.62 : 0.44 });
       flown.current = flyKey;
+      setFlyKey(null);
     }, reduced ? 0 : 520);
-    setFlyKey(null);
     return () => window.clearTimeout(timer);
   }, [flyKey, sceneReady, narrow, reduced]);
   /* اختيار قاعةٍ أخرى يعيد المنظر الكامل: الاقتراب كان لقاعة البصمة وحدها. */

@@ -150,4 +150,9 @@ assert.doesNotMatch(opening + source("src/utils/dayOpeningScene.ts"), /fetch\(|m
 assert.match(app, /openingAllowed\(\{ roleId: sessionRole\.id, canManageSchedule: hasPerm\(7\) \}\)/, "زرّ الإيقاف لمن تظهر له وحده");
 for (const text of [opening, source("src/utils/dayOpeningScene.ts"), source("src/utils/pulseLink.ts")]) assert.doesNotMatch(text, /[٠-٩٪]/, "أرقامٌ لاتينية");
 
+/* الطيران المنتظر يُمسح بعد أن تطير الكاميرا: مسحُه قبل المؤقّت يلغي الطيران. */
+const flight = pulseUi.slice(pulseUi.indexOf("if (!flyKey || !sceneReady) return;"), pulseUi.indexOf("return () => window.clearTimeout(timer);", pulseUi.indexOf("if (!flyKey || !sceneReady) return;")));
+assert.ok(flight.includes("flown.current = flyKey;\n      setFlyKey(null);\n    }, reduced"), "مسح الطيران داخل المؤقّت بعد الاقتراب");
+assert.ok(!/\}, reduced \? 0 : 520\);\n\s*setFlyKey\(null\)/.test(flight), "ولا مسح قبله");
+
 console.log("connected-opening audit: passed");
