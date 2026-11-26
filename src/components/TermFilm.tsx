@@ -130,6 +130,9 @@ const Backdrop = React.memo(function Backdrop({ shape, settle, playing, reduce }
   </div>;
 });
 
+/** الشعار نفسه لمن يعرضه خارج الفيلم (ختام «وضع المجلس» في نبض القاعات): لا نص فيه ولا اسم قاعة. */
+export const FilmMark = Backdrop;
+
 const RING = 2 * Math.PI * 52;
 const SEAL = 2 * Math.PI * 58;
 

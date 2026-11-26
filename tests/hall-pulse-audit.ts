@@ -20,6 +20,9 @@ import {
 import { openCountOf, registrarLayer, requestBlockText, requestLineText } from "../src/utils/hallPulseRegistrar";
 import { liveSectionTexts } from "../src/utils/registrarCheck";
 import type { RegistrarRequestItem } from "../src/utils/registrarRequest";
+import { councilKey, councilNext, councilTour, eveningMood } from "../src/utils/hallPulseCouncil";
+import { clockText as clockTextOf } from "../src/utils/hallPulse";
+import { busiestEveningMinute, eveningFootprint, eveningSummary, floorKeyOf, isEveningSession, planEvening, EVENING_START } from "../src/utils/hallPulseEvening";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -405,6 +408,172 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   check(!/civils/.test(pulseSrc), "لا رقم مدنياً في الطبقة");
 }
 
+/* ── «ضمّ المساء»: شعب ما بعد الثانية في أقل الطوابق (FR-SCH-098) ── */
+{
+  const reg = { buildings: [{ id: "b1", officialCode: "012B01", buildingNumber: "1" }, { id: "b2", officialCode: "012B02", buildingNumber: "2" }], rooms: [
+    { id: "e101", buildingId: "b1", canonicalCode: "101", capacity: 40 },
+    { id: "e102", buildingId: "b1", canonicalCode: "102", capacity: 40 },
+    { id: "e201", buildingId: "b1", canonicalCode: "201", capacity: 40 },
+    { id: "e202", buildingId: "b1", canonicalCode: "202", capacity: 40 },
+    { id: "e301", buildingId: "b1", canonicalCode: "301", capacity: 45 },
+    { id: "e302", buildingId: "b1", canonicalCode: "302", capacity: 20 },
+    { id: "eL1", buildingId: "b2", canonicalCode: "L1", capacity: 30, roomType: "مختبر حاسوب" },
+    { id: "eL2", buildingId: "b2", canonicalCode: "L201", capacity: 30, roomType: "مختبر حاسوب" },
+  ] };
+  const cs = [
+    { AdCourseId: 1, MaxStudent: 36 }, { AdCourseId: 2, MaxStudent: 18 }, { AdCourseId: 3, MaxStudent: 38 },
+    { AdCourseId: 4, MaxStudent: 25, CourseRoomType: "مختبر حاسوب" }, { AdCourseId: 5, MaxStudent: 44 }, { AdCourseId: 6, MaxStudent: 30 },
+  ];
+  let k = 5000;
+  const ev = (course: number, room: string, days: string[], start: string, end: string) => ({
+    id: k++, AdSectionId: 9, AdCourseId: course, SCode: String(k), fstarttime: start, fendtime: end, roomId: room,
+    fsunday: days.includes("sun"), fmonday: days.includes("mon"), ftuesday: days.includes("tue"), fwednesday: days.includes("wed"), fthursday: days.includes("thu"),
+  });
+  const er = [
+    ev(1, "e101", ["sun", "tue"], "14:00", "15:15"), // 5000: الطابق الأول
+    ev(2, "e201", ["sun"], "15:00", "16:00"),        // 5001: الطابق الثاني
+    ev(3, "e301", ["sun"], "14:00", "15:00"),        // 5002: الطابق الثالث
+    ev(6, "e202", ["tue"], "14:00", "15:00"),        // 5003: تحجز 202 يوم الثلاثاء
+    ev(6, "e102", ["sun"], "10:00", "11:00"),        // 5004: صباحية لا تُعدّ
+    ev(4, "eL2", ["sun"], "16:00", "18:00"),         // 5005: مختبر مسائي في الطابق الثاني من المبنى الآخر
+    ev(4, "eL1", ["sun"], "14:00", "16:00"),         // 5006: مختبر مسائي في أرضي المبنى الآخر
+  ];
+  const m = buildPulseModel({ rows: er, courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+  const b0 = originalAssignment(m);
+  check(EVENING_START === 14 * 60 && isEveningSession({ start: 14 * 60 }) && !isEveningSession({ start: 13 * 60 + 55 }), "المساء يبدأ في الثانية ظهراً تماماً");
+  const fp = eveningFootprint(m, b0, "fsunday");
+  check(fp.sessions.length === 5 && !fp.sessions.some(s => s.id === 5004) && fp.floors.size === 5, "آثار المساء: خمس شعبٍ مسائية الأحد على خمسة طوابق، والصباحية لا تُعدّ");
+  const ep = planEvening(m, b0, "fsunday");
+  const a1 = applyPlan(b0, ep.plan);
+  const moved = planMoves(ep.plan);
+  check(ep.reason === "ok" && Boolean(ep.plan), "خطة المساء تُقترح حين تتبعثر الشعب");
+  check(doubleBookings(m, a1).length === 0, "ولا تحجز قاعةً لشعبتين في الوقت نفسه، في كل أيام الشعب");
+  check(moved.every(mv => compatible(m, m.sessionById.get(mv.sessionId)!, m.hallByKey.get(mv.to)!)), "كل نقلةٍ إلى قاعةٍ من النوع نفسه تتّسع لها (typeFits)");
+  check(moved.every(mv => isEveningSession(m.sessionById.get(mv.sessionId)!)), "لا تُنقل إلا شعب المساء");
+  const labTo = moved.filter(mv => [5005, 5006].includes(mv.sessionId)).map(mv => m.hallByKey.get(mv.to)!);
+  check(labTo.every(h => h.lab), "المختبر المسائي يبقى في مختبر");
+  check(eveningFootprint(m, a1, "fsunday").floors.size === ep.after.floors && ep.after.floors === 2 && ep.before.floors === 5, `الطوابق المضاءة مساءً من ${ep.before.floors} إلى ${ep.after.floors}: طابق القاعات وطابق المختبرات`);
+  check(m.hallByKey.get(a1.get(5000)!)!.floor === 1 && a1.get(5003) === "id:e202", "شعبة الأحد·الثلاثاء لا تُنقل إلى 202 لأنها مشغولة الثلاثاء، والطابق الذي يجمع الأكثر يبقى");
+  check(ep.closed === ep.before.halls - ep.after.halls && ep.closed === 2 && ep.closedHalls.length === 3 && ep.closedFloors.length === 3 && ep.keptFloors.length === 2, "ما يُغلق صافياً (ثلاث تنطفئ وواحدةٌ تضيء: قاعتان) والطوابق التي تنطفئ تُعدّ من الآثار نفسها");
+  check(moved.every(mv => { const from = m.hallByKey.get(mv.from)!; return !ep.keptFloors.includes(floorKeyOf(from)); }), "لا نقلة بلا ثمرة: كل نقلةٍ تُطفئ الطابق الذي غادرته");
+  check(ep.plan!.groups.every(g => g.moves.length === 1 && g.on), "نقلاتٌ بصيغة «رتّب قاعاتي» تُراجع واحدةً واحدة");
+  toggleGroup(ep.plan!, ep.plan!.groups[0].id, false);
+  check(doubleBookings(m, applyPlan(b0, ep.plan)).length === 0, "واستبعاد نقلةٍ منها لا يحجز قاعةً مرتين");
+  check(eveningSummary(3, 1, 4) === "3 قاعات تُغلق مساءً · طابقٌ واحد بدل 4 طوابق" && eveningSummary(1, 2, 3) === "قاعة واحدة تُغلق مساءً · طابقان بدل 3 طوابق" && eveningSummary(2, 1, 2) === "قاعتان تُغلقان مساءً · طابقٌ واحد بدل طابقين", "سطر الملخّص بالعدد والمعدود");
+  check(busiestEveningMinute(m, "fsunday") === 14 * 60 + 0 || busiestEveningMinute(m, "fsunday")! >= EVENING_START, "أزحم لحظةٍ مسائية بعد الثانية");
+  /* طابقٌ واحد أصلاً، ولا مساء، ولا قاعة تتّسع: يُقال ذلك ولا تُخترع خطة. */
+  const one = buildPulseModel({ rows: [ev(1, "e101", ["mon"], "14:00", "15:00"), ev(2, "e102", ["mon"], "15:00", "16:00")], courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+  check(planEvening(one, originalAssignment(one), "fmonday").reason === "single" && planEvening(one, originalAssignment(one), "fsunday").reason === "none", "طابقٌ واحد أصلاً أو لا مساء: لا خطة، والسبب مذكور");
+  const stuck = buildPulseModel({ rows: [ev(5, "e301", ["wed"], "14:00", "15:00"), ev(6, "e101", ["wed"], "14:00", "15:00")], courses: cs, registry: { ...reg, rooms: reg.rooms.filter(r => !["e102", "e201", "e202", "e302"].includes(r.id)) }, includeUnusedRegistryHalls: true });
+  check(planEvening(stuck, originalAssignment(stuck), "fwednesday").reason === "stuck", "لا قاعة فارغة تتّسع في طابقٍ آخر: «لا يُجمع شيء» بلا نقلة");
+  /* عشوائيٌّ مفحوص: لا حجز مزدوج ولا نوع آخر ولا طوابق أكثر. */
+  let seed = 11, bad = 0;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  for (let t = 0; t < 30; t++) {
+    const rows2 = Array.from({ length: 14 }, () => {
+      const room = reg.rooms[Math.floor(rnd() * reg.rooms.length)];
+      const course = room.roomType ? 4 : [1, 2, 3, 5, 6][Math.floor(rnd() * 5)];
+      const h = 13 + Math.floor(rnd() * 5);
+      const days = ["sun", "mon", "tue", "wed", "thu"].filter(() => rnd() < 0.4);
+      return ev(course, room.id, days.length ? days : ["sun"], `${h}:00`, `${h + 1}:15`);
+    });
+    const m3 = buildPulseModel({ rows: rows2, courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+    const o3 = originalAssignment(m3);
+    if (doubleBookings(m3, o3).length) continue;
+    for (const d of PULSE_DAYS) {
+      const p3 = planEvening(m3, o3, d.key);
+      const a3 = applyPlan(o3, p3.plan);
+      if (doubleBookings(m3, a3).length || planMoves(p3.plan).some(mv => !compatible(m3, m3.sessionById.get(mv.sessionId)!, m3.hallByKey.get(mv.to)!)) || eveningFootprint(m3, a3, d.key).floors.size > p3.before.floors) bad++;
+    }
+  }
+  check(bad === 0, "ثلاثون جدولاً عشوائياً: لا حجز مزدوج، ولا نوع آخر، ولا طوابق أكثر مساءً");
+}
+
+/* «ضمّ المساء»: نقلةٌ تدخل قاعةً أفرغتها نقلةٌ أخرى تعتمد عليها (A→B ثم C→A) */
+{
+  const reg = { buildings: [{ id: "b1", officialCode: "012B01", buildingNumber: "1" }], rooms: [
+    { id: "dA", buildingId: "b1", canonicalCode: "101", capacity: 40 },
+    { id: "dB", buildingId: "b1", canonicalCode: "102", capacity: 40 },
+    { id: "dC", buildingId: "b1", canonicalCode: "201", capacity: 40 },
+  ] };
+  const cs = [{ AdCourseId: 1, MaxStudent: 30 }];
+  const r = (id: number, room: string) => ({ id, AdSectionId: 9, AdCourseId: 1, fstarttime: "14:00", fendtime: "15:00", roomId: room, fsunday: true });
+  const m = buildPulseModel({ rows: [r(1, "dA"), r(2, "dC")], courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+  const b0 = originalAssignment(m);
+  /* خطةٌ بالصيغة نفسها يبنيها planEvening: X من A إلى B، وY من C إلى A في الوقت نفسه. */
+  const plan = { day: "fsunday" as PulseDay, unsolved: [], groups: [
+    { id: 0, moves: [{ sessionId: 1, from: "id:dA", to: "id:dB" }], deps: [] as number[], on: true, start: 840 },
+    { id: 1, moves: [{ sessionId: 2, from: "id:dC", to: "id:dA" }], deps: [] as number[], on: true, start: 840 },
+  ] };
+  const src = fs.readFileSync(path.join(process.cwd(), "src/utils/hallPulseEvening.ts"), "utf8");
+  check(/om\.from === mv\.to && clash\(s, os\)/.test(src), "planEvening يسجّل اعتماد النقلة الداخلة على المُفرِغة");
+  /* تطبيق قاعدة الاعتماد نفسها على الحالة المصنوعة، ثم الاستبعاد. */
+  for (const g of plan.groups) for (const o of plan.groups) if (o !== g && o.moves[0].from === g.moves[0].to) g.deps.push(o.id);
+  check(plan.groups[1].deps.includes(0), "C→A تعتمد على A→B");
+  toggleGroup(plan, 0, false);
+  check(!plan.groups[1].on && doubleBookings(m, applyPlan(b0, plan)).length === 0, "استبعاد A→B يُسقط C→A: لا شعبتان في A");
+  /* ومن planEvening نفسه: كل مجموعةٍ جزئية بعد استبعاد أيّ نقلة تبقى بلا حجزٍ مزدوج. */
+  let seed = 5, bad = 0;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const rooms = ["dA", "dB", "dC"];
+  for (let t = 0; t < 40; t++) {
+    const rows = Array.from({ length: 5 }, (_, i) => ({ id: 100 + i, AdSectionId: 9, AdCourseId: 1, fstarttime: `${14 + Math.floor(rnd() * 3)}:00`, fendtime: `${17}:00`, roomId: rooms[Math.floor(rnd() * 3)], fsunday: true }));
+    const m2 = buildPulseModel({ rows, courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+    const o2 = originalAssignment(m2);
+    if (doubleBookings(m2, o2).length) continue;
+    const p2 = planEvening(m2, o2, "fsunday").plan;
+    if (!p2) continue;
+    for (const g of p2.groups) {
+      const copy = { ...p2, groups: p2.groups.map(x => ({ ...x, deps: [...x.deps] })) };
+      toggleGroup(copy, g.id, false);
+      if (doubleBookings(m2, applyPlan(o2, copy)).length) bad++;
+    }
+  }
+  check(bad === 0, "خطط المساء العشوائية: استبعاد أي نقلة لا يحجز قاعةً مرتين");
+}
+
+/* ── «وضع المجلس»: جولةٌ تلقائية للقراءة وحدها (FR-SCH-099) ── */
+{
+  const tourSun = councilTour(model, base, "fsunday", { dayLabel: "الأحد" });
+  const kinds = tourSun.steps.map(s => s.kind);
+  check(kinds[0] === "day" && kinds.includes("pressure") && kinds.includes("waste") && kinds[kinds.length - 1] === "close", `الجولة: اليوم، ثم الضغط، ثم الهدر، ثم الحلول، ثم الختام (${kinds.join("، ")})`);
+  check(kinds.indexOf("pressure") < kinds.indexOf("waste") && kinds.indexOf("waste") < kinds.indexOf("arrange"), "بترتيبها: الضغط قبل الهدر، والهدر قبل الحلول");
+  const pressure = tourSun.steps.find(s => s.kind === "pressure")!;
+  const w = worstMoment(model, base, "fsunday")!;
+  check(pressure.focus === w.hallKey && pressure.minute === w.minute + 5 && pressure.title.includes(clockTextOf(w.minute)), "خطوة الضغط تقف عند أشدّ لحظة (hallPulseDay) وتُبرز قاعتها");
+  const arrangeStep = tourSun.steps.find(s => s.kind === "arrange")!;
+  check(arrangeStep.plan === "arrange" && Boolean(tourSun.arrange) && planMoves(tourSun.arrange).length > 0 && arrangeStep.title.endsWith("داخل القسم"), "الحل المقترح خطة «رتّب قاعاتي» نفسها بعدد نقلاتها، معاينةً بلا حفظ");
+  check(tourSun.steps.filter(s => s.plan !== "none").every(s => s.lines.some(l => /لم يُحفظ شيء/.test(l))), "كل خطوة حلٍّ تقول إنها اقتراحٌ لم يُحفظ");
+  const all = tourSun.steps.flatMap(s => [s.eyebrow, s.title, ...s.lines, ...s.figures.flatMap(f => [f.value, f.label])]).join("\n");
+  check(!/[٠-٩]/.test(all) && !/٪/.test(all), "أرقامٌ لاتينية، ولا «٪»");
+  check(!model.sessions.some(x => x.courseName && all.includes(x.courseName)) , "لا اسم مقرر في التعليق: القاعات والأعداد وحدها");
+  check(tourSun.steps.every(s => s.seconds >= 8 && s.minute >= model.dayStart && s.minute <= model.dayEnd), "لكل خطوة مدّةٌ تُقرأ فيها ولحظةٌ داخل اليوم");
+  /* المساء في المجلس */
+  const mE = buildPulseModel({ rows: [
+    { id: 1, AdCourseId: 2, fstarttime: "14:00", fendtime: "15:00", roomId: "r101", fsunday: true },
+    { id: 2, AdCourseId: 2, fstarttime: "15:00", fendtime: "16:00", roomId: "r201", fsunday: true },
+    { id: 3, AdCourseId: 2, fstarttime: "14:00", fendtime: "15:00", roomId: "r304", fsunday: true },
+  ], courses, registry, includeUnusedRegistryHalls: true });
+  const tE = councilTour(mE, originalAssignment(mE), "fsunday", { dayLabel: "الأحد", closing: { name: "قسم التجربة", term: "الفصل الأول", line: "شكراً", counts: [{ value: 3, label: "شعب" }] } });
+  const scatter = tE.steps.find(s => s.kind === "scatter"), ev = tE.steps.find(s => s.kind === "evening");
+  check(Boolean(scatter) && scatter!.title === "3 شعب على 3 طوابق" && Boolean(ev) && ev!.plan === "evening" && ev!.title.includes("طابقٌ واحد بدل 3 طوابق"), "تبعثر المساء خطوة هدر، و«ضمّ المساء» خطوة حلٍّ بملخّصها");
+  const close = tE.steps[tE.steps.length - 1];
+  check(close.title === "قسم التجربة" && close.lines.some(l => l.includes("على الطاولة")) && close.figures[0].value === "3", "الختام باسم القسم وأعداده من فيلم الفصل، وما على الطاولة");
+  const mood = eveningMood(mE, originalAssignment(mE), applyPlan(originalAssignment(mE), tE.evening.plan), "fsunday");
+  check(mood.keep.size === 1 && mood.off.size === 2, "المشهد: طابقٌ يبقى مضاءً وطابقان ينطفئان");
+  const empty = councilTour(buildPulseModel({ rows: [], courses, registry, includeUnusedRegistryHalls: true }), new Map(), "fsunday", { dayLabel: "الأحد" });
+  check(empty.steps.length === 1 && empty.steps[0].title.includes("لا محاضرات"), "يومٌ بلا محاضرات: خطوةٌ واحدة تقول ذلك ولا يُخترع ضغط");
+  check(councilNext(0, 5, -1) === 0 && councilNext(3, 5, 1) === 4 && councilNext(4, 5, 1) === null, "التالي بعد الأخيرة ينهي الجولة، والسابق لا ينزل تحت الأولى");
+  check(councilKey("ArrowLeft") === "next" && councilKey(" ") === "next" && councilKey("ArrowRight") === "prev" && councilKey("Escape") === "exit" && councilKey("a") === null, "المفاتيح: الأسهم والمسافة للتنقّل، وEscape للخروج");
+  const pulseSrc = fs.readFileSync(path.join(process.cwd(), "src/components/hallPulse/HallPulse.tsx"), "utf8");
+  const councilSrc = fs.readFileSync(path.join(process.cwd(), "src/components/hallPulse/PulseCouncil.tsx"), "utf8");
+  check(!/onSave|fetch\(|method:/.test(councilSrc) && !/onSaveMoves|setPlan\(/.test(pulseSrc.slice(pulseSrc.indexOf("const enterCouncil"), pulseSrc.indexOf("/* ── اللوحة ── */"))), "المجلس للقراءة وحدها: لا حفظ ولا خطة تُكتب");
+  check(/if \(pending && !councilOn\)/.test(pulseSrc) && /const activePlan = council \? councilPlan : plan/.test(pulseSrc), "خطة المجلس معاينةٌ فوق الأصل، وخطة الرئيس المفتوحة تبقى كما هي");
+  check(/\(context === "workshop" \|\| context === "dean"\) && !narrow && !phoneDevice \? \(\s*<button[^>]*hp-council-btn/.test(pulseSrc), "الزرّ في الورشة وبطاقة العميد، ولا يظهر على الهاتف");
+  check(/requestFullscreen/.test(pulseSrc) && /fullscreenchange/.test(pulseSrc) && /setCouncil\(\{ index: 0, paused: reduced \}\)/.test(pulseSrc), "ملء الشاشة وخروجه، ومع تقليل الحركة لا تتقدّم الجولة وحدها");
+  check(/\/api\/term-film\$\{context === "dean" \? "\/college" : ""\}/.test(pulseSrc), "الختام من مسار فيلم الفصل الموجود ببوابته (لا مسار جديد)");
+}
+
 /* ── التوصيل ── */
 const read = (p: string) => fs.readFileSync(path.join(process.cwd(), p), "utf8");
 const lazy = read("src/components/hallPulse/HallPulseLazy.tsx");
@@ -439,7 +608,7 @@ check(/تقدير/.test(pulse), "عدد الطلبة موسومٌ بأنه تق�
   const css = read("src/components/hallPulse/hallPulse.css");
   check(/setScissorTest\(true\)/.test(scene) && (scene.match(/new THREE\.WebGLRenderer/g) || []).length === 1 && !/WebGLRenderer/.test(interior), "«قبل وبعد» والقاعة من الداخل بالراسم نفسه (مقصّ)، لا سياق WebGL ثانٍ");
   check(/role="slider"/.test(pulse) && /aria-valuenow=/.test(pulse) && /ArrowLeft/.test(pulse) && /ArrowRight/.test(pulse) && /aria-label="فاصل قبل وبعد/.test(pulse), "الفاصل منزلقٌ باسمٍ وقيمة، والأسهم تحرّكه");
-  check(/setCompare\(comparing \? beforeVisuals : null/.test(pulse) && /const compare = useMemo\(\(\) => \(plan && day !== "week"/.test(pulse), "الفاصل يظهر مع المراجعة ويزول بزوالها");
+  check(/setCompare\(comparing \? beforeVisuals : null/.test(pulse) && /const compare = useMemo\(\(\) => \(activePlan && day !== "week"/.test(pulse) && /const activePlan = council \? councilPlan : plan/.test(pulse), "الفاصل يظهر مع المراجعة ويزول بزوالها");
   check(!/fetch\(/.test(read("src/utils/hallPulseDay.ts")) && !/fetch\(/.test(interior) && !/fetch\(/.test(sound) && (pulse.match(/method: "POST"/g) || []).length === 1, "لا كتابة جديدة: الطلب الوحيد المرسَل ما زال طلب الاستعارة الموجود");
   check(/InstancedMesh/.test(interior) && /dispose\(\)/.test(interior) && /this\.interior\?\.dispose\(\)/.test(scene), "مقاعد القاعة وطلبتها InstancedMesh، وتُفرَغ عند الخروج");
   check(/e\.key === "Escape"/.test(pulse) && /اخرج/.test(pulse) && /ادخل القاعة/.test(pulse), "«ادخل القاعة» زرٌّ ظاهر، و«اخرج» ومفتاح Escape يعيدان");
