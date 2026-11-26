@@ -11,6 +11,9 @@
 import fs from "fs";
 import path from "path";
 import { activeChoice, authorityChoices, comprehensiveChoices } from "../src/utils/reportChoices";
+import { branchReadingScopes, siblingBranchScopes } from "../src/utils/branchScope";
+import { departmentFamily } from "../src/utils/sectionLabel";
+import { predictiveNarrow } from "../src/utils/predictiveScope";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -97,6 +100,61 @@ const ids = (list: Array<{ id: string }>) => list.map(item => item.id).sort().jo
   check(/\.query-scope-menu\.report-choice\{/.test(css) && !/^\.query-scope-menu\{/m.test(css), "الأنماط محصورة في .report-choice");
   check(reports.includes('scopeMenu === "instructor"') && reports.includes('aria-label="نطاق تقرير الأستاذ"'), "قائمة تقرير الأستاذ باقية");
   check(read("src/index.css").includes('@import "./styles/48-report-choice.css";'), "الأنماط مستوردة");
+}
+
+/* ٦. «صحة الجدول» تقرأ «كل الفروع» كما يطبعها الشامل وتقرير التغييرات:
+      البنات مع الجهراء والفحيحيل، ولا يدخل البنين. */
+{
+  const colleges = [
+    { AdCollegeId: 1, AdCollegeName: "كلية التربية الأساسية - بنات" },
+    { AdCollegeId: 2, AdCollegeName: "كلية التربية الأساسية - بنين" },
+    { AdCollegeId: 3, AdCollegeName: "كلية التربية الأساسية - بنات - الجهراء" },
+    { AdCollegeId: 4, AdCollegeName: "كلية التربية الأساسية - بنات - الفحيحيل" },
+    { AdCollegeId: 5, AdCollegeName: "كلية بلا رمز موقع" },
+    { AdCollegeId: 6, AdCollegeName: "كلية أخرى بلا رمز" },
+  ];
+  const sections = [
+    { AdSectionId: 10, AdCollegeId: 1, AdSectionCode: "TE", AdSectionName: "تكنولوجيا التعليم" },
+    { AdSectionId: 20, AdCollegeId: 2, AdSectionCode: "TE", AdSectionName: "تكنولوجيا التعليم" },
+    { AdSectionId: 30, AdCollegeId: 3, AdSectionCode: "TE", AdSectionName: "تكنولوجيا التعليم" },
+    { AdSectionId: 40, AdCollegeId: 4, AdSectionCode: "TE", AdSectionName: "تكنولوجيا التعليم" },
+    { AdSectionId: 50, AdCollegeId: 5, AdSectionCode: "MA", AdSectionName: "الرياضيات" },
+    { AdSectionId: 60, AdCollegeId: 6, AdSectionCode: "MA", AdSectionName: "الرياضيات" },
+  ];
+  const key = (list: Array<{ collegeId: number; sectionId: number }> | null) => (list || []).map(m => `${m.collegeId}:${m.sectionId}`).join(",");
+  const girls = branchReadingScopes(colleges, sections, 1, 10);
+  const report = siblingBranchScopes({ colleges, sections, baseCollegeId: 1, baseSectionId: 10 }).map(s => ({ collegeId: s.collegeId, sectionId: s.sectionId }));
+  check(key(girls) === key(report), "صحة الجدول: «كل الفروع» هي مواقع التقرير الشامل نفسها");
+  check(key(girls) === "1:10,4:40,3:30", "البنات أولاً ثم الفحيحيل والجهراء");
+  check(!key(girls).includes("2:20"), "البنين لا يدخلون قراءة فروع البنات");
+  check(key(departmentFamily(sections as any, 1, 10)).includes("2:20"), "(قبل الإصلاح كانت عائلة الاسم تضم البنين)");
+  check(key(branchReadingScopes(colleges, sections, 2, 20)) === "2:20", "البنين: موقعٌ واحد فلا يظهر «كل الفروع»");
+  check(branchReadingScopes(colleges, sections, 5, 50) === null, "كلية بلا رمز موقع: يبقى للقارئ ما كان (عائلة الاسم)");
+  const narrow = predictiveNarrow({ analysisScope: "department", collegeId: 1, sectionId: 10 }, sections, colleges)!;
+  check(narrow.match(3, 30) && narrow.match(4, 40) && !narrow.match(2, 20), "تنبؤ الفصل القادم يضيّق «كل الفروع» بالمواقع نفسها");
+  check(read("src/server/simulationRoutes.ts").includes("predictiveNarrow(req.query, narrowSections, narrowColleges"), "الخادم يمرّر الكليات لتضييق التنبؤ");
+  check(/branchReadingScopes\(catalog\.colleges, catalog\.sections/.test(read("src/components/DemandAnalysis.tsx")), "تحليل الطلب يجمع «كل الفروع» بالمواقع نفسها");
+  const scope = read("src/server/core/scope.ts");
+  check(/branchReadingScopes\(colleges[^)]*\) \|\| departmentFamily\(/.test(scope), "الخادم يقرأ «كل الفروع» لمركز الذكاء بالدالة نفسها");
+  const workspace = read("src/components/IntelligenceWorkspace.tsx");
+  check(/branchReadingScopes\(colleges, sections/.test(workspace), "مفتاح النطاق يظهر بحسب الفروع نفسها");
+  const sw = read("src/components/IntelligenceScopeSwitch.tsx");
+  check(sw.includes("'هذا الموقع'") && sw.includes("'كل الفروع'") && !sw.includes("كل كليات القسم"), "مفتاح النطاق بكلمتي التقرير الشامل: «هذا الموقع» و«كل الفروع»");
+  const labels = comprehensiveChoices(ctxBranches).map(c => c.label);
+  check(labels.includes("هذا الموقع") && labels.includes("كل الفروع"), "الكلمتان نفسهما في خيارات التقرير الشامل");
+}
+
+/* ٧. الخروج من الاستعلامات أو اختيار تقريرٍ آخر يصفّرها */
+{
+  check(/useEffect\(\(\) => \(\) => \{ safeStorage\.remove\(prefKey\); \}, \[prefKey\]\);/.test(reports), "مغادرة الاستعلامات تمحو العدسة والمرشّحات المحفوظة");
+  const modeEffect = reports.slice(reports.indexOf("const modeSeen = useRef(false);"), reports.indexOf("}, [mode]);"));
+  check(/if \(modeSeen\.current\) \{[\s\S]*?setFilters\(prev => \(\{ \.\.\.fresh\(\), collegeId: prev\.collegeId[\s\S]*?setSelectedResultId\(null\);\s*setScopeMenu\(null\);/.test(modeEffect), "اختيار شاشةٍ أخرى من قائمة الاستعلامات يصفّر مرشّحاتها ونتيجتها");
+  const select = reports.slice(reports.indexOf("const selectLens = (next: Lens) =>"), reports.indexOf("const selectLens = (next: Lens) =>") + 1200);
+  check(/if \(another\) \{\s*resetFilters\(\);\s*setSelectedResultId\(null\);\s*setScopeMenu\(null\);/.test(select), "اختيار تقريرٍ آخر يصفّر المرشّحات والنتيجة المفتوحة وقائمة الطباعة");
+  check(select.includes('new Set<Lens>(["visiting", "visitingHistory"])'), "المنتدبون وكل الفصول وجهان لتقريرٍ واحد فلا يُصفَّران");
+  const reset = reports.match(/const resetFilters = \(\) => setFilters\(prev => \(\{ \.\.\.fresh\(\), collegeId: prev\.collegeId, sectionId: prev\.sectionId, termId: prev\.termId \}\)\);/);
+  check(Boolean(reset), "التصفير يُبقي الكلية والقسم والفصل");
+  check(reports.includes('safeStorage.set("schedule-print-ink"') && !/safeStorage\.remove\("schedule-print-ink"/.test(reports), "موفّر الحبر تفضيلٌ لا يُمحى");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

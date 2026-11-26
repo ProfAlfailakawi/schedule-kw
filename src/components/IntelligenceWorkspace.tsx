@@ -7,6 +7,7 @@ import TermSelect from "./TermSelect";
 import SearchableSelect from "./SearchableSelect";
 import IntelligenceScopeSwitch from "./IntelligenceScopeSwitch";
 import { departmentFamily } from "../utils/sectionLabel";
+import { branchReadingScopes } from "../utils/branchScope";
 import PredictiveInsightPanel from "./PredictiveInsightPanel";
 import SectionPlan, { type PlanReadingView } from "./SectionPlan";
 import { WhatIfDesk } from "./TimeMachine";
@@ -522,7 +523,9 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
   const hasMultipleDepartmentColleges = useMemo(() => {
     if (!collegeId || !sectionId) return false;
     const scopeMode = roleDefinition((user as any)?.Role).scopeMode;
-    const family = departmentFamily(sections, collegeId, sectionId).filter(member =>
+    /* «كل الفروع» كما في التقرير الشامل وتقرير التغييرات: مواقع فرع القسم وحده
+       (البنات مع الجهراء والفحيحيل)، والخادم يقرأ النطاق نفسه (intelligenceReadScopes). */
+    const family = (branchReadingScopes(colleges, sections as any, Number(collegeId), Number(sectionId)) || departmentFamily(sections, collegeId, sectionId)).filter(member =>
       isPowerAdmin || scopeMode === "allColleges" || scopes.some(scope =>
         Number(scope.AdCollegeId) === member.collegeId &&
         (Number(scope.AdSectionId) === member.sectionId ||
@@ -530,7 +533,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
       ),
     );
     return new Set(family.map(member => member.collegeId)).size > 1;
-  }, [sections, collegeId, sectionId, scopes, isPowerAdmin, user?.Role]);
+  }, [colleges, sections, collegeId, sectionId, scopes, isPowerAdmin, user?.Role]);
   const readingMode = tab === "twin" || !hasMultipleDepartmentColleges ? "college" : analysisScope;
   const pendingReadingAction = useRef<any>(null);
   const [scopeReady, setScopeReady] = useState("");
@@ -3530,7 +3533,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
             <Surface>
               <span className="surface-kicker">حدود المعرفة</span>
               <h3>{overview?.context?.sectionName}</h3>
-              <p>{readingMode === "department" ? "القسم عبر كلياته المسموحة" : "هذه الكلية"} · الحجوزات الخارجية محسوبة.</p>
+              <p>{readingMode === "department" ? "القسم في كل فروعه المسموحة" : "هذا الموقع"} · الحجوزات الخارجية محسوبة.</p>
             </Surface>
             <Surface>
               <span className="surface-kicker">أوامر مفيدة</span>
@@ -4164,7 +4167,7 @@ export default function IntelligenceWorkspace({ user, scopes, initialTab }: Prop
                   {policyDraft.type==="close_building"?<Field label="المبنى"><BuildingPicker collegeId={collegeId} sectionId={sectionId} termId={termId} value={policyDraft.buildingId||""} onChange={building=>setPolicyDraft((p:any)=>({...p,buildingId:building?.id||"",building:building?.officialCode||""}))} /></Field>:null}
                   {policyDraft.type==="no_classes_after"?<Field label="آخر وقت"><TimeField value={policyDraft.time} onChange={e=>setPolicyDraft((p:any)=>({...p,time:e.target.value}))} /></Field>:null}
                   {policyDraft.type==="growth"?<Field label="النمو %"><input type="number" min="1" max="100" value={policyDraft.growth} onChange={e=>setPolicyDraft((p:any)=>({...p,growth:Number(e.target.value)||1}))} /></Field>:null}
-                  <Field label="النطاق"><select value={policyDraft.scope} onChange={e=>{setPolicyResult(null);setPolicyDraft((p:any)=>({...p,scope:e.target.value}));}}><option value="department">هذه الكلية</option>{hasMultipleDepartmentColleges ? <option value="family">كل كليات القسم</option> : null}{isPowerAdmin?<option value="university">الجامعة</option>:null}</select></Field>
+                  <Field label="النطاق"><select value={policyDraft.scope} onChange={e=>{setPolicyResult(null);setPolicyDraft((p:any)=>({...p,scope:e.target.value}));}}><option value="department">هذا الموقع</option>{hasMultipleDepartmentColleges ? <option value="family">كل الفروع</option> : null}{isPowerAdmin?<option value="university">الجامعة</option>:null}</select></Field>
                   <PrimaryButton onClick={runPolicy} disabled={policyBusy||(policyDraft.type==="close_building"&&!policyDraft.building.trim())}>{policyBusy?"أحاكي…":"اختبر"}</PrimaryButton>
                 </div>
                 {policyResult?<div className="policy-result">
