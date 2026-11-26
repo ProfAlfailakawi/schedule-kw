@@ -430,7 +430,7 @@
 }
 
 .day-pills{gap:var(--s2)}
-.day-pills label{position:relative;cursor:pointer}
+.day-pills label{position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none}
 .day-pills label span{
   min-height:40px;
   display:flex;align-items:center;justify-content:center;
@@ -442,13 +442,17 @@
   font-size:var(--t-sm);font-weight:600;
   transition:all .16s var(--ease);
 }
-.day-pills label:hover span{border-color:var(--line-strong);color:var(--ink)}
+/* المرور بالفأرة وحده: على اللمس كان «:hover» يعلق بعد الضغطة فيبدو اليوم مضغوطاً وهو غير مختار. */
+@media (hover:hover) and (pointer:fine){.day-pills label:hover span{border-color:var(--line-strong);color:var(--ink)}}
+.day-pills label:active span{transform:scale(.97);transition-duration:.08s}
 .day-pills label:has(input:checked) span{
   border-color:var(--accent);
   background:var(--accent-soft);
   color:var(--accent-ink);
 }
-.day-pills input{position:absolute;inset:0;opacity:0;cursor:pointer}
+/* مربع الاختيار الأصلي يغطي الحبّة كلها بلا مظهر: في Safari (iOS 26) كان مربعه الصغير (17px) يُرسم
+   أثناء الضغط فوق اسم اليوم رغم الشفافية. */
+.checkbox-row.day-pills input[type="checkbox"]{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;background:transparent;opacity:0;cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent}
 .day-pills label:has(input:focus-visible) span{box-shadow:var(--ring)}
 
 /* --- Segmented control ---------------------------------------------------- */
