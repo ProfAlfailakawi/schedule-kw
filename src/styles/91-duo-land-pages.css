@@ -32,7 +32,7 @@
   html[data-device="duo"] body:has(#root .content-frame>:is(.pr-page,.sm-page)) .notify-bell{left:calc(60px + env(safe-area-inset-left))}
   html[data-device="duo"] body:has(#root .content-frame>:is(.pr-page,.sm-page)) .smart-guide-fab{left:calc(106px + env(safe-area-inset-left))}
   html[data-device="duo"] body:has(#root .content-frame>:is(.pr-page,.sm-page)) #root .content-frame{
-    padding:calc(68px + env(safe-area-inset-top)) calc(16px + max(env(safe-area-inset-right),0px)) 32px calc(16px + env(safe-area-inset-left)) !important;
+    padding:calc(68px + env(safe-area-inset-top)) calc(16px + max(var(--duo-ir),0px)) 32px calc(16px + env(safe-area-inset-left)) !important;
     box-sizing:border-box;
   }
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body:has(#root .content-frame>:is(.pr-page,.sm-page)) #root .content-frame{
@@ -68,7 +68,7 @@
   /* ── «من نحن»: صفحتان. ── */
   html[data-device="duo"] #root .content-frame>.about-editorial.about-editorial{
     display:grid !important;column-count:auto;grid-template-columns:var(--pane-r) var(--pane-l);column-gap:var(--pane-gap);
-    align-content:start;padding:calc(72px + env(safe-area-inset-top)) env(safe-area-inset-right) 28px env(safe-area-inset-left);
+    align-content:start;padding:calc(72px + env(safe-area-inset-top)) var(--duo-ir) 28px env(safe-area-inset-left);
     background:none;border:0;box-shadow:none;border-radius:0;
   }
   html[data-device="duo"] #root .content-frame>.about-editorial.about-editorial>*{margin:0 20px 12px !important}
