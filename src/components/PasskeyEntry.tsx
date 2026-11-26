@@ -14,7 +14,7 @@ import { safeStorage } from "../utils/safeStorage";
  * «تلقائياً» (طلب المالك، على طريقة «مراس»): على جهازٍ سُجّلت فيه البصمة تُفتح نافذتُها وحدها مرةً واحدة لكل تبويب،
  * بعد أن تظهر الصفحة فعلاً وتستقرّ الواجهة (450 مللي ثانية)، فلا تُرفض خلف شاشةٍ مخفية ولا تزاحم اقتراحَ كلمة السر.
  * لا محاولةَ تلقائية ثانية في التبويب نفسه (ولا بعد الخروج)، ولا عند فتح بطاقة دخولٍ أو رابطٍ باسم مستخدم؛
- * وإلغاؤها صامت، والزرُّ يبقى للمحاولة الواعية. حارسٌ على مستوى الوحدة يمنع نافذتين في آنٍ واحد.
+ * وإلغاؤها صامت ويوقف التلقائيةَ في الجلسة نفسها (فلا تعود وحدها)، والزرُّ يبقى للمحاولة الواعية. حارسٌ على مستوى الوحدة يمنع نافذتين في آنٍ واحد.
  */
 const AUTO_KEY = "schedule-passkey-auto-tried";
 const AUTO_SETTLE_MS = 450;
@@ -74,6 +74,9 @@ export default function PasskeyEntry({ onSuccess, compact = false, onUsePassword
         window.setTimeout(retry, 500 + attempt * 400);
         return;
       }
+      /* إلغاءٌ واعٍ للنافذة التلقائية (✕): لا تُفتح وحدها بعده في هذه الجلسة، فلا تحبسه في حلقة؛
+         والزرُّ و«تجربة النظام» يبقيان، والخروجُ الصريح (suppressPasskeyAuto) يعيد المحاولةَ التلقائية في الدخول القادم. */
+      if (automatic && failure?.failure === "cancelled" && !(error as any)?.notFocused) safeStorage.set(SUPPRESS_KEY, "1", "session");
       if (!(automatic && failure?.failure === "cancelled")) setMessage(failure?.message || "تعذّر الدخول بالبصمة. ادخل بالاسم وكلمة السر.");
     } finally { ceremonyBusy = false; setBusy(false); }
   };
@@ -92,7 +95,8 @@ export default function PasskeyEntry({ onSuccess, compact = false, onUsePassword
       setResumeTick(v => v + 1);
     };
     const onVis = () => {
-      if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+      /* نافذةُ البصمة نفسها تُخفي الصفحة: غيابٌ بدأ أثناءها لا يُحسب عودةً ولو طال قبل الإلغاء. */
+      if (document.visibilityState === "hidden") { hiddenAt = ceremonyBusy ? 0 : Date.now(); return; }
       if (hiddenAt && Date.now() - hiddenAt >= 1500) rearm();
       hiddenAt = 0;
     };

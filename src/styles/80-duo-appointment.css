@@ -42,13 +42,11 @@
   [data-device="duo"] #root .schedule-editor.is-studio .appt-step{padding:12px 14px}
 }
 
-/* الشاشة الداخلية عرضاً (مفتوحة أو كتاب): صفحتان مستقلتان، والمفصل بينهما.
-   - الصفحة اليسرى: أزرار «إغلاق» و«الإشعارات» و«المرشد» صفٌّ واحد بشكلٍ واحد (دوائر 44 بيضاء بحدٍّ خفيف)،
-     بدل ثلاثة أشكالٍ مختلفة تطفو.
-   - لا صفحة فارغة: ما دام «أسبوع الأستاذ» لم يظهر (لا أستاذ بعد)، يُوزَّع النموذج نفسه على الصفحتين:
-     اليمنى = النطاق والخطوة الأولى، واليسرى = بقية الخطوات، والفجوة بين العمودين على المفصل.
-     وحين يُختار الأستاذ يعود الأسبوع إلى الصفحة اليسرى والنموذج إلى اليمنى.
-   - وكذلك حين يُطفأ «جدول الأستاذ»: النموذج بعرض الكتاب كلّه على الصفحتين، ولا تبقى اليسرى فارغة (طلب المالك 2026-11-20). */
+/* الشاشة الداخلية عرضاً (مفتوحة أو كتاب): صفحةٌ واحدة كالحاسوب (طلب المالك 2026-11-26)، لا صفحتان على المفصل.
+   - أزرار «إغلاق» و«الإشعارات» و«المرشد» صفٌّ واحد بشكلٍ واحد (دوائر 44 بيضاء بحدٍّ خفيف) في الركن الأيسر.
+   - لا أسبوع بعد (لا أستاذ، أو «جدول الأستاذ» مطفأ): الخطوات عمودان متوازنان بعرض الصفحة.
+     وحين يُختار الأستاذ: النموذج يمنةً وأسبوعه يسرةً بفجوةٍ عادية، كالحاسوب.
+   - خيط التقدّم أعلى الصفحة بعرضها، وشريط الحفظ بطاقةٌ أسفلها بعرضها — كلاهما قبل عمود الساعة. */
 @media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   [data-device="duo"] body:has(.schedule-editor.is-studio) .schedule-editor-close,
   [data-device="duo"] body:has(.schedule-editor.is-studio) .notify-bell,
@@ -89,33 +87,62 @@
 }
 
 @media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
-  [data-device="duo"] #root .schedule-editor.is-studio{--duo-hinge-gap:56px}
-  /* الإطار متناظر الحواف، فيقع منتصف الفجوة على منتصف الشاشة (المفصل). */
-  [data-device="duo"] body:has(.schedule-editor.is-studio) .content-frame{padding-inline:20px;max-width:none;margin-inline:0}
-  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:is(:has(>.editor-side .appt-week-ghost),:not(.has-week)){
-    display:block;
+  /* صفحةٌ واحدة كالحاسوب (طلب المالك 2026-11-26: «شوف الكمبيوتر وقلّده»): لا كعبَ ولا صفحتين.
+     الإطار من الحافة اليسرى إلى ما قبل عمود الساعة (--duo-ir) — ولا شيء تحت الساعة. */
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .app-shell::before{display:none}
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .app-main{padding-inline:0}
+  [data-device="duo"] body:has(.schedule-editor.is-studio) .content-frame{
+    max-width:none;margin-inline:0;box-sizing:border-box;
+    padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + var(--duo-ir));
   }
+  [data-device="duo"] #root .content-stack.schedule-editor.is-studio{
+    --duo-appt-bar-h:64px;
+    width:auto;max-width:none;margin-inline:0;
+    padding-bottom:calc(var(--duo-appt-bar-h) + 24px);
+  }
+  /* ما فوق النموذج بعرض الصفحة كلها؛ والعنوان يترك ركنه الأيسر لأزرار «إغلاق» والإشعارات والمرشد. */
+  [data-device="duo"] #root .schedule-editor.is-studio>:not(.appt-layout):not(.schedule-editor-close){margin-inline-end:0}
+  [data-device="duo"] #root .schedule-editor.is-studio>.page-heading{max-width:none;padding-left:176px;box-sizing:border-box}
+
+  /* خيط التقدّم بعرض الصفحة: يُرسم على حاوية النموذج كلها لا على عمودٍ منها. */
+  [data-device="duo"] #root .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout{position:relative;padding-top:6px}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout>.appt-form{position:static;border-top:0}
+
+  /* أسبوع الأستاذ ظاهر: النموذج والأسبوع متجاوران بفجوةٍ عادية كالحاسوب، لا على مفصل. */
+  [data-device="duo"] #root .content-stack.schedule-editor.is-studio .schedule-editor-grid.appt-layout.has-week:has(>.editor-side:not(:empty)){
+    grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);column-gap:16px;
+  }
+
+  /* لا أسبوع بعد (أو جدول الأستاذ مطفأ): الخطوات عمودان متوازنان في الصفحة نفسها —
+     المقرر يمنةً، والأستاذ وما بعده يسرةً. */
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:is(:has(>.editor-side .appt-week-ghost),:not(.has-week)){display:block}
   [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:is(:has(>.editor-side .appt-week-ghost),:not(.has-week))>.editor-side{display:none}
   [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:is(:has(>.editor-side .appt-week-ghost),:not(.has-week))>.appt-form{
     width:100%;max-width:none;margin:0;
   }
   [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:is(:has(>.editor-side .appt-week-ghost),:not(.has-week)) .appt-steps{
-    display:block;columns:2;column-gap:var(--duo-hinge-gap);
+    display:block;columns:2;column-gap:16px;
   }
   [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:is(:has(>.editor-side .appt-week-ghost),:not(.has-week)) .appt-steps>*{
     break-inside:avoid;margin-block-end:12px;
   }
-  /* خطوة «الأستاذ» (مفتوحةً أو مقفلة) تبدأ الصفحة اليسرى. */
   [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:is(:has(>.editor-side .appt-week-ghost),:not(.has-week)) .appt-steps>section.appt-step:is([aria-label="الأستاذ"],[data-appt-step="teacher"]){
     break-before:column;
   }
-  /* شريط الحفظ: الحالة في الصفحة اليمنى، والأزرار في اليسرى؛ لا شيء يعبر المفصل. */
-  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:is(:has(>.editor-side .appt-week-ghost),:not(.has-week)) .save-preview.appt-bar{
-    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:var(--duo-hinge-gap);align-items:center;
+
+  /* شريط «تراجع / احفظ»: بطاقةٌ عائمة أسفل الصفحة بعرضها، قبل عمود الساعة، لا ورقةٌ بيضاء تغطّي الأسفل؛
+     وللمحتوى حشوةٌ سفلية بقدره فلا يُغطّى آخرُه. */
+  [data-device="duo"] #root .schedule-editor.is-studio .save-preview.appt-bar{
+    position:fixed;z-index:30;
+    left:calc(16px + env(safe-area-inset-left));right:calc(16px + var(--duo-ir));
+    bottom:max(10px,env(safe-area-inset-bottom));
+    display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:12px;
+    box-sizing:border-box;min-height:var(--duo-appt-bar-h);margin:0;padding:8px 12px;
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 2px rgb(17 25 22 / .06),0 10px 28px -12px rgb(17 25 22 / .28);
   }
-  [data-device="duo"] #root .schedule-editor.is-studio .appt-layout:is(:has(>.editor-side .appt-week-ghost),:not(.has-week)) .appt-bar .form-actions{justify-content:flex-end}
-  /* العنوان بعرض الصفحة اليمنى وحدها، لا يمتدّ إلى المفصل. */
-  [data-device="duo"] #root .schedule-editor.is-studio>.page-heading{max-width:calc(50% - var(--duo-hinge-gap) / 2)}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-bar .appt-status{flex:1 1 auto;min-width:0}
+  [data-device="duo"] #root .schedule-editor.is-studio .appt-bar .form-actions{flex:none;justify-content:flex-end}
 }
 
 /* الشاشة الداخلية عرضاً: أيام الشعبة النظرية/العملية سطورٌ لا أعمدة. في نصف الكتاب لا تتّسع خمس بطاقاتٍ

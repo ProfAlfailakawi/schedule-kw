@@ -107,9 +107,10 @@
 }
 @media screen and (orientation:landscape) and (min-width:860px) and (max-width:1000px) and (min-height:500px) and (max-height:760px){
   /* «موعد جديد» و«تعديل موعد» داخل التطبيق: كبسولة التنقّل في عمود الساعة كانت تغطّي حافة بطاقة الخطوة الأولى،
-     والعنوان تحت الساعة. الإطار يبتعد عن العمود من الجهتين بالقدر نفسه، فيبقى منتصف الفجوة على المفصل. */
+     والعنوان تحت الساعة. صفحةٌ واحدة كالحاسوب (80-duo-appointment.css): الإطار ينتهي قبل عمود الساعة،
+     ويبدأ من الحافة اليسرى بلا هامشٍ فارغ. */
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body:has(.schedule-editor.is-studio) .content-frame{
-    padding-inline:calc(var(--duo-land-col,84px) + 12px) !important;
+    padding-left:calc(16px + env(safe-area-inset-left)) !important;padding-right:calc(16px + var(--duo-ir)) !important;
   }
 }
 
