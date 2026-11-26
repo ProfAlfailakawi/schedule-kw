@@ -1,0 +1,45 @@
+/* ══ 95 · آلة الزمن: خريطة المترو والستارة (ScenarioMetro, CurtainCompare) ══
+   يُحمَّل مع آلة الزمن الكسولة. الألوان من رموز التطبيق: اليشمي والنحاسي وعلامتاهما. */
+.tm-metro{display:grid;gap:8px;min-width:0;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface)}
+.tm-metro h3{display:flex;align-items:center;gap:6px;margin:0;font-size:var(--t-sm,14px)}
+.tm-metro h3 svg{width:16px;height:16px;color:var(--accent)}
+.tm-metro svg{display:block;width:100%;max-width:560px;height:auto;overflow:visible}
+.tm-metro text{direction:rtl;font-family:inherit;fill:var(--ink)}
+.tm-metro-trunk{stroke:var(--ink);stroke-width:5;stroke-linecap:round}
+.tm-metro-origin{fill:var(--surface);stroke:var(--ink);stroke-width:3}
+.tm-metro-trunk-label{font-size:11px;font-weight:700;fill:var(--muted)}
+.tm-metro-path{fill:none;stroke:var(--tm-line,#1f6b5c);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.tm-metro-merge{stroke-dasharray:2 5;opacity:.8}
+.tm-metro-station{fill:var(--surface);stroke:var(--tm-line,#1f6b5c);stroke-width:2.5}
+.tm-metro-end{fill:var(--tm-line,#1f6b5c);stroke:var(--surface);stroke-width:2}
+.tm-metro-name{font-size:12px;font-weight:700}
+.tm-metro-meta{font-size:10px;fill:var(--muted)!important}
+.tm-metro-line.tone-0{--tm-line:#1f6b5c}
+.tm-metro-line.tone-1{--tm-line:#86601f}
+.tm-metro-line.tone-2{--tm-line:#5fbfa6}
+.tm-metro-line.tone-3{--tm-line:#c79b5f}
+.tm-metro-line.tone-4{--tm-line:#3f5f88}
+.tm-metro-line.is-trying .tm-metro-path{stroke-dasharray:7 6}
+.tm-metro-line.is-restored{opacity:.55}
+.tm-metro-line.is-open{cursor:pointer}
+.tm-metro-line.is-open:hover .tm-metro-path{stroke-width:6}
+.tm-metro-line.is-open:focus{outline:none}
+.tm-metro-line.is-open:focus-visible .tm-metro-end{stroke:var(--brass);stroke-width:4}
+
+.tm-curtain{margin:0;display:grid;gap:8px;min-width:0}
+.tm-curtain-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.tm-curtain-head small{color:var(--muted);font-size:var(--t-xs,12px)}
+.tm-curtain-stage{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:ew-resize}
+.tm-curtain-before{position:absolute;inset:0}
+.tm-curtain-layer.is-before{background:color-mix(in srgb,var(--brass) 8%,var(--surface-2))}
+.tm-curtain-tag{position:absolute;inset-block-end:6px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;background:var(--surface);border:1px solid var(--line);pointer-events:none}
+.tm-curtain-tag.is-before{right:8px}
+.tm-curtain-tag.is-after{left:8px}
+.tm-curtain-handle{position:absolute;inset-block:0;width:44px;margin-left:-22px;display:grid;place-items:center;cursor:ew-resize;touch-action:none}
+.tm-curtain-handle::before{content:"";position:absolute;inset-block:0;left:50%;width:3px;margin-left:-1.5px;background:var(--accent);border-radius:2px;box-shadow:0 0 0 1px var(--surface)}
+.tm-curtain-handle i{position:relative;width:26px;height:26px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--surface),var(--shadow-sm)}
+.tm-curtain-handle i::before,.tm-curtain-handle i::after{content:"";position:absolute;top:50%;width:0;height:0;margin-top:-4px;border-block:4px solid transparent}
+.tm-curtain-handle i::before{left:5px;border-right:5px solid var(--accent-contrast,#fff)}
+.tm-curtain-handle i::after{right:5px;border-left:5px solid var(--accent-contrast,#fff)}
+.tm-curtain-handle:focus-visible{outline:none}
+.tm-curtain-handle:focus-visible i{box-shadow:0 0 0 3px var(--surface),0 0 0 6px var(--brass)}

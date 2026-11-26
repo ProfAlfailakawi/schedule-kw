@@ -18,6 +18,7 @@ import {
   type TmProblem, type TmScenarioRecord, type TmSolution,
 } from "../utils/timeMachine";
 import ScenarioWorkbench from "./ScenarioWorkbench";
+import ScenarioMetro from "./ScenarioMetro";
 import { AR, countOf } from "../utils/arabicCount";
 import { SectionSimulatorBody } from "./SectionSimulator";
 import { COMPARE_ICON, Ico, LevelDot, Loading, PHILOSOPHY_ICON, scopeQuery, type IcoName, useTimeMachineContext, type LoadedContext } from "./timeMachineShared";
@@ -225,6 +226,9 @@ function TimeMachineBody({ context, reload, focusRowId }: { key?: string; contex
         </div>
       ) : null}
 
+      {/* خريطة المترو: الجدول الحيّ خطٌّ رئيس، وكل سيناريو فرعٌ منه؛ الضغطُ يفتح المحفوظ كما يفتحه زرّه أدناه. */}
+      <ScenarioMetro saved={saved} trying={mode !== "lab" && chosen && !scenario ? { title: chosen.title, changes: chosen.changes.length } : null}
+        onOpen={record => { setMode("emergency"); openSaved(record); }} />
       <SavedScenarios list={saved} context={context} onOpen={record => { setMode("emergency"); openSaved(record); }} />
     </>
   );

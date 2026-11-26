@@ -1,0 +1,24 @@
+/* ── تصدير فيلم الفصل (TermFilmExport): بطاقات 9:16 وفيديو قصير، كلّه في المتصفّح ── */
+.tfx-bar{display:flex;justify-content:flex-start}
+.tfx{display:grid;gap:10px;min-width:0;padding:12px 14px;border:1px solid color-mix(in srgb,var(--brass) 30%,var(--line));border-radius:var(--radius-card,18px);background:var(--surface)}
+.tfx-head{display:flex;align-items:flex-start;gap:10px}
+.tfx-head>div{display:grid;gap:2px;flex:1;min-width:0}
+.tfx-head small,.tfx-note{color:var(--muted);font-size:12.5px;line-height:1.5}
+.tfx-close{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:inherit;cursor:pointer}
+.tfx-close svg{width:18px;height:18px}
+.tfx-actions,.tfx-file{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.tfx .tf-copy{text-decoration:none}
+.tfx .tf-copy svg,.tfx-bar .tf-copy svg{width:16px;height:16px}
+.tfx .tf-copy:disabled{opacity:.6;cursor:progress}
+.tfx-error{margin:0;color:var(--danger);font-size:13px}
+.tfx-spin{animation:tfx-spin 1s linear infinite}
+@keyframes tfx-spin{to{transform:rotate(360deg)}}
+.tfx-video{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
+.tfx-video video{inline-size:min(180px,40vw);aspect-ratio:9/16;border-radius:12px;background:#0b1d19}
+.tfx-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(108px,30%),1fr));gap:10px;margin:0;padding:0;list-style:none}
+.tfx-cards li{display:grid;gap:6px;min-width:0}
+.tfx-cards img{display:block;inline-size:100%;aspect-ratio:9/16;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.tfx-mini{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:inherit;cursor:pointer}
+.tfx-mini svg{width:16px;height:16px}
+.tfx-mini:focus-visible,.tfx-close:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.tfx-spin{animation:none}}

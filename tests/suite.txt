@@ -384,5 +384,6 @@ test:rooms-capacity
 test:duo-widget-css
 test:public-pages
 test:term-film
+test:visual-wave-1
 test:dept-fingerprint
 test:my-film

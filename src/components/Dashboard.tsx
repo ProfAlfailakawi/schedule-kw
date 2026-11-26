@@ -8,6 +8,7 @@ import MiniRing from"./MiniRing";
 import{Counted,useMotionScope}from"./dna";
 import TermForecast from"./TermForecast";
 import DeanHallPulseCard from"./hallPulse/DeanHallPulseCard";
+import CampusLiveCard from"./campusLive/CampusLiveCard";
 import{SCHEDULE_DAY_END,SCHEDULE_DAY_SPAN,SCHEDULE_DAY_START, formatCompactDurationArabic, scheduleClockForDisplay }from"../utils/scheduleTime";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { readSharedScope, useSharedScope } from "../utils/sharedScope";
@@ -392,6 +393,9 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
      {reportView||searchView?<button type="button" className="editorial-text-action" onClick={()=>onNavigate?.((reportView||searchView) as string)}>التقارير<ArrowLeft aria-hidden="true"/></button>:null}
     </div>
    </section>}
+
+   {/* الحرم الحي: مباني محاضرات اليوم، والضغط على مبنى يفتح الجدول بالبحث السريع على رمزه. */}
+   {termEmpty?null:<CampusLiveCard today={today} weekend={data?.weekend} canOpenSchedule={canManageSchedule} onNavigate={onNavigate}/>}
 
    {/* الإنذار المبكر مستقلٌّ عن فراغ الجدول: فصلُ تخطيطٍ استُورد طلبُه ولم تُبنَ شعبُه
        هو بالضبط حيث يقول «ينقص كذا شعبة». */}
