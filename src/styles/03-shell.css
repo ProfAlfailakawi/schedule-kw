@@ -285,6 +285,8 @@
 .user-card-tools button svg{width:16px;height:16px}
 .user-card-tools button:hover{background:#ffffff0d;color:var(--nav-ink)}
 .user-card-tools button:last-child:hover{color:#dba98f}
+/* «افتتاحية اليوم»: الشمس ذهبيةٌ حين تعمل، وخافتةٌ حين تُطفأ. */
+.user-card-tools .opening-toggle.is-on{color:#e2bd76}
 
 /* --- Off-canvas controls (hidden on desktop) ------------------------------ */
 

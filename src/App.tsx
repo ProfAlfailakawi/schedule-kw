@@ -40,6 +40,7 @@ import {
   CircleHelp,
   UserX,
   Fingerprint,
+  Sunrise,
 } from "lucide-react";
 import { controlLabel } from "./utils/controlLabel";
 
@@ -160,6 +161,7 @@ const GuideAssistant = lazy(() => import("./components/guide/GuideAssistant"));
 import { noteSessionAction } from "./guide/sessionTrail";
 import AdSlot, { usePulse } from "./components/AdSlot";
 import { openInApp, pulseFocusHref, type PulseFocus } from "./utils/pulseLink";
+import { openingAllowed, readOpeningOff, writeOpeningOff } from "./utils/dayOpening";
 import { canProactivelyHint, allAllowedGuideFeatures, guideUnreadSummary, featureById, loadGuideProfile, masteryScore, noteFriction, noteHint, recordFeatureEvent, recordFeatureDwell, recordRoute, setGuideTask, setLauncherIntroduced, evaluateGuideFriction, classifyGuideReason, predictedNextFeature, canAccessGuideFeature } from "./guide/smartGuide";
 
 type View =
@@ -1161,6 +1163,13 @@ export default function App() {
   const [seatDrawerOpen, setSeatDrawerOpen] = useState(false);
   const [deletionOpen, setDeletionOpen] = useState(false);
   const [passkeysOpen, setPasskeysOpen] = useState(false);
+  /* «افتتاحية اليوم» (FR-DSH-036): تفضيلٌ على هذا الجهاز؛ تُطفأ من بطاقة الحساب أو من الافتتاحية نفسها. */
+  const [openingOff, setOpeningOff] = useState(readOpeningOff);
+  useEffect(() => {
+    const sync = () => setOpeningOff(readOpeningOff());
+    window.addEventListener("day-opening-pref", sync);
+    return () => window.removeEventListener("day-opening-pref", sync);
+  }, []);
   /* «الرحلة» من مساري (/?journey=1&back=/me): تُفتح فوق التطبيق نفسه حين يكون الزائر داخلاً (حساب العرض مثلاً)، لا في شاشة الدخول وحدها. */
   const [journeyFromMasari, setJourneyFromMasari] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("journey") === "1");
   /* التطبيق يعيد كتابة العنوان عند الإقلاع فيضيع ?back=: يُلتقط مرةً عند أول رسم. */
@@ -1876,6 +1885,7 @@ export default function App() {
             reportView={smartReportView}
             onNavigate={(view: string) => go(view as View)}
             roleId={sessionRole.id}
+            openingHold={onboardingStep >= 0}
           />
           {!user.IsDemo ? <AdSlot slot="dashboard" /> : null}
           </>
@@ -2851,6 +2861,19 @@ export default function App() {
               >
                 <Compass />
               </button>
+              {openingAllowed({ roleId: sessionRole.id, canManageSchedule: hasPerm(7) }) ? (
+                <button
+                  type="button"
+                  className={`opening-toggle${openingOff ? "" : " is-on"}`}
+                  onClick={() => writeOpeningOff(!openingOff)}
+                  aria-pressed={!openingOff}
+                  title={openingOff ? "افتتاحية اليوم متوقفة على هذا الجهاز: اضغط لتشغيلها" : "افتتاحية اليوم تعمل على هذا الجهاز: اضغط لإيقافها"}
+                  aria-label="افتتاحية اليوم"
+                  data-guide-ignore="يشغّل افتتاحية اليوم في الرئيسية أو يوقفها على هذا الجهاز؛ تفضيلٌ محلي لا يغيّر بيانات"
+                >
+                  <Sunrise />
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setPasskeysOpen(true)}

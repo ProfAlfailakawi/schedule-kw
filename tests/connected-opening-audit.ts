@@ -17,6 +17,8 @@ import {
 import { buildFingerprint } from "../src/utils/deptFingerprint";
 import { fingerprintRows } from "../src/server/routes/deptFingerprintRoutes";
 import { buildPulseModel } from "../src/utils/hallPulse";
+import { openingAllowed, openingDay, openingMode } from "../src/utils/dayOpening";
+import { hallLitAt, hallUsedBefore, openingClock, openingClockText, openingNumbers, openingSkyline, OPENING_DAWN, OPENING_DUSK } from "../src/utils/dayOpeningScene";
 
 const source = (path: string) => readFileSync(path, "utf8");
 
@@ -74,10 +76,62 @@ assert.equal(ringFocusSlot(slots, { day: 2, minute: 700 }), slots[2], "التا�
 assert.equal(ringFocusSlot(slots, { day: 4, minute: 900 }), slots[0], "بعد آخرها: أولى الأسبوع");
 assert.equal(ringFocusSlot([], { day: 0, minute: 0 }), null);
 
+/* ── من يرى الافتتاحية: من يرى النبض اليوم، لا أوسع ── */
+assert.equal(openingAllowed({ roleId: "committeeChair", canManageSchedule: true }), true);
+assert.equal(openingAllowed({ roleId: "standard", canManageSchedule: true }), true);
+assert.equal(openingAllowed({ roleId: "dean" }), true);
+assert.equal(openingAllowed({ roleId: "viceDean" }), true);
+assert.equal(openingAllowed({ roleId: "departmentHead", canManageSchedule: false }), false, "رئيس القسم بلا شاشة الجدول لا يرى المجسّم");
+assert.equal(openingAllowed({ roleId: "standard", canManageSchedule: false }), false, "الأستاذ");
+assert.equal(openingAllowed({ roleId: "advisor", canManageSchedule: true }), false);
+assert.equal(openingAllowed({ roleId: "registrarStaff", canManageSchedule: false }), false);
+
+/* ── مرةً في اليوم، لا لمن أوقفها، ولا للطباعة ولا لعطلة الأسبوع ولا ليومٍ بلا محاضرات ── */
+const day = openingDay(new Date(2026, 10, 26, 9, 5));
+assert.equal(day, "2026-11-26");
+const base = { allowed: true, off: false, seenDay: "2026-11-25", today: day, lectures: 12 };
+assert.equal(openingMode(base), "full");
+assert.equal(openingMode({ ...base, reducedMotion: true }), "still", "حركةٌ أقل: إطارٌ ساكن");
+assert.equal(openingMode({ ...base, seenDay: day }), "none", "رُئيت اليوم على هذا الجهاز");
+assert.equal(openingMode({ ...base, off: true }), "none");
+assert.equal(openingMode({ ...base, allowed: false }), "none");
+assert.equal(openingMode({ ...base, print: true }), "none");
+assert.equal(openingMode({ ...base, weekend: true }), "none");
+assert.equal(openingMode({ ...base, lectures: 0 }), "none");
+
+/* ── ما ترسمه وما تقوله ── */
+const today = [
+  { startTime: "08:00", endTime: "09:15", roomCode: "901A03", roomHall: "2-15" },
+  { startTime: "08:30", endTime: "09:20", roomCode: "901A03", roomHall: "1-04" },
+  { startTime: "09:00", endTime: "09:50", roomCode: "901A03", roomHall: "1-05" },
+  { startTime: "11:00", endTime: "12:15", roomCode: "901A03", roomHall: "2-15" },
+  { startTime: "11:00", endTime: "11:50", roomCode: "905B01", roomHall: "101" },
+  { startTime: "13:00", endTime: "13:50", roomCode: "", roomHall: "" },
+];
+const sky = openingSkyline(today);
+assert.equal(sky.length, 2, "مبنيان");
+assert.equal(sky.reduce((n, b) => n + b.halls.length, 0), 4, "كل قاعةٍ نافذةٌ واحدة، والموعد بلا قاعة لا يُرسم");
+assert.ok(!JSON.stringify(sky).includes("مدخل"), "لا مقرر ولا اسم في الرسم");
+const big = sky.find(b => b.halls.length === 3)!;
+assert.deepEqual(big.halls.map(h => h.floor), [1, 1, 2], "الطوابق الدنيا أولاً");
+const hall215 = big.halls.find(h => h.key.endsWith("|215"))!;
+assert.equal(hallLitAt(hall215, 8 * 60 + 10), true);
+assert.equal(hallLitAt(hall215, 10 * 60), false);
+assert.equal(hallUsedBefore(hall215, 10 * 60), true);
+const numbers = openingNumbers(today, 9 * 60 + 5);
+assert.equal(numbers.lectures, 6);
+assert.equal(numbers.hallsNow, 3, "قاعاتٌ لا محاضرات، والموعد بلا قاعة لا يُعدّ قاعة");
+assert.deepEqual(numbers.peak, { minute: 9 * 60, count: 3 }, "أول دقيقةٍ يبلغ فيها الجاري أقصاه");
+assert.equal(openingSkyline(today, 2).reduce((n, b) => n + b.halls.length, 0), 2, "سقف القاعات المرسومة: أكثرها إشغالاً");
+assert.equal(openingClock(5 * 60), OPENING_DAWN + 30, "قبل الفجر: تقف قرب أوله");
+assert.equal(openingClock(23 * 60), OPENING_DUSK);
+assert.equal(openingClockText(8 * 60), "8:00 ص");
+assert.equal(openingClockText(13 * 60 + 5), "1:05 م");
+
 /* ── الشاشات: من يرى ماذا، وما لا يحدث ── */
 const app = source("src/App.tsx"), dash = source("src/components/Dashboard.tsx"), fpUi = source("src/components/DeptFingerprint.tsx");
-const pulseUi = source("src/components/hallPulse/HallPulse.tsx"), film = source("src/components/TermFilm.tsx");
-const sched = source("src/components/Schedules.tsx");
+const pulseUi = source("src/components/hallPulse/HallPulse.tsx"), film = source("src/components/TermFilm.tsx"), opening = source("src/components/DayOpening.tsx");
+const sched = source("src/components/Schedules.tsx"), css = source("src/styles/day-opening.css");
 assert.match(app, /<DeptFingerprintPage onOpenPulse=\{hasPerm\(7\) \? openPulseFocus : undefined\} \/>/, "رابط النبض في البصمة لمن يفتح شاشة الجدول وحده");
 assert.match(dash, /onOpenPulse=\{canManageSchedule\?openPulse:undefined\}/, "وكذلك في بطاقة اللوحة");
 assert.match(fpUi, /link && data\.halls\[arc\.hall\]\?\.key/, "بلا رابط: تفاصيل القوس وحدها، لا طريق مسدود");
@@ -86,6 +140,14 @@ assert.match(pulseUi, /model\.sessions\.some\(x => x\.hallKey === selHall\.key\)
 assert.match(sched, /onOpenFingerprint=\{filterSection \? openFingerprintAt : undefined\}/, "البصمة لقسمٍ واحد: لا رابط في نطاق الكلية");
 assert.match(sched, /writeSharedScope\(\{ collegeId: focus\.collegeId, sectionId: focus\.sectionId, termId: focus\.termId \}/, "النطاق يُعرض على نطاق القارئ كأي نطاقٍ محفوظ");
 assert.match(film, /fingerprint && scope\.version === "dept"/, "زرّ البصمة في الختام لنسخة القسم ولمن يراها وحده");
-for (const text of [source("src/utils/pulseLink.ts")]) assert.doesNotMatch(text, /[٠-٩٪]/, "أرقامٌ لاتينية");
+assert.match(dash, /const DayOpening=lazy\(\(\)=>import\("\.\/DayOpening"\)\)/, "الافتتاحية كسولة");
+assert.doesNotMatch(opening, /import[^;]*("three"|pulseScene|HallPulse)/, "لا three.js في الرئيسية");
+assert.doesNotMatch(source("src/utils/dayOpening.ts"), /^import /m, "ملف البوابة في حمولة اللوحة بلا استيراد");
+assert.match(css, /\.dop\{position:fixed;inset:0;z-index:9000;pointer-events:none/, "لا تلتقط المؤشر: لا تحجب شيئاً");
+assert.match(css, /@media print\{\.dop\{display:none!important\}\}/);
+assert.match(opening, /\["pointerdown", "keydown", "wheel", "touchstart"\]/, "أي فعلٍ يسحبها");
+assert.doesNotMatch(opening + source("src/utils/dayOpeningScene.ts"), /fetch\(|method:\s*"(POST|PUT|DELETE)"/, "لا طلب ولا كتابة");
+assert.match(app, /openingAllowed\(\{ roleId: sessionRole\.id, canManageSchedule: hasPerm\(7\) \}\)/, "زرّ الإيقاف لمن تظهر له وحده");
+for (const text of [opening, source("src/utils/dayOpeningScene.ts"), source("src/utils/pulseLink.ts")]) assert.doesNotMatch(text, /[٠-٩٪]/, "أرقامٌ لاتينية");
 
 console.log("connected-opening audit: passed");

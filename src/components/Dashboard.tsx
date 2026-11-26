@@ -15,14 +15,18 @@ import { readSharedScope, useSharedScope } from "../utils/sharedScope";
 import { singleDepartmentOf } from "../utils/scopeContext";
 import type { TermFilmScope } from "./TermFilm";
 import { openInApp, pulseFocusHref, type PulseFocus } from "../utils/pulseLink";
+import { openingAllowed, openingDay, openingMode, readOpeningOff, readOpeningSeen, writeOpeningSeen, type OpeningMode } from "../utils/dayOpening";
 
 /* «البصمة باب للنبض»: لمن يفتح شاشة الجدول وحده (canManageSchedule = بوابة الجدول نفسها). */
 const openPulse=(focus:PulseFocus)=>openInApp(pulseFocusHref(focus));
 /* فيلم الفصل يُحمَّل حين يُحتاج فقط: اللوحة في الحمولة الأولى، والفيلم ليس فيها. */
 const TermFilmCard=lazy(()=>import("./TermFilm").then(module=>({default:module.TermFilmCard})));
+const DayOpening=lazy(()=>import("./DayOpening"));
 const DeptFingerprintCard=lazy(()=>import("./DeptFingerprint").then(module=>({default:module.DeptFingerprintCard})));
 
-interface DashboardProps{user:any;scopes:any[];canManageSchedule?:boolean;onNavigate?:(view:string)=>void;searchView?:string;reportView?:string;roleId?:string}
+interface DashboardProps{user:any;scopes:any[];canManageSchedule?:boolean;onNavigate?:(view:string)=>void;searchView?:string;reportView?:string;roleId?:string;
+ /** الجولة التعريفية مفتوحة: الافتتاحية تنتظر فلا تتراكب طبقتان. */
+ openingHold?:boolean}
 interface DashboardData{history?:Array<{termId:number;termName:string;schedules:number;rooms:number;instructors:number}>;previous?:{termId:number;termName:string;schedules:number;rooms:number;instructors:number}|null;metrics:{courses:number;schedules:number;terms:number;instructors:number};latestTermId?:number;latestTermName:string;home?:HomeTerm;dayName:string;weekend?:boolean;dashboardTotal:number;today:Array<{id:number;instructorName:string;courseCode:string;courseName:string;startTime:string;endTime:string;roomCode:string;roomHall:string}>;workspace?:{mode:"admin"|"personal"|"scope";activeSchedules:number;uniqueRooms:number;uniqueInstructors:number;roomOccupancyPeak:number;peakOccupiedRooms:number;weekdayLoad:Array<{key:string;label:string;count:number}>;busiestHours:Array<{hour:string;count:number}>;busiestRooms:Array<{room:string;count:number}>;scopeCount:number;linkedInstructorName:string;personalToday:any[]}}
 /** أيُّ فصلٍ تعرضه اللوحة ولماذا (src/utils/homeTerm.ts). */
 interface HomeTerm{termId:number;defaultTermId:number;defaultTermName:string;currentTermId:number;explicit:boolean;fallback:boolean;empty:boolean;awaitingApproval:boolean;upcoming:{termId:number;termName:string}|null}
@@ -91,7 +95,7 @@ function Spark({series,label}:{series:number[];label:string}){
  </svg>;
 }
 
-export default function Dashboard({user,scopes,canManageSchedule=false,onNavigate,searchView,reportView,roleId}:DashboardProps){
+export default function Dashboard({user,scopes,canManageSchedule=false,onNavigate,searchView,reportView,roleId,openingHold=false}:DashboardProps){
  const[data,setData]=useState<DashboardData|null>(null),[overview,setOverview]=useState<any>(null),[living,setLiving]=useState<any>(null),[error,setError]=useState<string|null>(null),[attentionOpen,setAttentionOpen]=useState(false),[detailsOpen,setDetailsOpen]=useState(false);
  /**
   * ── لوحة البداية لا تُفرَّغ بسبب لوحة جانبية ────────────────────────────────
@@ -192,6 +196,27 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
  const nowVisible=nowMinutes>=SCHEDULE_DAY_START&&nowMinutes<=SCHEDULE_DAY_END;
  const currentLecture=useMemo(()=>today.find(row=>minutesOf(row.startTime)<=nowMinutes&&minutesOf(row.endTime)>nowMinutes)||null,[today,nowMinutes]);
  const nextUp=useMemo(()=>currentLecture||today.find(row=>minutesOf(row.startTime)>=nowMinutes)||null,[today,currentLecture,nowMinutes]);
+ /* افتتاحية اليوم (FR-DSH-036): أول دخولٍ كل يوم لكل حسابٍ على هذا الجهاز، لمن يرى نبض القاعات وحده.
+    تُقرَّر مرةً حين تصل اللوحة، ولا تؤخّر شيئاً: رسمُها يُحمَّل كسولاً بعد أن تُرسم اللوحة. */
+ const[opening,setOpening]=useState<OpeningMode>("none");
+ const openingAsked=useRef(false),openingHeld=useRef(false);
+ useEffect(()=>{
+  if(openingHold)openingHeld.current=true;
+  if(openingAsked.current||!data||openingHold)return;
+  openingAsked.current=true;
+  const userId=Number(user?.SystemUserId||0),day=openingDay(new Date());
+  /* يومٌ بدأ بالجولة التعريفية يكفيه ما رأى: لا افتتاحية بعدها. */
+  if(openingHeld.current){if(userId)writeOpeningSeen(userId,day);return;}
+  const media=(query:string)=>{try{return Boolean(window.matchMedia?.(query).matches);}catch{return false;}};
+  const mode=openingMode({
+   allowed:Boolean(userId)&&openingAllowed({roleId:roleId||String(user?.Role||""),canManageSchedule}),
+   off:readOpeningOff(),seenDay:readOpeningSeen(userId),today:day,
+   lectures:data.home?.empty?0:(data.today||[]).length,weekend:Boolean(data.weekend),
+   print:media("print"),reducedMotion:media("(prefers-reduced-motion: reduce)"),
+  });
+  if(mode!=="none"){writeOpeningSeen(userId,day);setOpening(mode);}
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[data,openingHold]);
  /**
   * The ribbon's rows are known before its numbers are.
   *
@@ -284,6 +309,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
    <InstallApp />
    <GetAppSheet />
   </header>
+  {opening!=="none"&&data?<Suspense fallback={null}><DayOpening mode={opening} today={today} dayLabel={dateLabel} onDone={()=>setOpening("none")}/></Suspense>:null}
   {user?.IsRootAdmin&&onNavigate?<HealthGlance onOpen={()=>onNavigate("health")}/>:null}
 
   {error?<Notice>{error}</Notice>:null}
