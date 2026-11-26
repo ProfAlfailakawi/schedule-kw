@@ -413,7 +413,7 @@ async function main() {
     check(publish.includes('reachAboutCard(person, personalUrl(entry.id), "changed")') && publish.includes("أبلغ من تغيّر جدولهم"), "D14 رسالة «طرأ تعديل» صار لها من يرسلها");
     const staffPost = server.slice(server.indexOf('app.post("/api/public/staff/:token", '), server.indexOf('app.post("/api/public/staff/:token", ') + 4600);
     check(staffPost.includes("markShareLinkInstructor(resolved.link.id, cardInstructorId, { seenAt:") && staffPost.includes("lastSeenAt: previousVisit?.seenAt"), "D14 البطاقة تسجّل الزيارة وتعيد السابقة");
-    check(staffPost.includes("const { instructorId: cardInstructorId, fingerprint: cardFingerprint, ...visible } = card;"), "D14 البصمة ورقم الأستاذ لا يُرسلان للصفحة");
+    check(/const \{ instructorId: cardInstructorId, fingerprint: cardFingerprint,[^}]*\.\.\.visible \} = card;/.test(staffPost), "D14 البصمة ورقم الأستاذ لا يُرسلان للصفحة");
     const page = server.slice(server.indexOf("function staffCardPage"), server.indexOf("function surveyPage"));
     check(page.includes("تغيّر جدولك منذ زيارتك الأخيرة") && page.includes("راجع جدولك الأسبوعي."), "D14 البطاقة تعلن تغيّر الجدول دون إحالة إلى حركة خارجية محذوفة");
   }
