@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Check, Clapperboard, Copy, Maximize2, Minimize2, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
-import { fingerprintGeometry, FINGERPRINT_PALETTES, FINGERPRINT_VIEW, type FingerprintShape } from "../utils/deptFingerprint";
+import { Check, Clapperboard, Copy, Fingerprint, Maximize2, Minimize2, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react";
+import { deptFingerprintPath, fingerprintGeometry, FINGERPRINT_PALETTES, FINGERPRINT_VIEW, type FingerprintShape } from "../utils/deptFingerprint";
+import { openInApp } from "../utils/pulseLink";
 import { filmScenes, termFilmPath, weekContourShape, type TermFilmData, type TermFilmSceneKey } from "../utils/termFilm";
 import { filmSound, filmSoundSupported, readFilmSoundChoice, writeFilmSoundChoice } from "./termFilmSound";
 import "../styles/term-film.css";
@@ -240,7 +241,11 @@ const Scene: React.FC<SceneProps> = React.memo(({ film, sceneKey, phase, reduce 
   return null;
 });
 
-export function TermFilmPlayer({ film }: { film: TermFilmData }) {
+export function TermFilmPlayer({ film, onOpenFingerprint }: {
+  film: TermFilmData;
+  /** شعار الختام هو بصمة القسم نفسها: زرٌّ في الختام يفتحها، لمن يراها وحده (نسخة القسم). */
+  onOpenFingerprint?: () => void;
+}) {
   const reduce = useReducedMotion();
   const scenes = useMemo(() => filmScenes(film), [film]);
   /* البصمة إن حُملت؛ وإلا شكلٌ من حِمل الأسبوع وحده (لا قاعة فيه)؛ وإلا وهجٌ بلا رسم. */
@@ -401,6 +406,10 @@ export function TermFilmPlayer({ film }: { film: TermFilmData }) {
         </button>)}
       </div>
       <button type="button" onClick={again} aria-label="أعد من البداية" data-guide-ignore="يعيد فيلم الفصل من أوله؛ عرضٌ لا فعل"><RotateCcw aria-hidden="true" /><span>أعد</span></button>
+      {closing && shape && onOpenFingerprint ? <button type="button" className="tf-fp" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => undefined); onOpenFingerprint(); }}
+        aria-label="افتح بصمة القسم" title="هذا الشعار بصمة القسم: افتحها" data-guide-ignore="ينتقل إلى بصمة القسم؛ عرضٌ لا يغيّر بيانات">
+        <Fingerprint aria-hidden="true" /><span>البصمة</span>
+      </button> : null}
       {canSound ? <button type="button" className={`tf-icon tf-sound${sound ? " is-on" : ""}`} onClick={toggleSound} aria-pressed={sound} aria-label={sound ? "أوقف الموسيقى" : "شغّل الموسيقى"} title={sound ? "أوقف الموسيقى" : "شغّل الموسيقى"} data-guide-ignore="يشغّل موسيقى فيلم الفصل أو يسكتها على هذا الجهاز؛ عرضٌ لا يغيّر بيانات">
         {sound ? <Volume2 aria-hidden="true" /> : <VolumeX aria-hidden="true" />}
       </button> : null}
@@ -436,7 +445,14 @@ function CopyLink({ scope }: { scope: TermFilmScope }) {
 }
 
 /** الفيلم كاملاً بنطاقه: يقرأ ثم يعرض المشغّل وزرّ نسخ الرابط. */
-export function TermFilmPanel({ scope, heading = true }: { scope: TermFilmScope; heading?: boolean }) {
+export function TermFilmPanel({ scope, heading = true, fingerprint = false }: {
+  scope: TermFilmScope; heading?: boolean;
+  /** يرى صاحب الفيلم بصمة قسمه (بوابة البصمة نفسها): يُفتح له من الختام. */
+  fingerprint?: boolean;
+}) {
+  const openFingerprint = useMemo(() => (fingerprint && scope.version === "dept" && scope.sectionId
+    ? () => openInApp(deptFingerprintPath({ collegeId: scope.collegeId, sectionId: scope.sectionId!, termId: scope.termId }))
+    : undefined), [fingerprint, scope.version, scope.collegeId, scope.sectionId, scope.termId]);
   const [film, setFilm] = useState<TermFilmData | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -462,7 +478,7 @@ export function TermFilmPanel({ scope, heading = true }: { scope: TermFilmScope;
       <CopyLink scope={scope} />
     </header> : null}
     {error ? <p className="tf-error" role="alert">{error}</p>
-      : film ? <><TermFilmPlayer film={film} /><TermFilmExport film={film} /></>
+      : film ? <><TermFilmPlayer film={film} onOpenFingerprint={openFingerprint} /><TermFilmExport film={film} /></>
       : <div className="tf-player tf-loading" role="status" aria-label="جاري إعداد الفيلم"><span>جاري إعداد الفيلم…</span></div>}
   </section>;
 }
@@ -471,7 +487,7 @@ export function TermFilmPanel({ scope, heading = true }: { scope: TermFilmScope;
  * بطاقة اللوحة: تظهر متى كان للفصل جدول، وتفتح الفيلم في مكانه. قبل الاعتماد
  * النهائي تقول إنه «حتى الآن»، وبعده إنه نهائي.
  */
-export function TermFilmCard({ scope }: { scope: TermFilmScope }) {
+export function TermFilmCard({ scope, fingerprint = false }: { scope: TermFilmScope; fingerprint?: boolean }) {
   const [brief, setBrief] = useState<{ available: boolean; final: boolean; departments?: number; accepted?: number } | null>(null);
   const [open, setOpen] = useState(false);
   const card = useRef<HTMLElement>(null);
@@ -534,12 +550,12 @@ export function TermFilmCard({ scope }: { scope: TermFilmScope }) {
         {open ? "أغلق" : <><Play aria-hidden="true" />شاهد</>}
       </button>
     </div>
-    {open ? <TermFilmPanel scope={scope} heading={false} /> : null}
+    {open ? <TermFilmPanel scope={scope} heading={false} fingerprint={fingerprint} /> : null}
   </section>;
 }
 
 /** صفحة الرابط المنسوخ: /FSchedule/TermFilm?v=dept&college=…&section=…&term=… */
-export default function TermFilmPage() {
+export default function TermFilmPage({ fingerprint = false }: { fingerprint?: boolean }) {
   const scope = useMemo<TermFilmScope | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const version = params.get("v") === "dean" ? "dean" : "dept";
@@ -548,6 +564,6 @@ export default function TermFilmPage() {
     return { version, collegeId, sectionId, termId };
   }, []);
   return <div className="content-stack tf-page">
-    {scope ? <TermFilmPanel scope={scope} /> : <p className="tf-error" role="alert">الرابط ناقص: لا يُعرف القسم أو الفصل.</p>}
+    {scope ? <TermFilmPanel scope={scope} fingerprint={fingerprint} /> : <p className="tf-error" role="alert">الرابط ناقص: لا يُعرف القسم أو الفصل.</p>}
   </div>;
 }

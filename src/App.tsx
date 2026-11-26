@@ -159,6 +159,7 @@ import { MicroLoader, PrimaryButton } from "./components/ui";
 const GuideAssistant = lazy(() => import("./components/guide/GuideAssistant"));
 import { noteSessionAction } from "./guide/sessionTrail";
 import AdSlot, { usePulse } from "./components/AdSlot";
+import { openInApp, pulseFocusHref, type PulseFocus } from "./utils/pulseLink";
 import { canProactivelyHint, allAllowedGuideFeatures, guideUnreadSummary, featureById, loadGuideProfile, masteryScore, noteFriction, noteHint, recordFeatureEvent, recordFeatureDwell, recordRoute, setGuideTask, setLauncherIntroduced, evaluateGuideFriction, classifyGuideReason, predictedNextFeature, canAccessGuideFeature } from "./guide/smartGuide";
 
 type View =
@@ -1672,6 +1673,8 @@ export default function App() {
       window.history.pushState({}, "", pathByView[view]);
     window.scrollTo({ top: 0, behavior: "auto" });
   };
+  /* «البصمة باب للنبض»: الحلقة تفتح القاعة نفسها في المجسّم (src/utils/pulseLink.ts). */
+  const openPulseFocus = (focus: PulseFocus) => openInApp(pulseFocusHref(focus));
   const runScheduleCommand = (action: "new" | "focus" | "presentation") => {
     sessionStorage.setItem("schedule-command", action);
     go("schedules");
@@ -1909,13 +1912,13 @@ export default function App() {
         /* فيلم الفصل من رابطٍ منسوخ: لأصحاب الجدول وللعميد ومساعده؛ والأستاذ لا يراه.
            الحارسُ الحقيقي في الخادم (src/server/routes/termFilmRoutes.ts). */
         return isPowerAdmin || ["committeeChair", "departmentHead", "dean", "viceDean"].includes(sessionRole.id) || (sessionRole.id === "standard" && hasPerm(7))
-          ? <TermFilmPage />
+          ? <TermFilmPage fingerprint={isPowerAdmin || ["committeeChair", "departmentHead"].includes(sessionRole.id) || (sessionRole.id === "standard" && hasPerm(7))} />
           : unauthorized();
       case "deptFingerprint":
         /* بصمة القسم فيها قاعاته: لأصحاب جدوله فقط، والأستاذ لا يراها.
            الحارسُ الحقيقي في الخادم (src/server/routes/deptFingerprintRoutes.ts). */
         return isPowerAdmin || ["committeeChair", "departmentHead"].includes(sessionRole.id) || (sessionRole.id === "standard" && hasPerm(7))
-          ? <DeptFingerprintPage />
+          ? <DeptFingerprintPage onOpenPulse={hasPerm(7) ? openPulseFocus : undefined} />
           : unauthorized();
       case "departmentSchedule":
         return sessionRole.id === "departmentHead" && hasPerm(14) ? (

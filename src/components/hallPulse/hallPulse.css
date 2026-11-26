@@ -78,6 +78,11 @@
 .hp-hall-head h3{margin:0;font-size:18px;font-weight:800}
 .hp-hall-head span{color:var(--hp-muted);font-size:12.5px}
 .hp-hall-head b{font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* «في البصمة»: طريق العودة من الغرفة إلى حلقتها في بصمة القسم. */
+.hp-hall-head > div{display:grid;justify-items:start;gap:1px}
+.hp-fp-link{display:inline-flex;align-items:center;gap:5px;margin-top:3px;padding:3px 0;min-height:28px;font-size:12.5px;text-decoration:none}
+.hp-fp-link svg{width:15px;height:15px}
+.hp-fp-link:hover{text-decoration:underline}
 .hp-unknown{color:var(--hp-muted);font-weight:500}
 .hp-select{display:grid;gap:4px;font-size:12.5px;color:var(--hp-muted)}
 .hp-select select{min-height:40px;width:100%;border-radius:10px;border:1px solid var(--hp-line);background:rgb(8 24 20 / .55);color:var(--hp-ink);font:inherit;font-size:13.5px;padding:0 10px}

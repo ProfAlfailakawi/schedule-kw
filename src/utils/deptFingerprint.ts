@@ -64,6 +64,8 @@ export interface FingerprintSlot {
 }
 
 export interface FingerprintHall {
+  /** مفتاح القاعة في سجلّ المواقع (roomKeyOf): به تُعرف القاعة نفسها في «نبض القاعات» (src/utils/pulseLink.ts). */
+  key: string;
   name: string;
   capacity: number | null;
   /** دقائق الإشغال في الأسبوع. */
@@ -156,7 +158,7 @@ export function buildFingerprint(input: {
       if (!row.companion && !counted.has(id)) { counted.add(id); minutes += end - start; lectures += 1; timed.push({ day, start, end }); }
       if (!row.hallKey) continue;
       let hall = halls.get(row.hallKey);
-      if (!hall) { hall = { name: row.hallName, capacity, minutes: 0, slots: [], seen: new Set() }; halls.set(row.hallKey, hall); }
+      if (!hall) { hall = { key: row.hallKey, name: row.hallName, capacity, minutes: 0, slots: [], seen: new Set() }; halls.set(row.hallKey, hall); }
       if (hall.capacity == null && capacity) hall.capacity = capacity;
       if (hall.seen.has(id)) continue;
       hall.seen.add(id);

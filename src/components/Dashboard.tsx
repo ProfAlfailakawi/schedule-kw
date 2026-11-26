@@ -14,7 +14,10 @@ import { AR, countOf, nounFor } from "../utils/arabicCount";
 import { readSharedScope, useSharedScope } from "../utils/sharedScope";
 import { singleDepartmentOf } from "../utils/scopeContext";
 import type { TermFilmScope } from "./TermFilm";
+import { openInApp, pulseFocusHref, type PulseFocus } from "../utils/pulseLink";
 
+/* «البصمة باب للنبض»: لمن يفتح شاشة الجدول وحده (canManageSchedule = بوابة الجدول نفسها). */
+const openPulse=(focus:PulseFocus)=>openInApp(pulseFocusHref(focus));
 /* فيلم الفصل يُحمَّل حين يُحتاج فقط: اللوحة في الحمولة الأولى، والفيلم ليس فيها. */
 const TermFilmCard=lazy(()=>import("./TermFilm").then(module=>({default:module.TermFilmCard})));
 const DeptFingerprintCard=lazy(()=>import("./DeptFingerprint").then(module=>({default:module.DeptFingerprintCard})));
@@ -309,9 +312,9 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
     </article>)}
    </section>:null}
 
-   {filmScope?<Suspense fallback={null}><TermFilmCard scope={filmScope}/></Suspense>:null}
+   {filmScope?<Suspense fallback={null}><TermFilmCard scope={filmScope} fingerprint={filmScope.version==="dept"}/></Suspense>:null}
    {/* بصمة القسم (FR-DSH-032): لأصحاب جدول القسم أنفسهم، ففيها قاعاته. */}
-   {filmScope?.version==="dept"&&filmScope.sectionId?<Suspense fallback={null}><DeptFingerprintCard scope={{collegeId:filmScope.collegeId,sectionId:filmScope.sectionId,termId:filmScope.termId}}/></Suspense>:null}
+   {filmScope?.version==="dept"&&filmScope.sectionId?<Suspense fallback={null}><DeptFingerprintCard scope={{collegeId:filmScope.collegeId,sectionId:filmScope.sectionId,termId:filmScope.termId}} onOpenPulse={canManageSchedule?openPulse:undefined}/></Suspense>:null}
 
    {decisions.length>1?<section className={`dashboard-insights dashboard-attention ${attentionOpen?"open":""}`} aria-labelledby="dashboard-attention-title">
     <button className="dashboard-insights-toggle" type="button" onClick={()=>setAttentionOpen(v=>!v)} aria-expanded={attentionOpen} aria-controls="dashboard-attention-list">
