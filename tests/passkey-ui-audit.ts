@@ -48,6 +48,7 @@ check(/بلغتَ الحدّ الأقصى/.test(manager) && /needPassword/.test(
 check(/passkeysOpen/.test(app) && /<Fingerprint \/>/.test(app) && app.indexOf("setPasskeysOpen(true)") < app.indexOf("setDeletionOpen(true)"), "U4 زرٌّ في أزرار الحساب بجوار الخروج وطلب الحذف");
 
 /* U5 */
+check(/passkeyDeviceRemembered\(\)/.test(manager) && /البصمة مفعّلة على هذا الجهاز/.test(manager) && /thisDevice && items\.length && !reRegister/.test(manager), "U9 جهازٌ مسجَّل لا يُعرض له «فعّل» بل حالة «مفعّلة على هذا الجهاز»");
 for (const [name, text] of [["PasskeyEntry", entry], ["PasskeyOffer", offer], ["PasskeyManager", manager]] as const) {
   const buttons = [...text.matchAll(/<button\b(?:=>|[^>])*>/g)].map(match => match[0]);
   check(buttons.length > 0 && buttons.every(tag => /data-guide-ignore=/.test(tag)), `U5 ${name}: كلُّ زرٍّ فيه data-guide-ignore (${buttons.length})`);

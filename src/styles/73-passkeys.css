@@ -89,3 +89,8 @@
 .passkey-card-name{font-size:var(--t-md,17px);font-weight:800;color:var(--ink);line-height:1.5;max-width:100%;overflow-wrap:anywhere}
 .passkey-card p{margin:0;padding:var(--s3) var(--s4);border-radius:var(--r-md,12px);background:var(--danger-soft);color:var(--danger);font-size:var(--t-sm);line-height:1.7}
 @media (prefers-reduced-motion:reduce){.passkey-card-btn{transition:none}}
+
+/* هذا الجهاز مسجَّل: حالةٌ لا زرّ تفعيل */
+.passkey-this-device{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);flex-wrap:wrap;padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.passkey-this-device p{margin:0;display:flex;align-items:center;gap:var(--s2);color:var(--accent);font-weight:700}
+.passkey-this-device svg{width:20px;height:20px}
