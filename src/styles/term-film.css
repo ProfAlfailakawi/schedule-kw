@@ -52,7 +52,7 @@
      height allows, so a stage clamped to the viewport still holds every scene. */
   --u:min(1cqw,1.7778cqh);
   --ease-film:cubic-bezier(.2,.7,.2,1);
-  position:relative;aspect-ratio:16/9;width:100%;max-width:100%;border-radius:22px;overflow:hidden;
+  position:relative;aspect-ratio:16/9;width:100%;max-width:100%;border-radius:22px;overflow:hidden;overflow:clip;
   container-type:size;isolation:isolate;
   background:radial-gradient(120% 90% at 80% 0%,var(--stage-2),var(--stage) 70%);
   color:var(--ink);font-family:var(--font-ui);
@@ -224,9 +224,11 @@
 .tf-reel .tf-sound{color:var(--dim)}
 .tf-reel .tf-sound.is-on{color:var(--gold);border-color:color-mix(in srgb,var(--gold) 60%,var(--rule))}
 .tf-track{flex:1;display:flex;gap:calc(var(--u)*.8);min-width:0}
-/* A scene's bar may be narrower than a tap target (the app's touch floor would
-   push eight of them out of the reel); it stays a full 44px tall where touched. */
-.tf-player .tf-track button{flex:1;min-width:0 !important;border:0;background:none;padding:14px 0;cursor:pointer}
+/* A scene's bar may be narrower than a tap target: the app's touch floor
+   (--ix-tap) would push eight of them out of the reel, so it is lifted for the
+   bars only. On touch-size stages they stay a full 44px tall. */
+.tf-track{--ix-tap:0px}
+.tf-track button{flex:1;min-width:0;border:0;background:none;padding:14px 0;cursor:pointer}
 .tf-track i{display:block;height:4px;border-radius:4px;background:var(--rule);overflow:hidden}
 .tf-track b{display:block;height:100%;width:0;background:var(--ink)}
 .tf-track button[aria-current="true"] i{background:color-mix(in srgb,var(--ink) 22%,var(--rule))}
@@ -236,7 +238,7 @@
 @container (max-width:560px){
   .tf-reel{padding:18px 10px 10px;gap:6px}
   .tf-reel > button{width:var(--ix-tap,44px);height:var(--ix-tap,44px);padding:0;justify-content:center}
-  .tf-player .tf-track button{padding:20px 0}
+  .tf-track button{padding:20px 0}
   .tf-reel > button span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .tf-reel > button svg{width:16px;height:16px}
   .tf-track{gap:3px}
@@ -245,12 +247,11 @@
    words readable instead of shrinking to a stamp, and the week map turns so
    days are columns and hours run down. */
 @container (max-aspect-ratio:1/1){
-  .tf-scene{--u:min(1.85cqw,1.3cqh);gap:calc(var(--u)*1.8);padding:calc(var(--u)*5) calc(var(--u)*4.5) calc(104px + var(--u)*2)}
-  .tf-scene:has(.tf-steps){padding-bottom:calc(104px + var(--u)*2)}
+  .tf-scene{--u:min(1.85cqw,1.3cqh);gap:calc(var(--u)*1.8);padding:calc(var(--u)*5) calc(var(--u)*4.5) calc(116px + var(--u)*2)}
+  .tf-scene:has(.tf-steps){padding-bottom:calc(116px + var(--u)*2)}
   /* The scenes' bar gets a row of its own above the buttons, so each scene stays easy to tap. */
   .tf-reel{flex-wrap:wrap;gap:2px 6px;padding-top:22px}
   .tf-track{order:-1;flex:0 0 100%;gap:4px}
-  .tf-player .tf-track button{padding:15px 0}
   .tf-reel > button:first-of-type{margin-inline-end:auto}
   .tf-big small{margin-top:calc(var(--u)*.6)}
   .tf-trio{gap:calc(var(--u)*3.4);flex-wrap:nowrap}
@@ -275,6 +276,17 @@
   .tf-facts b{font-size:calc(var(--u)*3.4)}
   .tf-facts span{font-size:calc(var(--u)*1.75)}
   .tf-ring{width:calc(var(--u)*26);height:calc(var(--u)*26)}
+}
+/* A narrow pane (a Duo page, a side column): the stage stands up instead of
+   shrinking to a strip, whatever the window's own width. */
+.tf-panel{container-type:inline-size}
+@container (max-width:560px){
+  .tf-player:not(.is-full){aspect-ratio:4/5}
+}
+/* A very short stage keeps the closing to the name, the term and the counts. */
+@container (max-height:300px){
+  .tf-thanks{display:none}
+  .tf-emblem{width:calc(var(--u)*16)}
 }
 @media (max-width:600px){
   /* On a phone the stage stands tall and fills the screen between the bars. */
