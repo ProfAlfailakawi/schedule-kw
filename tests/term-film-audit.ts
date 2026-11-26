@@ -298,6 +298,7 @@ assert.doesNotMatch(playBody, /new Ctor|audioCtor\(/, "التشغيل لا ين�
 assert.match(playBody, /if \(!ctx \|\| !master\) return;/);
 const unlockCalls = [...ui.matchAll(/filmSound\.unlock\(\)/g)].length;
 assert.equal(unlockCalls, 3, "إيقاظ الصوت في ثلاثة مواضع، كلها معالجات نقر: زرّ الموسيقى، وأزرار المشغّل، و«شاهد»");
+assert.match(ui, /const wake = \(\) => \{ if \(sound && filmSound\.unlock\(\) && audible\.current\) filmSound\.play\(\); \};/, "فتح الصوت بنقرةٍ والفيلم يجري يرفع الفرشة فوراً");
 assert.doesNotMatch(ui.replace(/const wake = [^\n]*\n/, "").replace(/const toggleSound = \(\) => \{[\s\S]*?\n  \};/, "").replace(/const toggleOpen = \(\) => \{[\s\S]*?\n  \};/, ""), /filmSound\.unlock/, "ولا إيقاظ خارج معالج نقر");
 assert.match(ui, /audible\.current = sound && rolling && visible;/, "تجري مع الفيلم فقط: تسكت عند الإيقاف وإخفاء التبويب");
 assert.match(ui, /document\.addEventListener\("visibilitychange"/);

@@ -344,7 +344,8 @@ export function TermFilmPlayer({ film }: { film: TermFilmData }) {
   }, [placeEmblem, scenes, shape, full]);
 
   /* كل نقرةٍ على أزرار المشغّل توقظ الصوت إن كان مختاراً: لا صوت قبل نقرة. */
-  const wake = () => { if (sound) filmSound.unlock(); };
+  /* بعد فتح الصوت بنقرة يلحق الفرشةُ الفيلمَ إن كان يجري: الأثر أعلاه جرى قبل وجود سياق الصوت فلم يُسمع شيء. */
+  const wake = () => { if (sound && filmSound.unlock() && audible.current) filmSound.play(); };
   const toggle = () => {
     wake();
     if (ended) show(0);
