@@ -14,7 +14,7 @@ import { currentTermId, termPhase } from "../../utils/termSequence";
 import type { ScheduleShareLink, InstructorRequest } from "../../types";
 import { departmentFamilyResolver } from "../../utils/sectionLabel";
 import { enrichCompanionRoomTypes } from "../../utils/companionRoomDisplay";
-import { clearStaffDeviceCookie, createStaffDeviceSecretResolver, signStaffDevice, signStaffFilmPass, staffDeviceCookie, staffDeviceExpiry, staffFilmCookie, verifyStaffDevice, verifyStaffFilmPass, STAFF_DEVICE_COOKIE, STAFF_FILM_COOKIE, STAFF_FILM_TTL_MS } from "../staffDeviceKey";
+import { clearStaffDeviceCookie, clearStaffFilmCookie, createStaffDeviceSecretResolver, signStaffDevice, signStaffFilmPass, staffDeviceCookie, staffDeviceExpiry, staffFilmCookie, verifyStaffDevice, verifyStaffFilmPass, STAFF_DEVICE_COOKIE, STAFF_FILM_COOKIE, STAFF_FILM_TTL_MS } from "../staffDeviceKey";
 import { wishesFromItems } from "../../utils/myFilm";
 import { withoutPlaceFields } from "../../utils/teacherSafeFields";
 import { instructorFilmFor } from "./myFilmRoutes";
@@ -452,7 +452,9 @@ app.post("/api/public/staff/:token/note", async (req: Request, res: Response) =>
 
 /* «انسَ هذا الجهاز»: يمسح المفتاح من هذا الجهاز وحده. لا يحتاج هوية، فلا يكشف شيئاً. */
 app.post("/api/public/staff/:token/forget", (req: Request, res: Response) => {
-  res.setHeader("Set-Cookie", clearStaffDeviceCookie(String(req.params.token || ""), staffCookieSecure));
+  const forgetToken = String(req.params.token || "");
+  /* مفتاح الجهاز وتذكرة الفيلم معاً: لا يبقى الفيلم مفتوحاً بعد أن يُنسى الجهاز. */
+  res.setHeader("Set-Cookie", [clearStaffDeviceCookie(forgetToken, staffCookieSecure), clearStaffFilmCookie(forgetToken, staffCookieSecure)]);
   res.setHeader("Cache-Control", "no-store");
   res.json({ ok: true });
 });

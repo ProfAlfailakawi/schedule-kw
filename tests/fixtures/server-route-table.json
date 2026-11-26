@@ -5246,7 +5246,7 @@
    ],
    "path": "/api/public/staff/:token/forget",
    "name": "bound dispatch",
-   "call": "52d9597588027792",
+   "call": "2c925efc715cd658",
    "site": "src/server/routes/publicStaffRoutes.ts:454",
    "regexp": "/^\\/api\\/public\\/staff(?:\\/([^/]+?))\\/forget\\/?$/i",
    "end": true
@@ -5259,7 +5259,7 @@
    "path": "/api/public/staff/:token",
    "name": "bound dispatch",
    "call": "235edba4631edc6b",
-   "site": "src/server/routes/publicStaffRoutes.ts:460",
+   "site": "src/server/routes/publicStaffRoutes.ts:462",
    "regexp": "/^\\/api\\/public\\/staff(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5274,7 +5274,7 @@
    ],
    "name": "bound dispatch",
    "call": "cb1317f442d285de",
-   "site": "src/server/routes/publicStaffRoutes.ts:524",
+   "site": "src/server/routes/publicStaffRoutes.ts:526",
    "regexp": "/^\\/me\\/?$|^\\/me\\/?$/i",
    "end": true
   },
@@ -5286,7 +5286,7 @@
    "path": "/api/public/students/:token",
    "name": "bound dispatch",
    "call": "72c0e2d115b5d30a",
-   "site": "src/server/routes/publicStaffRoutes.ts:532",
+   "site": "src/server/routes/publicStaffRoutes.ts:534",
    "regexp": "/^\\/api\\/public\\/students(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5298,7 +5298,7 @@
    "path": "/t/:token",
    "name": "bound dispatch",
    "call": "eddcc225936d5ae9",
-   "site": "src/server/routes/publicStaffRoutes.ts:547",
+   "site": "src/server/routes/publicStaffRoutes.ts:549",
    "regexp": "/^\\/t(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },
@@ -5310,7 +5310,7 @@
    "path": "/api/public/staff/:token/film",
    "name": "bound dispatch",
    "call": "e8041e9da8259124",
-   "site": "src/server/routes/publicStaffRoutes.ts:566",
+   "site": "src/server/routes/publicStaffRoutes.ts:568",
    "regexp": "/^\\/api\\/public\\/staff(?:\\/([^/]+?))\\/film\\/?$/i",
    "end": true
   },
@@ -5322,7 +5322,7 @@
    "path": "/s/:token/film",
    "name": "bound dispatch",
    "call": "83748cff8b762697",
-   "site": "src/server/routes/publicStaffRoutes.ts:589",
+   "site": "src/server/routes/publicStaffRoutes.ts:591",
    "regexp": "/^\\/s(?:\\/([^/]+?))\\/film\\/?$/i",
    "end": true
   },
@@ -5334,7 +5334,7 @@
    "path": "/s/:token",
    "name": "bound dispatch",
    "call": "15666a06dbc635a6",
-   "site": "src/server/routes/publicStaffRoutes.ts:605",
+   "site": "src/server/routes/publicStaffRoutes.ts:607",
    "regexp": "/^\\/s(?:\\/([^/]+?))\\/?$/i",
    "end": true
   },

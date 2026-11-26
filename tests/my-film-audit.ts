@@ -281,7 +281,7 @@ process.env.STAFF_DEVICE_SECRET = process.env.STAFF_DEVICE_SECRET || "my-film-au
 const { Repository } = await import("../src/db/repository");
 const { registerMyFilmRoutes } = await import("../src/server/routes/myFilmRoutes");
 const { registerPublicStaffRoutes } = await import("../src/server/routes/publicStaffRoutes");
-const { signStaffFilmPass, STAFF_FILM_COOKIE } = await import("../src/server/staffDeviceKey");
+const { signStaffFilmPass, STAFF_FILM_COOKIE, STAFF_DEVICE_COOKIE } = await import("../src/server/staffDeviceKey");
 const express = (await import("express")).default;
 const sandbox = `demo_myfilm_${Date.now()}`;
 Repository.createDemoSandbox(sandbox, 180_000);
@@ -378,6 +378,11 @@ try {
   assert.match(setCookie, /HttpOnly/); assert.match(setCookie, /SameSite=Strict/);
   assert.ok(setCookie.includes(`Path=/api/public/staff/${encodeURIComponent(seeded.general)}/film`), "التذكرةُ لمسار الفيلم وحده");
   assert.ok(!setCookie.includes(a.civil), "ولا تحمل رقماً مدنياً");
+  /* «انسَ هذا الجهاز» يمسح التذكرتين معاً بمساريهما: لا يبقى الفيلم مفتوحاً على جهازٍ مشترك. */
+  const forget = await fetch(`${base}/api/public/staff/${encodeURIComponent(seeded.general)}/forget`, { method: "POST" });
+  const cleared = forget.headers.getSetCookie?.() || [];
+  assert.ok(cleared.some(line => line.startsWith(`${STAFF_FILM_COOKIE}=;`) && /Max-Age=0/.test(line) && line.includes(`Path=/api/public/staff/${encodeURIComponent(seeded.general)}/film`)), "نسيانُ الجهاز يمسح تذكرةَ الفيلم بمسارها");
+  assert.ok(cleared.some(line => line.startsWith(`${STAFF_DEVICE_COOKIE}=;`) && /Max-Age=0/.test(line)), "ومفتاحَ الجهاز معها");
   const staffFilmResponse = await filmOf(seeded.general, pass, `?instructorId=${b.id}&AdInstructorId=${b.id}`);
   assert.equal(staffFilmResponse.status, 200);
   assert.match(staffFilmResponse.headers.get("cache-control") || "", /no-store/);

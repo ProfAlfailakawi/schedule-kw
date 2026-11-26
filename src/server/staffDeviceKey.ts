@@ -103,6 +103,11 @@ export function verifyStaffFilmPass(secret: string, token: string, value: unknow
   return verifyStaffDevice(secret, filmScope(token), value, now);
 }
 
+/** يمسح تذكرة الفيلم بمسارها نفسه: «انسَ هذا الجهاز» يمسح التذكرتين معاً. */
+export function clearStaffFilmCookie(token: string, secure: boolean): string {
+  return `${STAFF_FILM_COOKIE}=; Path=/api/public/staff/${encodeURIComponent(token)}/film; Max-Age=0; HttpOnly; SameSite=Strict${secure ? "; Secure" : ""}`;
+}
+
 export function staffFilmCookie(token: string, value: string, expiresAt: number, secure: boolean, now = Date.now()): string {
   const maxAge = Math.max(0, Math.floor((expiresAt - now) / 1000));
   return `${STAFF_FILM_COOKIE}=${encodeURIComponent(value)}; Path=/api/public/staff/${encodeURIComponent(token)}/film; Max-Age=${maxAge}; HttpOnly; SameSite=Strict${secure ? "; Secure" : ""}`;
