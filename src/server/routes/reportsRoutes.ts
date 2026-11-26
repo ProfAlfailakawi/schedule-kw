@@ -10,6 +10,8 @@ import type { Express } from "express";
 import { NextFunction, Request, Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { Repository } from "../../db/repository";
+import { sectionPlanFacts } from "../core/coreqPairs";
+import { pulseCohortsAccess } from "../../utils/movementPaths";
 import { byRoom } from "../../utils/sorting";
 import { activeDays, analyzeSchedule, timeToMinutes } from "../../utils/scheduleIntelligence";
 import { buildFairnessEngine } from "../../utils/livingSchedule";
@@ -1101,6 +1103,22 @@ app.get("/api/reports/department-balance", requirePermission(14), async (req: Au
       scopeLabel: balanceScopeLabel(req),
     },
   });
+});
+
+/* دفعات القسم لمسارات التنقّل في نبض القاعات عند العميد والعميد المساعد: قراءةٌ فقط، لقسمٍ من
+   كليتهما وحدها، وأرقام مقررات كل مستوى لا غير (لا أسماء ولا مواعيد ولا قاعات). */
+app.get("/api/reports/pulse-cohorts", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0);
+  const section = sectionId ? (await Repository.getSections()).find(row => Number(row.AdSectionId) === sectionId) : null;
+  const verdict = pulseCohortsAccess({
+    isAdmin: Boolean(req.user.IsAdminUser), deanReader: readsFinalSchedulesOnly(req), scopeAllowed: isScopeAllowed(req, collegeId, sectionId),
+    collegeId, sectionId, sectionCollegeId: Number(section?.AdCollegeId || 0),
+  });
+  if (verdict === 400) { res.status(400).json({ error: "حدد الكلية والقسم." }); return; }
+  if (verdict === 403) { res.status(403).json({ error: "دفعات القسم هنا للعميد والعميد المساعد في كليتهما." }); return; }
+  const facts = await sectionPlanFacts(sectionId);
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ levelGroups: facts.levelGroups.map(group => ({ courseIds: group.courseIds })) });
 });
 
 app.get("/api/reports/room-load", requireAnyPermission([7, 8, 9, 10, 14, 16, 17]), async (req: AuthenticatedRequest, res: Response) => {

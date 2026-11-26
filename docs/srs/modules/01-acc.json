@@ -3733,8 +3733,8 @@
           "en": "A team member registers a device from their link session and signs in with it to a member session with their role and scope; their key never opens the holder's session nor vice versa; a frozen or ended member or a locked seat is refused with no session."
         },
         {
-          "ar": "على جهازٍ سُجّلت فيه البصمة تُفتح نافذتُها تلقائياً مرةً واحدة لكل تبويب بعد ظهور الصفحة واستقرارها؛ لا تتكرر بإعادة التحميل ولا بعد الخروج، ولا تُفتح عند الوصول ببطاقة دخول أو رابطٍ باسم مستخدم، وإلغاؤها صامت ويبقى الزرّ.",
-          "en": "On a device with a registered passkey its prompt opens automatically once per tab after the page is visible and settled; it does not repeat on reload or after sign-out, does not open when arriving by an access card or a username link, its cancellation is silent and the button remains."
+          "ar": "على جهازٍ سُجّلت فيه البصمة تُفتح نافذتُها تلقائياً بعد ظهور الصفحة واستقرارها، مرةً عند الفتح ومرةً عند كل عودةٍ إلى التطبيق أو الموقع بعد غيابٍ (ثانية ونصف فأكثر)؛ لا تتكرر بإعادة التحميل ولا بعد الخروج حتى الدخول التالي بالبصمة، ولا تُفتح عند الوصول ببطاقة دخول أو رابطٍ باسم مستخدم، وإلغاؤها صامت ويبقى الزرّ.",
+          "en": "On a device with a registered passkey its prompt opens automatically after the page is visible and settled, once on open and again on every return to the app or site after being away (1.5 s or more); it does not repeat on reload, or after sign-out until the next passkey sign-in, does not open when arriving by an access card or a username link, its cancellation is silent and the button remains."
         }
       ],
       "evidence": {
