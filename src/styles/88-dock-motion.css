@@ -34,9 +34,9 @@
 /* لوحة المفاتيح: يتنحّى الشريط ويعود حين تُغلق. */
 .mobile-bottom-dock.dm-kb{transform:translateY(calc(100% + 28px));opacity:0;pointer-events:none}
 
-/* الدوو داخل التطبيق: الكبسولة الداكنة — مؤشّرٌ دائري بلون الحالة النشطة السابقة. */
+/* الدوو داخل التطبيق: الكبسولة الخضراء الداكنة — المؤشّر دائرةٌ فاتحة هادئة بلا حلقة. */
 html[data-device="duo"][data-shell="app"] .mobile-bottom-dock[data-dm-ready]{
-  --dm-ind-bg:rgb(0 0 0 / .38);--dm-ind-ring:rgb(255 255 255 / .1);--dm-ind-radius:999px;
+  --dm-ind-bg:var(--duo-cap-on,rgb(255 255 255 / .16));--dm-ind-ring:transparent;--dm-ind-radius:999px;
 }
 html[data-device="duo"][data-duonav="rail"] .mobile-bottom-dock[data-dm-ready]{
   --dm-ind-bg:rgb(255 255 255 / .16);--dm-ind-ring:rgb(255 255 255 / .08);--dm-ind-radius:999px;
@@ -53,6 +53,9 @@ html[data-device="duo"] .mobile-bottom-dock[data-dm-ready] .mobile-dock-link:act
 }
 @media (prefers-contrast:more){
   .mobile-bottom-dock[data-dm-ready]{--dm-ind-ring:var(--accent)}
+  /* الكبسولة الداكنة على الدوو: حلقةٌ بيضاء واضحة (الأخضر لا يُرى على الأخضر الداكن)، بأولوية تغلب «بلا حلقة» أعلاه. */
+  html[data-device="duo"][data-shell="app"] .mobile-bottom-dock[data-dm-ready],
+  html[data-device="duo"][data-duonav="rail"] .mobile-bottom-dock[data-dm-ready]{--dm-ind-ring:rgb(255 255 255 / .9)}
 }
 /* مرجعٌ للمؤشّر حين لا يكون الشريط مُموضَعًا أصلًا؛ أدنى أولوية فلا يغلب «fixed» في أي صفحة. */
 :where(.mobile-bottom-dock){position:relative}
