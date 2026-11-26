@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Check, Clapperboard, Copy, Maximize2, Minimize2, Pause, Play, RotateCcw } from "lucide-react";
 import { filmScenes, termFilmPath, TERM_FILM_BANDS, type TermFilmData, type TermFilmSceneKey } from "../utils/termFilm";
 import "../styles/term-film.css";
+import TermFilmExport from "./TermFilmExport";
 
 /**
  * ── فيلم الفصل ──────────────────────────────────────────────────────────────
@@ -273,7 +274,7 @@ export function TermFilmPanel({ scope, heading = true }: { scope: TermFilmScope;
       <CopyLink scope={scope} />
     </header> : null}
     {error ? <p className="tf-error" role="alert">{error}</p>
-      : film ? <TermFilmPlayer film={film} />
+      : film ? <><TermFilmPlayer film={film} /><TermFilmExport film={film} /></>
       : <div className="tf-player tf-loading" role="status" aria-label="جاري إعداد الفيلم"><span>جاري إعداد الفيلم…</span></div>}
   </section>;
 }

@@ -14,6 +14,7 @@ import {
 } from "../utils/timeMachine";
 import { reachAboutCard } from "../utils/reachInstructor";
 import { AR, countOf, nounFor } from "../utils/arabicCount";
+import CurtainCompare from "./CurtainCompare";
 import { DeltaStrip, Ico, LevelDot, TimeSlider, postJson, scopeQuery, type IcoName, type LoadedContext } from "./timeMachineShared";
 
 const OP_ICON: Record<TmChange["op"], IcoName> = { move: "move", assign: "assign", remove: "remove", add: "add" };
@@ -167,6 +168,9 @@ export default function ScenarioWorkbench({ context, changes, mode, problem, sce
           </div>
         </div>
       </div>
+
+      {/* ستارة قبل/بعد فوق الأسبوع: القراءة نفسها التي ترسم المنزلقة أعلاه، تُكشف بالسحب. */}
+      <CurtainCompare before={base} after={after} context={context} focus={focus} />
 
       <footer className="tm-bench-actions">
         {canWrite && !applied ? (
