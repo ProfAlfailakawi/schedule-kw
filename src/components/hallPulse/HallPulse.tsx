@@ -18,7 +18,7 @@ import {
   type PulseRegistryInput, type PulseRowInput, type PulseSession,
 } from "../../utils/hallPulse";
 import { AR, countOf, type ArabicNoun } from "../../utils/arabicCount";
-import type { HallVisual, InteriorData, PulseScene as PulseSceneType } from "./pulseScene";
+import type { FloorMood, HallVisual, InteriorData, PulseScene as PulseSceneType } from "./pulseScene";
 import {
   beforeAfter, cinemaLegs, cinemaMinute, cinemaSteps, peakMoment, playbackKind, pressureAt, pressureCurve, seatLayout, soundLevels, worstMoment,
   type CinemaLeg, type HallState, type PressurePoint,
@@ -31,6 +31,7 @@ import { liveSectionTexts } from "../../utils/registrarCheck";
 import { withFullCourseCodes, type RegistrarRequestDoc, type RegistrarRequestItem } from "../../utils/registrarRequest";
 import { openMatchReport } from "../../utils/openMatchReport";
 import { copyText } from "../../utils/accessCardImage";
+import { busiestEveningMinute, eveningFootprint, eveningSummary, floorKeyOf, planEvening, EVENING_START } from "../../utils/hallPulseEvening";
 
 export interface HallPulseMove {
   row: unknown;
@@ -62,6 +63,7 @@ export interface HallPulseProps {
 
 const MOVE: ArabicNoun = { one: "نقلة", two: "نقلتان", few: "نقلات", many: "نقلة" };
 const DIFF: ArabicNoun = { one: "فرق", two: "فرقان", few: "فروق", many: "فرقاً" };
+const FLOOR_NOUN: ArabicNoun = { one: "طابق", two: "طابقان", few: "طوابق", many: "طابقاً" };
 /** لون طبقة التسجيل: بنفسجيٌّ هادئ لا يشبه ألوان الملاءمة ولا النحاسي ولا مسارات التنقّل. */
 const REG_HEX = 0x8c6cff;
 const FIT_HEX: Record<FitClass, number> = { pressed: 0xf0674f, full: 0xf0b24a, fit: 0x4fd3a1, wide: 0x6aa9d8, unknown: 0xa8b5af };
@@ -184,6 +186,8 @@ export default function HallPulse(props: HallPulseProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [pending, setPending] = useState<{ sessionId: number; from: string; to: string } | null>(null);
   const [plan, setPlan] = useState<DayPlan | null>(null);
+  /* الخطة المعروضة: «رتّب قاعاتي» أو «ضمّ المساء» — المراجعة والحفظ واحد. */
+  const [planKind, setPlanKind] = useState<"arrange" | "evening">("arrange");
   const [planRev, setPlanRev] = useState(0);
   const [planBefore, setPlanBefore] = useState<ReturnType<typeof metrics> | null>(null);
   const [freeGlow, setFreeGlow] = useState(false);
@@ -468,6 +472,17 @@ export default function HallPulse(props: HallPulseProps) {
     // planRev: تبديل نقلة داخل الخطة نفسها.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [plan, planRev, day, model, original, viewDay, minute]);
+  /* «ضمّ المساء»: آثار المساء قبل الخطة وبعدها (مع ما استُبعد منها)، والطوابق التي تنطفئ والتي تبقى. */
+  const evening = useMemo(() => {
+    if (!plan || planKind !== "evening" || day === "week") return null;
+    const before = eveningFootprint(model, original, plan.day), after = eveningFootprint(model, assignment, plan.day);
+    const offFloors = new Set([...before.floors].filter(f => !after.floors.has(f)));
+    const closed = Math.max(0, before.halls.size - after.halls.size);
+    return { before, after, offFloors, closed, summary: eveningSummary(closed, after.floors.size, before.floors.size) };
+    // planRev: تبديل نقلة داخل الخطة نفسها.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, planKind, planRev, day, model, original, assignment]);
+  const eveningNow = Boolean(evening) && minuteShown >= EVENING_START;
   const visuals = useMemo(() => {
     const out = new Map<string, HallVisual>();
     const order = new Map<string, number[]>();
@@ -488,6 +503,9 @@ export default function HallPulse(props: HallPulseProps) {
           pulse: cls === "pressed", ghost: pending?.to === h.key, label: `${FIT_GLYPH[cls]} ${h.code}`,
           showLabel: !manyHalls || cls === "pressed" || pending?.to === h.key || pending?.from === h.key,
         });
+      } else if (eveningNow && evening!.offFloors.has(floorKeyOf(h)) && !foreign) {
+        /* طابقٌ ينطفئ مساءً: قاعاته مطفأة، لا زجاجٌ فارغ ينتظر. */
+        out.set(h.key, { color: 0x23302d, level: 0, occupied: false, dim: true, label: h.code, showLabel: false });
       } else {
         out.set(h.key, {
           color: foreign ? 0x5d6f67 : 0xcfe9df, level: foreign ? 0.5 : 0, occupied: foreign, dim: foreign,
@@ -504,7 +522,7 @@ export default function HallPulse(props: HallPulseProps) {
       }
     }
     return out;
-  }, [model, occ, day, heat, viewDay, minuteShown, glowKeys, pending, manyHalls, freeGlow, activePath, mode, compare]);
+  }, [model, occ, day, heat, viewDay, minuteShown, glowKeys, pending, manyHalls, freeGlow, activePath, mode, compare, eveningNow, evening]);
   /* طبقة التسجيل فوق ما يُرى (اليوم أو الأسبوع): قاعةٌ فيها فرقٌ مفتوح تتنفّس بالبنفسجي بشارة عددها، والباقي يبهت قليلاً. */
   const shown = useMemo(() => {
     if (!regOn || !regLayer || mode !== "halls") return visuals;
@@ -570,20 +588,37 @@ export default function HallPulse(props: HallPulseProps) {
   const comparing = Boolean(beforeVisuals) && !flat && !insideKey;
   useEffect(() => { sceneRef.current?.setCompare(comparing ? beforeVisuals : null, splitRef.current); }, [comparing, beforeVisuals, sceneReady]);
   useEffect(() => { sceneRef.current?.setSplit(split); }, [split, sceneReady]);
+  /* «ضمّ المساء» في المجسّم: بعد الثانية يعتم الطابق الذي ينطفئ ويتوهّج الذي يبقى. */
+  const floorMood: FloorMood | null = useMemo(() => {
+    if (!evening || !eveningNow) return null;
+    const out: FloorMood = new Map();
+    for (const h of model.halls) {
+      const spot = layout.spots.get(h.key);
+      if (!spot) continue;
+      const fk = floorKeyOf(h), key = `${spot.building}|${spot.floorIndex}`;
+      if (evening.after.floors.has(fk)) out.set(key, "keep");
+      else if (evening.offFloors.has(fk) && !out.has(key)) out.set(key, "off");
+    }
+    return out;
+  }, [evening, eveningNow, model, layout]);
+  useEffect(() => { sceneRef.current?.setFloorMood(insideKey ? null : floorMood); }, [floorMood, insideKey, sceneReady]);
   const hasPlan = Boolean(plan);
   useEffect(() => {
     if (!hasPlan) return;
-    /* الفاصل يدخل من اليمين كاشفاً «بعد الترتيب» حتى المنتصف. */
-    if (reduced) { setSplit(0.5); return; }
+    /* الفاصل يدخل من اليمين كاشفاً «بعد الترتيب» حتى المنتصف؛ و«ضمّ المساء» يمسح المشهد كله تقريباً
+       كأن الأضواء تنطفئ طابقاً بعد طابق، ويبقى شريط «الآن» على الطرف يُسحب متى شئت. */
+    const to = planKind === "evening" ? 0.9 : 0.5;
+    if (reduced) { setSplit(to); return; }
     let raf = 0; const t0 = performance.now();
     const step = (now: number) => {
-      const u = Math.min(1, (now - t0) / 1100), e = 1 - Math.pow(1 - u, 3);
-      setSplit(0.04 + 0.46 * e);
+      const u = Math.min(1, (now - t0) / (planKind === "evening" ? 1900 : 1100)), e = 1 - Math.pow(1 - u, 3);
+      setSplit(0.04 + (to - 0.04) * e);
       if (u < 1) raf = requestAnimationFrame(step);
     };
     setSplit(0.04);
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPlan, reduced]);
   /* العرض والكاميرا: تعود إلى المنظر الكامل حين ينتهي، وتقترب من القاعة عند أشدّ لحظة. */
   useEffect(() => {
@@ -794,7 +829,7 @@ export default function HallPulse(props: HallPulseProps) {
       return;
     }
     setPlanBefore(metrics(model, original, viewDay));
-    setPlan(p); setPlanRev(r => r + 1);
+    setPlan(p); setPlanKind("arrange"); setPlanRev(r => r + 1);
     const firstStart = Math.min(...p.groups.map(g => g.start));
     const slotHas = p.groups.some(g => g.moves.some(mv => { const s = model.sessionById.get(mv.sessionId)!; return minute >= s.start && minute < s.end; }));
     if (!slotHas) setMinute(firstStart + 5);
@@ -805,6 +840,31 @@ export default function HallPulse(props: HallPulseProps) {
     window.setTimeout(() => {
       const el = document.querySelector(".hp-review");
       el?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    }, reduced ? 0 : 450);
+  };
+  /* «ضمّ المساء»: خطةٌ بصيغة «رتّب قاعاتي» تجمع شعب ما بعد الثانية في أقل الطوابق؛ المراجعة والحفظ نفسهما. */
+  const gatherEvening = () => {
+    if (day === "week") { setDay(viewDay); }
+    stopPlay(); setPending(null); setFreeGlow(false); setBorrow(null); setNotice(null); setWalk(0);
+    const ep = planEvening(model, original, viewDay);
+    const dayName = PULSE_DAYS.find(x => x.key === viewDay)!.label;
+    const at = busiestEveningMinute(model, viewDay);
+    if (!ep.plan) {
+      setPlan(null);
+      announce(ep.reason === "none" ? `لا محاضرات بعد الثانية يوم ${dayName}: لا مساء يُجمع.`
+        : ep.reason === "single" ? `شعب المساء يوم ${dayName} في طابقٍ واحد أصلاً (${countOf(ep.before.halls, AR.room)}): لا شيء يُجمع.`
+          : `لا يُجمع شيء يوم ${dayName}: لا قاعة فارغة من نوعها تتّسع لشعب المساء في طابقٍ آخر، فتبقى على ${countOf(ep.before.floors, FLOOR_NOUN)}.`);
+      if (at != null) setMinute(at + 5);
+      return;
+    }
+    setPlanBefore(metrics(model, original, viewDay));
+    setPlan(ep.plan); setPlanKind("evening"); setPlanRev(r => r + 1);
+    setMinute((at ?? EVENING_START) + 5);
+    const pairs = planMoves(ep.plan).map((mv, k) => ({ from: mv.from, to: mv.to, color: FIT_HEX[fitClass(model.sessionById.get(mv.sessionId)!.students, model.hallByKey.get(mv.to)!.capacity)], delay: k * 0.35 }));
+    sceneRef.current?.fly(pairs.slice(0, 24));
+    announce(`ضمّ المساء يوم ${dayName}: ${eveningSummary(ep.closed, ep.after.floors, ep.before.floors)}. كل شعبةٍ في قاعةٍ من نوعها تتّسع لها وفارغةٍ في أيامها كلها. اقتراحٌ لم يُحفظ بعد.`);
+    window.setTimeout(() => {
+      document.querySelector(".hp-review")?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
     }, reduced ? 0 : 450);
   };
   const cancelPlan = () => {
@@ -825,7 +885,9 @@ export default function HallPulse(props: HallPulseProps) {
     setSaving(false);
     if (ok) {
       setPlan(null);
-      setNotice({ tone: "ok", text: `حُفظت ${countOf(moves.length, MOVE)}. المضغوطة من ${n(planBefore?.over || 0)} إلى ${n(after.over)}، والتناسب من ${n(planBefore?.pct || 0)}% إلى ${n(after.pct)}%.` });
+      setNotice({ tone: "ok", text: planKind === "evening" && evening
+        ? `حُفظت ${countOf(moves.length, MOVE)}: ${evening.summary}.`
+        : `حُفظت ${countOf(moves.length, MOVE)}. المضغوطة من ${n(planBefore?.over || 0)} إلى ${n(after.over)}، والتناسب من ${n(planBefore?.pct || 0)}% إلى ${n(after.pct)}%.` });
       announce("حُفظت الخطة دفعةً واحدة عبر مسار النقل المعتاد، وأعاد الخادم فحص كل نقلة.");
     } else {
       setNotice({ tone: "warn", text: "لم تُحفظ الخطة: رفض فحصُ التعارض إحدى النقلات فلم يتغيّر شيء. الخطة باقية لتراجعها." });
@@ -910,12 +972,17 @@ export default function HallPulse(props: HallPulseProps) {
       <div className="hp-metric"><span>{label}</span><div><s>{fmt(a)}</s><b className={(lowerBetter ? b > a : b < a) ? "is-worse" : ""}>{fmt(b)}</b></div></div>
     );
     return (
-      <section className="hp-review" aria-live="polite" aria-label="خطة ترتيب القاعات">
+      <section className="hp-review" aria-live="polite" aria-label={planKind === "evening" ? "خطة ضمّ المساء" : "خطة ترتيب القاعات"}>
         <header className="hp-review-head">
-          <h3>خطة ترتيب القاعات · {PULSE_DAYS.find(x => x.key === plan.day)!.label}</h3>
+          <h3>{planKind === "evening" ? "ضمّ المساء" : "خطة ترتيب القاعات"} · {PULSE_DAYS.find(x => x.key === plan.day)!.label}</h3>
           <span><b>{countOf(total, MOVE)}</b> في {countOf(starts.length, { one: "وقت", two: "وقتان", few: "أوقات", many: "وقتاً" })} · لم يُحفظ شيء بعد</span>
         </header>
+        {planKind === "evening" && evening ? (
+          <p className="hp-evening-line"><i aria-hidden="true">☾</i> بعد الثانية ظهراً: <b>{evening.summary}</b></p>
+        ) : null}
         <div className="hp-metrics">
+          {planKind === "evening" && evening ? metric("قاعات مضاءة مساءً", evening.before.halls.size, evening.after.halls.size, n, true) : null}
+          {planKind === "evening" && evening ? metric("طوابق مضاءة مساءً", evening.before.floors.size, evening.after.floors.size, n, true) : null}
           {metric("شعب مضغوطة في اليوم", b4.over, after.over, n, true)}
           {metric("مقاعد مهدرة في قاعات واسعة", b4.waste, after.waste, n, true)}
           {metric("شعب في قاعة تناسبها", b4.pct, after.pct, v => `${n(v)}%`, false)}
@@ -1081,7 +1148,8 @@ export default function HallPulse(props: HallPulseProps) {
     const after = metrics(model, assignment, plan.day);
     return (
       <div className="hp-mini-plan" role="status">
-        <strong>الخطة قبل الحفظ</strong>
+        <strong>{planKind === "evening" ? "ضمّ المساء قبل الحفظ" : "الخطة قبل الحفظ"}</strong>
+        {planKind === "evening" && evening ? <span className="hp-mini-evening"><i aria-hidden="true">☾</i> {evening.summary}</span> : null}
         <span><i data-tone="pressed">{FIT_GLYPH.pressed}</i> مضغوطة <s>{n(planBefore.over)}</s> <b>{n(after.over)}</b></span>
         <span><i data-tone="fit">{FIT_GLYPH.fit}</i> تناسب <s>{n(planBefore.pct)}%</s> <b>{n(after.pct)}%</b></span>
         <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-link" onClick={() => document.querySelector(".hp-review")?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" })}>راجع النقلات</button>
@@ -1458,7 +1526,7 @@ export default function HallPulse(props: HallPulseProps) {
               {comparing ? (
                 <div className="hp-split-layer"><div className="hp-split" style={{ left: `${(split * 100).toFixed(2)}%` }}>
                   <span className="hp-split-line" aria-hidden="true" />
-                  <span className="hp-split-tag is-after" aria-hidden="true">بعد الترتيب</span>
+                  <span className="hp-split-tag is-after" aria-hidden="true">{planKind === "evening" ? "بعد الضمّ" : "بعد الترتيب"}</span>
                   <span className="hp-split-tag is-before" aria-hidden="true">الآن</span>
                   <div className="hp-split-grip" role="slider" tabIndex={0} aria-label="فاصل قبل وبعد: يساره القاعات بعد الترتيب ويمينه القاعات كما هي الآن" aria-orientation="horizontal"
                     aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(split * 100)} aria-valuetext={`بعد الترتيب ${n(split * 100)}% من المشهد`}
@@ -1479,6 +1547,19 @@ export default function HallPulse(props: HallPulseProps) {
                     <span aria-hidden="true">‹ ›</span>
                   </div>
                 </div></div>
+              ) : null}
+              {evening && plan && cine === "off" && !insideKey ? (
+                <div className="hp-evening-card" role="status">
+                  <span className="hp-evening-moon" aria-hidden="true">☾</span>
+                  <div className="hp-evening-text">
+                    <strong>{evening.summary}</strong>
+                    <small>{eveningNow ? `بعد الثانية ظهراً · ${countOf(planMoves(plan).length, MOVE)} لم تُحفظ بعد` : "الخطة للمساء: حرّك الساعة إلى ما بعد الثانية لترى الطوابق تنطفئ"}</small>
+                  </div>
+                  <div className="hp-row">
+                    {!eveningNow ? <button data-guide-ignore="ينقل الساعة إلى المساء؛ عرض فقط" type="button" className="hp-btn" onClick={() => { const at = busiestEveningMinute(model, plan.day); setMinute((at ?? EVENING_START) + 5); }}>إلى المساء</button> : null}
+                    <button data-guide-ignore="يجلب مراجعة نقلات ضمّ المساء إلى العين؛ عرض فقط" type="button" className="hp-btn is-main" onClick={() => document.querySelector(".hp-review")?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" })}>راجع النقلات</button>
+                  </div>
+                </div>
               ) : null}
               {cine === "worst" && worst && !insideKey ? (() => {
                 const h = model.hallByKey.get(worst.hallKey)!;
@@ -1574,6 +1655,8 @@ export default function HallPulse(props: HallPulseProps) {
             </button>
           ) : null}
           {canSave && mode === "halls" && !regOn ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving || day === "week"}>✦ رتّب قاعاتي</button> : null}
+          {canSave && mode === "halls" && !regOn ? <button data-guide-ignore="يقترح جمع شعب ما بعد الثانية في أقل الطوابق ويفتح مراجعتها؛ معاينة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-evening" onClick={gatherEvening} disabled={Boolean(plan) || saving}
+            title="بعد الثانية ظهراً: اجمع الشعب القليلة في أقل الطوابق، وتنطفئ البقية"><span aria-hidden="true">☾</span> ضمّ المساء</button> : null}
           <label className="hp-range">
             <span className="hp-sr">الساعة</span>
             {day !== "week" && curve.length ? <DayTimeline curve={curve} peak={peak ? peak.students : 0} minute={minute} worst={worst ? worst.minute : null} start={model.dayStart} end={model.dayEnd} /> : null}

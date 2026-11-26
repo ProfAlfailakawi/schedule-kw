@@ -72,7 +72,13 @@ interface RoomRig {
   altHaloO: number;
 }
 
-interface SlabRig { mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>; building: string; floorIndex: number; baseY: number; liftY: number; fadeK: number }
+interface SlabRig {
+  mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>; building: string; floorIndex: number; baseY: number; liftY: number; fadeK: number;
+  /** «ضمّ المساء»: 1 طابقٌ يبقى مضاءً، و-1 طابقٌ ينطفئ، و0 كما هو؛ وmoodK تخفيفه. */
+  mood: number; moodK: number;
+}
+/** «ضمّ المساء»: الطابق الذي يبقى مضاءً يتوهّج، والذي ينطفئ يعتم. المفتاح «المبنى|ترتيب الطابق». */
+export type FloorMood = Map<string, "off" | "keep">;
 
 /** نسبة ما تملؤه المباني من اللوحة عند الإطار الآلي. */
 const FRAME_FILL = 0.74;
@@ -83,6 +89,7 @@ const CALM = new THREE.Color(0x4fd3a1);
 const EDGE = new THREE.Color(0x7fb3a3);
 const WINDOW_WARM = new THREE.Color(0xffe2a8);
 const PATH_GLOW = new THREE.Color(0x7fe0ff);
+const SLAB = new THREE.Color(0x1d4a41), SLAB_KEEP = new THREE.Color(0x2f7f6a), SLAB_OFF = new THREE.Color(0x0b1a17);
 
 function glowTexture() {
   const c = document.createElement("canvas");
@@ -181,6 +188,9 @@ export class PulseScene {
   private homePol = 1.08;
   /** «قبل وبعد»: موضع الفاصل 0–1 من يسار اللوحة؛ يساره «بعد» ويمينه «قبل». null = لا فاصل. */
   private split: number | null = null;
+  /** «ضمّ المساء»: لافتة «يبقى مضاءً» على كل طابقٍ يبقى، ومزاج الطوابق مفعّل أم لا. */
+  private floorTags = new Map<string, { el: HTMLDivElement; pos: THREE.Vector3 }>();
+  private moodOn = false;
   /** «اليوم يمرّ أمامك»: الكاميرا تدور ببطء مع الشمس ما لم يمسك القارئ المشهد. */
   private cineOn = false;
   private cineFree = false;
@@ -336,7 +346,7 @@ export class PulseScene {
         slab.position.set(b.cx, f * FLOOR_H - 0.06, b.cz);
         slab.receiveShadow = true; slab.castShadow = !neighbour;
         parent.add(slab);
-        if (!neighbour) this.slabs.push({ mesh: slab, building: b.code, floorIndex: f, baseY: slab.position.y, liftY: 0, fadeK: 1 });
+        if (!neighbour) this.slabs.push({ mesh: slab, building: b.code, floorIndex: f, baseY: slab.position.y, liftY: 0, fadeK: 1, mood: 0, moodK: 0 });
       }
       const el = document.createElement("div");
       el.className = `hp-tag hp-tag-building${neighbour ? " is-neighbour" : ""}`;
@@ -412,6 +422,34 @@ export class PulseScene {
   setSplit(split: number) {
     if (this.split == null) return;
     this.split = THREE.MathUtils.clamp(split, 0, 1);
+    this.kick();
+  }
+
+  /**
+   * «ضمّ المساء»: الطوابق التي تنطفئ تعتم، والتي تبقى تتوهّج بلافتة «يبقى مضاءً مساءً».
+   * null يعيد الطوابق كما هي. (جانب «الآن» من الفاصل يُرسم بطوابقه المعتادة.)
+   */
+  setFloorMood(mood: FloorMood | null) {
+    this.moodOn = Boolean(mood && mood.size);
+    for (const sl of this.slabs) {
+      const m = mood?.get(`${sl.building}|${sl.floorIndex}`);
+      sl.mood = m === "keep" ? 1 : m === "off" ? -1 : 0;
+    }
+    const wanted = new Set<string>();
+    if (mood) for (const [key, m] of mood) if (m === "keep") wanted.add(key);
+    for (const [key, t] of this.floorTags) if (!wanted.has(key)) { t.el.remove(); this.floorTags.delete(key); }
+    for (const key of wanted) {
+      if (this.floorTags.has(key)) continue;
+      const [code, idx] = [key.slice(0, key.lastIndexOf("|")), Number(key.slice(key.lastIndexOf("|") + 1))];
+      const b = this.opts.layout.buildings.find(x => x.code === code);
+      if (!b) continue;
+      const el = document.createElement("div");
+      el.className = "hp-tag hp-tag-floor";
+      el.textContent = "☾ يبقى مضاءً مساءً";
+      this.opts.labels.appendChild(el);
+      /* على الحافة الأمامية للطابق، تحت قاعاته: لا تغطّي لافتات القاعات. */
+      this.floorTags.set(key, { el, pos: new THREE.Vector3(b.cx, idx * FLOOR_H - 0.1, b.cz + b.d / 2 + 1.05) });
+    }
     this.kick();
   }
 
@@ -933,7 +971,20 @@ export class PulseScene {
         sl.liftY += (lw - sl.liftY) * ek; sl.fadeK += (fw - sl.fadeK) * ek;
         if (Math.abs(lw - sl.liftY) + Math.abs(fw - sl.fadeK) > 0.002) busy = true;
         sl.mesh.position.y = sl.baseY + sl.liftY;
-        sl.mesh.material.opacity = sl.fadeK;
+        /* «ضمّ المساء»: يتوهّج الطابق الباقي ويتنفّس (ثابتٌ مع تقليل الحركة)، ويعتم المنطفئ. */
+        sl.moodK += (sl.mood - sl.moodK) * ek;
+        if (Math.abs(sl.mood - sl.moodK) > 0.002) busy = true;
+        const mat = sl.mesh.material;
+        if (sl.moodK >= 0) {
+          mat.color.copy(SLAB).lerp(SLAB_KEEP, sl.moodK);
+          mat.emissive.copy(CALM);
+          mat.emissiveIntensity = sl.moodK * (0.22 + 0.2 * breathe);
+          if (sl.mood > 0 && !reduced) busy = true;
+        } else {
+          mat.color.copy(SLAB).lerp(SLAB_OFF, -sl.moodK);
+          mat.emissiveIntensity = 0;
+        }
+        mat.opacity = sl.fadeK * (1 + Math.min(0, sl.moodK) * 0.35);
         sl.mesh.castShadow = sl.fadeK > 0.5;
       }
     }
@@ -1023,6 +1074,7 @@ export class PulseScene {
     this.rooms.forEach(rig => tagFor(rig, 1));
     this.nbRooms.forEach(rig => tagFor(rig, this.nbAlpha));
     this.buildingTags.forEach(t => place(t.el, t.pos, true));
+    this.floorTags.forEach(t => { t.el.hidden = this.mode !== "campus"; if (!t.el.hidden) place(t.el, t.pos, true); });
     this.nbBuildingTags.forEach(t => { t.el.hidden = this.nbAlpha < 0.6; if (!t.el.hidden) place(t.el, t.pos, true); });
 
     /* العبور إلى داخل القاعة: اقترابٌ ثم ستارٌ يعتم، ثم القاعة من الداخل تنكشف. */
@@ -1051,6 +1103,8 @@ export class PulseScene {
       if (x > 0) { this.renderer.setScissor(0, 0, x, this.H); this.renderer.render(this.scene, this.camera); }
       if (x < this.W) {
         for (const rig of this.rooms.values()) if (rig.alt) paint(rig, rig.alt, rig.altLevel, rig.altColor, rig.altWinO, rig.altHaloO, 1, false);
+        /* جانب «الآن»: الطوابق كما هي، بلا توهّج المساء ولا عتمته. */
+        if (this.moodOn) for (const sl of this.slabs) { sl.mesh.material.color.copy(SLAB); sl.mesh.material.emissiveIntensity = 0; sl.mesh.material.opacity = sl.fadeK; }
         this.renderer.setScissor(x, 0, this.W - x, this.H);
         this.renderer.render(this.scene, this.camera);
       }
@@ -1083,6 +1137,7 @@ export class PulseScene {
     this.clearPath();
     this.rooms.clear();
     this.buildingTags.forEach(t => t.el.remove());
+    this.floorTags.forEach(t => t.el.remove()); this.floorTags.clear();
     this.disposables.forEach(d => d.dispose());
     this.scene.clear();
     this.renderer.dispose();

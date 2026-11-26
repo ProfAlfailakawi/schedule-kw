@@ -5829,6 +5829,62 @@
         ]
       },
       "inferred": false
+    },
+    {
+      "id": "FR-SCH-098",
+      "kind": "functional",
+      "title": {
+        "ar": "نبض القاعات: «ضمّ المساء» — شعب ما بعد الثانية في أقل الطوابق، وتنطفئ البقية في المجسّم",
+        "en": "Hall pulse: «Gather the evening» — sessions after 2 pm in the fewest floors, with the rest turning off in the scene"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يضيف إلى نبض القاعات في ورشة القسم زرّ «ضمّ المساء» لرئيس لجنة الجدول (من يحفظ «رتّب قاعاتي» نفسه): (1) المساء كل شعبةٍ تبدأ في الثانية ظهراً أو بعدها (ثابتٌ مسمّى EVENING_START)، والطابق مبنىً ورقماً. (2) يقترح لليوم المختار نقل شعب المساء إلى أقل عددٍ من الطوابق: كل نقلةٍ إلى قاعةٍ من نوع الشعبة تتّسع لها (typeFits عبر compatible، ولا قاعة مجهولة الإشغال) وفارغةٍ في أيام الشعبة كلها طوال وقتها وغير مشغولةٍ لجهةٍ أخرى (hallFreeFor نفسه في «رتّب قاعاتي»)؛ والشعبة بلا عدد طلبة أو في قاعةٍ مجهولة السعة لا تُنقل ويبقى طابقها مضاءً؛ وتُلغى كل نقلةٍ لا تُطفئ الطابق الذي غادرته. (3) الخطة بصيغة «رتّب قاعاتي» نفسها (DayPlan) تُراجع في لوحة المراجعة ذاتها بنقلاتٍ تُستبعد واحدةً واحدة، وتُحفظ من مسار النقل المعتاد (/api/schedules/move-batch) لرئيس اللجنة وحده؛ لا مسار كتابةٍ جديد. (4) في المجسّم تنتقل الساعة إلى أزحم لحظةٍ مسائية، وبعد الثانية يعتم الطابق الذي ينطفئ وتُطفأ قاعاته، ويتوهّج الطابق الباقي بلافتة «يبقى مضاءً مساءً» (ثابتاً بلا تنفّس مع تقليل الحركة)، وفاصل «قبل وبعد» يمسح المشهد إلى «بعد الضمّ» ويبقى «الآن» على طرفه يُسحب؛ مع بطاقة «N قاعات تُغلق مساءً · طابقٌ واحد بدل M» (صافي ما يُغلق: المضاءة قبل ناقص المضاءة بعد) و«راجع النقلات». (5) حين لا يُجمع شيء يقول ذلك صراحةً: لا مساء في اليوم، أو شعب المساء في طابقٍ واحد أصلاً، أو لا قاعة فارغة من نوعها تتّسع في طابقٍ آخر. (6) لا يظهر الزرّ في عدسة التقارير ولا للعميد ولا على الهاتف (للقراءة)، ولا يُذكر فيه رقم مدنيّ.",
+        "en": "The system shall add to the hall pulse in the department workshop a «Gather the evening» button for the schedule committee chair (whoever saves «Arrange my halls»): (1) the evening is every session starting at or after 2 pm (a named constant EVENING_START), and a floor is a building and a number. (2) For the chosen day it proposes moving evening sessions into the fewest floors: every move goes to a hall of the session's type that fits it (typeFits via compatible, never a hall whose occupancy was not read) that is free on all the session's days for its whole time and not held by another unit (the same hallFreeFor as «Arrange my halls»); a session with no student count or in a hall of unknown capacity is not moved and its floor stays lit; any move that does not switch off the floor it left is dropped. (3) The plan has the shape of «Arrange my halls» (DayPlan), is reviewed in the same review panel with moves excludable one by one, and saves through the usual move route (/api/schedules/move-batch) for the chair alone; no new write path. (4) In the scene the clock goes to the busiest evening moment; after 2 pm the floor that closes dims and its halls switch off, the kept floor glows with a «Stays lit in the evening» tag (steady, without breathing, under reduced motion), and the before/after divider sweeps the scene to «After gathering» leaving «Now» at its edge to drag; with a card «N halls close in the evening · one floor instead of M» (net closures: lit before minus lit after) and «Review the moves». (5) When nothing can be gathered it says so plainly: no evening that day, the evening is already on one floor, or no free hall of the right type fits on another floor. (6) The button does not appear in the reports lens, for the dean, or on the phone (read-only), and carries no civil ID."
+      },
+      "rationale": {
+        "ar": "بعد الثانية تتبعثر شعبٌ قليلة على طوابق كثيرة؛ جمعها في طابقٍ واحد يُطفئ البقية ويُرى أثره قبل أي حفظ.",
+        "en": "After 2 pm a few sessions scatter over many floors; gathering them on one floor switches the rest off, and the effect is seen before anything is saved."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "خمس شعبٍ مسائية الأحد على خمسة طوابق تُجمع في طابقين (القاعات وطابق المختبرات)، والمختبر يبقى في مختبر، ولا حجز مزدوج في أي يوم.",
+          "en": "Five Sunday evening sessions on five floors gather into two (lecture halls and the lab floor); the lab stays in a lab, and there is no double booking on any day."
+        },
+        {
+          "ar": "شعبة الأحد·الثلاثاء لا تُنقل إلى قاعةٍ مشغولة الثلاثاء؛ والشعبة الصباحية لا تُعدّ ولا تُنقل.",
+          "en": "A Sunday·Tuesday session is not moved into a hall busy on Tuesday; a morning session is neither counted nor moved."
+        },
+        {
+          "ar": "الملخّص «3 قاعات تُغلق مساءً · طابقٌ واحد بدل 4 طوابق» و«قاعتان تُغلقان مساءً · طابقٌ واحد بدل طابقين» بالعدد والمعدود وأرقامٍ لاتينية، وما يُغلق صافٍ (ثلاث تنطفئ وواحدةٌ تضيء = قاعتان).",
+          "en": "The summary «3 halls close in the evening · one floor instead of 4 floors» and the dual forms read correctly with Latin digits, and closures are net (three go dark and one lights = two)."
+        },
+        {
+          "ar": "طابقٌ واحد أصلاً، أو لا مساء، أو لا قاعة تتّسع في طابقٍ آخر: لا خطة، والسبب مكتوب؛ وثلاثون جدولاً عشوائياً بلا حجزٍ مزدوج ولا نوعٍ آخر ولا طوابق أكثر.",
+          "en": "Already one floor, no evening, or no fitting hall on another floor: no plan, and the reason is written; thirty random timetables with no double booking, no other type and never more lit floors."
+        },
+        {
+          "ar": "الحفظ من مسار النقل المعتاد وحده لرئيس اللجنة، والمراجعة لوحة «رتّب قاعاتي» نفسها.",
+          "en": "Saving goes only through the usual move route for the chair, and the review is the «Arrange my halls» panel itself."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/hallPulseEvening.ts#planEvening",
+          "src/utils/hallPulseEvening.ts#eveningFootprint",
+          "src/utils/hallPulseEvening.ts#eveningSummary",
+          "src/components/hallPulse/HallPulse.tsx",
+          "src/components/hallPulse/pulseScene.ts"
+        ],
+        "tests": [
+          "tests/hall-pulse-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [

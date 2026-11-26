@@ -20,6 +20,7 @@ import {
 import { openCountOf, registrarLayer, requestBlockText, requestLineText } from "../src/utils/hallPulseRegistrar";
 import { liveSectionTexts } from "../src/utils/registrarCheck";
 import type { RegistrarRequestItem } from "../src/utils/registrarRequest";
+import { busiestEveningMinute, eveningFootprint, eveningSummary, floorKeyOf, isEveningSession, planEvening, EVENING_START } from "../src/utils/hallPulseEvening";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -403,6 +404,87 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   check(/setMode\("paths"\); setRegOn\(false\)/.test(pulseSrc) && pulseSrc.includes('{regOn && mode === "halls" ? regPanel : mode === "paths" ? pathsPanel : panel}'), "«مسارات التنقّل» تُطفئ الطبقة ولا تحجب لوحة المسارات");
   check(/regContext = \(context === "workshop" \|\| context === "dean"\)/.test(pulseSrc) && /regContext && regList \?/.test(pulseSrc), "الزرّ في الورشة وبطاقة العميد وحدهما، وبعد أن يقبل الخادم قراءة التقرير (بوابته نفسها)");
   check(!/civils/.test(pulseSrc), "لا رقم مدنياً في الطبقة");
+}
+
+/* ── «ضمّ المساء»: شعب ما بعد الثانية في أقل الطوابق (FR-SCH-098) ── */
+{
+  const reg = { buildings: [{ id: "b1", officialCode: "012B01", buildingNumber: "1" }, { id: "b2", officialCode: "012B02", buildingNumber: "2" }], rooms: [
+    { id: "e101", buildingId: "b1", canonicalCode: "101", capacity: 40 },
+    { id: "e102", buildingId: "b1", canonicalCode: "102", capacity: 40 },
+    { id: "e201", buildingId: "b1", canonicalCode: "201", capacity: 40 },
+    { id: "e202", buildingId: "b1", canonicalCode: "202", capacity: 40 },
+    { id: "e301", buildingId: "b1", canonicalCode: "301", capacity: 45 },
+    { id: "e302", buildingId: "b1", canonicalCode: "302", capacity: 20 },
+    { id: "eL1", buildingId: "b2", canonicalCode: "L1", capacity: 30, roomType: "مختبر حاسوب" },
+    { id: "eL2", buildingId: "b2", canonicalCode: "L201", capacity: 30, roomType: "مختبر حاسوب" },
+  ] };
+  const cs = [
+    { AdCourseId: 1, MaxStudent: 36 }, { AdCourseId: 2, MaxStudent: 18 }, { AdCourseId: 3, MaxStudent: 38 },
+    { AdCourseId: 4, MaxStudent: 25, CourseRoomType: "مختبر حاسوب" }, { AdCourseId: 5, MaxStudent: 44 }, { AdCourseId: 6, MaxStudent: 30 },
+  ];
+  let k = 5000;
+  const ev = (course: number, room: string, days: string[], start: string, end: string) => ({
+    id: k++, AdSectionId: 9, AdCourseId: course, SCode: String(k), fstarttime: start, fendtime: end, roomId: room,
+    fsunday: days.includes("sun"), fmonday: days.includes("mon"), ftuesday: days.includes("tue"), fwednesday: days.includes("wed"), fthursday: days.includes("thu"),
+  });
+  const er = [
+    ev(1, "e101", ["sun", "tue"], "14:00", "15:15"), // 5000: الطابق الأول
+    ev(2, "e201", ["sun"], "15:00", "16:00"),        // 5001: الطابق الثاني
+    ev(3, "e301", ["sun"], "14:00", "15:00"),        // 5002: الطابق الثالث
+    ev(6, "e202", ["tue"], "14:00", "15:00"),        // 5003: تحجز 202 يوم الثلاثاء
+    ev(6, "e102", ["sun"], "10:00", "11:00"),        // 5004: صباحية لا تُعدّ
+    ev(4, "eL2", ["sun"], "16:00", "18:00"),         // 5005: مختبر مسائي في الطابق الثاني من المبنى الآخر
+    ev(4, "eL1", ["sun"], "14:00", "16:00"),         // 5006: مختبر مسائي في أرضي المبنى الآخر
+  ];
+  const m = buildPulseModel({ rows: er, courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+  const b0 = originalAssignment(m);
+  check(EVENING_START === 14 * 60 && isEveningSession({ start: 14 * 60 }) && !isEveningSession({ start: 13 * 60 + 55 }), "المساء يبدأ في الثانية ظهراً تماماً");
+  const fp = eveningFootprint(m, b0, "fsunday");
+  check(fp.sessions.length === 5 && !fp.sessions.some(s => s.id === 5004) && fp.floors.size === 5, "آثار المساء: خمس شعبٍ مسائية الأحد على خمسة طوابق، والصباحية لا تُعدّ");
+  const ep = planEvening(m, b0, "fsunday");
+  const a1 = applyPlan(b0, ep.plan);
+  const moved = planMoves(ep.plan);
+  check(ep.reason === "ok" && Boolean(ep.plan), "خطة المساء تُقترح حين تتبعثر الشعب");
+  check(doubleBookings(m, a1).length === 0, "ولا تحجز قاعةً لشعبتين في الوقت نفسه، في كل أيام الشعب");
+  check(moved.every(mv => compatible(m, m.sessionById.get(mv.sessionId)!, m.hallByKey.get(mv.to)!)), "كل نقلةٍ إلى قاعةٍ من النوع نفسه تتّسع لها (typeFits)");
+  check(moved.every(mv => isEveningSession(m.sessionById.get(mv.sessionId)!)), "لا تُنقل إلا شعب المساء");
+  const labTo = moved.filter(mv => [5005, 5006].includes(mv.sessionId)).map(mv => m.hallByKey.get(mv.to)!);
+  check(labTo.every(h => h.lab), "المختبر المسائي يبقى في مختبر");
+  check(eveningFootprint(m, a1, "fsunday").floors.size === ep.after.floors && ep.after.floors === 2 && ep.before.floors === 5, `الطوابق المضاءة مساءً من ${ep.before.floors} إلى ${ep.after.floors}: طابق القاعات وطابق المختبرات`);
+  check(m.hallByKey.get(a1.get(5000)!)!.floor === 1 && a1.get(5003) === "id:e202", "شعبة الأحد·الثلاثاء لا تُنقل إلى 202 لأنها مشغولة الثلاثاء، والطابق الذي يجمع الأكثر يبقى");
+  check(ep.closed === ep.before.halls - ep.after.halls && ep.closed === 2 && ep.closedHalls.length === 3 && ep.closedFloors.length === 3 && ep.keptFloors.length === 2, "ما يُغلق صافياً (ثلاث تنطفئ وواحدةٌ تضيء: قاعتان) والطوابق التي تنطفئ تُعدّ من الآثار نفسها");
+  check(moved.every(mv => { const from = m.hallByKey.get(mv.from)!; return !ep.keptFloors.includes(floorKeyOf(from)); }), "لا نقلة بلا ثمرة: كل نقلةٍ تُطفئ الطابق الذي غادرته");
+  check(ep.plan!.groups.every(g => g.moves.length === 1 && !g.deps.length && g.on), "نقلاتٌ مستقلة بصيغة «رتّب قاعاتي» تُراجع واحدةً واحدة");
+  toggleGroup(ep.plan!, ep.plan!.groups[0].id, false);
+  check(doubleBookings(m, applyPlan(b0, ep.plan)).length === 0, "واستبعاد نقلةٍ منها لا يحجز قاعةً مرتين");
+  check(eveningSummary(3, 1, 4) === "3 قاعات تُغلق مساءً · طابقٌ واحد بدل 4 طوابق" && eveningSummary(1, 2, 3) === "قاعة واحدة تُغلق مساءً · طابقان بدل 3 طوابق" && eveningSummary(2, 1, 2) === "قاعتان تُغلقان مساءً · طابقٌ واحد بدل طابقين", "سطر الملخّص بالعدد والمعدود");
+  check(busiestEveningMinute(m, "fsunday") === 14 * 60 + 0 || busiestEveningMinute(m, "fsunday")! >= EVENING_START, "أزحم لحظةٍ مسائية بعد الثانية");
+  /* طابقٌ واحد أصلاً، ولا مساء، ولا قاعة تتّسع: يُقال ذلك ولا تُخترع خطة. */
+  const one = buildPulseModel({ rows: [ev(1, "e101", ["mon"], "14:00", "15:00"), ev(2, "e102", ["mon"], "15:00", "16:00")], courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+  check(planEvening(one, originalAssignment(one), "fmonday").reason === "single" && planEvening(one, originalAssignment(one), "fsunday").reason === "none", "طابقٌ واحد أصلاً أو لا مساء: لا خطة، والسبب مذكور");
+  const stuck = buildPulseModel({ rows: [ev(5, "e301", ["wed"], "14:00", "15:00"), ev(6, "e101", ["wed"], "14:00", "15:00")], courses: cs, registry: { ...reg, rooms: reg.rooms.filter(r => !["e102", "e201", "e202", "e302"].includes(r.id)) }, includeUnusedRegistryHalls: true });
+  check(planEvening(stuck, originalAssignment(stuck), "fwednesday").reason === "stuck", "لا قاعة فارغة تتّسع في طابقٍ آخر: «لا يُجمع شيء» بلا نقلة");
+  /* عشوائيٌّ مفحوص: لا حجز مزدوج ولا نوع آخر ولا طوابق أكثر. */
+  let seed = 11, bad = 0;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  for (let t = 0; t < 30; t++) {
+    const rows2 = Array.from({ length: 14 }, () => {
+      const room = reg.rooms[Math.floor(rnd() * reg.rooms.length)];
+      const course = room.roomType ? 4 : [1, 2, 3, 5, 6][Math.floor(rnd() * 5)];
+      const h = 13 + Math.floor(rnd() * 5);
+      const days = ["sun", "mon", "tue", "wed", "thu"].filter(() => rnd() < 0.4);
+      return ev(course, room.id, days.length ? days : ["sun"], `${h}:00`, `${h + 1}:15`);
+    });
+    const m3 = buildPulseModel({ rows: rows2, courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+    const o3 = originalAssignment(m3);
+    if (doubleBookings(m3, o3).length) continue;
+    for (const d of PULSE_DAYS) {
+      const p3 = planEvening(m3, o3, d.key);
+      const a3 = applyPlan(o3, p3.plan);
+      if (doubleBookings(m3, a3).length || planMoves(p3.plan).some(mv => !compatible(m3, m3.sessionById.get(mv.sessionId)!, m3.hallByKey.get(mv.to)!)) || eveningFootprint(m3, a3, d.key).floors.size > p3.before.floors) bad++;
+    }
+  }
+  check(bad === 0, "ثلاثون جدولاً عشوائياً: لا حجز مزدوج، ولا نوع آخر، ولا طوابق أكثر مساءً");
 }
 
 /* ── التوصيل ── */
