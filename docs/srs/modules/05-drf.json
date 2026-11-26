@@ -51,7 +51,10 @@
     "src/utils/whatChanged.ts",
     "src/server/routes/whatChangedRoutes.ts",
     "src/components/WhatChanged.tsx",
-    "src/styles/74-what-changed.css"
+    "src/styles/74-what-changed.css",
+    "src/components/ScenarioMetro.tsx",
+    "src/components/CurtainCompare.tsx",
+    "src/styles/95-time-machine-metro.css"
   ],
   "screens": [
     {
@@ -108,7 +111,9 @@
         "ar": "للحساب الرئيسي: اختيار أقسام وضغط «انتهوا» أو «أعد السابقة».",
         "en": "For the main account: pick departments and press end or restore."
       }
-    }
+    },
+    {"name": {"ar": "خريطة الفروع", "en": "Branch map"}, "file": "src/components/ScenarioMetro.tsx", "note": {"ar": "السيناريوهات خطوط مترو من الجدول الحيّ؛ الضغط يفتح المحفوظ.", "en": "Scenarios as metro lines off the live schedule; a click opens a saved one."}},
+    {"name": {"ar": "ستارة قبل/بعد", "en": "Before/after curtain"}, "file": "src/components/CurtainCompare.tsx", "note": {"ar": "الأسبوع قبل وبعد فوق بعضهما بمقبضٍ يُسحب.", "en": "The week before and after, one over the other, with a draggable handle."}}
   ],
   "journeys": [
     {
@@ -2022,7 +2027,9 @@
         ]
       },
       "inferred": false
-    }
+    },
+    {"id": "FR-DRF-032", "kind": "functional", "title": {"ar": "خريطة الفروع: السيناريوهات خطوط مترو من الجدول الحيّ", "en": "Branch map: scenarios as metro lines off the live schedule"}, "text": {"ar": "يجب على النظام أن يعرض في «ماذا لو» لوحة «خريطة الفروع»: الجدول الحيّ خطٌّ رئيس، وكل سيناريو محفوظ (حتى ثمانية) والسيناريو الذي يُجرَّب الآن قبل حفظه خطٌّ يتفرّع منه، محطاتُه تغييراته (حتى ست) ونهايته اسمه وعدد تغييراته وحاله (مسوّدة، اعتُمد ويعود خطّه إلى الخطّ الرئيس، استُعيد، تجربة الآن). والضغط على خطٍّ محفوظ أو Enter عليه يفتحه كما يفتحه زرّه في «سيناريوهات محفوظة» تماماً، والقائمة القائمة باقية. والخريطة لا تكتب شيئاً.", "en": "The system shall show in «What if» a «Branch map» panel: the live schedule is the main line, and each saved scenario (up to eight) and the scenario being tried before it is saved is a line branching off it, whose stations are its changes (up to six) and whose end carries its name, change count and status (draft; applied, its line returning to the main line; restored; being tried). Clicking a saved line or pressing Enter on it opens it exactly as its button in «Saved scenarios» does, and that list remains. The map writes nothing."}, "rationale": {"ar": "سيناريوهات «ماذا لو» فروعٌ فوق الجدول الحيّ؛ رسمُها خطوطاً يقول أيّها اعتُمد وأيّها ما زال مسوّدة بنظرة.", "en": "«What if» scenarios are branches over the live schedule; drawing them as lines shows which were applied and which are still drafts at a glance."}, "priority": "could", "status": "implemented", "actors": ["committeeChair", "departmentHead"], "acceptance": [{"ar": "سيناريو محفوظ بتسعة عشر تغييراً يظهر خطاً بستّ محطات ونهايةٍ تقول «19 تغييراً · مسوّدة»، والضغط عليه يفتح منضدته كما يفتحها زرّه.", "en": "A saved scenario with nineteen changes shows as a line with six stations and an end reading «19 changes · draft»; clicking it opens its workbench as its button does."}, {"ar": "ما يُجرَّب ولم يُحفظ خطٌّ متقطّع لا يُفتح بالضغط؛ وبلا سيناريوهات ولا تجربةٍ لا تُعرض الخريطة.", "en": "An unsaved scenario being tried is a dashed line that does not open on click; with no scenarios and nothing being tried the map is not shown."}], "evidence": {"code": ["src/components/ScenarioMetro.tsx", "src/components/TimeMachine.tsx"], "tests": ["tests/visual-wave-1-audit.ts"]}, "inferred": false},
+    {"id": "FR-DRF-033", "kind": "functional", "title": {"ar": "ستارة قبل/بعد فوق الأسبوع في منضدة السيناريو", "en": "Before/after curtain over the week in the scenario workbench"}, "text": {"ar": "يجب على النظام أن يعرض في منضدة السيناريو، تحت المنزلقة الزمنية القائمة، «ستارة قبل/بعد»: الأسبوع مرسوماً مرّتين من «قبل» و«بعد» المنضدة نفسيهما فوق بعضهما، ومقبضٌ يُسحب أو يُحرَّك بالأسهم (وHome وEnd) فيكشف يمينه الأسبوع قبل ويساره الأسبوع بعد، وتُلوَّن المواعيد التي تحرّكت أو أُضيفت أو حُذفت كما في المنزلقة. والستارة عرضٌ لا يكتب شيئاً، والمنزلقة وبقية أدوات المنضدة باقية.", "en": "The system shall show in the scenario workbench, under the existing time slider, a «before/after curtain»: the week drawn twice from the workbench's own «before» and «after», one over the other, with a handle dragged or moved with the arrow keys (and Home and End) revealing the week before on its right and the week after on its left; moved, added and removed appointments are coloured as in the slider. The curtain is a view that writes nothing, and the slider and the other workbench tools remain."}, "rationale": {"ar": "مقارنة الأسبوعين جنباً إلى جنب على الموضع نفسه تُظهر ما تحرّك أوضح من الانتقال بينهما.", "en": "Comparing both weeks over the same place shows what moved more clearly than switching between them."}, "priority": "could", "status": "implemented", "actors": ["committeeChair", "departmentHead"], "acceptance": [{"ar": "حلّ «صفّر الخميس» يُظهر يمين المقبض مواعيد الخميس قبل، ويساره عمود الخميس فارغاً بعد؛ وسحب المقبض أو الأسهم يغيّر الحدّ بخطوة 5٪.", "en": "The «clear Thursday» solution shows Thursday's appointments right of the handle (before) and an empty Thursday column left of it (after); dragging or the arrow keys move the boundary in 5% steps."}, {"ar": "الستارة لا تطلب شيئاً من الخادم، وعلى عرض 390 لا تمرير أفقي.", "en": "The curtain requests nothing from the server, and at 390px wide there is no horizontal scroll."}], "evidence": {"code": ["src/components/CurtainCompare.tsx", "src/components/ScenarioWorkbench.tsx"], "tests": ["tests/visual-wave-1-audit.ts"]}, "inferred": false}
   ],
   "edgeCases": [
     {
