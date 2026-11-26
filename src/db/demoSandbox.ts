@@ -976,7 +976,8 @@ function demoRegistrarCheck(schedules: readonly FSchedule[], courses: readonly A
     id, collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID, termId: DEMO_TERM_CURRENT, round: 1, at, by: 1, byName: COMMITTEE_NAME,
     fileName: "جدول التسجيل - تكنولوجيا التعليم.pdf", counts: result.counts, reviewCount: result.counts.review, items,
   };
-  return { registrarRequests: { [id]: doc }, registrarRequestRows: { [id]: { id, collegeId: DEMO_COLLEGE_ID, sectionId: DEMO_SECTION_ID, termId: DEMO_TERM_CURRENT, at, rows: pdf } } };
+  /* بلا صفوف الملف: الصندوق التجريبي يبقى خفيفاً (فحص demo-roles)، والمسار الحيّ يسوّي البنود المحفوظة على الجدول الحالي. */
+  return { registrarRequests: { [id]: doc } };
 }
 
 const DEMO_SEAT_ADVISORS = [{ id: 19, name: "أ. مرشد قسم تكنولوجيا التعليم" }, { id: 21, name: "أ. الإرشاد العام" }] as const;
