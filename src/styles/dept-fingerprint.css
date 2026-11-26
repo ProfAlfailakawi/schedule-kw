@@ -100,6 +100,17 @@
 .dfp-tip.is-over{border-color:color-mix(in srgb,var(--dfp-over) 60%,var(--line))}
 .dfp-tip.is-over span:last-child{color:var(--dfp-over);font-weight:600}
 @keyframes dfp-tip-in{from{opacity:0}}
+/* «البصمة باب للنبض»: البطاقة المثبّتة تُضغط، وزرّها يطير إلى القاعة نفسها في المجسّم. */
+.dfp-tip.is-pinned{pointer-events:auto}
+.dfp-ring-tip strong bdi{font-variant-numeric:tabular-nums}
+.dfp-go{margin-top:7px;justify-self:start;display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:0 13px 0 11px;
+  border:1px solid color-mix(in srgb,var(--brass) 55%,transparent);border-radius:999px;cursor:pointer;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--brass) 22%,var(--surface)),color-mix(in srgb,var(--brass) 8%,var(--surface)));
+  color:var(--ink);font:inherit;font-size:12.5px;font-weight:600;transition:transform .16s ease,box-shadow .16s ease}
+.dfp-go svg{width:15px;height:15px;color:var(--brass)}
+.dfp-go:hover{transform:translateY(-1px);box-shadow:0 8px 18px -10px color-mix(in srgb,var(--brass) 80%,transparent)}
+.dfp-go:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.dfp-hits circle{cursor:pointer}
 
 /* ── Reading column ── */
 .dfp-read{list-style:none;margin:0;padding:0;display:grid;gap:9px}
@@ -162,7 +173,7 @@
 
 @media (prefers-reduced-motion:reduce){
   .dfp-arc,.dfp-tracks,.dfp-petals,.dfp-glow,.dfp-tip,.dfp-loading i{animation:none}
-  .dfp-arc,.dfp-btn,.dfp-card-open{transition:none}
+  .dfp-arc,.dfp-btn,.dfp-card-open,.dfp-go{transition:none}
 }
 @media print{
   .dfp-head,.dfp-compare-bar,.dfp-notes,.dfp-tip{display:none}

@@ -1,0 +1,74 @@
+/* ── افتتاحية اليوم (FR-DSH-036) ─────────────────────────────────────────────
+   سماء «نبض القاعات» نفسها، ومباني القسم أمامها نوافذَ تضيء. الطبقة لا تلتقط
+   المؤشر أبداً: ما تحتها يبقى في متناول اليد، وأيّ فعلٍ يسحبها. */
+.dop{position:fixed;inset:0;z-index:9000;pointer-events:none;overflow:hidden;
+  display:grid;grid-template-rows:1fr auto;justify-items:center;
+  color:#eef5f0;font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg,var(--dop-top) 0%,var(--dop-mid) 62%,#06120f 100%);
+  opacity:1;transition:opacity .5s ease,transform .62s cubic-bezier(.4,0,.2,1),filter .62s ease}
+.dop-in{opacity:0}
+.dop-out{opacity:0;transform:translateY(-2%) scale(1.025);filter:blur(6px)}
+
+.dop-sky{position:absolute;inset:0;pointer-events:none}
+.dop-sun{position:absolute;left:var(--dop-sx);top:var(--dop-sy);width:clamp(70px,9vw,120px);aspect-ratio:1;border-radius:50%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,#fff4d6 0 22%,#f2c56b 38%,rgb(242 197 107 / .35) 56%,transparent 72%);
+  filter:saturate(calc(.8 + var(--dop-day) * .4));opacity:.92}
+.dop-haze{position:absolute;inset:auto 0 0 0;height:46%;
+  background:radial-gradient(120% 90% at 50% 100%,rgb(242 197 107 / .16),transparent 70%)}
+
+.dop-stage{position:relative;align-self:center;width:min(980px,calc(100% - 32px));display:grid;justify-items:center;gap:clamp(6px,1.4vh,14px);
+  padding-top:clamp(18px,6vh,64px)}
+.dop-kicker{margin:0;font-size:clamp(13px,1.5vw,15px);font-weight:600;letter-spacing:.02em;color:#e2bd76}
+.dop-clock{margin:0;display:flex;align-items:baseline;gap:.22em;font-size:clamp(46px,7.4vw,86px);font-weight:700;line-height:1;letter-spacing:-.01em;
+  text-shadow:0 10px 40px rgb(0 0 0 / .35)}
+.dop-clock small{font-size:.36em;font-weight:600;color:#e2bd76}
+.dop-skyline{display:block;-webkit-mask:linear-gradient(90deg,transparent,#000 16%,#000 84%,transparent);mask:linear-gradient(90deg,transparent,#000 16%,#000 84%,transparent);height:auto;max-height:min(38vh,340px);margin-top:clamp(14px,3.4vh,34px);overflow:visible}
+.dop-ground{stroke:rgb(226 189 118 / .45);stroke-width:1}
+.dop-earth{fill:rgb(4 14 11 / .35)}
+.dop-city rect{fill:rgb(14 40 35 / .5);stroke:rgb(163 189 179 / .06);stroke-width:.6}
+.dop-door{fill:rgb(226 189 118 / .28)}
+.dop-wall{stroke:rgb(163 189 179 / .22);stroke-width:1}
+.dop-roof{fill:rgb(226 189 118 / .55)}
+.dop-win{fill:rgb(163 189 179 / .09);stroke:rgb(163 189 179 / .2);stroke-width:.8;transition:fill .32s ease,stroke .32s ease}
+.is-used .dop-win{fill:rgb(226 189 118 / .2);stroke:rgb(226 189 118 / .32)}
+.is-lit .dop-win{fill:#f6cf7a;stroke:#fff0c8}
+.dop-halo{fill:#f2c56b;opacity:.6}
+
+.dop-numbers{margin:clamp(10px,2.4vh,26px) 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:min(720px,100%);
+  border-top:1px solid rgb(226 189 118 / .28);padding-top:clamp(10px,2vh,18px)}
+.dop-numbers > div{display:grid;justify-items:center;gap:2px;padding-inline:8px;text-align:center}
+.dop-numbers > div + div{border-inline-start:1px solid rgb(163 189 179 / .2)}
+.dop-numbers dd{margin:0;order:-1;font-size:clamp(28px,4.2vw,46px);font-weight:700;line-height:1.1}
+.dop-peak-n{white-space:nowrap}
+.dop-numbers dt{font-size:clamp(11.5px,1.3vw,13.5px);color:#a3bdb3;line-height:1.5}
+.dop-numbers > div:last-child dd{color:#e2bd76;opacity:.35;transition:opacity .5s ease}
+.dop-numbers > div.is-on dd{opacity:1}
+
+.dop-foot{position:relative;display:flex;align-items:center;gap:14px;padding:0 16px max(18px,env(safe-area-inset-bottom));
+  font-size:12.5px;color:#a3bdb3;animation:dop-foot-in .6s 1.6s ease both}
+.dop-off{pointer-events:auto;border:1px solid rgb(163 189 179 / .32);background:rgb(9 26 22 / .45);color:#dbe7e2;border-radius:999px;
+  font:inherit;font-size:12.5px;min-height:36px;padding:0 14px;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.dop-off:hover{border-color:#e2bd76}
+.dop-off:focus-visible{outline:2px solid #e2bd76;outline-offset:2px}
+@keyframes dop-foot-in{from{opacity:0}}
+
+@media (max-width:560px){
+  .dop-stage{padding-top:max(28px,env(safe-area-inset-top))}
+  .dop-skyline{max-height:34vh}
+  .dop-foot{flex-direction:column;gap:8px}
+}
+/* شاشةٌ قصيرة (الهاتف أفقياً، iPhone Duo مطوياً بالعرض): كل شيءٍ أصغر ليبقى في إطارٍ واحد. */
+@media (max-height:480px){
+  .dop-stage{padding-top:10px;gap:4px}
+  .dop-clock{font-size:34px}
+  .dop-skyline{max-height:30vh;margin-top:6px}
+  .dop-numbers{margin-top:6px;padding-top:6px}
+  .dop-numbers dd{font-size:24px}
+  .dop-foot{flex-direction:row;padding-bottom:8px}
+}
+@media (prefers-reduced-motion:reduce){
+  .dop,.dop-win,.dop-numbers dd{transition:none}
+  .dop-foot{animation:none}
+}
+@media print{.dop{display:none!important}}

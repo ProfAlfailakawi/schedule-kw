@@ -170,7 +170,7 @@ assert.ok(/prefers-reduced-motion:reduce/.test(css) && /\.dfp-arc,[^{]*\{animati
 assert.equal(deptFingerprintPath({ collegeId: 1, sectionId: 2, termId: 3 }), "/FSchedule/Fingerprint?college=1&section=2&term=3");
 const app = source("src/App.tsx");
 assert.ok(/deptFingerprint: "\/FSchedule\/Fingerprint"/.test(app) && /deptFingerprint: "\/FSchedule\/Fingerprint"/.test(source("src/appPaths.ts")));
-const guard = app.slice(app.indexOf('case "deptFingerprint":'), app.indexOf("<DeptFingerprintPage />"));
+const guard = app.slice(app.indexOf('case "deptFingerprint":'), app.indexOf("<DeptFingerprintPage "));
 assert.ok(/committeeChair/.test(guard) && /departmentHead/.test(guard) && /hasPerm\(7\)/.test(guard) && !/instructor|dean/.test(guard), "الأستاذ لا يرى البصمة");
 assert.ok(/filmScope\?\.version==="dept"/.test(source("src/components/Dashboard.tsx")), "بطاقة اللوحة لأصحاب جدول القسم");
 

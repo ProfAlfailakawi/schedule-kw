@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Check, Copy, Download, Fingerprint, GitCompareArrows, X } from "lucide-react";
+import { Box, Check, Copy, Download, Fingerprint, GitCompareArrows, X } from "lucide-react";
 import { AR, countOf } from "../utils/arabicCount";
 import {
   deptFingerprintPath, fingerprintClock, fingerprintDelta, fingerprintGeometry, fingerprintHeadlines, fingerprintSlotLines, fingerprintTitleSize,
-  unionSpan, FINGERPRINT_PALETTES, FINGERPRINT_VIEW, type FingerprintData, type FingerprintGeometry, type FingerprintPalette,
+  fingerprintAngle, unionSpan, FINGERPRINT_DAYS, FINGERPRINT_PALETTES, FINGERPRINT_VIEW, type FingerprintData, type FingerprintGeometry, type FingerprintPalette,
 } from "../utils/deptFingerprint";
+import { fingerprintFocusHall, resolveFingerprintRing, ringFocusSlot, type PulseFocus } from "../utils/pulseLink";
 import "../styles/dept-fingerprint.css";
 
 /**
@@ -97,6 +98,11 @@ const Poster = React.memo(function Poster({ data, geo, palette: p, dark, span, a
       </g>)}
     </g>
 
+    {/* مقابض الحلقات: شريطٌ شفّاف بعرض الحلقة، يُضغط فتُختار القاعة كلها (لا يُنزَّل). */}
+    <g className="dfp-hits" fill="none" stroke="transparent" pointerEvents="stroke" aria-hidden="true">
+      {geo.rings.map((item, n) => <circle key={n} data-ring={n} cx={V.cx} cy={V.cy} r={r1(item.r)} strokeWidth={r1(item.band + 2)} />)}
+    </g>
+
     {dark ? <g className="dfp-glow" filter={`url(#${uid}glow)`} opacity=".5" aria-hidden="true">
       {geo.arcs.map((arc, n) => <path key={n} d={arc.d + arc.rim} fill={p.days[arc.day]} />)}
     </g> : null}
@@ -179,6 +185,7 @@ async function posterSvgText(svg: SVGSVGElement): Promise<string> {
   const clone = svg.cloneNode(true) as SVGSVGElement;
   clone.setAttribute("width", String(V.width));
   clone.setAttribute("height", String(V.height));
+  clone.querySelectorAll(".dfp-hits").forEach(node => node.remove());
   clone.querySelectorAll("*").forEach(node => ["class", "style", "data-arc", "role", "aria-label", "aria-hidden"].forEach(name => node.removeAttribute(name)));
   ["class", "style"].forEach(name => clone.removeAttribute(name));
   const css = await embeddedFontCss();
@@ -223,30 +230,77 @@ async function downloadPoster(svg: SVGSVGElement, kind: "png" | "svg", name: str
 
 /* ── المسرح: الملصق وبطاقة القوس المشار إليه ── */
 
-function Stage({ data, span, dark, ring, label, svgRef }: { data: FingerprintData; span: { from: number; to: number }; dark: boolean; ring?: number | null; label?: string; svgRef?: React.Ref<SVGSVGElement> }) {
+/** يوم الأسبوع ودقيقته الآن (0 الأحد … 4 الخميس؛ الجمعة والسبت يُقرآن الأحد القادم). */
+function weekNow(): { day: number; minute: number } {
+  const now = new Date(), d = now.getDay();
+  return d <= 4 ? { day: d, minute: now.getHours() * 60 + now.getMinutes() } : { day: 0, minute: 0 };
+}
+
+interface StageLink { scope: DeptFingerprintScope; onOpenPulse: (focus: PulseFocus) => void }
+
+function Stage({ data, span, dark, ring, onRing, link, label, svgRef }: {
+  data: FingerprintData; span: { from: number; to: number }; dark: boolean; ring?: number | null; onRing?: (ring: number | null) => void;
+  /** «البصمة باب للنبض»: لمن يفتح النبض وحده. بدونه تبقى التفاصيل بلا رابط، فلا طريق مسدود. */
+  link?: StageLink | null; label?: string; svgRef?: React.Ref<SVGSVGElement>;
+}) {
   const geo = useMemo(() => fingerprintGeometry(data, { span }), [data, span]);
   const [hover, setHover] = useState<number | null>(null);
   const [pinned, setPinned] = useState<number | null>(null);
   useEffect(() => { setHover(null); setPinned(null); }, [data]);
   const active = pinned ?? hover;
-  const arcOf = (target: EventTarget | null) => {
-    const value = (target as Element | null)?.getAttribute?.("data-arc");
+  const attr = (target: EventTarget | null, name: string) => {
+    const value = (target as Element | null)?.getAttribute?.(name);
     return value == null ? null : Number(value);
   };
   const arc = active != null ? geo.arcs[active] : null;
   const tip = arc ? fingerprintSlotLines(data.halls[arc.hall], data.halls[arc.hall].slots[arc.slot]) : null;
   const below = arc ? arc.y / V.height < 0.42 : false;
+  /* الحلقة المختارة (من القائمة أو بضغطها أو من رابط النبض): بطاقتها عند أقرب محاضرةٍ فيها من الآن. */
+  const ringHall = active == null && ring != null ? data.halls[ring] || null : null;
+  const ringSlot = useMemo(() => (ringHall ? ringFocusSlot(ringHall.slots, weekNow()) : null), [ringHall]);
+  const ringAt = useMemo(() => {
+    if (ring == null || !ringSlot || !geo.rings[ring]) return null;
+    const angle = (fingerprintAngle(ringSlot.day, (ringSlot.start + ringSlot.end) / 2, span) * Math.PI) / 180;
+    const r = geo.rings[ring].r;
+    return { x: V.cx + r * Math.cos(angle), y: V.cy + r * Math.sin(angle) };
+  }, [ring, ringSlot, geo, span]);
+  const go = (hall: number, slot: { day: number; start: number }) => {
+    const key = data.halls[hall]?.key;
+    if (!link || !key) return;
+    link.onOpenPulse({ ...link.scope, hall: key, day: slot.day, at: slot.start });
+  };
+  const place = (x: number, y: number) => ({ left: `clamp(124px, ${(x / V.width) * 100}%, calc(100% - 124px))`, top: `${(y / V.height) * 100}%` });
+  const keep = (event: React.SyntheticEvent) => event.stopPropagation();
   return <figure className="dfp-stage">
     {label ? <figcaption>{label}</figcaption> : null}
     <div className="dfp-sheet"
-      onPointerOver={event => { if (event.pointerType === "mouse") setHover(arcOf(event.target)); }}
+      onPointerOver={event => { if (event.pointerType === "mouse") setHover(attr(event.target, "data-arc")); }}
       onPointerLeave={() => setHover(null)}
-      onClick={event => { const n = arcOf(event.target); setPinned(current => (n == null || n === current ? null : n)); }}>
+      onClick={event => {
+        const n = attr(event.target, "data-arc");
+        const r = n == null ? attr(event.target, "data-ring") : null;
+        if (r != null && onRing) { setPinned(null); onRing(r === ring ? null : r); return; }
+        setPinned(current => (n == null || n === current ? null : n));
+      }}>
       <Poster data={data} geo={geo} palette={FINGERPRINT_PALETTES[dark ? "dark" : "light"]} dark={dark} span={span} active={active} ring={ring ?? null} svgRef={svgRef} />
-      {arc && tip ? <div className={`dfp-tip${below ? " is-below" : ""}${tip.over ? " is-over" : ""}`} role="status"
-        style={{ left: `clamp(124px, ${(arc.x / V.width) * 100}%, calc(100% - 124px))`, top: `${(arc.y / V.height) * 100}%` }}>
+      {arc && tip ? <div className={`dfp-tip${below ? " is-below" : ""}${tip.over ? " is-over" : ""}${pinned != null && link ? " is-pinned" : ""}`} role="status"
+        style={place(arc.x, arc.y)} onClick={keep}>
         <strong>{tip.title}</strong>
         {tip.lines.map(line => <span key={line}>{line}</span>)}
+        {pinned != null && link && data.halls[arc.hall]?.key ? <button type="button" className="dfp-go" onClick={() => go(arc.hall, data.halls[arc.hall].slots[arc.slot])}
+          data-guide-ignore="ينتقل إلى نبض القاعات عند هذه القاعة في يوم المحاضرة ووقتها؛ عرضٌ لا يغيّر بيانات">
+          <Box aria-hidden="true" /><span>اذهب إليها في النبض</span>
+        </button> : null}
+      </div> : null}
+      {ringHall && ringAt ? <div className={`dfp-tip dfp-ring-tip${ringAt.y / V.height < 0.42 ? " is-below" : ""}${link ? " is-pinned" : ""}`} role="status"
+        style={place(ringAt.x, ringAt.y)} onClick={keep}>
+        <strong>القاعة <bdi dir="ltr">{ringHall.name}</bdi></strong>
+        <span>{countOf(Math.round(ringHall.minutes / 6) / 10, AR.hour)} في الأسبوع · {countOf(ringHall.slots.length, AR.lecture)}</span>
+        {ringSlot ? <span>أقرب محاضرة: {FINGERPRINT_DAYS[ringSlot.day]} <bdi dir="ltr">{fingerprintClock(ringSlot.start)}</bdi></span> : null}
+        {link && ringHall.key && ringSlot ? <button type="button" className="dfp-go" onClick={() => go(ring!, ringSlot)}
+          data-guide-ignore="ينتقل إلى نبض القاعات عند هذه القاعة في أقرب محاضرةٍ فيها؛ عرضٌ لا يغيّر بيانات">
+          <Box aria-hidden="true" /><span>اذهب إليها في النبض</span>
+        </button> : null}
       </div> : null}
     </div>
   </figure>;
@@ -285,14 +339,23 @@ function CopyLink({ scope }: { scope: DeptFingerprintScope }) {
 }
 
 /** البصمة كاملةً بنطاقها: تقرأ ثم ترسم، وتقارن وتنزّل. */
-export function DeptFingerprintPanel({ scope, heading = true }: { scope: DeptFingerprintScope; heading?: boolean }) {
+export function DeptFingerprintPanel({ scope, heading = true, onOpenPulse, focusHall = "" }: {
+  scope: DeptFingerprintScope; heading?: boolean;
+  /** يُعطى لمن يفتح «نبض القاعات» وحده (بوابة الجدول نفسها)؛ وإلا تبقى تفاصيل الحلقة بلا رابط. */
+  onOpenPulse?: (focus: PulseFocus) => void;
+  /** حلقةٌ تُبرز عند الفتح (رابط «في البصمة» من النبض). */
+  focusHall?: string;
+}) {
   const dark = useDarkTheme();
   const [answer, setAnswer] = useState<FingerprintAnswer | null>(null);
   const [error, setError] = useState("");
   const [compareId, setCompareId] = useState(0);
   const [before, setBefore] = useState<FingerprintData | null>(null);
   const [compareError, setCompareError] = useState("");
-  const [ring, setRing] = useState<number | null>(null);
+  /* الحلقة المثبّتة (ضغطةٌ في القائمة أو على الحلقة، أو رابطٌ من النبض) والحلقة تحت المؤشر في القائمة. */
+  const [ringPin, setRingPin] = useState<number | null>(null);
+  const [ringHover, setRingHover] = useState<number | null>(null);
+  const ring = ringHover ?? ringPin;
   const [busy, setBusy] = useState<"" | "png" | "svg">("");
   const [exportError, setExportError] = useState("");
   const svgRef = useRef<SVGSVGElement>(null);
@@ -301,7 +364,7 @@ export function DeptFingerprintPanel({ scope, heading = true }: { scope: DeptFin
 
   useEffect(() => {
     let alive = true;
-    setAnswer(null); setError(""); setCompareId(0); setBefore(null); setRing(null);
+    setAnswer(null); setError(""); setCompareId(0); setBefore(null); setRingPin(null); setRingHover(null);
     readFingerprint(scope).then(body => { if (alive) setAnswer(body); }).catch((e: any) => { if (alive) setError(e?.message || "تعذّر إعداد بصمة القسم."); });
     return () => { alive = false; };
   }, [scope.collegeId, scope.sectionId, scope.termId]);
@@ -316,6 +379,13 @@ export function DeptFingerprintPanel({ scope, heading = true }: { scope: DeptFin
   }, [compareId, scope.collegeId, scope.sectionId, scope.termId]);
 
   const data = answer?.fingerprint || null;
+  /* القادم من النبض: حلقة قاعته مبرزةٌ ببطاقتها حين تصل البصمة. */
+  useEffect(() => {
+    if (!data || !focusHall) return;
+    const n = resolveFingerprintRing(focusHall, data.halls);
+    if (n != null) setRingPin(n);
+  }, [data, focusHall]);
+  const link = useMemo<StageLink | null>(() => (onOpenPulse ? { scope, onOpenPulse } : null), [onOpenPulse, scope.collegeId, scope.sectionId, scope.termId]);
   const span = useMemo(() => (data ? (before ? unionSpan(data.span, before.span) : data.span) : { from: 480, to: 1200 }), [data, before]);
   const delta = useMemo(() => (data && before ? fingerprintDelta(data, before) : []), [data, before]);
   const comparing = Boolean(compareId);
@@ -364,7 +434,7 @@ export function DeptFingerprintPanel({ scope, heading = true }: { scope: DeptFin
       : !data ? <div className="dfp-loading" role="status" aria-label="جاري رسم البصمة"><i aria-hidden="true" /><span>جاري رسم البصمة…</span></div>
       : <div className="dfp-body">
         <div className="dfp-stages">
-          <Stage data={data} span={span} dark={dark} ring={ring} label={comparing ? data.title.term : undefined} svgRef={svgRef} />
+          <Stage data={data} span={span} dark={dark} ring={ring} onRing={comparing ? undefined : setRingPin} link={comparing ? null : link} label={comparing ? data.title.term : undefined} svgRef={svgRef} />
           {comparing ? (before ? <Stage data={before} span={span} dark={dark} label={before.title.term} />
             : compareError ? <p className="dfp-error" role="alert">{compareError}</p>
             : <div className="dfp-loading" role="status" aria-label="جاري رسم البصمة"><i aria-hidden="true" /><span>جاري رسم البصمة…</span></div>) : null}
@@ -379,11 +449,11 @@ export function DeptFingerprintPanel({ scope, heading = true }: { scope: DeptFin
             <li><i className="k-bloom" aria-hidden="true" />زهرة القلب حِمل كل ساعة، وأطول بتلةٍ ساعة الذروة.</li>
           </ul>
           {data.stats.roomless ? <p className="dfp-note">خارج الحلقات لأن قاعتها لم تُختر: {countOf(data.stats.roomless, AR.appointment)}.</p> : null}
-          <details className="dfp-halls" open={hallsOpen} onToggle={event => setHallsOpen((event.target as HTMLDetailsElement).open)} onMouseLeave={() => setRing(null)}>
+          <details className="dfp-halls" open={hallsOpen} onToggle={event => setHallsOpen((event.target as HTMLDetailsElement).open)} onMouseLeave={() => setRingHover(null)}>
             <summary data-guide-ignore="يفتح قائمة قاعات البصمة للقراءة؛ عرضٌ لا فعل">القاعات من القلب إلى الخارج <b>{num(data.halls.length)}</b></summary>
             <ol>
-              {data.halls.map((hall, n) => <li key={hall.name + n} className={ring === n ? "is-on" : undefined} onMouseEnter={() => setRing(n)}>
-                <button type="button" aria-pressed={ring === n} onClick={() => setRing(current => (current === n ? null : n))} data-guide-ignore="يُبرز حلقة هذه القاعة في البصمة؛ عرضٌ لا فعل">
+              {data.halls.map((hall, n) => <li key={hall.name + n} className={ring === n ? "is-on" : undefined} onMouseEnter={() => setRingHover(n)}>
+                <button type="button" aria-pressed={ringPin === n} onClick={() => setRingPin(current => (current === n ? null : n))} data-guide-ignore="يُبرز حلقة هذه القاعة في البصمة؛ عرضٌ لا فعل">
                   <span className="dfp-hall-name" dir="ltr">{hall.name}</span>
                   <span className="dfp-hall-bar" aria-hidden="true"><i style={{ inlineSize: `${Math.max(4, Math.round((hall.minutes / Math.max(1, data.halls[0].minutes)) * 100))}%` }} /></span>
                   <span className="dfp-hall-hours">{countOf(Math.round(hall.minutes / 6) / 10, AR.hour)}</span>
@@ -397,7 +467,7 @@ export function DeptFingerprintPanel({ scope, heading = true }: { scope: DeptFin
 }
 
 /** بطاقة اللوحة: تظهر متى كان للقسم في الفصل موعدٌ في قاعة، وتفتح البصمة في مكانها. */
-export function DeptFingerprintCard({ scope }: { scope: DeptFingerprintScope }) {
+export function DeptFingerprintCard({ scope, onOpenPulse }: { scope: DeptFingerprintScope; onOpenPulse?: (focus: PulseFocus) => void }) {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -420,18 +490,19 @@ export function DeptFingerprintCard({ scope }: { scope: DeptFingerprintScope }) 
         {open ? "أغلق" : "اعرض"}
       </button>
     </div>
-    {open ? <DeptFingerprintPanel scope={scope} heading={false} /> : null}
+    {open ? <DeptFingerprintPanel scope={scope} heading={false} onOpenPulse={onOpenPulse} /> : null}
   </section>;
 }
 
-/** صفحة الرابط المنسوخ: /FSchedule/Fingerprint?college=…&section=…&term=… */
-export default function DeptFingerprintPage() {
+/** صفحة الرابط المنسوخ: /FSchedule/Fingerprint?college=…&section=…&term=…[&hall=…] */
+export default function DeptFingerprintPage({ onOpenPulse }: { onOpenPulse?: (focus: PulseFocus) => void }) {
+  const focusHall = useMemo(() => fingerprintFocusHall(window.location.search), []);
   const scope = useMemo<DeptFingerprintScope | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const collegeId = Number(params.get("college") || 0), sectionId = Number(params.get("section") || 0), termId = Number(params.get("term") || 0);
     return collegeId && sectionId && termId ? { collegeId, sectionId, termId } : null;
   }, []);
   return <div className="content-stack dfp-page">
-    {scope ? <DeptFingerprintPanel scope={scope} /> : <p className="dfp-error" role="alert">الرابط ناقص: لا يُعرف القسم أو الفصل.</p>}
+    {scope ? <DeptFingerprintPanel scope={scope} onOpenPulse={onOpenPulse} focusHall={focusHall} /> : <p className="dfp-error" role="alert">الرابط ناقص: لا يُعرف القسم أو الفصل.</p>}
   </div>;
 }

@@ -25,6 +25,7 @@
     "system"
   ],
   "sources": [
+    "src/utils/pulseLink.ts",
     "src/components/LadderStartHint.tsx",
     "src/components/RoomsBoardBar.tsx",
     "src/components/RoomsExplorer.tsx",
@@ -5598,8 +5599,8 @@
         "en": "Hall pulse: a 3D fit model and whole-day hall arrangement"
       },
       "text": {
-        "ar": "يجب على النظام أن يعرض مباني القسم مجسّمةً طوابقَ من القاعات (الطابق من رمز القاعة متى دلّ عليه، وإلا الأرضي)، تُلوَّن كل قاعة مشغولة بملاءمتها لشعبتها: مضغوطة فوق السعة، وممتلئة من 90٪، ومناسبة من 45٪، وواسعة دون ذلك، مع ساعةٍ تتحرّك على اليوم واختيار يوم وحرارة أسبوع لكل قاعة؛ وأن يقترح لشعبةٍ لا تناسبها قاعتها قاعاتٍ أنسب فارغة في وقتها كله من النوع نفسه، وأن يخطّط «رتّب قاعاتي» نقلات يومٍ كامل دفعةً واحدة بنقلاتٍ مترابطة تُراجع وتُستبعد واحدةً واحدة قبل «حفظ الكل»؛ وأن يعرض قاعات قسمٍ مجاور فارغة حين لا تتّسع قاعات القسم، ويطلب استعارتها عبر طلب استعارة القاعات الموجود.",
-        "en": "The system shall render the department's buildings as 3D floors of halls (the floor taken from the hall code when it indicates one, otherwise the ground floor), colouring each occupied hall by its fit for its section: pressed above capacity, full from 90%, fitting from 45%, and wide below that, with a clock that moves through the day, a day selector and a weekly heat for every hall; shall suggest, for a section its hall does not fit, better halls of the same type that are free for its whole time; shall plan «arrange my halls» for a whole day in one pass, with chained moves that are reviewed and excluded one by one before «save all»; and shall show a neighbouring department's free halls when no department hall fits, requesting them through the existing hall-borrowing request."
+        "ar": "يجب على النظام أن يعرض مباني القسم مجسّمةً طوابقَ من القاعات (الطابق من رمز القاعة متى دلّ عليه، وإلا الأرضي)، تُلوَّن كل قاعة مشغولة بملاءمتها لشعبتها: مضغوطة فوق السعة، وممتلئة من 90٪، ومناسبة من 45٪، وواسعة دون ذلك، مع ساعةٍ تتحرّك على اليوم واختيار يوم وحرارة أسبوع لكل قاعة؛ وأن يقترح لشعبةٍ لا تناسبها قاعتها قاعاتٍ أنسب فارغة في وقتها كله من النوع نفسه، وأن يخطّط «رتّب قاعاتي» نقلات يومٍ كامل دفعةً واحدة بنقلاتٍ مترابطة تُراجع وتُستبعد واحدةً واحدة قبل «حفظ الكل»؛ وأن يعرض قاعات قسمٍ مجاور فارغة حين لا تتّسع قاعات القسم، ويطلب استعارتها عبر طلب استعارة القاعات الموجود. ويُفتح المجسّم من «بصمة القسم» عند قاعةٍ ويومٍ وساعة بعينها (رابط /FSchedule/Index?view=pulse): يُختار اليوم والساعة والقاعة، وتُرى المباني كاملةً لحظةً ثم تطير الكاميرا إلى القاعة وتنفرج الطوابق فوقها؛ ومن لوحة القاعة رابط «في البصمة» إلى حلقتها لمن يرى البصمة، وفي نطاق قسمٍ واحد، ولقاعةٍ للقسم فيها موعد.",
+        "en": "The system shall render the department's buildings as 3D floors of halls (the floor taken from the hall code when it indicates one, otherwise the ground floor), colouring each occupied hall by its fit for its section: pressed above capacity, full from 90%, fitting from 45%, and wide below that, with a clock that moves through the day, a day selector and a weekly heat for every hall; shall suggest, for a section its hall does not fit, better halls of the same type that are free for its whole time; shall plan «arrange my halls» for a whole day in one pass, with chained moves that are reviewed and excluded one by one before «save all»; and shall show a neighbouring department's free halls when no department hall fits, requesting them through the existing hall-borrowing request. The model also opens from «Department fingerprint» at a given hall, day and time (the /FSchedule/Index?view=pulse link): the day, time and hall are selected, the buildings are seen whole for a moment and then the camera flies to the hall with the floors above it parting; and the hall panel links «in the fingerprint» back to its ring for a viewer who sees the fingerprint, within one department's scope, for a hall the department uses."
       },
       "rationale": {
         "ar": "رئيس لجنة الجدول يصلح القاعات قاعةً قاعة؛ والمجسّم يريه الضغط والهدر معاً ويقترح يومه كله، والحفظ يبقى في باب النقل نفسه.",
@@ -5640,6 +5641,10 @@
         {
           "ar": "على الهاتف تبقى القائمة العرضَ الأول، ويُفتح «مجسّم» من مبدّل العرض للقراءة فقط بكاميرا من أعلى ولوحةٍ سفلية تُطوى، بلا حفظ.",
           "en": "On a phone the list stays the first view, and «3D» opens from the view switch read-only, with a top-down camera and a collapsible bottom sheet, without saving."
+        },
+        {
+          "ar": "الرابط يُقرأ مرةً واحدة ثم يُنظَّف العنوان فلا يعود مع التحديث، واختيار قاعةٍ أخرى يعيد المنظر الكامل، ومع تقليل الحركة يُختار اليوم والساعة والقاعة بلا طيران.",
+          "en": "The link is read once and the address is then cleaned so a refresh does not repeat it; choosing another hall restores the full view; with reduced motion the day, time and hall are selected without the flight."
         }
       ],
       "evidence": {
@@ -5654,10 +5659,13 @@
           "src/components/Dashboard.tsx",
           "src/server/routes/reportsRoutes.ts",
           "src/server/routes/hallBarterRoutes.ts",
-          "src/utils/hallPulse.ts#borrowCandidates"
+          "src/utils/hallPulse.ts#borrowCandidates",
+          "src/utils/pulseLink.ts",
+          "src/components/Schedules.tsx#pulseFocusAtMount"
         ],
         "tests": [
-          "tests/hall-pulse-audit.ts"
+          "tests/hall-pulse-audit.ts",
+          "tests/connected-opening-audit.ts"
         ]
       },
       "inferred": false

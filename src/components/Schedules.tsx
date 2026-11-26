@@ -89,6 +89,7 @@ import {
   Box,
 } from "lucide-react";
 import HallPulseLazy, { type HallPulseMove } from "./hallPulse/HallPulseLazy";
+import { fingerprintFocusHref, openInApp, takePulseFocus, type PulseFocus } from "../utils/pulseLink";
 import { DnaCount, DnaStatusHeader } from "./dna";
 import RegistrarCheckNote, { undoRowIds } from "./RegistrarCheckNote";
 import CourseRoomTypeBadge from "./CourseRoomTypeBadge";
@@ -189,7 +190,7 @@ import {
 import { coerceScopeValues, describeScopeSelection, resolveScopeSelection, singleDepartmentOf } from "../utils/scopeContext";
 import { hidesCollege, hidesSection, scopeShape } from "../utils/scopeShape";
 import { useScopedTerms } from "./useScopedTerms";
-import { readSharedScope, resolveSharedScope, useSharedScope, type SharedScope } from "../utils/sharedScope";
+import { readSharedScope, resolveSharedScope, useSharedScope, writeSharedScope, type SharedScope } from "../utils/sharedScope";
 import { runVisualTransition } from "../utils/visualTransition";
 import { byArabic, byRoom, byRoomLabel, byRoomPart, sortByName } from "../utils/sorting";
 import { compareCourseSection } from "../utils/scheduleOrder";
@@ -739,6 +740,25 @@ const WeekCardBoundary = React.memo(
  * presentation; it renders nothing but shimmering placeholders and reads no
  * scheduling state.
  */
+/**
+ * طلب «البصمة باب للنبض» يُقرأ مرةً واحدة لكل تركيبٍ لشاشة الجدول، قبل أن تقرأ
+ * الشاشة نطاقها: يُكتب نطاقه في النطاق المشترك (فيُعرض على نطاق القارئ كما يُعرض
+ * كل نطاقٍ محفوظ)، ثم يُفتح «مجسّم» عند القاعة واليوم والساعة.
+ */
+let pulseFocusSeen: { at: number; focus: PulseFocus | null } | null = null;
+function pulseFocusAtMount(mode: string, userId: number): PulseFocus | null {
+  if (mode !== "schedule" || typeof window === "undefined") return null;
+  if (window.location.search.includes("view=pulse")) {
+    const focus = takePulseFocus();
+    if (focus) writeSharedScope({ collegeId: focus.collegeId, sectionId: focus.sectionId, termId: focus.termId }, { userId, source: "pulse-focus" });
+    pulseFocusSeen = { at: Date.now(), focus };
+  }
+  /* يبقى الطلب حتى يطبّقه المجسّم (pulseFocusDone)، ودقيقةً على الأكثر: لا يعود مع زيارةٍ لاحقة. */
+  return pulseFocusSeen && Date.now() - pulseFocusSeen.at < 60_000 ? pulseFocusSeen.focus : null;
+}
+
+const pulseFocusDone = () => { pulseFocusSeen = null; };
+
 function ScheduleSkeleton({ viewMode }: { viewMode: "week" | "list" | "rooms" | "pulse" }) {
   if (viewMode === "list") {
     return (
@@ -1044,9 +1064,10 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     /* لوحة القاعات: طيُّ القاعات التي لا تناسب الحاجة المكتوبة في البحث (عرضٌ فقط). */
     [rxHideUnfit, setRxHideUnfit] = useState(false),
     [rxGoto, setRxGoto] = useState<{ key: string; n: number } | null>(null),
-    /* «مجسّم» (نبض القاعات) لا يُستعاد من التفضيلات: يُفتح بطلبه، فلا تُحمَّل three.js عند كل دخول. */
+    /* «مجسّم» (نبض القاعات) لا يُستعاد من التفضيلات: يُفتح بطلبه، فلا تُحمَّل three.js عند كل دخول.
+       وطلبه قد يأتي من «بصمة القسم» (src/utils/pulseLink.ts): القاعة واليوم والساعة. */
     [viewMode, setViewMode] = useState<"list" | "week" | "rooms" | "pulse">(
-      isPhoneDevice() ? "list" : savedPrefs.viewMode === "week" ? "week" : savedPrefs.viewMode === "rooms" ? "rooms" : "list",
+      pulseFocusAtMount(mode, Number(user?.SystemUserId || 0)) ? "pulse" : isPhoneDevice() ? "list" : savedPrefs.viewMode === "week" ? "week" : savedPrefs.viewMode === "rooms" ? "rooms" : "list",
     ),
     [conflicts, setConflicts] = useState<any[]>([]),
     [serverValidationIssues, setServerValidationIssues] = useState<string[]>([]),
@@ -2682,7 +2703,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         const savedSection = stored.sectionId;
         const savedTerm = stored.termId;
         if (mode === "schedule") {
-          setViewMode(pref.viewMode === "week" ? "week" : pref.viewMode === "rooms" ? "rooms" : "list");
+          setViewMode(pulseFocusAtMount(mode, Number(user?.SystemUserId || 0)) ? "pulse" : pref.viewMode === "week" ? "week" : pref.viewMode === "rooms" ? "rooms" : "list");
           /* The workspace read does not need the lookups: for a reader with a
              saved scope it is the same question either way. Sent now, it runs
              alongside them instead of after, and loadWorkspace claims it below
@@ -6819,6 +6840,12 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
       setSaving(false);
     }
   };
+  /* «في البصمة»: من لوحة القاعة إلى حلقتها في بصمة القسم. البصمة لأصحاب جدول القسم
+     وهم أصحاب هذه الشاشة نفسها، فلا يصل إليها هنا من لا يراها. */
+  const openFingerprintAt = useCallback((hall: string) => {
+    if (!filterCollege || !filterSection || !filterTerm) return;
+    openInApp(fingerprintFocusHref({ collegeId: Number(filterCollege), sectionId: Number(filterSection), termId: Number(filterTerm) }, hall));
+  }, [filterCollege, filterSection, filterTerm]);
   const pulseInstructorName = useCallback((id: number) => instructorById.get(id)?.AdInstructorName || "", [instructorById]);
 
   const undoPhysicsDecision = async () => {
@@ -13624,6 +13651,9 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             rows={rows}
             courses={courses}
             instructorName={pulseInstructorName}
+            focus={pulseFocusAtMount(mode, Number(user?.SystemUserId || 0))}
+            onFocusDone={pulseFocusDone}
+            onOpenFingerprint={filterSection ? openFingerprintAt : undefined}
             canSave={canEditSchedule && !dragBlocked && !phoneReadOnly}
             phone={phoneReadOnly}
             practice={practiceMode}

@@ -34,7 +34,8 @@ import { copyText } from "../../utils/accessCardImage";
 import { busiestEveningMinute, eveningFootprint, eveningSummary, floorKeyOf, planEvening, EVENING_START } from "../../utils/hallPulseEvening";
 import { councilKey, councilNext, councilTour, type CouncilClosing } from "../../utils/hallPulseCouncil";
 import type { FingerprintShape } from "../../utils/deptFingerprint";
-import { Presentation } from "lucide-react";
+import { Fingerprint, Presentation } from "lucide-react";
+import { registryKeyOfPulseHall, resolvePulseHall, type PulseFocus } from "../../utils/pulseLink";
 import PulseCouncil from "./PulseCouncil";
 import { isPhoneDevice } from "../../utils/workspaceSize";
 
@@ -64,6 +65,12 @@ export interface HallPulseProps {
   phone?: boolean;
   /** طبقة التسجيل بلا فحصٍ محفوظ: اختصارٌ إلى «افحص جدول التسجيل» الموجود (لمن يملك رفعه، وليس على الهاتف). */
   onOpenRegistrarCheck?: () => void;
+  /** «البصمة باب للنبض»: قاعةٌ ويومٌ وساعة تُفتح عليها الشاشة مرةً واحدة، والكاميرا تطير إليها. */
+  focus?: PulseFocus | null;
+  /** يُبلَّغ حين يُطبَّق الطلب، فلا يعود مع تركيبٍ لاحق. */
+  onFocusDone?: () => void;
+  /** «في البصمة»: من لوحة القاعة إلى حلقتها في بصمة القسم (لمن يرى البصمة، وبقسمٍ محدّد). */
+  onOpenFingerprint?: (hallKey: string) => void;
 }
 
 const MOVE: ArabicNoun = { one: "نقلة", two: "نقلتان", few: "نقلات", many: "نقلة" };
@@ -702,6 +709,51 @@ export default function HallPulse(props: HallPulseProps) {
     scene.explode(open ? spot!.building : null, spot ? spot.floorIndex : 0);
     setExploded(open);
   }, [selected, layout, day, mode, sceneReady]);
+
+  /* ── «البصمة باب للنبض»: القاعة واليوم والساعة من الرابط، ثم تطير الكاميرا إليها ── */
+  const focusDone = useRef(false);
+  const [flyKey, setFlyKey] = useState<string | null>(null);
+  useEffect(() => {
+    const focus = props.focus;
+    if (!focus || focusDone.current || loading || !model.halls.length) return;
+    focusDone.current = true;
+    const key = resolvePulseHall(focus.hall, model.halls);
+    const at = Math.max(model.dayStart, Math.min(model.dayEnd - 5, Math.round(focus.at / 5) * 5));
+    setPlaying(false); setCine("off"); setMode("halls");
+    setDay(PULSE_DAYS[Math.max(0, Math.min(4, focus.day))].key);
+    setMinute(at);
+    const h = key ? model.hallByKey.get(key) : null;
+    if (h && key) {
+      setSelected(key); setSheetOpen(true); setFlyKey(key);
+      setSay(["من بصمة القسم:", hallTitle(h), "·", PULSE_DAYS[focus.day].label, clockText(at)].join(" "));
+    } else setSay("القاعة التي اخترتها في البصمة ليست بين قاعات هذا النطاق؛ فُتح النبض على يومها وساعتها.");
+    props.onFocusDone?.();
+    /* القادم من البصمة يصل إلى المجسّم نفسه، لا إلى رأس شاشة الجدول. */
+    requestAnimationFrame(() => {
+      /* على الهاتف المسرح نفسه أولاً (الأسئلة فوقه تُقرأ بعده)، وعلى الشاشة الواسعة رأس النبض كله. */
+      const shell = narrow ? viewRef.current || shellRef.current : shellRef.current;
+      if (!shell) return;
+      const top = shell.getBoundingClientRect().top + window.scrollY - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--topbar-h")) || 0) - 12;
+      window.scrollTo({ top: Math.max(0, top), behavior: reduced ? "auto" : "smooth" });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.focus, loading, model]);
+  /* الطيران: يُرى المبنى كاملاً لحظةً، ثم تقترب الكاميرا من القاعة نفسها (تنفرج الطوابق فوقها). */
+  const flown = useRef<string | null>(null);
+  useEffect(() => {
+    if (!flyKey || !sceneReady) return;
+    /* يُمسح الطيران المنتظر داخل المؤقّت لا قبله: مسحُه فوراً يعيد تشغيل الأثر فيُلغي المؤقّت قبل أن يطير. */
+    const timer = window.setTimeout(() => {
+      sceneRef.current?.spotlight(flyKey, { pull: 0.94, zoom: narrow ? 0.62 : 0.44 });
+      flown.current = flyKey;
+      setFlyKey(null);
+    }, reduced ? 0 : 520);
+    return () => window.clearTimeout(timer);
+  }, [flyKey, sceneReady, narrow, reduced]);
+  /* اختيار قاعةٍ أخرى يعيد المنظر الكامل: الاقتراب كان لقاعة البصمة وحدها. */
+  useEffect(() => {
+    if (flown.current && selected !== flown.current) { flown.current = null; sceneRef.current?.spotlight(null); }
+  }, [selected]);
 
   /* ── الجار: مبنى القسم المجاور حين لا تتّسع قاعات القسم ── */
   const nb = useMemo(() => {
@@ -1360,6 +1412,8 @@ export default function HallPulse(props: HallPulseProps) {
     );
     const cls = selSession ? fitClass(selSession.students, selHall.capacity) : null;
     const foreign = !selSession && foreignAt(model, selHall.key, viewDay, minuteShown);
+    /* الحلقة موجودةٌ في البصمة متى كان للقسم في القاعة موعدٌ واحد في الأسبوع: لا رابط إلى بصمةٍ بلا حلقتها. */
+    const fingerprintKey = props.onOpenFingerprint && model.sessions.some(x => x.hallKey === selHall.key) ? registryKeyOfPulseHall(selHall) : "";
     const needsBorrow = canSave && selSession && cls === "pressed" && !suggestions.length && !plan && !pending && Boolean(sectionId);
     return (
       <div className="hp-info">
@@ -1367,6 +1421,11 @@ export default function HallPulse(props: HallPulseProps) {
           <div>
             <h3>{hallTitle(selHall)}</h3>
             <span>{selHall.buildingLabel}{selHall.type ? ` · ${selHall.type}` : ""}</span>
+            {fingerprintKey ? <button type="button" className="hp-link hp-fp-link" onClick={() => props.onOpenFingerprint!(fingerprintKey)}
+              title="افتح بصمة القسم وحلقة هذه القاعة مبرزة"
+              data-guide-ignore="ينتقل إلى بصمة القسم وحلقة هذه القاعة مبرزة؛ عرضٌ لا يغيّر بيانات">
+              <Fingerprint aria-hidden="true" />في البصمة
+            </button> : null}
           </div>
           <b>{selHall.capacity ? countOf(selHall.capacity, AR.seat) : <span className="hp-unknown">السعة غير مسجّلة</span>}</b>
         </div>

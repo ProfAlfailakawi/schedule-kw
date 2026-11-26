@@ -222,6 +222,9 @@
 .tf-reel > button svg{width:max(13px,calc(var(--u)*1.8));height:max(13px,calc(var(--u)*1.8))}
 .tf-reel .tf-icon{padding-inline:max(8px,calc(var(--u)*1.1))}
 .tf-reel .tf-sound{color:var(--dim)}
+/* الختام: الشعار بصمة القسم، وزرّها يفتحها — يظهر بلون الذهب مع الشعار. */
+.tf-reel .tf-fp{color:var(--gold);border-color:color-mix(in srgb,var(--gold) 60%,var(--rule));animation:tf-fp-in .6s 1.2s ease both}
+@keyframes tf-fp-in{from{opacity:0;transform:translateY(4px)}}
 .tf-reel .tf-sound.is-on{color:var(--gold);border-color:color-mix(in srgb,var(--gold) 60%,var(--rule))}
 .tf-track{flex:1;display:flex;gap:calc(var(--u)*.8);min-width:0}
 /* A scene's bar may be narrower than a tap target: the app's touch floor
@@ -308,6 +311,7 @@
   .tf-scene.on .tf-steps .is-done,.tf-scene.on .tf-steps .is-done span{animation:none}
   .tf-scene.on .tf-steps .is-done{border-color:var(--row-end)}
   .tf-mark,.tf-player.is-closing .tf-mark,.tf-veil{transition:none}
+  .tf-reel .tf-fp{animation:none}
 }
 
 /* The shared-link page: the film is the page, so its heading reads as a page title. */
