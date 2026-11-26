@@ -17,8 +17,10 @@
    Safari لا يتغيّر (عموده لأزرار Safari نفسه). iPhone وiPad لا يتغيّران.
    لا واجهة تبلغ نهاية الساعة داخل عمودها، فنهايتها مقيسة على المحاكي: --duo-clock-end.
    ========================================================================== */
-/* مربع الأداة ينتهي قرابة 170pt على الخارجية طولاً: الكبسولة الأولى تبدأ عند 176pt تحته لا داخله. */
-html[data-device="duo"]{--duo-clock-end:176px;--duo-clock-end-wide:110px}
+/* مربع الأداة ينتهي قرابة 170pt على المحاكي، لكنه على الجهاز الحقيقي يمتدّ إلى ≈235pt (لقطة المالك 2026-11-26: «+» عند
+   y≈200–230 تحت الودجت). فالكبسولة الأولى تبدأ بعد 244pt على الأقل، أو بعد ارتفاع الودجت الذي يبلغه التطبيق الأصلي
+   (--duo-widget-h من publishDuoGeometry) إن كان أكبر. */
+html[data-device="duo"]{--duo-clock-end:max(244px,calc(var(--duo-widget-h) + 8px));--duo-clock-end-wide:110px}
 html[data-device="duo"] body .mobile-topbar{
   padding-right:calc(12px + var(--duo-ir));padding-left:calc(12px + env(safe-area-inset-left));
 }

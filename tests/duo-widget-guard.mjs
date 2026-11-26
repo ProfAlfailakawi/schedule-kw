@@ -261,6 +261,37 @@ async function main() {
       await context.close();
     }
 
+    /* التطبيق الأصلي على الخارجية طولاً: iOS يبلغ عمود الودجت يميناً (data-widget-side=right، ‎--duo-ir‎ = 84pt
+       يحاكي safe-area-inset-right)، وpublishDuoGeometry يكتب ‎--duo-widget-w/-h‎. لا زرّ ثابتٌ/عائم يقع في مستطيل
+       الودجت (96×235 كما في لقطة المالك 2026-11-26: «+» كان عند y≈183–231). */
+    console.log("— التطبيق الأصلي: لا زرّ عائم تحت عمود الودجت —");
+    for (const size of [[457, 678], [466, 678]]) {
+      const context = await newContext(size, { app: true });
+      await context.addInitScript(() => {
+        let watched = false;
+        const apply = () => { const root = document.documentElement; if (!root) return;
+          if (!watched) { watched = true; new MutationObserver(apply).observe(root, { attributes: true, attributeFilter: ["data-widget-side"] }); }
+          root.dataset.duoNativeRegions = "true";
+          root.style.setProperty("--duo-widget-w", "96px"); root.style.setProperty("--duo-widget-h", "235px"); root.style.setProperty("--duo-widget-gap", "0px"); root.style.setProperty("--duo-ir", "84px");
+          if (root.dataset.widgetSide !== "right") root.dataset.widgetSide = "right"; };
+        document.addEventListener("DOMContentLoaded", apply); setTimeout(apply, 50); apply();
+      });
+      const page = await context.newPage();
+      try {
+        await go(page, "/FSchedule/Index"); await page.waitForSelector(".schedule-dock>.dock-add", { timeout: 30000 }).catch(() => {}); await sleep(800);
+        const hits = await page.evaluate(`(() => { const vw = innerWidth; const z = [vw - 96, 0, vw, 235]; const out = []; let n = 0;
+          for (const el of document.querySelectorAll("button,a[href],[role=button]")) { let fixed = false; for (let a = el; a && a !== document.body; a = a.parentElement) { const p = getComputedStyle(a).position; if (p === "fixed" || p === "sticky") { fixed = true; break; } } if (!fixed) continue;
+            const s = getComputedStyle(el); if (s.display === "none" || s.visibility === "hidden" || el.closest("[hidden]")) continue; const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2) continue; n++;
+            if (r.right > z[0] + 0.5 && r.left < z[2] && r.top < z[3] - 0.5 && r.bottom > z[1]) out.push((el.className && String(el.className).split(" ")[0] || el.tagName) + " [" + [r.left, r.top, r.right, r.bottom].map(Math.round).join(",") + "]"); }
+          const dock = document.querySelector(".schedule-dock>.dock-add"); return { n, out, dbg: [document.documentElement.dataset.widgetSide, getComputedStyle(document.documentElement).getPropertyValue("--duo-ir"), !!document.querySelector(".schedule-dock"), location.pathname].join(" "), device: document.documentElement.dataset.device, dock: dock ? Math.round(dock.getBoundingClientRect().top) : null }; })()`);
+        const ok = hits.device === "duo" && hits.dock !== null && hits.out.length === 0;
+        console.log(`${ok ? "✓" : "✗"} [app] ${size.join("x")} schedule — أزرار ثابتة ${hits.n}، أعلى «+» y=${hits.dock}، في الودجت ${hits.out.length} ${hits.dbg}`);
+        for (const o of hits.out) console.log(`     ▸ ${o}`);
+        if (!ok) fail(`[app] ${size.join("x")}: زرّ عائم تحت عمود الودجت أو الدوو غير مكتشف (${hits.device}، dock ${hits.dock})`);
+      } catch (error) { fail(`[app] ${size.join("x")} native: ${String(error.message).split("\n")[0]}`); }
+      await context.close();
+    }
+
     /* صفحة التشخيص المخفية. */
     console.log("— ?duo-debug=1 —");
     {
