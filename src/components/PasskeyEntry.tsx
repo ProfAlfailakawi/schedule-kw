@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Fingerprint } from "lucide-react";
-import { forgetPasskeyDevice, loginWithPasskey, passkeyDeviceRemembered, passkeySupported, PasskeyError } from "../utils/passkeys";
+import { Fingerprint, LockKeyhole } from "lucide-react";
+import { forgetPasskeyDevice, loginWithPasskey, passkeyDeviceName, passkeyDeviceRemembered, passkeySupported, PasskeyError } from "../utils/passkeys";
 import { isInvitationHash } from "../utils/invitationLink";
 import { safeStorage } from "../utils/safeStorage";
 
@@ -24,13 +24,20 @@ const autoTried = () => safeStorage.get(AUTO_KEY, "session") === "1";
 const markAutoTried = () => safeStorage.set(AUTO_KEY, "1", "session");
 const SUPPRESS_KEY = "schedule-passkey-auto-suppressed";
 /** خروجٌ صريح في هذا التبويب: لا تُفتح البصمة وحدها بعده (يناديه App عند الخروج). */
-export const suppressPasskeyAuto = () => { markAutoTried(); safeStorage.set(SUPPRESS_KEY, "1", "session"); };
+/* على طريقة «مراس»: الخروجُ الصريح يسمح بمحاولةٍ تلقائية جديدة عند الدخول القادم، فلا يُمنع شيء. */
+export const suppressPasskeyAuto = () => { safeStorage.remove(AUTO_KEY, "session"); safeStorage.remove(SUPPRESS_KEY, "session"); };
 const autoSuppressed = () => safeStorage.get(SUPPRESS_KEY, "session") === "1";
 /** بطاقةُ دخولٍ أو رابطٌ باسم مستخدم: صاحبُه قد يكون غيرَ صاحب البصمة على هذا الجهاز. */
 const arrivedForAnotherLogin = () => typeof window !== "undefined"
   && (isInvitationHash(window.location.hash) || new URLSearchParams(window.location.search).has("username"));
 
-export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => void }) {
+export default function PasskeyEntry({ onSuccess, compact = false, onUsePassword, onUnavailable }: {
+  onSuccess: (data: any) => void;
+  /** بطاقةٌ مضغوطة على طريقة «مراس»: الاسمُ والبصمةُ وزرُّ كلمة السر فقط. */
+  compact?: boolean;
+  onUsePassword?: () => void;
+  onUnavailable?: () => void;
+}) {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -41,7 +48,7 @@ export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => 
   useEffect(() => {
     if (!passkeyDeviceRemembered()) return;
     let alive = true;
-    void passkeySupported().then(ok => { if (alive) setReady(ok); });
+    void passkeySupported().then(ok => { if (!alive) return; setReady(ok); if (!ok) onUnavailable?.(); });
     return () => { alive = false; };
   }, []);
 
@@ -56,7 +63,7 @@ export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => 
     } catch (error) {
       const failure = error instanceof PasskeyError ? error : null;
       /* مفتاحٌ أُزيل من حسابه: لا يبقى الزرُّ يَعِد بما لا يكون. */
-      if (failure?.failure === "not-registered") { forgetPasskeyDevice(); setReady(false); }
+      if (failure?.failure === "not-registered") { forgetPasskeyDevice(); setReady(false); onUnavailable?.(); }
       /* إلغاءُ النافذة التلقائية صامت: الزرُّ أمامه إن أرادها. */
       const notFocused = automatic && !focusRetry && Boolean((error as any)?.notFocused);
       if (notFocused) {
@@ -119,7 +126,24 @@ export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => 
     return () => { cancelled = true; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, [ready, resumeTick]);
 
-  if (!ready) return null;
+  if (!ready) return compact ? <div className="passkey-card passkey-card--loading" aria-busy="true" /> : null;
+  if (compact) {
+    const name = passkeyDeviceName();
+    return (
+      <div className="passkey-card" data-guide-ignore="يدخل بالبصمة المسجّلة على هذا الجهاز؛ لا يغيّر كلمة سر ولا بيانات">
+        <div className="passkey-card-actions">
+          <button type="button" className="passkey-card-btn passkey-card-btn--primary" onClick={() => { void go(); }} disabled={busy} aria-label="الدخول بالبصمة" title="الدخول بالبصمة">
+            {busy ? <span className="button-spinner" /> : <Fingerprint aria-hidden="true" />}
+          </button>
+          <button type="button" className="passkey-card-btn" onClick={() => onUsePassword?.()} disabled={busy} aria-label="الدخول بكلمة السر" title="الدخول بكلمة السر">
+            <LockKeyhole aria-hidden="true" />
+          </button>
+        </div>
+        {name ? <b className="passkey-card-name">{name}</b> : null}
+        {message ? <p role="alert">{message}</p> : null}
+      </div>
+    );
+  }
   return (
     <div className="passkey-entry" data-guide-ignore="يدخل بالبصمة المسجّلة على هذا الجهاز؛ لا يغيّر كلمة سر ولا بيانات">
       <button type="button" className="passkey-go" onClick={() => { void go(); }} disabled={busy} aria-label="الدخول بالبصمة" data-guide-ignore="يدخل بالبصمة المسجّلة على هذا الجهاز؛ لا يغيّر كلمة سر ولا بيانات">

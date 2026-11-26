@@ -9,6 +9,7 @@ import { safeStorage } from "./safeStorage";
 
 const DEVICE_KEY = "schedule-passkey-device";
 const OFFER_KEY = "schedule-passkey-offer";
+const NAME_KEY = "schedule-passkey-name";
 
 export type PasskeyFailure = "cancelled" | "unsupported" | "not-registered" | "expired" | "password-required" | "password-wrong" | "limit" | "unavailable" | "failed";
 
@@ -43,7 +44,10 @@ export async function passkeySupported(): Promise<boolean> {
 /* ── ما يُتذكَّر على الجهاز ─────────────────────────────────────────────────── */
 export const passkeyDeviceRemembered = (): boolean => safeStorage.get(DEVICE_KEY) === "1";
 export const rememberPasskeyDevice = () => safeStorage.set(DEVICE_KEY, "1");
-export const forgetPasskeyDevice = () => safeStorage.remove(DEVICE_KEY);
+export const forgetPasskeyDevice = () => { safeStorage.remove(DEVICE_KEY); safeStorage.remove(NAME_KEY); };
+/** اسمُ صاحب البصمة على هذا الجهاز (للترحيب فقط، غيرُ حسّاس). */
+export const passkeyDeviceName = (): string => safeStorage.get(NAME_KEY) || "";
+export const rememberPasskeyDeviceName = (name: unknown) => { const v = String(name || "").trim().slice(0, 80); if (v) safeStorage.set(NAME_KEY, v); };
 export const passkeyOfferDismissed = (): boolean => safeStorage.get(OFFER_KEY) === "dismissed";
 export const dismissPasskeyOffer = () => safeStorage.set(OFFER_KEY, "dismissed");
 
@@ -129,6 +133,7 @@ export async function loginWithPasskey(): Promise<any> {
   } });
   if (!verified.ok) throw serverFailure(verified.data, verified.status);
   rememberPasskeyDevice();
+  rememberPasskeyDeviceName(verified.data?.user?.Name || verified.data?.user?.name);
   return verified.data;
 }
 
