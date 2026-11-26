@@ -4,6 +4,7 @@ import { fingerprintGeometry, FINGERPRINT_PALETTES, FINGERPRINT_VIEW, type Finge
 import { filmScenes, termFilmPath, weekContourShape, type TermFilmData, type TermFilmSceneKey } from "../utils/termFilm";
 import { filmSound, filmSoundSupported, readFilmSoundChoice, writeFilmSoundChoice } from "./termFilmSound";
 import "../styles/term-film.css";
+import TermFilmExport from "./TermFilmExport";
 
 /**
  * ── فيلم الفصل ──────────────────────────────────────────────────────────────
@@ -458,7 +459,7 @@ export function TermFilmPanel({ scope, heading = true }: { scope: TermFilmScope;
       <CopyLink scope={scope} />
     </header> : null}
     {error ? <p className="tf-error" role="alert">{error}</p>
-      : film ? <TermFilmPlayer film={film} />
+      : film ? <><TermFilmPlayer film={film} /><TermFilmExport film={film} /></>
       : <div className="tf-player tf-loading" role="status" aria-label="جاري إعداد الفيلم"><span>جاري إعداد الفيلم…</span></div>}
   </section>;
 }
