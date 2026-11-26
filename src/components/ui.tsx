@@ -374,14 +374,17 @@ export function CatalogFormDrawer({ label, onClose, children, wide = false, rais
     } finally { asking.current = false; }
   }, [onClose]);
   const ref = useDrawerA11y<HTMLElement>(() => { void guardedClose(); });
-  return (
+  /* يُرسم في body لا في موضعه: يُفتح بعضُه من داخل الدرج الجانبي (.sidebar.open، حاويةُ تمريرٍ)، وعلى iOS داخل التطبيق
+     كانت تلك الحاوية تقصّ الدرجَ الثابت إلى صندوقها، فيُقطع يسارُ «الدخول بالبصمة» على الدوو (لقطة المالك 2026-11-26). */
+  return createPortal(
     <>
       <div className={`catalog-form-backdrop no-print ${raised ? "is-raised" : ""}`.trim()} onMouseDown={() => void guardedClose()} aria-hidden="true" />
       <aside ref={ref} className={`content-stack editor-page catalog-form-drawer no-print ${wide ? "catalog-form-drawer-wide" : ""} ${raised ? "is-raised" : ""}`.trim()} role="dialog" aria-modal="true" aria-label={label}>
         <button data-guide-ignore="يغلق النافذة؛ لا يكتب شيئاً" type="button" className="drawer-close catalog-drawer-close" onClick={() => void guardedClose()} aria-label="إغلاق" title="إغلاق"><X aria-hidden="true" /></button>
         {children}
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }
 export function PrimaryButton({ children, className = "", ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) { return <button {...props} className={`btn btn-primary ${className}`.trim()}>{children}</button>; }

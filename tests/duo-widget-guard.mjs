@@ -139,7 +139,7 @@ async function main() {
 
     const newContext = async ([width, height], { scheme = "light", authed = true, app = false } = {}) => {
       if (!browser.isConnected()) await relaunch();
-      const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: app ? 2 : 1, hasTouch: true, isMobile: app, userAgent: app ? APP_UA : UA, locale: "ar-KW", colorScheme: scheme, reducedMotion: "reduce" });
+      const context = await browser.newContext({ viewport: { width, height }, screen: { width, height }, deviceScaleFactor: app ? 2 : 1, hasTouch: true, isMobile: app, userAgent: app ? APP_UA : UA, locale: "ar-KW", colorScheme: scheme, reducedMotion: "reduce" });
       if (app) await context.addInitScript(() => {
         /* غلاف Capacitor (WKWebView) مُحاكى: لا navigator.standalone ولا display-mode، وwindow.Capacitor موجود. */
         window.Capacitor = { isNativePlatform: () => true, getPlatform: () => "ios", platform: "ios" };
@@ -168,6 +168,9 @@ async function main() {
       { id: "modal-details", run: async (p) => { await go(p, "/FSchedule/Index"); await p.evaluate(`document.querySelector(".agenda-card")?.click()`); await sleep(900); } },
       { id: "modal-tools", run: async (p) => { await go(p, "/FSchedule/Index"); if (!(await clickText(p, "/^أدوات الجدول$/"))) { await clickText(p, "/^المزيد$/"); await sleep(500); await clickText(p, "/^أدوات الجدول$/"); } await sleep(1100); } },
       { id: "trail-sheet", run: async (p) => { await go(p, "/Home/Index"); await p.evaluate(`document.querySelector(".user-card-tools .trail-open")?.click()`); await sleep(900); } },
+      /* درج «الدخول بالبصمة» (CatalogFormDrawer) يُفتح من الدرج الجانبي: يُفحص أن لا محتوى يخرج عن صندوقه، وأن لا سلفَ له
+         يقصّه (حاوية تمرير/تحويل) — على iOS داخل التطبيق كان .sidebar.open يقصّ يساره. */
+      { id: "passkey-drawer", contain: ".catalog-form-drawer", run: async (p) => { await go(p, "/Home/Index"); await p.evaluate(`[...document.querySelectorAll("button[aria-label='فتح القائمة']")].find((b) => b.offsetParent)?.click()`); await sleep(700); if (!(await click(p, `(() => { const b = document.querySelector("button[aria-label='الدخول بالبصمة']"); if (b) b.click(); return !!b; })()`))) throw new Error("زر الدخول بالبصمة غير موجود"); await sleep(1100); } },
       { id: "public-about", authed: false, run: async (p) => { await go(p, "/Public/Aboutus"); } },
       { id: "not-found", run: async (p) => { await go(p, "/no-such-page"); } },
     ];
@@ -205,6 +208,11 @@ async function main() {
             results.push({ ctx: kind, size: key, variant: tag, scene: scene.id, vars, ...m });
             const bad = m.violations.length;
             console.log(`${bad ? "✗" : "✓"} ${tag} · ${scene.id} — فُحص ${m.checked}، مخالفات ${bad}، خلفيات مستثناة ${m.bleed.length}`);
+            if (scene.contain) {
+              const c = await page.evaluate(`(() => { const d = document.querySelector(${JSON.stringify(scene.contain)}); if (!d) return { missing: true }; const r = d.getBoundingClientRect(); const out = []; for (const el of d.querySelectorAll("*")) { const b = el.getBoundingClientRect(); if (!b.width || !b.height || getComputedStyle(el).visibility === "hidden") continue; if (b.left < r.left - 1 || b.right > r.right + 1) out.push((el.className && String(el.className).slice(0, 40) || el.tagName) + " [" + Math.round(b.left) + "→" + Math.round(b.right) + "]"); } for (let a = d.parentElement; a && a !== document.body; a = a.parentElement) { const s = getComputedStyle(a); if (s.overflowX !== "visible" || s.overflowY !== "visible" || s.transform !== "none" || s.filter !== "none" || s.contain !== "none") out.push("حاويةٌ قاصّة: " + a.tagName + "." + String(a.className).slice(0, 40)); } return { box: [Math.round(r.left), Math.round(r.right)], sw: d.scrollWidth, cw: d.clientWidth, out }; })()`);
+              if (c.missing) fail(`${tag} · ${scene.id}: ${scene.contain} لم يُفتح`);
+              else { const over = c.out.length || c.sw > c.cw + 1; console.log(`${over ? "✗" : "✓"} ${tag} · ${scene.id} احتواء — الصندوق ${c.box.join("→")} scrollWidth ${c.sw}/${c.cw}، خارجه ${c.out.length}`); for (const o of c.out.slice(0, 4)) console.log(`     ▸ ${o}`); if (over) failures += Math.max(1, c.out.length); }
+            }
             if (vars.w !== `${WIDGET_W}px`) fail(`${tag} · ${scene.id}: --duo-widget-w = «${vars.w}» والمتوقع ${WIDGET_W}px`);
             for (const v of m.violations.slice(0, 6)) console.log(`     ▸ ${v.kind} ${v.el} «${v.text}» عند x=${v.x} y=${v.y} (${v.w}×${v.h})`);
             if (bad) failures += bad;
