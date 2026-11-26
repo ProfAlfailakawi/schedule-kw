@@ -2,12 +2,12 @@
  "note": "sha256 لمخرجات بُناة الصفحات بمدخلات tests/server-route-parity-audit.ts",
  "pages": {
   "staffCardPage#0": {
-   "sha256": "4231dd88508374aba5f1819e7a9f7598669de12222bfa8d7a7f34c28ade3c9cc",
-   "length": 75461
+   "sha256": "321abf7e3ea4d25a2f30873a33794b2dc47090aa7b5f102fefdbdf2eb12efb2e",
+   "length": 77828
   },
   "staffCardPage#1": {
-   "sha256": "cbff3600d6a97dc27f13a5b7dfb115a301cdb012200d18dee98d5a0716829f7c",
-   "length": 75548
+   "sha256": "c0a142996cc76b17c334fa18ef1f56a16771e1f2107462d0c09b7e4ee710d9d5",
+   "length": 77916
   },
   "surveyPage#0": {
    "sha256": "3957e21d2ece6132c63ad808d636f15ead4be47a0f4adda6a8101211eb88c8e3",
@@ -26,12 +26,12 @@
    "length": 47314
   },
   "instructorRequestPage#0": {
-   "sha256": "be8fc098325db25f5a6f426de9a1778ae1c56425cd62e5049949747f822f117b",
-   "length": 357757
+   "sha256": "9d3144125e3a541445007b069057dff46e18c752e69ec45c3533e82a47f2ec00",
+   "length": 357830
   },
   "instructorRequestPage#1": {
-   "sha256": "9db7f46fdcab57fc02ab7fb1bba2b146e3267ecf2dbb418aa03a918a101241b4",
-   "length": 357915
+   "sha256": "2684d272a32cbcbc4db74f34dc85efa3d0ca89f834797758c09904dec992e245",
+   "length": 357988
   },
   "publicInvalidLinkPage#0": {
    "sha256": "d6673766e7c402772d184aba8edb51baefb4403c07dfa361dadd75406743afff",

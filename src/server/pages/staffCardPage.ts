@@ -8,6 +8,7 @@
 import { PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT } from "../studyProposalAlert";
 import { COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS } from "../staffCardVisual";
 import { DEMO_COPY_SCRIPT } from "../publicKit";
+import { MY_FILM_ENTRY_BODY, MY_FILM_ENTRY_CSS } from "../myFilmPage";
 import { CALENDAR_LINKS_CLIENT_JS } from "../../utils/calendarLinks";
 import { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR } from "../publicTheme";
 
@@ -247,6 +248,7 @@ input:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--jade) 20%,transparent)}
   .pub-week td{border-color:#9aa3a0}.pub-week .wslot b,.pub-week .wslot time{color:#111}.pub-week .wslot small{color:#444}
 }
 ${STAFF_CARD_VISUAL_CSS}
+${MY_FILM_ENTRY_CSS}
 </style>
 </head>
 <body>
@@ -287,6 +289,7 @@ ${STAFF_CARD_VISUAL_CSS}
     <p id="wishesDeadline" hidden style="padding:12px 16px;background:var(--soft);border:1px solid var(--line);border-radius:14px;font-weight:700"></p>
     <div class="approvals" id="approvals" aria-label="حالة اعتماد جدول القسم"></div>
     <div class="stats" id="stats"></div>
+    <a class="mf-card" id="myFilm" href="/s/${encodeURIComponent(token)}/film" hidden>${MY_FILM_ENTRY_BODY}</a>
     <div class="soon" id="soon" hidden></div>
     <div id="proposalAlerts" aria-live="polite"></div>
     <div id="decisionAlerts" aria-live="polite"></div>
@@ -484,6 +487,8 @@ ${CALENDAR_LINKS_CLIENT_JS}
     var calendarOpen = phase !== "past";
     document.getElementById("name").textContent=d.name;
     document.getElementById("scope").textContent=d.college||"";
+    /* «فيلمي»: لمن له محاضراتٌ رسمية في فصل البطاقة، وحين تعرض البطاقةُ ذلك الفصل (d.film من الخادم). */
+    var myFilm=document.getElementById("myFilm");if(myFilm)myFilm.hidden=!d.film;
     var planMap=document.getElementById("planMap");
     if(planMap){if(d.planMapUrl){planMap.href=d.planMapUrl;planMap.hidden=false}else{planMap.hidden=true}}
     var termPick=document.getElementById("termPick");

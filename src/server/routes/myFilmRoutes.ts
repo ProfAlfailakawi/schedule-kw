@@ -11,13 +11,16 @@
  * لا تقرأ حقلَ مكان، والجوابُ يمرّ بـ`withoutPlaceFields` قبل أن يخرج. ولا رقمَ
  * مدنياً ولا اسمَ أحدٍ غيره. وفتحُ الفيلم لا يُسجَّل فتحاً للرابط.
  *
+ * وبابٌ ثالث من «بطاقتي» (‎/s/:token/film‎) في publicStaffRoutes: يعرف صاحبَه كما تعرفه البطاقة،
+ * ثم يبني فيلمَه بـ`instructorFilmFor` نفسها — فالضماناتُ أعلاه واحدةٌ في البابين.
+ *
  * والفيلم يعمل قبل الاعتماد النهائي (قرار المالك في فيلم الفصل): `final` يقول هل
  * اعتمد التسجيل جدولَ كل قسمٍ يدرّس فيه، والمشاهدُ تروي «حتى الآن» حتى يصبح نهائياً.
  */
 import type { Express, Request, Response } from "express";
 import { Repository } from "../../db/repository";
 import type { FSchedule, InstructorRequest } from "../../types";
-import { instructorFilm, lecturesFromRows, teachingScopes, wishesFromItems, type MyFilmData } from "../../utils/myFilm";
+import { instructorFilm, lecturesFromRows, teachingScopes, wishesFromItems, type MyFilmData, type MyFilmWish } from "../../utils/myFilm";
 import { withoutPlaceFields } from "../../utils/teacherSafeFields";
 import { resolveRequestLink } from "../core/instructorRequests";
 import { publicPageNonce } from "../core/publicPages";
@@ -29,10 +32,18 @@ const CACHE_MS = 60_000;
 const cache = new Map<string, { at: number; film: MyFilmData | null }>();
 
 async function filmFor(linkId: string, request: InstructorRequest): Promise<MyFilmData | null> {
+  return instructorFilmFor(linkId, Number(request.AdInstructorId), Number(request.AdTermId),
+    () => wishesFromItems(request.items, Boolean(request.submittedAt)));
+}
+
+/**
+ * فيلمُ أستاذٍ بعينه في فصلٍ بعينه. لا يُستدعى إلا بعد أن يثبت البابُ صاحبَه: رابطُ طلبه (أعلاه)،
+ * أو بطاقتُه ‎/s/:token‎ (publicStaffRoutes) — والمخبأُ بمفتاح ذلك الباب، فلا يختلط فيلمان.
+ */
+export async function instructorFilmFor(linkId: string, instructorId: number, termId: number, wishesOf: () => MyFilmWish[]): Promise<MyFilmData | null> {
   const key = `${Repository.currentDemoSessionId() || "live"}|${linkId}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.film;
-  const instructorId = Number(request.AdInstructorId), termId = Number(request.AdTermId);
   const [rows, instructors, term, courses] = await Promise.all([
     Repository.getSchedulesByScope({ termId }), Repository.getInstructors(termId), Repository.getTermById(termId), Repository.getCourses(),
   ]);
@@ -45,7 +56,7 @@ async function filmFor(linkId: string, request: InstructorRequest): Promise<MyFi
     name: String(person?.AdInstructorName || "").trim(),
     termName: String((term as any)?.AdTermName || ""),
     lectures: lecturesFromRows(rows as FSchedule[], instructorId, id => courseName.get(id) || ""),
-    wishes: wishesFromItems(request.items, Boolean(request.submittedAt)),
+    wishes: wishesOf(),
     final: scopes.length > 0 && approvals.every(approval => approval?.status === "accepted"),
   });
   const safe = film ? withoutPlaceFields(film) : null;

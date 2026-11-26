@@ -25,6 +25,7 @@ import { requestFullySettled } from "../src/utils/instructorRequestVerdict";
 import { formatScheduleTimeRange } from "../src/utils/scheduleTime";
 import { roomKeyOf } from "../src/utils/locationRegistry";
 import { readServerSource } from "./helpers/serverSource.mjs";
+import { MY_FILM_ENTRY_BODY, MY_FILM_ENTRY_CSS } from "../src/server/myFilmPage";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -110,7 +111,7 @@ check(eaten === 0, "لا تعبيرَ نمطيَّ في صفحةٍ عامة يف
 
 const staffSrc = server.slice(server.indexOf("function staffCardPage"), server.indexOf("</html>`", server.indexOf("function staffCardPage")) + 9) + ";}";
 const staffHtml = (() => {
-  const sb: any = { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, DEMO_COPY_SCRIPT, COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS, REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS, CALENDAR_LINKS_CLIENT_JS };
+  const sb: any = { PUBLIC_LIGHT_VARS, PUBLIC_THEME_COLOR, PROPOSAL_ALERT_CSS, PROPOSAL_ALERT_SCRIPT, DEMO_COPY_SCRIPT, COURSE_COLOR_JS, STAFF_CARD_VISUAL_CSS, STAFF_CARD_VISUAL_JS, REQUEST_VISUAL_CSS, REQUEST_VISUAL_JS, CALENDAR_LINKS_CLIENT_JS, MY_FILM_ENTRY_BODY, MY_FILM_ENTRY_CSS };
   vm.runInNewContext(staffSrc.replace("function staffCardPage(token: string, label: string, nonce: string, demoHint = \"\"): string {", "function staffCardPage(token, label, nonce, demoHint = \"\") {")
     + "\nthis.html = staffCardPage('t','قسم','n');", sb);
   return String(sb.html);
