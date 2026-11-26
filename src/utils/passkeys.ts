@@ -103,7 +103,8 @@ function browserFailure(error: any): PasskeyError {
   if (name === "NotAllowedError" || name === "AbortError") {
     const failure = new PasskeyError("cancelled", PASSKEY_TEXT.cancelled);
     /* الصفحةُ بلا تركيز (داخل تطبيق iOS): تُعلَّم لتعيدها المحاولةُ التلقائية حين تستلم التركيز. */
-    (failure as any).notFocused = /not focused/i.test(String(error?.message || ""));
+    /* رفضٌ لأن الصفحة لم تجهز بعد (لا إلغاءٌ من صاحبها): «not focused» أو «not allowed … in the current context». */
+    (failure as any).notFocused = /not focused|current context/i.test(String(error?.message || "")) && !/cancel/i.test(String(error?.message || ""));
     return failure;
   }
   if (name === "NotSupportedError" || name === "SecurityError") return new PasskeyError("unsupported", PASSKEY_TEXT.unsupported);

@@ -52,7 +52,7 @@ export default function PasskeyEntry({ onSuccess, compact = false, onUsePassword
     return () => { alive = false; };
   }, []);
 
-  const go = async (automatic = false, focusRetry = false) => {
+  const go = async (automatic = false, attempt = 0) => {
     if (ceremonyBusy) return;
     ceremonyBusy = true;
     setBusy(true); setMessage("");
@@ -65,10 +65,13 @@ export default function PasskeyEntry({ onSuccess, compact = false, onUsePassword
       /* مفتاحٌ أُزيل من حسابه: لا يبقى الزرُّ يَعِد بما لا يكون. */
       if (failure?.failure === "not-registered") { forgetPasskeyDevice(); setReady(false); onUnavailable?.(); }
       /* إلغاءُ النافذة التلقائية صامت: الزرُّ أمامه إن أرادها. */
-      const notFocused = automatic && !focusRetry && Boolean((error as any)?.notFocused);
-      if (notFocused) {
-        const retry = () => { window.removeEventListener("focus", retry); window.setTimeout(() => { void goRef.current(true, true); }, 150); };
-        if (document.hasFocus()) retry(); else window.addEventListener("focus", retry);
+      /* داخل تطبيق iOS قد تُرفض النافذةُ التلقائية لأن الصفحة لم تستلم التركيز بعد: نعيدها سريعاً
+         (حتى ٣ مرات) عند أول focus أو بعد مهلةٍ قصيرة، أيُّهما أسبق. */
+      if (automatic && attempt < 3 && Boolean((error as any)?.notFocused)) {
+        let fired = false;
+        const retry = () => { if (fired) return; fired = true; window.removeEventListener("focus", retry); void goRef.current(true, attempt + 1); };
+        window.addEventListener("focus", retry);
+        window.setTimeout(retry, 500 + attempt * 400);
         return;
       }
       if (!(automatic && failure?.failure === "cancelled")) setMessage(failure?.message || "تعذّر الدخول بالبصمة. ادخل بالاسم وكلمة السر.");
@@ -109,15 +112,7 @@ export default function PasskeyEntry({ onSuccess, compact = false, onUsePassword
       timer = window.setTimeout(() => {
         if (cancelled) return;
         if (document.visibilityState !== "visible") { arm(); return; }
-        /* داخل تطبيق iOS: الصفحة ظاهرة لكن بلا تركيز بعد، فيرفض النظامُ النافذةَ بـ«document is not focused».
-           ننتظر حدثَ focus (بسقف ٤ ثوانٍ) ثم نفتحها. */
-        if (!document.hasFocus()) {
-          let fired = false;
-          const go = () => { if (fired || cancelled) return; fired = true; window.removeEventListener("focus", go); window.setTimeout(() => { if (!cancelled) void goRef.current(true); }, 120); };
-          window.addEventListener("focus", go);
-          window.setTimeout(go, 4000);
-          return;
-        }
+        /* نحاول فوراً؛ إن رفضها النظامُ لأن الصفحة بلا تركيز أعادتها go سريعاً (انظر أعلاه). */
         void goRef.current(true);
       }, AUTO_SETTLE_MS);
     };
