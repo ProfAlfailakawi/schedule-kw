@@ -1097,11 +1097,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
   }, []);
-  const duoSplit = duoWide && !phoneReadOnly;
-  useEffect(() => {
-    // في العرض المزدوج يبقى «الأسبوع» هو الوضع الفعّال (السحب والتعديل)، والقائمة بجواره.
-    if (duoSplit && viewMode === "list") setViewMode("week");
-  }, [duoSplit, viewMode]);
+  /* كالحاسوب: صفحةٌ واحدة بعرض الشاشة، والعرض المختار (قائمة أو أسبوع أو قاعات أو مجسّم) وحده بالعرض كله. */
+  const duoFull = duoWide && !phoneReadOnly;
   const [livingPanelOpen, setLivingPanelOpen] = useState(false);
   /* ── فصلٌ فارغ ليس طريقاً مسدوداً ───────────────────────────────────────
      «بداية الفصل» صارت بطاقةً في «مركز الذكاء ← جرّب»؛ الحالةُ الفارغة تفتحها
@@ -11914,7 +11911,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 
   const schedListPane = (
 <>
-        <Surface className={`schedule-agenda-surface${duoSplit ? " is-split-list" : ""}`}>
+        <Surface className="schedule-agenda-surface">
           <div className="agenda-head">
             <div>
               <span className="surface-kicker">عرض ذكي</span>
@@ -13077,7 +13074,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
 </>
   );
   return (
-    <div className={`content-stack schedule-page ${phoneReadOnly ? "schedule-phone" : ""} ${duoSplit ? "duo-full" : ""}`.trim()}>
+    <div className={`content-stack schedule-page ${phoneReadOnly ? "schedule-phone" : ""} ${duoFull ? "duo-full" : ""}`.trim()}>
       {/* Lifted clear of the board's horizontal scroller so nothing can clip it,
           and given one line per wall instead of a sentence stitched with dashes. */}
       {refusal ? (
@@ -13350,7 +13347,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         <div className="schedule-tools" role="toolbar" aria-label="أدوات عرض الجدول">
           <div className="schedule-view-cluster">
           <div className="segmented" role="group" aria-label="طريقة عرض الجدول">
-            <button data-guide-target="schedule.view.list" type="button" className={viewMode === "list" || duoSplit ? "active" : ""} aria-pressed={viewMode === "list" || duoSplit} onClick={() => changeView("list")}>
+            <button data-guide-target="schedule.view.list" type="button" className={viewMode === "list" ? "active" : ""} aria-pressed={viewMode === "list"} onClick={() => changeView("list")}>
               <LayoutList aria-hidden="true" /> قائمة
             </button>
             {!phoneReadOnly ? (<>
@@ -13634,8 +13631,6 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
             onOpenRegistrarCheck={canEditSchedule && !phoneReadOnly ? () => { if (!showMobileReadOnlyGate() && !refuseInPractice()) { setTransferTab("check"); setTransferOpen(true); } } : undefined}
           />
         </div>
-      ) : duoSplit && viewMode !== "rooms" ? (
-        <div className="duo-split"><div className="duo-split-week">{schedWeekPane}</div><aside className="duo-split-list" aria-label="قائمة المواعيد">{schedListPane}</aside></div>
       ) : viewMode === "list" ? (
         <>{schedListPane}</>
       ) : viewMode === "rooms" ? (
