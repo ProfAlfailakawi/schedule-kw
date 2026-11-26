@@ -680,8 +680,8 @@
    ],
    "path": "/api/term-film",
    "name": "bound dispatch",
-   "call": "dc90fa930bd748d4",
-   "site": "src/server/routes/termFilmRoutes.ts:117",
+   "call": "e64fdfe5f05ef678",
+   "site": "src/server/routes/termFilmRoutes.ts:146",
    "regexp": "/^\\/api\\/term-film\\/?$/i",
    "end": true
   },
@@ -693,7 +693,7 @@
    "path": "/api/term-film/college",
    "name": "bound dispatch",
    "call": "70751ffb843da6f3",
-   "site": "src/server/routes/termFilmRoutes.ts:155",
+   "site": "src/server/routes/termFilmRoutes.ts:185",
    "regexp": "/^\\/api\\/term-film\\/college\\/?$/i",
    "end": true
   },
