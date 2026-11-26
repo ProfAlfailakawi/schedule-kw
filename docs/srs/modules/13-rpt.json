@@ -2014,8 +2014,8 @@
         "en": "Saved query preferences and filter chips"
       },
       "text": {
-        "ar": "يجب أن يحفظ مركز الاستعلام في المتصفح العدسة المختارة والمرشّحات الإضافية تحت مفتاح لكل حساب (schedule-unified-prefs-<الحساب>) دون الكلية والقسم والفصل التي تبقى في النطاق المشترك، وأن يعرض كل مرشّح إضافي نشط رقاقةً تُزال وحدها مع زر لمسح الكل، وأن يبني خيارات كل قائمة من الصفوف التي تطابق المرشّحات الأخرى وحدها.",
-        "en": "The query screen shall save in the browser the chosen lens and the extra filters under one key per account (schedule-unified-prefs-<account>), leaving college, department and term to the shared scope; every active extra filter shall show as a chip removable on its own with a clear-all button; and each list's options shall be built only from the rows matching the other filters."
+        "ar": "يجب أن يحفظ مركز الاستعلام في المتصفح العدسة المختارة والمرشّحات الإضافية تحت مفتاح لكل حساب (schedule-unified-prefs-<الحساب>) دون الكلية والقسم والفصل التي تبقى في النطاق المشترك، فتبقى لإعادة تحميل الصفحة وحدها: الخروج من الاستعلامات إلى شاشة أخرى يمحو هذا المفتاح فتفتح من أولها عند العودة، واختيار عدسة أخرى يصفّر المرشّحات الإضافية والنتيجة المفتوحة وقائمة الطباعة (والمنتدبون و«كل الفصول» وجهان لعدسة واحدة)، وأن يعرض كل مرشّح إضافي نشط رقاقةً تُزال وحدها مع زر لمسح الكل، وأن يبني خيارات كل قائمة من الصفوف التي تطابق المرشّحات الأخرى وحدها.",
+        "en": "The query screen shall save in the browser the chosen lens and the extra filters under one key per account (schedule-unified-prefs-<account>), leaving college, department and term to the shared scope, so they survive a page reload only: leaving the query screen for another screen clears that key so it reopens from the start, and choosing another lens resets the extra filters, the open result and the print menu (visiting and «all terms» are two faces of one lens); every active extra filter shall show as a chip removable on its own with a clear-all button; and each list's options shall be built only from the rows matching the other filters."
       },
       "priority": "should",
       "status": "implemented",
@@ -2045,9 +2045,10 @@
           "src/components/Reports.tsx#rowsForFacet",
           "src/components/Reports.tsx#cleanOptionText",
           "src/components/Reports.tsx#dedupeVisibleOptions",
-          "src/components/Reports.tsx#chips"
+          "src/components/Reports.tsx#chips",
+          "src/components/Reports.tsx#selectLens"
         ],
-        "tests": []
+        "tests": ["tests/report-choices-audit.ts"]
       },
       "inferred": true
     },

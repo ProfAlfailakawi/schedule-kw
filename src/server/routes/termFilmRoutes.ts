@@ -3,7 +3,9 @@
  *
  * مساران يقرآن ولا يكتبان شيئاً: نسخة القسم لأصحاب جدوله (رئيس اللجنة ورئيس
  * القسم)، ونسخة الكلية للعميد ومساعده. الأستاذ لا يرى الفيلم، ولا يحمل الجواب
- * اسم قاعة ولا اسم أستاذ ولا رقماً مدنياً — أعداداً وتواريخ فقط.
+ * اسم قاعة ولا اسم أستاذ ولا رقماً مدنياً — أعداداً وتواريخ فقط. وخلفية نسخة
+ * القسم شكلُ بصمته مجرّداً من كل نص (أقواسٌ بلا أسماء)، ولا تُحمل إلا لمن يرى
+ * البصمة أصلاً؛ ونسخة الكلية لا تحملها.
  *
  * والقراءة تعمل قبل الاعتماد النهائي أيضاً: `final` يقول هل اعتمد التسجيل،
  * والشاشة تروي «حتى الآن» حتى يصبح نهائياً. لا رسائل تُرسل من هنا: المشاركة
@@ -12,9 +14,10 @@
 import type { Express } from "express";
 import { Response } from "express";
 import { Repository } from "../../db/repository";
-import type { FSchedule } from "../../types";
+import type { AdCourse, FSchedule, MasterRoom } from "../../types";
 import { approvalBlockerCount } from "../../utils/scheduleBlockers";
 import { isAcademicRole } from "../../utils/academicRoles";
+import { buildFingerprint, fingerprintShape, DEPT_FINGERPRINT_ROLES, type FingerprintShape } from "../../utils/deptFingerprint";
 import {
   buildFromRows, clashFromCounts, deanFilm, deliveryFromApproval, deptFilm, wishesFromRequests,
   TERM_FILM_DEAN_ROLES, TERM_FILM_DEPT_ROLES, type DeanDepartmentInput, type TermFilmClash,
@@ -22,6 +25,7 @@ import {
 import { type AuthenticatedRequest, isPowerUser, requireAuth } from "../core/auth";
 import { isScopeAllowed } from "../core/scope";
 import { approvalBlockerOptions, placeholderInstructorIds } from "../core/smartImport";
+import { fingerprintRows } from "./deptFingerprintRoutes";
 
 const roleOf = (req: AuthenticatedRequest) => {
   const role = req.user?.Role;
@@ -35,6 +39,31 @@ function mayReadDepartmentFilm(req: AuthenticatedRequest): boolean {
   if (!(TERM_FILM_DEPT_ROLES as readonly string[]).includes(role)) return false;
   if (role === "standard") return (req.permissions || []).includes(7);
   return true;
+}
+
+/**
+ * خلفية الفيلم من بصمة القسم: لمن يرى البصمة نفسها فقط (حارسها هو حارس
+ * /api/dept-fingerprint). فإن اتّسع الفيلم يوماً لصفةٍ لا ترى البصمة سقطت
+ * خلفيتها وحدها ورسمت الشاشة خلفيةً من حِمل الأسبوع.
+ */
+function mayCarryFingerprint(req: AuthenticatedRequest): boolean {
+  if (isPowerUser(req)) return true;
+  const role = roleOf(req);
+  if (!(DEPT_FINGERPRINT_ROLES as readonly string[]).includes(role)) return false;
+  if (role === "standard") return (req.permissions || []).includes(7);
+  return true;
+}
+
+/** شكل بصمة القسم بلا أي نص: لا اسم قاعة ولا مقرر ولا شعبة. `null` حين لا موعد في قاعة أو تعذّرت القراءة. */
+async function backdropFor(scopeRows: FSchedule[]): Promise<FingerprintShape | null> {
+  try {
+    const [courses, rooms] = await Promise.all([Repository.getCourses(), Repository.getLocationRooms().catch(() => [] as MasterRoom[])]);
+    const shape = fingerprintShape(buildFingerprint({ sectionName: "", termName: "", rows: fingerprintRows(scopeRows, courses as AdCourse[], rooms as MasterRoom[]) }));
+    return shape.halls.length ? shape : null;
+  } catch (error) {
+    console.error("[term-film] تعذّرت خلفية البصمة:", error instanceof Error ? error.message : error);
+    return null;
+  }
 }
 
 /** نسخة الكلية: العميد ومساعده. */
@@ -138,13 +167,14 @@ app.get("/api/term-film", requireAuth, async (req: AuthenticatedRequest, res: Re
       const input = await departmentInput(collegeId, sectionId, termId, termRows as FSchedule[], placeholderInstructorIds(instructors as any),
         (term as any)?.AdTermSubmissionDeadline, 24);
       if (!input.rowCount) return null;
-      return deptFilm({
+      const made = deptFilm({
         termName: String((term as any)?.AdTermName || ""), sectionName: String(section?.AdSectionName || ""),
         collegeName: String(college?.AdCollegeName || ""), ...(({ prints, ...rest }) => rest)(input),
       });
+      return { ...made, backdrop: await backdropFor((termRows as FSchedule[]).filter(row => sameScope(row, collegeId, sectionId))) };
     });
     if (!film) { res.status(404).json({ error: "لا جدول لهذا القسم في هذا الفصل بعد." }); return; }
-    res.json({ film });
+    res.json({ film: mayCarryFingerprint(req) ? film : { ...film, backdrop: null } });
   } catch (error) {
     console.error("[term-film] قسم:", error instanceof Error ? error.message : error);
     res.status(500).json({ error: "تعذّر إعداد فيلم الفصل." });

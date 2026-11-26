@@ -25,6 +25,7 @@ import { AR, countOf, nounFor, oblique, studentNounsFor } from "../utils/arabicC
 import { formatScheduleTimeRange, scheduleClockForDisplay } from "../utils/scheduleTime";
 import { termIsArchive } from "../utils/termSequence";
 import { departmentFamily } from "../utils/sectionLabel";
+import { branchReadingScopes } from "../utils/branchScope";
 import { mergeDemandReadings, type IntelligenceScope, type ScopedReading } from "../utils/intelligenceReadingScope";
 import { handOffToTwin } from "../utils/intelligenceLink";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
@@ -76,7 +77,7 @@ export default function DemandAnalysis({ collegeId, sectionId, termId, terms, co
   const studentWords = studentNounsFor(collegeName);
   const ownScope: IntelligenceScope = { collegeId, sectionId, collegeName };
 
-  /* عائلة القسم عبر الكليات — قراءةٌ تحليلية فقط، وبنطاق الحساب نفسه الذي يحكم به الخادم. */
+  /* مواقع القسم في فرعه — قراءةٌ تحليلية فقط، وبنطاق الحساب نفسه الذي يحكم به الخادم. */
   useEffect(() => {
     if (!open || catalog) return;
     void Promise.all([fetchJson("/api/sections"), fetchJson("/api/colleges")]).then(([sections, colleges]) => setCatalog({
@@ -88,7 +89,8 @@ export default function DemandAnalysis({ collegeId, sectionId, termId, terms, co
     if (!catalog || !collegeId || !sectionId) return [ownScope];
     const nameOf = (id: number) => catalog.colleges.find((c: any) => Number(c.AdCollegeId) === id)?.AdCollegeName
       || scopes.find(s => Number(s.AdCollegeId) === id)?.AdCollegeName || "";
-    return departmentFamily(catalog.sections, collegeId, sectionId)
+    /* «كل الفروع» كما في التقرير الشامل: مواقع فرع القسم وحده (البنات مع الجهراء والفحيحيل). */
+    return (branchReadingScopes(catalog.colleges, catalog.sections, collegeId, sectionId) || departmentFamily(catalog.sections, collegeId, sectionId))
       .filter(member => powerAdmin || scopes.some(scope => Number(scope.AdCollegeId) === member.collegeId
         && (Number(scope.AdSectionId) === member.sectionId || Number(scope.AdSectionId) === 0)))
       .map(member => ({ ...member, collegeName: member.collegeId === collegeId ? collegeName || nameOf(member.collegeId) : nameOf(member.collegeId) }));

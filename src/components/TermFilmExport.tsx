@@ -12,7 +12,7 @@ import "../styles/term-film-export.css";
 
 const num = (value: number) => Math.round(value).toLocaleString("ar-KW-u-nu-latn");
 const BG_TOP = "#143730", BG_BOTTOM = "#0b1d19", BRASS = "#e2bd76", INK = "#f0f3ef", MUTED = "rgba(240,243,239,.66)", JADE = "#5fbfa6", RED = "#e06a55";
-const SCENE_NAME: Record<TermFilmSceneKey, string> = { title: "العنوان", build: "بناء الجدول", wishes: "رغبات الأساتذة", clash: "التعارضات", students: "الطلبة", delivery: "التسليم", thanks: "الشكر" };
+const SCENE_NAME: Record<TermFilmSceneKey, string> = { title: "العنوان", build: "بناء الجدول", week: "أسبوعك في لقطة", wishes: "رغبات الأساتذة", clash: "التعارضات", students: "الطلبة", delivery: "التسليم", thanks: "الختام" };
 
 function fontFamily(): string {
   try { return getComputedStyle(document.body).fontFamily || "system-ui, sans-serif"; } catch { return "system-ui, sans-serif"; }
@@ -90,6 +90,32 @@ export function drawShareScene(ctx: CanvasRenderingContext2D, film: TermFilmData
       ctx.fillText(item.label, W * 0.14, y);
       ctx.textAlign = "center";
     });
+  } else if (key === "week" && film.week) {
+    const week = film.week;
+    eyebrow(week.eyebrow, H * 0.2);
+    const peak = Math.max(1, ...week.hours.flat());
+    const days = week.hours.length, hours = week.hours[0]?.length || 0;
+    const gw = W * 0.8, cellW = gw / Math.max(1, hours), cellH = Math.min(W * 0.11, cellW * 3);
+    const x0 = cx + gw / 2 - W * 0.04, y0 = H * 0.28;
+    for (let d = 0; d < days; d += 1) {
+      ctx.fillStyle = MUTED; font(3.2, 700); ctx.textAlign = "left";
+      ctx.fillText(week.days[d] || "", x0 + u, y0 + d * (cellH + u) + cellH * 0.65);
+      for (let h = 0; h < hours; h += 1) {
+        const v = week.hours[d][h] || 0, level = v ? Math.min(4, Math.ceil((v / peak) * 4)) : 0;
+        const shown = k >= (d * hours + h) / Math.max(1, days * hours);
+        ctx.fillStyle = !shown || !level ? "rgba(255,255,255,.07)" : level >= 4 ? BRASS : level === 3 ? JADE : level === 2 ? "rgba(95,191,166,.6)" : "rgba(95,191,166,.32)";
+        ctx.beginPath(); rr(ctx, x0 - (h + 1) * cellW + u * 0.3, y0 + d * (cellH + u), cellW - u * 0.6, cellH, u * 0.8); ctx.fill();
+      }
+    }
+    ctx.textAlign = "center";
+    week.facts.forEach((fact, n) => {
+      const y = H * 0.7 + n * 8.6 * u;
+      ctx.fillStyle = INK; font(6, 800); ctx.textAlign = "right"; ctx.direction = "rtl";
+      ctx.fillText(String(fact.value), W * 0.86, y);
+      ctx.fillStyle = MUTED; font(3.6, 500); ctx.textAlign = "left";
+      ctx.fillText(fact.label, W * 0.14, y);
+      ctx.textAlign = "center";
+    });
   } else if (key === "wishes" && film.wishes) {
     eyebrow(film.wishes.eyebrow);
     const r = W * 0.26, cy = H * 0.48;
@@ -129,9 +155,18 @@ export function drawShareScene(ctx: CanvasRenderingContext2D, film: TermFilmData
     });
     ctx.fillStyle = INK; font(6.4, 800); wrap(ctx, film.delivery.headline, cx, H * 0.68, W * 0.84, 8 * u, 2);
   } else if (key === "thanks") {
-    ctx.fillStyle = INK; font(9, 800); wrap(ctx, film.thanks[0], cx, H * 0.42, W * 0.84, 11 * u, 3);
-    ctx.fillStyle = BRASS; ctx.fillRect(cx - W * 0.1, H * 0.56, W * 0.2 * k, u * 0.6);
-    caption(film.thanks[1], H * 0.63);
+    /* الختام: اسم القسم (أو الكلية) والفصل وأعداده، كما يختم المشغّل. */
+    const closing = film.closing || { name: film.scopeName, term: film.termName, line: film.thanks[0], counts: [] };
+    ctx.strokeStyle = BRASS; ctx.lineWidth = u * 0.6;
+    ctx.beginPath(); ctx.arc(cx, H * 0.3, W * 0.12, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
+    ctx.fillStyle = INK; font(8, 800); wrap(ctx, closing.name, cx, H * 0.46, W * 0.84, 10 * u, 2);
+    ctx.fillStyle = BRASS; font(4, 600); wrap(ctx, closing.term, cx, H * 0.56, W * 0.84, 5.6 * u, 1);
+    closing.counts.slice(0, 4).forEach((item, n, list) => {
+      const x = cx + ((list.length - 1) / 2 - n) * W * 0.22;
+      ctx.fillStyle = INK; font(6, 800); ctx.fillText(num(item.value * k), x, H * 0.65);
+      ctx.fillStyle = MUTED; font(3, 500); ctx.fillText(item.label, x, H * 0.65 + 5 * u);
+    });
+    caption(closing.line, H * 0.76);
   }
   /* التذييل: الفصل والنطاق. */
   ctx.fillStyle = MUTED; font(3.1, 500); ctx.textAlign = "center";

@@ -85,6 +85,27 @@ export interface FingerprintData {
   code: string;
 }
 
+/**
+ * شكلُ البصمة وحده: أقواسٌ وحِمل ساعات، بلا اسم قاعةٍ ولا مقررٍ ولا شعبة ولا أي نص.
+ * هو ما تحتاجه الهندسة لترسم، وما يُحمل إلى حيث لا يجوز أن يُقرأ اسم قاعة
+ * (خلفية «فيلم الفصل»).
+ */
+export interface FingerprintShapeSlot { day: number; start: number; end: number; fill: number | null; over: boolean }
+export interface FingerprintShape {
+  halls: Array<{ slots: FingerprintShapeSlot[] }>;
+  span: { from: number; to: number };
+  hours: number[][];
+}
+
+/** يجرّد البصمة من كل نص: تبقى الأقواس بأيامها وأوقاتها وسُمكها. */
+export function fingerprintShape(data: FingerprintShape): FingerprintShape {
+  return {
+    halls: data.halls.map(hall => ({ slots: hall.slots.map(slot => ({ day: slot.day, start: slot.start, end: slot.end, fill: slot.fill, over: slot.over })) })),
+    span: { from: data.span.from, to: data.span.to },
+    hours: data.hours.map(day => [...day]),
+  };
+}
+
 export const fingerprintMinutes = (value?: string): number => {
   const [h, m] = String(value || "").split(":").map(Number);
   return Number.isFinite(h) ? h * 60 + (Number.isFinite(m) ? m : 0) : NaN;
@@ -246,7 +267,7 @@ export function fingerprintAngle(day: number, minute: number, span: { from: numb
   return START_ANGLE + day * SECTOR + SECTOR_GAP / 2 + (SECTOR - SECTOR_GAP) * t;
 }
 
-export function fingerprintGeometry(data: FingerprintData, options: { span?: { from: number; to: number } } = {}): FingerprintGeometry {
+export function fingerprintGeometry(data: FingerprintShape, options: { span?: { from: number; to: number } } = {}): FingerprintGeometry {
   const V = FINGERPRINT_VIEW;
   const span = options.span || data.span;
   const count = data.halls.length;
@@ -304,7 +325,7 @@ export function fingerprintGeometry(data: FingerprintData, options: { span?: { f
 }
 
 /** حِمل الساعات على مدًى غير مدى البصمة (عند المقارنة): من أقواس القاعات نفسها. */
-function hourLoadFromHalls(data: FingerprintData, span: { from: number; to: number }): number[][] {
+function hourLoadFromHalls(data: FingerprintShape, span: { from: number; to: number }): number[][] {
   const offset = Math.round((data.span.from - span.from) / 60);
   const count = Math.max(1, Math.round((span.to - span.from) / 60));
   return data.hours.map(day => Array.from({ length: count }, (_, h) => day[h - offset] || 0));

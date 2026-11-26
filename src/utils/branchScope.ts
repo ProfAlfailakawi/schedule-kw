@@ -121,6 +121,29 @@ export function siblingBranchScopes(context: {
   return scopes.sort((a, b) => Number(b.isBase) - Number(a.isBase) || a.sitePrefix.localeCompare(b.sitePrefix));
 }
 
+/**
+ * ── «كل الفروع» للقراءة، كما في التقرير الشامل وتقرير تغييرات الجدول ─────────
+ *
+ * وثيقتا الاستعلامات تجمعان القسم في مواقع فرعه وحده: البنات مع الجهراء
+ * والفحيحيل، والبنين وحدهم. وكانت قراءة «صحة الجدول» في مركز الذكاء تجمع
+ * القسم باسمه في كل الكليات، فيدخل البنين على البنات. هذه الدالة تعطي القراءة
+ * المواقعَ نفسها التي يعطيها `siblingBranchScopes` للوثيقتين — الأساس أولاً.
+ *
+ * وتعيد null حين لا يُعرف موقع الكلية المفتوحة (لا بادئة رسمية لها): عندها لا
+ * يُعرف الفرع، فيبقى للمتصل ما كان يقرؤه.
+ */
+export function branchReadingScopes(
+  colleges: readonly BranchCollege[],
+  sections: readonly BranchSection[],
+  collegeId: number,
+  sectionId: number,
+): Array<{ collegeId: number; sectionId: number }> | null {
+  if (!collegeSitePrefix(colleges, collegeId)) return null;
+  const self = { collegeId: Number(collegeId), sectionId: Number(sectionId) };
+  const sites = siblingBranchScopes({ colleges, sections, baseCollegeId: self.collegeId, baseSectionId: self.sectionId });
+  return sites.length ? sites.map(site => ({ collegeId: site.collegeId, sectionId: site.sectionId })) : [self];
+}
+
 export interface BranchGroup<Row> { scope: BranchScope; rows: Row[] }
 export interface BranchSplit<Row> {
   groups: BranchGroup<Row>[];

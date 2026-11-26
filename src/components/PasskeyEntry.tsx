@@ -22,8 +22,10 @@ let ceremonyBusy = false;
 /* علامةُ التبويب (تخزين الجلسة عبر التخزين الآمن): تصمد أمام إعادة التركيب وإعادة التحميل، وتسقط بإغلاق التبويب. */
 const autoTried = () => safeStorage.get(AUTO_KEY, "session") === "1";
 const markAutoTried = () => safeStorage.set(AUTO_KEY, "1", "session");
+const SUPPRESS_KEY = "schedule-passkey-auto-suppressed";
 /** خروجٌ صريح في هذا التبويب: لا تُفتح البصمة وحدها بعده (يناديه App عند الخروج). */
-export const suppressPasskeyAuto = markAutoTried;
+export const suppressPasskeyAuto = () => { markAutoTried(); safeStorage.set(SUPPRESS_KEY, "1", "session"); };
+const autoSuppressed = () => safeStorage.get(SUPPRESS_KEY, "session") === "1";
 /** بطاقةُ دخولٍ أو رابطٌ باسم مستخدم: صاحبُه قد يكون غيرَ صاحب البصمة على هذا الجهاز. */
 const arrivedForAnotherLogin = () => typeof window !== "undefined"
   && (isInvitationHash(window.location.hash) || new URLSearchParams(window.location.search).has("username"));
@@ -48,7 +50,9 @@ export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => 
     ceremonyBusy = true;
     setBusy(true); setMessage("");
     try {
-      onSuccess(await loginWithPasskey());
+      const data = await loginWithPasskey();
+      safeStorage.remove(SUPPRESS_KEY, "session");
+      onSuccess(data);
     } catch (error) {
       const failure = error instanceof PasskeyError ? error : null;
       /* مفتاحٌ أُزيل من حسابه: لا يبقى الزرُّ يَعِد بما لا يكون. */
@@ -59,6 +63,28 @@ export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => 
   };
   const goRef = useRef(go);
   goRef.current = go;
+
+  /* عودةٌ إلى التطبيق/الموقع بعد غياب: تطبيقُ الشاشة الرئيسية والغلافُ الأصلي يحتفظان بتخزين الجلسة
+     عبر الإغلاق والفتح، فكانت البصمة لا تُفتح وحدها إلا أولَ مرة. نُعيد تسليحها عند كل عودة حقيقية
+     (غيابٌ ≥ ثانية ونصف؛ نافذةُ Face ID نفسها تُخفي الصفحة لحظةً فلا تُحسب). */
+  const [resumeTick, setResumeTick] = useState(0);
+  useEffect(() => {
+    let hiddenAt = 0;
+    const rearm = () => {
+      if (ceremonyBusy || skipAuto.current || autoSuppressed()) return;
+      safeStorage.remove(AUTO_KEY, "session");
+      setResumeTick(v => v + 1);
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+      if (hiddenAt && Date.now() - hiddenAt >= 1500) rearm();
+      hiddenAt = 0;
+    };
+    const onShow = (e: PageTransitionEvent) => { if (e.persisted) rearm(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pageshow", onShow);
+    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pageshow", onShow); };
+  }, []);
 
   useEffect(() => {
     if (!ready || skipAuto.current || autoTried()) return;
@@ -76,7 +102,7 @@ export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => 
     const onVisible = () => { if (document.visibilityState !== "visible") return; document.removeEventListener("visibilitychange", onVisible); arm(); };
     arm();
     return () => { cancelled = true; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
-  }, [ready]);
+  }, [ready, resumeTick]);
 
   if (!ready) return null;
   return (
