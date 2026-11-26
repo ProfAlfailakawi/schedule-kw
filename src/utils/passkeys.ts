@@ -96,7 +96,12 @@ function serverFailure(data: any, status: number): PasskeyError {
 function browserFailure(error: any): PasskeyError {
   if (error instanceof PasskeyError) return error;
   const name = String(error?.name || "");
-  if (name === "NotAllowedError" || name === "AbortError") return new PasskeyError("cancelled", PASSKEY_TEXT.cancelled);
+  if (name === "NotAllowedError" || name === "AbortError") {
+    const failure = new PasskeyError("cancelled", PASSKEY_TEXT.cancelled);
+    /* الصفحةُ بلا تركيز (داخل تطبيق iOS): تُعلَّم لتعيدها المحاولةُ التلقائية حين تستلم التركيز. */
+    (failure as any).notFocused = /not focused/i.test(String(error?.message || ""));
+    return failure;
+  }
   if (name === "NotSupportedError" || name === "SecurityError") return new PasskeyError("unsupported", PASSKEY_TEXT.unsupported);
   if (name === "InvalidStateError") return new PasskeyError("failed", "هذا الجهاز مسجَّل لحسابك من قبل.");
   return new PasskeyError("failed", PASSKEY_TEXT.failed);

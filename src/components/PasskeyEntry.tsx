@@ -45,7 +45,7 @@ export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => 
     return () => { alive = false; };
   }, []);
 
-  const go = async (automatic = false) => {
+  const go = async (automatic = false, focusRetry = false) => {
     if (ceremonyBusy) return;
     ceremonyBusy = true;
     setBusy(true); setMessage("");
@@ -58,6 +58,12 @@ export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => 
       /* مفتاحٌ أُزيل من حسابه: لا يبقى الزرُّ يَعِد بما لا يكون. */
       if (failure?.failure === "not-registered") { forgetPasskeyDevice(); setReady(false); }
       /* إلغاءُ النافذة التلقائية صامت: الزرُّ أمامه إن أرادها. */
+      const notFocused = automatic && !focusRetry && Boolean((error as any)?.notFocused);
+      if (notFocused) {
+        const retry = () => { window.removeEventListener("focus", retry); window.setTimeout(() => { void goRef.current(true, true); }, 150); };
+        if (document.hasFocus()) retry(); else window.addEventListener("focus", retry);
+        return;
+      }
       if (!(automatic && failure?.failure === "cancelled")) setMessage(failure?.message || "تعذّر الدخول بالبصمة. ادخل بالاسم وكلمة السر.");
     } finally { ceremonyBusy = false; setBusy(false); }
   };
@@ -96,6 +102,15 @@ export default function PasskeyEntry({ onSuccess }: { onSuccess: (data: any) => 
       timer = window.setTimeout(() => {
         if (cancelled) return;
         if (document.visibilityState !== "visible") { arm(); return; }
+        /* داخل تطبيق iOS: الصفحة ظاهرة لكن بلا تركيز بعد، فيرفض النظامُ النافذةَ بـ«document is not focused».
+           ننتظر حدثَ focus (بسقف ٤ ثوانٍ) ثم نفتحها. */
+        if (!document.hasFocus()) {
+          let fired = false;
+          const go = () => { if (fired || cancelled) return; fired = true; window.removeEventListener("focus", go); window.setTimeout(() => { if (!cancelled) void goRef.current(true); }, 120); };
+          window.addEventListener("focus", go);
+          window.setTimeout(go, 4000);
+          return;
+        }
         void goRef.current(true);
       }, AUTO_SETTLE_MS);
     };
