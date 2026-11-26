@@ -1,25 +1,28 @@
 /**
  * ── نطاق التنبّؤ وملخّصه (نقيّان، بلا قاعدة بيانات) ────────────────────────────
- * `predictiveNarrow`: مفتاح «هذه الكلية / كل كليات القسم» في مركز القراءات يضيّق النطاق ولا يوسّعه:
- *   «هذه الكلية» = القسم المفتوح في هذه الكلية فقط · «كل كليات القسم» = عائلة القسم (المواقع المتماثلة عبر الكليات).
+ * `predictiveNarrow`: مفتاح «هذا الموقع / كل الفروع» في مركز القراءات يضيّق النطاق ولا يوسّعه:
+ *   «هذا الموقع» = القسم المفتوح في هذه الكلية فقط · «كل الفروع» = مواقع فرع القسم كما في التقرير الشامل
+ *   (البنات مع الجهراء والفحيحيل، والبنين وحدهم)؛ وكليةٌ بلا رمز موقع تبقى على عائلة الاسم.
  *   بلا sectionId (الرادار القديم) يبقى المعنى: كل أقسام الكلية.
  * `predictiveSummaryOf`: ملخّصٌ صغير للبطاقة يُشتقّ من القراءة نفسها (أعدادٌ فقط) فلا يحتاج تحميل اللوحة.
  */
 import { departmentFamily } from "./sectionLabel";
+import { branchReadingScopes, type BranchCollege } from "./branchScope";
 import { isActionable, type PredictiveReading } from "./predictiveIntelligence";
 
 export interface PredictiveNarrow { key: string; match: (collegeId: number, sectionId: number) => boolean }
 
 export function predictiveNarrow(
   query: { analysisScope?: unknown; collegeId?: unknown; sectionId?: unknown },
-  sections: ReadonlyArray<{ AdCollegeId: number; AdSectionId: number; AdSectionName?: string }>,
+  sections: ReadonlyArray<{ AdCollegeId: number; AdSectionId: number; AdSectionName?: string; AdSectionCode?: string }>,
+  colleges: readonly BranchCollege[] = [],
 ): PredictiveNarrow | null {
   const mode = query.analysisScope === "department" ? "department" : query.analysisScope === "college" ? "college" : "";
   const collegeId = Number(query.collegeId) || 0, sectionId = Number(query.sectionId) || 0;
   if (!mode || !collegeId) return null;
   if (!sectionId) return { key: `${mode}:${collegeId}:*`, match: (c) => c === collegeId };
   if (mode === "college") return { key: `college:${collegeId}:${sectionId}`, match: (c, s) => c === collegeId && s === sectionId };
-  const family = departmentFamily(sections as any[], collegeId, sectionId);
+  const family = branchReadingScopes(colleges, sections as any[], collegeId, sectionId) || departmentFamily(sections as any[], collegeId, sectionId);
   const pairs = new Set(family.map(member => `${member.collegeId}:${member.sectionId}`));
   return { key: `family:${[...pairs].sort().join(",")}`, match: (c, s) => pairs.has(`${c}:${s}`) };
 }
