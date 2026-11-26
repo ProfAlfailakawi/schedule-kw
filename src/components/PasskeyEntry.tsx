@@ -126,16 +126,17 @@ export default function PasskeyEntry({ onSuccess, compact = false, onUsePassword
     return () => { cancelled = true; window.clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, [ready, resumeTick]);
 
-  if (!ready) return compact ? <div className="passkey-card passkey-card--loading" aria-busy="true" /> : null;
+  if (!ready && compact) return <div className="passkey-card passkey-card--loading" aria-busy="true" />;
+  if (!ready) return null;
   if (compact) {
     const name = passkeyDeviceName();
     return (
       <div className="passkey-card" data-guide-ignore="يدخل بالبصمة المسجّلة على هذا الجهاز؛ لا يغيّر كلمة سر ولا بيانات">
         <div className="passkey-card-actions">
-          <button type="button" className="passkey-card-btn passkey-card-btn--primary" onClick={() => { void go(); }} disabled={busy} aria-label="الدخول بالبصمة" title="الدخول بالبصمة">
+          <button type="button" className="passkey-card-btn passkey-card-btn--primary" onClick={() => { void go(); }} disabled={busy} aria-label="الدخول بالبصمة" title="الدخول بالبصمة" data-guide-ignore="يدخل بالبصمة المسجّلة على هذا الجهاز؛ لا يغيّر كلمة سر ولا بيانات">
             {busy ? <span className="button-spinner" /> : <Fingerprint aria-hidden="true" />}
           </button>
-          <button type="button" className="passkey-card-btn" onClick={() => onUsePassword?.()} disabled={busy} aria-label="الدخول بكلمة السر" title="الدخول بكلمة السر">
+          <button type="button" className="passkey-card-btn" onClick={() => onUsePassword?.()} disabled={busy} aria-label="الدخول بكلمة السر" title="الدخول بكلمة السر" data-guide-ignore="يُظهر حقلَي اسم المستخدم وكلمة السر بدل بطاقة البصمة؛ لا يغيّر بيانات">
             <LockKeyhole aria-hidden="true" />
           </button>
         </div>
