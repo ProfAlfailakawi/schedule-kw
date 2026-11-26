@@ -95,6 +95,22 @@ final class MainViewController: CAPBridgeViewController {
         }
     }
 
+    /// Universal Link (member card, invitation): load the same address inside the
+    /// web view, so the page runs exactly the flow it runs in Safari.
+    private func openUniversalLink(_ url: URL) {
+        guard let url = AppLinkLogic.destination(for: url) else { return }
+        webView?.load(URLRequest(url: url))
+    }
+
+    /// Safari → app login handoff: the page posts { challenge } to `appHandoff`.
+    private func registerAppHandoff(on webView: WKWebView) {
+        let controller = webView.configuration.userContentController
+        controller.removeScriptMessageHandler(forName: AppHandoffLogic.handlerName)
+        let handler = AppHandoffHandler(webView: webView)
+        appHandoff = handler
+        controller.add(handler, name: AppHandoffLogic.handlerName)
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         publishDuoGeometry()
