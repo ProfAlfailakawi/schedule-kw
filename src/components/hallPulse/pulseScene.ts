@@ -191,6 +191,7 @@ export class PulseScene {
   /** «ضمّ المساء»: لافتة «يبقى مضاءً» على كل طابقٍ يبقى، ومزاج الطوابق مفعّل أم لا. */
   private floorTags = new Map<string, { el: HTMLDivElement; pos: THREE.Vector3 }>();
   private moodOn = false;
+  private shift = 0;
   /** «اليوم يمرّ أمامك»: الكاميرا تدور ببطء مع الشمس ما لم يمسك القارئ المشهد. */
   private cineOn = false;
   private cineFree = false;
@@ -453,6 +454,14 @@ export class PulseScene {
     this.kick();
   }
 
+  /** إزاحة المشهد أفقياً بنسبةٍ من عرض اللوحة (موجبةٌ إلى اليسار) ليبقى ما خلف التعليق ظاهراً؛ 0 يعيده. */
+  setShift(fraction: number) {
+    const next = THREE.MathUtils.clamp(fraction, -0.4, 0.4);
+    if (Math.abs(next - this.shift) < 1e-4) return;
+    this.shift = next;
+    this.resize();
+  }
+
   /** دوران العرض: 0 أول اليوم و1 آخره؛ null ينهيه ويعيد المنظر. */
   cinema(progress: number | null) {
     if (progress == null) {
@@ -470,7 +479,7 @@ export class PulseScene {
   }
 
   /** يقترب من قاعةٍ بعينها (أشدّ لحظة)، و null يعيد المنظر الكامل. */
-  spotlight(key: string | null) {
+  spotlight(key: string | null, opts: { pull?: number; zoom?: number } = {}) {
     const rig = key ? this.rooms.get(key) : null;
     if (!rig) {
       if (this.spot) { this.spot = false; this.targetT.copy(this.home); this.radiusT = this.fitRadius; this.kick(); }
@@ -478,8 +487,8 @@ export class PulseScene {
     }
     if (this.opts.reduced) return;
     this.spot = true;
-    this.targetT.lerpVectors(this.home, rig.group.getWorldPosition(new THREE.Vector3()), 0.82);
-    this.radiusT = Math.max(this.fitRadius * 0.58, 16);
+    this.targetT.lerpVectors(this.home, rig.group.getWorldPosition(new THREE.Vector3()), opts.pull ?? 0.82);
+    this.radiusT = Math.max(this.fitRadius * (opts.zoom ?? 0.58), 16);
     this.kick();
   }
 
@@ -723,6 +732,9 @@ export class PulseScene {
     this.W = Math.max(1, Math.round(r.width)); this.H = Math.max(1, Math.round(r.height));
     this.renderer.setSize(this.W, this.H, false);
     this.camera.aspect = this.W / this.H;
+    /* «وضع المجلس»: المباني تنزاح عن التعليق الكبير (إسقاطٌ خارج المحور)، والإطار الآلي يُحسب على المنزاح. */
+    if (this.shift) this.camera.setViewOffset(this.W, this.H, this.shift * this.W, 0, this.W, this.H);
+    else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
     const L = this.opts.layout;
     const first = !this.sized;

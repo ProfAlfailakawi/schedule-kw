@@ -20,6 +20,8 @@ import {
 import { openCountOf, registrarLayer, requestBlockText, requestLineText } from "../src/utils/hallPulseRegistrar";
 import { liveSectionTexts } from "../src/utils/registrarCheck";
 import type { RegistrarRequestItem } from "../src/utils/registrarRequest";
+import { councilKey, councilNext, councilTour, eveningMood } from "../src/utils/hallPulseCouncil";
+import { clockText as clockTextOf } from "../src/utils/hallPulse";
 import { busiestEveningMinute, eveningFootprint, eveningSummary, floorKeyOf, isEveningSession, planEvening, EVENING_START } from "../src/utils/hallPulseEvening";
 
 let passed = 0, failed = 0;
@@ -487,6 +489,48 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   check(bad === 0, "ثلاثون جدولاً عشوائياً: لا حجز مزدوج، ولا نوع آخر، ولا طوابق أكثر مساءً");
 }
 
+/* ── «وضع المجلس»: جولةٌ تلقائية للقراءة وحدها (FR-SCH-099) ── */
+{
+  const tourSun = councilTour(model, base, "fsunday", { dayLabel: "الأحد" });
+  const kinds = tourSun.steps.map(s => s.kind);
+  check(kinds[0] === "day" && kinds.includes("pressure") && kinds.includes("waste") && kinds[kinds.length - 1] === "close", `الجولة: اليوم، ثم الضغط، ثم الهدر، ثم الحلول، ثم الختام (${kinds.join("، ")})`);
+  check(kinds.indexOf("pressure") < kinds.indexOf("waste") && kinds.indexOf("waste") < kinds.indexOf("arrange"), "بترتيبها: الضغط قبل الهدر، والهدر قبل الحلول");
+  const pressure = tourSun.steps.find(s => s.kind === "pressure")!;
+  const w = worstMoment(model, base, "fsunday")!;
+  check(pressure.focus === w.hallKey && pressure.minute === w.minute + 5 && pressure.title.includes(clockTextOf(w.minute)), "خطوة الضغط تقف عند أشدّ لحظة (hallPulseDay) وتُبرز قاعتها");
+  const arrangeStep = tourSun.steps.find(s => s.kind === "arrange")!;
+  check(arrangeStep.plan === "arrange" && Boolean(tourSun.arrange) && planMoves(tourSun.arrange).length > 0 && arrangeStep.title.endsWith("داخل القسم"), "الحل المقترح خطة «رتّب قاعاتي» نفسها بعدد نقلاتها، معاينةً بلا حفظ");
+  check(tourSun.steps.filter(s => s.plan !== "none").every(s => s.lines.some(l => /لم يُحفظ شيء/.test(l))), "كل خطوة حلٍّ تقول إنها اقتراحٌ لم يُحفظ");
+  const all = tourSun.steps.flatMap(s => [s.eyebrow, s.title, ...s.lines, ...s.figures.flatMap(f => [f.value, f.label])]).join("\n");
+  check(!/[٠-٩]/.test(all) && !/٪/.test(all), "أرقامٌ لاتينية، ولا «٪»");
+  check(!model.sessions.some(x => x.courseName && all.includes(x.courseName)) , "لا اسم مقرر في التعليق: القاعات والأعداد وحدها");
+  check(tourSun.steps.every(s => s.seconds >= 8 && s.minute >= model.dayStart && s.minute <= model.dayEnd), "لكل خطوة مدّةٌ تُقرأ فيها ولحظةٌ داخل اليوم");
+  /* المساء في المجلس */
+  const mE = buildPulseModel({ rows: [
+    { id: 1, AdCourseId: 2, fstarttime: "14:00", fendtime: "15:00", roomId: "r101", fsunday: true },
+    { id: 2, AdCourseId: 2, fstarttime: "15:00", fendtime: "16:00", roomId: "r201", fsunday: true },
+    { id: 3, AdCourseId: 2, fstarttime: "14:00", fendtime: "15:00", roomId: "r304", fsunday: true },
+  ], courses, registry, includeUnusedRegistryHalls: true });
+  const tE = councilTour(mE, originalAssignment(mE), "fsunday", { dayLabel: "الأحد", closing: { name: "قسم التجربة", term: "الفصل الأول", line: "شكراً", counts: [{ value: 3, label: "شعب" }] } });
+  const scatter = tE.steps.find(s => s.kind === "scatter"), ev = tE.steps.find(s => s.kind === "evening");
+  check(Boolean(scatter) && scatter!.title === "3 شعب على 3 طوابق" && Boolean(ev) && ev!.plan === "evening" && ev!.title.includes("طابقٌ واحد بدل 3 طوابق"), "تبعثر المساء خطوة هدر، و«ضمّ المساء» خطوة حلٍّ بملخّصها");
+  const close = tE.steps[tE.steps.length - 1];
+  check(close.title === "قسم التجربة" && close.lines.some(l => l.includes("على الطاولة")) && close.figures[0].value === "3", "الختام باسم القسم وأعداده من فيلم الفصل، وما على الطاولة");
+  const mood = eveningMood(mE, originalAssignment(mE), applyPlan(originalAssignment(mE), tE.evening.plan), "fsunday");
+  check(mood.keep.size === 1 && mood.off.size === 2, "المشهد: طابقٌ يبقى مضاءً وطابقان ينطفئان");
+  const empty = councilTour(buildPulseModel({ rows: [], courses, registry, includeUnusedRegistryHalls: true }), new Map(), "fsunday", { dayLabel: "الأحد" });
+  check(empty.steps.length === 1 && empty.steps[0].title.includes("لا محاضرات"), "يومٌ بلا محاضرات: خطوةٌ واحدة تقول ذلك ولا يُخترع ضغط");
+  check(councilNext(0, 5, -1) === 0 && councilNext(3, 5, 1) === 4 && councilNext(4, 5, 1) === null, "التالي بعد الأخيرة ينهي الجولة، والسابق لا ينزل تحت الأولى");
+  check(councilKey("ArrowLeft") === "next" && councilKey(" ") === "next" && councilKey("ArrowRight") === "prev" && councilKey("Escape") === "exit" && councilKey("a") === null, "المفاتيح: الأسهم والمسافة للتنقّل، وEscape للخروج");
+  const pulseSrc = fs.readFileSync(path.join(process.cwd(), "src/components/hallPulse/HallPulse.tsx"), "utf8");
+  const councilSrc = fs.readFileSync(path.join(process.cwd(), "src/components/hallPulse/PulseCouncil.tsx"), "utf8");
+  check(!/onSave|fetch\(|method:/.test(councilSrc) && !/onSaveMoves|setPlan\(/.test(pulseSrc.slice(pulseSrc.indexOf("const enterCouncil"), pulseSrc.indexOf("/* ── اللوحة ── */"))), "المجلس للقراءة وحدها: لا حفظ ولا خطة تُكتب");
+  check(/if \(pending && !councilOn\)/.test(pulseSrc) && /const activePlan = council \? councilPlan : plan/.test(pulseSrc), "خطة المجلس معاينةٌ فوق الأصل، وخطة الرئيس المفتوحة تبقى كما هي");
+  check(/\(context === "workshop" \|\| context === "dean"\) && !narrow && !phoneDevice \? \(\s*<button[^>]*hp-council-btn/.test(pulseSrc), "الزرّ في الورشة وبطاقة العميد، ولا يظهر على الهاتف");
+  check(/requestFullscreen/.test(pulseSrc) && /fullscreenchange/.test(pulseSrc) && /setCouncil\(\{ index: 0, paused: reduced \}\)/.test(pulseSrc), "ملء الشاشة وخروجه، ومع تقليل الحركة لا تتقدّم الجولة وحدها");
+  check(/\/api\/term-film\$\{context === "dean" \? "\/college" : ""\}/.test(pulseSrc), "الختام من مسار فيلم الفصل الموجود ببوابته (لا مسار جديد)");
+}
+
 /* ── التوصيل ── */
 const read = (p: string) => fs.readFileSync(path.join(process.cwd(), p), "utf8");
 const lazy = read("src/components/hallPulse/HallPulseLazy.tsx");
@@ -521,7 +565,7 @@ check(/تقدير/.test(pulse), "عدد الطلبة موسومٌ بأنه تق�
   const css = read("src/components/hallPulse/hallPulse.css");
   check(/setScissorTest\(true\)/.test(scene) && (scene.match(/new THREE\.WebGLRenderer/g) || []).length === 1 && !/WebGLRenderer/.test(interior), "«قبل وبعد» والقاعة من الداخل بالراسم نفسه (مقصّ)، لا سياق WebGL ثانٍ");
   check(/role="slider"/.test(pulse) && /aria-valuenow=/.test(pulse) && /ArrowLeft/.test(pulse) && /ArrowRight/.test(pulse) && /aria-label="فاصل قبل وبعد/.test(pulse), "الفاصل منزلقٌ باسمٍ وقيمة، والأسهم تحرّكه");
-  check(/setCompare\(comparing \? beforeVisuals : null/.test(pulse) && /const compare = useMemo\(\(\) => \(plan && day !== "week"/.test(pulse), "الفاصل يظهر مع المراجعة ويزول بزوالها");
+  check(/setCompare\(comparing \? beforeVisuals : null/.test(pulse) && /const compare = useMemo\(\(\) => \(activePlan && day !== "week"/.test(pulse) && /const activePlan = council \? councilPlan : plan/.test(pulse), "الفاصل يظهر مع المراجعة ويزول بزوالها");
   check(!/fetch\(/.test(read("src/utils/hallPulseDay.ts")) && !/fetch\(/.test(interior) && !/fetch\(/.test(sound) && (pulse.match(/method: "POST"/g) || []).length === 1, "لا كتابة جديدة: الطلب الوحيد المرسَل ما زال طلب الاستعارة الموجود");
   check(/InstancedMesh/.test(interior) && /dispose\(\)/.test(interior) && /this\.interior\?\.dispose\(\)/.test(scene), "مقاعد القاعة وطلبتها InstancedMesh، وتُفرَغ عند الخروج");
   check(/e\.key === "Escape"/.test(pulse) && /اخرج/.test(pulse) && /ادخل القاعة/.test(pulse), "«ادخل القاعة» زرٌّ ظاهر، و«اخرج» ومفتاح Escape يعيدان");

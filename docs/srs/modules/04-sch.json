@@ -144,6 +144,9 @@
     "src/utils/movementPaths.ts",
     "src/utils/hallPulseDay.ts",
     "src/utils/hallPulseRegistrar.ts",
+    "src/utils/hallPulseEvening.ts",
+    "src/utils/hallPulseCouncil.ts",
+    "src/components/hallPulse/PulseCouncil.tsx",
     "src/components/hallPulse/pulseInterior.ts",
     "src/components/hallPulse/pulseSound.ts"
   ],
@@ -5877,6 +5880,64 @@
           "src/utils/hallPulseEvening.ts#planEvening",
           "src/utils/hallPulseEvening.ts#eveningFootprint",
           "src/utils/hallPulseEvening.ts#eveningSummary",
+          "src/components/hallPulse/HallPulse.tsx",
+          "src/components/hallPulse/pulseScene.ts"
+        ],
+        "tests": [
+          "tests/hall-pulse-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-099",
+      "kind": "functional",
+      "title": {
+        "ar": "نبض القاعات: «وضع المجلس» — جولةٌ تلقائية بملء الشاشة لاجتماع القسم على الضغط والهدر والحلول المقترحة، للقراءة وحدها",
+        "en": "Hall pulse: «Council mode» — an automatic full-screen tour for the department meeting through pressure, waste and proposed solutions, read-only"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يضيف إلى نبض القاعات (في ورشة القسم وبطاقة العميد، لا في عدسة التقارير ولا على الهاتف) زرّ «وضع المجلس» يحوّل المجسّم إلى عرضٍ بملء الشاشة بلا تحضير: (1) جولةٌ من خطواتٍ محسوبة من الجدول الأصلي لليوم المعروض: اليوم في لقطة (الشعب والقاعات وذروة الحضور ونسبة التناسب)، ثم الضغط (أشدّ لحظة من hallPulseDay وقاعتها تُبرَز وتقترب منها الكاميرا)، ثم الهدر (أوضح قاعةٍ واسعة على شعبتها ومقاعدها الفارغة، وتبعثر المساء على الطوابق)، ثم الحلول المقترحة (خطة «رتّب قاعاتي» بأرقام المضغوطة والتناسب قبل وبعد مع فاصل «قبل وبعد»، و«ضمّ المساء» بملخّصه والطوابق تنطفئ)، ثم الختام باسم القسم أو الكلية وأعداده وشعار بصمته من مسار فيلم الفصل الموجود وببوابته (ورفضه = ختامٌ بلا شعار)؛ والخطوة التي لا رقم لها تسقط، ولا يُخترع ضغطٌ ولا هدر. (2) كل خطوة تعليقٌ مكتوب كبير يُقرأ على جهاز العرض (عنوانٌ وسطران وأرقامٌ كبيرة بأرقامٍ لاتينية والعدد والمعدود)، بلا اسم مقررٍ ولا أستاذ، والمباني تنزاح عن التعليق. (3) تتقدّم وحدها خطوةً كل بضع ثوانٍ بشريط تقدّمٍ صغير، والأسهم والمسافة للتنقّل وP للإيقاف المؤقت وEscape (أو الخروج من ملء الشاشة) للخروج؛ ومع طلب تقليل الحركة لا تتقدّم وحدها ولا حركة كاميرا ولا شريطٌ يجري. (4) للقراءة وحدها: الخطط تُعاين فوق الجدول الأصلي ولا تُحفظ، ولا زرّ حفظ في أي خطوة، وكل خطوة حلٍّ موسومة «اقتراحٌ للنقاش · لم يُحفظ شيء»؛ وخطة رئيس اللجنة المفتوحة قبل الدخول ولحظة اليوم والقاعة المختارة تعود كما كانت بعد الخروج. لا مسار خادمٍ جديد ولا كتابة، ولا يتّسع من يرى النبض أو الفيلم.",
+        "en": "The system shall add to the hall pulse (in the department workshop and the dean's card, not in the reports lens nor on the phone) a «Council mode» button that turns the scene into a full-screen presentation with no preparation: (1) a tour of steps computed from the original timetable for the shown day: the day at a glance (sections, halls, peak attendance and fit ratio), then pressure (the worst moment from hallPulseDay with its hall highlighted and the camera drawing near), then waste (the clearest oversized hall and its empty seats, and the evening scattered over floors), then proposed solutions (the «Arrange my halls» plan with pressed and fit numbers before and after under the before/after divider, and «Gather the evening» with its summary and floors switching off), then a closing with the department's or college's name, counts and fingerprint mark from the existing term film route behind its own gate (a refusal gives a closing without the mark); a step with no figure drops, and no pressure or waste is invented. (2) Each step is a large written caption legible on a projector (a title, two lines and big figures in Latin digits with correct counted nouns), naming no course or instructor, with the buildings shifted clear of the caption. (3) It advances on its own every few seconds with a small progress bar; arrows and Space step, P pauses, and Escape (or leaving full screen) exits; with reduced motion requested it does not advance on its own, the camera does not move and no bar runs. (4) Read-only: plans are previewed over the original timetable and never saved, no step has a save button, every solution step is marked «A proposal for discussion · nothing saved»; the chair's open plan, the clock and the selected hall return as they were on exit. No new server route and no write, and nobody new sees the pulse or the film."
+      },
+      "rationale": {
+        "ar": "اجتماع القسم يحتاج قصة القاعات في دقيقة على الشاشة الكبيرة: أين الضغط، وأين الهدر، وما المقترح — بلا شرائح تُعدّ.",
+        "en": "The department meeting needs the halls' story in a minute on the big screen — where the pressure is, where the waste is, what is proposed — without preparing slides."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead",
+        "dean"
+      ],
+      "acceptance": [
+        {
+          "ar": "جولة الأحد بترتيبها: اليوم، ثم الضغط عند أشدّ لحظة وقاعتها، ثم الهدر، ثم الحل المقترح بخطة «رتّب قاعاتي»، ثم الختام.",
+          "en": "Sunday's tour in order: the day, then pressure at the worst moment and its hall, then waste, then the proposal from «Arrange my halls», then the closing."
+        },
+        {
+          "ar": "ثلاث شعبٍ مسائية على ثلاثة طوابق: خطوة «3 شعب على 3 طوابق» ثم «… طابقٌ واحد بدل 3 طوابق»، والمشهد طابقٌ يبقى وطابقان ينطفئان.",
+          "en": "Three evening sessions on three floors: a step «3 sections on 3 floors» then «… one floor instead of 3 floors», and the scene keeps one floor lit and switches two off."
+        },
+        {
+          "ar": "التعليق بأرقامٍ لاتينية بلا «٪» ولا اسم مقرر، وكل خطوة حلٍّ تقول «لم يُحفظ شيء»، ويومٌ بلا محاضرات خطوةٌ واحدة تقول ذلك.",
+          "en": "Captions use Latin digits without «٪» and name no course; every solution step says nothing was saved; a day without lectures is a single step saying so."
+        },
+        {
+          "ar": "الأسهم والمسافة تنقل، وEscape يخرج، والتالي بعد الأخيرة ينهي؛ ومع تقليل الحركة تبدأ الجولة موقوفة.",
+          "en": "Arrows and Space step, Escape exits, next after the last ends; with reduced motion the tour starts paused."
+        },
+        {
+          "ar": "لا حفظ ولا كتابة من المجلس، والختام من مسار فيلم الفصل الموجود، والزرّ غائبٌ على الهاتف.",
+          "en": "No save or write from the council, the closing comes from the existing term film route, and the button is absent on the phone."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/hallPulseCouncil.ts#councilTour",
+          "src/utils/hallPulseCouncil.ts#councilKey",
+          "src/components/hallPulse/PulseCouncil.tsx",
           "src/components/hallPulse/HallPulse.tsx",
           "src/components/hallPulse/pulseScene.ts"
         ],

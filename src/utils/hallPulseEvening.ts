@@ -16,12 +16,15 @@ import { compatible, fitScore, hallFreeFor, type Assignment, type DayPlan, type 
 export const FLOOR: ArabicNoun = { one: "طابق", two: "طابقان", few: "طوابق", many: "طابقاً" };
 export const CLOSES: ArabicNoun = { one: "تُغلق", two: "تُغلقان", few: "تُغلق", many: "تُغلق" };
 
+/** عدد الطوابق مجروراً (بعد «على» و«في» و«بدل»): «طابقين» لا «طابقان». */
+export const floorsAfterPreposition = (count: number) => (count === 2 ? "طابقين" : countOf(count, FLOOR));
+
 /** «N قاعات تُغلق مساءً · طابقٌ واحد بدل M»: سطر «ضمّ المساء» في المشهد وفي المجلس. */
 export function eveningSummary(closedHalls: number, floorsAfter: number, floorsBefore: number): string {
   const halls = closedHalls ? `${countOf(closedHalls, AR.room)} ${nounFor(closedHalls, CLOSES)} مساءً` : "لا قاعة تُغلق مساءً";
   const floors = floorsAfter === 1 ? "طابقٌ واحد" : countOf(floorsAfter, FLOOR);
   /* «بدل» تجرّ ما بعدها: «بدل طابقين». */
-  return `${halls} · ${floors} بدل ${floorsBefore === 2 ? "طابقين" : countOf(floorsBefore, FLOOR)}`;
+  return `${halls} · ${floors} بدل ${floorsAfterPreposition(floorsBefore)}`;
 }
 
 /** المساء: كل شعبةٍ تبدأ في الثانية ظهراً أو بعدها. */

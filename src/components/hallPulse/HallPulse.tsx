@@ -32,6 +32,11 @@ import { withFullCourseCodes, type RegistrarRequestDoc, type RegistrarRequestIte
 import { openMatchReport } from "../../utils/openMatchReport";
 import { copyText } from "../../utils/accessCardImage";
 import { busiestEveningMinute, eveningFootprint, eveningSummary, floorKeyOf, planEvening, EVENING_START } from "../../utils/hallPulseEvening";
+import { councilKey, councilNext, councilTour, type CouncilClosing } from "../../utils/hallPulseCouncil";
+import type { FingerprintShape } from "../../utils/deptFingerprint";
+import { Presentation } from "lucide-react";
+import PulseCouncil from "./PulseCouncil";
+import { isPhoneDevice } from "../../utils/workspaceSize";
 
 export interface HallPulseMove {
   row: unknown;
@@ -174,6 +179,8 @@ export default function HallPulse(props: HallPulseProps) {
   }), [rows, courses, registry, roomLoad, props.instructorName, sectionId]);
   const original = useMemo(() => originalAssignment(model), [model]);
   const narrow = useNarrow();
+  /* الهاتف (ومنه iPhone Duo مفتوحاً): لا «وضع المجلس» — العرض لجهاز العرض في الاجتماع. */
+  const phoneDevice = useMemo(isPhoneDevice, []);
   /* المخطّط المكاني يتبع قائمة القاعات وحدها: حفظُ نقلةٍ يغيّر الألوان لا المباني، فلا يُعاد بناء المشهد. */
   const hallsKey = model.halls.map(h => `${h.key}:${h.floor}`).join("|");
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -188,6 +195,12 @@ export default function HallPulse(props: HallPulseProps) {
   const [plan, setPlan] = useState<DayPlan | null>(null);
   /* الخطة المعروضة: «رتّب قاعاتي» أو «ضمّ المساء» — المراجعة والحفظ واحد. */
   const [planKind, setPlanKind] = useState<"arrange" | "evening">("arrange");
+  /* «وضع المجلس»: جولةٌ بملء الشاشة للقراءة وحدها؛ ما قبلها يُستعاد عند الخروج. */
+  const [council, setCouncil] = useState<{ index: number; paused: boolean } | null>(null);
+  const [councilFilm, setCouncilFilm] = useState<{ scope: string; closing: CouncilClosing | null; mark: FingerprintShape | null } | null>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const councilBack = useRef<{ minute: number; day: PulseDay | "week"; selected: string | null } | null>(null);
+  const councilFull = useRef(false);
   const [planRev, setPlanRev] = useState(0);
   const [planBefore, setPlanBefore] = useState<ReturnType<typeof metrics> | null>(null);
   const [freeGlow, setFreeGlow] = useState(false);
@@ -282,13 +295,26 @@ export default function HallPulse(props: HallPulseProps) {
     return registrarLayer(model, regLive.items, { courseCodeOf: id => codeOf.get(id) || "", texts: regTexts });
   }, [regOn, regLive, regDoc?.id, model, courses, regTexts]);
 
+  /* جولة المجلس من الجدول الأصلي لليوم المعروض، والخطة التي تُعاين في خطوتها (بلا حفظ). */
+  const filmScope = `${context}|${collegeId}|${sectionId || 0}|${termId}`;
+  const councilClosing = councilFilm && councilFilm.scope === filmScope ? councilFilm.closing : null;
+  const councilOn = Boolean(council);
+  /* الشاشة العريضة: التعليق في جانبٍ والمباني في الآخر؛ وما دون 900 التعليق أسفلها بعرضها فلا إزاحة. */
+  const councilWide = councilOn && !narrow && typeof window !== "undefined" && window.innerWidth > 900;
+  const tour = useMemo(() => (councilOn ? councilTour(model, original, viewDay, { dayLabel: PULSE_DAYS.find(x => x.key === viewDay)!.label, closing: councilClosing, college: context === "dean" && !sectionId }) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [councilOn, model, original, viewDay, councilClosing]);
+  const councilStep = council && tour ? tour.steps[Math.min(council.index, tour.steps.length - 1)] || null : null;
+  const councilPlan = councilStep && tour ? (councilStep.plan === "arrange" ? tour.arrange : councilStep.plan === "evening" ? tour.evening.plan : null) : null;
+  const activePlan = council ? councilPlan : plan;
+  const activeKind: "arrange" | "evening" = council ? (councilStep?.plan === "evening" ? "evening" : "arrange") : planKind;
   const assignment: Assignment = useMemo(() => {
-    const a = applyPlan(original, plan);
-    if (pending) a.set(pending.sessionId, pending.to);
+    const a = applyPlan(original, activePlan);
+    if (pending && !councilOn) a.set(pending.sessionId, pending.to);
     return a;
     // planRev: تبديل نقلة داخل الخطة نفسها.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [original, plan, planRev, pending]);
+  }, [original, activePlan, planRev, pending, councilOn]);
   const occ = useMemo(() => occupantsAt(model, assignment, viewDay, minute), [model, assignment, viewDay, minute]);
   const heat = useMemo(() => weeklyHeat(model, assignment), [model, assignment]);
   const selHall = selected ? model.hallByKey.get(selected) || null : null;
@@ -468,20 +494,20 @@ export default function HallPulse(props: HallPulseProps) {
   useEffect(() => {
     if (mode === "paths" && activePath) sceneRef.current?.setMarker(markerAt(activePath, minute));
   }, [mode, activePath, minute, sceneReady]);
-  const compare = useMemo(() => (plan && day !== "week" ? beforeAfter(model, original, plan, viewDay, minute) : null),
+  const compare = useMemo(() => (activePlan && day !== "week" ? beforeAfter(model, original, activePlan, viewDay, minute) : null),
     // planRev: تبديل نقلة داخل الخطة نفسها.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [plan, planRev, day, model, original, viewDay, minute]);
+    [activePlan, planRev, day, model, original, viewDay, minute]);
   /* «ضمّ المساء»: آثار المساء قبل الخطة وبعدها (مع ما استُبعد منها)، والطوابق التي تنطفئ والتي تبقى. */
   const evening = useMemo(() => {
-    if (!plan || planKind !== "evening" || day === "week") return null;
-    const before = eveningFootprint(model, original, plan.day), after = eveningFootprint(model, assignment, plan.day);
+    if (!activePlan || activeKind !== "evening" || day === "week") return null;
+    const before = eveningFootprint(model, original, activePlan.day), after = eveningFootprint(model, assignment, activePlan.day);
     const offFloors = new Set([...before.floors].filter(f => !after.floors.has(f)));
     const closed = Math.max(0, before.halls.size - after.halls.size);
     return { before, after, offFloors, closed, summary: eveningSummary(closed, after.floors.size, before.floors.size) };
     // planRev: تبديل نقلة داخل الخطة نفسها.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan, planKind, planRev, day, model, original, assignment]);
+  }, [activePlan, activeKind, planRev, day, model, original, assignment]);
   const eveningNow = Boolean(evening) && minuteShown >= EVENING_START;
   const visuals = useMemo(() => {
     const out = new Map<string, HallVisual>();
@@ -602,16 +628,17 @@ export default function HallPulse(props: HallPulseProps) {
     return out;
   }, [evening, eveningNow, model, layout]);
   useEffect(() => { sceneRef.current?.setFloorMood(insideKey ? null : floorMood); }, [floorMood, insideKey, sceneReady]);
-  const hasPlan = Boolean(plan);
+  const planId = activePlan ? `${activeKind}|${activePlan.day}` : "";
   useEffect(() => {
-    if (!hasPlan) return;
+    if (!planId) return;
     /* الفاصل يدخل من اليمين كاشفاً «بعد الترتيب» حتى المنتصف؛ و«ضمّ المساء» يمسح المشهد كله تقريباً
        كأن الأضواء تنطفئ طابقاً بعد طابق، ويبقى شريط «الآن» على الطرف يُسحب متى شئت. */
-    const to = planKind === "evening" ? 0.9 : 0.5;
+    /* في المجلس تنزاح المباني يساراً عن التعليق: الفاصل في وسطها لا في وسط الشاشة. */
+    const to = activeKind === "evening" ? 0.9 : councilWide ? 0.31 : 0.5;
     if (reduced) { setSplit(to); return; }
     let raf = 0; const t0 = performance.now();
     const step = (now: number) => {
-      const u = Math.min(1, (now - t0) / (planKind === "evening" ? 1900 : 1100)), e = 1 - Math.pow(1 - u, 3);
+      const u = Math.min(1, (now - t0) / (activeKind === "evening" ? 1900 : 1100)), e = 1 - Math.pow(1 - u, 3);
       setSplit(0.04 + (to - 0.04) * e);
       if (u < 1) raf = requestAnimationFrame(step);
     };
@@ -619,7 +646,7 @@ export default function HallPulse(props: HallPulseProps) {
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasPlan, reduced]);
+  }, [planId, reduced, councilWide]);
   /* العرض والكاميرا: تعود إلى المنظر الكامل حين ينتهي، وتقترب من القاعة عند أشدّ لحظة. */
   useEffect(() => {
     const scene = sceneRef.current;
@@ -936,6 +963,90 @@ export default function HallPulse(props: HallPulseProps) {
       arrange();
     }
   };
+
+  /* ── «وضع المجلس»: دخولٌ بملء الشاشة، وخطواتٌ تلقائية، وخروجٌ يعيد ما كان ── */
+  const enterCouncil = () => {
+    councilBack.current = { minute, day, selected };
+    stopPlay(); setPending(null); setBorrow(null); setInsideKey(null); setRegOn(false); setMode("halls"); setPathId(null); setNearFor(null);
+    setFreeGlow(false); setWalk(0); setHovered(null); setSheetOpen(false);
+    if (day === "week") setDay(viewDay);
+    /* تقليل الحركة: الجولة لا تتقدّم وحدها، والتقدّم بالأسهم أو المسافة. */
+    setCouncil({ index: 0, paused: reduced });
+    councilFull.current = false;
+    const el = shellRef.current;
+    if (el && document.fullscreenEnabled && !document.fullscreenElement) {
+      el.requestFullscreen?.().then(() => { councilFull.current = true; }).catch(() => undefined);
+    }
+  };
+  const exitCouncil = useCallback(() => {
+    setCouncil(null);
+    councilFull.current = false;
+    if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => undefined);
+    sceneRef.current?.spotlight(null);
+    const back = councilBack.current;
+    councilBack.current = null;
+    if (back) { setMinute(back.minute); setDay(back.day); setSelected(back.selected); }
+  }, []);
+  const stepCouncil = (dir: 1 | -1) => {
+    if (!council || !tour) return;
+    const next = councilNext(council.index, tour.steps.length, dir);
+    if (next == null) { exitCouncil(); return; }
+    setCouncil({ ...council, index: next });
+  };
+  const stepRef = useRef(stepCouncil);
+  stepRef.current = stepCouncil;
+  /* كل خطوة: لحظتها في اليوم، والقاعة التي تُبرَز وتقترب منها الكاميرا (لا اقتراب مع تقليل الحركة). */
+  useEffect(() => {
+    if (!councilStep) return;
+    setMinute(councilStep.minute);
+    setSelected(councilStep.focus);
+    /* اقترابٌ أهدأ من اقتراب العرض: تبقى المباني كلها في الإطار على جهاز العرض. */
+    sceneRef.current?.spotlight(councilStep.focus, { pull: 0.45, zoom: 0.8 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [council?.index, Boolean(tour), sceneReady]);
+  useEffect(() => {
+    if (!council || council.paused || !councilStep || !tour || council.index >= tour.steps.length - 1) return;
+    const timer = window.setTimeout(() => setCouncil(c => (c ? { ...c, index: Math.min(tour.steps.length - 1, c.index + 1) } : c)), councilStep.seconds * 1000);
+    return () => window.clearTimeout(timer);
+  }, [council, councilStep, tour]);
+  useEffect(() => { sceneRef.current?.setShift(councilWide ? 0.2 : 0); }, [councilWide, sceneReady]);
+  useEffect(() => {
+    if (!councilOn) return;
+    const onKey = (e: KeyboardEvent) => {
+      const act = councilKey(e.key);
+      if (!act || e.altKey || e.ctrlKey || e.metaKey) return;
+      e.preventDefault(); e.stopPropagation();
+      if (act === "exit") exitCouncil();
+      else if (act === "pause") setCouncil(c => (c ? { ...c, paused: !c.paused } : c));
+      else stepRef.current(act === "next" ? 1 : -1);
+    };
+    /* Escape داخل ملء الشاشة يأخذه المتصفح ليخرج منه: الخروج من ملء الشاشة يُنهي المجلس أيضاً. */
+    const onFull = () => {
+      if (document.fullscreenElement === shellRef.current) councilFull.current = true;
+      else if (!document.fullscreenElement && councilFull.current) exitCouncil();
+    };
+    window.addEventListener("keydown", onKey, true);
+    document.addEventListener("fullscreenchange", onFull);
+    return () => { window.removeEventListener("keydown", onKey, true); document.removeEventListener("fullscreenchange", onFull); };
+  }, [councilOn, exitCouncil]);
+  /* الختام: اسم القسم وأعداده وشعار بصمته من فيلم الفصل، ببوابة الفيلم نفسها على الخادم؛ رفضها = ختامٌ بلا شعار. */
+  useEffect(() => {
+    if (!councilOn || (councilFilm && councilFilm.scope === filmScope)) return;
+    let live = true;
+    const q = new URLSearchParams({ collegeId: String(collegeId), termId: String(termId) });
+    if (context !== "dean") q.set("sectionId", String(sectionId || 0));
+    fetch(`/api/term-film${context === "dean" ? "/college" : ""}?${q}`, { credentials: "include" })
+      .then(r => (r.ok ? r.json() : null))
+      .then(body => {
+        if (!live) return;
+        const film = body?.film;
+        const closing: CouncilClosing | null = film?.closing ? { name: String(film.closing.name || ""), term: String(film.closing.term || ""), line: String(film.closing.line || ""), counts: Array.isArray(film.closing.counts) ? film.closing.counts : [] } : null;
+        setCouncilFilm({ scope: filmScope, closing, mark: film?.backdrop?.halls?.length ? film.backdrop as FingerprintShape : null });
+      })
+      .catch(() => { if (live) setCouncilFilm({ scope: filmScope, closing: null, mark: null }); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [councilOn, filmScope]);
 
   /* ── اللوحة ── */
   const freeUntil = (key: string) => {
@@ -1460,12 +1571,18 @@ export default function HallPulse(props: HallPulseProps) {
   );
 
   return (
-    <div className="hp-shell" dir="rtl">
+    <div className={`hp-shell${council ? " is-council" : ""}`} dir="rtl" ref={shellRef}>
       <div className="hp-top">
         <div className="hp-title">
           <h2>{heading}</h2>
           <p>كل قاعة غرفةٌ تضيء حين تُشغل، ومنسوبها ولونها يقولان هل تتّسع لشعبتها.{context !== "workshop" ? " للقراءة فقط." : ""}</p>
         </div>
+        {(context === "workshop" || context === "dean") && !narrow && !phoneDevice ? (
+          <button data-guide-ignore="يعرض جولة نبض القاعات بملء الشاشة لاجتماع القسم؛ قراءة فقط، لا يحفظ شيئاً" type="button" className="hp-council-btn" onClick={enterCouncil}
+            title="جولةٌ تلقائية بملء الشاشة لاجتماع القسم: الضغط، والهدر، والحلول المقترحة — بلا تحضير، ولا يُحفظ شيء">
+            <Presentation aria-hidden="true" />وضع المجلس
+          </button>
+        ) : null}
         {regContext && regList ? (
           <button data-guide-ignore="يُظهر فروق ملف التسجيل على القاعات أو يخفيها؛ عرضٌ ونسخ فقط، لا إرسال" type="button" className="hp-reg-toggle" aria-pressed={regOn} onClick={toggleReg}
             title="طبقة التسجيل: تنبض كل قاعةٍ يختلف فيها ملف التسجيل عن جدولنا">
@@ -1515,7 +1632,7 @@ export default function HallPulse(props: HallPulseProps) {
                 <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.resetView()} aria-label="عودة إلى المنظر الكامل">⟲</button>
                 {exploded && !insideKey ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon hp-icon-wide" onClick={() => setSelected(null)} aria-label="أعد الطوابق إلى أماكنها">كل الطوابق</button> : null}
               </div>
-              {hovered && !selected && !insideKey && cine === "off" && model.hallByKey.get(hovered) ? <div className="hp-hover" aria-hidden="true">{hoverText(model, occ, hovered, day, heat)}</div> : null}
+              {hovered && !selected && !insideKey && !council && cine === "off" && model.hallByKey.get(hovered) ? <div className="hp-hover" aria-hidden="true">{hoverText(model, occ, hovered, day, heat)}</div> : null}
               {cine !== "off" && nowPoint ? (
                 <div className="hp-hud" role="status" aria-live="off">
                   <span className="hp-hud-clock"><bdi dir="ltr">{clockText(minuteShown)}</bdi><small>{dayLabel}</small></span>
@@ -1526,7 +1643,7 @@ export default function HallPulse(props: HallPulseProps) {
               {comparing ? (
                 <div className="hp-split-layer"><div className="hp-split" style={{ left: `${(split * 100).toFixed(2)}%` }}>
                   <span className="hp-split-line" aria-hidden="true" />
-                  <span className="hp-split-tag is-after" aria-hidden="true">{planKind === "evening" ? "بعد الضمّ" : "بعد الترتيب"}</span>
+                  <span className="hp-split-tag is-after" aria-hidden="true">{activeKind === "evening" ? "بعد الضمّ" : "بعد الترتيب"}</span>
                   <span className="hp-split-tag is-before" aria-hidden="true">الآن</span>
                   <div className="hp-split-grip" role="slider" tabIndex={0} aria-label="فاصل قبل وبعد: يساره القاعات بعد الترتيب ويمينه القاعات كما هي الآن" aria-orientation="horizontal"
                     aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(split * 100)} aria-valuetext={`بعد الترتيب ${n(split * 100)}% من المشهد`}
@@ -1548,7 +1665,7 @@ export default function HallPulse(props: HallPulseProps) {
                   </div>
                 </div></div>
               ) : null}
-              {evening && plan && cine === "off" && !insideKey ? (
+              {evening && plan && !council && cine === "off" && !insideKey ? (
                 <div className="hp-evening-card" role="status">
                   <span className="hp-evening-moon" aria-hidden="true">☾</span>
                   <div className="hp-evening-text">
@@ -1602,7 +1719,12 @@ export default function HallPulse(props: HallPulseProps) {
               ) : null}
             </>
           )}
-          {!hintSeen && !flat && cine === "off" && !insideKey ? (
+          {council && tour ? (
+            <PulseCouncil steps={tour.steps} index={Math.min(council.index, tour.steps.length - 1)} paused={council.paused} reduced={reduced}
+              mark={councilFilm && councilFilm.scope === filmScope ? councilFilm.mark : null}
+              onNext={() => stepCouncil(1)} onPrev={() => stepCouncil(-1)} onPause={() => setCouncil(c => (c ? { ...c, paused: !c.paused } : c))} onExit={exitCouncil} />
+          ) : null}
+          {!hintSeen && !flat && cine === "off" && !insideKey && !council ? (
             <div className="hp-hint" role="note">
               <span><b>ابدأ هنا:</b> اضغط قاعة لترى شعبتها، ومرتين لتدخلها · اسحب للتدوير · {narrow ? "قرّب بإصبعين" : "قرّب بالعجلة أو بإصبعين"}</span>
               <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-hint-close" onClick={() => { setHintSeen(true); writeHint(); }} aria-label="إخفاء التلميح">فهمت <span aria-hidden="true">✕</span></button>
