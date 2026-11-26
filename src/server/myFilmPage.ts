@@ -18,6 +18,26 @@
  */
 import { PUBLIC_FONT_FACES } from "./publicKit";
 
+/**
+ * بطاقةُ الدخول إلى «فيلمي» — واحدةٌ في صفحة طلب الأستاذ (/r/:token) وفي بطاقته (/s/:token):
+ * مسرحٌ ليليٌّ صغير بلون فيلم الفصل. لا تُطبع، و`hidden` يخفيها فعلاً (العرضُ flex يغلبه لولا القاعدة).
+ */
+export const MY_FILM_ENTRY_CSS = `/* «فيلمي»: بطاقةُ دخول الفيلم الشخصي — مسرحٌ ليليٌّ صغير بلون فيلم الفصل. لا تُطبع. */
+.mf-card{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:12px 14px;border-radius:18px;text-decoration:none;color:#eef5f0;position:relative;overflow:hidden;
+background:radial-gradient(120% 140% at 85% 0%,#143730,#0d241f 70%);box-shadow:0 10px 26px -14px rgba(4,18,15,.7),inset 0 0 0 1px rgba(226,189,118,.22)}
+.mf-card::after{content:"";position:absolute;inset:auto auto -40% -10%;inline-size:60%;block-size:120%;background:radial-gradient(closest-side,rgba(226,189,118,.16),transparent);pointer-events:none}
+.mf-card-m{flex:none;display:grid;place-items:center;inline-size:44px;block-size:44px;border-radius:14px;background:rgba(226,189,118,.14);color:#e2bd76;box-shadow:inset 0 0 0 1px rgba(226,189,118,.3)}
+.mf-card-m svg,.mf-card-go svg{inline-size:20px;block-size:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mf-card-t{display:grid;gap:1px;min-inline-size:0;flex:1;text-align:start}
+.mf-card-t b{font-size:15.5px;font-weight:700;color:#eef5f0}
+.mf-card-t small{font-size:12.5px;color:#9fbab0;line-height:1.5}
+.mf-card-go{flex:none;display:inline-flex;align-items:center;gap:5px;min-block-size:40px;padding:0 14px;border-radius:999px;background:#e2bd76;color:#1c2a17;font-weight:700;font-size:13.5px;position:relative;z-index:1}
+.mf-card-go svg{inline-size:14px;block-size:14px;fill:currentColor;stroke:none}
+.mf-card:focus-visible{outline:3px solid #e2bd76;outline-offset:2px}
+.mf-card[hidden]{display:none!important}
+@media print{.mf-card{display:none!important}}`;
+export const MY_FILM_ENTRY_BODY = '<span class="mf-card-m" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg></span><span class="mf-card-t"><b>فيلمي</b><small>أسبوعك وأيامك ورغباتك في نصف دقيقة</small></span><span class="mf-card-go"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>شاهد</span>';
+
 /** لوحةُ المسرح: هي لوحةُ «فيلم الفصل» حرفاً، وثلاثةُ ألوانٍ إضافية لتمييز المقررات. */
 export const MY_FILM_STAGE_VARS = "--stage:#0d241f;--stage-2:#143730;--ink:#eef5f0;--dim:#9fbab0;--rule:#2a4c43;--calm:#4fd3a1;--warm:#f0b24a;--hot:#f0674f;--gold:#e2bd76;--sky:#7cc4f0;--rose:#f29bb0;--iris:#b9a3f5";
 

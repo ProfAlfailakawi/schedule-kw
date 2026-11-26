@@ -62,10 +62,16 @@ async function teacherWeekOf(request: InstructorRequest, term: Parameters<typeof
   ]);
   const collegeName = new Map((colleges as any[]).map(row => [Number(row.AdCollegeId), String(row.AdCollegeName || "")]));
   const courseName = new Map((courses as any[]).map(row => [Number(row.AdCourseId), String(row.CourseName || "")]));
-  return teacherWeekFacts({
-    rows, instructorId: Number(request.AdInstructorId), policy, term,
-    collegeNameOf: id => collegeName.get(id) || "", courseNameOf: id => courseName.get(id) || "",
-  });
+  /* بابُ «فيلمي» يتبع ما يتبعه الفيلمُ نفسه (محاضراتُه الرسمية، lecturesFromRows)، لا «أسبوعي الصحي»
+     الذي يغيب حين لا تاريخَ بدءٍ للفصل — والفيلمُ يعمل بلا تاريخ. */
+  const film = lecturesFromRows(rows as any, Number(request.AdInstructorId)).length > 0;
+  const week = (() => {
+    try { return teacherWeekFacts({
+      rows, instructorId: Number(request.AdInstructorId), policy, term,
+      collegeNameOf: id => collegeName.get(id) || "", courseNameOf: id => courseName.get(id) || "",
+    }); } catch { return null; }
+  })();
+  return { week, film };
 }
 
 /** مانعُ «ثبّت» برقم بنده ومادّته ("" لساعات المقرّر)، ومعه ما يراه الأستاذ في صفّه: اسمُ المقرّر وأيقونةٌ وعبارةٌ قصيرة. */
@@ -82,6 +88,7 @@ import { decisionDigest, digestItemId } from "../../utils/requestDecisionDigest"
 import { sendCalendar } from "./publicCalendarRoutes";
 import { shareDayIndexes } from "../core/shareLinks";
 import { teacherWeekFacts } from "../teacherWeekFacts";
+import { lecturesFromRows } from "../../utils/myFilm";
 import { readTravelPolicy } from "../core/travelPolicy";
 import { planTargetsFor } from "../actualDemand";
 import { forHistory } from "../../utils/inboxUndo";
@@ -882,7 +889,7 @@ export async function serveRequestCard(req: Request, res: Response, resolved: Aw
     /* إنفوجرافيك التخطيط لمقرّراته (أرقامٌ مجمَّعة من «تخطيط الشعب» وحده). */
     planning,
     /* «محاضرتك القادمة» و«أسبوعي الصحي»: من جدوله الرسمي في هذا الفصل وحده، بلا قاعةٍ ولا مبنى (teacherWeekFacts). */
-    week: await teacherWeekOf(request, term as any).catch(() => null),
+    ...await teacherWeekOf(request, term as any).catch(() => ({ week: null, film: false })),
     ...(preview ? { preview: true } : {}),
   });
 }
