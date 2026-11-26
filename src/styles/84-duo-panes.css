@@ -72,14 +72,14 @@
     left:calc(env(safe-area-inset-left) + var(--pane-l) / 2);bottom:calc(14px + env(safe-area-inset-bottom));
     width:auto;max-width:calc(var(--pane-l) - 32px);height:auto;margin:0;z-index:60;
     padding:6px;gap:4px;border-radius:999px;display:flex;align-items:center;
-    background:rgb(30 34 32 / .92);border:1px solid rgb(255 255 255 / .09);
-    box-shadow:0 1px 0 rgb(255 255 255 / .06) inset,0 12px 32px rgb(10 14 12 / .28);
-    -webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);
+    background:var(--duo-cap-bg);border:1px solid var(--duo-cap-line);
+    box-shadow:var(--duo-cap-shadow);
+    -webkit-backdrop-filter:var(--duo-cap-blur);backdrop-filter:var(--duo-cap-blur);
   }
-  html[data-device="duo"] body:has(.schedule-page) .schedule-dock *{color:rgb(255 255 255 / .86)}
+  html[data-device="duo"] body:has(.schedule-page) .schedule-dock *{color:var(--duo-cap-icon)}
   html[data-device="duo"] body:has(.schedule-page) .schedule-dock button{background:none;border:0;box-shadow:none}
   html[data-device="duo"] body:has(.schedule-page) .schedule-dock .on,
-  html[data-device="duo"] body:has(.schedule-page) .schedule-dock [aria-pressed="true"]{background:rgb(255 255 255 / .16) !important;border-radius:999px}
+  html[data-device="duo"] body:has(.schedule-page) .schedule-dock [aria-pressed="true"]{background:var(--duo-cap-on) !important;border-radius:999px}
   html[data-device="duo"] body:has(.schedule-page) .schedule-dock .dock-split{background:rgb(255 255 255 / .14)}
   html[data-device="duo"] body:has(.schedule-page) .schedule-dock>.dock-add{background:var(--accent) !important;border-radius:999px;color:#fff}
   html[data-device="duo"] body:has(.schedule-page) .schedule-dock>.dock-add *{color:#fff}

@@ -50,31 +50,31 @@
 
   /* ── العمود: التنقّل تحت الساعة (83-duo-app-nav.css)، ثم «تبادل»، ثم أدوات الجدول كبسولةً عموديّة في أسفله. ── */
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body .schedule-dock{
-    display:flex !important;flex-direction:column;align-items:center;gap:8px;
+    display:flex !important;flex-direction:column;align-items:center;gap:2px;
     position:fixed;z-index:60;left:auto;top:auto;transform:none;margin:0;
-    right:calc((var(--duo-land-col) - 60px) / 2);bottom:calc(16px + env(safe-area-inset-bottom));
-    width:60px;max-width:60px;min-width:0;height:auto;padding:6px;border-radius:30px;
-    background:rgb(30 34 32 / .9);border:1px solid rgb(255 255 255 / .09);
-    box-shadow:0 1px 0 rgb(255 255 255 / .06) inset,0 12px 32px rgb(10 14 12 / .28);
-    -webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);
+    right:calc((var(--duo-land-col) - 58px) / 2);bottom:calc(16px + env(safe-area-inset-bottom));
+    width:58px;max-width:58px;min-width:0;height:auto;padding:6px;border-radius:999px;
+    background:var(--duo-cap-bg);border:1px solid var(--duo-cap-line);
+    box-shadow:var(--duo-cap-shadow);
+    -webkit-backdrop-filter:var(--duo-cap-blur);backdrop-filter:var(--duo-cap-blur);
   }
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-views,
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-split{display:none !important}
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-act,
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-add{
-    display:grid !important;place-items:center;width:48px;height:48px;min-width:48px;min-height:48px;
+    display:grid !important;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;
     padding:0;margin:0;border-radius:50%;font-size:0;gap:0;border:0;box-shadow:none;flex:none;
   }
-  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-act{background:none;color:rgb(255 255 255 / .82)}
-  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-act.on{background:rgb(0 0 0 / .38);color:#fff}
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-act{background:transparent;color:var(--duo-cap-icon)}
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-act.on{background:var(--duo-cap-on);color:#fff}
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock>.dock-add{background:var(--accent);color:#fff;order:-1}
-  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock svg{width:22px;height:22px}
+  html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .schedule-dock svg{width:22px;height:22px;stroke-width:1.9}
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .hall-barter-inbox:not(.hall-barter-inbox-decision){
     left:auto !important;top:auto !important;width:48px;height:48px;z-index:60;
     right:calc((var(--duo-land-col) - 48px) / 2) !important;
-    bottom:calc(16px + 172px + 14px + env(safe-area-inset-bottom)) !important;
-    background:rgb(30 34 32 / .9) !important;color:#fff;border:1px solid rgb(255 255 255 / .09);
-    box-shadow:0 10px 26px rgb(10 14 12 / .26);
+    bottom:calc(16px + 152px + 14px + env(safe-area-inset-bottom)) !important;
+    background:var(--duo-cap-bg) !important;color:#fff;border:1px solid var(--duo-cap-line);
+    box-shadow:var(--duo-cap-shadow);-webkit-backdrop-filter:var(--duo-cap-blur);backdrop-filter:var(--duo-cap-blur);
   }
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .hall-barter-inbox:not(.hall-barter-inbox-decision) *{color:#fff}
 
@@ -83,7 +83,7 @@
   html[data-device="duo"][data-shell="app"][data-widget-side="left"] #root .content-stack.schedule-page.duo-full{
     padding-left:calc(var(--duo-land-col) + 12px) !important;padding-right:calc(16px + var(--duo-ir)) !important;
   }
-  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .schedule-dock{right:auto;left:calc((var(--duo-land-col) - 60px) / 2)}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .schedule-dock{right:auto;left:calc((var(--duo-land-col) - 58px) / 2)}
   html[data-device="duo"][data-shell="app"][data-widget-side="left"] .hall-barter-inbox:not(.hall-barter-inbox-decision){
     right:auto !important;left:calc((var(--duo-land-col) - 48px) / 2) !important;
   }
@@ -92,9 +92,9 @@
   /* كبسولة التنقّل في عمود الساعة على كل الصفحات لا «الجدول» وحده: بدونها لا تنقّل في العرضي إلا من القائمة. */
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) body .mobile-bottom-dock{
     display:flex !important;position:fixed;z-index:55;top:var(--duo-clock-end-wide);bottom:auto;left:auto;
-    right:calc((var(--duo-land-col) - 60px) / 2);
+    right:calc((var(--duo-land-col) - 58px) / 2);
   }
-  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .mobile-bottom-dock{right:auto;left:calc((var(--duo-land-col) - 60px) / 2)}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .mobile-bottom-dock{right:auto;left:calc((var(--duo-land-col) - 58px) / 2)}
 }
 /* عرضٌ أقصر (أقل من 620pt): العمود لا يتّسع للتنقّل و«تبادل» والأدوات معاً دون تراكب،
    فتصير الأدوات و«تبادل» صفّاً أفقياً في ركن المحتوى الأسفل بجوار العمود، والتنقّل وحده في العمود. */
@@ -104,11 +104,11 @@
     right:calc(var(--duo-land-col) + 8px);bottom:calc(12px + env(safe-area-inset-bottom));
   }
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) .hall-barter-inbox:not(.hall-barter-inbox-decision){
-    right:calc(var(--duo-land-col) + 8px + 184px) !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important;
+    right:calc(var(--duo-land-col) + 8px + 162px) !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important;
   }
   html[data-device="duo"][data-shell="app"]:not([data-widget-side="none"]) #root .content-stack.schedule-page.duo-full{padding-bottom:84px !important}
   html[data-device="duo"][data-shell="app"][data-widget-side="left"] body .schedule-dock{right:auto;left:calc(var(--duo-land-col) + 8px)}
-  html[data-device="duo"][data-shell="app"][data-widget-side="left"] .hall-barter-inbox:not(.hall-barter-inbox-decision){right:auto !important;left:calc(var(--duo-land-col) + 8px + 184px) !important}
+  html[data-device="duo"][data-shell="app"][data-widget-side="left"] .hall-barter-inbox:not(.hall-barter-inbox-decision){right:auto !important;left:calc(var(--duo-land-col) + 8px + 162px) !important}
 }
 /* Safari (والتطبيق بلا عمودٍ جانبي): الشاشة الكاملة بعرضها جعلت «منتصف اللوح الثاني» منتصفَ الشاشة،
    فوقع شريط «+ موعد» العائم على المفصل فوق المحتوى. صار في ركن الشاشة الأسفل الأيسر و«تبادل» بجانبه. */
