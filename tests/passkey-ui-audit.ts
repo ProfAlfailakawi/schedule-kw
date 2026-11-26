@@ -87,5 +87,8 @@ check(/isInvitationHash\(window\.location\.hash\)/.test(entry) && /has\("usernam
 check(/arrivedForAnotherLogin\(\)\) \{ skipAuto\.current = true; markAutoTried\(\); \}/.test(entry), "U10 بطاقةُ دخولٍ لغيره تُعلَّم في التبويب فلا تعود التلقائيةُ بعد حذف الرابط");
 check((app.match(/suppressPasskeyAuto\(\);/g) || []).length === 2, "U10 الخروجُ الصريح يوقف التلقائية في التبويب");
 check(/!\(automatic && failure\?\.failure === "cancelled"\)/.test(entry), "U10 إلغاءُ النافذة التلقائية صامت");
+check(/hiddenAt = ceremonyBusy \? 0 : Date\.now\(\)/.test(entry), "U10 نافذةُ البصمة نفسها لا تُحسب غياباً فلا تُعيد التلقائية بعد إلغائها (لا حلقة)");
+check(/if \(automatic && failure\?\.failure === "cancelled" && !\(error as any\)\?\.notFocused\) safeStorage\.set\(SUPPRESS_KEY, "1", "session"\);/.test(entry) && /autoSuppressed\(\)\) return;/.test(entry), "U10 إلغاءُ النافذة التلقائية يوقفها في الجلسة (والرفضُ لعدم التركيز لا يوقفها)");
+check(/export const suppressPasskeyAuto = \(\) => \{ safeStorage\.remove\(AUTO_KEY, "session"\); safeStorage\.remove\(SUPPRESS_KEY, "session"\); \};/.test(entry), "U10 الخروجُ الصريح يرفع الإيقاف فتعود المحاولةُ التلقائية مرةً في الدخول القادم");
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
