@@ -183,8 +183,8 @@ const sectionsList = [
 ];
 const hereOnly = predictiveNarrow({ analysisScope: "college", collegeId: "1", sectionId: "10" }, sectionsList)!;
 const familyWide = predictiveNarrow({ analysisScope: "department", collegeId: "1", sectionId: "10" }, sectionsList)!;
-check(hereOnly.match(1, 10) && !hereOnly.match(2, 20) && !hereOnly.match(1, 11), "«هذه الكلية»: القسم المفتوح في هذه الكلية وحده");
-check(familyWide.match(1, 10) && familyWide.match(2, 20) && !familyWide.match(1, 11), "«كل كليات القسم»: عائلة القسم عبر الكليات دون أقسامٍ أخرى");
+check(hereOnly.match(1, 10) && !hereOnly.match(2, 20) && !hereOnly.match(1, 11), "«هذا الموقع»: القسم المفتوح في هذه الكلية وحده");
+check(familyWide.match(1, 10) && familyWide.match(2, 20) && !familyWide.match(1, 11), "«كل الفروع» بلا رمز موقع: عائلة القسم عبر الكليات دون أقسامٍ أخرى");
 check(hereOnly.key !== familyWide.key, "ومفتاحا الذاكرة مختلفان فلا يتشاركان قراءة");
 check(predictiveNarrow({}, sectionsList) === null && predictiveNarrow({ analysisScope: "college" }, sectionsList) === null, "بلا نطاقٍ صريح لا تضييق (يبقى شرطُ صلاحيات القارئ وحده)");
 check(predictiveNarrow({ analysisScope: "college", collegeId: 1 }, sectionsList)!.match(1, 11), "ونداءٌ قديم بكليةٍ بلا قسم يعني كل أقسام الكلية");

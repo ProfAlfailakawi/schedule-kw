@@ -238,7 +238,8 @@ export function registerSimulationRoutes(app: Express, deps: SimulationDeps): vo
     const run = await Repository.getRegistrationRun(termId);
     const power = deps.isPowerUser(req);
     /* مفتاحُ «الكلية / القسم» في مركز القراءات: يضيّق النطاقَ ولا يوسّعه أبداً (يبقى شرطُ صلاحيات القارئ). */
-    const narrow = predictiveNarrow(req.query, await Repository.getSections());
+    const [narrowSections, narrowColleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
+    const narrow = predictiveNarrow(req.query, narrowSections, narrowColleges as any[]);
     const permitted = (collegeId: number, sectionId: number) => power || deps.isScopeAllowed(req, collegeId, sectionId);
     const allowed = (collegeId: number, sectionId: number) => permitted(collegeId, sectionId) && (!narrow || narrow.match(collegeId, sectionId));
     const loaded = await inputMemo.get(ctxKey(`${termId}:${run?.staleAt || ""}:${run?.ranAt || ""}`), () => loadSimulationInput(term, Math.max(1, term.AdTermStudentPhases?.rounds?.length || 2)));

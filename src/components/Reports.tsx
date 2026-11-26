@@ -766,6 +766,11 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   const modeSeen = useRef(false);
   useEffect(() => {
     if (modeSeen.current) {
+      /* شاشةٌ أخرى من قائمة الاستعلامات تبدأ من أولها كاختيار تقريرٍ آخر (selectLens):
+         مرشّحات الشاشة السابقة ونتيجتها المفتوحة وقائمة طباعتها لا تنتقل. يبقى النطاق. */
+      setFilters(prev => ({ ...fresh(), collegeId: prev.collegeId, sectionId: prev.sectionId, termId: prev.termId }));
+      setSelectedResultId(null);
+      setScopeMenu(null);
       /* البحث العام قد يفتح الاستعلامات وهي مفتوحة أصلاً (تبديل الشاشة لا يعيد بناءها). */
       const prefill = takeReportPrefill();
       if (prefill) {
@@ -790,6 +795,12 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
     const { collegeId: _college, sectionId: _section, termId: _term, ...rest } = filters;
     safeStorage.set(prefKey, JSON.stringify({ lens, filters: rest }));
   }, [prefKey, lens, filters]);
+  /* ── الخروج من الاستعلامات يصفّرها ─────────────────────────────────────────
+     ما حُفظ أعلاه يبقى لإعادة تحميل الصفحة وحدها. فإن غادر القارئ إلى شاشةٍ
+     أخرى ثم عاد، فتحت الاستعلامات من أولها: بلا عدسةٍ سابقة ولا مرشّحٍ عالق
+     (يومٌ أو أستاذٌ أو قاعة). والنطاق الأكاديمي المشترك، والتقارير المحفوظة،
+     وموفّر الحبر تفضيلاتٌ في مواضعها، فلا تُمسّ. */
+  useEffect(() => () => { safeStorage.remove(prefKey); }, [prefKey]);
   /* يكتب ما اختاره القارئ بيده في النطاق المشترك، ويضعه في المرشّحات. */
   const sharedScope = useSharedScope((incoming) => {
     if (!termsRef.current.length) return;
@@ -2504,7 +2515,18 @@ export default function Reports({ mode, user, scopes = [], roleId, canReadWorksp
   /* على الهاتف تُفتح العدسات كلها: الشبكتان العريضتان تُسحبان أفقياً داخل إطارهما
      (query-wide-scroll) بدل نافذةٍ تقول «افتحه من الكمبيوتر». */
   const selectLens = (next: Lens) => {
+    /* اختيار تقريرٍ آخر يبدأه من أوله، كما يفعل «اسأل» (applyAsk): مرشّحات
+       التقرير السابق ونتيجته المفتوحة وقائمة طباعته لا تنتقل إليه. يبقى النطاق
+       (الكلية والقسم والفصل). و«المنتدبون» و«كل الفصول» وجهان لتقريرٍ واحد. */
+    const pair = new Set<Lens>(["visiting", "visitingHistory"]);
+    const another = next !== lens && !(pair.has(next) && pair.has(lens));
     runVisualTransition(() => {
+      if (another) {
+        resetFilters();
+        setSelectedResultId(null);
+        setScopeMenu(null);
+        setAskNote(null);
+      }
       setLens(next);
       setPrintKind(next === "decision" ? "list" : next);
       setOpenGroup(null);

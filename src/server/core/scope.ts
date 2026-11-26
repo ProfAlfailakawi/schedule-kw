@@ -7,6 +7,7 @@
  */
 import { Repository } from "../../db/repository";
 import { departmentFamily } from "../../utils/sectionLabel";
+import { branchReadingScopes } from "../../utils/branchScope";
 import { isReadOnlyRole, roleDefinition } from "../../utils/academicRoles";
 import type { AuthenticatedRequest } from "./auth";
 
@@ -111,11 +112,16 @@ export function safeSystemUser(user: any) {
   return safe;
 }
 
-/** Read-only department analysis uses the established department family mapping. */
+/**
+ * Read-only department analysis («كل الفروع»): the department's sites inside its
+ * own branch — the same sites the comprehensive and changes reports print under
+ * «كل الفروع» (girls with Jahra and Fahaheel; boys on their own). A college with
+ * no official site prefix has no known branch, so it keeps the name family.
+ */
 export async function intelligenceReadScopes(req: AuthenticatedRequest, collegeId: number, sectionId: number) {
   if ((req.query.analysisScope || req.body?.analysisScope) !== "department") return [{ collegeId, sectionId }];
-  const sections = await Repository.getSections();
-  return departmentFamily(sections, collegeId, sectionId)
+  const [sections, colleges] = await Promise.all([Repository.getSections(), Repository.getColleges()]);
+  return (branchReadingScopes(colleges as any[], sections as any[], collegeId, sectionId) || departmentFamily(sections, collegeId, sectionId))
     .filter(scope => isScopeAllowed(req, scope.collegeId, scope.sectionId));
 }
 
