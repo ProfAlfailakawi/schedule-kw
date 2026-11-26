@@ -22,6 +22,7 @@ import VisitingBadge from "./VisitingBadge";
 import { AR, countOf } from "../utils/arabicCount";
 import { approvalScopeKey, createScopeGuard } from "../utils/approvalScope";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
+import { isNativeApp } from "../utils/nativeApp";
 import {
   buildApprovalDossier, compactDays, type ApprovalDossierModel, type DossierKind, type DossierReadiness, type DossierReport, type DossierTimelineStep,
 } from "../utils/approvalDossier";
@@ -280,7 +281,9 @@ export default function ApprovalDossier({ collegeId, sectionId, termId, collegeN
     const done = () => { delete root.dataset.printKind; window.removeEventListener("afterprint", done); };
     window.addEventListener("afterprint", done, { once: true });
     window.setTimeout(() => { try { window.print(); } catch { done(); } }, 30);
-    window.setTimeout(done, 4000);
+    // داخل التطبيق الرسمي تفتح الطباعة ورقةَ iOS ولا ترجع حتى يُغلقها القارئ، والجسر يُطلق afterprint دائماً عند إغلاقها؛
+    // فمهلةُ الأربع ثوانٍ كانت ترفع سمةَ الطباعة قبل أن ترسم iOS الورقة فتخرج الصفحة كاملة في المرة الأولى.
+    if (!isNativeApp()) window.setTimeout(done, 4000);
   };
   const ready = model.state === "ok";
 

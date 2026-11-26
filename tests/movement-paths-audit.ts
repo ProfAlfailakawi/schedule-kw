@@ -12,7 +12,7 @@ import fs from "fs";
 import path from "path";
 import { buildPulseModel, hallFreeFor, layoutHalls, originalAssignment, type PulseLayout } from "../src/utils/hallPulse";
 import {
-  BUILDING_CHANGE_MIN, LONG_IDLE_GAP_MIN, TIGHT_BUILDING_GAP_MIN, buildPaths, hopScore, markerAt, nearerHalls, rankHops, walkEstimate,
+  BUILDING_CHANGE_MIN, LONG_IDLE_GAP_MIN, TIGHT_BUILDING_GAP_MIN, buildPaths, hopScore, markerAt, nearerHalls, rankHops, walkEstimate, pulseCohortsAccess,
 } from "../src/utils/movementPaths";
 
 let passed = 0, failed = 0;
@@ -131,6 +131,24 @@ check(/const pathsAllowed = context === "workshop" \|\| context === "dean"/.test
 check(/nearerHalls\(model, assignment, layout, hop\)/.test(pulse) && /previewSessionMove/.test(pulse) && /savePending/.test(pulse), "«اقترح قاعة أقرب» يمرّ بالمراجعة ثم الحفظ المعتاد");
 check(/setPath\(/.test(scene) && /setMarker\(/.test(scene) && /clearPath\(\)/.test(scene), "المشهد يرسم المسار ويمحوه ويُفرغ موارده");
 check(/تقدير/.test(pulse) && /HOP_FLAG_LABEL/.test(pulse), "المشي موسومٌ «تقدير»، والتنبيهات بأسمائها");
+
+/* ── دفعات القسم للعميد: قراءةٌ فقط لكليته وحدها ── */
+{
+  const base = { isAdmin: false, deanReader: true, scopeAllowed: true, collegeId: 3, sectionId: 31, sectionCollegeId: 3 };
+  check(pulseCohortsAccess(base) === 200, "العميد يقرأ دفعات قسمٍ من كليته");
+  check(pulseCohortsAccess({ ...base, scopeAllowed: false }) === 403, "ويُردّ عن كليةٍ ليست في نطاقه");
+  check(pulseCohortsAccess({ ...base, sectionCollegeId: 4 }) === 403, "ويُردّ عن قسمٍ من كليةٍ أخرى ولو أرسل رقم كليته");
+  check(pulseCohortsAccess({ ...base, sectionCollegeId: 0 }) === 403, "وعن قسمٍ غير موجود");
+  check(pulseCohortsAccess({ ...base, deanReader: false }) === 403, "ومن ليس عميداً ولا عميداً مساعداً (الأستاذ وغيره) يُردّ ولو كان القسم في نطاقه");
+  check(pulseCohortsAccess({ ...base, sectionId: 0 }) === 400 && pulseCohortsAccess({ ...base, collegeId: 0 }) === 400, "وبلا قسمٍ أو كلية: طلبٌ ناقص");
+  check(pulseCohortsAccess({ ...base, deanReader: false, scopeAllowed: false, isAdmin: true }) === 200 && pulseCohortsAccess({ ...base, isAdmin: true, sectionCollegeId: 4 }) === 403, "والمدير يقرأ، ولا يُخلط قسمٌ بكليةٍ غير كليته");
+  const reports = read("src/server/routes/reportsRoutes.ts");
+  const route = reports.slice(reports.indexOf('app.get("/api/reports/pulse-cohorts"'), reports.indexOf('app.get("/api/reports/room-load"'));
+  check(/requireAnyPermission\(\[7, 8, 9, 10, 14, 16, 17\]\)/.test(route) && /pulseCohortsAccess\(\{[\s\S]*deanReader: readsFinalSchedulesOnly\(req\), scopeAllowed: isScopeAllowed\(req, collegeId, sectionId\)/.test(route), "المسار يحكم بالحَكَم نفسه: صفة العميد ونطاق الحساب وكلية القسم");
+  check(/verdict === 403[\s\S]*sectionPlanFacts\(sectionId\)/.test(route) && /levelGroups: facts\.levelGroups\.map\(group => \(\{ courseIds: group\.courseIds \}\)\)/.test(route), "ولا يُقرأ شيءٌ قبل الحكم، ولا يعود إلا أرقام مقررات كل مستوى");
+  check(!/Repository\.(save|set|update|delete|add|create|write)/i.test(route) && !/app\.(post|put|patch|delete)\("\/api\/reports\/pulse-cohorts/.test(reports), "قراءةٌ فقط: لا كتابة في المسار");
+  check(/context !== "workshop" && context !== "dean"/.test(pulse) && /\/api\/reports\/pulse-cohorts/.test(pulse) && /cohortState\.scope === nameScope/.test(pulse), "العميد يرى مسارات الدفعات أيضاً، وما جُلب لقسمٍ لا يُعرض لغيره");
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
