@@ -17,6 +17,7 @@ import { GhostButton, PrimaryButton, SecondaryButton, PrintPortal } from "./ui";
 import { formatScheduleTimeRange } from "../utils/scheduleTime";
 import { AR, countOf, nounFor, oblique } from "../utils/arabicCount";
 import { showPwaPrintHelp } from "../utils/pwaPrintHelp";
+import { isNativeApp } from "../utils/nativeApp";
 import RoomLoanStrip from "./RoomLoanStrip";
 
 type Opportunity = {
@@ -323,7 +324,9 @@ export default function HallBarterBoard({
     const done = () => { delete root.dataset.printKind; window.removeEventListener("afterprint", done); };
     window.addEventListener("afterprint", done, { once: true });
     window.setTimeout(() => { try { window.print(); } catch { done(); } }, 30);
-    window.setTimeout(done, 4000);
+    // داخل التطبيق الرسمي تفتح الطباعة ورقةَ iOS ولا ترجع حتى يُغلقها القارئ، والجسر يُطلق afterprint دائماً عند إغلاقها؛
+    // فمهلةُ الأربع ثوانٍ كانت ترفع سمةَ الطباعة قبل أن ترسم iOS الورقة فتخرج الصفحة كاملة في المرة الأولى.
+    if (!isNativeApp()) window.setTimeout(done, 4000);
   };
 
   /* ── لا أيقونة لبابٍ لا يُفتح ────────────────────────────────────────────
