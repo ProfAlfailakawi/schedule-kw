@@ -682,6 +682,18 @@ ol.hp-reg-halls small{color:var(--hp-muted);font-size:12px}
 .hp-moveto-list button[aria-disabled=true]:focus-visible{border-color:var(--hp-pressed);opacity:.9}
 .hp-tl-was{stroke:var(--hp-pressed);stroke-opacity:.45;stroke-width:2;stroke-dasharray:3 4;vector-effect:non-scaling-stroke;stroke-linecap:round}
 @media (max-width:900px){ .hp-whatif{max-width:calc(100% - 72px);inset-block-start:10px} }
+/* المسرح نفسه ضيّق (لوحةٌ جانبية مفتوحة بجانبه): الشريط يتقلّص بقدر المسرح لا الشاشة. */
+.hp-view{container:hp-view / inline-size}
+@container hp-view (max-width:560px){
+  .hp-whatif{max-width:calc(100% - 64px);padding:8px 10px;gap:6px 10px}
+  .hp-whatif-delta{font-size:12px;gap:4px 10px}
+}
+@container hp-view (max-width:320px){
+  .hp-whatif{inset-inline:8px;width:auto;max-width:none;margin:0;flex-direction:column;align-items:stretch}
+  .hp-whatif-delta{display:none}
+  .hp-whatif-actions{flex-direction:column}
+  .hp-whatif-actions .hp-btn{align-self:stretch}
+}
 @media (prefers-reduced-motion:reduce){
   .hp-whatif,.hp-drop-reject{animation:none}
   .hp-whatif-dot{animation:none}
