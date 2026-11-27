@@ -286,7 +286,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
  /* افتتاحية اليوم (FR-DSH-036): أول دخولٍ كل يوم لكل حسابٍ على هذا الجهاز، لمن يرى نبض القاعات وحده.
     تُقرَّر مرةً حين تصل اللوحة، ولا تؤخّر شيئاً: رسمُها يُحمَّل كسولاً بعد أن تُرسم اللوحة. */
  const[opening,setOpening]=useState<OpeningMode>("none");
- const openingAsked=useRef(false),openingHeld=useRef(false);
+ const openingAsked=useRef(false),openingHeld=useRef(false),openingShown=useRef(false);
  useEffect(()=>{
   if(openingHold)openingHeld.current=true;
   if(openingAsked.current||!data||openingHold||!sealReady)return;
@@ -308,9 +308,23 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
   const pick=homeMoment({seal:sealMode,opening:mode});
   if(pick.seal!=="none"&&seal){markSealSeen(sealKey);setSealMoment({seal,mode:pick.seal});}
   if(pick.skipOpeningToday)writeOpeningSeen(userId,day);
-  if(pick.opening!=="none"){writeOpeningSeen(userId,day);setOpening(pick.opening);}
+  if(pick.opening!=="none"){openingShown.current=true;writeOpeningSeen(userId,day);setOpening(pick.opening);}
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[data,openingHold,sealReady]);
+ /* ختمٌ وصل بعد مهلة الانتظار (1.8 ث): قُرِّرت الافتتاحية بلا ختم. إن لم تُعرض افتتاحيةٌ الآن ظهر الختم متأخراً،
+    وإن عُرضت افتتاحيةٌ في هذا التحميل بقي الختم غير مرئيٍّ فيظهر في التحميل التالي — لا تُكدَّس لحظتان أبداً. */
+ const lateSealDone=useRef("");
+ useEffect(()=>{
+  if(!openingAsked.current||openingShown.current||sealMoment||!sealRead?.seal||opening!=="none"||!sealScopeKey||lateSealDone.current===sealScopeKey)return;
+  lateSealDone.current=sealScopeKey;
+  const userId=Number(user?.SystemUserId||0);
+  const media=(query:string)=>{try{return Boolean(window.matchMedia?.(query).matches);}catch{return false;}};
+  const seal=sealRead.seal;
+  const sealKey=sealMomentKey({viewer:userId,collegeId:filmScope?.collegeId||0,sectionId:filmScope?.sectionId||0,termId:filmScope?.termId||0,acceptedAt:seal.acceptedAt});
+  const sealMode=sealMomentMode(sealMomentDue({allowed:Boolean(userId&&sealScopeKey),seal,key:sealKey,seen:readSealSeen(),print:media("print")}),media("(prefers-reduced-motion: reduce)"));
+  if(sealMode!=="none"){markSealSeen(sealKey);setSealMoment({seal,mode:sealMode});}
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[sealRead,opening,sealScopeKey]);
  /* رقمٌ وصل متأخراً بعد «—»: يظهر بتلاشٍ واحد، ولا يتكرّر مع التحديث. */
  const awaitedSignals=useRef(new Set<string>());
  signals.forEach(item=>{if(item.awaiting)awaitedSignals.current.add(item.key);});

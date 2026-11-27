@@ -131,4 +131,10 @@ const pulse = source("src/components/hallPulse/HallPulse.tsx");
 assert.ok(/props\.context !== "dean" && props\.sectionId > 0/.test(pulse), "لا لحظة في نسخة العميد ولا في «كل الأقسام»");
 assert.ok(/celebrate\(ms = 3000\)/.test(source("src/components/hallPulse/pulseScene.ts")));
 
+/* ختمٌ يصل بعد مهلة الانتظار يظهر متأخراً ما لم تُعرض افتتاحيةٌ في التحميل نفسه. */
+assert.ok(/const lateSealDone=useRef\(""\);/.test(dash), "أثرٌ للختم المتأخر");
+assert.ok(/if\(!openingAsked\.current\|\|openingShown\.current\|\|sealMoment\|\|!sealRead\?\.seal\|\|opening!=="none"/.test(dash), "ولا يُكدَّس مع افتتاحيةٍ عُرضت في التحميل نفسه");
+assert.ok(/\},\[sealRead,opening,sealScopeKey\]\);/.test(dash), "ويعيد النظر حين يصل الختم");
+assert.ok(/openingShown\.current=true;writeOpeningSeen/.test(dash), "والافتتاحية المعروضة تُعلَّم");
+
 console.log("approval-seal-audit: ok");
