@@ -88,6 +88,8 @@ const BRASS = new THREE.Color(0xe2bd76);
 const CALM = new THREE.Color(0x4fd3a1);
 const EDGE = new THREE.Color(0x7fb3a3);
 const WINDOW_WARM = new THREE.Color(0xffe2a8);
+/** ختم الاعتماد (FR-DSH-037): ذهب النوافذ حين تضيء القاعات كلها معاً. */
+const SEAL_GOLD = new THREE.Color(0xffd36e);
 const PATH_GLOW = new THREE.Color(0x7fe0ff);
 const SLAB = new THREE.Color(0x1d4a41), SLAB_KEEP = new THREE.Color(0x2f7f6a), SLAB_OFF = new THREE.Color(0x0b1a17);
 
@@ -907,6 +909,24 @@ export class PulseScene {
   private onDouble = (e: MouseEvent) => { if (this.mode === "campus" && !this.pick(e.clientX, e.clientY)) this.resetView(); };
   private onVisibility = () => { if (!document.hidden) this.kick(); };
 
+  /* ── ختم الاعتماد (FR-DSH-037): لحظةٌ واحدة تضيء فيها نوافذ القاعات كلها معاً بذهبٍ ثم تهدأ ── */
+  private sealAt = -1e9;
+  private sealMs = 0;
+  /** يبدأ اللحظة بمدّتها، و0 يوقفها فوراً. لا يغيّر شيئاً من حالة المشهد غير لون النوافذ ووهجها. */
+  celebrate(ms = 3000) {
+    this.sealMs = Math.max(0, ms);
+    this.sealAt = ms > 0 ? performance.now() : -1e9;
+    this.kick();
+  }
+  /** شدّة اللحظة الآن 0–1: صعودٌ ناعم، ثباتٌ قصير، ثم هدوء. */
+  private sealGlow(now: number): number {
+    if (!this.sealMs) return 0;
+    const u = (now - this.sealAt) / this.sealMs;
+    if (u < 0 || u >= 1) return 0;
+    const s = (x: number) => x * x * (3 - 2 * x);
+    return u < 0.2 ? s(u / 0.2) : u < 0.55 ? 1 : 1 - s((u - 0.55) / 0.45);
+  }
+
   /** يوقظ حلقة الرسم؛ وتنام وحدها حين يسكن كل شيء. */
   kick() {
     if (this.disposed || this.raf) return;
@@ -1045,6 +1065,21 @@ export class PulseScene {
       if (v.pulse || v.glow || v.mark != null || flash || held) busy = true;
     };
     for (const rig of this.rooms.values()) tick(rig, 1, false);
+    {
+      /* ختم الاعتماد: نوافذ قاعات القسم كلها معاً، فوق ما تقوله الساعة، ثم تعود إليه. */
+      const glow = this.sealGlow(now);
+      if (glow > 0 || now - this.sealAt < this.sealMs) {
+        busy = true;
+        for (const rig of this.rooms.values()) {
+          const fk = rig.fadeK;
+          rig.win.material.color.lerp(SEAL_GOLD, glow * 0.85);
+          rig.win.material.opacity = Math.max(rig.win.material.opacity, 0.95 * glow * fk);
+          rig.halo.material.color.lerp(SEAL_GOLD, glow);
+          rig.halo.material.opacity = Math.max(rig.halo.material.opacity, 0.5 * glow * fk);
+          rig.halo.visible = rig.halo.material.opacity > 0.01;
+        }
+      }
+    }
     for (const rig of this.nbRooms.values()) tick(rig, this.nbAlpha, true);
     {
       const ek = reduced ? 1 : 1 - Math.exp(-dt * 4.5);

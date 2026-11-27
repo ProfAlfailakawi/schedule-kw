@@ -15,6 +15,7 @@
     "test:term-film": "tsx tests/term-film-audit.ts",
     "test:visual-wave-1": "tsx tests/visual-wave-1-audit.ts",
     "test:dept-fingerprint": "tsx tests/dept-fingerprint-audit.ts",
+    "test:approval-seal": "tsx tests/approval-seal-audit.ts",
     "test:connected-opening": "tsx tests/connected-opening-audit.ts",
     "test:my-film": "tsx tests/my-film-audit.ts",
     "test:visiting-badge-g1": "tsx tests/visiting-badge-group1-audit.ts",

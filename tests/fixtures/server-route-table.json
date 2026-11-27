@@ -704,8 +704,8 @@
    ],
    "path": "/api/dept-fingerprint",
    "name": "bound dispatch",
-   "call": "d1815b5e2d750e1f",
-   "site": "src/server/routes/deptFingerprintRoutes.ts:85",
+   "call": "5ad6ed7083d17c74",
+   "site": "src/server/routes/deptFingerprintRoutes.ts:95",
    "regexp": "/^\\/api\\/dept-fingerprint\\/?$/i",
    "end": true
   },
