@@ -171,6 +171,12 @@
   .dfp-compare-bar select{flex:1;min-width:0}
 }
 
+/* الهاتف: بطاقة الحلقة تحت الملصق لا فوقه؛ الملصق يحفظ نسبته والبطاقة تأتي بعده بعرضه. */
+@media screen and (max-width:600px){
+  .dfp-sheet:has(.dfp-ring-tip){aspect-ratio:auto}
+  .dfp-sheet:has(.dfp-ring-tip) .dfp-svg{height:auto;aspect-ratio:1000/1414}
+  .dfp-ring-tip,.dfp-ring-tip.is-below{position:static;transform:none;width:auto;max-width:none;margin-top:10px}
+}
 @media (prefers-reduced-motion:reduce){
   .dfp-arc,.dfp-tracks,.dfp-petals,.dfp-glow,.dfp-tip,.dfp-loading i{animation:none}
   .dfp-arc,.dfp-btn,.dfp-card-open,.dfp-go{transition:none}

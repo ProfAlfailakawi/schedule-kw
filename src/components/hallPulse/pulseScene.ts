@@ -191,7 +191,9 @@ export class PulseScene {
   /** «ضمّ المساء»: لافتة «يبقى مضاءً» على كل طابقٍ يبقى، ومزاج الطوابق مفعّل أم لا. */
   private floorTags = new Map<string, { el: HTMLDivElement; pos: THREE.Vector3 }>();
   private moodOn = false;
-  private shift = 0;
+  /** «وضع المجلس»: المستطيل الحرّ من اللوحة (بالبكسل) الذي يُؤطَّر فيه المشهد؛ null = اللوحة كلها. */
+  private frameT: FrameRect | null = null;
+  private frameNow: FrameRect | null = null;
   /** «اليوم يمرّ أمامك»: الكاميرا تدور ببطء مع الشمس ما لم يمسك القارئ المشهد. */
   private cineOn = false;
   private cineFree = false;
@@ -204,6 +206,11 @@ export class PulseScene {
   private pendingInterior: InteriorData | null = null;
   private savedView: { az: number; pol: number; radius: number; target: THREE.Vector3 } | null = null;
   private veil: HTMLDivElement;
+  /* مظلّلات القاعة من الداخل تُبنى مرةً قبل الدخول (compileAsync)، فلا يقف المشهد فارغاً ثواني
+     على الجهاز المثقل. «warm» قاعةٌ لا تُرسم تُبقي المظلّلات المبنيّة حيّةً في ذاكرة الراسم. */
+  private warm: HallInterior | null = null;
+  private warmState: "none" | "pending" | "ready" = "none";
+  private interiorReady = false;
 
   constructor(private opts: {
     canvas: HTMLCanvasElement;
@@ -261,6 +268,10 @@ export class PulseScene {
     this.veil = document.createElement("div");
     this.veil.className = "hp-veil";
     this.veil.setAttribute("aria-hidden", "true");
+    const wait = document.createElement("span");
+    wait.className = "hp-veil-wait";
+    wait.textContent = "يُجهَّز المشهد…";
+    this.veil.appendChild(wait);
     opts.host.appendChild(this.veil);
     this.build(opts.layout);
     this.scene.add(this.nbGroup, this.pathGroup);
@@ -454,12 +465,29 @@ export class PulseScene {
     this.kick();
   }
 
-  /** إزاحة المشهد أفقياً بنسبةٍ من عرض اللوحة (موجبةٌ إلى اليسار) ليبقى ما خلف التعليق ظاهراً؛ 0 يعيده. */
-  setShift(fraction: number) {
-    const next = THREE.MathUtils.clamp(fraction, -0.4, 0.4);
-    if (Math.abs(next - this.shift) < 1e-4) return;
-    this.shift = next;
+  /**
+   * «وضع المجلس»: يُؤطَّر المشهد في المستطيل الحرّ من اللوحة (ما لا يغطّيه التعليق الكبير)، فتملؤه المباني
+   * كبيرةً متوازنة بدل أن تصغر في ركن. إسقاطٌ خارج المحور (setViewOffset) فيبقى ما حول المستطيل مرسوماً،
+   * والإطار الآلي والاقتراب من القاعة يُحسبان عليه. null يعيد اللوحة كلها.
+   */
+  setFrame(rect: FrameRect | null) {
+    const next = rect && rect.w >= 120 && rect.h >= 120 ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null;
+    const a = this.frameT, same = a && next ? Math.abs(a.x - next.x) + Math.abs(a.y - next.y) + Math.abs(a.w - next.w) + Math.abs(a.h - next.h) < 2 : a === next;
+    if (same) return;
+    this.frameT = next;
+    if (this.opts.reduced || !this.sized) this.frameNow = next ? { ...next } : null;
+    else if (!this.frameNow) this.frameNow = { x: 0, y: 0, w: this.W, h: this.H };
     this.resize();
+  }
+
+  private fullFrame(): FrameRect { return { x: 0, y: 0, w: this.W, h: this.H }; }
+
+  /** الإسقاط من الإطار الجاري: صورة الكاميرا بقياس المستطيل، واللوحة نافذةٌ عليها. */
+  private project() {
+    const f = this.frameNow;
+    if (!f) { this.camera.aspect = this.W / this.H; this.camera.clearViewOffset(); }
+    else this.camera.setViewOffset(Math.max(1, f.w), Math.max(1, f.h), -f.x, -f.y, this.W, this.H);
+    this.camera.updateProjectionMatrix();
   }
 
   /** دوران العرض: 0 أول اليوم و1 آخره؛ null ينهيه ويعيد المنظر. */
@@ -502,7 +530,8 @@ export class PulseScene {
     this.veil.style.setProperty("--hp-veil-c", `#${data.color.toString(16).padStart(6, "0")}`);
     if (!this.savedView) this.savedView = { az: this.azT, pol: this.polT, radius: this.radiusT, target: this.targetT.clone() };
     this.drag = null; this.pinch = null;
-    if (this.opts.reduced) { this.openInterior(); this.mode = "inside"; this.modeAt = -1e9; this.kick(); return; }
+    /* تقليل الحركة: لا اقتراب؛ الستار قائمٌ من أول لحظة حتى تجهز القاعة ثم تظهر بلا تلاشٍ. */
+    if (this.opts.reduced) { this.mode = "entering"; this.modeAt = -1e9; this.kick(); return; }
     this.mode = "entering"; this.modeAt = performance.now();
     this.targetT.copy(rig.group.getWorldPosition(new THREE.Vector3()));
     this.radiusT = Math.max(3.6, this.fitRadius * 0.14);
@@ -522,16 +551,48 @@ export class PulseScene {
     this.kick();
   }
 
+  /** يجهّز مظلّلات القاعة من الداخل في الخلفية (حين تُختار قاعة)، فيكون الدخول فورياً في الغالب. */
+  prepareInterior(data: InteriorData) {
+    if (this.warmState !== "none" || this.disposed) return;
+    this.warmState = "pending";
+    const idle = (fn: () => void) => {
+      const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+      if (w.requestIdleCallback) w.requestIdleCallback(fn, { timeout: 900 }); else window.setTimeout(fn, 160);
+    };
+    idle(() => {
+      if (this.disposed || this.warm) return;
+      const warm = new HallInterior(data, { labels: this.opts.labels, reduced: this.opts.reduced });
+      warm.frameFor(this.W / this.H, true);
+      this.warm = warm;
+      this.compile(warm).then(() => { if (this.warm === warm) this.warmState = "ready"; });
+    });
+  }
+
+  /** بناء المظلّلات بلا حجب الخيط الرئيسي حيث يدعم المتصفّح ذلك؛ وأي فشلٍ = نرسم كالمعتاد. */
+  private compile(interior: HallInterior): Promise<void> {
+    const r = this.renderer as THREE.WebGLRenderer & { compileAsync?: (s: THREE.Object3D, c: THREE.Camera) => Promise<unknown> };
+    if (!r.compileAsync) return Promise.resolve();
+    return r.compileAsync(interior.scene, interior.camera).then(() => undefined, () => undefined);
+  }
+
   private openInterior() {
     this.interior?.dispose();
-    this.interior = new HallInterior(this.pendingInterior!, { labels: this.opts.labels, reduced: this.opts.reduced });
-    this.interior.frameFor(this.W / this.H, true);
-    this.opts.labels.classList.add("is-inside");
+    const interior = new HallInterior(this.pendingInterior!, { labels: this.opts.labels, reduced: this.opts.reduced });
+    this.interior = interior;
+    interior.frameFor(this.W / this.H, true);
+    this.interiorReady = false;
+    /* يُرسم الستار ونصّ الانتظار أولاً، ثم تُبنى المظلّلات (فوراً إن جُهّزت مسبقاً). */
+    requestAnimationFrame(() => window.setTimeout(() => {
+      if (this.interior !== interior) return;
+      this.compile(interior).then(() => { if (this.interior === interior) { this.interiorReady = true; this.kick(); } });
+    }, 0));
   }
 
   private closeInterior() {
     this.interior?.dispose();
     this.interior = null;
+    this.interiorReady = false;
+    this.veil.classList.remove("is-waiting");
     this.opts.labels.classList.remove("is-inside");
     const v = this.savedView; this.savedView = null;
     if (v) { this.azT = v.az; this.polT = v.pol; this.radiusT = v.radius; this.targetT.copy(v.target); }
@@ -712,6 +773,10 @@ export class PulseScene {
     const corners: THREE.Vector3[] = [];
     for (const x of [minX, maxX]) for (const z of [minZ, maxZ]) for (const y of [-0.2, height]) corners.push(new THREE.Vector3(x, y, z));
     const cam = this.camera.clone();
+    /* الملاءمة على المستطيل الهدف وحده، لا على اللوحة كلها ولا على إطارٍ في منتصف انزلاقه. */
+    cam.clearViewOffset();
+    const goal = this.frameT || this.fullFrame();
+    cam.aspect = goal.w / goal.h; cam.updateProjectionMatrix();
     const az = this.azT, pol = this.polT;
     const fits = (r: number) => {
       const s = Math.sin(pol);
@@ -732,10 +797,9 @@ export class PulseScene {
     this.W = Math.max(1, Math.round(r.width)); this.H = Math.max(1, Math.round(r.height));
     this.renderer.setSize(this.W, this.H, false);
     this.camera.aspect = this.W / this.H;
-    /* «وضع المجلس»: المباني تنزاح عن التعليق الكبير (إسقاطٌ خارج المحور)، والإطار الآلي يُحسب على المنزاح. */
-    if (this.shift) this.camera.setViewOffset(this.W, this.H, this.shift * this.W, 0, this.W, this.H);
-    else this.camera.clearViewOffset();
-    this.camera.updateProjectionMatrix();
+    /* «وضع المجلس»: الإطار الآلي يُحسب على المستطيل الحرّ (frameT)، والإسقاط ينزلق إليه في الحلقة. */
+    if (this.frameT) { this.camera.aspect = this.frameT.w / this.frameT.h; if (!this.frameNow || this.opts.reduced) this.frameNow = { ...this.frameT }; }
+    this.project();
     const L = this.opts.layout;
     const first = !this.sized;
     if (first && (this.opts.topDown || this.camera.aspect < 0.9)) { this.homePol = 0.72; this.pol = this.polT = 0.72; this.az = this.azT = 0.22; }
@@ -871,6 +935,15 @@ export class PulseScene {
     const reduced = this.opts.reduced;
     const k = reduced ? 1 : 1 - Math.exp(-dt * 7);
     let busy = false;
+
+    /* الإطار ينزلق إلى المستطيل الحرّ الجديد مع كل خطوةٍ من المجلس، لا يقفز. */
+    if (this.frameNow) {
+      const goal = this.frameT || this.fullFrame(), f = this.frameNow, fk = reduced ? 1 : 1 - Math.exp(-dt * 4);
+      f.x += (goal.x - f.x) * fk; f.y += (goal.y - f.y) * fk; f.w += (goal.w - f.w) * fk; f.h += (goal.h - f.h) * fk;
+      const left = Math.abs(goal.x - f.x) + Math.abs(goal.y - f.y) + Math.abs(goal.w - f.w) + Math.abs(goal.h - f.h);
+      if (left < 0.5) { if (this.frameT) Object.assign(f, goal); else this.frameNow = null; } else busy = true;
+      this.project();
+    }
 
     /* الشمس: من الشرق صباحاً إلى الغرب مساءً، ولونها يدفأ في الطرفين. */
     this.sunT += (this.sunWant - this.sunT) * (reduced ? 1 : 1 - Math.exp(-dt * 2.5));
@@ -1096,7 +1169,19 @@ export class PulseScene {
       const u = (now - this.modeAt) / 720;
       veil = smooth((u - 0.38) / 0.62);
       busy = true;
-      if (u >= 1) { this.openInterior(); this.mode = "inside"; this.modeAt = now; veil = 1; }
+      if (u >= 1) {
+        veil = 1;
+        if (!this.interior) this.openInterior();
+        if (this.interiorReady) {
+          this.veil.classList.remove("is-waiting");
+          this.opts.labels.classList.add("is-inside");
+          this.mode = "inside"; this.modeAt = this.opts.reduced ? -1e9 : now;
+        } else {
+          /* المظلّلات تُبنى بعد: الستار قائم ونصٌّ هادئ «يُجهَّز المشهد…»، والوعد يوقظ الإطار التالي. */
+          this.veil.classList.add("is-waiting");
+          busy = false;
+        }
+      }
     } else if (this.mode === "leaving") {
       const u = (now - this.modeAt) / 340;
       veil = smooth(u);
@@ -1143,6 +1228,7 @@ export class PulseScene {
     this.flights = [];
     this.clearNeighbour();
     this.interior?.dispose(); this.interior = null;
+    this.warm?.dispose(); this.warm = null;
     this.opts.labels.classList.remove("is-inside");
     this.veil.remove();
     for (const rig of this.rooms.values()) { rig.shell.material.dispose(); rig.fill.material.dispose(); rig.edges.material.dispose(); rig.win.material.dispose(); rig.halo.material.dispose(); rig.tag.remove(); }
@@ -1158,6 +1244,8 @@ export class PulseScene {
 }
 
 /** هل يرسم هذا الجهاز WebGL أصلاً؟ */
+export interface FrameRect { x: number; y: number; w: number; h: number }
+
 export function webglAvailable(): boolean {
   try {
     const c = document.createElement("canvas");

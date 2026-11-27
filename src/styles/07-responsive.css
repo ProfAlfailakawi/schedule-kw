@@ -214,6 +214,10 @@
   .schedule-dock .dock-views,
   .schedule-dock .dock-split{display:none}
   .undo-bar{bottom:calc(70px + 52px + env(safe-area-inset-bottom))}
+  /* While the page's own «بحث سريع» row passes through the dock's band, the
+     dock steps aside (Schedules.tsx sets .is-tucked) — the field stays pressable. */
+  .schedule-dock{transition:opacity .18s var(--ease),visibility .18s}
+  .schedule-dock.is-tucked{opacity:0;visibility:hidden;pointer-events:none}
 
   /* The phone dock — the few places one moves between, plus "more" for the rest:
      icon over name, the active one lit, resting above the safe area. */
@@ -2054,3 +2058,6 @@ html[data-demo-admin-readonly="true"] .app-main::before{
     min-height:max-content;
   }
 }
+
+/* The dock stepping aside for the quick-search row is instant under reduced motion. */
+@media (prefers-reduced-motion:reduce){ .schedule-dock{transition:none} }
