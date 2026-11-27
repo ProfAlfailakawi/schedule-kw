@@ -654,6 +654,8 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   check(/this\.cancelPress\(\);\s*if \(this\.carry\) this\.endCarry\(false\);/.test(sceneSrc) && /e\.pointerType === "mouse" \? 180 : 300/.test(sceneSrc), "إصبعٌ ثانٍ يعيد الكاميرا للقرص والتدوير ويُعيد المحمولة؛ والالتقاط بضغطةٍ مطوّلة");
   check(/aria-label="القاعات بحالها لهذه الشعبة"/.test(src) && /e\.key === "ArrowDown"/.test(src) && /e\.key === "Escape"/.test(src) && /انقل إلى…/.test(src), "البديل بلوحة المفاتيح: «انقل إلى…» بالأسهم وEnter وEscape");
   check(/whatIfGuard\.unsaved > 0/.test(sched) && /لديك نقلات لم تُحفظ/.test(sched) && /safeCancel: true/.test(sched) && /beforeunload/.test(src), "مغادرة المجسّم بنقلاتٍ لم تُحفظ تُسأل مرةً واحدة، وإغلاق الصفحة يسأل المتصفح");
+  const applyViewSrc = sched.slice(sched.indexOf("const applyView = useCallback("), sched.indexOf("const stale = describeStaleScope(view,"));
+  check(/viewMode === "pulse" && whatIfGuard\.unsaved > 0/.test(applyViewSrc) && /safeCancel: true/.test(applyViewSrc), "فتح عرضٍ محفوظ بنقلاتٍ لم تُحفظ يمرّ بالسؤال نفسه");
 }
 
 /* ── التوصيل ── */

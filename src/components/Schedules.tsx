@@ -7348,6 +7348,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
   );
 
   const applyView = useCallback((view: ScheduleSavedView) => {
+    /* «ماذا لو، باللمس» (FR-SCH-101): عرضٌ محفوظ يبدّل العرض أو النطاق، فيُسأل عن النقلات التي لم تُحفظ كما في «changeView». */
+    if (viewMode === "pulse" && whatIfGuard.unsaved > 0) {
+      const count = whatIfGuard.unsaved;
+      void visualConfirm({
+        title: "لديك نقلات لم تُحفظ",
+        message: `${countOf(count, { one: "نقلة", two: "نقلتان", few: "نقلات", many: "نقلة" })} في المجسّم لم تُحفظ بعد، وستُلغى إن فتحت عرضاً محفوظاً الآن.`,
+        confirmLabel: "افتح العرض دون حفظ",
+        cancelLabel: "ابقَ في المجسّم",
+        tone: "warning",
+        safeCancel: true,
+      }).then(leave => { if (leave) { whatIfGuard.unsaved = 0; applyView(view); } });
+      return;
+    }
     const stale = describeStaleScope(view, {
       colleges: colleges.map(item => item.AdCollegeId),
       sections: sections.map(item => item.AdSectionId),
@@ -7369,7 +7382,8 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     setMatrixRooms(new Set(view.filters.matrixRooms));
     setActiveViewId(view.id);
     setMessage(stale ? stale : `فُتح العرض: ${view.name}`);
-  }, [colleges, sections, terms]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colleges, sections, terms, viewMode]);
 
   const saveCurrentView = useCallback((name: string) => {
     const created = viewsStore.create(captureView(name));
