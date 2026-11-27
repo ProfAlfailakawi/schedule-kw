@@ -623,6 +623,17 @@ export default function HallPulse(props: HallPulseProps) {
 
   /* ── المشهد ── */
   const viewRef = useRef<HTMLDivElement>(null);
+  /* عرض المسرح نفسه: إن ضاق (لوحةٌ جانبية بجانبه على شاشةٍ متوسطة) نزل شريط «ماذا لو» إلى اللوحة. */
+  const [viewW, setViewW] = useState(1000);
+  useEffect(() => {
+    const v = viewRef.current;
+    if (!v || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setViewW(v.clientWidth));
+    ro.observe(v);
+    setViewW(v.clientWidth);
+    return () => ro.disconnect();
+  }, [loading, model.halls.length > 0]);
+  const dockPill = viewW > 0 && viewW < 380;
   const labelsRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<PulseSceneType | null>(null);
   const pickRef = useRef<(key: string | null, nb: boolean) => void>(() => undefined);
@@ -1987,7 +1998,7 @@ export default function HallPulse(props: HallPulseProps) {
                 );
               })() : null}
               {reject && !carry ? <div className="hp-drop-reject" role="status" ref={rejectRef}><i aria-hidden="true">↩</i>{reject.text}</div> : null}
-              {whatIfPill}
+              {dockPill ? null : whatIfPill}
               {cine !== "off" && nowPoint ? (
                 <div className="hp-hud" role="status" aria-live="off">
                   <span className="hp-hud-clock"><bdi dir="ltr">{clockText(minuteShown)}</bdi><small>{dayLabel}</small></span>
@@ -2113,6 +2124,7 @@ export default function HallPulse(props: HallPulseProps) {
             {!regOn ? <small>عدد الطلبة تقدير: سعة المقرر لكل شعبة، لا المسجّلون فعلاً.</small> : regDoc ? <small>ملف «{regDoc.fileName}» · آخر فحص {checkDay(regDoc.at)}</small> : null}
           </div>
           <div className="hp-sheet-body">
+            {dockPill ? whatIfPill : null}
             {planMini}
             {regOn && mode === "halls" ? regPanel : mode === "paths" ? pathsPanel : panel}
           </div>

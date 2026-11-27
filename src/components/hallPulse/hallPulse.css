@@ -688,12 +688,8 @@ ol.hp-reg-halls small{color:var(--hp-muted);font-size:12px}
   .hp-whatif{max-width:calc(100% - 64px);padding:8px 10px;gap:6px 10px}
   .hp-whatif-delta{font-size:12px;gap:4px 10px}
 }
-@container hp-view (max-width:320px){
-  .hp-whatif{inset-inline:8px;width:auto;max-width:none;margin:0;flex-direction:column;align-items:stretch}
-  .hp-whatif-delta{display:none}
-  .hp-whatif-actions{flex-direction:column}
-  .hp-whatif-actions .hp-btn{align-self:stretch}
-}
+/* المسرح أضيق من الشريط: الشريط في رأس اللوحة الجانبية بدل أن يغطّي المباني. */
+.hp-sheet-body .hp-whatif{position:static;width:auto;max-width:none;margin:0;justify-content:flex-start;animation:none}
 @media (prefers-reduced-motion:reduce){
   .hp-whatif,.hp-drop-reject{animation:none}
   .hp-whatif-dot{animation:none}
