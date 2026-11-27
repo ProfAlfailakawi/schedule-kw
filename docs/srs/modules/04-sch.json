@@ -153,7 +153,8 @@
     "src/utils/campusCity.ts",
     "src/components/hallPulse/CampusCity.tsx",
     "src/components/hallPulse/CampusCityLazy.tsx",
-    "src/components/hallPulse/campusScene.ts"
+    "src/components/hallPulse/campusScene.ts",
+    "src/utils/pulseWhatIf.ts"
   ],
   "screens": [
     {
