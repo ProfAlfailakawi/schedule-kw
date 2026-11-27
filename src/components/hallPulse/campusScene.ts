@@ -13,9 +13,10 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { FLOOR_H, HALL_D, HALL_H, HALL_W } from "../../utils/hallPulse";
-import type { CampusLayout, DistrictMood } from "../../utils/campusCity";
+import { STREET, type CampusLayout, type DistrictMood } from "../../utils/campusCity";
 
 export interface CampusHallVisual { color: number; level: number; occupied: boolean; pressed: boolean; dept: number }
+/** sub: شارةٌ قصيرة بجانب الاسم (عدد المضغوطة) أو فارغة؛ التفصيل في القائمة وبطاقة المرور. */
 export interface CampusDistrictVisual { mood: DistrictMood; load: number; tone: number; label: string; sub: string }
 
 const GLASS = new THREE.Color(0xcfe9df);
@@ -25,8 +26,34 @@ const DARK = new THREE.Color(0x000000);
 const MOOD_HEX: Record<DistrictMood, number> = { choke: 0xf0674f, busy: 0xf0b24a, calm: 0x4fd3a1, idle: 0x3d6f8f };
 const SUN_MORNING = new THREE.Color(0xffd2a0), SUN_NOON = new THREE.Color(0xfff6e6), SUN_EVENING = new THREE.Color(0xff9a62);
 const SKY_MORNING = new THREE.Color(0xd8ecff), SKY_NOON = new THREE.Color(0xeefaf4), SKY_EVENING = new THREE.Color(0xffc9a6);
+/** المدينة تملأ هذا القدر من المستطيل الحرّ على المحور الأضيق (بعد توسيطها فيه). */
 const FILL = 0.9;
+/** المباني أطول قليلاً من مقياس النبض: من بُعد المدينة تُقرأ أبراجاً بطوابق لا ألواحاً مسطّحة. */
+const VERT = 1.32;
+/** زاوية المنظر الكامل: أعلى قليلاً من زاوية الحي، فتنبسط الأحياء على عمق اللوحة وتُرى الواجهات معاً. */
+const HOME_POL = 0.7;
+/** بطاقة المرور (campusCity.css ‏.cc-card): 280 عرضاً ونحو 190 ارتفاعاً، بهامش 14. */
+const CARD_W = 280 + 14 + 10, CARD_H = 190 + 14 + 10;
 const EDGE = new THREE.Color(0x7fb3a3);
+const WINDOW_COOL = new THREE.Color(0x7fb8d4);
+
+interface FrameRect { x: number; y: number; w: number; h: number }
+
+/** واجهة نافذةٍ بألواحٍ رأسية: تُضرب بلون القاعة فتُقرأ نوافذَ مضاءة لا شريطاً واحداً. */
+function paneTexture() {
+  const c = document.createElement("canvas");
+  c.width = 64; c.height = 32;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#000"; g.fillRect(0, 0, 64, 32);
+  for (let i = 0; i < 4; i++) {
+    const grd = g.createLinearGradient(0, 2, 0, 30);
+    grd.addColorStop(0, "rgba(255,255,255,1)"); grd.addColorStop(1, "rgba(255,255,255,0.62)");
+    g.fillStyle = grd; g.fillRect(2 + i * 15.5, 3, 12.5, 26);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
 function radialTexture(stops: Array<[number, string]>) {
   const c = document.createElement("canvas");
@@ -47,6 +74,8 @@ interface PlateRig {
   glow: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   tag: HTMLDivElement;
   tagPos: THREE.Vector3;
+  /** مقاس اللافتة بالبكسل (يُقاس مرةً بعد تغيّر نصّها) لتفادي التراكب. */
+  tagW: number; tagH: number;
   want: CampusDistrictVisual | null;
   glowO: number;
   glowC: THREE.Color;
@@ -73,8 +102,8 @@ export class CampusScene {
   private hemi!: THREE.HemisphereLight;
   private sunT = 0.35; private sunWant = 0.35;
   private raf = 0; private last = performance.now();
-  private az = 0.2; private pol = 0.78; private radius = 120;
-  private azT = 0.2; private polT = 0.78; private radiusT = 120;
+  private az = 0.2; private pol = HOME_POL; private radius = 120;
+  private azT = 0.2; private polT = HOME_POL; private radiusT = 120;
   private target = new THREE.Vector3(); private targetT = new THREE.Vector3();
   private home = new THREE.Vector3(); private homeRadius = 120;
   private drag: { x: number; y: number; moved: number; id: number } | null = null;
@@ -94,9 +123,16 @@ export class CampusScene {
   private q = new THREE.Quaternion();
   private sc = new THREE.Vector3();
   private tmp = new THREE.Color();
+  private tmp2 = new THREE.Color();
   private hasChoke = false;
   private edgeMat: THREE.LineBasicMaterial | null = null;
   private roofOf = new Map<string, number>();
+  /** مجموعة المباني والقاعات: تُمدّ رأسياً بـ VERT. */
+  private city = new THREE.Group();
+  /** الإطار: المستطيل الحرّ (ما لا تغطّيه بطاقة المرور) مع توسيط المدينة فيه، وينزلق إلى اللوحة كلها عند الطيران. */
+  private homeFrame: FrameRect = { x: 0, y: 0, w: 1, h: 1 };
+  private frameNow: FrameRect | null = null;
+  private sized = false;
 
   constructor(private opts: {
     canvas: HTMLCanvasElement;
@@ -142,6 +178,8 @@ export class CampusScene {
   private build() {
     const L = this.opts.layout;
     const span = Math.max(L.width, L.depth);
+    this.city.scale.y = VERT;
+    this.scene.add(this.city);
     this.scene.fog = new THREE.Fog(0x0b1f1b, span * 1.2 + 60, span * 3 + 220);
     this.hemi = new THREE.HemisphereLight(0xe4f6ee, 0x0b1d19, 0.7);
     this.scene.add(this.hemi);
@@ -186,20 +224,20 @@ export class CampusScene {
       const tone = new THREE.Color(this.opts.toneOf(d.dept));
       /* حيٌّ بلا مبنى أرضٌ داكنة تحفظ مكانه، لا لوحةٌ ملوّنة كبيرة. */
       const bare = d.top <= 0;
-      const plateGeo = new RoundedBoxGeometry(d.w, 0.34, d.d, 2, 0.3);
-      const plateMat = new THREE.MeshStandardMaterial({ color: bare ? new THREE.Color(0x173630) : tone.clone().lerp(new THREE.Color(0x0f2a24), 0.74), roughness: 0.92, metalness: 0.04, emissive: tone, emissiveIntensity: 0.05 });
+      const plateGeo = new RoundedBoxGeometry(d.w, 0.22, d.d, 2, 0.1);
+      const plateMat = new THREE.MeshStandardMaterial({ color: bare ? new THREE.Color(0x163430) : tone.clone().lerp(new THREE.Color(0x10302a), 0.82), roughness: 0.95, metalness: 0.02, emissive: tone, emissiveIntensity: 0.04 });
       const plate = new THREE.Mesh(plateGeo, plateMat);
-      plate.position.set(d.cx, -0.17, d.cz);
+      plate.position.set(d.cx, -0.11, d.cz);
       plate.receiveShadow = true;
       plate.userData.dept = d.dept;
-      const rimGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(d.w - 0.2, 0.34, d.d - 0.2));
-      const rimMat = new THREE.LineBasicMaterial({ color: tone, transparent: true, opacity: 0.55 });
+      const rimGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(d.w - 0.1, 0.22, d.d - 0.1));
+      const rimMat = new THREE.LineBasicMaterial({ color: tone, transparent: true, opacity: 0.4 });
       const rim = new THREE.LineSegments(rimGeo, rimMat);
       rim.position.copy(plate.position);
       const glowMat = new THREE.MeshBasicMaterial({ map: glowTex, color: MOOD_HEX.idle, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
       const glow = new THREE.Mesh(glowGeo, glowMat);
       glow.rotation.x = -Math.PI / 2;
-      glow.scale.set(d.w * 1.5, d.d * 1.5, 1);
+      glow.scale.set(d.w * 1.35, d.d * 1.35, 1);
       glow.position.set(d.cx, 0.02, d.cz);
       glow.renderOrder = 1;
       this.scene.add(plate, rim, glow);
@@ -207,23 +245,39 @@ export class CampusScene {
       const tag = document.createElement("div");
       tag.className = "cc-tag";
       this.opts.labels.appendChild(tag);
-      const rig: PlateRig = { dept: d.dept, plate, rim, glow, tag, tagPos: bare ? new THREE.Vector3(d.cx, 0.2, d.cz) : new THREE.Vector3(d.cx, 0.1, d.z0 + 2.4), want: null, glowO: 0, glowC: new THREE.Color(MOOD_HEX.idle) };
+      /* اللافتة فوق أعلى مباني الحي مباشرةً، لا في أرضه الأمامية. */
+      const rig: PlateRig = { dept: d.dept, plate, rim, glow, tag, tagPos: new THREE.Vector3(d.cx, bare ? 0.3 : d.top * VERT + 0.5, d.cz), tagW: 0, tagH: 0, want: null, glowO: 0, glowC: new THREE.Color(MOOD_HEX.idle) };
       this.plates.push(rig);
       this.plateByDept.set(d.dept, rig);
     }
 
-    /* المباني: بلاطة لكل طابق، والمبنى المشترك بشريطٍ أمامي مقسومٍ على أقسامه. */
-    const slabMat = new THREE.MeshStandardMaterial({ color: 0x1d4a41, roughness: 0.85, metalness: 0.05 });
-    this.disposables.push(slabMat);
+    /* المباني: بلاطة لكل طابقٍ بحافةٍ فاتحة تُقرأ خطَّ طابق، وإطار سطحٍ مفتوح (يُرى منه منسوب القاعات
+       العليا من فوق)، وأعمدةٌ رفيعة في الأركان. والمبنى المشترك بشريطٍ أمامي مقسومٍ على أقسامه. */
+    const slabMat = new THREE.MeshStandardMaterial({ color: 0x2b5d52, roughness: 0.8, metalness: 0.06, emissive: 0x9fd8c4, emissiveIntensity: 0.06 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x9cc4b7, roughness: 0.55, metalness: 0.15, emissive: 0x9fd8c4, emissiveIntensity: 0.08 });
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x6f9c8f, roughness: 0.6, metalness: 0.15 });
+    this.disposables.push(slabMat, roofMat, postMat);
     for (const b of L.buildings) {
-      this.roofOf.set(b.code, (b.floors - 1) * FLOOR_H + HALL_H + 0.1);
-      const slabGeo = new RoundedBoxGeometry(b.w + 0.5, 0.16, b.d + 0.5, 2, 0.07);
-      this.disposables.push(slabGeo);
+      const roof = (b.floors - 1) * FLOOR_H + HALL_H + 0.1;
+      this.roofOf.set(b.code, roof);
+      const slabGeo = new RoundedBoxGeometry(b.w + 0.4, 0.18, b.d + 0.4, 2, 0.06);
+      const railX = new THREE.BoxGeometry(b.w + 0.5, 0.22, 0.16), railZ = new THREE.BoxGeometry(0.16, 0.22, b.d + 0.5);
+      const postGeo = new THREE.BoxGeometry(0.14, roof + 0.1, 0.14);
+      postGeo.translate(0, (roof + 0.1) / 2 - 0.1, 0);
+      this.disposables.push(slabGeo, railX, railZ, postGeo);
       for (let f = 0; f < b.floors; f++) {
         const slab = new THREE.Mesh(slabGeo, slabMat);
         slab.position.set(b.cx, f * FLOOR_H - 0.06, b.cz);
         slab.receiveShadow = true; slab.castShadow = true;
-        this.scene.add(slab);
+        this.city.add(slab);
+      }
+      for (const sz of [-1, 1]) { const rail = new THREE.Mesh(railX, roofMat); rail.position.set(b.cx, roof + 0.11, b.cz + sz * (b.d / 2 + 0.17)); rail.castShadow = true; this.city.add(rail); }
+      for (const sx of [-1, 1]) { const rail = new THREE.Mesh(railZ, roofMat); rail.position.set(b.cx + sx * (b.w / 2 + 0.17), roof + 0.11, b.cz); rail.castShadow = true; this.city.add(rail); }
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+        const post = new THREE.Mesh(postGeo, postMat);
+        post.position.set(b.cx + sx * (b.w / 2 + 0.08), 0, b.cz + sz * (b.d / 2 + 0.08));
+        post.castShadow = true;
+        this.city.add(post);
       }
       const total = b.shares.reduce((s, x) => s + x.weight, 0);
       if (b.shared && total > 0) {
@@ -234,7 +288,7 @@ export class CampusScene {
           const mat = new THREE.MeshStandardMaterial({ color: this.opts.toneOf(share.dept), emissive: this.opts.toneOf(share.dept), emissiveIntensity: 0.5, roughness: 0.6 });
           const bar = new THREE.Mesh(geo, mat);
           bar.position.set(x0 + w / 2, 0.02, b.cz + b.d / 2 + 0.55);
-          this.scene.add(bar);
+          this.city.add(bar);
           this.disposables.push(geo, mat);
           x0 += w;
         }
@@ -243,13 +297,13 @@ export class CampusScene {
       el.className = "cc-tag cc-tag-building";
       el.textContent = b.shared ? `${b.label} · مشترك` : b.label;
       this.opts.labels.appendChild(el);
-      this.buildingTags.push({ el, pos: new THREE.Vector3(b.cx, -0.1, b.cz + b.d / 2 + 1.25) });
+      this.buildingTags.push({ el, pos: new THREE.Vector3(b.cx, 0.05, b.cz + b.d / 2 + 1) });
     }
 
     /* القاعات: ثلاث دفعاتٍ لكل القاعات. */
     const n = Math.max(1, this.hallKeys.length);
     const shellGeo = new RoundedBoxGeometry(HALL_W, HALL_H, HALL_D, 2, 0.16);
-    const shellMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0, transparent: true, opacity: 0.24, depthWrite: false, emissive: 0x0d2a24, emissiveIntensity: 0.4 });
+    const shellMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.28, metalness: 0, transparent: true, opacity: 0.3, depthWrite: false, emissive: 0x123a32, emissiveIntensity: 0.5 });
     const fillGeo = new RoundedBoxGeometry(HALL_W * 0.86, 1, HALL_D * 0.86, 2, 0.1);
     fillGeo.translate(0, 0.5, 0);
     const fillMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.05 });
@@ -260,8 +314,10 @@ export class CampusScene {
         "#include <emissivemap_fragment>\n#ifdef USE_INSTANCING_COLOR\n totalEmissiveRadiance += vColor.rgb * 0.42;\n#endif",
       );
     };
-    const winGeo = new THREE.PlaneGeometry(HALL_W * 0.74, HALL_H * 0.34);
-    const winMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+    const winGeo = new THREE.PlaneGeometry(HALL_W * 0.8, HALL_H * 0.5);
+    const paneTex = paneTexture();
+    const winMat = new THREE.MeshBasicMaterial({ color: 0xffffff, map: paneTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+    this.disposables.push(paneTex);
     const beaconGeo = new THREE.ConeGeometry(0.62, 1.15, 3);
     const beaconMat = new THREE.MeshBasicMaterial({ color: 0xf0674f, toneMapped: false });
     this.disposables.push(shellGeo, shellMat, fillGeo, fillMat, winGeo, winMat, beaconGeo, beaconMat);
@@ -281,7 +337,7 @@ export class CampusScene {
       this.m4.makeTranslation(s.x, s.y, s.z);
       this.shells.setMatrixAt(i, this.m4);
       this.shells.setColorAt(i, GLASS);
-      this.m4.makeTranslation(s.x, s.y + HALL_H * 0.12, s.z + HALL_D / 2 + 0.014);
+      this.m4.makeTranslation(s.x, s.y + HALL_H * 0.06, s.z + HALL_D / 2 + 0.014);
       this.wins.setMatrixAt(i, this.m4);
       this.wins.setColorAt(i, DARK);
       this.m4.makeScale(0, 0, 0);
@@ -290,7 +346,8 @@ export class CampusScene {
       this.beacons.setMatrixAt(i, this.m4);
       this.hallState.push({ visual: { color: GLASS.getHex(), level: 0, occupied: false, pressed: false, dept: this.opts.hallDept.get(key) || 0 }, level: 0, color: GLASS.clone(), win: 0 });
     });
-    this.scene.add(this.fills, this.shells, this.wins, this.beacons);
+    this.city.add(this.fills, this.shells, this.wins);
+    this.scene.add(this.beacons);
 
     /* حواف الزجاج كلها هندسةٌ واحدة مدموجة: القاعات لا تتحرّك، فرسمةٌ واحدة تكفي. */
     if (this.hallKeys.length) {
@@ -309,7 +366,7 @@ export class CampusScene {
       this.edgeMat = new THREE.LineBasicMaterial({ color: EDGE, transparent: true, opacity: 0.5 });
       const edges = new THREE.LineSegments(edgeGeo, this.edgeMat);
       edges.frustumCulled = false;
-      this.scene.add(edges);
+      this.city.add(edges);
       this.disposables.push(edgeGeo, this.edgeMat);
     }
 
@@ -328,8 +385,8 @@ export class CampusScene {
         spotsT.push([L.cx + Math.cos(a) * r * 1.08, L.cz + Math.sin(a) * r * 0.9, 0.7 + rnd() * 0.9]);
       }
       for (const d of L.districts) {
-        for (let x = d.x0 + 1.5; x < d.x0 + d.w - 1; x += 3.4 + rnd() * 2) spotsT.push([x, d.z0 - d.d - 2.6 - rnd() * 1.2, 0.55 + rnd() * 0.5]);
-        for (let z = d.z0 - 1.5; z > d.z0 - d.d + 1; z -= 3.6 + rnd() * 2) spotsT.push([d.x0 + d.w + 2.4 + rnd(), z, 0.5 + rnd() * 0.5]);
+        for (let x = d.x0 + 1.5; x < d.x0 + d.w - 1; x += 3.4 + rnd() * 2) spotsT.push([x, d.z0 - d.d - STREET / 2, 0.42 + rnd() * 0.3]);
+        for (let z = d.z0 - 1.5; z > d.z0 - d.d + 1; z -= 3.6 + rnd() * 2) spotsT.push([d.x0 + d.w + STREET / 2, z, 0.4 + rnd() * 0.3]);
       }
       const trees = new THREE.InstancedMesh(treeGeo, treeMat, spotsT.length);
       spotsT.forEach(([x, z, h], i) => {
@@ -346,7 +403,7 @@ export class CampusScene {
     const lampSpots: THREE.Vector3[] = [];
     for (const d of L.districts) {
       const stepX = Math.max(3.2, d.w / Math.max(2, Math.round(d.w / 4.5)));
-      for (let x = d.x0 + 0.6; x <= d.x0 + d.w - 0.5; x += stepX) { lampSpots.push(new THREE.Vector3(x, 0.32, d.z0 + 0.9)); lampSpots.push(new THREE.Vector3(x, 0.32, d.z0 - d.d - 0.9)); }
+      for (let x = d.x0 + 0.6; x <= d.x0 + d.w - 0.5; x += stepX) { lampSpots.push(new THREE.Vector3(x, 0.3, d.z0 + 0.6)); lampSpots.push(new THREE.Vector3(x, 0.3, d.z0 - d.d - 0.6)); }
     }
     if (lampSpots.length) {
       const lampGeo = new THREE.SphereGeometry(0.17, 8, 6);
@@ -357,7 +414,7 @@ export class CampusScene {
       this.disposables.push(lampGeo, this.lampMat);
     }
 
-    this.home.set(L.cx, L.height * 0.25, L.cz);
+    this.home.set(L.cx, L.height * VERT * 0.25, L.cz);
     this.target.copy(this.home); this.targetT.copy(this.home);
   }
 
@@ -379,13 +436,18 @@ export class CampusScene {
       const v = visuals.get(rig.dept) || null;
       rig.want = v;
       if (v) {
+        /* لافتةٌ مدمجة: نقطة المزاج بلونه، والاسم، وشارة المضغوطة إن وُجدت. */
+        const key = `${v.mood}|${v.label}|${v.sub}`;
+        if (rig.tag.dataset.key === key) continue;
+        rig.tag.dataset.key = key;
         rig.tag.dataset.mood = v.mood;
         rig.tag.replaceChildren();
+        const dot = document.createElement("i");
         const strong = document.createElement("strong");
         strong.textContent = v.label;
-        const small = document.createElement("small");
-        small.textContent = v.sub;
-        rig.tag.append(strong, small);
+        rig.tag.append(dot, strong);
+        if (v.sub) { const b = document.createElement("b"); b.textContent = v.sub; rig.tag.append(b); }
+        rig.tagW = 0; rig.tagH = 0;
       }
     }
     this.kick();
@@ -410,7 +472,7 @@ export class CampusScene {
     this.focusDept = dept;
     this.targetT.set(d.cx, Math.max(0.6, d.top * 0.3), d.cz);
     this.polT = 0.78;
-    this.radiusT = Math.max(14, Math.max(d.w, d.d) * 1.15 + d.top);
+    this.radiusT = Math.max(14, Math.max(d.w, d.d) * 1.15 + d.top * VERT);
     if (this.opts.reduced) { done(); return; }
     this.flight = { dept, at: performance.now(), done };
     this.kick();
@@ -418,7 +480,7 @@ export class CampusScene {
 
   resetView() {
     this.focusDept = null; this.flight = null;
-    this.targetT.copy(this.home); this.radiusT = this.homeRadius; this.polT = 0.78; this.azT = 0.2;
+    this.targetT.copy(this.home); this.radiusT = this.homeRadius; this.polT = HOME_POL; this.azT = 0.2;
     this.kick();
   }
   zoomBy(f: number) { this.radiusT = THREE.MathUtils.clamp(this.radiusT * f, 10, this.homeRadius * 2.2); this.lastInput = performance.now(); this.kick(); }
@@ -474,35 +536,93 @@ export class CampusScene {
   private onVisibility = () => { if (!document.hidden) this.kick(); };
 
   /* ── الإطار ────────────────────────────────────────────────────────────── */
-  private fitRadius() {
-    const L = this.opts.layout;
+  /**
+   * الإطار الآلي على حدود المدينة الفعلية: زوايا كل حيٍّ بارتفاع أعلى مبانيه (لا مستطيل المدينة كله
+   * بأعلى برجٍ فيها). أقرب بُعدٍ تملأ فيه المدينةُ FILL من المستطيل الحرّ على محوره الأضيق، ثم توسيطٌ
+   * لمركزها المرسوم فيه، ثم إزاحتها عن ركن بطاقة المرور (يمنةً أو صعوداً في الفسحة الباقية) أو إبعادها
+   * قليلاً حتى لا تغطّي البطاقةُ حيّاً. يُعاد عند كل تغيّرٍ في مقاس اللوحة.
+   */
+  private fitHome() {
+    const W = this.W, H = this.H, top = 34, tools = 58, pad = 12;
+    const R: FrameRect = { x: pad, y: top, w: Math.max(120, W - pad - tools), h: Math.max(120, H - top - pad) };
+    const card = { x0: 0, x1: Math.min(W, CARD_W), y0: Math.max(0, H - CARD_H), y1: H };
+    const groups = this.opts.layout.districts.map(d => {
+      const out: THREE.Vector3[] = [];
+      for (const x of [d.x0, d.x0 + d.w]) for (const z of [d.z0 - d.d, d.z0]) for (const y of [-0.2, d.top * VERT + 0.6]) out.push(new THREE.Vector3(x, y, z));
+      return out;
+    });
     const cam = this.camera.clone();
-    cam.aspect = this.W / this.H; cam.updateProjectionMatrix();
-    const corners: THREE.Vector3[] = [];
-    const minX = L.cx - L.width / 2, maxX = L.cx + L.width / 2, minZ = L.cz - L.depth / 2, maxZ = L.cz + L.depth / 2 + 3;
-    for (const x of [minX, maxX]) for (const z of [minZ, maxZ]) for (const y of [-0.3, L.height]) corners.push(new THREE.Vector3(x, y, z));
-    const fits = (r: number) => {
+    cam.clearViewOffset();
+    cam.aspect = R.w / R.h; cam.updateProjectionMatrix();
+    type Box = { x0: number; x1: number; y0: number; y1: number };
+    const boxes: Box[] = groups.map(() => ({ x0: 0, x1: 0, y0: 0, y1: 0 }));
+    const all: Box = { x0: 0, x1: 0, y0: 0, y1: 0 };
+    const measure = (r: number) => {
       const s = Math.sin(this.polT);
       cam.position.set(this.home.x + r * s * Math.sin(this.azT), this.home.y + r * Math.cos(this.polT), this.home.z + r * s * Math.cos(this.azT));
       cam.lookAt(this.home); cam.updateMatrixWorld();
-      let m = 0;
-      for (const c of corners) { const p = c.clone().project(cam); if (p.z > 1) return false; m = Math.max(m, Math.abs(p.x), Math.abs(p.y)); }
-      return m <= FILL;
+      all.x0 = all.y0 = Infinity; all.x1 = all.y1 = -Infinity;
+      for (let i = 0; i < groups.length; i++) {
+        const b = boxes[i];
+        b.x0 = b.y0 = Infinity; b.x1 = b.y1 = -Infinity;
+        for (const c of groups[i]) {
+          const p = this.v3.copy(c).project(cam);
+          if (p.z > 1) return false;
+          b.x0 = Math.min(b.x0, p.x); b.x1 = Math.max(b.x1, p.x); b.y0 = Math.min(b.y0, p.y); b.y1 = Math.max(b.y1, p.y);
+        }
+        all.x0 = Math.min(all.x0, b.x0); all.x1 = Math.max(all.x1, b.x1); all.y0 = Math.min(all.y0, b.y0); all.y1 = Math.max(all.y1, b.y1);
+      }
+      return Math.max(all.x1 - all.x0, all.y1 - all.y0) / 2 <= FILL;
     };
     let lo = 6, hi = 800;
-    for (let i = 0; i < 26; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
-    return hi;
+    for (let i = 0; i < 26; i++) { const mid = (lo + hi) / 2; if (measure(mid)) hi = mid; else lo = mid; }
+    /* من إحداثيات صورة المستطيل إلى بكسل اللوحة، بعد إزاحة (dx, dy). */
+    const px = (b: Box, dx: number, dy: number): Box => ({
+      x0: R.x + dx + ((b.x0 + 1) / 2) * R.w, x1: R.x + dx + ((b.x1 + 1) / 2) * R.w,
+      y0: R.y + dy + ((1 - b.y1) / 2) * R.h, y1: R.y + dy + ((1 - b.y0) / 2) * R.h,
+    });
+    const under = (q: Box) => q.x0 < card.x1 && q.x1 > card.x0 && q.y0 < card.y1 && q.y1 > card.y0;
+    const hits = (dx: number, dy: number) => boxes.some(b => under(px(b, dx, dy)));
+    let r = hi, dx = 0, dy = 0;
+    for (let tries = 0; tries < 24; tries++) {
+      measure(r);
+      dx = (-(all.x0 + all.x1) / 2) * (R.w / 2); dy = ((all.y0 + all.y1) / 2) * (R.h / 2);
+      if (!hits(dx, dy)) break;
+      const city = px(all, dx, dy);
+      const needX = Math.max(0, ...boxes.map(b => { const q = px(b, dx, dy); return under(q) ? card.x1 - q.x0 : 0; }));
+      const needY = Math.max(0, ...boxes.map(b => { const q = px(b, dx, dy); return under(q) ? q.y1 - card.y0 : 0; }));
+      const sx = Math.min(Math.max(0, R.x + R.w - city.x1), needX), sy = Math.min(Math.max(0, city.y0 - R.y), needY);
+      if (!hits(dx + sx, dy)) { dx += sx; break; }
+      if (!hits(dx, dy - sy)) { dy -= sy; break; }
+      if (!hits(dx + sx, dy - sy)) { dx += sx; dy -= sy; break; }
+      r *= 1.05;
+    }
+    this.homeRadius = r;
+    this.homeFrame = { x: R.x + dx, y: R.y + dy, w: R.w, h: R.h };
+  }
+
+  /** الإسقاط من الإطار الجاري: صورة الكاميرا بقياس المستطيل، واللوحة نافذةٌ عليها. */
+  private applyFrame() {
+    const f = this.frameNow;
+    if (!f) { this.camera.aspect = this.W / this.H; this.camera.clearViewOffset(); }
+    else { this.camera.aspect = f.w / f.h; this.camera.setViewOffset(Math.max(1, f.w), Math.max(1, f.h), -f.x, -f.y, this.W, this.H); }
+    this.camera.updateProjectionMatrix();
   }
 
   private resize() {
     const r = this.opts.host.getBoundingClientRect();
     this.W = Math.max(1, Math.round(r.width)); this.H = Math.max(1, Math.round(r.height));
     this.renderer.setSize(this.W, this.H, false);
-    this.camera.aspect = this.W / this.H;
-    this.camera.updateProjectionMatrix();
-    const first = this.homeRadius === 120 && this.radius === 120;
-    this.homeRadius = this.fitRadius();
-    if (first || this.focusDept == null) { this.radiusT = this.homeRadius; if (first) this.radius = this.homeRadius * 1.25; }
+    const ratio = this.sized ? this.radiusT / this.homeRadius : 1;
+    this.fitHome();
+    if (!this.sized) {
+      this.sized = true;
+      this.radiusT = this.homeRadius;
+      this.radius = this.homeRadius * (this.opts.reduced ? 1 : 1.18);
+      this.frameNow = { ...this.homeFrame };
+    } else if (this.focusDept == null) this.radiusT = this.homeRadius * ratio;
+    if (this.opts.reduced || !this.frameNow) this.frameNow = this.focusDept == null ? { ...this.homeFrame } : { x: 0, y: 0, w: this.W, h: this.H };
+    this.applyFrame();
     this.kick();
   }
 
@@ -539,6 +659,14 @@ export class CampusScene {
     if (drifting) { this.azT = THREE.MathUtils.clamp(this.azT + dt * 0.01 * Math.sin(now / 16000 + 1), -1.2, 1.2); busy = true; }
 
     const kc = reduced ? 1 : this.flight ? 1 - Math.exp(-dt * 3.2) : k;
+    /* الإطار: المستطيل الحرّ في المنظر الكامل، واللوحة كلها حين يُطار إلى حي. */
+    if (this.frameNow) {
+      const f = this.frameNow, goal = this.focusDept == null ? this.homeFrame : { x: 0, y: 0, w: this.W, h: this.H };
+      f.x += (goal.x - f.x) * kc; f.y += (goal.y - f.y) * kc; f.w += (goal.w - f.w) * kc; f.h += (goal.h - f.h) * kc;
+      if (Math.abs(goal.x - f.x) + Math.abs(goal.y - f.y) + Math.abs(goal.w - f.w) + Math.abs(goal.h - f.h) > 0.5) busy = true;
+      else Object.assign(f, goal);
+      this.applyFrame();
+    }
     this.az += (this.azT - this.az) * k; this.pol += (this.polT - this.pol) * kc; this.radius += (this.radiusT - this.radius) * kc;
     this.target.lerp(this.targetT, kc);
     if (Math.abs(this.azT - this.az) + Math.abs(this.polT - this.pol) + Math.abs(this.radiusT - this.radius) * 0.02 + this.target.distanceTo(this.targetT) > 0.002) busy = true;
@@ -596,10 +724,13 @@ export class CampusScene {
       this.tmp.copy(st.color);
       if (dim) this.tmp.multiplyScalar(0.55);
       this.fills.setColorAt(i, this.tmp);
-      this.tmp.copy(st.color).lerp(WINDOW_WARM, 0.45).multiplyScalar(st.win * (dim ? 0.35 : 0.9));
+      /* النافذة: دافئةٌ بلون ملاءمتها حين تُشغل، وزرقاء خافتة حين تفرغ فتبقى الواجهة مقروءة. */
+      this.tmp.copy(st.color).lerp(WINDOW_WARM, 0.5).multiplyScalar(st.win * 1.05);
+      this.tmp.add(this.tmp2.copy(WINDOW_COOL).multiplyScalar((1 - st.win) * 0.16));
+      if (dim) this.tmp.multiplyScalar(0.35);
       this.wins.setColorAt(i, this.tmp);
       /* ▲ فوق سطح المبنى (لا بين طوابقه) حيث تُرى من فوق. */
-      const top = (this.roofOf.get(spot.building) ?? spot.y + HALL_H / 2) + 0.9 + (reduced ? 0 : Math.sin(now / 380 + i) * 0.14);
+      const top = (this.roofOf.get(spot.building) ?? spot.y + HALL_H / 2) * VERT + 1 + (reduced ? 0 : Math.sin(now / 380 + i) * 0.14);
       const bs = v.pressed ? (reduced ? 1 : 0.9 + 0.18 * breathe) : 0;
       this.v3.set(spot.x, top, spot.z);
       this.q.setFromAxisAngle(this.sc.set(1, 0, 0), Math.PI);
@@ -621,17 +752,44 @@ export class CampusScene {
     if (busy) this.kick();
   };
 
+  /**
+   * لافتات الأحياء فوق مبانيها، ولا تتراكب: الأقرب إلى الناظر (الأدنى في اللوحة) يبقى في مكانه،
+   * وما يصطدم به يُرفع فوقه بقدر التراكب وحده.
+   */
   private placeTags() {
-    const place = (el: HTMLElement, pos: THREE.Vector3) => {
-      this.v3.copy(pos).project(this.camera);
-      const off = this.v3.z > 1 || Math.abs(this.v3.x) > 1.1 || Math.abs(this.v3.y) > 1.1;
-      el.style.visibility = off ? "hidden" : "visible";
-      if (off) return;
-      el.style.transform = `translate(-50%,-50%) translate(${((this.v3.x + 1) / 2) * this.W}px,${((1 - this.v3.y) / 2) * this.H}px)`;
-    };
-    for (const rig of this.plates) place(rig.tag, rig.tagPos);
+    const placed: Array<{ x0: number; x1: number; y0: number; y1: number }> = [];
+    const items: Array<{ rig: PlateRig; x: number; y: number }> = [];
+    for (const rig of this.plates) {
+      this.v3.copy(rig.tagPos).project(this.camera);
+      const off = this.v3.z > 1 || Math.abs(this.v3.x) > 1.1 || Math.abs(this.v3.y) > 1.1 || !rig.want;
+      rig.tag.style.visibility = off ? "hidden" : "visible";
+      if (off) continue;
+      if (!rig.tagW) { rig.tagW = rig.tag.offsetWidth; rig.tagH = rig.tag.offsetHeight; }
+      items.push({ rig, x: ((this.v3.x + 1) / 2) * this.W, y: ((1 - this.v3.y) / 2) * this.H });
+    }
+    items.sort((a, b) => b.y - a.y);
+    for (const it of items) {
+      const w = it.rig.tagW + 6, h = it.rig.tagH + 4;
+      const x = THREE.MathUtils.clamp(it.x, w / 2 + 4, this.W - w / 2 - 4);
+      let bottom = it.y - 6;
+      for (let pass = 0; pass < 8; pass++) {
+        const hit = placed.find(r => x - w / 2 < r.x1 && x + w / 2 > r.x0 && bottom - h < r.y1 && bottom > r.y0);
+        if (!hit) break;
+        bottom = hit.y0;
+      }
+      bottom = Math.max(bottom, h + 4);
+      placed.push({ x0: x - w / 2, x1: x + w / 2, y0: bottom - h, y1: bottom });
+      it.rig.tag.style.transform = `translate(-50%,-100%) translate(${Math.round(x)}px,${Math.round(bottom)}px)`;
+    }
     const near = this.radius < this.homeRadius * 0.7;
-    for (const t of this.buildingTags) { t.el.hidden = !near; if (near) place(t.el, t.pos); }
+    for (const t of this.buildingTags) {
+      t.el.hidden = !near;
+      if (!near) continue;
+      this.v3.copy(t.pos).project(this.camera);
+      const off = this.v3.z > 1 || Math.abs(this.v3.x) > 1.1 || Math.abs(this.v3.y) > 1.1;
+      t.el.style.visibility = off ? "hidden" : "visible";
+      if (!off) t.el.style.transform = `translate(-50%,-50%) translate(${((this.v3.x + 1) / 2) * this.W}px,${((1 - this.v3.y) / 2) * this.H}px)`;
+    }
   }
 
   dispose() {
