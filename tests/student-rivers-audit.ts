@@ -12,7 +12,7 @@ import path from "path";
 import { buildPulseModel, layoutHalls, originalAssignment } from "../src/utils/hallPulse";
 import {
   RIVER_CLUSTER_MIN, RIVER_GAP_MAX_MIN, SWELL_LEAD_MIN, SWELL_PLATEAU_MAX_MIN, SWELL_TAIL_MIN,
-  buildRivers, busiestCrossing, busiestRivers, moversEstimate, riverLabel, riverLoad, riverSwell, riverWidth, riversAllowed,
+  buildRivers, busiestCrossing, busiestRivers, clampTagBox, moversEstimate, riverLabel, riverLoad, riverSwell, riverWidth, riversAllowed,
 } from "../src/utils/studentRivers";
 import { applyWhatIf, pushWhatIf } from "../src/utils/pulseWhatIf";
 
@@ -156,6 +156,34 @@ check(/أنهار الطلبة/.test(pulse) && /أزحم الممرات اليو
 check(/setRivers\(/.test(scene) && /setRiverClock\(/.test(scene) && /clearRivers\(\)/.test(scene), "المشهد يرسم الأنهار ويمحوها ويُفرغ موارده");
 check(/if \(!this\.opts\.reduced && !teacher[\s\S]{0,900}new THREE\.Points/.test(scene) && /const flow = reduced \? 0\.35/.test(scene), "تقليل الحركة: أنهارٌ ساكنة بلا جسيمات ولا ضوءٍ جارٍ");
 check(/tickRivers\(dt, now\)/.test(scene) && /this\.clearRivers\(\);\s*this\.riverTag\?\.remove\(\)/.test(scene), "الأنهار في حلقة الرسم، وتُفرغ مع المشهد");
+check(/if \(!reduced && core\.uOpacity\.value > 0\.004\) moving = true;/.test(scene) && !/else if \(!reduced && e > 0\.02\) moving = true/.test(scene), "الضوء الجاري على الأثر الخافت لا يتجمّد: الحلقة تبقى ما دام نهرٌ مرئياً، وتنام مع تقليل الحركة");
+check(/if \(!this\.rivers\.length\) return false;/.test(scene), "بلا أنهارٍ مرئية لا يُبقي النهر الحلقة مستيقظة");
+check(/clampTagBox\(\{/.test(scene) && /\.hp-view-tools, \.hp-hud, \.hp-whatif/.test(scene), "لافتة المعبر محصورةٌ داخل المسرح وتتجنّب أزرار التقريب وشريط العرض و«ماذا لو»");
+
+/* ── حصر اللافتة داخل المسرح ── */
+{
+  const W = 660, H = 520, w = 300, h = 28;
+  const inside = (b: { left: number; top: number }, m = 10) => b.left >= m && b.top >= m && b.left + w <= W - m && b.top + h <= H - m;
+  const right = clampTagBox({ x: 640, y: 200, w, h, W, H });
+  check(inside(right) && right.left === W - 10 - w, `قمة القوس عند الحافة اليمنى: اللافتة تُسحب إلى الداخل (${right.left})`);
+  const left = clampTagBox({ x: 5, y: 200, w, h, W, H });
+  check(inside(left) && left.left === 10, "وعند الحافة اليسرى كذلك");
+  const top = clampTagBox({ x: 330, y: 4, w, h, W, H });
+  check(inside(top) && top.top === 10, "وفوق المسرح: تنزل إلى الهامش");
+  const mid = clampTagBox({ x: 330, y: 300, w, h, W, H });
+  check(mid.left === 180 && mid.top === 272, "وفي الوسط: في منتصف القمة وفوقها تماماً");
+  const tools = { left: W - 52, top: 12, width: 40, height: 140 };
+  const avoid = clampTagBox({ x: 600, y: 90, w, h, W, H, avoid: [tools] });
+  const overlap = avoid.left < tools.left + tools.width && avoid.left + w > tools.left && avoid.top < tools.top + tools.height && avoid.top + h > tools.top;
+  check(inside(avoid) && !overlap, `لا تختفي تحت أزرار التقريب (${avoid.left},${avoid.top})`);
+  const hud = { left: 150, top: 10, width: 360, height: 70 };
+  const underHud = clampTagBox({ x: 330, y: 40, w, h, W, H, avoid: [hud] });
+  check(underHud.top >= hud.top + hud.height && inside(underHud), "وتنزل تحت شريط العرض أو «ماذا لو»");
+  for (const [sw, sh] of [[669, 867], [951, 585], [382, 580]]) {
+    const b = clampTagBox({ x: sw - 4, y: 3, w: Math.min(w, sw - 40), h, W: sw, H: sh });
+    check(b.left >= 10 && b.left + Math.min(w, sw - 40) <= sw - 10 && b.top >= 10, `داخل المسرح على ${sw}×${sh}`);
+  }
+}
 check(!/fetch\(|method: "POST"|Repository/.test(util), "المنطق نقيّ: لا جلب ولا كتابة");
 check(!/civil|CivilId|nationalId|الرقم المدني/i.test(util), "لا هويات طلبة ولا أرقام مدنية");
 

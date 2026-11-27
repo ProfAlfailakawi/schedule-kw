@@ -11,7 +11,7 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { FLOOR_H, HALL_D, HALL_H, HALL_W, type PulseLayout } from "../../utils/hallPulse";
 import { HallInterior, type InteriorData } from "./pulseInterior";
-import { RIVER_GHOST, riverLoad, riverSwell, riverWidth, type River } from "../../utils/studentRivers";
+import { RIVER_GHOST, clampTagBox, riverLoad, riverSwell, riverWidth, type River, type TagRect } from "../../utils/studentRivers";
 
 export type { InteriorData } from "./pulseInterior";
 
@@ -229,6 +229,9 @@ export class PulseScene {
   private riverMinute = 0;
   private riverTag: HTMLDivElement | null = null;
   private riverFocus: { id: string; text: string; live: boolean } | null = null;
+  private riverAvoid: TagRect[] = [];
+  private riverAvoidAt = -1e9;
+  private riverTagSize = { w: 0, h: 0 };
   private pathCurves: Array<THREE.Curve<THREE.Vector3> | null> = [];
   private pathStops: THREE.Vector3[] = [];
   private pathMarker: THREE.Mesh | null = null;
@@ -924,6 +927,7 @@ export class PulseScene {
     if (this.riverTag && focus) {
       if (this.riverTag.dataset.k !== focus.text) {
         this.riverTag.dataset.k = focus.text;
+        this.riverAvoidAt = -1e9;
         this.riverTag.textContent = focus.text;
         /* السماكة تقدير: يقولها الوسم على اللافتة نفسها. */
         const est = document.createElement("em");
@@ -988,7 +992,10 @@ export class PulseScene {
           pos.needsUpdate = true;
           moving = true;
         }
-      } else if (!reduced && e > 0.02) moving = true;
+      }
+      /* الضوء الجاري على المجرى يتحرّك ما دام النهر مرئياً — ولو أثراً خافتاً بلا نقاط والساعة واقفة؛
+         ومع تقليل الحركة الضوء ثابت فتنام الحلقة. */
+      if (!reduced && core.uOpacity.value > 0.004) moving = true;
     }
     return moving;
   }
@@ -1654,7 +1661,24 @@ export class PulseScene {
       if (focus) {
         this.v3.copy(focus.curve.getPoint(0.5));
         this.v3.y += focus.radius + 0.3;
-        if (!place(this.riverTag, this.v3.clone())) this.riverTag.hidden = true;
+        this.v3.project(this.camera);
+        if (this.v3.z >= 1) this.riverTag.hidden = true;
+        else {
+          /* اللافتة كاملةً داخل المسرح: لا تخرج من حافّته ولا تختفي تحت أزرار التقريب أو شريط العرض. */
+          if (now - this.riverAvoidAt > 400) {
+            this.riverAvoidAt = now;
+            const host = this.opts.host.getBoundingClientRect();
+            this.riverAvoid = [...this.opts.host.querySelectorAll<HTMLElement>(".hp-view-tools, .hp-hud, .hp-whatif, .hp-caption, .hp-evening-card")]
+              .map(el => el.getBoundingClientRect()).filter(r => r.width && r.height)
+              .map(r => ({ left: r.left - host.left, top: r.top - host.top, width: r.width, height: r.height }));
+            this.riverTagSize = { w: this.riverTag.offsetWidth, h: this.riverTag.offsetHeight };
+          }
+          const box = clampTagBox({
+            x: (this.v3.x * 0.5 + 0.5) * this.W, y: (-this.v3.y * 0.5 + 0.5) * this.H - 6,
+            w: this.riverTagSize.w, h: this.riverTagSize.h, W: this.W, H: this.H, margin: 10, avoid: this.riverAvoid,
+          });
+          this.riverTag.style.transform = `translate3d(${box.left}px, ${box.top}px, 0)`;
+        }
       }
     }
     this.floorTags.forEach(t => { t.el.hidden = this.mode !== "campus"; if (!t.el.hidden) place(t.el, t.pos, true); });

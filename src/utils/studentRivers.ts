@@ -226,6 +226,32 @@ export function riverLabel(river: River): string {
   return `${aboutStudents(river.students)} · ${riverRoute(river)} · ${clockText(river.at)}`;
 }
 
+export interface TagRect { left: number; top: number; width: number; height: number }
+
+/**
+ * موضع لافتة المعبر داخل المسرح: المرساة (x, y) قمة القوس، واللافتة فوقها وفي وسطها، ثم تُحصر
+ * داخل المسرح بهامش، وتُزاح تحت ما يغطّيها (أزرار التقريب، وشريط العرض، وشريط «ماذا لو») أو بجانبه.
+ */
+export function clampTagBox(input: {
+  x: number; y: number; w: number; h: number; W: number; H: number; margin?: number; avoid?: readonly TagRect[];
+}): { left: number; top: number } {
+  const m = input.margin ?? 10;
+  const clampX = (v: number) => Math.max(m, Math.min(input.W - m - input.w, v));
+  const clampY = (v: number) => Math.max(m, Math.min(input.H - m - input.h, v));
+  let left = clampX(input.x - input.w / 2), top = clampY(input.y - input.h);
+  const hits = (r: TagRect) => left < r.left + r.width + m && left + input.w > r.left - m && top < r.top + r.height + m && top + input.h > r.top - m;
+  for (let pass = 0; pass < 3; pass++) {
+    const r = (input.avoid || []).find(hits);
+    if (!r) break;
+    const below = r.top + r.height + m;
+    if (below + input.h <= input.H - m) { top = below; continue; }
+    /* لا مكان تحته: إلى الجانب الأوسع منه. */
+    const leftRoom = r.left - m, rightRoom = input.W - (r.left + r.width) - m;
+    left = clampX(rightRoom >= leftRoom ? r.left + r.width + m : r.left - m - input.w);
+  }
+  return { left: Math.round(left), top: Math.round(top) };
+}
+
 /**
  * من يرى الأنهار: من يرى مسارات التنقّل نفسها — ورشة القسم (رئيس اللجنة ورئيس القسم) والعميد.
  * لا عدسة التقارير، ولا الأستاذ ولا الطالب.
