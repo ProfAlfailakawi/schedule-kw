@@ -15,7 +15,7 @@ import InstallApp from "./InstallApp";
 import ScheduleJourney from "./ScheduleJourney";
 import BrandMark from "./BrandMark";
 import { parseInvitationHash } from "../utils/invitationLink";
-import PasskeyEntry from "./PasskeyEntry";
+import PasskeyEntry, { endPasskeyAuto } from "./PasskeyEntry";
 import { passkeyDeviceRemembered } from "../utils/passkeys";
 import { isInvitationHash } from "../utils/invitationLink";
 interface LoginProps {
@@ -26,6 +26,8 @@ interface LoginProps {
   }) => void;
 }
 export default function Login({ onLoginSuccess }: LoginProps) {
+  /* دخولٌ بغير البصمة («تجربة النظام» أو كلمة السر): لا تبقى نافذتُها ولا تعود وحدها حتى خروجٍ صريح. */
+  const signedIn = (data: Parameters<LoginProps["onLoginSuccess"]>[0]) => { endPasskeyAuto(); onLoginSuccess(data); };
   const normalizeLogin = (value: unknown) => String(value || "").trim().toLocaleLowerCase();
   const wasSeen = (value: unknown) => {
     const login = normalizeLogin(value);
@@ -118,13 +120,15 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const enterDemo = async () => {
     setError(null);
     if (!demoEnabled) return;
+    /* ضغطةُ «تجربة النظام» نفسُها تُنهي البصمةَ التلقائية: لا نافذةَ ولا إعادةَ أثناء التحميل ولا بعده. */
+    endPasskeyAuto();
     setDemoLoading(true);
     try {
       const res = await fetch("/api/auth/demo", { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "تعذر بدء البيئة التجريبية");
       rememberLogin(data.user?.SystemUserLogin || data.user?.login || "demo");
-      onLoginSuccess(data);
+      signedIn(data);
     } catch (err: any) { setError(err.message || "تعذر بدء البيئة التجريبية"); }
     finally { setDemoLoading(false); }
   };
@@ -146,7 +150,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       // A reference the reader can quote; the reason itself stays in the log.
       if (!res.ok) throw new Error(data.ref ? `${data.error} (مرجع: ${data.ref})` : (data.error || "خطأ في تسجيل الدخول"));
       rememberLogin(data.user?.SystemUserLogin || data.user?.login || username);
-      onLoginSuccess(data);
+      signedIn(data);
     } catch (err: any) {
       setError(err.message || "خطأ في تسجيل الدخول");
     } finally {
@@ -190,7 +194,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       setNewPassword(""); setConfirmPassword(""); setRecovery(null);
       if (!signIn.ok) { setPassword(""); updateUsername(login); setError("حُفظت كلمة السر الجديدة. ادخل بها."); return; }
       rememberLogin(session.user?.SystemUserLogin || login);
-      onLoginSuccess(session);
+      signedIn(session);
     } catch (err: any) { setError(err.message || "تعذّر الحفظ."); }
     finally { setLoading(false); }
   };

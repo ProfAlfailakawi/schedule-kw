@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Fingerprint, LockKeyhole } from "lucide-react";
-import { forgetPasskeyDevice, loginWithPasskey, passkeyDeviceName, passkeyDeviceRemembered, passkeySupported, PasskeyError } from "../utils/passkeys";
+import { abortPasskeyLogin, forgetPasskeyDevice, loginWithPasskey, passkeyDeviceName, passkeyDeviceRemembered, passkeySupported, PasskeyError } from "../utils/passkeys";
 import { isInvitationHash } from "../utils/invitationLink";
 import { safeStorage } from "../utils/safeStorage";
 
@@ -13,7 +13,8 @@ import { safeStorage } from "../utils/safeStorage";
  *
  * «تلقائياً» (طلب المالك، على طريقة «مراس»): على جهازٍ سُجّلت فيه البصمة تُفتح نافذتُها وحدها مرةً واحدة لكل تبويب،
  * بعد أن تظهر الصفحة فعلاً وتستقرّ الواجهة (450 مللي ثانية)، فلا تُرفض خلف شاشةٍ مخفية ولا تزاحم اقتراحَ كلمة السر.
- * لا محاولةَ تلقائية ثانية في التبويب نفسه (ولا بعد الخروج)، ولا عند فتح بطاقة دخولٍ أو رابطٍ باسم مستخدم؛
+ * لا محاولةَ تلقائية ثانية في التبويب نفسه، ولا عند فتح بطاقة دخولٍ أو رابطٍ باسم مستخدم، ولا بعد دخولٍ بغيرها
+ * («تجربة النظام» أو كلمة السر: endPasskeyAuto تُغلق النافذةَ الجارية وتُلغي إعادتَها حتى خروجٍ صريح)؛
  * وإلغاؤها صامت ويوقف التلقائيةَ في الجلسة نفسها (فلا تعود وحدها)، والزرُّ يبقى للمحاولة الواعية. حارسٌ على مستوى الوحدة يمنع نافذتين في آنٍ واحد.
  */
 const AUTO_KEY = "schedule-passkey-auto-tried";
@@ -23,10 +24,17 @@ let ceremonyBusy = false;
 const autoTried = () => safeStorage.get(AUTO_KEY, "session") === "1";
 const markAutoTried = () => safeStorage.set(AUTO_KEY, "1", "session");
 const SUPPRESS_KEY = "schedule-passkey-auto-suppressed";
+/* جلسةٌ فُتحت بغير البصمة في هذه الصفحة: علامةٌ في الذاكرة أيضاً، فلا يُسقطها تخزينٌ معطَّل (وضع الخصوصية). */
+let sessionOpen = false;
 /** خروجٌ صريح في هذا التبويب: لا تُفتح البصمة وحدها بعده (يناديه App عند الخروج). */
 /* على طريقة «مراس»: الخروجُ الصريح يسمح بمحاولةٍ تلقائية جديدة عند الدخول القادم، فلا يُمنع شيء. */
-export const suppressPasskeyAuto = () => { safeStorage.remove(AUTO_KEY, "session"); safeStorage.remove(SUPPRESS_KEY, "session"); };
-const autoSuppressed = () => safeStorage.get(SUPPRESS_KEY, "session") === "1";
+export const suppressPasskeyAuto = () => { sessionOpen = false; safeStorage.remove(AUTO_KEY, "session"); safeStorage.remove(SUPPRESS_KEY, "session"); };
+/* إعادةُ المحاولة المؤجّلة (focus/مهلة) للنافذة التلقائية: تُلغى بالخروج من الشاشة وبالدخول بغير البصمة. */
+let cancelRetry: (() => void) | null = null;
+const dropRetry = () => { const cancel = cancelRetry; cancelRetry = null; cancel?.(); };
+/** دخولٌ ناجح بغير البصمة («تجربة النظام» أو كلمة السر): تُغلق نافذتُها الجارية وتُلغى إعادتُها، ولا تُفتح وحدها حتى خروجٍ صريح. */
+export const endPasskeyAuto = () => { sessionOpen = true; markAutoTried(); safeStorage.set(SUPPRESS_KEY, "1", "session"); dropRetry(); abortPasskeyLogin(); };
+const autoSuppressed = () => sessionOpen || safeStorage.get(SUPPRESS_KEY, "session") === "1";
 /** بطاقةُ دخولٍ أو رابطٌ باسم مستخدم: صاحبُه قد يكون غيرَ صاحب البصمة على هذا الجهاز. */
 const arrivedForAnotherLogin = () => typeof window !== "undefined"
   && (isInvitationHash(window.location.hash) || new URLSearchParams(window.location.search).has("username"));
@@ -52,15 +60,22 @@ export default function PasskeyEntry({ onSuccess, compact = false, onUsePassword
     return () => { alive = false; };
   }, []);
 
+  /* بعد خروج المكوّن من الشاشة (دخلت جلسة) لا تبدأ نافذةٌ ولا تُستدعى onSuccess. */
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; dropRetry(); }; }, []);
+
   const go = async (automatic = false, attempt = 0) => {
-    if (ceremonyBusy) return;
+    if (ceremonyBusy || (automatic && (!mounted.current || autoSuppressed()))) return;
     ceremonyBusy = true;
     setBusy(true); setMessage("");
     try {
       const data = await loginWithPasskey();
+      if (!mounted.current || (automatic && sessionOpen)) return;
       safeStorage.remove(SUPPRESS_KEY, "session");
       onSuccess(data);
     } catch (error) {
+      /* أُغلقت لأن جلسةً فُتحت بغيرها، أو خرج المكوّنُ من الشاشة: لا رسالة ولا إعادة. */
+      if ((error as any)?.aborted || !mounted.current) return;
       const failure = error instanceof PasskeyError ? error : null;
       /* مفتاحٌ أُزيل من حسابه: لا يبقى الزرُّ يَعِد بما لا يكون. */
       if (failure?.failure === "not-registered") { forgetPasskeyDevice(); setReady(false); onUnavailable?.(); }
@@ -69,9 +84,13 @@ export default function PasskeyEntry({ onSuccess, compact = false, onUsePassword
          (حتى ٣ مرات) عند أول focus أو بعد مهلةٍ قصيرة، أيُّهما أسبق. */
       if (automatic && attempt < 3 && Boolean((error as any)?.notFocused)) {
         let fired = false;
-        const retry = () => { if (fired) return; fired = true; window.removeEventListener("focus", retry); void goRef.current(true, attempt + 1); };
+        let timer = 0;
+        const stop = () => { fired = true; window.removeEventListener("focus", retry); window.clearTimeout(timer); };
+        const retry = () => { if (fired) return; stop(); if (cancelRetry === stop) cancelRetry = null; void goRef.current(true, attempt + 1); };
+        dropRetry();
+        cancelRetry = stop;
         window.addEventListener("focus", retry);
-        window.setTimeout(retry, 500 + attempt * 400);
+        timer = window.setTimeout(retry, 500 + attempt * 400);
         return;
       }
       /* إلغاءٌ واعٍ للنافذة التلقائية (✕): لا تُفتح وحدها بعده في هذه الجلسة، فلا تحبسه في حلقة؛
@@ -107,14 +126,14 @@ export default function PasskeyEntry({ onSuccess, compact = false, onUsePassword
   }, []);
 
   useEffect(() => {
-    if (!ready || skipAuto.current || autoTried()) return;
+    if (!ready || skipAuto.current || autoTried() || autoSuppressed()) return;
     markAutoTried();
     let timer = 0, cancelled = false;
     const arm = () => {
       if (cancelled) return;
       if (document.visibilityState !== "visible") { document.addEventListener("visibilitychange", onVisible); return; }
       timer = window.setTimeout(() => {
-        if (cancelled) return;
+        if (cancelled || autoSuppressed()) return;
         if (document.visibilityState !== "visible") { arm(); return; }
         /* نحاول فوراً؛ إن رفضها النظامُ لأن الصفحة بلا تركيز أعادتها go سريعاً (انظر أعلاه). */
         void goRef.current(true);

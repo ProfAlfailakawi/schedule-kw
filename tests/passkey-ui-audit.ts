@@ -9,6 +9,7 @@
  *  U7  CSS: أهدافُ 44px، ألوانٌ من الرموز (وضعٌ داكن)، وعرضُ 375px
  *  U8  التطبيقُ الرسمي (WKWebView): كشفُ الميزة لا تخمينُ المنصّة، ولا يُمسّ التسليمُ AppHandoffEntry
  *  U9  لا يُخزَّن في المتصفح غيرُ علامتين غيرِ حسّاستين، ولا يُكتب مفتاحٌ ولا معرّفٌ في السجلّ
+ *  U11 بعد «تجربة النظام» أو الدخول بكلمة السر: لا نافذةَ بصمةٍ جارية ولا إعادةٌ مؤجّلة ولا تلقائيةٌ حتى خروجٍ صريح
  */
 import fs from "node:fs";
 
@@ -30,7 +31,7 @@ check(/\{recovery \|\| passkeyOnly \? null : \(/.test(login), "U1 البطاقة
 
 /* U2: تعديلُ Login.tsx محصور */
 const loginLines = login.split("\n").filter(line => /Passkey/.test(line));
-check(loginLines.length <= 4, "U2 Login.tsx: ذِكرُ البصمة محصور (استيرادٌ وكشفُ الجهاز وموضعا العرض)");
+check(loginLines.length <= 6, "U2 Login.tsx: ذِكرُ البصمة محصور (استيرادٌ وحالةُ البطاقة وموضعا العرض وسطرا إنهاء التلقائية عند الدخول بغيرها)");
 check(read("src/components/AppHandoffEntry.tsx").indexOf("Passkey") < 0, "U8 AppHandoffEntry لم يُمسّ");
 check(!/Passkey/.test(read("src/utils/nativeApp.ts")) && !/Passkey/.test(read("src/server/appHandoff.ts")), "U8 التسليمُ إلى التطبيق لم يُمسّ");
 check(!/isNativeApp\(\)|Capacitor|navigator\.userAgent.*wv/.test(entry + util.replace(/suggestedDeviceLabel[\s\S]*?\n}\n/, "")), "U8 يُكشف الدعم بالميزة لا بتخمين المنصّة (فيسقط الزرُّ تلقائياً في غلافٍ لا يعرضها)");
@@ -80,15 +81,60 @@ check(!/localStorage|sessionStorage/.test(all), "U9 لا وصولَ مباشرا
 check(!/console\./.test(all), "U9 لا طباعةَ للطرفية في الواجهة");
 
 /* U10: الدخولُ بالبصمة تلقائياً (طلب المالك، طريقة «مراس») */
-check(/safeStorage\.get\(AUTO_KEY, "session"\)/.test(entry) && /if \(!ready \|\| skipAuto\.current \|\| autoTried\(\)\) return;\s*markAutoTried\(\);/.test(entry), "U10 محاولةٌ تلقائية واحدة لكل تبويب، تُعلَّم قبل أن تبدأ");
+check(/safeStorage\.get\(AUTO_KEY, "session"\)/.test(entry) && /if \(!ready \|\| skipAuto\.current \|\| autoTried\(\) \|\| autoSuppressed\(\)\) return;\s*markAutoTried\(\);/.test(entry), "U10 محاولةٌ تلقائية واحدة لكل تبويب، تُعلَّم قبل أن تبدأ");
 check(/visibilityState !== "visible"/.test(entry) && /AUTO_SETTLE_MS = 450/.test(entry), "U10 بعد ظهور الصفحة واستقرار الواجهة");
-check(/if \(ceremonyBusy\) return;/.test(entry) && /let ceremonyBusy = false;/.test(entry), "U10 لا نافذتا بصمة في آنٍ واحد");
+check(/if \(ceremonyBusy \|\| /.test(entry) && /let ceremonyBusy = false;/.test(entry), "U10 لا نافذتا بصمة في آنٍ واحد");
 check(/isInvitationHash\(window\.location\.hash\)/.test(entry) && /has\("username"\)/.test(entry), "U10 لا تلقائيةَ عند فتح بطاقة دخول أو رابطٍ باسم مستخدم");
 check(/arrivedForAnotherLogin\(\)\) \{ skipAuto\.current = true; markAutoTried\(\); \}/.test(entry), "U10 بطاقةُ دخولٍ لغيره تُعلَّم في التبويب فلا تعود التلقائيةُ بعد حذف الرابط");
 check((app.match(/suppressPasskeyAuto\(\);/g) || []).length === 2, "U10 الخروجُ الصريح يوقف التلقائية في التبويب");
 check(/!\(automatic && failure\?\.failure === "cancelled"\)/.test(entry), "U10 إلغاءُ النافذة التلقائية صامت");
 check(/hiddenAt = ceremonyBusy \? 0 : Date\.now\(\)/.test(entry), "U10 نافذةُ البصمة نفسها لا تُحسب غياباً فلا تُعيد التلقائية بعد إلغائها (لا حلقة)");
 check(/if \(automatic && failure\?\.failure === "cancelled" && !\(error as any\)\?\.notFocused\) safeStorage\.set\(SUPPRESS_KEY, "1", "session"\);/.test(entry) && /autoSuppressed\(\)\) return;/.test(entry), "U10 إلغاءُ النافذة التلقائية يوقفها في الجلسة (والرفضُ لعدم التركيز لا يوقفها)");
-check(/export const suppressPasskeyAuto = \(\) => \{ safeStorage\.remove\(AUTO_KEY, "session"\); safeStorage\.remove\(SUPPRESS_KEY, "session"\); \};/.test(entry), "U10 الخروجُ الصريح يرفع الإيقاف فتعود المحاولةُ التلقائية مرةً في الدخول القادم");
+check(/export const suppressPasskeyAuto = \(\) => \{ sessionOpen = false; safeStorage\.remove\(AUTO_KEY, "session"\); safeStorage\.remove\(SUPPRESS_KEY, "session"\); \};/.test(entry), "U10 الخروجُ الصريح يرفع الإيقاف فتعود المحاولةُ التلقائية مرةً في الدخول القادم");
+/* U11: «تجربة النظام» (والدخولُ بكلمة السر) تُنهي البصمةَ التلقائية — تسجيلُ المالك: ظلّت النافذةُ تعود فوق لوحة التجربة */
+check(/export const endPasskeyAuto = \(\) => \{ sessionOpen = true; markAutoTried\(\); safeStorage\.set\(SUPPRESS_KEY, "1", "session"\); dropRetry\(\); abortPasskeyLogin\(\); \};/.test(entry), "U11 endPasskeyAuto: يُعلِّم الجلسة ويُلغي الإعادةَ المؤجّلة ويُغلق النافذةَ الجارية");
+check(/const enterDemo = async \(\) => \{[\s\S]*?if \(!demoEnabled\) return;[\s\S]*?endPasskeyAuto\(\);[\s\S]*?fetch\("\/api\/auth\/demo"/.test(login), "U11 ضغطةُ «تجربة النظام» نفسُها تُنهي التلقائية قبل طلب الجلسة");
+check(/const signedIn = \([^)]*\) => \{ endPasskeyAuto\(\); onLoginSuccess\(data\); \};/.test(login) && (login.match(/signedIn\((data|session)\);/g) || []).length === 3 && (login.match(/\bonLoginSuccess\((data|session)\)/g) || []).length === 1, "U11 كلُّ دخولٍ بغير البصمة (التجربة، كلمة السر، الاستعادة) يمرّ بـ signedIn");
+check(/<PasskeyEntry onSuccess=\{onLoginSuccess\} \/>/.test(login), "U11 الدخولُ بالبصمة نفسُه لا يُنهي التلقائية (الخروجُ الصريح يعيدها كما كانت)");
+check(/return \(\) => \{ mounted\.current = false; dropRetry\(\); \};/.test(entry), "U11 خروجُ المكوّن من الشاشة يُلغي الإعادةَ المؤجّلة (focus والمهلة)");
+check(/const stop = \(\) => \{ fired = true; window\.removeEventListener\("focus", retry\); window\.clearTimeout\(timer\); \};/.test(entry) && /cancelRetry = stop;/.test(entry), "U11 الإعادةُ المؤجّلة قابلةٌ للإلغاء: تُزال الأذنُ ويُمسح المؤقّت");
+check(/if \(ceremonyBusy \|\| \(automatic && \(!mounted\.current \|\| autoSuppressed\(\)\)\)\) return;/.test(entry), "U11 لا نافذةَ تلقائية من مكوّنٍ خرج من الشاشة ولا بعد جلسةٍ فُتحت");
+check(/if \(!mounted\.current \|\| \(automatic && sessionOpen\)\) return;/.test(entry) && /if \(\(error as any\)\?\.aborted \|\| !mounted\.current\) return;/.test(entry), "U11 نتيجةُ نافذةٍ أُغلقت أو تأخّرت لا تُستدعى ولا تُعرض لها رسالة");
+check(/if \(cancelled \|\| autoSuppressed\(\)\) return;/.test(entry), "U11 المؤقّتُ المسلَّح قبل الدخول لا يفتح النافذة بعده");
+check(/signal: controller\.signal/.test(util) && /export function abortPasskeyLogin\(\)/.test(util), "U11 النافذةُ مربوطةٌ بـ AbortController وتُغلق بـ abortPasskeyLogin");
+check(/elapsedMs < NOT_FOCUSED_WITHIN_MS/.test(util), "U11 ✕ من صاحب الجهاز لا يُحسب «بلا تركيز» فلا يُعاد ثلاث مرات (الرفضُ لعدم التركيز فوريّ)");
+
+/* U11 سلوكاً: نافذةٌ معلّقة تُغلق بـ abortPasskeyLogin، والرفضُ العامّ يُفرَّق بالزمن */
+{
+  const g = globalThis as any;
+  const memory = new Map<string, string>();
+  const storage = { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => { memory.set(k, v); }, removeItem: (k: string) => { memory.delete(k); } };
+  g.window = { localStorage: storage, sessionStorage: storage, PublicKeyCredential: { isUserVerifyingPlatformAuthenticatorAvailable: async () => true } };
+  g.atob ??= (t: string) => Buffer.from(t, "base64").toString("binary");
+  let getImpl: (opts: any) => Promise<any> = async () => null;
+  Object.defineProperty(g, "navigator", { configurable: true, value: { userAgent: "test", credentials: { create: async () => null, get: (opts: any) => getImpl(opts) } } });
+  g.fetch = async () => ({ ok: true, status: 200, json: async () => ({ challenge: "AAAA", rpId: "localhost", timeout: 60000, allowCredentials: [] }) });
+  const { loginWithPasskey, abortPasskeyLogin } = await import("../src/utils/passkeys");
+  const generic = "The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.";
+  const deny = () => Object.assign(new Error(generic), { name: "NotAllowedError" });
+
+  let sawSignal = false;
+  getImpl = (opts: any) => new Promise((_, reject) => { sawSignal = Boolean(opts.signal); opts.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))); });
+  const pending = loginWithPasskey().then(() => null, (e: any) => e);
+  await new Promise(r => setTimeout(r, 10));
+  abortPasskeyLogin();
+  const aborted: any = await pending;
+  check(sawSignal && aborted?.failure === "cancelled" && aborted?.aborted === true, "U11 سلوكاً: abortPasskeyLogin يُغلق النافذةَ المعلّقة بإلغاءٍ صامت (aborted)");
+
+  getImpl = async () => { throw deny(); };
+  const instant: any = await loginWithPasskey().then(() => null, (e: any) => e);
+  check(instant?.notFocused === true && !instant?.aborted, "U11 سلوكاً: رفضٌ فوريٌّ بالنصّ العامّ ← «بلا تركيز» فتُعاد المحاولة");
+
+  const realNow = Date.now;
+  getImpl = async () => { const t = realNow(); Date.now = () => t + 5000; throw deny(); };
+  const late: any = await loginWithPasskey().then(() => null, (e: any) => e).finally(() => { Date.now = realNow; });
+  check(late?.failure === "cancelled" && late?.notFocused === false, "U11 سلوكاً: النصُّ نفسُه بعد أن رآها صاحبُها (✕) ← إلغاءٌ واعٍ يوقف التلقائية، لا إعادة");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
