@@ -225,6 +225,22 @@ function fakeApple(answer: (token: string) => { status: number; body?: string } 
   check(opened.length === 1 && opened[0] === "/inbox", "اللمسةُ تفتح الصفحة، والأصلُ الغريب يُهمَل");
   resetNativePushOpenForTest();
 
+  // غلاف iOS قد يعيد مقبضاً لا وعداً من addListener: لا يرمي ويُسجَّل المستمع ويبقى مثبّتاً.
+  const syncListeners: Record<string, (payload: any) => void> = {};
+  const syncOpened: string[] = [];
+  withCapacitor({ isNativePlatform: () => true, getPlatform: () => "ios", Plugins: { PushNotifications: {
+    addListener: (event: string, cb: (payload: any) => void) => { syncListeners[event] = cb; return { remove: async () => undefined }; },
+  } } });
+  (globalThis as any).window.location = { origin: ORIGIN, pathname: "/", search: "", hash: "" };
+  let syncResult: unknown;
+  try { syncResult = installNativePushOpen(path => syncOpened.push(path)); } catch { syncResult = "threw"; }
+  await Promise.resolve(); await Promise.resolve();
+  check(syncResult === true, "مقبضٌ لا وعد: لا يرمي ويُعيد true");
+  check(installNativePushOpen(path => syncOpened.push(path)) === false, "مقبضٌ لا وعد: يبقى مثبّتاً مرةً واحدة");
+  syncListeners.pushNotificationActionPerformed?.(tap("/inbox"));
+  check(syncOpened.length === 1 && syncOpened[0] === "/inbox", "مقبضٌ لا وعد: اللمسةُ تفتح الصفحة");
+  resetNativePushOpenForTest();
+
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })().catch(error => { console.error(error); process.exit(1); });

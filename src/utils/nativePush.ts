@@ -112,10 +112,12 @@ export function installNativePushOpen(navigate?: (path: string) => void): boolea
     window.dispatchEvent(new PopStateEvent("popstate"));
   });
   try {
-    void plugin.addListener("pushNotificationActionPerformed", (action: unknown) => {
+    // داخل غلاف iOS قد يعيد addListener مقبضاً لا وعداً؛ ربطُ ‎.catch‎ عليه مباشرةً يرمي
+    // فيعود التابع false مع أن المستمع سُجّل. Promise.resolve يقبل الحالتين.
+    void Promise.resolve(plugin.addListener("pushNotificationActionPerformed", (action: unknown) => {
       const path = nativePushTargetPath(action, window.location.origin);
       if (path) go(path);
-    }).catch(() => { openInstalled = false; });
+    })).catch(() => { openInstalled = false; });
   } catch {
     openInstalled = false;
     return false;
