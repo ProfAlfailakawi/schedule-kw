@@ -32,6 +32,8 @@ export interface PulseFocus {
   day: number;
   /** الدقيقة من منتصف الليل. */
   at: number;
+  /** من أين جاء الطلب: البصمة (الأصل) أو «الحرم كله» — يغيّر سطر الترحيب وحده. */
+  from?: "campus";
 }
 
 const whole = (value: unknown): number => {
@@ -65,6 +67,7 @@ export function pulseFocusHref(focus: PulseFocus): string {
     day: String(Math.max(0, Math.min(PULSE_FOCUS_DAYS - 1, Math.trunc(focus.day) || 0))),
     at: focusClock(Math.max(0, Math.min(24 * 60 - 1, Math.round(focus.at)))),
   });
+  if (focus.from === "campus") query.set("from", "campus");
   return `/FSchedule/Index?${query.toString()}`;
 }
 
@@ -78,7 +81,7 @@ export function parsePulseFocus(search: string): PulseFocus | null {
   const day = dayText != null && /^\d$/.test(dayText) ? Number(dayText) : -1;
   const at = parseClock(params.get("at"));
   if (!collegeId || !sectionId || !termId || !hall || day < 0 || day >= PULSE_FOCUS_DAYS || at == null) return null;
-  return { collegeId, sectionId, termId, hall, day, at };
+  return params.get("from") === "campus" ? { collegeId, sectionId, termId, hall, day, at, from: "campus" } : { collegeId, sectionId, termId, hall, day, at };
 }
 
 /** رابط البصمة مبرزاً حلقة قاعة. */

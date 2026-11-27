@@ -753,8 +753,8 @@ export default function HallPulse(props: HallPulseProps) {
     const h = key ? model.hallByKey.get(key) : null;
     if (h && key) {
       setSelected(key); setSheetOpen(true); setFlyKey(key);
-      setSay(["من بصمة القسم:", hallTitle(h), "·", PULSE_DAYS[focus.day].label, clockText(at)].join(" "));
-    } else setSay("القاعة التي اخترتها في البصمة ليست بين قاعات هذا النطاق؛ فُتح النبض على يومها وساعتها.");
+      setSay([focus.from === "campus" ? "من الحرم كله:" : "من بصمة القسم:", hallTitle(h), "·", PULSE_DAYS[focus.day].label, clockText(at)].join(" "));
+    } else setSay(focus.from === "campus" ? "فُتح نبض القسم من الحرم كله على اليوم والساعة نفسيهما." : "القاعة التي اخترتها في البصمة ليست بين قاعات هذا النطاق؛ فُتح النبض على يومها وساعتها.");
     props.onFocusDone?.();
     /* القادم من البصمة يصل إلى المجسّم نفسه، لا إلى رأس شاشة الجدول. */
     requestAnimationFrame(() => {
