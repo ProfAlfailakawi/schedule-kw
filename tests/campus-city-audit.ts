@@ -153,6 +153,20 @@ check(!/instructor|AdInstructor|CivilId|civil/i.test(comp) && !/instructor/i.tes
 check(/lazy\(\(\) => import\("\.\/CampusCity"\)\)/.test(lazy) && /import\("\.\/campusScene"\)/.test(comp), "المدينة ومشهدها كسولان، لا في الحزمة الأولى");
 check(/InstancedMesh/.test(scene) && (scene.match(/new THREE\.InstancedMesh/g) || []).length >= 4, "القاعات دفعاتٌ (InstancedMesh) لا شبكةٌ لكل قاعة");
 check(/prefers-reduced-motion/.test(comp) && /reduced \? 1/.test(scene), "تقليل الحركة: لا طيران ولا تنفّس");
+check(/private fitHome\(\)/.test(scene) && /setViewOffset/.test(scene) && /CARD_W/.test(scene) && /this\.ro = new ResizeObserver\(\(\) => this\.resize\(\)\)/.test(scene),
+  "الإطار على حدود الأحياء الفعلية: يملأ المستطيل الحرّ ويتوسّطه، ويتجنّب ركن بطاقة المرور، ويُعاد مع تغيّر المقاس");
+check(/placed\.find\(/.test(scene) && /translate\(-50%,-100%\)/.test(scene), "لافتات الأحياء فوق مبانيها ولا تتراكب");
+const css = read("src/components/hallPulse/campusCity.css");
+const tagSize = Number((css.match(/\.cc-tag strong\{[^}]*font-size:(\d+(?:\.\d+)?)px/) || [])[1] || 99);
+check(tagSize <= 12.5, "اسم الحي في اللافتة صغيرٌ لا يطغى على المباني (" + tagSize + "px)");
+{
+  const plotFill = L.districts.filter(d => d.top > 0).every(d => {
+    const own = L.buildings.filter(b => b.cx > d.x0 && b.cx < d.x0 + d.w && b.cz < d.z0 && b.cz > d.z0 - d.d);
+    const area = own.reduce((s, b) => s + b.w * b.d, 0);
+    return area / (d.w * d.d) >= 0.3;
+  });
+  check(plotFill, "المباني تملأ أرض حيّها (لا ألواحاً واسعةً حول مبنى صغير)");
+}
 check(/isPhoneDevice/.test(comp) && /const twoD = phone \|\| narrow \|\| cramped/.test(comp) && /flat = twoD/.test(comp), "الهاتف والشاشة الضيقة: خريطةٌ مسطّحة بلا مجسّم");
 check(/campusWebglAvailable/.test(comp) && /setSceneFailed\(true\)/.test(comp), "بلا WebGL: الخريطة المسطّحة");
 check(/className="cc-list"/.test(comp) && /aria-label=\{`\$\{districtSpeech/.test(comp), "قائمة الأحياء أزرارٌ مقروءة لقارئ الشاشة ولوحة المفاتيح");

@@ -234,7 +234,7 @@ export default function CampusCity(props: CampusCityProps) {
     const districts = new Map<number, CampusDistrictVisual>();
     for (const d of city.districts) {
       const now = moment.districts.get(d.dept.id)!;
-      districts.set(d.dept.id, { mood: now.mood, load: now.load, tone: d.tone, label: d.dept.name, sub: `${MOOD_GLYPH[now.mood]} ${districtLine(now)}` });
+      districts.set(d.dept.id, { mood: now.mood, load: now.load, tone: d.tone, label: d.dept.name, sub: now.pressed ? `▲ ${now.pressed}` : "" });
     }
     scene.setDistricts(districts);
     scene.setTimeOfDay(minute, model.dayStart, model.dayEnd);
