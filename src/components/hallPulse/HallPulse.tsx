@@ -26,6 +26,7 @@ import {
 import { PulseSound, readSoundChoice, soundAvailable, writeSoundChoice } from "./pulseSound";
 import { HOP_FLAG_LABEL, HOP_KIND_LABEL, buildPaths, markerAt, nearerHalls, rankHops, type CohortInput, type Hop, type MovePath } from "../../utils/movementPaths";
 import { loadPlanFacts } from "../../utils/planFactsCache";
+import { aboutStudents, buildRivers, busiestCrossing, busiestRivers, riverCss, riverLabel, riverLoad, riverRoute, riverSwell, riversAllowed, type River } from "../../utils/studentRivers";
 import { checkDay, openCountOf, registrarLayer, requestBlockText, requestLineText, type HallRegistrarEntry, type RegistrarLayer } from "../../utils/hallPulseRegistrar";
 import { liveSectionTexts } from "../../utils/registrarCheck";
 import { withFullCourseCodes, type RegistrarRequestDoc, type RegistrarRequestItem } from "../../utils/registrarRequest";
@@ -93,6 +94,8 @@ const FIT_TOKEN: Record<FitClass, string> = { pressed: "pressed", full: "full", 
 const DROP_HEX: Record<Exclude<DropTone, "same">, number> = { green: FIT_HEX.fit, amber: FIT_HEX.full, red: FIT_HEX.pressed };
 const DROP_GLYPH: Record<DropTone, string> = { green: "●", amber: "■", red: "✕", same: "○" };
 const CHANGE: ArabicNoun = { one: "تغيير", two: "تغييران", few: "تغييرات", many: "تغييراً" };
+const COHORT: ArabicNoun = { one: "دفعة", two: "دفعتان", few: "دفعات", many: "دفعة" };
+const CROSSING: ArabicNoun = { one: "ممرّ", two: "ممرّان", few: "ممرّات", many: "ممرّاً" };
 const HINT_KEY = "hall-pulse-hint-v1";
 const n = (v: number) => Math.round(v).toLocaleString("ar-KW-u-nu-latn");
 const weekRamp = (t: number) => {
@@ -317,6 +320,8 @@ export default function HallPulse(props: HallPulseProps) {
   const [sceneReady, setSceneReady] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const [mode, setMode] = useState<"halls" | "paths">("halls");
+  /* «أنهار الطلبة» (FR-SCH-103): طبقةٌ فوق القاعات أو المسارات، لا وضعٌ ثالث — فتجري مع العرض و«ماذا لو». */
+  const [riversOn, setRiversOn] = useState(false);
   const [pathId, setPathId] = useState<string | null>(null);
   const [nearFor, setNearFor] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -334,6 +339,8 @@ export default function HallPulse(props: HallPulseProps) {
   const viewDay: PulseDay = day === "week" ? defaults.day : day;
   /* مسارات التنقّل لرئيس اللجنة ورئيس القسم (الورشة) وللعميد وحدهم؛ لا تظهر في عدسة التقارير. */
   const pathsAllowed = context === "workshop" || context === "dean";
+  /* أنهار الطلبة لمن يرى المسارات نفسها، لا غيرهم. */
+  const riversOk = riversAllowed(context);
 
   /* ── طبقة التسجيل: آخر تقرير مطابقةٍ محفوظ للقسم والفصل، محسوباً على جدولنا الآن (/live) ──
      البوابة بوابة التقرير نفسها على الخادم (mayReadRequests ونطاق القسم): قائمةٌ تُرفض = لا زرّ. */
@@ -574,7 +581,7 @@ export default function HallPulse(props: HallPulseProps) {
     return () => { live = false; };
   }, [mode, props.instructorName, nameMap, collegeId, sectionId, termId, nameScope]);
   useEffect(() => {
-    if (mode !== "paths" || !sectionId || (context !== "workshop" && context !== "dean")) return;
+    if ((mode !== "paths" && !riversOn) || !sectionId || (context !== "workshop" && context !== "dean")) return;
     let live = true;
     const nameOf = new Map(courses.map(c => [Number(c.AdCourseId), String(c.CourseName || "")]));
     /* الورشة تقرأ حقائق الصحيفة بصلاحية الجدول؛ والعميد يقرأ أرقام مقررات كل مستوى وحدها من مساره للقراءة فقط. */
@@ -590,7 +597,7 @@ export default function HallPulse(props: HallPulseProps) {
       }) });
     });
     return () => { live = false; };
-  }, [mode, collegeId, sectionId, context, courses, nameScope]);
+  }, [mode, riversOn, collegeId, sectionId, context, courses, nameScope]);
   const teacherName = useCallback((id: number) => props.instructorName?.(id) || nameMap?.get(id) || "", [props.instructorName, nameMap]);
   const paths: MovePath[] = useMemo(() => (mode === "paths" && pathsAllowed && day !== "week"
     ? buildPaths(model, assignment, layout, viewDay, { instructorName: teacherName, cohorts })
@@ -600,6 +607,20 @@ export default function HallPulse(props: HallPulseProps) {
   const pathsBefore: MovePath[] = useMemo(() => (mode === "paths" && pathsAllowed && day !== "week" && whatIf.length
     ? buildPaths(model, original, layout, viewDay, { instructorName: teacherName, cohorts })
     : paths), [mode, pathsAllowed, day, whatIf.length, model, original, layout, viewDay, teacherName, cohorts, paths]);
+  /* ── أنهار الطلبة: من الإسناد الحيّ (نقلات «ماذا لو» والخطة المعروضة)، ومن الفصل المعروض في «آلة الزمن» ── */
+  const rivers: River[] = useMemo(() => (riversOn && riversOk && day !== "week"
+    ? buildRivers(model, assignment, layout, viewDay, { cohorts, teachers: true })
+    : []), [riversOn, riversOk, day, model, assignment, layout, viewDay, cohorts]);
+  const topRivers = useMemo(() => busiestRivers(rivers), [rivers]);
+  const riverFocus = useMemo(() => busiestCrossing(rivers, minute), [rivers, minute]);
+  const teacherThreads = useMemo(() => rivers.filter(r => r.who === "teachers").reduce((s, r) => s + r.teachers, 0), [rivers]);
+  useEffect(() => {
+    sceneRef.current?.setRivers(riversOn && !flat ? rivers : null);
+  }, [rivers, riversOn, flat, sceneReady]);
+  useEffect(() => { sceneRef.current?.setRiverClock(minute); }, [minute, sceneReady, rivers]);
+  useEffect(() => {
+    sceneRef.current?.setRiverFocus(riversOn && riverFocus ? { id: riverFocus.river.id, text: riverLabel(riverFocus.river), live: riverFocus.live } : null);
+  }, [riversOn, riverFocus?.river.id, riverFocus?.live, riverFocus ? riverLabel(riverFocus.river) : "", sceneReady, rivers]);
   const activePath = paths.find(x => x.id === pathId) || null;
   const pathKeys = useMemo(() => new Set(activePath ? activePath.stops.map(st => st.hallKey) : []), [activePath]);
   useEffect(() => {
@@ -1713,6 +1734,40 @@ export default function HallPulse(props: HallPulseProps) {
     );
   };
 
+  /* «أزحم الممرات اليوم»: قائمة الأنهار — وهي العرض كله في المسطّح، وعلى الهاتف إن ثقل المجسّم. */
+  const goToRiver = (r: River) => {
+    setPlaying(false);
+    if (cine !== "off") setCine("off");
+    setMinute(r.at + 2);
+    announce(`${riverRoute(r)} عند ${clockText(r.at)}: ${aboutStudents(r.students)} ينتقلون (تقدير).`);
+  };
+  const riversPanel = riversOn && riversOk ? (
+    <section className="hp-rivers" aria-label="أنهار الطلبة">
+      <div className="hp-path-head"><strong>أزحم الممرات اليوم</strong>{topRivers.length ? <span>{countOf(topRivers.length, CROSSING)}</span> : null}</div>
+      {day === "week" ? <p className="hp-fine">اختر يوماً لترى أنهار الطلبة فيه.</p>
+        : !sectionId ? <p className="hp-fine">اختر قسماً: الدفعات تُقرأ من صحائف خطة القسم.</p>
+          : !topRivers.length ? <p className="hp-fine">{cohortState && cohortState.scope === nameScope ? "لا دفعة تنتقل بين مبنيين أو طابقين بين محاضرتين متتاليتين في هذا اليوم." : "تُقرأ دفعات القسم من صحائف الخطة…"}</p>
+            : (
+              <ol className="hp-river-list">
+                {topRivers.map(r => {
+                  const live = riverSwell(r, minute) > 0.25;
+                  return (
+                    <li key={r.id}>
+                      <button data-guide-ignore="ينقل الساعة إلى لحظة هذا التبدّل؛ عرض فقط، لا يحفظ شيئاً" type="button" className={`hp-river-row${live ? " is-live" : ""}`} aria-current={live ? "time" : undefined}
+                        style={{ ["--hp-river" as any]: riverCss(riverLoad(r.students)), ["--hp-river-w" as any]: `${Math.max(8, Math.round(riverLoad(r.students) * 100))}%` }}
+                        onClick={() => goToRiver(r)}>
+                        <span className="hp-river-top"><b>{riverRoute(r)}</b><bdi dir="ltr">{clockText(r.at)}</bdi></span>
+                        <span className="hp-river-bar" aria-hidden="true"><i /></span>
+                        <span className="hp-river-meta">{aboutStudents(r.students)} <em className="hp-est" title="سعة المقرر لكل شعبة، لا المسجّلون فعلاً">تقدير</em> · {countOf(r.cohorts, COHORT)}{r.unknown ? ` · ${countOf(r.unknown, COHORT)} بلا سعة مسجّلة` : ""}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+      <p className="hp-fine">الاتجاه والوقت من الجدول، والدفعات من صحائف الخطة (المستوى نفسه بالرمز نفسه). أما عدد المنتقلين فتقديرٌ من سعة المقرر لكل شعبة: النظام لا يعرف أي طالبٍ في أي شعبة.{teacherThreads ? ` والخيط النحاسي الدقيق أساتذةٌ ينتقلون (${countOf(teacherThreads, { one: "انتقال", two: "انتقالان", few: "انتقالات", many: "انتقالاً" })}).` : ""}</p>
+    </section>
+  ) : null;
   const pathsPanel = mode === "paths" ? (
     <div className="hp-info">
       {!pathsAllowed ? <p className="hp-fine">مسارات التنقّل لرئيس لجنة الجدول ورئيس القسم والعميد.</p> : day === "week" ? (
@@ -2076,6 +2131,19 @@ export default function HallPulse(props: HallPulseProps) {
             <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={mode === "paths"} onClick={() => { setMode("paths"); setRegOn(false); setSelected(null); setPlan(null); setFreeGlow(false); setWalk(0); setSay("مسارات التنقّل: اختر أستاذاً أو دفعة، أو اضغط انتقالاً من «أصعب التنقلات اليوم» ليُعرض مساره ويمشي مع الساعة."); setSheetOpen(true); }}>مسارات التنقّل</button>
           </div>
         ) : null}
+        {riversOk ? (
+          <button data-guide-ignore="يُظهر أنهار الطلبة بين المباني أو يخفيها؛ عرضٌ فقط، لا يحفظ شيئاً" type="button" className="hp-river-toggle" aria-pressed={riversOn}
+            title="أنهار الطلبة: خطوط ضوءٍ بين المباني عند تبدّل المحاضرات، سماكتها تقديرُ من ينتقلون"
+            onClick={() => {
+              const next = !riversOn;
+              setRiversOn(next);
+              if (next) { setRegOn(false); setSheetOpen(true); setSay("أنهار الطلبة: بين المحاضرات تجري خطوط ضوءٍ بين المباني، سماكتها تقديرُ من ينتقلون. شغّل اليوم أو اضغط ممرّاً من «أزحم الممرات اليوم»."); }
+            }}>
+            <svg className="hp-river-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8c3-3 6 3 9 0s6 3 9 0" /><path d="M3 14c3-3 6 3 9 0s6 3 9 0" /><path d="M3 20c3-3 6 3 9 0s6 3 9 0" opacity=".5" /></svg>
+            أنهار الطلبة
+            {riversOn && topRivers.length ? <b aria-label={countOf(topRivers.length, CROSSING)}>{n(topRivers.length)}</b> : null}
+          </button>
+        ) : null}
         <div className="hp-mode" role="group" aria-label="طريقة الرسم">
           <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={!flat} disabled={sceneFailed} onClick={() => setFlat(false)} title={sceneFailed ? "تعذّر الرسم ثلاثي الأبعاد على هذا الجهاز" : undefined}>مجسّم</button>
           <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={flat} onClick={() => setFlat(true)}>مسطّح</button>
@@ -2255,6 +2323,7 @@ export default function HallPulse(props: HallPulseProps) {
           <div className="hp-sheet-body">
             {dockPill ? whatIfPill : null}
             {planMini}
+            {riversPanel}
             {regOn && mode === "halls" ? regPanel : mode === "paths" ? pathsPanel : panel}
           </div>
         </aside>

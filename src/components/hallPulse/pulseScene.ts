@@ -11,6 +11,7 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { FLOOR_H, HALL_D, HALL_H, HALL_W, type PulseLayout } from "../../utils/hallPulse";
 import { HallInterior, type InteriorData } from "./pulseInterior";
+import { RIVER_GHOST, riverLoad, riverSwell, riverWidth, type River } from "../../utils/studentRivers";
 
 export type { InteriorData } from "./pulseInterior";
 
@@ -97,6 +98,39 @@ const WINDOW_WARM = new THREE.Color(0xffe2a8);
 /** ختم الاعتماد (FR-DSH-037): ذهب النوافذ حين تضيء القاعات كلها معاً. */
 const SEAL_GOLD = new THREE.Color(0xffd36e);
 const PATH_GLOW = new THREE.Color(0x7fe0ff);
+/** أنهار الطلبة (FR-SCH-103): من الهادئ (نعناعي) إلى المزدحم (مرجاني) مروراً بالكهرماني؛ والأساتذة خيطٌ نحاسي. */
+const RIVER_CALM = new THREE.Color(0x6ff0d0), RIVER_BUSY = new THREE.Color(0xffc861), RIVER_CROWD = new THREE.Color(0xff6f61);
+const RIVER_TEACHER = new THREE.Color(0xe2bd76);
+function riverColor(load: number, out: THREE.Color) {
+  return load < 0.5 ? out.copy(RIVER_CALM).lerp(RIVER_BUSY, load / 0.5) : out.copy(RIVER_BUSY).lerp(RIVER_CROWD, (load - 0.5) / 0.5);
+}
+/* النهر أنبوبٌ يضيق ويتّسع في المظلّل (لا يُعاد بناؤه مع الساعة)، وضوءٌ يجري على طوله نحو المصبّ،
+   وحافّته أخفّ من قلبه فيبدو سائلاً متوهّجاً لا أنبوباً صلباً. */
+const RIVER_VERT = `
+uniform float uShrink;
+varying vec2 vUv; varying vec3 vN; varying vec3 vView;
+void main() {
+  vUv = uv;
+  vec3 p = position - normal * uShrink;
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  vN = normalize(normalMatrix * normal);
+  vView = normalize(-mv.xyz);
+  gl_Position = projectionMatrix * mv;
+}`;
+const RIVER_FRAG = `
+uniform vec3 uColor; uniform float uOpacity; uniform float uTime; uniform float uLen; uniform float uSoft;
+varying vec2 vUv; varying vec3 vN; varying vec3 vView;
+void main() {
+  float facing = abs(dot(normalize(vN), normalize(vView)));
+  float core = mix(pow(facing, 1.6), pow(facing, 0.6) * 0.5, uSoft);
+  float s = fract(vUv.x * uLen * 0.45 - uTime);
+  float stripe = smoothstep(0.0, 0.18, s) * (1.0 - smoothstep(0.18, 0.62, s));
+  float ends = smoothstep(0.0, 0.07, vUv.x) * (1.0 - smoothstep(0.93, 1.0, vUv.x));
+  vec3 c = uColor * (0.6 + 0.8 * core) + vec3(1.0) * stripe * core * 0.55 * (1.0 - uSoft);
+  float a = uOpacity * ends * (core * (0.75 + 0.5 * stripe));
+  gl_FragColor = vec4(c, a);
+  #include <colorspace_fragment>
+}`;
 /** «ماذا لو، باللمس»: ألوان القاعات للشعبة المحمولة — بألوان الملاءمة نفسها (مناسبة، ممتلئة، مضغوطة). */
 export const DROP_GREEN = 0x4fd3a1, DROP_AMBER = 0xf0b24a, DROP_RED = 0xf0674f;
 const SLAB = new THREE.Color(0x1d4a41), SLAB_KEEP = new THREE.Color(0x2f7f6a), SLAB_OFF = new THREE.Color(0x0b1a17);
@@ -184,6 +218,17 @@ export class PulseScene {
   private sunWant = 0.3;
   private explodeOf: { building: string; floor: number } | null = null;
   private pathGroup = new THREE.Group();
+  /* ── أنهار الطلبة ── */
+  private riverGroup = new THREE.Group();
+  private rivers: Array<{
+    river: River; curve: THREE.QuadraticBezierCurve3; radius: number;
+    core: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial>; glow: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial> | null;
+    points: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial> | null; phases: Float32Array; speed: number;
+    feet: THREE.Sprite[]; swell: number; dim: number;
+  }> = [];
+  private riverMinute = 0;
+  private riverTag: HTMLDivElement | null = null;
+  private riverFocus: { id: string; text: string; live: boolean } | null = null;
   private pathCurves: Array<THREE.Curve<THREE.Vector3> | null> = [];
   private pathStops: THREE.Vector3[] = [];
   private pathMarker: THREE.Mesh | null = null;
@@ -310,7 +355,7 @@ export class PulseScene {
     this.veil.appendChild(wait);
     opts.host.appendChild(this.veil);
     this.build(opts.layout);
-    this.scene.add(this.nbGroup, this.pathGroup);
+    this.scene.add(this.nbGroup, this.pathGroup, this.riverGroup);
 
     this.resize();
     this.ro = new ResizeObserver(() => this.resize());
@@ -767,6 +812,185 @@ export class PulseScene {
     this.pathMats.forEach(m => m.dispose());
     this.pathGeos = []; this.pathMats = []; this.pathCurves = []; this.pathStops = [];
     this.pathMarker = null; this.pathHalo = null; this.markerState = null; this.markerHas = false;
+  }
+
+  /* ── أنهار الطلبة (FR-SCH-103) ───────────────────────────────────────────── */
+  /** وسط القاعات المرسومة من قائمة؛ null إن لم تُرسم منها قاعة (قاعة فصلٍ سابق خرجت من السجل). */
+  private centroid(keys: readonly string[]): THREE.Vector3 | null {
+    const sum = new THREE.Vector3();
+    let n = 0;
+    for (const key of keys) {
+      const rig = this.rooms.get(key);
+      if (!rig) continue;
+      sum.add(rig.base);
+      n += 1;
+    }
+    return n ? sum.multiplyScalar(1 / n) : null;
+  }
+
+  /**
+   * الأنهار: لكل نهرٍ قوسٌ متوهّج بين المبنيين (أو منحنىً صغير أمام واجهة المبنى بين طابقين)، سماكته
+   * من تقدير المنتقلين ولونه من حمله، وجسيماتٌ تجري نحو المصبّ — إلا مع تقليل الحركة: أنهارٌ ساكنة
+   * بلا جسيمات. null يمحوها.
+   */
+  setRivers(list: readonly River[] | null) {
+    this.clearRivers();
+    if (!list || !list.length) { this.kick(); return; }
+    const narrow = Boolean(this.opts.topDown);
+    for (const river of list) {
+      const a = this.centroid(river.fromKeys), b = this.centroid(river.toKeys);
+      if (!a || !b) continue;
+      const floor = river.kind === "floor";
+      a.y += HALL_H * (floor ? 0.05 : 0.55); b.y += HALL_H * (floor ? 0.05 : 0.55);
+      const d = Math.hypot(a.x - b.x, a.z - b.z);
+      const mid = a.clone().add(b).multiplyScalar(0.5);
+      if (floor) {
+        /* بين طابقين: ينحني أمام الواجهة لا داخل المبنى. */
+        a.z += HALL_D * 0.5; b.z += HALL_D * 0.5;
+        mid.z += HALL_D * 0.5 + 1.6;
+      } else {
+        mid.y = Math.max(a.y, b.y) + 1.6 + d * 0.3;
+        /* نهران بين المبنيين نفسيهما في اتجاهين متعاكسين: كلٌّ على جانبه فلا ينطبقان. */
+        mid.add(new THREE.Vector3(b.z - a.z, 0, a.x - b.x).normalize().multiplyScalar(Math.min(1.4, 0.35 + d * 0.05)));
+      }
+      if (a.distanceTo(b) < 0.05) continue;
+      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+      const teacher = river.who === "teachers";
+      const radius = riverWidth(river);
+      const color = teacher ? RIVER_TEACHER.clone() : riverColor(riverLoad(river.students), new THREE.Color());
+      const len = curve.getLength();
+      const mat = (soft: number) => new THREE.ShaderMaterial({
+        vertexShader: RIVER_VERT, fragmentShader: RIVER_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        uniforms: { uColor: { value: color.clone() }, uOpacity: { value: 0 }, uTime: { value: 0 }, uLen: { value: len }, uShrink: { value: 0 }, uSoft: { value: soft } },
+      });
+      const segs = Math.max(32, Math.min(96, Math.round(len * 3)));
+      const core = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, radius, 10, false), mat(0));
+      core.renderOrder = 3;
+      let glow: THREE.Mesh<THREE.TubeGeometry, THREE.ShaderMaterial> | null = null;
+      if (!teacher) {
+        glow = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, radius * 2.6 + 0.12, 10, false), mat(1));
+        glow.renderOrder = 2;
+        this.riverGroup.add(glow);
+      }
+      this.riverGroup.add(core);
+      /* الجسيمات: نقاط ضوءٍ تجري نحو المصبّ، عددها من التقدير (لا أعيان فيها). لا جسيمات مع تقليل الحركة. */
+      let points: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial> | null = null;
+      let phases = new Float32Array(0);
+      if (!this.opts.reduced && !teacher && river.students > 0) {
+        const count = Math.max(6, Math.min(narrow ? 18 : 42, Math.round(river.students / (narrow ? 8 : 4))));
+        phases = new Float32Array(count);
+        for (let i = 0; i < count; i++) phases[i] = (i + Math.random() * 0.8) / count;
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+        points = new THREE.Points(geo, new THREE.PointsMaterial({
+          map: this.glowTex, color: color.clone().lerp(new THREE.Color(0xffffff), 0.45), size: Math.max(0.32, radius * 2.4),
+          transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
+        }));
+        points.renderOrder = 4;
+        points.frustumCulled = false;
+        this.riverGroup.add(points);
+      }
+      /* نبعٌ ومصبّ: توهّجٌ صغير عند طرفي النهر. */
+      const feet = teacher ? [] : [a, b].map(p => {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: color.clone(), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+        sp.position.copy(p);
+        const k = (floor ? 1.2 : 2) + radius * 5;
+        sp.scale.set(k, k, 1);
+        this.riverGroup.add(sp);
+        return sp;
+      });
+      this.rivers.push({ river, curve, radius, core, glow, points, phases, speed: 0.06 + 2.4 / Math.max(6, len), feet, swell: -1, dim: floor ? 0.6 : teacher ? 0.75 : 1 });
+    }
+    if (!this.riverTag) {
+      const el = document.createElement("div");
+      el.className = "hp-tag hp-river-tag";
+      el.hidden = true;
+      this.opts.labels.appendChild(el);
+      this.riverTag = el;
+    }
+    this.kick();
+  }
+
+  /** ساعة المشهد للأنهار: تنتفخ عند التبدّل وتخبو بينه. */
+  setRiverClock(minute: number) {
+    if (minute === this.riverMinute) return;
+    this.riverMinute = minute;
+    if (this.rivers.length) this.kick();
+  }
+
+  /** لافتة أزحم معبر فوق قمة قوسه: «نحو N طالباً · مبنى 1 ← مبنى 3 · 10:50». */
+  setRiverFocus(focus: { id: string; text: string; live: boolean } | null) {
+    this.riverFocus = focus;
+    if (this.riverTag && focus) {
+      if (this.riverTag.dataset.k !== focus.text) {
+        this.riverTag.dataset.k = focus.text;
+        this.riverTag.textContent = focus.text;
+        /* السماكة تقدير: يقولها الوسم على اللافتة نفسها. */
+        const est = document.createElement("em");
+        est.textContent = "تقدير";
+        this.riverTag.appendChild(est);
+      }
+      this.riverTag.classList.toggle("is-live", focus.live);
+    }
+    this.kick();
+  }
+
+  private clearRivers() {
+    for (const r of this.rivers) {
+      r.core.geometry.dispose(); r.core.material.dispose();
+      if (r.glow) { r.glow.geometry.dispose(); r.glow.material.dispose(); }
+      if (r.points) { r.points.geometry.dispose(); r.points.material.dispose(); }
+      r.feet.forEach(f => f.material.dispose());
+    }
+    this.riverGroup.clear();
+    this.rivers = [];
+    if (this.riverTag) this.riverTag.hidden = true;
+  }
+
+  /** إطار الأنهار: يعيد true ما دام فيها ما يتحرّك. */
+  private tickRivers(dt: number, now: number): boolean {
+    if (!this.rivers.length) return false;
+    const reduced = this.opts.reduced;
+    const k = reduced ? 1 : 1 - Math.exp(-dt * 5);
+    const t = now / 1000;
+    let moving = false;
+    for (const r of this.rivers) {
+      const want = riverSwell(r.river, this.riverMinute);
+      if (r.swell < 0) r.swell = want;
+      r.swell += (want - r.swell) * k;
+      if (Math.abs(want - r.swell) > 0.002) moving = true;
+      const e = r.swell;
+      const level = RIVER_GHOST + (1 - RIVER_GHOST) * e;
+      /* ينتفخ: الأنبوب يضيق إلى ثلثه بين التبدّلات ويبلغ عرضه كاملاً عنده. */
+      const core = r.core.material.uniforms;
+      core.uShrink.value = r.radius * 0.66 * (1 - e);
+      core.uOpacity.value = level * r.dim * (r.river.who === "teachers" ? 0.8 : 0.95);
+      const flow = reduced ? 0.35 : t * r.speed * 2.2;
+      core.uTime.value = flow;
+      if (r.glow) {
+        const g = r.glow.material.uniforms;
+        g.uShrink.value = (r.radius * 2.6 + 0.12) * 0.7 * (1 - e);
+        g.uOpacity.value = (0.05 + 0.32 * e) * r.dim;
+        g.uTime.value = flow;
+      }
+      r.feet.forEach(f => { f.material.opacity = (reduced ? 0.55 : 0.45 + 0.15 * Math.sin(now / 260)) * e * r.dim; });
+      if (r.points) {
+        r.points.material.opacity = Math.min(1, e * 1.15) * r.dim;
+        r.points.visible = e > 0.02;
+        if (r.points.visible) {
+          const pos = r.points.geometry.getAttribute("position") as THREE.BufferAttribute;
+          /* تمايلٌ خفيف حول قلب النهر: جمعٌ يمشي لا خطٌّ واحد. */
+          const wob = r.radius * 0.9 * e;
+          for (let i = 0; i < r.phases.length; i++) {
+            const p = r.curve.getPoint((r.phases[i] + t * r.speed) % 1);
+            pos.setXYZ(i, p.x + Math.sin(i * 12.9898 + t * 1.3) * wob, p.y + Math.cos(i * 4.1414 + t * 1.7) * wob * 0.6, p.z + Math.sin(i * 7.233 + t) * wob);
+          }
+          pos.needsUpdate = true;
+          moving = true;
+        }
+      } else if (!reduced && e > 0.02) moving = true;
+    }
+    return moving;
   }
 
   fly(pairs: FlightPair[]) {
@@ -1373,6 +1597,8 @@ export class PulseScene {
       }
     }
 
+    if (this.tickRivers(dt, now)) busy = true;
+
     /* اللافتات: إسقاطٌ من العالم إلى الشاشة. */
     const place = (el: HTMLElement, pos: THREE.Vector3, centred = false) => {
       this.v3.copy(pos).project(this.camera);
@@ -1422,6 +1648,15 @@ export class PulseScene {
     this.rooms.forEach(rig => tagFor(rig, 1));
     this.nbRooms.forEach(rig => tagFor(rig, this.nbAlpha));
     this.buildingTags.forEach(t => place(t.el, t.pos, true));
+    if (this.riverTag) {
+      const focus = this.riverFocus ? this.rivers.find(r => r.river.id === this.riverFocus!.id) : null;
+      this.riverTag.hidden = !focus || this.mode !== "campus";
+      if (focus) {
+        this.v3.copy(focus.curve.getPoint(0.5));
+        this.v3.y += focus.radius + 0.3;
+        if (!place(this.riverTag, this.v3.clone())) this.riverTag.hidden = true;
+      }
+    }
     this.floorTags.forEach(t => { t.el.hidden = this.mode !== "campus"; if (!t.el.hidden) place(t.el, t.pos, true); });
     this.nbBuildingTags.forEach(t => { t.el.hidden = this.nbAlpha < 0.6; if (!t.el.hidden) place(t.el, t.pos, true); });
 
@@ -1498,6 +1733,8 @@ export class PulseScene {
     this.veil.remove();
     for (const rig of this.rooms.values()) { rig.shell.material.dispose(); rig.fill.material.dispose(); rig.edges.material.dispose(); rig.win.material.dispose(); rig.halo.material.dispose(); rig.tag.remove(); }
     this.clearPath();
+    this.clearRivers();
+    this.riverTag?.remove(); this.riverTag = null;
     this.rooms.clear();
     this.buildingTags.forEach(t => t.el.remove());
     this.floorTags.forEach(t => t.el.remove()); this.floorTags.clear();
