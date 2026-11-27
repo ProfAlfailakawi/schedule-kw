@@ -6,6 +6,7 @@ import { filmScenes, termFilmPath, weekContourShape, type TermFilmData, type Ter
 import { filmSound, filmSoundSupported, readFilmSoundChoice, writeFilmSoundChoice } from "./termFilmSound";
 import "../styles/term-film.css";
 import TermFilmExport from "./TermFilmExport";
+import { SealBadge } from "./ApprovalSeal";
 
 /**
  * ── فيلم الفصل ──────────────────────────────────────────────────────────────
@@ -229,6 +230,8 @@ const Scene: React.FC<SceneProps> = React.memo(({ film, sceneKey, phase, reduce 
     return <div className={cls} {...label("الختام")}>
       <div className="tf-emblem" aria-hidden="true">
         <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="58" style={{ strokeDasharray: SEAL, strokeDashoffset: on || reduce ? 0 : SEAL }} /></svg>
+        {/* ختم الاعتماد (FR-DSH-037): على شعار القسم حين يعتمد التسجيل جدوله نهائياً. */}
+        {film.final && film.seal ? <SealBadge seal={{ termName: film.seal.term, date: film.seal.date }} className="tf-seal" /> : null}
       </div>
       <div className="tf-big tf-name">{closing.name}</div>
       <div className="tf-term">{closing.term}</div>

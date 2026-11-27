@@ -1,0 +1,81 @@
+/* ── ختم الاعتماد (FR-DSH-037) ────────────────────────────────────────────────
+   لحظةٌ واحدة بعد اعتماد التسجيل: الختم يُضغط على الشاشة (الرئيسية)، أو تضيء
+   نوافذ القاعات كلها معاً بغسلةٍ ذهبية (النبض). الطبقتان لا تلتقطان المؤشر،
+   ولا تُطبعان، ومن يفضّل حركةً أقل يرى الإطار الساكن. */
+
+/* ── الرئيسية ── */
+.asm{position:fixed;inset:0;z-index:9000;pointer-events:none;overflow:hidden;
+  display:grid;grid-template-rows:1fr auto;justify-items:center;color:#f6efe0;
+  font-variant-numeric:tabular-nums;opacity:1;transition:opacity .46s ease,filter .46s ease}
+.asm-out{opacity:0;filter:blur(4px)}
+.asm-veil{position:absolute;inset:0;
+  background:
+    radial-gradient(60% 50% at 50% 46%,rgb(242 197 107 / .26),transparent 70%),
+    radial-gradient(120% 100% at 50% 40%,rgb(16 44 37 / .84),rgb(5 15 12 / .93));
+  animation:asm-veil .5s ease both}
+.asm-stage{position:relative;align-self:center;display:grid;justify-items:center;gap:clamp(10px,2vh,18px);
+  width:min(640px,calc(100% - 32px));text-align:center}
+.asm-seal{position:relative;width:clamp(190px,30vmin,280px);aspect-ratio:1;display:grid;place-items:center}
+.asm-mark{width:100%;height:100%;overflow:visible;
+  filter:drop-shadow(0 18px 34px rgb(0 0 0 / .45));
+  animation:asm-press 1.05s cubic-bezier(.2,.75,.25,1) .18s both}
+.asm-ripple{position:absolute;inset:6%;border-radius:50%;border:2px solid rgb(242 207 122 / .75);
+  box-shadow:0 0 30px rgb(242 197 107 / .45);opacity:0;animation:asm-ripple 1.3s cubic-bezier(.2,.7,.3,1) .78s forwards}
+.asm-ripple-2{border-width:1px;animation-delay:.92s;animation-duration:1.6s}
+.asm-line{margin:0;font-size:clamp(19px,2.6vw,26px);font-weight:700;line-height:1.4;color:#f8e2a6;
+  text-shadow:0 6px 28px rgb(0 0 0 / .4);animation:asm-rise .7s ease 1.05s both}
+.asm-sub{margin:0;font-size:clamp(12.5px,1.4vw,14px);color:#b9cdc5;line-height:1.6;animation:asm-rise .7s ease 1.25s both}
+.asm-foot{position:relative;padding:0 16px max(18px,env(safe-area-inset-bottom));font-size:12.5px;color:#a3bdb3;
+  animation:asm-rise .6s ease 1.5s both}
+
+@keyframes asm-veil{from{opacity:0}}
+/* الضغطة: يهبط الختم من فوق مائلاً، يلامس فينضغط قليلاً، ثم يستقرّ. */
+@keyframes asm-press{
+  0%{opacity:0;transform:translateY(-6%) scale(1.85) rotate(-16deg)}
+  52%{opacity:1;transform:translateY(0) scale(.93) rotate(0deg)}
+  66%{transform:scale(1.035) rotate(0deg)}
+  80%{transform:scale(.99)}
+  100%{opacity:1;transform:scale(1)}}
+@keyframes asm-ripple{0%{opacity:.9;transform:scale(.92)}100%{opacity:0;transform:scale(1.55)}}
+@keyframes asm-rise{from{opacity:0;transform:translateY(8px)}}
+
+/* ── نبض القاعات ── */
+.hp-seal-moment{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden;
+  display:grid;align-content:end;justify-items:center;padding-bottom:clamp(18px,6%,46px);
+  transition:opacity .42s ease}
+.hp-seal-moment.is-out{opacity:0}
+.hp-seal-wash{position:absolute;inset:0;mix-blend-mode:screen;
+  background:
+    radial-gradient(70% 60% at 50% 52%,rgb(255 211 110 / .42),transparent 74%),
+    linear-gradient(180deg,rgb(255 220 140 / .16),rgb(255 200 90 / .06));
+  animation:hp-seal-wash 3.2s ease both}
+.hp-seal-chip{position:relative;display:flex;align-items:center;gap:10px;padding:6px 16px 6px 8px;border-radius:999px;
+  background:rgb(10 28 24 / .72);border:1px solid rgb(242 207 122 / .55);color:#f8e2a6;font-size:14px;font-weight:700;
+  box-shadow:0 10px 30px rgb(0 0 0 / .35),0 0 0 6px rgb(242 197 107 / .08);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:hp-seal-chip .8s cubic-bezier(.2,.75,.25,1) .25s both}
+.hp-seal-mark{width:44px;height:44px;flex:none;overflow:visible;animation:hp-seal-stamp .9s cubic-bezier(.2,.75,.25,1) .35s both}
+@keyframes hp-seal-wash{0%{opacity:0}18%{opacity:1}58%{opacity:1}100%{opacity:0}}
+@keyframes hp-seal-chip{from{opacity:0;transform:translateY(10px) scale(.96)}}
+@keyframes hp-seal-stamp{0%{opacity:0;transform:scale(1.9) rotate(-18deg)}60%{opacity:1;transform:scale(.92)}100%{transform:scale(1)}}
+.hp-seal-moment.is-still .hp-seal-wash{animation:none;opacity:.55}
+.hp-seal-moment.is-still .hp-seal-chip,.hp-seal-moment.is-still .hp-seal-mark{animation:none}
+
+/* ── الختم الصغير على بطاقة البصمة ── */
+.dfp-sealed{display:inline-flex;align-items:center;gap:6px;margin-top:4px;font-size:12.5px;font-weight:600;color:var(--dfp-seal-ink,#86601f)}
+.dfp-sealed svg{width:26px;height:26px;flex:none}
+:root[data-theme="dark"] .dfp-sealed{--dfp-seal-ink:#e2bd76}
+
+@media (max-width:560px){
+  .asm-stage{gap:10px}
+  .hp-seal-chip{font-size:12.5px;padding-inline-end:12px}
+  .hp-seal-mark{width:36px;height:36px}
+}
+@media (prefers-reduced-motion:reduce){
+  .asm,.hp-seal-moment{transition:none}
+  .asm-veil,.asm-mark,.asm-line,.asm-sub,.asm-foot,.hp-seal-chip,.hp-seal-mark{animation:none}
+  .asm-ripple{display:none}
+  .hp-seal-wash{animation:none;opacity:.55}
+}
+.asm.is-still .asm-veil,.asm.is-still .asm-mark,.asm.is-still .asm-line,.asm.is-still .asm-sub,.asm.is-still .asm-foot{animation:none}
+.asm.is-still .asm-ripple{display:none}
+@media print{.asm,.hp-seal-moment{display:none!important}}

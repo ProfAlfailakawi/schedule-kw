@@ -7,12 +7,16 @@
  * الجواب يحمل أسماء القاعات، فلا يُعطى إلا لمن يرى قاعات القسم أصلاً: رئيس
  * لجنة الجدول ورئيس القسم (والحساب القديم بلا صفة إن ملك شاشة الجدول).
  * الأستاذ لا يراه. ولا اسم أستاذٍ فيه ولا رقم مدني.
+ *
+ * وختم الاعتماد (FR-DSH-037) يُقرأ من سجل اعتماد الجدول نفسه الذي يرويه «فيلم
+ * الفصل»: لكل فصلٍ ختمُه أو لا ختم، ولا يُكتب شيء.
  */
 import type { Express } from "express";
 import { Response } from "express";
 import { Repository } from "../../db/repository";
 import type { AdCourse, AdTerm, FSchedule, MasterRoom } from "../../types";
 import { isAcademicRole } from "../../utils/academicRoles";
+import { approvalSealFrom, type ApprovalSeal } from "../../utils/approvalSeal";
 import { buildFingerprint, DEPT_FINGERPRINT_ROLES, type FingerprintRowInput } from "../../utils/deptFingerprint";
 import { roomDisplay, roomIdentityKey, roomKeyOf } from "../../utils/locationRegistry";
 import { termChronology } from "../../utils/termSequence";
@@ -79,6 +83,12 @@ export function fingerprintRows(rows: readonly FSchedule[], courses: readonly Ad
   return out;
 }
 
+/** ختم الفصل من سجل اعتماده، أو `null` قبل الاعتماد النهائي أو إن تعذّرت القراءة. */
+async function sealFor(collegeId: number, sectionId: number, termId: number, termName: string): Promise<ApprovalSeal | null> {
+  try { return approvalSealFrom(await Repository.getScheduleApproval(collegeId, sectionId, termId) as any, termName); }
+  catch { return null; }
+}
+
 export function registerDeptFingerprintRoutes(app: Express): void {
 
 /* `brief=1` يكفي بطاقة اللوحة: هل للقسم في هذا الفصل موعدٌ في قاعة. */
@@ -90,8 +100,14 @@ app.get("/api/dept-fingerprint", requireAuth, async (req: AuthenticatedRequest, 
   if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
   try {
     if (brief) {
-      const rows = await Repository.getSchedulesByScope({ collegeId, sectionId, termId });
-      res.json({ available: (rows as FSchedule[]).some(row => Boolean(roomIdentityKey(row))) });
+      const [rows, term] = await Promise.all([Repository.getSchedulesByScope({ collegeId, sectionId, termId }), Repository.getTermById(termId).catch(() => undefined)]);
+      const available = (rows as FSchedule[]).some(row => Boolean(roomIdentityKey(row)));
+      /* `viewer` رقم الحساب نفسه: مفتاح «رأى الاحتفال» على هذا الجهاز لكل حساب، لا يكشف شيئاً جديداً. */
+      res.json({
+        available,
+        seal: available ? await sealFor(collegeId, sectionId, termId, String((term as any)?.AdTermName || "")) : null,
+        viewer: Number(req.user?.SystemUserId || 0),
+      });
       return;
     }
     const answer = await cached(`dept:${collegeId}:${sectionId}:${termId}`, async () => {
@@ -114,6 +130,7 @@ app.get("/api/dept-fingerprint", requireAuth, async (req: AuthenticatedRequest, 
         .slice(0, 12)
         .map(row => ({ termId: Number(row.AdTermId), termName: String(row.AdTermName || "") }));
       return {
+        seal: await sealFor(collegeId, sectionId, termId, String(term.AdTermName || "")),
         fingerprint: buildFingerprint({
           sectionName: String(section?.AdSectionName || ""), termName: String(term.AdTermName || ""), collegeName: String(college?.AdCollegeName || ""),
           rows: fingerprintRows(rows, courses as AdCourse[], rooms as MasterRoom[]),

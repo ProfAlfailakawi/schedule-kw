@@ -6,6 +6,8 @@ import {
   fingerprintAngle, unionSpan, FINGERPRINT_DAYS, FINGERPRINT_PALETTES, FINGERPRINT_VIEW, type FingerprintData, type FingerprintGeometry, type FingerprintPalette,
 } from "../utils/deptFingerprint";
 import { fingerprintFocusHall, resolveFingerprintRing, ringFocusSlot, type PulseFocus } from "../utils/pulseLink";
+import { POSTER_SEAL, type ApprovalSeal } from "../utils/approvalSeal";
+import { SealBadge, SealMark } from "./ApprovalSeal";
 import "../styles/dept-fingerprint.css";
 
 /**
@@ -42,16 +44,18 @@ interface PosterProps {
   span: { from: number; to: number };
   active: number | null;
   ring: number | null;
+  /** ختم الاعتماد (FR-DSH-032/037): يُرسم متى اعتمد التسجيل جدول هذا الفصل نهائياً، ويُنزَّل مع الملصق. */
+  seal?: ApprovalSeal | null;
   svgRef?: React.Ref<SVGSVGElement>;
 }
 
 /** الملصق نفسه. كل لونٍ وحجمٍ فيه خاصيةٌ مكتوبة، لا صنف CSS، ليُنزَّل كما هو. */
-const Poster = React.memo(function Poster({ data, geo, palette: p, dark, span, active, ring, svgRef }: PosterProps) {
+const Poster = React.memo(function Poster({ data, geo, palette: p, dark, span, active, ring, seal, svgRef }: PosterProps) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const headlines = useMemo(() => fingerprintHeadlines(data), [data]);
   const dim = active != null || ring != null;
   const arcOpacity = (known: boolean, over: boolean) => (over ? 1 : known ? (dark ? 0.94 : 0.9) : 0.55);
-  const summary = `بصمة قسم ${data.title.section}، ${data.title.term}: ${headlines.map(item => `${item.value} ${item.label}`).join("، ")}`;
+  const summary = `بصمة قسم ${data.title.section}، ${data.title.term}: ${headlines.map(item => `${item.value} ${item.label}`).join("، ")}${seal ? `. مختومةٌ باعتماد التسجيل${seal.date ? ` في ${seal.date}` : ""}` : ""}`;
   return <svg ref={svgRef} className={`dfp-svg${dim ? " has-hot" : ""}`} viewBox={`0 0 ${V.width} ${V.height}`} xmlns="http://www.w3.org/2000/svg"
     direction="rtl" fontFamily={FONT} role="img" aria-label={summary}>
     <defs>
@@ -161,6 +165,9 @@ const Poster = React.memo(function Poster({ data, geo, palette: p, dark, span, a
       </g>
     </g>
     <text x={V.cx} y="1364" textAnchor="middle" fontSize="18" fill={p.dim} fillOpacity=".8">{[data.title.college, `رمز البصمة ${data.code}`].filter(Boolean).join(" · ")}</text>
+
+    {/* ختم الاعتماد: الزاوية العليا اليسرى بين الرأس والحلقات، لا يغطّي حلقةً ولا رقماً. */}
+    {seal ? <SealMark seal={seal} cx={POSTER_SEAL.cx} cy={POSTER_SEAL.cy} r={POSTER_SEAL.r} tilt={POSTER_SEAL.tilt} /> : null}
   </svg>;
 });
 
@@ -238,8 +245,9 @@ function weekNow(): { day: number; minute: number } {
 
 interface StageLink { scope: DeptFingerprintScope; onOpenPulse: (focus: PulseFocus) => void }
 
-function Stage({ data, span, dark, ring, onRing, link, label, svgRef }: {
+function Stage({ data, span, dark, ring, onRing, link, label, seal, svgRef }: {
   data: FingerprintData; span: { from: number; to: number }; dark: boolean; ring?: number | null; onRing?: (ring: number | null) => void;
+  seal?: ApprovalSeal | null;
   /** «البصمة باب للنبض»: لمن يفتح النبض وحده. بدونه تبقى التفاصيل بلا رابط، فلا طريق مسدود. */
   link?: StageLink | null; label?: string; svgRef?: React.Ref<SVGSVGElement>;
 }) {
@@ -286,7 +294,7 @@ function Stage({ data, span, dark, ring, onRing, link, label, svgRef }: {
         if (r != null && onRing) { setPinned(null); onRing(r === ring ? null : r); return; }
         setPinned(current => (n == null || n === current ? null : n));
       }}>
-      <Poster data={data} geo={geo} palette={FINGERPRINT_PALETTES[dark ? "dark" : "light"]} dark={dark} span={span} active={active} ring={ring ?? null} svgRef={svgRef} />
+      <Poster data={data} geo={geo} palette={FINGERPRINT_PALETTES[dark ? "dark" : "light"]} dark={dark} span={span} active={active} ring={ring ?? null} seal={seal} svgRef={svgRef} />
       {arc && tip ? <div className={`dfp-tip${below ? " is-below" : ""}${tip.over ? " is-over" : ""}${pinned != null && link ? " is-pinned" : ""}`} role="status"
         style={place(arc.x, arc.y)} onClick={keep}>
         <strong>{tip.title}</strong>
@@ -311,7 +319,9 @@ function Stage({ data, span, dark, ring, onRing, link, label, svgRef }: {
 }
 
 export interface DeptFingerprintScope { collegeId: number; sectionId: number; termId: number }
-interface FingerprintAnswer { fingerprint: FingerprintData; earlier: Array<{ termId: number; termName: string }> }
+interface FingerprintAnswer { fingerprint: FingerprintData; earlier: Array<{ termId: number; termName: string }>; seal?: ApprovalSeal | null }
+/** البصمة المختصرة للوحة: هل للقسم موعدٌ في قاعة، وختمه إن اعتُمد، ورقم الحساب (مفتاح «رأى الاحتفال»). */
+export interface DeptFingerprintBrief { available: boolean; seal?: ApprovalSeal | null; viewer?: number }
 
 const endpoint = (scope: DeptFingerprintScope, brief = false) => {
   const query = new URLSearchParams({ collegeId: String(scope.collegeId), sectionId: String(scope.sectionId), termId: String(scope.termId) });
@@ -355,6 +365,7 @@ export function DeptFingerprintPanel({ scope, heading = true, onOpenPulse, focus
   const [error, setError] = useState("");
   const [compareId, setCompareId] = useState(0);
   const [before, setBefore] = useState<FingerprintData | null>(null);
+  const [beforeSeal, setBeforeSeal] = useState<ApprovalSeal | null>(null);
   const [compareError, setCompareError] = useState("");
   /* الحلقة المثبّتة (ضغطةٌ في القائمة أو على الحلقة، أو رابطٌ من النبض) والحلقة تحت المؤشر في القائمة. */
   const [ringPin, setRingPin] = useState<number | null>(null);
@@ -375,9 +386,9 @@ export function DeptFingerprintPanel({ scope, heading = true, onOpenPulse, focus
 
   useEffect(() => {
     let alive = true;
-    setBefore(null); setCompareError("");
+    setBefore(null); setBeforeSeal(null); setCompareError("");
     if (!compareId) return;
-    readFingerprint({ ...scope, termId: compareId }).then(body => { if (alive) setBefore(body.fingerprint); })
+    readFingerprint({ ...scope, termId: compareId }).then(body => { if (alive) { setBefore(body.fingerprint); setBeforeSeal(body.seal || null); } })
       .catch((e: any) => { if (alive) setCompareError(e?.message || "تعذّر إعداد بصمة الفصل السابق."); });
     return () => { alive = false; };
   }, [compareId, scope.collegeId, scope.sectionId, scope.termId]);
@@ -438,8 +449,8 @@ export function DeptFingerprintPanel({ scope, heading = true, onOpenPulse, focus
       : !data ? <div className="dfp-loading" role="status" aria-label="جاري رسم البصمة"><i aria-hidden="true" /><span>جاري رسم البصمة…</span></div>
       : <div className="dfp-body">
         <div className="dfp-stages">
-          <Stage data={data} span={span} dark={dark} ring={ring} onRing={comparing ? undefined : setRingPin} link={comparing ? null : link} label={comparing ? data.title.term : undefined} svgRef={svgRef} />
-          {comparing ? (before ? <Stage data={before} span={span} dark={dark} label={before.title.term} />
+          <Stage data={data} span={span} dark={dark} ring={ring} onRing={comparing ? undefined : setRingPin} link={comparing ? null : link} label={comparing ? data.title.term : undefined} seal={answer?.seal || null} svgRef={svgRef} />
+          {comparing ? (before ? <Stage data={before} span={span} dark={dark} label={before.title.term} seal={beforeSeal} />
             : compareError ? <p className="dfp-error" role="alert">{compareError}</p>
             : <div className="dfp-loading" role="status" aria-label="جاري رسم البصمة"><i aria-hidden="true" /><span>جاري رسم البصمة…</span></div>) : null}
         </div>
@@ -471,16 +482,24 @@ export function DeptFingerprintPanel({ scope, heading = true, onOpenPulse, focus
 }
 
 /** بطاقة اللوحة: تظهر متى كان للقسم في الفصل موعدٌ في قاعة، وتفتح البصمة في مكانها. */
-export function DeptFingerprintCard({ scope, onOpenPulse }: { scope: DeptFingerprintScope; onOpenPulse?: (focus: PulseFocus) => void }) {
-  const [available, setAvailable] = useState<boolean | null>(null);
+export function DeptFingerprintCard({ scope, onOpenPulse, brief, external = false }: {
+  scope: DeptFingerprintScope; onOpenPulse?: (focus: PulseFocus) => void;
+  /** البصمة المختصرة تقرؤها اللوحة نفسها (لختم الاعتماد) فلا تُقرأ مرتين: `undefined` ما دامت تُقرأ، و`null` إن تعذّرت. */
+  brief?: DeptFingerprintBrief | null;
+  external?: boolean;
+}) {
+  const [own, setOwn] = useState<DeptFingerprintBrief | null | undefined>(undefined);
   const [open, setOpen] = useState(false);
   useEffect(() => {
     let alive = true;
-    setAvailable(null); setOpen(false);
-    if (!scope.collegeId || !scope.sectionId || !scope.termId) return;
-    fetch(endpoint(scope, true)).then(r => (r.ok ? r.json() : { available: false })).then(body => { if (alive) setAvailable(Boolean(body?.available)); }).catch(() => { if (alive) setAvailable(false); });
+    setOwn(undefined); setOpen(false);
+    if (external || !scope.collegeId || !scope.sectionId || !scope.termId) return;
+    fetch(endpoint(scope, true)).then(r => (r.ok ? r.json() : { available: false })).then(body => { if (alive) setOwn(body); }).catch(() => { if (alive) setOwn(null); });
     return () => { alive = false; };
-  }, [scope.collegeId, scope.sectionId, scope.termId]);
+  }, [scope.collegeId, scope.sectionId, scope.termId, external]);
+  const read = external ? brief : own;
+  const available = read === undefined ? null : Boolean(read?.available);
+  const seal = read?.seal || null;
   if (available === false) return null;
   return <section className={`dfp-card${open ? " is-open" : ""}`} aria-labelledby="dfp-card-title">
     <div className="dfp-card-row">
@@ -488,6 +507,7 @@ export function DeptFingerprintCard({ scope, onOpenPulse }: { scope: DeptFingerp
       <div className="dfp-card-text">
         <strong id="dfp-card-title">بصمة القسم</strong>
         <small>صورةٌ واحدة من جدول الفصل: كل قاعةٍ حلقة، وكل يومٍ لون. تصلح غلافاً لتقرير القسم.</small>
+        {seal ? <span className="dfp-sealed"><SealBadge seal={seal} />مختومةٌ باعتماد التسجيل{seal.date ? ` · ${seal.date}` : ""}</span> : null}
       </div>
       {open ? <CopyLink scope={scope} /> : null}
       <button type="button" className="dfp-card-open" aria-expanded={open} onClick={() => setOpen(v => !v)} data-guide-ignore="يفتح بصمة القسم للعرض فقط؛ لا يغيّر بيانات">

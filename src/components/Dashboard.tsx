@@ -16,12 +16,15 @@ import { singleDepartmentOf } from "../utils/scopeContext";
 import type { TermFilmScope } from "./TermFilm";
 import { openInApp, pulseFocusHref, type PulseFocus } from "../utils/pulseLink";
 import { openingAllowed, openingDay, openingMode, readOpeningOff, readOpeningSeen, writeOpeningSeen, type OpeningMode } from "../utils/dayOpening";
+import { homeMoment, markSealSeen, readSealSeen, sealMomentDue, sealMomentKey, sealMomentMode, type ApprovalSeal, type SealMomentMode } from "../utils/approvalSeal";
+import type { DeptFingerprintBrief } from "./DeptFingerprint";
 
 /* «البصمة باب للنبض»: لمن يفتح شاشة الجدول وحده (canManageSchedule = بوابة الجدول نفسها). */
 const openPulse=(focus:PulseFocus)=>openInApp(pulseFocusHref(focus));
 /* فيلم الفصل يُحمَّل حين يُحتاج فقط: اللوحة في الحمولة الأولى، والفيلم ليس فيها. */
 const TermFilmCard=lazy(()=>import("./TermFilm").then(module=>({default:module.TermFilmCard})));
 const DayOpening=lazy(()=>import("./DayOpening"));
+const ApprovalSealMoment=lazy(()=>import("./ApprovalSeal"));
 const DeptFingerprintCard=lazy(()=>import("./DeptFingerprint").then(module=>({default:module.DeptFingerprintCard})));
 
 interface DashboardProps{user:any;scopes:any[];canManageSchedule?:boolean;onNavigate?:(view:string)=>void;searchView?:string;reportView?:string;roleId?:string;
@@ -196,27 +199,6 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
  const nowVisible=nowMinutes>=SCHEDULE_DAY_START&&nowMinutes<=SCHEDULE_DAY_END;
  const currentLecture=useMemo(()=>today.find(row=>minutesOf(row.startTime)<=nowMinutes&&minutesOf(row.endTime)>nowMinutes)||null,[today,nowMinutes]);
  const nextUp=useMemo(()=>currentLecture||today.find(row=>minutesOf(row.startTime)>=nowMinutes)||null,[today,currentLecture,nowMinutes]);
- /* افتتاحية اليوم (FR-DSH-036): أول دخولٍ كل يوم لكل حسابٍ على هذا الجهاز، لمن يرى نبض القاعات وحده.
-    تُقرَّر مرةً حين تصل اللوحة، ولا تؤخّر شيئاً: رسمُها يُحمَّل كسولاً بعد أن تُرسم اللوحة. */
- const[opening,setOpening]=useState<OpeningMode>("none");
- const openingAsked=useRef(false),openingHeld=useRef(false);
- useEffect(()=>{
-  if(openingHold)openingHeld.current=true;
-  if(openingAsked.current||!data||openingHold)return;
-  openingAsked.current=true;
-  const userId=Number(user?.SystemUserId||0),day=openingDay(new Date());
-  /* يومٌ بدأ بالجولة التعريفية يكفيه ما رأى: لا افتتاحية بعدها. */
-  if(openingHeld.current){if(userId)writeOpeningSeen(userId,day);return;}
-  const media=(query:string)=>{try{return Boolean(window.matchMedia?.(query).matches);}catch{return false;}};
-  const mode=openingMode({
-   allowed:Boolean(userId)&&openingAllowed({roleId:roleId||String(user?.Role||""),canManageSchedule}),
-   off:readOpeningOff(),seenDay:readOpeningSeen(userId),today:day,
-   lectures:data.home?.empty?0:(data.today||[]).length,weekend:Boolean(data.weekend),
-   print:media("print"),reducedMotion:media("(prefers-reduced-motion: reduce)"),
-  });
-  if(mode!=="none"){writeOpeningSeen(userId,day);setOpening(mode);}
- // eslint-disable-next-line react-hooks/exhaustive-deps
- },[data,openingHold]);
  /**
   * The ribbon's rows are known before its numbers are.
   *
@@ -283,6 +265,66 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
   const collegeId=Number(row?.AdCollegeId||shared.collegeId||0),sectionId=Number(only||shared.sectionId||0);
   return collegeId&&sectionId?{version:"dept",collegeId,sectionId,termId}:null;
  },[home?.termId,data?.latestTermId,termEmpty,user?.Role,scopes,canManageSchedule]);
+ /* ختم الاعتماد (FR-DSH-037): البصمة المختصرة لقسم اللوحة — هل اعتمد التسجيل جدوله ومتى. تُقرأ مرةً
+    وتُعطى لبطاقة البصمة نفسها، ولا تنتظرها الافتتاحية أكثر من لحظة. */
+ const sealScopeKey=filmScope?.version==="dept"&&filmScope.sectionId?`${filmScope.collegeId}:${filmScope.sectionId}:${filmScope.termId}`:"";
+ const[sealBrief,setSealBrief]=useState<{key:string;brief:DeptFingerprintBrief|null}|null>(null);
+ const[sealWaited,setSealWaited]=useState("");
+ useEffect(()=>{
+  if(!sealScopeKey)return;
+  let alive=true;
+  const[collegeId,sectionId,termId]=sealScopeKey.split(":");
+  const query=new URLSearchParams({collegeId,sectionId,termId,brief:"1"});
+  fetch(`/api/dept-fingerprint?${query}`).then(r=>r.ok?r.json():{available:false}).catch(()=>null)
+   .then(body=>{if(alive)setSealBrief({key:sealScopeKey,brief:body});});
+  const timer=window.setTimeout(()=>{if(alive)setSealWaited(sealScopeKey);},1800);
+  return()=>{alive=false;window.clearTimeout(timer);};
+ },[sealScopeKey]);
+ const sealRead=sealBrief?.key===sealScopeKey?sealBrief.brief:undefined;
+ const sealReady=!sealScopeKey||sealRead!==undefined||sealWaited===sealScopeKey;
+ const[sealMoment,setSealMoment]=useState<{seal:ApprovalSeal;mode:Exclude<SealMomentMode,"none">}|null>(null);
+ /* افتتاحية اليوم (FR-DSH-036): أول دخولٍ كل يوم لكل حسابٍ على هذا الجهاز، لمن يرى نبض القاعات وحده.
+    تُقرَّر مرةً حين تصل اللوحة، ولا تؤخّر شيئاً: رسمُها يُحمَّل كسولاً بعد أن تُرسم اللوحة. */
+ const[opening,setOpening]=useState<OpeningMode>("none");
+ const openingAsked=useRef(false),openingHeld=useRef(false),openingShown=useRef(false);
+ useEffect(()=>{
+  if(openingHold)openingHeld.current=true;
+  if(openingAsked.current||!data||openingHold||!sealReady)return;
+  openingAsked.current=true;
+  const userId=Number(user?.SystemUserId||0),day=openingDay(new Date());
+  /* يومٌ بدأ بالجولة التعريفية يكفيه ما رأى: لا افتتاحية بعدها. */
+  if(openingHeld.current){if(userId)writeOpeningSeen(userId,day);return;}
+  const media=(query:string)=>{try{return Boolean(window.matchMedia?.(query).matches);}catch{return false;}};
+  const mode=openingMode({
+   allowed:Boolean(userId)&&openingAllowed({roleId:roleId||String(user?.Role||""),canManageSchedule}),
+   off:readOpeningOff(),seenDay:readOpeningSeen(userId),today:day,
+   lectures:data.home?.empty?0:(data.today||[]).length,weekend:Boolean(data.weekend),
+   print:media("print"),reducedMotion:media("(prefers-reduced-motion: reduce)"),
+  });
+  /* ختم الاعتماد قبل الافتتاحية: إن حانا معاً فاز الختم ذلك اليوم، ولا تُكدَّس لحظتان في تحميلٍ واحد. */
+  const seal=sealRead?.seal||null;
+  const sealKey=seal?sealMomentKey({viewer:userId,collegeId:filmScope?.collegeId||0,sectionId:filmScope?.sectionId||0,termId:filmScope?.termId||0,acceptedAt:seal.acceptedAt}):"";
+  const sealMode=sealMomentMode(sealMomentDue({allowed:Boolean(userId&&sealScopeKey),seal,key:sealKey,seen:readSealSeen(),print:media("print")}),media("(prefers-reduced-motion: reduce)"));
+  const pick=homeMoment({seal:sealMode,opening:mode});
+  if(pick.seal!=="none"&&seal){markSealSeen(sealKey);setSealMoment({seal,mode:pick.seal});}
+  if(pick.skipOpeningToday)writeOpeningSeen(userId,day);
+  if(pick.opening!=="none"){openingShown.current=true;writeOpeningSeen(userId,day);setOpening(pick.opening);}
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[data,openingHold,sealReady]);
+ /* ختمٌ وصل بعد مهلة الانتظار (1.8 ث): قُرِّرت الافتتاحية بلا ختم. إن لم تُعرض افتتاحيةٌ الآن ظهر الختم متأخراً،
+    وإن عُرضت افتتاحيةٌ في هذا التحميل بقي الختم غير مرئيٍّ فيظهر في التحميل التالي — لا تُكدَّس لحظتان أبداً. */
+ const lateSealDone=useRef("");
+ useEffect(()=>{
+  if(!openingAsked.current||openingShown.current||sealMoment||!sealRead?.seal||opening!=="none"||!sealScopeKey||lateSealDone.current===sealScopeKey)return;
+  lateSealDone.current=sealScopeKey;
+  const userId=Number(user?.SystemUserId||0);
+  const media=(query:string)=>{try{return Boolean(window.matchMedia?.(query).matches);}catch{return false;}};
+  const seal=sealRead.seal;
+  const sealKey=sealMomentKey({viewer:userId,collegeId:filmScope?.collegeId||0,sectionId:filmScope?.sectionId||0,termId:filmScope?.termId||0,acceptedAt:seal.acceptedAt});
+  const sealMode=sealMomentMode(sealMomentDue({allowed:Boolean(userId&&sealScopeKey),seal,key:sealKey,seen:readSealSeen(),print:media("print")}),media("(prefers-reduced-motion: reduce)"));
+  if(sealMode!=="none"){markSealSeen(sealKey);setSealMoment({seal,mode:sealMode});}
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[sealRead,opening,sealScopeKey]);
  /* رقمٌ وصل متأخراً بعد «—»: يظهر بتلاشٍ واحد، ولا يتكرّر مع التحديث. */
  const awaitedSignals=useRef(new Set<string>());
  signals.forEach(item=>{if(item.awaiting)awaitedSignals.current.add(item.key);});
@@ -310,6 +352,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
    <GetAppSheet />
   </header>
   {opening!=="none"&&data?<Suspense fallback={null}><DayOpening mode={opening} today={today} dayLabel={dateLabel} onDone={()=>setOpening("none")}/></Suspense>:null}
+  {sealMoment?<Suspense fallback={null}><ApprovalSealMoment seal={sealMoment.seal} mode={sealMoment.mode} onDone={()=>setSealMoment(null)}/></Suspense>:null}
   {user?.IsRootAdmin&&onNavigate?<HealthGlance onOpen={()=>onNavigate("health")}/>:null}
 
   {error?<Notice>{error}</Notice>:null}
@@ -340,7 +383,7 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
 
    {filmScope?<Suspense fallback={null}><TermFilmCard scope={filmScope} fingerprint={filmScope.version==="dept"}/></Suspense>:null}
    {/* بصمة القسم (FR-DSH-032): لأصحاب جدول القسم أنفسهم، ففيها قاعاته. */}
-   {filmScope?.version==="dept"&&filmScope.sectionId?<Suspense fallback={null}><DeptFingerprintCard scope={{collegeId:filmScope.collegeId,sectionId:filmScope.sectionId,termId:filmScope.termId}} onOpenPulse={canManageSchedule?openPulse:undefined}/></Suspense>:null}
+   {filmScope?.version==="dept"&&filmScope.sectionId?<Suspense fallback={null}><DeptFingerprintCard scope={{collegeId:filmScope.collegeId,sectionId:filmScope.sectionId,termId:filmScope.termId}} onOpenPulse={canManageSchedule?openPulse:undefined} external brief={sealRead}/></Suspense>:null}
 
    {decisions.length>1?<section className={`dashboard-insights dashboard-attention ${attentionOpen?"open":""}`} aria-labelledby="dashboard-attention-title">
     <button className="dashboard-insights-toggle" type="button" onClick={()=>setAttentionOpen(v=>!v)} aria-expanded={attentionOpen} aria-controls="dashboard-attention-list">
