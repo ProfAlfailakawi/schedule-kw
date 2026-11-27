@@ -92,6 +92,13 @@ check(busiestCityMinute(city, "fsunday") === 10 * 60, "أزحم لحظةٍ في 
 check(busiestCityMinute(city, "fthursday") === null, "يومٌ بلا محاضرات: لا لحظة مخترعة");
 const curve = cityCurve(city, "fsunday", 30);
 check(curve.some(p => p.minute === 600 && p.busy === 3 && p.pressed === 1), "منحنى اليوم يعرف ضغط العاشرة");
+/* حجزٌ خارج صفوف العميد (حمل القاعات) يُعدّ إشغالاً: القاعة ليست فارغة، والمجموع والمزاج والمنحنى يعرفونه. */
+city.model.foreignBusy.set("id:c101", [{ day: "fsunday", from: 10 * 60, to: 11 * 60 } as any]);
+const outside = cityAt(city, "fsunday", 10 * 60 + 30);
+check(outside.halls.get("id:c101")!.occupied && outside.districts.get(3)!.inUse === 1 && outside.districts.get(3)!.empty === 0, "حجزٌ خارجي: قاعة قسم 3 مشغولة لا فارغة");
+check(outside.total.inUse === 4 && outside.total.empty === 1, "ومجموع الكلية يعدّها");
+check(cityCurve(city, "fsunday", 30).some(p => p.minute === 600 && p.busy === 4), "والمنحنى كذلك");
+city.model.foreignBusy.delete("id:c101");
 
 /* ── المخطّط ── */
 const L = layoutCampus(city);

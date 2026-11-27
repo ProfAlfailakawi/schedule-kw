@@ -11,7 +11,7 @@
  * لا يكتب شيئاً، ولا يقرأ إلا ما تقرؤه بطاقة العميد أصلاً.
  */
 import {
-  fitClass, layoutHalls, occupantsAt, originalAssignment, PULSE_DAYS,
+  fitClass, foreignAt, layoutHalls, occupantsAt, originalAssignment, PULSE_DAYS,
   type Assignment, type BuildingSpot, type FitClass, type HallSpot, type PulseDay, type PulseHall, type PulseModel,
 } from "./hallPulse";
 
@@ -183,6 +183,14 @@ export function cityAt(city: CampusCity, day: PulseDay, minute: number): CityMom
   for (const h of city.model.halls) {
     const s = occ.get(h.key);
     const owner = city.hallOwner.get(h.key) || 0;
+    if (!s && foreignAt(city.model, h.key, day, minute)) {
+      /* محجوزةٌ لجدولٍ خارج صفوف العميد (من حمل القاعات): مشغولةٌ بلا شعبةٍ نعرف ملاءمتها، تُحسب لحيّ مالكها. */
+      halls.set(h.key, { occupied: true, fit: "unknown", dept: owner, level: 0.55 });
+      inUse++;
+      const d = districts.get(owner);
+      if (d) d.inUse++;
+      continue;
+    }
     if (!s) {
       halls.set(h.key, { occupied: false, fit: "unknown", dept: owner, level: 0 });
       const d = districts.get(owner);
@@ -215,11 +223,18 @@ export function moodOf(d: Pick<DistrictNow, "inUse" | "pressed" | "load">): Dist
   return "idle";
 }
 
+/** القاعات المشغولة في دقيقة: شعب الكلية، ومعها ما يحجزه جدولٌ خارجها (من حمل القاعات). */
+function busyCount(city: CampusCity, occ: Map<string, unknown>, day: PulseDay, minute: number): number {
+  let n = occ.size;
+  for (const h of city.model.halls) if (!occ.has(h.key) && foreignAt(city.model, h.key, day, minute)) n++;
+  return n;
+}
+
 /** أزحم لحظةٍ في اليوم للكلية كلها (أكثر القاعات المشغولة، والأبكر عند التساوي). */
 export function busiestCityMinute(city: CampusCity, day: PulseDay): number | null {
   let best: number | null = null, bestCount = 0;
   for (let m = city.model.dayStart; m < city.model.dayEnd; m += 5) {
-    const count = occupantsAt(city.model, city.assignment, day, m).size;
+    const count = busyCount(city, occupantsAt(city.model, city.assignment, day, m), day, m);
     if (count > bestCount) { bestCount = count; best = m; }
   }
   return best;
@@ -232,7 +247,7 @@ export function cityCurve(city: CampusCity, day: PulseDay, step = 10): Array<{ m
     const occ = occupantsAt(city.model, city.assignment, day, m);
     let pressed = 0;
     for (const [key, s] of occ) if (fitClass(s.students, city.model.hallByKey.get(key)?.capacity) === "pressed") pressed++;
-    out.push({ minute: m, busy: occ.size, pressed });
+    out.push({ minute: m, busy: busyCount(city, occ, day, m), pressed });
   }
   return out;
 }
