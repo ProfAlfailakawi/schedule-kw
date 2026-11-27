@@ -493,7 +493,9 @@ export default function Dashboard({user,scopes,canManageSchedule=false,onNavigat
    </section>:null}
 
    {/* نبض القاعات للعميدين: بطاقةٌ تُفتح عند الطلب، للقراءة فقط. */}
-   {(roleId==="dean"||roleId==="viceDean")&&!termEmpty?<DeanHallPulseCard scopes={scopes} termId={home?.termId||data.latestTermId||0}/>:null}
+   {(roleId==="dean"||roleId==="viceDean")&&!termEmpty?<DeanHallPulseCard scopes={scopes} termId={home?.termId||data.latestTermId||0}/>
+    /* «الحرم كله» لمسؤول النظام أيضاً (FR-SCH-100)، لا لرئيس القسم ولا للأستاذ. */
+    :power&&!termEmpty?<DeanHallPulseCard admin scopes={scopes} termId={home?.termId||data.latestTermId||0}/>:null}
    {power&&ws&&!termEmpty?<section className={`dashboard-insights ${detailsOpen?"open":""}`}>
     <button className="dashboard-insights-toggle" type="button" onClick={()=>setDetailsOpen(v=>!v)} aria-expanded={detailsOpen}>
      <span><Sparkles aria-hidden="true"/><strong>تفاصيل</strong></span>
