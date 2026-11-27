@@ -91,6 +91,8 @@ const WINDOW_WARM = new THREE.Color(0xffe2a8);
 /** ختم الاعتماد (FR-DSH-037): ذهب النوافذ حين تضيء القاعات كلها معاً. */
 const SEAL_GOLD = new THREE.Color(0xffd36e);
 const PATH_GLOW = new THREE.Color(0x7fe0ff);
+/** «ماذا لو، باللمس»: ألوان القاعات للشعبة المحمولة — بألوان الملاءمة نفسها (مناسبة، ممتلئة، مضغوطة). */
+export const DROP_GREEN = 0x4fd3a1, DROP_AMBER = 0xf0b24a, DROP_RED = 0xf0674f;
 const SLAB = new THREE.Color(0x1d4a41), SLAB_KEEP = new THREE.Color(0x2f7f6a), SLAB_OFF = new THREE.Color(0x0b1a17);
 
 function glowTexture() {
@@ -212,6 +214,20 @@ export class PulseScene {
      على الجهاز المثقل. «warm» قاعةٌ لا تُرسم تُبقي المظلّلات المبنيّة حيّةً في ذاكرة الراسم. */
   private warm: HallInterior | null = null;
   private warmState: "none" | "pending" | "ready" = "none";
+  /* «ماذا لو، باللمس»: ضغطةٌ تنتظر أن تطول، وشعبةٌ محمولة، وألوان القاعات لها، والشبح وقوسه. */
+  private press: { key: string; id: number; moved: number; timer: number; x: number; y: number } | null = null;
+  private carry: { key: string; id: number; over: string | null; x: number; y: number } | null = null;
+  private dropTones: Map<string, number> | null = null;
+  private ghost: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial> | null = null;
+  private ghostHalo: THREE.Sprite | null = null;
+  private arc: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial> | null = null;
+  private ghostPos = new THREE.Vector3();
+  private ghostWant = new THREE.Vector3();
+  private ghostColor = new THREE.Color(0xe2bd76);
+  private ghostFrom = new THREE.Vector3();
+  private ghostBack: { key: string; t0: number } | null = null;
+  private shakes = new Map<string, number>();
+  private plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private interiorReady = false;
 
   constructor(private opts: {
@@ -230,6 +246,18 @@ export class PulseScene {
     onEnter?: (key: string) => void;
     /** ضغطتان داخل القاعة: اخرج. */
     onLeave?: () => void;
+    /**
+     * «ماذا لو، باللمس»: هل تُلتقط شعبة هذه القاعة بضغطةٍ مطوّلة؟ (رئيس اللجنة وحده، والقاعة مشغولة
+     * في لحظة الساعة). بلا هذا الاستدعاء لا سحب أبداً: القراءة وحدها كما كانت.
+     */
+    canDrag?: (key: string) => boolean;
+    onDragStart?: (key: string) => void;
+    /** القاعة تحت الإصبع أثناء السحب (أو null) وموضعه داخل اللوحة. */
+    onDragOver?: (key: string | null, x: number, y: number) => void;
+    /** الإفلات: true = قُبلت النقلة (يختفي الشبح)، false = يعود الشبح إلى قاعته بهزّةٍ لطيفة. */
+    onDrop?: (key: string | null) => boolean;
+    /** انقطع السحب (إصبعٌ ثانٍ أو إلغاء المتصفح): يعود الشبح بلا هزّة. */
+    onDragCancel?: () => void;
   }) {
     const renderer = new THREE.WebGLRenderer({ canvas: opts.canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
     this.renderer = renderer;
@@ -759,6 +787,99 @@ export class PulseScene {
     this.kick();
   }
 
+  /* ── «ماذا لو، باللمس» ─────────────────────────────────────────────────── */
+  /** ألوان القاعات للشعبة المحمولة (أخضر/كهرماني/أحمر)، وnull يعيدها كما هي. */
+  setDropTones(tones: Map<string, number> | null) {
+    this.dropTones = tones;
+    this.kick();
+  }
+  /** هزّةٌ لطيفة لقاعة (إفلاتٌ مرفوض)، وومضةٌ بدلها مع تقليل الحركة. */
+  shake(key: string) {
+    const rig = this.rooms.get(key);
+    if (!rig) return;
+    if (this.opts.reduced) rig.flashAt = performance.now(); else this.shakes.set(key, performance.now());
+    this.kick();
+  }
+  get carrying() { return Boolean(this.carry); }
+  private ensureGhost() {
+    if (this.ghost) return;
+    this.ghost = new THREE.Mesh(this.ghostGeo, new THREE.MeshStandardMaterial({ color: BRASS, emissive: BRASS, emissiveIntensity: 0.9, transparent: true, opacity: 0.9, depthWrite: false, roughness: 0.3 }));
+    this.ghostHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.glowTex, color: BRASS, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+    this.ghostHalo.scale.set(HALL_W * 2.6, HALL_W * 2.6, 1);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(33 * 3), 3));
+    this.arc = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: BRASS, transparent: true, opacity: 0.85, depthWrite: false }));
+    this.ghost.visible = this.ghostHalo.visible = this.arc.visible = false;
+    this.ghost.renderOrder = this.ghostHalo.renderOrder = this.arc.renderOrder = 5;
+    this.scene.add(this.ghost, this.ghostHalo, this.arc);
+  }
+  private beginCarry() {
+    const p = this.press;
+    this.press = null;
+    if (!p || this.mode !== "campus" || this.pointers.size !== 1 || !this.opts.canDrag?.(p.key)) return;
+    const rig = this.rooms.get(p.key);
+    if (!rig) return;
+    this.ensureGhost();
+    this.drag = null;
+    this.carry = { key: p.key, id: p.id, over: null, x: p.x, y: p.y };
+    this.ghostBack = null;
+    rig.group.getWorldPosition(this.ghostFrom);
+    this.ghostFrom.y += HALL_H * 0.2;
+    this.ghostPos.copy(this.ghostFrom);
+    this.ghostWant.copy(this.ghostFrom).add(new THREE.Vector3(0, HALL_H * 0.9, 0));
+    this.ghostColor.copy(BRASS);
+    this.ghost!.visible = this.ghostHalo!.visible = this.arc!.visible = true;
+    try { this.opts.canvas.setPointerCapture?.(p.id); } catch { /* المؤشّر انتهى */ }
+    this.opts.canvas.style.cursor = "grabbing";
+    if (this.hovered) { this.hovered = null; this.opts.onHover?.(null); }
+    this.opts.onDragStart?.(p.key);
+    this.kick();
+  }
+  private moveCarry(clientX: number, clientY: number) {
+    const c = this.carry!;
+    const r = this.opts.canvas.getBoundingClientRect();
+    c.x = clientX; c.y = clientY;
+    const hit = this.pick(clientX, clientY);
+    const over = hit && !hit.neighbour ? hit.key : null;
+    c.over = over;
+    const rig = over ? this.rooms.get(over) : null;
+    if (rig) {
+      rig.group.getWorldPosition(this.ghostWant);
+      this.ghostWant.y += HALL_H * 0.95;
+    } else {
+      /* فوق الأرض: الشبح يتبع الإصبع على مستوى طابق الشعبة. */
+      this.plane.constant = -(this.ghostFrom.y + HALL_H * 0.6);
+      const at = this.ray.ray.intersectPlane(this.plane, this.v3);
+      if (at) this.ghostWant.copy(at);
+    }
+    this.opts.onDragOver?.(over, clientX - r.left, clientY - r.top);
+    this.kick();
+  }
+  private endCarry(drop: boolean) {
+    const c = this.carry;
+    if (!c) return;
+    this.carry = null;
+    this.opts.canvas.style.cursor = "";
+    let ok = false;
+    if (drop) ok = Boolean(this.opts.onDrop?.(c.over));
+    else this.opts.onDragCancel?.();
+    if (ok || this.opts.reduced) this.hideGhost();
+    /* يعود الشبح إلى قاعته، وتهتزّ القاعة التي رُفض الإفلات فيها (وتومض مع تقليل الحركة). */
+    else this.ghostBack = { key: c.key, t0: performance.now() };
+    if (drop && !ok && c.over && c.over !== c.key) this.shake(c.over);
+    this.kick();
+  }
+  private hideGhost() {
+    this.ghostBack = null;
+    if (this.ghost) this.ghost.visible = false;
+    if (this.ghostHalo) this.ghostHalo.visible = false;
+    if (this.arc) this.arc.visible = false;
+  }
+  private cancelPress() {
+    if (this.press) window.clearTimeout(this.press.timer);
+    this.press = null;
+  }
+
   /* ── الكاميرا والإدخال ─────────────────────────────────────────────────── */
   private radiusFor(width: number, depth: number, height: number) {
     const vfov = (this.camera.fov * Math.PI) / 180;
@@ -833,10 +954,23 @@ export class PulseScene {
     if (this.cineOn) this.cineFree = true;
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this.pointers.size === 2) {
+      /* إصبعٌ ثانٍ: الكاميرا لا السحب — الضغطة المنتظرة تُلغى، والمحمولة تعود. */
+      this.cancelPress();
+      if (this.carry) this.endCarry(false);
       const [a, b] = [...this.pointers.values()];
       this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), r: this.radiusT };
       this.drag = null;
-    } else this.drag = { x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId };
+    } else {
+      this.drag = { x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId };
+      if (this.opts.canDrag && this.mode === "campus" && e.button === 0) {
+        const hit = this.pick(e.clientX, e.clientY);
+        if (hit && !hit.neighbour && this.opts.canDrag(hit.key)) {
+          this.cancelPress();
+          const wait = e.pointerType === "mouse" ? 180 : 300;
+          this.press = { key: hit.key, id: e.pointerId, moved: 0, x: e.clientX, y: e.clientY, timer: window.setTimeout(() => this.beginCarry(), wait) };
+        }
+      }
+    }
   };
   private onMove = (e: PointerEvent) => {
     if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -847,6 +981,14 @@ export class PulseScene {
       this.radiusT = THREE.MathUtils.clamp(this.pinch.r * (this.pinch.d / Math.max(1, d)), this.fitRadius * 0.45, this.fitRadius * 1.8);
       this.kick();
       return;
+    }
+    if (this.carry && this.carry.id === e.pointerId) { if (e.pointerType !== "mouse") e.preventDefault(); this.moveCarry(e.clientX, e.clientY); return; }
+    if (this.press && this.press.id === e.pointerId) {
+      /* الضغطة المطوّلة تنتظر يداً ثابتة: حركةٌ قبلها تدويرٌ كالمعتاد. */
+      this.press.moved += Math.abs(e.clientX - this.press.x) + Math.abs(e.clientY - this.press.y);
+      this.press.x = e.clientX; this.press.y = e.clientY;
+      if (this.press.moved <= 8) { if (this.drag) { this.drag.x = e.clientX; this.drag.y = e.clientY; } return; }
+      this.cancelPress();
     }
     if (this.drag && this.drag.id === e.pointerId) {
       const dx = e.clientX - this.drag.x, dy = e.clientY - this.drag.y;
@@ -877,6 +1019,8 @@ export class PulseScene {
   };
   private onUp = (e: PointerEvent) => {
     this.pointers.delete(e.pointerId);
+    if (this.press && this.press.id === e.pointerId) this.cancelPress();
+    if (this.carry && this.carry.id === e.pointerId) { this.moveCarry(e.clientX, e.clientY); this.endCarry(true); this.drag = null; this.lastTap = null; return; }
     if (this.pinch) { if (this.pointers.size < 2) this.pinch = null; this.drag = null; return; }
     const d = this.drag; this.drag = null;
     if (!d || d.moved > 8) return;
@@ -895,7 +1039,11 @@ export class PulseScene {
     if (!hit || hit.neighbour) this.lastTap = null;
     this.opts.onPick(hit ? hit.key : null, hit ? hit.neighbour : false);
   };
-  private onCancel = (e: PointerEvent) => { this.pointers.delete(e.pointerId); this.drag = null; this.pinch = null; };
+  private onCancel = (e: PointerEvent) => {
+    this.pointers.delete(e.pointerId); this.drag = null; this.pinch = null;
+    this.cancelPress();
+    if (this.carry && this.carry.id === e.pointerId) this.endCarry(false);
+  };
   private onLeave = () => { if (this.hovered) { this.hovered = null; this.opts.onHover?.(null); this.kick(); } };
   private onWheel = (e: WheelEvent) => {
     e.preventDefault();
@@ -983,7 +1131,7 @@ export class PulseScene {
     }
 
     /* حركةٌ محيطة: انجرافٌ بطيءٌ جداً حين لا يلمس أحدٌ المشهد. */
-    const drifting = Boolean(this.opts.ambient) && !reduced && now - this.lastInput > 6000 && !this.drag && !this.pinch && !this.cineOn && this.mode === "campus";
+    const drifting = Boolean(this.opts.ambient) && !reduced && now - this.lastInput > 6000 && !this.drag && !this.pinch && !this.carry && !this.cineOn && this.mode === "campus";
     if (drifting) { this.azT = THREE.MathUtils.clamp(this.azT + dt * 0.012 * Math.sin(now / 14000 + 1), -1.25, 1.25); busy = true; }
 
     /* الكاميرا: تخميدٌ ناعم نحو الهدف. */
@@ -1058,10 +1206,36 @@ export class PulseScene {
         rig.altHaloO += (((a.pulse ? 0.35 + 0.35 * breathe : sel ? 0.28 : 0) * rig.fadeK) - rig.altHaloO) * ck;
         if (Math.abs(want - rig.altLevel) > 0.002 || a.pulse || a.glow) busy = true;
       }
-      /* الاختيار يرفع القاعة قليلاً، كمن يُخرج درجاً. */
-      const lift = (sel ? 0.22 : hov ? 0.08 : 0) + rig.liftY;
+      /* «ماذا لو، باللمس»: لون القاعة للشعبة المحمولة فوق لونها، وقاعة الشعبة مرفوعةٌ تفرغ. */
+      const carried = Boolean(this.carry && this.carry.key === rig.key);
+      const tone = this.dropTones && !neighbour ? this.dropTones.get(rig.key) : undefined;
+      if (this.dropTones && !neighbour) {
+        const over = this.carry?.over === rig.key;
+        if (carried) {
+          rig.edges.material.color.copy(BRASS); rig.edges.material.opacity = 1;
+          rig.fill.material.opacity *= 0.4;
+        } else if (tone != null) {
+          this.tmp.setHex(tone);
+          const red = tone === DROP_RED;
+          rig.edges.material.color.copy(this.tmp);
+          rig.edges.material.opacity = (over ? 1 : red ? 0.32 : 0.55 + 0.35 * breathe) * fade * rig.fadeK;
+          rig.shell.material.color.lerp(this.tmp, red ? 0.35 : 0.7);
+          rig.shell.material.opacity = Math.max(rig.shell.material.opacity, (over ? 0.46 : red ? 0.08 : 0.2 + 0.1 * breathe) * fade * rig.fadeK);
+          if (red && !over) rig.fill.material.opacity *= 0.5;
+          if (over) { rig.halo.material.color.copy(this.tmp); rig.halo.material.opacity = 0.62; rig.halo.visible = true; }
+        }
+        busy = true;
+      }
+      /* الاختيار يرفع القاعة قليلاً، كمن يُخرج درجاً؛ والمحمولة ترتفع أكثر، والهدف الصالح تحت الإصبع يستعدّ. */
+      const lift = (carried ? 0.42 : this.carry?.over === rig.key && tone != null && tone !== DROP_RED ? 0.18 : sel ? 0.22 : hov ? 0.08 : 0) + rig.liftY;
       const y = rig.base.y + lift;
       if (Math.abs(rig.group.position.y - y) > 0.001) { rig.group.position.y += (y - rig.group.position.y) * ck; busy = true; }
+      const sh = this.shakes.get(rig.key);
+      if (sh != null) {
+        const u = (now - sh) / 520;
+        if (u >= 1) { this.shakes.delete(rig.key); rig.group.position.x = rig.base.x; }
+        else { rig.group.position.x = rig.base.x + Math.sin(u * Math.PI * 7) * 0.2 * (1 - u); busy = true; }
+      }
       if (v.pulse || v.glow || v.mark != null || flash || held) busy = true;
     };
     for (const rig of this.rooms.values()) tick(rig, 1, false);
@@ -1127,6 +1301,41 @@ export class PulseScene {
       const pm = this.pathHalo.material as THREE.SpriteMaterial;
       pm.opacity = 0.65 + (reduced ? 0 : 0.3 * Math.sin(now / 220));
       if (!reduced) busy = true;
+    }
+
+    /* الشبح: يتبع الإصبع بتخفيفٍ سريع، وقوسٌ من قاعة الشعبة إليه؛ ويعود إليها إن رُفض الإفلات. */
+    if (this.ghost && this.ghost.visible && this.ghostHalo && this.arc) {
+      busy = true;
+      if (this.ghostBack) {
+        const u = Math.min(1, (now - this.ghostBack.t0) / 380);
+        this.ghostWant.copy(this.ghostFrom);
+        this.ghostColor.lerp(BRASS, 0.2);
+        if (u >= 1) this.hideGhost();
+      } else if (this.carry) {
+        const tone = this.carry.over && this.dropTones ? this.dropTones.get(this.carry.over) : undefined;
+        this.tmp.setHex(tone != null && this.carry.over !== this.carry.key ? tone : BRASS.getHex());
+        this.ghostColor.lerp(this.tmp, reduced ? 1 : 1 - Math.exp(-dt * 12));
+      }
+      this.ghostPos.lerp(this.ghostWant, reduced ? 1 : 1 - Math.exp(-dt * (this.ghostBack ? 10 : 16)));
+      const bob = reduced ? 0 : Math.sin(now / 240) * 0.07;
+      this.ghost.position.copy(this.ghostPos); this.ghost.position.y += bob;
+      this.ghost.rotation.y = reduced ? 0 : Math.sin(now / 900) * 0.12;
+      const gm = this.ghost.material;
+      gm.color.copy(this.ghostColor); gm.emissive.copy(this.ghostColor);
+      gm.emissiveIntensity = 0.75 + (reduced ? 0 : 0.25 * Math.sin(now / 200));
+      this.ghostHalo.position.copy(this.ghost.position);
+      (this.ghostHalo.material as THREE.SpriteMaterial).color.copy(this.ghostColor);
+      const pos = this.arc.geometry.getAttribute("position") as THREE.BufferAttribute;
+      const a = this.ghostFrom, b = this.ghost.position;
+      const rise = 1.2 + a.distanceTo(b) * 0.18;
+      const mx = (a.x + b.x) / 2, my = Math.max(a.y, b.y) + rise, mz = (a.z + b.z) / 2;
+      for (let i = 0; i <= 32; i++) {
+        const t = i / 32, mt = 1 - t;
+        pos.setXYZ(i, mt * mt * a.x + 2 * mt * t * mx + t * t * b.x, mt * mt * a.y + 2 * mt * t * my + t * t * b.y, mt * mt * a.z + 2 * mt * t * mz + t * t * b.z);
+      }
+      pos.needsUpdate = true;
+      this.arc.geometry.computeBoundingSphere();
+      this.arc.material.color.copy(this.ghostColor);
     }
 
     for (let i = this.flights.length - 1; i >= 0; i--) {
@@ -1242,7 +1451,7 @@ export class PulseScene {
       }
       this.renderer.setScissorTest(false);
     } else this.renderer.render(this.scene, this.camera);
-    if ((busy || this.drag || this.pinch) && this.visible && !document.hidden) this.raf = requestAnimationFrame(this.frame);
+    if ((busy || this.drag || this.pinch || this.carry) && this.visible && !document.hidden) this.raf = requestAnimationFrame(this.frame);
   };
 
   dispose() {
@@ -1259,6 +1468,8 @@ export class PulseScene {
     c.removeEventListener("pointerleave", this.onLeave);
     c.removeEventListener("wheel", this.onWheel);
     c.removeEventListener("dblclick", this.onDouble);
+    this.cancelPress();
+    if (this.ghost) { this.ghost.material.dispose(); (this.ghostHalo!.material as THREE.Material).dispose(); this.arc!.geometry.dispose(); this.arc!.material.dispose(); }
     for (const f of this.flights) { f.line.geometry.dispose(); (f.line.material as THREE.Material).dispose(); (f.mesh.material as THREE.Material).dispose(); }
     this.flights = [];
     this.clearNeighbour();

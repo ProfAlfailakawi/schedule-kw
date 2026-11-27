@@ -39,6 +39,10 @@ import { registryKeyOfPulseHall, resolvePulseHall, type PulseFocus } from "../..
 import PulseCouncil from "./PulseCouncil";
 import { usePulseSealMoment } from "../ApprovalSeal";
 import { isPhoneDevice } from "../../utils/workspaceSize";
+import {
+  affectedPaths, dropStatus, dropStatuses, moveTargets, netWhatIf, pushWhatIf, revalidateWhatIf, tightCount, undoWhatIf, whatIfGuard, whatIfImpact, whatIfPlan,
+  type DropStatus, type DropTone, type WhatIfMove,
+} from "../../utils/pulseWhatIf";
 
 export interface HallPulseMove {
   row: unknown;
@@ -83,6 +87,10 @@ const FIT_HEX: Record<FitClass, number> = { pressed: 0xf0674f, full: 0xf0b24a, f
 /** شكلٌ مع كل لون: لا يُعتمد على اللون وحده (عمى الألوان، والوضع الداكن). */
 export const FIT_GLYPH: Record<FitClass, string> = { pressed: "▲", full: "■", fit: "●", wide: "◆", unknown: "?" };
 const FIT_TOKEN: Record<FitClass, string> = { pressed: "pressed", full: "full", fit: "fit", wide: "wide", unknown: "unknown" };
+/** «ماذا لو، باللمس»: ألوان الإفلات بألوان الملاءمة نفسها، وشكلٌ مع كل لون. */
+const DROP_HEX: Record<Exclude<DropTone, "same">, number> = { green: FIT_HEX.fit, amber: FIT_HEX.full, red: FIT_HEX.pressed };
+const DROP_GLYPH: Record<DropTone, string> = { green: "●", amber: "■", red: "✕", same: "○" };
+const CHANGE: ArabicNoun = { one: "تغيير", two: "تغييران", few: "تغييرات", many: "تغييراً" };
 const HINT_KEY = "hall-pulse-hint-v1";
 const n = (v: number) => Math.round(v).toLocaleString("ar-KW-u-nu-latn");
 const weekRamp = (t: number) => {
@@ -202,7 +210,22 @@ export default function HallPulse(props: HallPulseProps) {
   const [pending, setPending] = useState<{ sessionId: number; from: string; to: string } | null>(null);
   const [plan, setPlan] = useState<DayPlan | null>(null);
   /* الخطة المعروضة: «رتّب قاعاتي» أو «ضمّ المساء» — المراجعة والحفظ واحد. */
-  const [planKind, setPlanKind] = useState<"arrange" | "evening">("arrange");
+  const [planKind, setPlanKind] = useState<"arrange" | "evening" | "whatif">("arrange");
+  /* «ماذا لو، باللمس» (FR-SCH-101): نقلاتٌ تُعاين قبل أي حفظ، والشعبة المحمولة الآن، وقائمة «انقل إلى…». */
+  const [whatIf, setWhatIf] = useState<WhatIfMove[]>([]);
+  const [carry, setCarry] = useState<{ sessionId: number; from: string; over: string | null } | null>(null);
+  const carryRef = useRef(carry);
+  carryRef.current = carry;
+  const [moveListFor, setMoveListFor] = useState<number | null>(null);
+  const [reject, setReject] = useState<{ text: string; x: number; y: number; at: number } | null>(null);
+  const dropMapRef = useRef<Map<string, DropStatus> | null>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+  const tipAt = useRef({ x: 0, y: 0 });
+  const rejectRef = useRef<HTMLDivElement>(null);
+  /* الشريحتان تُوضعان بعد كل رسم (يتغيّر عرضهما مع النص) فلا تخرجان من حافة المسرح. */
+  React.useLayoutEffect(() => { placeChip(tipRef.current, tipAt.current.x, tipAt.current.y); if (reject) placeChip(rejectRef.current, reject.x, reject.y); });
+  /* نقلاتٌ ذهبت إلى المراجعة: «رجوع إلى التعديل» أو تغيير اليوم يعيدها مكدّساً كما كانت. */
+  const whatIfBackup = useRef<WhatIfMove[] | null>(null);
   /* «وضع المجلس»: جولةٌ بملء الشاشة للقراءة وحدها؛ ما قبلها يُستعاد عند الخروج. */
   const [council, setCouncil] = useState<{ index: number; paused: boolean } | null>(null);
   const [councilFilm, setCouncilFilm] = useState<{ scope: string; closing: CouncilClosing | null; mark: FingerprintShape | null } | null>(null);
@@ -320,16 +343,19 @@ export default function HallPulse(props: HallPulseProps) {
   const councilStep = council && tour ? tour.steps[Math.min(council.index, tour.steps.length - 1)] || null : null;
   const councilPlan = councilStep && tour ? (councilStep.plan === "arrange" ? tour.arrange : councilStep.plan === "evening" ? tour.evening.plan : null) : null;
   const activePlan = council ? councilPlan : plan;
-  const activeKind: "arrange" | "evening" = council ? (councilStep?.plan === "evening" ? "evening" : "arrange") : planKind;
+  const activeKind: "arrange" | "evening" | "whatif" = council ? (councilStep?.plan === "evening" ? "evening" : "arrange") : planKind;
   const assignment: Assignment = useMemo(() => {
     const a = applyPlan(original, activePlan);
     if (pending && !councilOn) a.set(pending.sessionId, pending.to);
+    /* «ماذا لو، باللمس»: نقلات المعاينة فوق الجدول (المجلس يعرض الأصل وحده). */
+    if (!councilOn) for (const mv of whatIf) a.set(mv.sessionId, mv.to);
     return a;
     // planRev: تبديل نقلة داخل الخطة نفسها.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [original, activePlan, planRev, pending, councilOn]);
+  }, [original, activePlan, planRev, pending, councilOn, whatIf]);
   const occ = useMemo(() => occupantsAt(model, assignment, viewDay, minute), [model, assignment, viewDay, minute]);
   const heat = useMemo(() => weeklyHeat(model, assignment), [model, assignment]);
+  const whatIfNet = useMemo(() => netWhatIf(model, original, whatIf), [model, original, whatIf]);
   const selHall = selected ? model.hallByKey.get(selected) || null : null;
   const selSession = selected ? occ.get(selected) || null : null;
   const suggestions = useMemo(() => (selSession && !plan && !pending ? suggestHalls(model, assignment, selSession.id) : []), [model, assignment, selSession, plan, pending]);
@@ -364,6 +390,8 @@ export default function HallPulse(props: HallPulseProps) {
   /* ── «اليوم يمرّ أمامك»: منحنى الضغط، وأشدّ لحظة، وعرضٌ من ثلاثين ثانية يقف عندها ── */
   const curve: PressurePoint[] = useMemo(() => (day === "week" ? [] : pressureCurve(model, assignment, viewDay)), [model, assignment, viewDay, day]);
   const worst = useMemo(() => (day === "week" ? null : worstMoment(model, assignment, viewDay, curve)), [model, assignment, viewDay, day, curve]);
+  /* «ماذا لو»: منحنى اليوم قبل النقلات، فيُرى أين زال الضغط (أو ظهر) تحت الخط. */
+  const curveBefore: PressurePoint[] | null = useMemo(() => (day === "week" || !whatIf.length || activePlan ? null : pressureCurve(model, original, viewDay)), [model, original, viewDay, day, whatIf.length, activePlan]);
   const peak = useMemo(() => peakMoment(curve), [curve]);
   const nowPoint = useMemo(() => (day === "week" ? null : pressureAt(model, assignment, viewDay, minute)), [model, assignment, viewDay, minute, day]);
   const startCinema = () => {
@@ -498,6 +526,10 @@ export default function HallPulse(props: HallPulseProps) {
     ? buildPaths(model, assignment, layout, viewDay, { instructorName: teacherName, cohorts })
     : []), [mode, pathsAllowed, day, model, assignment, layout, viewDay, teacherName, cohorts]);
   const ranked = useMemo(() => rankHops(paths), [paths]);
+  /* مسارات اليوم قبل نقلات «ماذا لو»: بها تُقرأ الانتقالات الضيّقة قبل وبعد. */
+  const pathsBefore: MovePath[] = useMemo(() => (mode === "paths" && pathsAllowed && day !== "week" && whatIf.length
+    ? buildPaths(model, original, layout, viewDay, { instructorName: teacherName, cohorts })
+    : paths), [mode, pathsAllowed, day, whatIf.length, model, original, layout, viewDay, teacherName, cohorts, paths]);
   const activePath = paths.find(x => x.id === pathId) || null;
   const pathKeys = useMemo(() => new Set(activePath ? activePath.stops.map(st => st.hallKey) : []), [activePath]);
   useEffect(() => {
@@ -553,6 +585,12 @@ export default function HallPulse(props: HallPulseProps) {
       }
     }
     if (compare) for (const key of compare.changed) { const v = out.get(key); if (v) out.set(key, { ...v, showLabel: true }); }
+    /* نقلات «ماذا لو»: القاعة التي استقبلت شعبةً تُرسم شبحاً مضيئاً، والتي غادرتها بلافتتها. */
+    for (const mv of whatIfNet) {
+      const to = out.get(mv.to), from = out.get(mv.from);
+      if (to && day !== "week") out.set(mv.to, { ...to, ghost: to.occupied && occ.get(mv.to)?.id === mv.sessionId, showLabel: true });
+      if (from) out.set(mv.from, { ...from, showLabel: true });
+    }
     if (activePath && mode === "paths") {
       for (const [key, v] of out) {
         const nums = order.get(key);
@@ -561,7 +599,7 @@ export default function HallPulse(props: HallPulseProps) {
       }
     }
     return out;
-  }, [model, occ, day, heat, viewDay, minuteShown, glowKeys, pending, manyHalls, freeGlow, activePath, mode, compare, eveningNow, evening]);
+  }, [model, occ, day, heat, viewDay, minuteShown, glowKeys, pending, manyHalls, freeGlow, activePath, mode, compare, eveningNow, evening, whatIfNet]);
   /* طبقة التسجيل فوق ما يُرى (اليوم أو الأسبوع): قاعةٌ فيها فرقٌ مفتوح تتنفّس بالبنفسجي بشارة عددها، والباقي يبهت قليلاً. */
   const shown = useMemo(() => {
     if (!regOn || !regLayer || mode !== "halls") return visuals;
@@ -585,9 +623,23 @@ export default function HallPulse(props: HallPulseProps) {
 
   /* ── المشهد ── */
   const viewRef = useRef<HTMLDivElement>(null);
+  /* عرض المسرح نفسه: إن ضاق (لوحةٌ جانبية بجانبه على شاشةٍ متوسطة) نزل شريط «ماذا لو» إلى اللوحة. */
+  const [viewW, setViewW] = useState(1000);
+  useEffect(() => {
+    const v = viewRef.current;
+    if (!v || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setViewW(v.clientWidth));
+    ro.observe(v);
+    setViewW(v.clientWidth);
+    return () => ro.disconnect();
+  }, [loading, model.halls.length > 0]);
+  const dockPill = viewW > 0 && viewW < 380;
   const labelsRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<PulseSceneType | null>(null);
   const pickRef = useRef<(key: string | null, nb: boolean) => void>(() => undefined);
+  const dragRef = useRef<{ can: (key: string) => boolean; start: (key: string) => void; over: (key: string | null, x: number, y: number) => void; drop: (key: string | null) => boolean; cancel: () => void }>({
+    can: () => false, start: () => undefined, over: () => undefined, drop: () => false, cancel: () => undefined,
+  });
   const enterRef = useRef<(key: string) => void>(() => undefined);
   const hasHalls = model.halls.length > 0;
   useEffect(() => {
@@ -606,6 +658,14 @@ export default function HallPulse(props: HallPulseProps) {
           canvas, host: viewRef.current, labels: labelsRef.current, layout, reduced, topDown: narrow, ambient: !narrow,
           onPick: (key, nb) => pickRef.current(key, nb), onHover: setHovered,
           onEnter: key => enterRef.current(key), onLeave: () => setInsideKey(null),
+          /* «ماذا لو، باللمس»: السحب لمن يحفظ وحده؛ القراءة لا ترى أي مقبض. */
+          ...(canSave && !narrow ? {
+            canDrag: (key: string) => dragRef.current.can(key),
+            onDragStart: (key: string) => dragRef.current.start(key),
+            onDragOver: (key: string | null, x: number, y: number) => dragRef.current.over(key, x, y),
+            onDrop: (key: string | null) => dragRef.current.drop(key),
+            onDragCancel: () => dragRef.current.cancel(),
+          } : {}),
         });
         sceneRef.current = scene;
         setSceneReady(true);
@@ -619,7 +679,8 @@ export default function HallPulse(props: HallPulseProps) {
       canvas.remove();
       if (labelsRef.current) labelsRef.current.innerHTML = "";
     };
-  }, [flat, hasHalls, layout, reduced, narrow]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flat, hasHalls, layout, reduced, narrow, canSave]);
   useEffect(() => { sceneRef.current?.setVisuals(shown, selected); }, [shown, selected, sceneReady]);
   /* ختم الاعتماد (FR-DSH-037): أول فتحٍ للنبض بعد اعتماد التسجيل جدولَ القسم — نوافذ القاعات كلها معاً بذهب، مرةً واحدة. */
   const sealMoment = usePulseSealMoment({
@@ -924,7 +985,134 @@ export default function HallPulse(props: HallPulseProps) {
     }
   };
 
+  /* ── «ماذا لو، باللمس» (FR-SCH-101): تسحب شعبةً فيتفاعل المشهد قبل أي حفظ ── */
+  /* السحب لرئيس اللجنة على شاشةٍ واسعة، والمشهد على حاله المعتاد (لا خطة ولا معاينة أخرى ولا عرض). */
+  const canWhatIf = canSave && !narrow && !councilOn && cine === "off" && !insideKey && !plan && !pending && !borrow && !regOn && day !== "week";
+  const toneMap = (statuses: Map<string, DropStatus>) => {
+    const out = new Map<string, number>();
+    for (const [key, st] of statuses) if (st.tone !== "same") out.set(key, DROP_HEX[st.tone]);
+    return out;
+  };
+  const applyWhatIfMove = (sessionId: number, to: string, via: "drag" | "list"): DropStatus => {
+    const s = model.sessionById.get(sessionId);
+    const from = assignment.get(sessionId) || s?.hallKey || "";
+    const r = pushWhatIf(model, original, whatIf, sessionId, to);
+    const h = model.hallByKey.get(to);
+    if (!r.accepted || !s || !h) return r.status;
+    stopPlay();
+    setWhatIf(r.stack);
+    setSelected(to); setSheetOpen(true); setNotice(null); setMoveListFor(null);
+    if (via === "list") sceneRef.current?.fly([{ from, to, color: FIT_HEX[fitClass(s.students, h.capacity)] }]);
+    const count = netWhatIf(model, original, r.stack).length;
+    announce(`معاينة فقط: ${sessionLine(s)} في ${hallTitle(h)} — ${r.status.reason}. ${countOf(count, CHANGE)} لم تُحفظ بعد؛ «راجع واحفظ» حين تنتهي.`);
+    return r.status;
+  };
+  dragRef.current = {
+    can: key => canWhatIf && occ.has(key),
+    start: key => {
+      const s = occ.get(key);
+      if (!s) return;
+      stopPlay(); setMoveListFor(null); setReject(null);
+      const statuses = dropStatuses(model, assignment, s.id);
+      dropMapRef.current = statuses;
+      sceneRef.current?.setDropTones(toneMap(statuses));
+      setCarry({ sessionId: s.id, from: key, over: null });
+      const greens = [...statuses.values()].filter(x => x.tone === "green").length;
+      announce(`تحمل ${sessionLine(s)}: ${greens ? `${countOf(greens, AR.room)} خضراء تناسبها` : "لا قاعة خضراء لها الآن"}. أفلتها على قاعةٍ خضراء أو كهرمانية، أو أفلتها في الفراغ لتعود.`);
+    },
+    over: (key, x, y) => {
+      tipAt.current = { x, y };
+      placeChip(tipRef.current, x, y);
+      const c = carryRef.current;
+      if (c && c.over !== key) setCarry({ ...c, over: key });
+    },
+    drop: key => {
+      const c = carryRef.current;
+      sceneRef.current?.setDropTones(null);
+      dropMapRef.current = null;
+      setCarry(null);
+      if (!c || !key || key === c.from) return false;
+      const st = applyWhatIfMove(c.sessionId, key, "drag");
+      if (st.tone === "red") {
+        const h = model.hallByKey.get(key);
+        setReject({ text: `${h ? h.code : ""}: ${st.reason}`, x: tipAt.current.x, y: tipAt.current.y, at: Date.now() });
+        announce(`لم تُنقل: ${h ? hallTitle(h) : "القاعة"} — ${st.reason}. رجعت الشعبة إلى قاعتها.`);
+        return false;
+      }
+      return st.tone !== "same";
+    },
+    cancel: () => { sceneRef.current?.setDropTones(null); dropMapRef.current = null; setCarry(null); },
+  };
+  /* القائمة المفتوحة تلوّن قاعات المجسّم بحالها أيضاً: البديل نفسه بالعين وبلوحة المفاتيح. */
+  const moveList = useMemo(() => (moveListFor != null && canWhatIf ? moveTargets(model, assignment, moveListFor) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [moveListFor, canWhatIf, model, assignment]);
+  useEffect(() => {
+    if (carry) return;
+    sceneRef.current?.setDropTones(moveList ? toneMap(new Map(moveList.map(t => [t.hall.key, t.status]))) : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moveList, sceneReady]);
+  useEffect(() => { if (moveListFor != null && (!canWhatIf || !selSession || selSession.id !== moveListFor)) setMoveListFor(null); }, [moveListFor, canWhatIf, selSession]);
+  useEffect(() => {
+    if (!reject) return;
+    const timer = window.setTimeout(() => setReject(r => (r && r.at === reject.at ? null : r)), 2600);
+    return () => window.clearTimeout(timer);
+  }, [reject]);
+  const undoLast = () => {
+    const last = whatIf[whatIf.length - 1];
+    if (!last) return;
+    sceneRef.current?.fly([{ from: last.to, to: last.from, color: 0xe2bd76 }]);
+    const next = undoWhatIf(whatIf);
+    setWhatIf(next);
+    setSelected(last.from);
+    announce(next.length ? `تراجعتَ عن آخر نقلة؛ بقي ${countOf(netWhatIf(model, original, next).length, CHANGE)} لم تُحفظ.` : "تراجعتَ عن آخر نقلة: المشهد كما في الجدول.");
+  };
+  const discardWhatIf = (quiet = false) => {
+    if (!whatIf.length) return;
+    sceneRef.current?.fly(whatIfNet.slice(0, 24).map(mv => ({ from: mv.to, to: mv.from, color: 0xe2bd76 })));
+    setWhatIf([]); setMoveListFor(null);
+    if (!quiet) announce("أُلغيت كل النقلات، ورجعت كل شعبة إلى قاعتها. لم يُحفظ شيء.");
+  };
+  const reviewWhatIf = () => {
+    if (!whatIfNet.length || !canSave) return;
+    const d = viewDay;
+    const p = whatIfPlan(model, original, whatIf, d);
+    whatIfBackup.current = whatIf;
+    stopPlay(); setMoveListFor(null);
+    setWhatIf([]);
+    setPlanBefore(metrics(model, original, d));
+    setPlan(p); setPlanKind("whatif"); setPlanRev(r => r + 1);
+    announce("مراجعة نقلاتك قبل الحفظ: استبعد ما لا تريده، ثم «حفظ الكل». يعيد الخادم فحص كل نقلة عند الحفظ.");
+    window.setTimeout(() => document.querySelector(".hp-review")?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" }), reduced ? 0 : 450);
+  };
+  /* الخطة التي جاءت من نقلاتك تُغلق بغير حفظ (رجوع، أو يومٌ آخر، أو المسارات): تعود النقلات مكدّساً كما كانت. */
+  useEffect(() => {
+    if (plan || planKind !== "whatif" || !whatIfBackup.current) return;
+    setWhatIf(whatIfBackup.current);
+    whatIfBackup.current = null;
+  }, [plan, planKind]);
+  /* الجدول تغيّر من مكانٍ آخر: كل نقلةٍ صارت لا تصحّ تسقط، ويُقال ذلك. */
+  useEffect(() => {
+    if (!whatIf.length) return;
+    const r = revalidateWhatIf(model, original, whatIf);
+    if (!r.dropped) return;
+    setWhatIf(r.stack);
+    announce(`تغيّر الجدول، فسقط من معاينتك ${countOf(r.dropped, CHANGE)} لم تعد تصحّ.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, original]);
+  /* مغادرة المجسّم بنقلاتٍ لم تُحفظ: الورشة تسأل مرةً واحدة (whatIfGuard)، وإغلاق الصفحة يسأل المتصفح. */
+  const unsavedCount = whatIfNet.length + (plan && planKind === "whatif" ? planMoves(plan).length : 0);
+  useEffect(() => {
+    whatIfGuard.unsaved = unsavedCount;
+    if (!unsavedCount) return;
+    const onUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, [unsavedCount]);
+  useEffect(() => () => { whatIfGuard.unsaved = 0; }, []);
+
   const arrange = () => {
+    if (whatIf.length) { announce("لديك نقلات لم تُحفظ: راجعها واحفظها أو ألغها أولاً، ثم رتّب القاعات."); return; }
     if (day === "week") { setDay(viewDay); }
     stopPlay(); setPending(null); setFreeGlow(false); setBorrow(null); setNotice(null);
     const p = planDay(model, original, viewDay);
@@ -951,6 +1139,7 @@ export default function HallPulse(props: HallPulseProps) {
   };
   /* «ضمّ المساء»: خطةٌ بصيغة «رتّب قاعاتي» تجمع شعب ما بعد الثانية في أقل الطوابق؛ المراجعة والحفظ نفسهما. */
   const gatherEvening = () => {
+    if (whatIf.length) { announce("لديك نقلات لم تُحفظ: راجعها واحفظها أو ألغها أولاً."); return; }
     if (day === "week") { setDay(viewDay); }
     stopPlay(); setPending(null); setFreeGlow(false); setBorrow(null); setNotice(null); setWalk(0);
     const ep = planEvening(model, original, viewDay);
@@ -975,6 +1164,12 @@ export default function HallPulse(props: HallPulseProps) {
     }, reduced ? 0 : 450);
   };
   const cancelPlan = () => {
+    if (plan && planKind === "whatif") {
+      /* الرجوع لا يُلغي: النقلات تعود مكدّساً تُعدَّل (أثر الإغلاق يعيدها). */
+      setPlan(null);
+      announce("رجعتَ إلى نقلاتك: عدّل أو تراجع أو أضف، ثم «راجع واحفظ».");
+      return;
+    }
     if (plan) {
       const pairs = planMoves(plan).map(mv => ({ from: mv.to, to: mv.from, color: 0xe2bd76 }));
       sceneRef.current?.fly(pairs.slice(0, 24));
@@ -991,6 +1186,7 @@ export default function HallPulse(props: HallPulseProps) {
     const ok = await props.onSaveMoves(savedMovesFrom(moves)).catch(() => false);
     setSaving(false);
     if (ok) {
+      whatIfBackup.current = null;
       setPlan(null);
       setNotice({ tone: "ok", text: planKind === "evening" && evening
         ? `حُفظت ${countOf(moves.length, MOVE)}: ${evening.summary}.`
@@ -1192,9 +1388,9 @@ export default function HallPulse(props: HallPulseProps) {
       <div className="hp-metric"><span>{label}</span><div><s>{fmt(a)}</s><b className={(lowerBetter ? b > a : b < a) ? "is-worse" : ""}>{fmt(b)}</b></div></div>
     );
     return (
-      <section className="hp-review" aria-live="polite" aria-label={planKind === "evening" ? "خطة ضمّ المساء" : "خطة ترتيب القاعات"}>
+      <section className="hp-review" aria-live="polite" aria-label={planKind === "evening" ? "خطة ضمّ المساء" : planKind === "whatif" ? "نقلاتك قبل الحفظ" : "خطة ترتيب القاعات"}>
         <header className="hp-review-head">
-          <h3>{planKind === "evening" ? "ضمّ المساء" : "خطة ترتيب القاعات"} · {PULSE_DAYS.find(x => x.key === plan.day)!.label}</h3>
+          <h3>{planKind === "evening" ? "ضمّ المساء" : planKind === "whatif" ? "نقلاتك باللمس" : "خطة ترتيب القاعات"} · {PULSE_DAYS.find(x => x.key === plan.day)!.label}</h3>
           <span><b>{countOf(total, MOVE)}</b> في {countOf(starts.length, { one: "وقت", two: "وقتان", few: "أوقات", many: "وقتاً" })} · لم يُحفظ شيء بعد</span>
         </header>
         {planKind === "evening" && evening ? (
@@ -1244,7 +1440,8 @@ export default function HallPulse(props: HallPulseProps) {
           <span className="hp-fine">كل نقلة مفحوصة هنا على أيام الشعبة كلها: لا قاعة تستقبل شعبتين في الوقت نفسه، ولا تنتقل شعبة إلى قاعة من نوع آخر. ويعيد الخادم الفحص عند الحفظ.</span>
           <div className="hp-row">
             {canSave ? <button type="button" data-guide-ignore="يحفظ نقلات الخطة عبر مسار النقل المعتاد في الورشة" className="hp-btn is-main" disabled={!total || saving || total > 60} onClick={savePlan}>{saving ? "يحفظ…" : `حفظ الكل (${n(total)})`}</button> : null}
-            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" onClick={cancelPlan} disabled={saving}>إلغاء</button>
+            <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn" onClick={cancelPlan} disabled={saving}>{planKind === "whatif" ? "رجوع إلى التعديل" : "إلغاء"}</button>
+            {planKind === "whatif" ? <button data-guide-ignore="يلغي نقلات «ماذا لو» كلها قبل الحفظ؛ لا يكتب شيئاً" type="button" className="hp-btn" disabled={saving} onClick={() => { whatIfBackup.current = null; setPlan(null); announce("أُلغيت كل النقلات، ورجعت كل شعبة إلى قاعتها. لم يُحفظ شيء."); }}>ألغِ الكل</button> : null}
           </div>
           {total > 60 ? <span className="hp-fine">الحفظ الواحد حتى ستين نقلة: استبعد بعضها ثم احفظ.</span> : null}
         </footer>
@@ -1368,11 +1565,38 @@ export default function HallPulse(props: HallPulseProps) {
     const after = metrics(model, assignment, plan.day);
     return (
       <div className="hp-mini-plan" role="status">
-        <strong>{planKind === "evening" ? "ضمّ المساء قبل الحفظ" : "الخطة قبل الحفظ"}</strong>
+        <strong>{planKind === "evening" ? "ضمّ المساء قبل الحفظ" : planKind === "whatif" ? "نقلاتك قبل الحفظ" : "الخطة قبل الحفظ"}</strong>
         {planKind === "evening" && evening ? <span className="hp-mini-evening"><i aria-hidden="true">☾</i> {evening.summary}</span> : null}
         <span><i data-tone="pressed">{FIT_GLYPH.pressed}</i> مضغوطة <s>{n(planBefore.over)}</s> <b>{n(after.over)}</b></span>
         <span><i data-tone="fit">{FIT_GLYPH.fit}</i> تناسب <s>{n(planBefore.pct)}%</s> <b>{n(after.pct)}%</b></span>
         <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-link" onClick={() => document.querySelector(".hp-review")?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" })}>راجع النقلات</button>
+      </div>
+    );
+  })() : null;
+
+  /* «تغييرات لم تُحفظ: N»: الأثر قبل وبعد (المضغوطة، والتناسب، والانتقالات الضيّقة إن كانت المسارات مفتوحة). */
+  const whatIfPill = whatIfNet.length && !plan && !council ? (() => {
+    const imp = whatIfImpact(model, original, assignment, viewDay);
+    const tightAfter = mode === "paths" ? tightCount(paths) : 0;
+    const tightBefore = mode === "paths" ? tightCount(pathsBefore) : 0;
+    const touched = mode === "paths" ? affectedPaths(paths, new Set(whatIfNet.map(mv => mv.sessionId))).length : 0;
+    const delta = (a: number, b: number, lowerBetter: boolean) => <b className={a === b ? "" : (lowerBetter ? b < a : b > a) ? "is-better" : "is-worse"}>{a === b ? "" : <s>{n(a)}</s>}{n(b)}</b>;
+    return (
+      <div className="hp-whatif" role="status" aria-label={`تغييرات لم تُحفظ: ${n(whatIfNet.length)}`}>
+        <div className="hp-whatif-head">
+          <span className="hp-whatif-dot" aria-hidden="true" />
+          <strong>تغييرات لم تُحفظ: <b>{n(whatIfNet.length)}</b></strong>
+        </div>
+        <div className="hp-whatif-delta">
+          <span><i data-tone="pressed" aria-hidden="true">{FIT_GLYPH.pressed}</i> مضغوطة {delta(imp.overBefore, imp.overAfter, true)}</span>
+          <span><i data-tone="fit" aria-hidden="true">{FIT_GLYPH.fit}</i> تناسب {imp.pctBefore === imp.pctAfter ? <b>{n(imp.pctAfter)}%</b> : <b className={imp.pctAfter > imp.pctBefore ? "is-better" : "is-worse"}><s>{n(imp.pctBefore)}%</s>{n(imp.pctAfter)}%</b>}</span>
+          {mode === "paths" ? <span title={touched ? `${countOf(touched, { one: "مسار", two: "مساران", few: "مسارات", many: "مساراً" })} تغيّر بنقلاتك` : undefined}><i data-tone="path" aria-hidden="true">⤳</i> انتقالات ضيّقة {delta(tightBefore, tightAfter, true)}</span> : null}
+        </div>
+        <div className="hp-whatif-actions">
+          <button type="button" className="hp-btn hp-btn-small" onClick={undoLast} data-guide-ignore="يتراجع عن آخر نقلة معاينة؛ لا يكتب شيئاً"><span aria-hidden="true">↶</span> تراجع</button>
+          <button type="button" className="hp-btn hp-btn-small" onClick={() => discardWhatIf()} data-guide-ignore="يلغي نقلات المعاينة كلها؛ لا يكتب شيئاً">ألغِ الكل</button>
+          {canSave ? <button type="button" className="hp-btn hp-btn-small is-main" onClick={reviewWhatIf} data-guide-ignore="يفتح مراجعة النقلات المعتادة؛ الحفظ هناك وحده يكتب عبر مسار النقل المعتاد">راجع واحفظ</button> : null}
+        </div>
       </div>
     );
   })() : null;
@@ -1506,6 +1730,18 @@ export default function HallPulse(props: HallPulseProps) {
               <span>{selSession.students ? <>نحو <b>{countOf(selSession.students, AR.student)}</b> <em className="hp-est" title="سعة المقرر لكل شعبة، لا عدد المسجّلين">تقدير</em></> : "عدد الطلبة غير مسجّل"}{selHall.capacity ? ` في ${countOf(selHall.capacity, AR.seat)}` : ""}</span>
             </div>
             <div className="hp-fine"><bdi dir="ltr">{clockText(selSession.start)}–{clockText(selSession.end)}</bdi> · {selSession.days.map(d => PULSE_DAYS.find(x => x.key === d)!.label).join(" و")}</div>
+            {canWhatIf ? (
+              <button type="button" className="hp-btn hp-moveto-btn" aria-expanded={moveListFor === selSession.id} aria-controls="hp-moveto-list"
+                data-guide-ignore="يفتح قائمة القاعات بحالها لهذه الشعبة؛ الاختيار معاينةٌ لا تحفظ شيئاً حتى «حفظ» في المراجعة"
+                onClick={() => setMoveListFor(v => (v === selSession.id ? null : selSession.id))}>
+                <span aria-hidden="true">⇄</span> انقل إلى…
+              </button>
+            ) : null}
+            {moveList && moveListFor === selSession.id ? <MoveToList targets={moveList} onPick={t => {
+              const st = dropStatus(model, assignment, selSession.id, t.hall.key);
+              if (st.tone === "red") { sceneRef.current?.shake(t.hall.key); announce(`لا تُنقل إلى ${hallTitle(t.hall)}: ${st.reason}.`); return; }
+              applyWhatIfMove(selSession.id, t.hall.key, "list");
+            }} onClose={() => setMoveListFor(null)} /> : null}
           </div>
         ) : (
           <div className="hp-fitline">
@@ -1749,7 +1985,20 @@ export default function HallPulse(props: HallPulseProps) {
                 <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon" onClick={() => sceneRef.current?.resetView()} aria-label="عودة إلى المنظر الكامل">⟲</button>
                 {exploded && !insideKey ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-icon hp-icon-wide" onClick={() => setSelected(null)} aria-label="أعد الطوابق إلى أماكنها">كل الطوابق</button> : null}
               </div>
-              {hovered && !selected && !insideKey && !council && cine === "off" && model.hallByKey.get(hovered) ? <div className="hp-hover" aria-hidden="true">{hoverText(model, occ, hovered, day, heat)}</div> : null}
+              {hovered && !selected && !insideKey && !council && cine === "off" && !carry && model.hallByKey.get(hovered) ? <div className="hp-hover" aria-hidden="true">{hoverText(model, occ, hovered, day, heat)}</div> : null}
+              {carry ? (() => {
+                const st = carry.over ? dropMapRef.current?.get(carry.over) : null;
+                const h = carry.over ? model.hallByKey.get(carry.over) : null;
+                const tone = !carry.over ? "none" : carry.over === carry.from ? "same" : st?.tone || "red";
+                return (
+                  <div className="hp-drag-tip" ref={tipRef} data-tone={tone} aria-hidden="true">
+                    {h && st ? <><i>{DROP_GLYPH[tone as DropTone] || "○"}</i><b>{h.code}</b><span>{carry.over === carry.from ? "قاعتها الآن: أفلتها لتبقى" : st.reason}</span></>
+                      : <span>أفلتها على قاعة، أو هنا لتعود</span>}
+                  </div>
+                );
+              })() : null}
+              {reject && !carry ? <div className="hp-drop-reject" role="status" ref={rejectRef}><i aria-hidden="true">↩</i>{reject.text}</div> : null}
+              {dockPill ? null : whatIfPill}
               {cine !== "off" && nowPoint ? (
                 <div className="hp-hud" role="status" aria-live="off">
                   <span className="hp-hud-clock"><bdi dir="ltr">{clockText(minuteShown)}</bdi><small>{dayLabel}</small></span>
@@ -1760,7 +2009,7 @@ export default function HallPulse(props: HallPulseProps) {
               {comparing ? (
                 <div className="hp-split-layer"><div className="hp-split" style={{ left: `${(split * 100).toFixed(2)}%` }}>
                   <span className="hp-split-line" aria-hidden="true" />
-                  <span className="hp-split-tag is-after" aria-hidden="true">{activeKind === "evening" ? "بعد الضمّ" : "بعد الترتيب"}</span>
+                  <span className="hp-split-tag is-after" aria-hidden="true">{activeKind === "evening" ? "بعد الضمّ" : activeKind === "whatif" ? "بعد نقلاتك" : "بعد الترتيب"}</span>
                   <span className="hp-split-tag is-before" aria-hidden="true">الآن</span>
                   <div className="hp-split-grip" role="slider" tabIndex={0} aria-label="فاصل قبل وبعد: يساره القاعات بعد الترتيب ويمينه القاعات كما هي الآن" aria-orientation="horizontal"
                     aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(split * 100)} aria-valuetext={`بعد الترتيب ${n(split * 100)}% من المشهد`}
@@ -1843,7 +2092,7 @@ export default function HallPulse(props: HallPulseProps) {
           ) : null}
           {!hintSeen && !flat && cine === "off" && !insideKey && !council ? (
             <div className="hp-hint" role="note">
-              <span><b>ابدأ هنا:</b> اضغط قاعة لترى شعبتها، ومرتين لتدخلها · اسحب للتدوير · {narrow ? "قرّب بإصبعين" : "قرّب بالعجلة أو بإصبعين"}</span>
+              <span><b>ابدأ هنا:</b> اضغط قاعة لترى شعبتها، ومرتين لتدخلها · اسحب للتدوير · {narrow ? "قرّب بإصبعين" : "قرّب بالعجلة أو بإصبعين"}{canWhatIf ? " · اضغط مطوّلاً على قاعةٍ مشغولة واسحبها لتنقل شعبتها معاينةً" : ""}</span>
               <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-hint-close" onClick={() => { setHintSeen(true); writeHint(); }} aria-label="إخفاء التلميح">فهمت <span aria-hidden="true">✕</span></button>
             </div>
           ) : null}
@@ -1875,6 +2124,7 @@ export default function HallPulse(props: HallPulseProps) {
             {!regOn ? <small>عدد الطلبة تقدير: سعة المقرر لكل شعبة، لا المسجّلون فعلاً.</small> : regDoc ? <small>ملف «{regDoc.fileName}» · آخر فحص {checkDay(regDoc.at)}</small> : null}
           </div>
           <div className="hp-sheet-body">
+            {dockPill ? whatIfPill : null}
             {planMini}
             {regOn && mode === "halls" ? regPanel : mode === "paths" ? pathsPanel : panel}
           </div>
@@ -1893,12 +2143,12 @@ export default function HallPulse(props: HallPulseProps) {
               </svg>
             </button>
           ) : null}
-          {canSave && mode === "halls" && !regOn ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving || day === "week"}>✦ رتّب قاعاتي</button> : null}
-          {canSave && mode === "halls" && !regOn ? <button data-guide-ignore="يقترح جمع شعب ما بعد الثانية في أقل الطوابق ويفتح مراجعتها؛ معاينة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-evening" onClick={gatherEvening} disabled={Boolean(plan) || saving}
+          {canSave && mode === "halls" && !regOn ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-magic" onClick={arrange} disabled={Boolean(plan) || saving || day === "week" || whatIf.length > 0}>✦ رتّب قاعاتي</button> : null}
+          {canSave && mode === "halls" && !regOn ? <button data-guide-ignore="يقترح جمع شعب ما بعد الثانية في أقل الطوابق ويفتح مراجعتها؛ معاينة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="hp-btn is-evening" onClick={gatherEvening} disabled={Boolean(plan) || saving || whatIf.length > 0}
             title="بعد الثانية ظهراً: اجمع الشعب القليلة في أقل الطوابق، وتنطفئ البقية"><span aria-hidden="true">☾</span> ضمّ المساء</button> : null}
           <label className="hp-range">
             <span className="hp-sr">الساعة</span>
-            {day !== "week" && curve.length ? <DayTimeline curve={curve} peak={peak ? peak.students : 0} minute={minute} worst={worst ? worst.minute : null} start={model.dayStart} end={model.dayEnd} /> : null}
+            {day !== "week" && curve.length ? <DayTimeline curve={curve} before={curveBefore} peak={peak ? peak.students : 0} minute={minute} worst={worst ? worst.minute : null} start={model.dayStart} end={model.dayEnd} /> : null}
             <input data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="range" min={model.dayStart} max={model.dayEnd - 5} step={5} value={minuteShown} disabled={day === "week"}
               aria-valuetext={clockText(minuteShown)}
               onChange={e => { setMinute(Number(e.target.value)); stopPlay(); setPending(null); setFreeGlow(false); }} />
@@ -1914,6 +2164,18 @@ export default function HallPulse(props: HallPulseProps) {
       </div>
     </div>
   );
+}
+
+/** شريحةٌ تتبع الإصبع داخل المسرح: فوقه وبجانبه، وتنقلب حين تقترب من حافته. */
+function placeChip(el: HTMLElement | null, x: number, y: number) {
+  if (!el) return;
+  const host = el.parentElement;
+  const W = host?.clientWidth || 0, H = host?.clientHeight || 0, w = el.offsetWidth, h = el.offsetHeight;
+  let left = x + 16;
+  if (left + w > W - 8) left = Math.max(8, x - 16 - w);
+  let top = y - h - 18;
+  if (top < 8) top = Math.max(8, Math.min(H - h - 8, y + 28));
+  el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
 }
 
 /** قيمة خانةٍ في سطر الطلب: الوقت والقاعة والشعبة من اليسار إلى اليمين كما في تقرير المطابقة. */
@@ -1952,7 +2214,7 @@ function LiveCount({ value }: { value: number }) {
  * الخط الزمني النحيل فوق شريط الساعة: منحنى حضور اليوم، وما تحته أحمر حيث قاعةٌ فوق سعتها،
  * وعلامة أشدّ لحظة، ورأس التشغيل. يُقرأ من اليمين إلى اليسار كشريط الساعة تحته.
  */
-function DayTimeline({ curve, peak, minute, worst, start, end }: { curve: readonly PressurePoint[]; peak: number; minute: number; worst: number | null; start: number; end: number }) {
+function DayTimeline({ curve, before, peak, minute, worst, start, end }: { curve: readonly PressurePoint[]; before?: readonly PressurePoint[] | null; peak: number; minute: number; worst: number | null; start: number; end: number }) {
   const W = 1000, H = 40, base = 34, top = 5;
   const span = Math.max(1, end - 5 - start);
   const x = (m: number) => W - (Math.max(0, Math.min(span, m - start)) / span) * W;
@@ -1966,16 +2228,19 @@ function DayTimeline({ curve, peak, minute, worst, start, end }: { curve: readon
       line += `${i ? " L" : "M"} ${x0} ${yy} L ${x1} ${yy}`;
     });
     area += ` L ${x(end - 5).toFixed(1)} ${base} Z`;
-    const over: Array<[number, number]> = [];
-    curve.forEach((p, i) => {
-      if (!p.over) return;
-      const to = curve[i + 1] ? curve[i + 1].minute : end - 5;
-      const lastSeg = over[over.length - 1];
-      if (lastSeg && lastSeg[1] === p.minute) lastSeg[1] = to; else over.push([p.minute, to]);
-    });
-    return { area, line, over };
+    const segs = (list: readonly PressurePoint[]) => {
+      const out: Array<[number, number]> = [];
+      list.forEach((p, i) => {
+        if (!p.over) return;
+        const to = list[i + 1] ? list[i + 1].minute : end - 5;
+        const lastSeg = out[out.length - 1];
+        if (lastSeg && lastSeg[1] === p.minute) lastSeg[1] = to; else out.push([p.minute, to]);
+      });
+      return out;
+    };
+    return { area, line, over: segs(curve), was: before ? segs(before) : [] };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [curve, peak, start, end]);
+  }, [curve, before, peak, start, end]);
   const hours: number[] = [];
   for (let m = Math.ceil(start / 120) * 120; m < end; m += 120) if (m > start) hours.push(m);
   const head = x(minute);
@@ -1989,6 +2254,7 @@ function DayTimeline({ curve, peak, minute, worst, start, end }: { curve: readon
         <path d={shape.area} fill="url(#hp-tl-fill)" />
         <path d={shape.line} className="hp-tl-line" />
         <line x1={0} x2={W} y1={base + 3} y2={base + 3} className="hp-tl-base" />
+        {shape.was.map(([a, b]) => <line key={`w${a}`} x1={x(a)} x2={x(b)} y1={base + 6.5} y2={base + 6.5} className="hp-tl-was" />)}
         {shape.over.map(([a, b]) => <line key={a} x1={x(a)} x2={x(b)} y1={base + 3} y2={base + 3} className="hp-tl-over" />)}
         {worst != null ? <line x1={x(worst)} x2={x(worst)} y1={top - 3} y2={base + 3} className="hp-tl-worst" /> : null}
         <line x1={head} x2={head} y1={0} y2={H} className="hp-tl-head" />
@@ -2091,6 +2357,52 @@ function FlatBoard({ model, visuals, selected, onPick, day }: { model: PulseMode
           ))}
         </section>
       ))}
+    </div>
+  );
+}
+
+/**
+ * «انقل إلى…»: البديل بلوحة المفاتيح (وفي المسطّح، ولمن لا يرسم جهازه WebGL) — القاعات بحالها
+ * للشعبة أخضر/كهرماني/أحمر وسببها، والأسهم تتنقّل، وEnter يعاين، وEscape يغلق.
+ */
+function MoveToList({ targets, onPick, onClose }: { targets: Array<{ hall: PulseHall; status: DropStatus }>; onPick: (t: { hall: PulseHall; status: DropStatus }) => void; onClose: () => void }) {
+  const listRef = useRef<HTMLUListElement>(null);
+  useEffect(() => { listRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true }); }, []);
+  const counts = { green: 0, amber: 0, red: 0 } as Record<"green" | "amber" | "red", number>;
+  targets.forEach(t => { if (t.status.tone !== "same") counts[t.status.tone]++; });
+  const onKey = (e: React.KeyboardEvent<HTMLUListElement>) => {
+    const items = [...(listRef.current?.querySelectorAll<HTMLButtonElement>("button") || [])];
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    const go = (k: number) => { items[Math.max(0, Math.min(items.length - 1, k))]?.focus(); e.preventDefault(); };
+    if (e.key === "ArrowDown") go(i + 1);
+    else if (e.key === "ArrowUp") go(i - 1);
+    else if (e.key === "Home") go(0);
+    else if (e.key === "End") go(items.length - 1);
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onClose(); }
+  };
+  return (
+    <div className="hp-moveto">
+      <div className="hp-moveto-head">
+        <span><i data-tone="green" aria-hidden="true">●</i> {n(counts.green)}</span>
+        <span><i data-tone="amber" aria-hidden="true">■</i> {n(counts.amber)}</span>
+        <span><i data-tone="red" aria-hidden="true">✕</i> {n(counts.red)}</span>
+        <small>الأسهم للتنقّل، وEnter للمعاينة، وEscape للإغلاق</small>
+      </div>
+      <ul id="hp-moveto-list" className="hp-moveto-list" ref={listRef} onKeyDown={onKey} aria-label="القاعات بحالها لهذه الشعبة">
+        {targets.map(t => (
+          <li key={t.hall.key}>
+            <button type="button" data-tone={t.status.tone} aria-disabled={t.status.tone === "red" || undefined}
+              data-guide-ignore="معاينة نقل الشعبة إلى هذه القاعة؛ لا يُحفظ شيء حتى «حفظ» في المراجعة"
+              aria-label={`${t.hall.code}، ${t.hall.buildingLabel}: ${t.status.tone === "green" ? "تصلح" : t.status.tone === "amber" ? "تصلح بتحفّظ" : "لا تصلح"} — ${t.status.reason}`}
+              onClick={() => onPick(t)}>
+              <i aria-hidden="true">{DROP_GLYPH[t.status.tone]}</i>
+              <b>{t.hall.code}</b>
+              <small>{t.hall.buildingLabel}</small>
+              <span>{t.status.reason}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
