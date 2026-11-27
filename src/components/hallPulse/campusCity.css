@@ -5,18 +5,21 @@
 .cc-view{min-height:clamp(500px,62vh,700px)}
 .cc-view.is-flat{min-height:0}
 
-/* لافتة الحي: اسم القسم بخطٍّ واضح، وسطرُ حاله تحته، وحافةٌ بلون مزاجه. */
-.cc-tag{position:absolute;left:0;top:0;will-change:transform;display:grid;justify-items:center;gap:1px;padding:5px 12px 6px;border-radius:14px;
-  background:rgb(8 24 20 / .8);border:1px solid var(--hp-line);color:var(--hp-ink);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  white-space:nowrap;pointer-events:none;box-shadow:0 10px 30px -16px rgb(0 0 0 / .8);transition:border-color .3s,box-shadow .3s}
-.cc-tag strong{font-size:14px;font-weight:800;line-height:1.5}
-.cc-tag small{font-size:11.5px;color:var(--hp-muted);font-variant-numeric:tabular-nums}
-.cc-tag[data-mood=choke]{border-color:color-mix(in srgb,var(--cc-choke) 70%,transparent)}
-.cc-tag[data-mood=choke] small{color:var(--cc-choke)}
-.cc-tag[data-mood=busy]{border-color:color-mix(in srgb,var(--cc-busy) 55%,transparent)}
-.cc-tag[data-mood=calm]{border-color:color-mix(in srgb,var(--cc-calm) 45%,transparent)}
-.cc-tag.is-lit{border-color:var(--hp-brass);box-shadow:0 0 0 3px rgb(226 189 118 / .18),0 10px 30px -16px rgb(0 0 0 / .8)}
-.cc-tag-building{padding:0;background:transparent;border:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;font-size:11.5px;font-weight:600;color:var(--hp-muted)}
+/* لافتة الحي: صغيرةٌ فوق مبانيه، نقطةٌ بلون مزاجه ثم اسم القسم، وشارة المضغوطة إن وُجدت.
+   لا تكبر على المباني التي تصفها؛ التفصيل في القائمة وبطاقة المرور. */
+.cc-tag{position:absolute;left:0;top:0;will-change:transform;display:inline-flex;align-items:center;gap:6px;max-width:200px;padding:2px 9px 2px 8px;border-radius:999px;
+  background:rgb(8 24 20 / .72);border:1px solid rgb(207 233 223 / .14);color:var(--hp-ink);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  white-space:nowrap;pointer-events:none;box-shadow:0 6px 18px -10px rgb(0 0 0 / .9);transition:border-color .3s,box-shadow .3s,background-color .3s}
+.cc-tag i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--cc-idle);box-shadow:0 0 0 2px rgb(255 255 255 / .06)}
+.cc-tag strong{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:12px;font-weight:700;line-height:1.6}
+.cc-tag b{flex:none;font-size:11px;font-weight:800;color:var(--cc-choke);font-variant-numeric:tabular-nums}
+.cc-tag[data-mood=choke] i{background:var(--cc-choke);box-shadow:0 0 0 3px color-mix(in srgb,var(--cc-choke) 28%,transparent),0 0 10px var(--cc-choke);animation:cc-dot 1.6s ease-in-out infinite}
+.cc-tag[data-mood=choke]{border-color:color-mix(in srgb,var(--cc-choke) 45%,transparent)}
+.cc-tag[data-mood=busy] i{background:var(--cc-busy);box-shadow:0 0 0 3px color-mix(in srgb,var(--cc-busy) 22%,transparent)}
+.cc-tag[data-mood=calm] i{background:var(--cc-calm);box-shadow:0 0 0 3px color-mix(in srgb,var(--cc-calm) 20%,transparent)}
+.cc-tag.is-lit{border-color:var(--hp-brass);background:rgb(14 34 28 / .9);box-shadow:0 0 0 3px rgb(226 189 118 / .18),0 6px 18px -10px rgb(0 0 0 / .9)}
+@keyframes cc-dot{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--cc-choke) 10%,transparent),0 0 14px var(--cc-choke)}}
+.cc-tag-building{padding:0;background:transparent;border:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;font-size:11px;font-weight:600;color:var(--hp-muted)}
 
 /* بطاقة الحي عند المرور. */
 .cc-card{position:absolute;inset-block-end:14px;inset-inline-end:14px;z-index:3;width:min(280px,calc(100% - 28px));display:grid;gap:8px;padding:12px 14px;border-radius:16px;
@@ -107,4 +110,5 @@
 @media (prefers-reduced-motion:reduce){
   .cc-card{animation:none}
   .cc-list button,.cc-bar i,.cc-tag,.cc-plot{transition:none}
+  .cc-tag[data-mood=choke] i{animation:none}
 }

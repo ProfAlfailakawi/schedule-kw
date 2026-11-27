@@ -267,8 +267,10 @@ export const dayIndexOf = (day: PulseDay) => Math.max(0, PULSE_DAYS.findIndex(d 
 
 /* ── المخطّط ────────────────────────────────────────────────────────────── */
 
-export const STREET = 7;
-const EMPTY_PLOT_W = 12, EMPTY_PLOT_D = 9, PLOT_PAD = 2.6;
+/* شوارع ضيّقة وحواف قصيرة: المباني تملأ أرض حيّها، والأحياء متقاربة فتُقرأ مدينةً واحدة
+   لا جزراً متباعدة في أرضٍ خالية. */
+export const STREET = 3.4;
+const EMPTY_PLOT_W = 8, EMPTY_PLOT_D = 6, PLOT_PAD = 1.3;
 
 export interface DistrictSpot {
   dept: number;
