@@ -624,6 +624,13 @@ check(/تقدير/.test(pulse), "عدد الطلبة موسومٌ بأنه تق�
   check(/canSave \? <button[^>]*onClick=\{arrange\}/.test(pulse), "«رتّب قاعاتي» في تعليق أشدّ لحظة لرئيس اللجنة وحده");
   check(/@media \(prefers-reduced-motion:reduce\)\{\s*\.hp-hud,\.hp-caption,\.hp-exit,\.hp-split\{animation:none\}/.test(css), "وحركات الواجهة الجديدة تتوقف مع تقليل الحركة");
 }
+/* المجلس: الفاصل والإطار من القياس نفسه، والفاصل يتبع القياس المتأخّر (لا منتصفاً سابقاً أو افتراضياً). */
+{
+  const src = fs.readFileSync(path.join(process.cwd(), "src/components/hallPulse/HallPulse.tsx"), "utf8");
+  check(/const mid = \(best\.x \+ best\.w \/ 2\) \/ W;\s*councilMidRef\.current = mid;\s*setCouncilMid\(mid\);\s*scene\.setFrame\(best\)/.test(src), "منتصف الفاصل والإطار من مستطيلٍ حرٍّ واحد مقيس");
+  check(/const target = \(\) => \(activeKind === "evening" \? 0\.9 : councilWide \? councilMidRef\.current : 0\.5\)/.test(src) && /setSplit\(0\.04 \+ \(target\(\) - 0\.04\) \* e\)/.test(src), "انزلاق الفاصل يقرأ الهدف في كل إطار");
+  check(/if \(!councilWide \|\| !planId \|\| activeKind === "evening" \|\| splitAnimating\.current\) return;\s*setSplit\(councilMid\);/.test(src) && /\}, \[councilMid\]\);/.test(src), "قياسٌ يصل بعد الانزلاق يضع الفاصل في منتصف المشهد الجديد");
+}
 const reportsRoutes = read("src/server/routes/reportsRoutes.ts");
 const barterRoutes = read("src/server/routes/hallBarterRoutes.ts");
 const roomLoadRoute = reportsRoutes.slice(reportsRoutes.indexOf('app.get("/api/reports/room-load"'));
