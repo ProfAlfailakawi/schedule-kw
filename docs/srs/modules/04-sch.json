@@ -5954,6 +5954,73 @@
         ]
       },
       "inferred": false
+    },
+    {
+      "id": "FR-SCH-101",
+      "kind": "functional",
+      "title": {
+        "ar": "نبض القاعات: «ماذا لو، باللمس» — تسحب شعبةً من قاعةٍ إلى أخرى داخل المجسّم فيتفاعل المشهد قبل أي حفظ",
+        "en": "Hall pulse: «What if, by touch» — drag a section from one hall to another inside the scene and watch everything react before any save"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يتيح لرئيس لجنة الجدول (من يحفظ «رتّب قاعاتي» نفسه) في نبض القاعات بورشة القسم، على الشاشة الواسعة: (1) أن يلتقط شعبةً من قاعتها في لحظة الساعة بضغطةٍ مطوّلة (نحو 300ms باللمس وأقصر بالفأرة) ويسحبها، فيتبع الإصبعَ شبحٌ مضيء بقوسٍ من قاعتها، وتضيء قاعات المجسّم بحالها لهذه الشعبة: أخضر (من نوعها بحكم typeFits، وتتّسع، وفارغة في أيام الشعبة كلها طوال وقتها بحكم hallFreeFor)، وكهرماني (فارغة ومن نوعها لكنها ضيّقة أو واسعة عليها، أو عدد طلبتها غير مسجّل)، وأحمر (نوعٌ آخر، أو لا تتّسع، أو تعارضٌ مع شعبةٍ أو جهةٍ أخرى، أو متخصّصة لقسمٍ آخر، أو سعتها أو إشغالها غير مقروء)؛ والقاعة تحت الإصبع تقول السبب في سطرٍ واحد قصير، وكل لونٍ معه شكل. (2) الإفلات على قاعةٍ خضراء أو كهرمانية معاينةٌ فورية بحالة المعاينة نفسها التي تستعملها «رتّب قاعاتي»: ألوان الملاءمة، وعدّادات اللحظة، ومنحنى ضغط اليوم (مع خطٍّ منقّط لما كان فوق السعة قبلها)، وإن كانت «مسارات التنقّل» مفتوحة فمسارات الأساتذة والدفعات وتنبيهات الانتقال الضيّق تُعاد قراءتها حيّةً؛ والإفلات على الأحمر أو في الفراغ يعيد الشبح إلى قاعته بهزّةٍ لطيفة (وومضةٍ بدلها مع تقليل الحركة) والسبب ظاهر، ولا يتغيّر شيء. (3) شريطٌ «تغييرات لم تُحفظ: N» (الصافي من الجدول إلى آخر نقلة؛ شعبةٌ رجعت إلى قاعتها تسقط) بأثره قبل وبعد (المضغوطة، ونسبة التناسب، والانتقالات الضيّقة متى فُتحت المسارات)، مع «تراجع» عن آخر نقلة، و«ألغِ الكل»، و«راجع واحفظ» الذي يحوّل الصافي إلى خطةٍ بصيغة «رتّب قاعاتي» (DayPlan، والنقلة التي تدخل قاعةً أفرغتها أخرى تعتمد عليها) في لوحة المراجعة ذاتها بنقلاتٍ تُستبعد واحدةً واحدة، وتُحفظ من مسار النقل المعتاد (/api/schedules/move-batch) الذي يعيد فحص التعارض على الخادم؛ و«رجوع إلى التعديل» يعيد النقلات كما كانت. لا شيء يُكتب قبل «حفظ» في المراجعة، ولا مسار خادمٍ جديد. (4) البديل بلوحة المفاتيح (وفي العرض المسطّح ولمن لا يرسم جهازه WebGL): اختيار شعبةٍ ثم «انقل إلى…» يفتح قائمة القاعات بالحال نفسها وسببها، الأخضر أولاً، والأسهم تتنقّل وEnter يعاين وEscape يغلق، والمجسّم يتلوّن بها معاً. (5) إصبعان يبقيان للقرص والتدوير متى لم تُحمل شعبة، وإصبعٌ ثانٍ أثناء الحمل يعيدها؛ والهاتف للقراءة كما هو (لا سحب)؛ ولا يرى العميد ولا عدسة التقارير ولا الأستاذ أي مقبض سحب. (6) مغادرة «مجسّم» إلى عرضٍ آخر بنقلاتٍ لم تُحفظ تُسأل مرةً واحدة بتأكيد البرنامج المعتاد («لديك نقلات لم تُحفظ»، والبقاء هو الاختيار الآمن)، وإغلاق الصفحة يسأل المتصفح؛ وتغيّرُ الجدول من مكانٍ آخر يُسقط من المعاينة ما لم يعد يصحّ ويقول ذلك. لا يتّسع من يرى النبض، ولا رقم مدنيّ.",
+        "en": "The system shall let the schedule committee chair (whoever saves «Arrange my halls») in the department workshop's hall pulse, on a wide screen: (1) pick up the section occupying a hall at the scene clock with a long press (about 300 ms by touch, shorter with a mouse) and drag it — a glowing ghost follows the pointer on an arc from its hall, and the scene's halls light up by their status for that section: green (its type by typeFits, enough seats, free on all the section's days for its whole time by hallFreeFor), amber (free and of its type but tight or oversized, or the section's student count is unknown), red (another type, too small, a clash with a section or another unit, specialised for another department, or capacity/occupancy not read); the hall under the pointer states why in one short line, and every colour carries a shape. (2) Dropping on a green or amber hall is an immediate preview through the same preview state «Arrange my halls» uses: fit colours, the moment's counters, the day's pressure curve (with a dotted line for what was over capacity before), and — when «Movement paths» is open — teacher and cohort paths and their tight-transition warnings recompute live; dropping on red or empty ground returns the ghost to its hall with a gentle shake (a flash under reduced motion) and the reason shown, changing nothing. (3) A «Unsaved changes: N» bar (the net from the timetable to the last move; a section moved back drops out) with its before/after effect (pressed sections, fit ratio, and tight transitions when paths are open), with «Undo» for the last move, «Discard all», and «Review and save», which turns the net into a plan in the «Arrange my halls» format (DayPlan, a move into a hall vacated by another depends on it) in the same review panel with moves excluded one by one, saved through the usual move route (/api/schedules/move-batch), which re-checks clashes on the server; «Back to editing» restores the moves as they were. Nothing is written before «Save» in the review, and there is no new server route. (4) The keyboard alternative (also in the flat view and where WebGL is unavailable): select a section, then «Move to…» opens the list of halls with the same status and reason, green first; arrows move, Enter previews, Escape closes, and the scene is coloured along with it. (5) Two fingers keep pinching and rotating the camera when nothing is carried, and a second finger while carrying returns the section; the phone stays read-only (no dragging); the dean, the reports lens and teachers never see a drag affordance. (6) Leaving «Scene» for another view with unsaved moves asks once through the program's usual confirm («You have unsaved moves», staying is the safe choice), and closing the page asks the browser; a timetable change from elsewhere drops from the preview whatever no longer holds and says so. No widening of who sees the pulse, and no civil ID."
+      },
+      "rationale": {
+        "ar": "رئيس اللجنة يفكّر بيده: أن يرى أثر نقل شعبةٍ على الضغط والتعارضات وتنقّل الأساتذة والطلبة قبل أن يكتب شيئاً، أسرع وأوضح من تجربة النقل في الجدول ثم التراجع.",
+        "en": "The chair thinks with his hands: seeing what moving a section does to pressure, clashes and teacher/student movement before writing anything is faster and clearer than trying the move in the timetable and undoing it."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair"
+      ],
+      "acceptance": [
+        {
+          "ar": "سحب شعبة 41 طالباً من قاعة 30: القاعة المشغولة في وقتها حمراء «تتعارض مع … يوم الأحد 10:00»، والمختبر أحمر لأن النوع آخر، والقاعة الصغيرة حمراء «لا تتّسع»، والفارغة المناسبة خضراء.",
+          "en": "Dragging a 41-student section out of a 30-seat hall: the hall busy at its time is red «clashes with … on Sunday 10:00», the lab is red for another type, the small hall is red «too small», and the free suitable hall is green."
+        },
+        {
+          "ar": "قاعةٌ فارغة الأحد ومشغولة الثلاثاء حمراء لشعبة أحد·ثلاثاء·خميس، والسبب يذكر الثلاثاء.",
+          "en": "A hall free on Sunday but busy on Tuesday is red for a Sunday·Tuesday·Thursday section, and the reason names Tuesday."
+        },
+        {
+          "ar": "إفلاتٌ صالح يغيّر عدّاد المضغوطة ومنحنى اليوم فوراً بلا حفظ، و«تراجع» يعيد ما قبله، والشعبة التي رجعت إلى قاعتها تسقط من «تغييرات لم تُحفظ».",
+          "en": "A valid drop changes the pressed counter and the day's curve at once without saving; «Undo» restores what was before; a section moved back drops out of «Unsaved changes»."
+        },
+        {
+          "ar": "سلسلة: شعبةٌ تتنحّى ثم تدخل المضغوطة قاعتها — المراجعة نقلتان، والداخلة تعتمد على المتنحّية، واستبعاد التنحّي يستبعدها؛ ولا حجز مزدوج في أي حال.",
+          "en": "A chain: one section steps aside then the pressed one takes its hall — the review shows two moves, the incoming depends on the outgoing, excluding the outgoing excludes it; never a double booking."
+        },
+        {
+          "ar": "مع «مسارات التنقّل» مفتوحة: نقل محاضرة أستاذٍ من مبنى آخر بفجوة 5 دقائق إلى مبناه يزيل الانتقال الضيّق والذهاب والإياب، والشريط يقول «انتقالات ضيّقة 1 ← 0».",
+          "en": "With «Movement paths» open: moving a teacher's lecture from another building with a 5-minute gap into his building removes the tight transition and the ping-pong, and the bar shows «tight transitions 1 → 0»."
+        },
+        {
+          "ar": "الإفلات على الأحمر يعيد الشبح بهزّة والسبب ظاهر ولا يتغيّر شيء؛ و«انقل إلى…» بالأسهم وEnter يعطي النتيجة نفسها بلا فأرة.",
+          "en": "Dropping on red returns the ghost with a shake and the reason shown, changing nothing; «Move to…» with arrows and Enter gives the same result without a mouse."
+        },
+        {
+          "ar": "لا مقبض سحب للعميد ولا في عدسة التقارير ولا على الهاتف؛ والحفظ الوحيد «حفظ الكل» في المراجعة عبر move-batch؛ ومغادرة «مجسّم» بنقلاتٍ معلّقة تسأل مرةً واحدة.",
+          "en": "No drag affordance for the dean, in the reports lens or on the phone; the only save is «Save all» in the review through move-batch; leaving «Scene» with pending moves asks once."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/pulseWhatIf.ts#dropStatus",
+          "src/utils/pulseWhatIf.ts#pushWhatIf",
+          "src/utils/pulseWhatIf.ts#whatIfPlan",
+          "src/utils/pulseWhatIf.ts#revalidateWhatIf",
+          "src/components/hallPulse/HallPulse.tsx",
+          "src/components/hallPulse/pulseScene.ts",
+          "src/components/Schedules.tsx"
+        ],
+        "tests": [
+          "tests/hall-pulse-audit.ts",
+          "tests/movement-paths-audit.ts"
+        ]
+      },
+      "inferred": false
     }
   ],
   "edgeCases": [

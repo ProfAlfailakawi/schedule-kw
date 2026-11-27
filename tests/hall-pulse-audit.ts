@@ -22,6 +22,9 @@ import { liveSectionTexts } from "../src/utils/registrarCheck";
 import type { RegistrarRequestItem } from "../src/utils/registrarRequest";
 import { councilKey, councilNext, councilTour, eveningMood } from "../src/utils/hallPulseCouncil";
 import { clockText as clockTextOf } from "../src/utils/hallPulse";
+import {
+  LONG_PRESS_MOUSE_MS, LONG_PRESS_TOUCH_MS, WHATIF_MAX, applyWhatIf, dropStatus, dropStatuses, moveTargets, netWhatIf, pushWhatIf, revalidateWhatIf, undoWhatIf, whatIfImpact, whatIfPlan,
+} from "../src/utils/pulseWhatIf";
 import { busiestEveningMinute, eveningFootprint, eveningSummary, floorKeyOf, isEveningSession, planEvening, EVENING_START } from "../src/utils/hallPulseEvening";
 
 let passed = 0, failed = 0;
@@ -572,6 +575,85 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   check(/\(context === "workshop" \|\| context === "dean"\) && !narrow && !phoneDevice \? \(\s*<button[^>]*hp-council-btn/.test(pulseSrc), "الزرّ في الورشة وبطاقة العميد، ولا يظهر على الهاتف");
   check(/requestFullscreen/.test(pulseSrc) && /fullscreenchange/.test(pulseSrc) && /setCouncil\(\{ index: 0, paused: reduced \}\)/.test(pulseSrc), "ملء الشاشة وخروجه، ومع تقليل الحركة لا تتقدّم الجولة وحدها");
   check(/\/api\/term-film\$\{context === "dean" \? "\/college" : ""\}/.test(pulseSrc), "الختام من مسار فيلم الفصل الموجود ببوابته (لا مسار جديد)");
+}
+
+/* ── «ماذا لو، باللمس» (FR-SCH-101): حكم الإفلات، والمكدّس، والصافي خطةً للمراجعة ── */
+{
+  const s1 = model.sessionById.get(1)!; // 41 في 104 (30): مضغوطة، أحد·ثلاثاء·خميس 10:00
+  const s7 = model.sessions.find(s => s.hallKey === "id:rL2")!; // مختبر الاثنين 08:00
+  const k = (id: string) => `id:${id}`;
+  check(dropStatus(model, base, s1.id, k("r104")).tone === "same", "قاعتها الآن: لا لون إفلات");
+  const clash = dropStatus(model, base, s1.id, k("r301"));
+  check(clash.tone === "red" && /تتعارض مع مقدمة/.test(clash.reason) && /الأحد/.test(clash.reason), `قاعةٌ مشغولة في وقتها: حمراء بسببٍ يسمّي الشعبة واليوم (${clash.reason})`);
+  check(/نوعها/.test(dropStatus(model, base, s1.id, k("rL1")).reason) && dropStatus(model, base, s1.id, k("rL1")).tone === "red", "مختبرٌ لشعبةٍ نظرية: أحمر لأن النوع آخر");
+  check(dropStatus(model, base, s1.id, k("rX")).tone === "red" && /متخصّصة/.test(dropStatus(model, base, s1.id, k("rX")).reason), "قاعةٌ متخصّصة لقسمٍ آخر: حمراء");
+  check(/لا تتّسع/.test(dropStatus(model, base, s1.id, k("r304")).reason), "قاعةٌ من النوع لا تتّسع: حمراء بسبب السعة");
+  const s2 = model.sessions.find(s => s.hallKey === "id:r301")!;
+  check(/الثلاثاء/.test(dropStatus(model, base, s2.id, k("r304")).reason), "304 فارغة الأحد ومشغولة الثلاثاء: حمراء، والسبب يوم الثلاثاء (أيام الشعبة كلها)");
+  check(dropStatus(model, base, s7.id, k("rL1")).tone === "green", "مختبرٌ فارغ يوم الشعبة ويناسبها: أخضر");
+  const targets = moveTargets(model, base, s1.id);
+  const ranks = targets.map(t => ({ green: 0, amber: 1, red: 2, same: 3 })[t.status.tone]);
+  check(targets.length === model.halls.length - 1 && ranks.every((r, i) => !i || ranks[i - 1] <= r), "«انقل إلى…»: كل القاعات عدا قاعتها، الأخضر ثم الكهرماني ثم الأحمر");
+  check([...dropStatuses(model, base, s1.id).values()].every(st => st.reason.length > 0 && st.reason.length < 90), "لكل قاعةٍ سببٌ في سطرٍ واحد قصير");
+
+  /* المكدّس: نقلةٌ حمراء لا تدخل، والرجوع إلى القاعة الأولى يُسقطها من الصافي، والتراجع يعيد ما قبلها. */
+  const red = pushWhatIf(model, base, [], s1.id, k("r301"));
+  check(!red.accepted && red.stack.length === 0, "الإفلات على الأحمر لا يغيّر شيئاً");
+  const one = pushWhatIf(model, base, [], s7.id, k("rL1"));
+  check(one.accepted && applyWhatIf(base, one.stack).get(s7.id) === k("rL1") && base.get(s7.id) === k("rL2"), "النقلة معاينةٌ على نسخة: الجدول الأصلي كما هو");
+  const back = pushWhatIf(model, base, one.stack, s7.id, k("rL2"));
+  check(back.accepted && back.stack.length === 2 && netWhatIf(model, base, back.stack).length === 0, "شعبةٌ رجعت إلى قاعتها تسقط من «تغييرات لم تُحفظ»");
+  check(undoWhatIf(back.stack).length === 1 && netWhatIf(model, base, undoWhatIf(back.stack))[0].to === k("rL1"), "«تراجع» يعيد ما قبل آخر نقلة");
+
+  /* الكهرماني، والسلسلة: تُفرغ قاعة ثم تُملأ، والصافي خطةٌ بصيغة «رتّب قاعاتي» باعتمادٍ صحيح. */
+  let q = 3000;
+  const r = (course: number, room: string) => ({ id: q++, AdSectionId: 9, AdCourseId: course, fstarttime: "09:00", fendtime: "10:00", roomId: room, fsunday: true });
+  const reg = { buildings: registry.buildings, rooms: [
+    { id: "a", buildingId: "b1", canonicalCode: "101", capacity: 30 },
+    { id: "b", buildingId: "b1", canonicalCode: "102", capacity: 20 },
+    { id: "c", buildingId: "b1", canonicalCode: "103", capacity: 100 },
+    { id: "d", buildingId: "b1", canonicalCode: "104", capacity: 55 },
+  ] };
+  const cs = [{ AdCourseId: 1, MaxStudent: 41 }, { AdCourseId: 2, MaxStudent: 18 }, { AdCourseId: 3 }];
+  const m = buildPulseModel({ rows: [r(1, "a"), r(2, "d"), r(3, "b")], courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+  const b0 = originalAssignment(m);
+  check(dropStatus(m, b0, 3001, "id:c").tone === "amber" && /واسعة/.test(dropStatus(m, b0, 3001, "id:c").reason), "قاعةٌ فارغة واسعة على الشعبة: كهرمانية");
+  check(dropStatus(m, b0, 3002, "id:c").tone === "amber" && /غير مسجّل/.test(dropStatus(m, b0, 3002, "id:c").reason), "شعبةٌ بلا عدد طلبة: كهرمانية لا خضراء");
+  check(dropStatus(m, b0, 3000, "id:d").tone === "red", "المضغوطة لا تدخل قاعةً مشغولة (104) قبل أن تُفرغ");
+  /* 18 تتنحّى من 104 (55) إلى 101؟ مشغولة؛ إلى 103 الواسعة (كهرماني)، ثم تدخل المضغوطة 104. */
+  let st = pushWhatIf(m, b0, [], 3001, "id:c").stack;
+  const into = pushWhatIf(m, b0, st, 3000, "id:d");
+  check(into.accepted && into.status.tone === "green", "بعد أن تفرغ 104 تصير خضراء للمضغوطة");
+  st = into.stack;
+  const after = applyWhatIf(b0, st);
+  check(doubleBookings(m, after).length === 0, "المعاينة لا تحجز قاعةً لشعبتين أبداً");
+  const imp = whatIfImpact(m, b0, after, "fsunday");
+  check(imp.overBefore === 1 && imp.overAfter === 0, `المضغوطة في اليوم تقلّ فور الإفلات (${imp.overBefore} ← ${imp.overAfter})`);
+  const plan2 = whatIfPlan(m, b0, st, "fsunday");
+  const gIn = plan2.groups.find(g => g.moves[0].sessionId === 3000)!, gOut = plan2.groups.find(g => g.moves[0].sessionId === 3001)!;
+  check(plan2.groups.length === 2 && gIn.deps.includes(gOut.id) && !gOut.deps.length, "الصافي خطةٌ بنقلتين، والداخلة تعتمد على التي أفرغت لها القاعة");
+  check(planMoves(plan2).every(mv => mv.from === b0.get(mv.sessionId)), "كل نقلةٍ في الخطة من قاعة الجدول (لا من قاعةٍ وسيطة)");
+  toggleGroup(plan2, gOut.id, false);
+  check(!gIn.on && doubleBookings(m, applyPlan(b0, plan2)).length === 0, "استبعاد نقلة التنحّي في المراجعة يستبعد ما يعتمد عليها");
+  /* الجدول تغيّر من مكانٍ آخر: شعبةٌ جديدة في 103 تُسقط النقلة إليها وما بُني عليها. */
+  const m2 = buildPulseModel({ rows: [{ ...r(1, "a"), id: 3000 }, { ...r(2, "d"), id: 3001 }, { ...r(3, "b"), id: 3002 }, { ...r(2, "c"), id: 3999 }], courses: cs, registry: reg, includeUnusedRegistryHalls: true });
+  const rv = revalidateWhatIf(m2, originalAssignment(m2), st);
+  check(rv.dropped === 2 && rv.stack.length === 0, "إعادة الفحص تُسقط ما لم يعد يصحّ (والمبنيّ عليه)");
+  check(LONG_PRESS_TOUCH_MS === 300 && LONG_PRESS_MOUSE_MS < LONG_PRESS_TOUCH_MS && WHATIF_MAX === 60, "ضغطةٌ مطوّلة 300ms باللمس وأقصر بالفأرة، وحدّ الحفظ الواحد ستون");
+
+  /* التوصيل: السحب لمن يحفظ وحده، والمراجعة والحفظ هما الموجودان، ولا كتابة جديدة. */
+  const src = fs.readFileSync(path.join(process.cwd(), "src/components/hallPulse/HallPulse.tsx"), "utf8");
+  const sceneSrc = fs.readFileSync(path.join(process.cwd(), "src/components/hallPulse/pulseScene.ts"), "utf8");
+  const util = fs.readFileSync(path.join(process.cwd(), "src/utils/pulseWhatIf.ts"), "utf8");
+  const sched = fs.readFileSync(path.join(process.cwd(), "src/components/Schedules.tsx"), "utf8");
+  check(/\.\.\.\(canSave && !narrow \? \{\s*canDrag:/.test(src) && /const canWhatIf = canSave && !narrow && !councilOn && cine === "off" && !insideKey && !plan && !pending && !borrow && !regOn && day !== "week"/.test(src), "السحب لرئيس اللجنة على شاشةٍ واسعة وحده: لا مقبض للعميد ولا للتقارير ولا على الهاتف");
+  check(/can: key => canWhatIf && occ\.has\(key\)/.test(src), "تُلتقط شعبةٌ تشغل قاعتها في لحظة الساعة وحدها");
+  check(/const p = whatIfPlan\(model, original, whatIf, d\)/.test(src) && /setPlanKind\("whatif"\)/.test(src) && /const ok = await props\.onSaveMoves\(savedMovesFrom\(moves\)\)/.test(src), "«راجع واحفظ» يفتح المراجعة الموجودة، والحفظ من مسارها المعتاد");
+  check(!/fetch\(|XMLHttpRequest|sendBeacon/.test(util) && (src.match(/method: "POST"/g) || []).length === 1, "لا كتابة جديدة: لا طلب في حكم الإفلات، والطلب المرسَل الوحيد في الشاشة ما زال طلب الاستعارة");
+  check(/if \(!councilOn\) for \(const mv of whatIf\) a\.set\(mv\.sessionId, mv\.to\)/.test(src) && /tightCount\(pathsBefore\)/.test(src) && /pressureCurve\(model, original, viewDay\)/.test(src), "الإسناد نفسه يغذّي الألوان والعدّادات والمنحنى والمسارات، و«قبل» للمقارنة");
+  check(/this\.cancelPress\(\);\s*if \(this\.carry\) this\.endCarry\(false\);/.test(sceneSrc) && /e\.pointerType === "mouse" \? 180 : 300/.test(sceneSrc), "إصبعٌ ثانٍ يعيد الكاميرا للقرص والتدوير ويُعيد المحمولة؛ والالتقاط بضغطةٍ مطوّلة");
+  check(/aria-label="القاعات بحالها لهذه الشعبة"/.test(src) && /e\.key === "ArrowDown"/.test(src) && /e\.key === "Escape"/.test(src) && /انقل إلى…/.test(src), "البديل بلوحة المفاتيح: «انقل إلى…» بالأسهم وEnter وEscape");
+  check(/whatIfGuard\.unsaved > 0/.test(sched) && /لديك نقلات لم تُحفظ/.test(sched) && /safeCancel: true/.test(sched) && /beforeunload/.test(src), "مغادرة المجسّم بنقلاتٍ لم تُحفظ تُسأل مرةً واحدة، وإغلاق الصفحة يسأل المتصفح");
 }
 
 /* ── التوصيل ── */

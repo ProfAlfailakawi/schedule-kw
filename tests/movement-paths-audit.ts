@@ -14,6 +14,7 @@ import { buildPulseModel, hallFreeFor, layoutHalls, originalAssignment, type Pul
 import {
   BUILDING_CHANGE_MIN, LONG_IDLE_GAP_MIN, TIGHT_BUILDING_GAP_MIN, buildPaths, hopScore, markerAt, nearerHalls, rankHops, walkEstimate, pulseCohortsAccess,
 } from "../src/utils/movementPaths";
+import { affectedPaths, applyWhatIf, dropStatus, pushWhatIf, tightCount } from "../src/utils/pulseWhatIf";
 
 let passed = 0, failed = 0;
 function check(condition: boolean, name: string) {
@@ -148,6 +149,25 @@ check(/تقدير/.test(pulse) && /HOP_FLAG_LABEL/.test(pulse), "المشي مو
   check(/verdict === 403[\s\S]*sectionPlanFacts\(sectionId\)/.test(route) && /levelGroups: facts\.levelGroups\.map\(group => \(\{ courseIds: group\.courseIds \}\)\)/.test(route), "ولا يُقرأ شيءٌ قبل الحكم، ولا يعود إلا أرقام مقررات كل مستوى");
   check(!/Repository\.(save|set|update|delete|add|create|write)/i.test(route) && !/app\.(post|put|patch|delete)\("\/api\/reports\/pulse-cohorts/.test(reports), "قراءةٌ فقط: لا كتابة في المسار");
   check(/context !== "workshop" && context !== "dean"/.test(pulse) && /\/api\/reports\/pulse-cohorts/.test(pulse) && /cohortState\.scope === nameScope/.test(pulse), "العميد يرى مسارات الدفعات أيضاً، وما جُلب لقسمٍ لا يُعرض لغيره");
+}
+
+/* ── «ماذا لو، باللمس» (FR-SCH-101): المسارات وتنبيهاتها تُعاد قراءتها على نقلات المعاينة ── */
+{
+  /* الأستاذ 7: شعبة 301 (مبنى آخر بفجوة 5 دقائق) تُسحب إلى 103 في المبنى الأول — فارغةٌ 09:20؟ لا: 103 مشغولة 09:30 للأستاذ 8، فتُسحب إلى 201 بدلها. */
+  const s301 = model.sessions.find(s => s.hallKey === key("r301"))!;
+  check(dropStatus(model, base, s301.id, key("r103")).tone === "red" && /تتعارض/.test(dropStatus(model, base, s301.id, key("r103")).reason), "103 مشغولة 09:30 للأستاذ 8: حمراء بسبب التعارض");
+  const to201 = dropStatus(model, base, s301.id, key("r201"));
+  check(to201.tone === "green", `201 فارغة ومن النوع وتتّسع: خضراء (${to201.reason})`);
+  const pushed = pushWhatIf(model, base, [], s301.id, key("r201"));
+  const after = applyWhatIf(base, pushed.stack);
+  const pathsAfter = buildPaths(model, after, layout, "fsunday", { instructorName: names, cohorts });
+  const t7After = pathsAfter.find(x => x.id === "t:7")!;
+  check(pushed.accepted && t7After.stops[1].hallKey === key("r201"), "المسار يمرّ بالقاعة الجديدة فور المعاينة");
+  check(!t7After.hops[0].flags.includes("tight") && !t7After.hops[1].flags.includes("pingpong"), "زال الانتقال الضيّق والذهاب والإياب بعد النقلة");
+  check(tightCount(paths) > tightCount(pathsAfter), `الانتقالات الضيّقة تقلّ (${tightCount(paths)} ← ${tightCount(pathsAfter)})`);
+  check(affectedPaths(pathsAfter, new Set([s301.id])).map(p => p.id).join() === "t:7", "المسار المتأثّر بالنقلة هو مسار أستاذها وحده");
+  check(rankHops(pathsAfter).every(r => r.path.id !== "t:7" || !r.hop.flags.includes("tight")), "«أصعب التنقلات» يُعاد ترتيبه بلا انتقال الأستاذ 7 الضيّق");
+  check(buildPaths(model, base, layout, "fsunday", { instructorName: names, cohorts }).find(x => x.id === "t:7")!.hops[0].flags.includes("tight"), "والجدول الأصلي لم يتغيّر: المعاينة نسخة");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

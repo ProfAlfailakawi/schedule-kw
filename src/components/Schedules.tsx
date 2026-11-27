@@ -89,6 +89,7 @@ import {
   Box,
 } from "lucide-react";
 import HallPulseLazy, { type HallPulseMove } from "./hallPulse/HallPulseLazy";
+import { whatIfGuard } from "../utils/pulseWhatIf";
 import { fingerprintFocusHref, openInApp, takePulseFocus, type PulseFocus } from "../utils/pulseLink";
 import { DnaCount, DnaStatusHeader } from "./dna";
 import RegistrarCheckNote, { undoRowIds } from "./RegistrarCheckNote";
@@ -2925,6 +2926,19 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     const requested = value === "week" ? "week" : value === "rooms" ? "rooms" : value === "pulse" ? "pulse" : "list";
     /* الهاتف: القائمة افتراضاً، والعروض الواسعة للقراءة؛ و«مجسّم» يُفتح عليه للقراءة بطلبه. */
     const next = phoneReadOnly ? (requested === "pulse" ? "pulse" : "list") : requested;
+    /* «ماذا لو، باللمس» (FR-SCH-101): مغادرة «مجسّم» بنقلاتٍ لم تُحفظ تُسأل مرةً واحدة، والبقاء هو الاختيار الآمن. */
+    if (viewMode === "pulse" && next !== "pulse" && whatIfGuard.unsaved > 0) {
+      const count = whatIfGuard.unsaved;
+      void visualConfirm({
+        title: "لديك نقلات لم تُحفظ",
+        message: `${countOf(count, { one: "نقلة", two: "نقلتان", few: "نقلات", many: "نقلة" })} في المجسّم لم تُحفظ بعد، وستُلغى إن غادرته الآن.`,
+        confirmLabel: "غادر دون حفظ",
+        cancelLabel: "ابقَ في المجسّم",
+        tone: "warning",
+        safeCancel: true,
+      }).then(leave => { if (leave) { whatIfGuard.unsaved = 0; changeView(value); } });
+      return;
+    }
 
     // Any move between list / week / rooms starts clean: every filter from the
     // previous view is dropped so the next board never opens partially filtered.
