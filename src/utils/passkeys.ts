@@ -96,15 +96,19 @@ function serverFailure(data: any, status: number): PasskeyError {
   return new PasskeyError("failed", text || (status === 429 ? "محاولات كثيرة جداً. حاول بعد دقيقة." : PASSKEY_TEXT.failed));
 }
 
+/* رفضُ «الصفحة بلا تركيز» فوريٌّ قبل أن تظهر النافذة؛ أما إلغاءُ صاحب الجهاز (✕) فيأتي بعد أن رآها.
+   وفي غلاف iOS يحمل الاثنان النصَّ العامّ نفسه («… in the current context …»)، فالزمنُ هو الفيصل. */
+const NOT_FOCUSED_WITHIN_MS = 1200;
+
 /** ما يرميه المتصفحُ حين يُلغي صاحبُ الجهاز أو تنتهي المهلة. */
-function browserFailure(error: any): PasskeyError {
+function browserFailure(error: any, elapsedMs = 0): PasskeyError {
   if (error instanceof PasskeyError) return error;
   const name = String(error?.name || "");
   if (name === "NotAllowedError" || name === "AbortError") {
     const failure = new PasskeyError("cancelled", PASSKEY_TEXT.cancelled);
     /* الصفحةُ بلا تركيز (داخل تطبيق iOS): تُعلَّم لتعيدها المحاولةُ التلقائية حين تستلم التركيز. */
-    /* رفضٌ لأن الصفحة لم تجهز بعد (لا إلغاءٌ من صاحبها): «not focused» أو «not allowed … in the current context». */
-    (failure as any).notFocused = /not focused|current context/i.test(String(error?.message || "")) && !/cancel/i.test(String(error?.message || ""));
+    /* رفضٌ لأن الصفحة لم تجهز بعد (لا إلغاءٌ من صاحبها): «not focused» أو «not allowed … in the current context»، وفوريّ. */
+    (failure as any).notFocused = /not focused|current context/i.test(String(error?.message || "")) && !/cancel/i.test(String(error?.message || "")) && elapsedMs < NOT_FOCUSED_WITHIN_MS;
     return failure;
   }
   if (name === "NotSupportedError" || name === "SecurityError") return new PasskeyError("unsupported", PASSKEY_TEXT.unsupported);
@@ -112,19 +116,40 @@ function browserFailure(error: any): PasskeyError {
   return new PasskeyError("failed", PASSKEY_TEXT.failed);
 }
 
+/* نافذةُ الدخول الجارية: تُغلق إن دخل صاحبُ الجهاز بطريقٍ آخر («تجربة النظام» أو كلمة السر). */
+let loginAbort: AbortController | null = null;
+const abortedFailure = () => { const failure = new PasskeyError("cancelled", PASSKEY_TEXT.cancelled); (failure as any).aborted = true; return failure; };
+/** يُغلق نافذةَ الدخول بالبصمة الجارية (إن وُجدت)، فلا تبقى فوق جلسةٍ فُتحت بغيرها. */
+export function abortPasskeyLogin(): void {
+  const pending = loginAbort;
+  loginAbort = null;
+  try { pending?.abort(); } catch { /* متصفحٌ قديم */ }
+}
+
 /** الدخولُ بالبصمة: يعود ببيانات الجلسة كما يعيدها الدخولُ بكلمة السر. */
 export async function loginWithPasskey(): Promise<any> {
   if (!(await passkeySupported())) throw new PasskeyError("unsupported", PASSKEY_TEXT.unsupported);
-  const asked = await post("/api/auth/passkey/login/options", {});
-  if (!asked.ok) throw serverFailure(asked.data, asked.status);
-  let credential: PublicKeyCredential | null;
+  const controller = typeof AbortController === "undefined" ? null : new AbortController();
+  loginAbort = controller;
   try {
-    credential = (await navigator.credentials.get({ publicKey: {
-      challenge: toBytes(asked.data.challenge), rpId: asked.data.rpId, timeout: asked.data.timeout,
-      userVerification: "required", allowCredentials: (asked.data.allowCredentials || []).map(descriptor),
-    } })) as PublicKeyCredential | null;
-  } catch (error) { throw browserFailure(error); }
-  if (!credential) throw new PasskeyError("cancelled", PASSKEY_TEXT.cancelled);
+    const asked = await post("/api/auth/passkey/login/options", {});
+    if (controller?.signal.aborted) throw abortedFailure();
+    if (!asked.ok) throw serverFailure(asked.data, asked.status);
+    let credential: PublicKeyCredential | null;
+    const startedAt = Date.now();
+    try {
+      credential = (await navigator.credentials.get({ publicKey: {
+        challenge: toBytes(asked.data.challenge), rpId: asked.data.rpId, timeout: asked.data.timeout,
+        userVerification: "required", allowCredentials: (asked.data.allowCredentials || []).map(descriptor),
+      }, ...(controller ? { signal: controller.signal } : {}) })) as PublicKeyCredential | null;
+    } catch (error) { throw controller?.signal.aborted ? abortedFailure() : browserFailure(error, Date.now() - startedAt); }
+    if (controller?.signal.aborted) throw abortedFailure();
+    if (!credential) throw new PasskeyError("cancelled", PASSKEY_TEXT.cancelled);
+    return await finishPasskeyLogin(credential);
+  } finally { if (loginAbort === controller) loginAbort = null; }
+}
+
+async function finishPasskeyLogin(credential: PublicKeyCredential): Promise<any> {
   const reply = credential.response as AuthenticatorAssertionResponse;
   const verified = await post("/api/auth/passkey/login/verify", { response: {
     id: credential.id, rawId: toText(credential.rawId), type: credential.type,

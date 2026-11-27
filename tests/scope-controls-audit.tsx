@@ -72,7 +72,7 @@ check("شاشة الدخول ترحب بالمستخدم الجديد وتعرض
   assert(login.includes('knownLogin ? "أكمل من حيث توقفت" : "سجّل دخولك للبدء"'));
   assert(login.includes('localStorage.getItem(`schedule-login-seen:${login}`) === "1"'));
   assert(login.includes('localStorage.setItem(`schedule-login-seen:${login}`, "1")'));
-  assert(login.indexOf("rememberLogin(data.user?.SystemUserLogin") < login.indexOf("onLoginSuccess(data)"));
+  assert(login.indexOf("rememberLogin(data.user?.SystemUserLogin") < login.indexOf("signedIn(data);"));
 });
 check("أحدث فصل أُنشئ يبقى فارغًا، والفصل الأقدم الفارغ يختفي", () => {
   const terms = [{ AdTermId: 11, AdTermName: "الفصل الثاني 2026/2027", AdTermClosed: false }, { ...term, AdTermClosed: false }, { AdTermId: 9, AdTermName: "الفصل الثاني 2025/2026", AdTermClosed: true }];
