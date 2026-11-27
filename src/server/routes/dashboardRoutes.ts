@@ -15,6 +15,7 @@ import { expandScopeSections } from "../readScope";
 import { AR, countOf } from "../../utils/arabicCount";
 import { withVisitingSuffix } from "../../utils/visitingText";
 import { formatScheduleTimeRange } from "../../utils/scheduleTime";
+import { kuwaitClock } from "../../utils/roomNow";
 import { type AuthenticatedRequest, requireAnyPermission, requireAuth } from "../core/auth";
 import { academicStartYear } from "../core/hallBarter";
 import { sortArabicNamed, sortCoursesByName, sortTermsNewestServer, verifiedRoomKey } from "../core/ordering";
@@ -73,7 +74,10 @@ app.get("/api/dashboard", requireAuth, async (req: AuthenticatedRequest, res: Re
   // Therefore Sunday, Friday and Saturday retain Sunday's rows while dname stays blank.
   // `weekend` lets the screen say so out loud instead of labelling Sunday's
   // lectures with Friday's date, which is what the client's own clock did.
-  const weekday = new Date().getDay();
+  // The day is Kuwait's, not the server's: the service runs in UTC, so between
+  // midnight and 03:00 on a Friday it still read Thursday and showed Thursday's
+  // lectures as «اليوم» on a holiday.
+  const weekday = kuwaitClock(new Date()).day;
   const weekend = weekday === 5 || weekday === 6;
   let dayKey: "fsunday" | "fmonday" | "ftuesday" | "fwednesday" | "fthursday" = "fsunday";
   let dayName = weekday === 0 ? "الأحد" : weekday === 5 ? "الجمعة" : weekday === 6 ? "السبت" : "";

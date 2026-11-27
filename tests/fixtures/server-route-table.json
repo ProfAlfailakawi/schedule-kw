@@ -632,8 +632,8 @@
    ],
    "path": "/api/dashboard",
    "name": "bound dispatch",
-   "call": "b32cbc12edaad1ad",
-   "site": "src/server/routes/dashboardRoutes.ts:51",
+   "call": "c19c79dff86e65f5",
+   "site": "src/server/routes/dashboardRoutes.ts:52",
    "regexp": "/^\\/api\\/dashboard\\/?$/i",
    "end": true
   },
@@ -645,7 +645,7 @@
    "path": "/api/journey",
    "name": "bound dispatch",
    "call": "b1408c0c60980943",
-   "site": "src/server/routes/dashboardRoutes.ts:290",
+   "site": "src/server/routes/dashboardRoutes.ts:294",
    "regexp": "/^\\/api\\/journey\\/?$/i",
    "end": true
   },
@@ -657,7 +657,7 @@
    "path": "/api/search",
    "name": "bound dispatch",
    "call": "4761049eb1ac86f9",
-   "site": "src/server/routes/dashboardRoutes.ts:338",
+   "site": "src/server/routes/dashboardRoutes.ts:342",
    "regexp": "/^\\/api\\/search\\/?$/i",
    "end": true
   },
@@ -669,7 +669,7 @@
    "path": "/api/search/natural",
    "name": "bound dispatch",
    "call": "d512ab2fb1567d66",
-   "site": "src/server/routes/dashboardRoutes.ts:388",
+   "site": "src/server/routes/dashboardRoutes.ts:392",
    "regexp": "/^\\/api\\/search\\/natural\\/?$/i",
    "end": true
   },

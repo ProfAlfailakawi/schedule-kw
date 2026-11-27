@@ -11458,6 +11458,29 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
     historicalChoice ||
     mobileViewGate
   );
+  /*
+    The dock stands aside while the page's own quick-search row passes behind it.
+    On a phone the dock rides just above the tab bar, and on first load the
+    «بحث سريع» row sits exactly in that band — the floating «+» and search covered
+    the very field they duplicate. Only the bottom band of the window is watched,
+    so the dock is back the moment the row scrolls on; the CSS acts on phones only.
+  */
+  const [dockTucked, setDockTucked] = useState(false);
+  useEffect(() => {
+    const row = searchRef.current?.closest(".schedule-quick-search");
+    if (!row || dockSuppressed || typeof IntersectionObserver === "undefined") { setDockTucked(false); return; }
+    let io: IntersectionObserver | null = null;
+    const watch = () => {
+      io?.disconnect();
+      const band = 170;
+      io = new IntersectionObserver(entries => setDockTucked(entries.some(entry => entry.isIntersecting)),
+        { rootMargin: `-${Math.max(0, window.innerHeight - band)}px 0px 0px 0px` });
+      io.observe(row);
+    };
+    watch();
+    window.addEventListener("resize", watch);
+    return () => { window.removeEventListener("resize", watch); io?.disconnect(); };
+  }, [dockSuppressed, viewMode]);
   const liveEditors = peers.filter(peer => peer.editing).length;
   const liveHolders = peers.filter(peer => peer.holding).length;
   const liveCollaborators = peers.filter(peer => peer.cell || peer.holding || peer.editing).length;
@@ -14364,7 +14387,7 @@ export default function Schedules({ mode, user, scopes = [], permissions = [], s
         room the audience is not meant to be steering.
       */}
       {!dockSuppressed ? (
-        <nav className="schedule-dock no-print" aria-label="أدوات الجدول السريعة">
+        <nav className={`schedule-dock no-print${dockTucked ? " is-tucked" : ""}`} aria-label="أدوات الجدول السريعة">
           <div className="dock-views" role="group" aria-label="طريقة العرض">
             <button
               type="button" className={viewMode === "list" ? "on" : ""} aria-pressed={viewMode === "list"}

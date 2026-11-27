@@ -308,6 +308,11 @@ export default function HallPulse(props: HallPulseProps) {
   const councilOn = Boolean(council);
   /* الشاشة العريضة: التعليق في جانبٍ والمباني في الآخر؛ وما دون 900 التعليق أسفلها بعرضها فلا إزاحة. */
   const councilWide = councilOn && !narrow && typeof window !== "undefined" && window.innerWidth > 900;
+  /* منتصف المستطيل الحرّ أفقياً (نسبةً من اللوحة): فيه يقف فاصل «قبل وبعد» في المجلس. */
+  const councilMidRef = useRef(0.5);
+  /* القياس يقع بعد رسم الخطوة، فيُحفظ في حالةٍ أيضاً ليتبعه الفاصل متى تغيّر (لا القيمة السابقة). */
+  const [councilMid, setCouncilMid] = useState(0.5);
+  const splitAnimating = useRef(false);
   const tour = useMemo(() => (councilOn ? councilTour(model, original, viewDay, { dayLabel: PULSE_DAYS.find(x => x.key === viewDay)!.label, closing: councilClosing, college: context === "dean" && !sectionId }) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [councilOn, model, original, viewDay, councilClosing]);
@@ -641,19 +646,27 @@ export default function HallPulse(props: HallPulseProps) {
     /* الفاصل يدخل من اليمين كاشفاً «بعد الترتيب» حتى المنتصف؛ و«ضمّ المساء» يمسح المشهد كله تقريباً
        كأن الأضواء تنطفئ طابقاً بعد طابق، ويبقى شريط «الآن» على الطرف يُسحب متى شئت. */
     /* في المجلس تنزاح المباني يساراً عن التعليق: الفاصل في وسطها لا في وسط الشاشة. */
-    const to = activeKind === "evening" ? 0.9 : councilWide ? 0.31 : 0.5;
-    if (reduced) { setSplit(to); return; }
+    /* الهدف يُقرأ في كل إطار: قياس المستطيل الحرّ قد يصل أثناء الانزلاق. */
+    const target = () => (activeKind === "evening" ? 0.9 : councilWide ? councilMidRef.current : 0.5);
+    if (reduced) { setSplit(target()); return; }
     let raf = 0; const t0 = performance.now();
+    splitAnimating.current = true;
     const step = (now: number) => {
       const u = Math.min(1, (now - t0) / (activeKind === "evening" ? 1900 : 1100)), e = 1 - Math.pow(1 - u, 3);
-      setSplit(0.04 + (to - 0.04) * e);
-      if (u < 1) raf = requestAnimationFrame(step);
+      setSplit(0.04 + (target() - 0.04) * e);
+      if (u < 1) raf = requestAnimationFrame(step); else splitAnimating.current = false;
     };
     setSplit(0.04);
     raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    return () => { cancelAnimationFrame(raf); splitAnimating.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, reduced, councilWide]);
+  /* المجلس: إذا وصل قياس المستطيل الحرّ بعد انتهاء الانزلاق، يقف الفاصل في منتصف المشهد المؤطَّر الجديد. */
+  useEffect(() => {
+    if (!councilWide || !planId || activeKind === "evening" || splitAnimating.current) return;
+    setSplit(councilMid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [councilMid]);
   /* العرض والكاميرا: تعود إلى المنظر الكامل حين ينتهي، وتقترب من القاعة عند أشدّ لحظة. */
   useEffect(() => {
     const scene = sceneRef.current;
@@ -691,6 +704,14 @@ export default function HallPulse(props: HallPulseProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [insideKey, sceneReady]);
   useEffect(() => { if (insideKey && insideData) sceneRef.current?.setInterior(insideData); }, [insideKey, insideData]);
+  /* اختيار قاعةٍ لها سعة يجهّز مظلّلات «القاعة من الداخل» في الخلفية، فيكون «ادخل القاعة» فورياً في الغالب. */
+  useEffect(() => {
+    const h = selected ? model.hallByKey.get(selected) : null;
+    if (!h?.capacity || flat || !sceneReady) return;
+    const L = seatLayout(h.capacity, occ.get(h.key)?.students || 0);
+    if (L) sceneRef.current?.prepareInterior({ layout: L, color: 0x7fb3a3, standTag: "", sun: 0.5 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, flat, sceneReady]);
   useEffect(() => { if (insideKey && (flat || selected !== insideKey || !model.hallByKey.get(insideKey)?.capacity)) setInsideKey(null); }, [insideKey, flat, selected, model]);
   useEffect(() => {
     if (!insideKey) return;
@@ -1061,7 +1082,36 @@ export default function HallPulse(props: HallPulseProps) {
     const timer = window.setTimeout(() => setCouncil(c => (c ? { ...c, index: Math.min(tour.steps.length - 1, c.index + 1) } : c)), councilStep.seconds * 1000);
     return () => window.clearTimeout(timer);
   }, [council, councilStep, tour]);
-  useEffect(() => { sceneRef.current?.setShift(councilWide ? 0.2 : 0); }, [councilWide, sceneReady]);
+  /* «وضع المجلس» على الشاشة العريضة: المشهد يُؤطَّر في أكبر مستطيلٍ حرّ لا يغطّيه التعليق (يساره أو فوقه)،
+     ويُعاد القياس مع كل خطوة (يتغيّر طول التعليق) ومع تغيّر حجم الشاشة. */
+  useEffect(() => {
+    const scene = sceneRef.current, view = viewRef.current;
+    if (!scene || !view) return;
+    if (!councilWide) { scene.setFrame(null); councilMidRef.current = 0.5; setCouncilMid(0.5); return; }
+    const measure = () => {
+      const cap = view.querySelector<HTMLElement>(".hp-council-caption"), top = view.querySelector<HTMLElement>(".hp-council-top");
+      const W = view.clientWidth, H = view.clientHeight;
+      if (!cap || !W || !H) return;
+      const gap = 20, y0 = top ? top.offsetTop + top.offsetHeight + 8 : 0;
+      const cx = cap.offsetLeft, cy = cap.offsetTop, cw = cap.offsetWidth;
+      const leftW = cx - gap, rightW = W - (cx + cw) - gap;
+      const side = leftW >= rightW ? { x: 0, y: y0, w: leftW, h: H - y0 } : { x: cx + cw + gap, y: y0, w: rightW, h: H - y0 };
+      const above = { x: 0, y: y0, w: W, h: cy - gap - y0 };
+      /* المباني أعرض من ارتفاعها: يُفضَّل المستطيل الذي يتّسع لها أكبر (العرض على 2.2 أو الارتفاع، أيهما أضيق). */
+      const score = (r: { w: number; h: number }) => Math.min(r.w / 2.2, r.h);
+      const best = score(side) >= score(above) ? side : above;
+      const mid = (best.x + best.w / 2) / W;
+      councilMidRef.current = mid;
+      setCouncilMid(mid);
+      scene.setFrame(best);
+    };
+    const raf = requestAnimationFrame(measure);
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(view);
+    const cap = view.querySelector(".hp-council-caption");
+    if (cap) ro.observe(cap);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+  }, [councilWide, sceneReady, council?.index]);
   useEffect(() => {
     if (!councilOn) return;
     const onKey = (e: KeyboardEvent) => {

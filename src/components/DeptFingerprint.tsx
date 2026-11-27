@@ -270,6 +270,10 @@ function Stage({ data, span, dark, ring, onRing, link, label, svgRef }: {
     link.onOpenPulse({ ...link.scope, hall: key, day: slot.day, at: slot.start });
   };
   const place = (x: number, y: number) => ({ left: `clamp(124px, ${(x / V.width) * 100}%, calc(100% - 124px))`, top: `${(y / V.height) * 100}%` });
+  /* بطاقة الحلقة خارج قرص الحلقات كله: فوقه إن كانت محاضرتها في نصفه الأعلى، وتحته إن كانت في الأسفل،
+     فلا تغطّي زهرة القلب ولا الحلقات الداخلية أياً كانت القاعة. (على الهاتف تنزل تحت الملصق؛ في CSS.) */
+  const ringUp = ringAt ? ringAt.y < V.cy : false;
+  const ringEdge = ringUp ? V.cy - geo.outer - 22 : V.cy + geo.outer + 22;
   const keep = (event: React.SyntheticEvent) => event.stopPropagation();
   return <figure className="dfp-stage">
     {label ? <figcaption>{label}</figcaption> : null}
@@ -292,8 +296,8 @@ function Stage({ data, span, dark, ring, onRing, link, label, svgRef }: {
           <Box aria-hidden="true" /><span>اذهب إليها في النبض</span>
         </button> : null}
       </div> : null}
-      {ringHall && ringAt ? <div className={`dfp-tip dfp-ring-tip${ringAt.y / V.height < 0.42 ? " is-below" : ""}${link ? " is-pinned" : ""}`} role="status"
-        style={place(ringAt.x, ringAt.y)} onClick={keep}>
+      {ringHall && ringAt ? <div className={`dfp-tip dfp-ring-tip${ringUp ? "" : " is-below"}${link ? " is-pinned" : ""}`} role="status"
+        style={place(ringAt.x, ringEdge)} onClick={keep}>
         <strong>القاعة <bdi dir="ltr">{ringHall.name}</bdi></strong>
         <span>{countOf(Math.round(ringHall.minutes / 6) / 10, AR.hour)} في الأسبوع · {countOf(ringHall.slots.length, AR.lecture)}</span>
         {ringSlot ? <span>أقرب محاضرة: {FINGERPRINT_DAYS[ringSlot.day]} <bdi dir="ltr">{fingerprintClock(ringSlot.start)}</bdi></span> : null}

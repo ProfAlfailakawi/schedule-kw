@@ -365,6 +365,12 @@ ol.hp-toplist b{font-variant-numeric:tabular-nums;text-align:end}
 
 .hp-veil{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;
   background:radial-gradient(circle at 50% 56%,color-mix(in srgb,var(--hp-veil-c,#4fd3a1) 46%,#0b1f1b) 0%,#0b1f1b 72%)}
+/* الستار ينتظر تجهيز القاعة: نصٌّ هادئ في وسط المشهد بدل فراغٍ صامت. */
+.hp-veil{display:grid;place-items:center}
+.hp-veil-wait{opacity:0;font-size:14px;font-weight:700;color:rgb(240 243 239 / .82);padding:6px 16px;border-radius:999px;background:rgb(8 24 20 / .5);border:1px solid rgb(255 255 255 / .14)}
+.hp-veil.is-waiting .hp-veil-wait{opacity:1;animation:hp-veil-breathe 1.6s ease-in-out infinite}
+@keyframes hp-veil-breathe{50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){ .hp-veil.is-waiting .hp-veil-wait{animation:none} }
 .hp-labels.is-inside .hp-tag:not(.hp-tag-inside){display:none}
 .hp-tag-inside{direction:rtl;background:rgb(240 103 79 / .9);border-color:rgb(255 255 255 / .5);color:#fff;font-size:13px;box-shadow:0 8px 22px -10px rgb(240 103 79 / .9)}
 
@@ -406,6 +412,19 @@ ol.hp-toplist b{font-variant-numeric:tabular-nums;text-align:end}
   .hp-caption.is-inside strong,.hp-caption.is-inside .hp-inside-course{display:none}
   .hp-exit{min-height:38px;font-size:14px}
   .hp-split-grip{width:44px;height:44px}
+}
+/* القاعة من الداخل: التعليق أعلى المشهد تحت «اخرج»، لا أسفله؛ فأسفل المشهد يقع تحت شريط الأدوات العائم
+   وتنبيه الطلبات، وقد ينزل تحت حافة الشاشة حين تطول اللوحة الجانبية. */
+.hp-caption.is-inside{inset-block:64px auto}
+/* اللوحة الضيّقة (iPad طولاً والدوو): الورقة تحت المشهد تحمل اسم القاعة ومقررها، فيكفي التعليق سطر العدد والواقفين. */
+.hp-stage.is-narrow .hp-caption.is-inside{padding:8px 12px;gap:2px;font-size:12.5px}
+.hp-stage.is-narrow .hp-caption.is-inside strong,.hp-stage.is-narrow .hp-caption.is-inside .hp-inside-course{display:none}
+/* وما فوق الهاتف: أدوات التقريب عمودٌ على الطرف الآخر، فيُترك لها عرضها من الجانبين. */
+@media (min-width:561px){ .hp-caption.is-inside{width:min(580px,calc(100% - 136px))} }
+@media (max-height:480px){ .hp-caption.is-inside{inset-block-start:60px} }
+/* الحاسوب الواسع: في صفّ «اخرج» نفسه بين الزرّ وأدوات التقريب. */
+@media (min-width:1200px) and (min-height:481px){
+  .hp-stage:not(.is-narrow) .hp-caption.is-inside{inset-block-start:12px;width:min(580px,calc(100% - 248px))}
 }
 @media (prefers-reduced-motion:reduce){
   .hp-hud,.hp-caption,.hp-exit,.hp-split{animation:none}
