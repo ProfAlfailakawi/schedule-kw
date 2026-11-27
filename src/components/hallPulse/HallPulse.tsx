@@ -174,10 +174,13 @@ export default function HallPulse(props: HallPulseProps) {
   const timeline = useTimeline({ collegeId, sectionId, termId }, tmAllowed);
   const tmTerms = useMemo(() => timeline || [], [timeline]);
   const [tmOpen, setTmOpen] = useState(false);
-  const [pastLoaded, setPastLoaded] = useState<ReadonlyMap<number, { rows: PulseRowInput[]; load: any }>>(new Map());
+  /* مفتاح كل فصلٍ سابق يحمل الكلية والقسم: تبديل القسم والمشهد قائم لا يُبقي صفوف القسم السابق. */
+  const pastKey = useCallback((term: number) => `${collegeId}:${sectionId}:${term}`, [collegeId, sectionId]);
+  const [pastLoaded, setPastLoaded] = useState<ReadonlyMap<string, { rows: PulseRowInput[]; load: any }>>(new Map());
   const pastLoadedRef = useRef(pastLoaded);
   pastLoadedRef.current = pastLoaded;
-  const tmReady = useCallback((index: number) => { const t = tmTerms[index]; return !t || t.current || pastLoadedRef.current.has(t.termId); }, [tmTerms]);
+  useEffect(() => { setPastLoaded(new Map()); }, [collegeId, sectionId]);
+  const tmReady = useCallback((index: number) => { const t = tmTerms[index]; return !t || t.current || pastLoadedRef.current.has(pastKey(t.termId)); }, [tmTerms, pastKey]);
   const tmReduced = useMemo(prefersReduced, []);
   const tmScrub = useTermScrub(tmTerms.length, { reduced: tmReduced, ready: tmReady, perTermMs: 1500 });
   const tmNear = tmOpen ? tmTerms[tmScrub.point.nearest] || null : null;
@@ -228,17 +231,20 @@ export default function HallPulse(props: HallPulseProps) {
     if (!tmOpen || !registry || tmTerms.length < 2) return;
     const ids = (Array.isArray((registry as any)?.rooms) ? (registry as any).rooms : []).map((room: any) => String(room?.id || "")).filter(Boolean);
     const wanted = [tmScrub.point.from, tmScrub.point.to, ...(tmScrub.playing ? [tmScrub.point.to + 1] : [])]
-      .map(i => tmTerms[i]).filter(t => t && !t.current && !pastLoadedRef.current.has(t.termId));
+      .map(i => tmTerms[i]).filter(t => t && !t.current && !pastLoadedRef.current.has(pastKey(t.termId)));
     for (const t of wanted) {
+      const key = pastKey(t!.termId);
       readPastTerm(collegeId, sectionId, t!.termId, ids).then(data => {
-        if (data) setPastLoaded(current => (current.has(t!.termId) ? current : new Map(current).set(t!.termId, data)));
+        if (data) setPastLoaded(current => (current.has(key) ? current : new Map(current).set(key, data)));
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tmOpen, registry, tmTerms, tmScrub.point.from, tmScrub.point.to, tmScrub.playing, collegeId, sectionId]);
   /* ما لم تصل مواعيد الفصل المطلوب يبقى آخر فصلٍ وصل على المشهد، فلا يفرغ ولا يومض. */
   const lastPast = useRef<{ rows: PulseRowInput[]; load: any } | null>(null);
-  const pastNow = past ? pastLoaded.get(viewTermId) || lastPast.current : null;
+  const lastPastScope = useRef("");
+  if (lastPastScope.current !== `${collegeId}:${sectionId}`) { lastPastScope.current = `${collegeId}:${sectionId}`; lastPast.current = null; }
+  const pastNow = past ? pastLoaded.get(pastKey(viewTermId)) || lastPast.current : null;
   if (pastNow) lastPast.current = pastNow;
   if (!past) lastPast.current = null;
   const rows = pastNow ? pastNow.rows : props.rows || ownRows || [];
@@ -254,10 +260,17 @@ export default function HallPulse(props: HallPulseProps) {
   const narrow = useNarrow();
   /* الهاتف (ومنه iPhone Duo مفتوحاً): لا «وضع المجلس» — العرض لجهاز العرض في الاجتماع. */
   const phoneDevice = useMemo(isPhoneDevice, []);
-  /* المخطّط المكاني يتبع قائمة القاعات وحدها: حفظُ نقلةٍ يغيّر الألوان لا المباني، فلا يُعاد بناء المشهد. */
-  const hallsKey = model.halls.map(h => `${h.key}:${h.floor}`).join("|");
+  /* المخطّط المكاني يتبع قاعات الفصل الجاري وحدها: نقلةٌ تُحفظ أو فصلٌ سابق في «آلة الزمن» يغيّر الألوان لا المباني،
+     فلا يُعاد بناء المشهد ولا يضيع منظر المستخدم؛ قاعةٌ لم تعد في السجل (tx:) من فصلٍ سابق لا تُضاف إليه. */
+  const currentRows = props.rows || ownRows || [];
+  const sceneModel: PulseModel = useMemo(() => (pastNow ? buildPulseModel({
+    rows: currentRows, courses, registry, roomLoad, instructorName: props.instructorName,
+    dayStart: Number(roomLoad?.dayStart) || 8 * 60, dayEnd: Number(roomLoad?.dayEnd) || 20 * 60,
+    includeUnusedRegistryHalls: Boolean(sectionId), requireOccupancyCheck: true,
+  }) : model), [pastNow ? 1 : 0, currentRows, courses, registry, roomLoad, props.instructorName, sectionId, model]);
+  const hallsKey = sceneModel.halls.map(h => `${h.key}:${h.floor}`).join("|");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const layout = useMemo(() => layoutHalls(model.halls, narrow ? { perRow: 4, cols: 1 } : { perRow: model.halls.length > 60 ? 10 : 6 }), [hallsKey, narrow]);
+  const layout = useMemo(() => layoutHalls(sceneModel.halls, narrow ? { perRow: 4, cols: 1 } : { perRow: sceneModel.halls.length > 60 ? 10 : 6 }), [hallsKey, narrow]);
 
   const defaults = useMemo(() => todayDefaults(model.dayStart, model.dayEnd), [model.dayStart, model.dayEnd]);
   const [day, setDay] = useState<PulseDay | "week">(defaults.day);
@@ -2004,7 +2017,7 @@ export default function HallPulse(props: HallPulseProps) {
   const tmPanel = tmOpen && tmTerms.length >= 2 ? (
     <div className={`hp-tm${past ? " is-past" : ""}`}>
       <TermScrubber terms={tmTerms} position={tmScrub.position} playing={tmScrub.playing} compact
-        busy={Boolean(tmNear && !tmNear.current && !pastLoaded.has(tmNear.termId))}
+        busy={Boolean(tmNear && !tmNear.current && !pastLoaded.has(pastKey(tmNear.termId)))}
         onScrub={tmScrub.scrub} onRelease={tmScrub.release} onStep={tmScrub.go} onPlay={() => tmScrub.setPlaying(!tmScrub.playing)} />
       {past ? <p className="hp-tm-note" role="status">فصلٌ سابق — للقراءة: لا ترتيب ولا «ماذا لو» ولا ضمّ مساء ولا حفظ. الألوان في اليوم والساعة نفسيهما، والقاعة الباهتة لم يستعملها القسم في ذلك الفصل.</p> : null}
     </div>

@@ -156,4 +156,9 @@ assert.ok(/\}, \[flat, hasHalls, layout, reduced, narrow, canSaveRole\]\);/.test
 const scene = source("src/components/hallPulse/pulseScene.ts");
 assert.ok(/absent\?: boolean/.test(scene) && /presK/.test(scene) && /hp-tag-scar/.test(scene), "القاعة تذوي وتعود، والندوب على لافتتها");
 
+/* مراجعة: فصول القسم السابق لا تبقى بعد تبديل القسم، وقاعات فصلٍ سابق لا تعيد بناء المشهد. */
+assert.ok(/const pastKey = useCallback\(\(term: number\) => `\$\{collegeId\}:\$\{sectionId\}:\$\{term\}`/.test(pulse) && /useEffect\(\(\) => \{ setPastLoaded\(new Map\(\)\); \}, \[collegeId, sectionId\]\)/.test(pulse), "مفتاح الفصل السابق يحمل الكلية والقسم، ويُفرَّغ عند تبديلهما");
+assert.ok(!/pastLoaded(?:Ref\.current)?\.(?:has|get)\((?:t!?\.termId|viewTermId|tmNear\.termId)\)/.test(pulse), "ولا بحث برقم الفصل وحده");
+assert.ok(/const layout = useMemo\(\(\) => layoutHalls\(sceneModel\.halls/.test(pulse) && /const hallsKey = sceneModel\.halls/.test(pulse), "المخطّط من قاعات الفصل الجاري: فصلٌ سابق لا يعيد بناء المشهد");
+
 console.log("term-timeline-audit: ok");
