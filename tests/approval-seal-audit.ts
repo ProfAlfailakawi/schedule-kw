@@ -123,7 +123,7 @@ const css = source("src/styles/approval-seal.css");
 assert.ok(/pointer-events:none/.test(css) && /@media print\{\.asm,\.hp-seal-moment\{display:none!important\}\}/.test(css), "لا تلتقط المؤشر ولا تُطبع");
 assert.ok(/prefers-reduced-motion:reduce/.test(css), "تقليل الحركة");
 const fp = source("src/components/DeptFingerprint.tsx");
-assert.ok(/seal=\{beforeSeal\}/.test(fp) && /seal=\{answer\?\.seal \|\| null\}/.test(fp), "في المقارنة لكل فصلٍ ختمه");
+assert.ok(/seal=\{beforeSeal\}/.test(fp) && /seal=\{\(tmOn \? shown\?\.seal : answer\?\.seal\) \|\| null\}/.test(fp), "في المقارنة لكل فصلٍ ختمه");
 const dash = source("src/components/Dashboard.tsx");
 assert.ok(/homeMoment\(\{seal:sealMode,opening:mode\}\)/.test(dash) && /skipOpeningToday\)writeOpeningSeen/.test(dash), "الرئيسية تحسم الختم قبل الافتتاحية");
 assert.ok(/sealScopeKey=filmScope\?\.version==="dept"/.test(dash), "لأصحاب جدول القسم وحدهم");

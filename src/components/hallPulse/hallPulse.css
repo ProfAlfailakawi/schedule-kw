@@ -695,3 +695,23 @@ ol.hp-reg-halls small{color:var(--hp-muted);font-size:12px}
   .hp-whatif-dot{animation:none}
   .hp-moveto-list button{transition:none}
 }
+
+/* ── آلة الزمن (FR-SCH-102): شريط الفصول فوق المسرح، والندوب على لافتات القاعات ── */
+.hp-tm-btn{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 16px;border:1px solid color-mix(in srgb,var(--brass,#b0893a) 50%,var(--line));border-radius:var(--r-md,14px);
+  background:var(--surface);color:var(--brass,#8a6a2a);font:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:transform .2s,box-shadow .2s,background-color .2s}
+.hp-tm-btn svg{width:18px;height:18px}
+.hp-tm-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.hp-tm-btn[aria-pressed=true]{background:color-mix(in srgb,var(--brass,#b0893a) 16%,var(--surface));border-color:var(--brass,#b0893a)}
+.hp-tm-btn:disabled{opacity:.5;cursor:not-allowed}
+.hp-tm-btn:focus-visible{outline:3px solid var(--brass,#b0893a);outline-offset:2px}
+.hp-tm{display:grid;gap:10px;min-width:0;animation:hp-rise .45s cubic-bezier(.2,.7,.2,1) both}
+.hp-tm-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:10px;align-items:start;min-width:0;animation:hp-rise .45s cubic-bezier(.2,.7,.2,1) both}
+.hp-tm-row .tm-pressure{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:10px 12px}
+.hp-tm-note{margin:0;font-size:13px;line-height:1.7;color:var(--brass,#8a6a2a);border-inline-start:3px solid var(--brass,#b0893a);padding-inline-start:10px}
+@media (max-width:1100px){.hp-tm-row{grid-template-columns:minmax(0,1fr)}}
+/* ندوب «أين تكرر الضغط» قبل اسم القاعة: خطٌّ لكل فصلٍ ضاقت فيه. */
+.hp-tag-scar{display:inline-flex;align-items:center;gap:2px;margin-inline-end:6px;vertical-align:-1px}
+.hp-tag-scar i{display:block;width:2.5px;height:11px;border-radius:2px;background:var(--hp-pressed);transform:rotate(-10deg);box-shadow:0 0 6px rgb(240 103 79 / .7)}
+.hp-tag.is-scar{border-color:rgb(240 103 79 / .65)}
+.hp-tag.is-absent{opacity:.55}
+@media (prefers-reduced-motion:reduce){.hp-tm,.hp-tm-row{animation:none}.hp-tm-btn{transition:none}}

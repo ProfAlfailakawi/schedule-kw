@@ -250,13 +250,15 @@ export interface FingerprintArc {
   known: boolean;
   /** موضعه في دورة الأسبوع من 0 إلى 1: ترتيب ظهوره عند الرسم. */
   turn: number;
+  /** شفافيةٌ أثناء التحوّل بين فصلين في «آلة الزمن» (FR-SCH-102): قوسٌ يولد أو يذوي. غيابها = 1. */
+  alpha?: number;
 }
 
 export interface FingerprintGeometry {
   inner: number;
   outer: number;
   /** لكل قاعة: نصف قطرها وعرض حلقتها، وخطوطها الخافتة (ثلاثة أخاديد في كل يوم). */
-  rings: Array<{ r: number; band: number; tracks: string[]; ridges: string[] }>;
+  rings: Array<{ r: number; band: number; tracks: string[]; ridges: string[]; alpha?: number }>;
   arcs: FingerprintArc[];
   petals: Array<{ day: number; x1: number; y1: number; x2: number; y2: number; width: number; peak: boolean; empty: boolean }>;
   ticks: Array<{ x1: number; y1: number; x2: number; y2: number; major: boolean }>;
@@ -269,6 +271,40 @@ export function fingerprintAngle(day: number, minute: number, span: { from: numb
   return START_ANGLE + day * SECTOR + SECTOR_GAP / 2 + (SECTOR - SECTOR_GAP) * t;
 }
 
+/** خطوط حلقة قاعةٍ الخافتة: مسارٌ في كل يوم، وأخدودان على جانبيه. */
+export function ringTracks(r: number, band: number, span: { from: number; to: number }): { tracks: string[]; ridges: string[] } {
+  const sweep = (radius: number) => FINGERPRINT_DAYS.map((_, day) => arcLine(radius, fingerprintAngle(day, span.from, span), fingerprintAngle(day, span.to, span)));
+  return { tracks: sweep(r), ridges: [...sweep(r - band * 0.36), ...sweep(r + band * 0.36)] };
+}
+
+/** سُمك القوس في حلقةٍ عرضها `band`: امتلاء القاعة، وفوق السعة بالعرض كله، والمجهول نصفه. */
+export function slotWidth(band: number, slot: { fill: number | null; over: boolean }): number {
+  return band * (slot.over ? 1 : slot.fill == null ? 0.5 : 0.34 + 0.66 * Math.min(1, slot.fill));
+}
+
+/** قوسٌ واحد على نصف قطرٍ وسُمكٍ معلومين (يستعمله الرسم الثابت والتحوّل بين فصلين معاً). */
+export function arcAt(r: number, band: number, width: number, slot: { day: number; start: number; end: number; fill: number | null; over: boolean },
+  span: { from: number; to: number }): Omit<FingerprintArc, "hall" | "slot"> {
+  const a0 = fingerprintAngle(slot.day, slot.start, span), a1 = fingerprintAngle(slot.day, slot.end, span);
+  const mid = polar(r, (a0 + a1) / 2);
+  /* فوق السعة: القوس بسُمكه الكامل، وعلى ظهره حافةٌ بلونٍ وحده يفصلها عنه خيطٌ من الفراغ. */
+  const rimWidth = slot.over ? Math.max(1.4, Math.min(4.2, band * 0.24, width * 0.4)) : 0, rimGap = slot.over ? Math.min(1.8, band * 0.1, width * 0.1) : 0;
+  const top = r + width / 2, body = top - rimWidth - rimGap;
+  return {
+    day: slot.day, d: ringSegment(r - width / 2, body, a0, a1, Math.min(3.4, (body - r + width / 2) * 0.42)),
+    rim: slot.over ? ringSegment(top - rimWidth, top, a0, a1, rimWidth * 0.45) : "",
+    x: Math.round(mid.x * 10) / 10, y: Math.round(mid.y * 10) / 10, over: slot.over, known: slot.fill != null,
+    turn: (slot.day + (slot.start - span.from) / Math.max(1, span.to - span.from)) / 5,
+  };
+}
+
+/** زاوية الفراغ بين الخميس والأحد (أعلى الدائرة يساراً): فيه وحده تُرسم ندوب «أين تكرر الضغط». */
+export const FINGERPRINT_GAP_ANGLE = START_ANGLE;
+export const FINGERPRINT_GAP_DEGREES = SECTOR_GAP;
+
+/** نقطةٌ على اللوحة من نصف قطرٍ وزاوية. */
+export const fingerprintPolar = (r: number, degrees: number) => polar(r, degrees);
+
 export function fingerprintGeometry(data: FingerprintShape, options: { span?: { from: number; to: number } } = {}): FingerprintGeometry {
   const V = FINGERPRINT_VIEW;
   const span = options.span || data.span;
@@ -279,21 +315,9 @@ export function fingerprintGeometry(data: FingerprintShape, options: { span?: { 
   const rings: FingerprintGeometry["rings"] = [], arcs: FingerprintArc[] = [];
   data.halls.forEach((hall, index) => {
     const r = inner + pitch * (index + 0.5);
-    const sweep = (radius: number) => FINGERPRINT_DAYS.map((_, day) => arcLine(radius, fingerprintAngle(day, span.from, span), fingerprintAngle(day, span.to, span)));
-    rings.push({ r, band, tracks: sweep(r), ridges: [...sweep(r - band * 0.36), ...sweep(r + band * 0.36)] });
+    rings.push({ r, band, ...ringTracks(r, band, span) });
     hall.slots.forEach((slot, s) => {
-      const a0 = fingerprintAngle(slot.day, slot.start, span), a1 = fingerprintAngle(slot.day, slot.end, span);
-      const width = band * (slot.over ? 1 : slot.fill == null ? 0.5 : 0.34 + 0.66 * Math.min(1, slot.fill));
-      const mid = polar(r, (a0 + a1) / 2);
-      /* فوق السعة: القوس بسُمكه الكامل، وعلى ظهره حافةٌ بلونٍ وحده يفصلها عنه خيطٌ من الفراغ. */
-      const rimWidth = slot.over ? Math.max(1.4, Math.min(4.2, band * 0.24)) : 0, rimGap = slot.over ? Math.min(1.8, band * 0.1) : 0;
-      const top = r + width / 2, body = top - rimWidth - rimGap;
-      arcs.push({
-        hall: index, slot: s, day: slot.day, d: ringSegment(r - width / 2, body, a0, a1, Math.min(3.4, (body - r + width / 2) * 0.42)),
-        rim: slot.over ? ringSegment(top - rimWidth, top, a0, a1, rimWidth * 0.45) : "",
-        x: Math.round(mid.x * 10) / 10, y: Math.round(mid.y * 10) / 10, over: slot.over, known: slot.fill != null,
-        turn: (slot.day + (slot.start - span.from) / Math.max(1, span.to - span.from)) / 5,
-      });
+      arcs.push({ hall: index, slot: s, ...arcAt(r, band, slotWidth(band, slot), slot, span) });
     });
   });
 

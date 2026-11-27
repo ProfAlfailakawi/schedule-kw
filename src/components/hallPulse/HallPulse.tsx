@@ -34,7 +34,9 @@ import { copyText } from "../../utils/accessCardImage";
 import { busiestEveningMinute, eveningFootprint, eveningSummary, floorKeyOf, planEvening, EVENING_START } from "../../utils/hallPulseEvening";
 import { councilKey, councilNext, councilTour, type CouncilClosing } from "../../utils/hallPulseCouncil";
 import type { FingerprintShape } from "../../utils/deptFingerprint";
-import { Fingerprint, Presentation } from "lucide-react";
+import { Fingerprint, History, Presentation } from "lucide-react";
+import { GrowthStrip, PressureList, TermScrubber, useTermScrub, useTimeline } from "../TermTimeline";
+import { repeatedPressure } from "../../utils/termTimeline";
 import { registryKeyOfPulseHall, resolvePulseHall, type PulseFocus } from "../../utils/pulseLink";
 import PulseCouncil from "./PulseCouncil";
 import { usePulseSealMoment } from "../ApprovalSeal";
@@ -144,9 +146,48 @@ interface BorrowState {
 const NO_COHORTS: CohortInput[] = [];
 const minutesOf = (value: string) => { const [h, m] = String(value || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
 
+/*
+ * «آلة الزمن» (FR-SCH-102): مواعيد فصلٍ سابق وإشغاله تُقرأ حين يصل إليه الشريط وحده،
+ * وتُحفظ دقيقةً لكل نطاق. للقراءة: لا ترتيب ولا «ماذا لو» ولا ضمّ مساء ولا حفظ.
+ */
+const pastTermCache = new Map<string, { at: number; value: Promise<{ rows: PulseRowInput[]; load: any } | null> }>();
+function readPastTerm(collegeId: number, sectionId: number, termId: number, roomIds: readonly string[]): Promise<{ rows: PulseRowInput[]; load: any } | null> {
+  const key = `${collegeId}:${sectionId}:${termId}`;
+  const hit = pastTermCache.get(key);
+  if (hit && Date.now() - hit.at < 60_000) return hit.value;
+  const get = (url: string) => fetch(url, { credentials: "include" }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  const q = new URLSearchParams({ collegeId: String(collegeId), sectionId: String(sectionId), termId: String(termId) });
+  const lq = new URLSearchParams(q);
+  if (roomIds.length) lq.set("roomIds", roomIds.slice(0, 400).join(","));
+  const value = Promise.all([get(`/api/schedules?${q}`), get(`/api/reports/room-load?${lq}`)])
+    .then(([rows, load]) => (Array.isArray(rows) ? { rows: rows as PulseRowInput[], load } : null));
+  pastTermCache.set(key, { at: Date.now(), value });
+  value.then(result => { if (!result) pastTermCache.delete(key); });
+  return value;
+}
+
 export default function HallPulse(props: HallPulseProps) {
   const { context, collegeId, sectionId, termId } = props;
-  const canSave = Boolean(props.canSave && props.onSaveMoves && context === "workshop");
+  const canSaveRole = Boolean(props.canSave && props.onSaveMoves && context === "workshop");
+  /* ── آلة الزمن: الشريط في ورشة القسم على الشاشة الواسعة، ولمن يرى بصمة القسم وحده (البوابة نفسها على الخادم) ── */
+  const tmAllowed = context === "workshop" && sectionId > 0 && termId > 0 && !props.phone;
+  const timeline = useTimeline({ collegeId, sectionId, termId }, tmAllowed);
+  const tmTerms = useMemo(() => timeline || [], [timeline]);
+  const [tmOpen, setTmOpen] = useState(false);
+  /* مفتاح كل فصلٍ سابق يحمل الكلية والقسم: تبديل القسم والمشهد قائم لا يُبقي صفوف القسم السابق. */
+  const pastKey = useCallback((term: number) => `${collegeId}:${sectionId}:${term}`, [collegeId, sectionId]);
+  const [pastLoaded, setPastLoaded] = useState<ReadonlyMap<string, { rows: PulseRowInput[]; load: any }>>(new Map());
+  const pastLoadedRef = useRef(pastLoaded);
+  pastLoadedRef.current = pastLoaded;
+  useEffect(() => { setPastLoaded(new Map()); }, [collegeId, sectionId]);
+  const tmReady = useCallback((index: number) => { const t = tmTerms[index]; return !t || t.current || pastLoadedRef.current.has(pastKey(t.termId)); }, [tmTerms, pastKey]);
+  const tmReduced = useMemo(prefersReduced, []);
+  const tmScrub = useTermScrub(tmTerms.length, { reduced: tmReduced, ready: tmReady, perTermMs: 1500 });
+  const tmNear = tmOpen ? tmTerms[tmScrub.point.nearest] || null : null;
+  /* الفصل المعروض: 0 = الجاري. */
+  const viewTermId = tmNear && !tmNear.current ? tmNear.termId : 0;
+  const past = viewTermId > 0;
+  const canSave = canSaveRole && !past;
   const [registry, setRegistry] = useState<PulseRegistryInput | null>(null);
   const [roomLoad, setRoomLoad] = useState<any>(null);
   const [ownRows, setOwnRows] = useState<PulseRowInput[] | null>(null);
@@ -185,22 +226,51 @@ export default function HallPulse(props: HallPulseProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collegeId, sectionId, termId, Boolean(props.rows), Boolean(props.courses)]);
 
-  const rows = props.rows || ownRows || [];
+  /* آلة الزمن: الفصل الذي يقف عليه الشريط ومجاوراه يُقرأ كسولاً (التالي في الرحلة قبل الوصول إليه). */
+  useEffect(() => {
+    if (!tmOpen || !registry || tmTerms.length < 2) return;
+    const ids = (Array.isArray((registry as any)?.rooms) ? (registry as any).rooms : []).map((room: any) => String(room?.id || "")).filter(Boolean);
+    const wanted = [tmScrub.point.from, tmScrub.point.to, ...(tmScrub.playing ? [tmScrub.point.to + 1] : [])]
+      .map(i => tmTerms[i]).filter(t => t && !t.current && !pastLoadedRef.current.has(pastKey(t.termId)));
+    for (const t of wanted) {
+      const key = pastKey(t!.termId);
+      readPastTerm(collegeId, sectionId, t!.termId, ids).then(data => {
+        if (data) setPastLoaded(current => (current.has(key) ? current : new Map(current).set(key, data)));
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tmOpen, registry, tmTerms, tmScrub.point.from, tmScrub.point.to, tmScrub.playing, collegeId, sectionId]);
+  /* ما لم تصل مواعيد الفصل المطلوب يبقى آخر فصلٍ وصل على المشهد، فلا يفرغ ولا يومض. */
+  const lastPast = useRef<{ rows: PulseRowInput[]; load: any } | null>(null);
+  const lastPastScope = useRef("");
+  if (lastPastScope.current !== `${collegeId}:${sectionId}`) { lastPastScope.current = `${collegeId}:${sectionId}`; lastPast.current = null; }
+  const pastNow = past ? pastLoaded.get(pastKey(viewTermId)) || lastPast.current : null;
+  if (pastNow) lastPast.current = pastNow;
+  if (!past) lastPast.current = null;
+  const rows = pastNow ? pastNow.rows : props.rows || ownRows || [];
+  const effLoad = pastNow ? pastNow.load : roomLoad;
   const courses = props.courses || ownCourses || [];
   const model: PulseModel = useMemo(() => buildPulseModel({
-    rows, courses, registry, roomLoad, instructorName: props.instructorName,
-    dayStart: Number(roomLoad?.dayStart) || 8 * 60, dayEnd: Number(roomLoad?.dayEnd) || 20 * 60,
+    rows, courses, registry, roomLoad: effLoad, instructorName: props.instructorName,
+    dayStart: Number(effLoad?.dayStart) || 8 * 60, dayEnd: Number(effLoad?.dayEnd) || 20 * 60,
     includeUnusedRegistryHalls: Boolean(sectionId),
     requireOccupancyCheck: true,
-  }), [rows, courses, registry, roomLoad, props.instructorName, sectionId]);
+  }), [rows, courses, registry, effLoad, props.instructorName, sectionId]);
   const original = useMemo(() => originalAssignment(model), [model]);
   const narrow = useNarrow();
   /* الهاتف (ومنه iPhone Duo مفتوحاً): لا «وضع المجلس» — العرض لجهاز العرض في الاجتماع. */
   const phoneDevice = useMemo(isPhoneDevice, []);
-  /* المخطّط المكاني يتبع قائمة القاعات وحدها: حفظُ نقلةٍ يغيّر الألوان لا المباني، فلا يُعاد بناء المشهد. */
-  const hallsKey = model.halls.map(h => `${h.key}:${h.floor}`).join("|");
+  /* المخطّط المكاني يتبع قاعات الفصل الجاري وحدها: نقلةٌ تُحفظ أو فصلٌ سابق في «آلة الزمن» يغيّر الألوان لا المباني،
+     فلا يُعاد بناء المشهد ولا يضيع منظر المستخدم؛ قاعةٌ لم تعد في السجل (tx:) من فصلٍ سابق لا تُضاف إليه. */
+  const currentRows = props.rows || ownRows || [];
+  const sceneModel: PulseModel = useMemo(() => (pastNow ? buildPulseModel({
+    rows: currentRows, courses, registry, roomLoad, instructorName: props.instructorName,
+    dayStart: Number(roomLoad?.dayStart) || 8 * 60, dayEnd: Number(roomLoad?.dayEnd) || 20 * 60,
+    includeUnusedRegistryHalls: Boolean(sectionId), requireOccupancyCheck: true,
+  }) : model), [pastNow ? 1 : 0, currentRows, courses, registry, roomLoad, props.instructorName, sectionId, model]);
+  const hallsKey = sceneModel.halls.map(h => `${h.key}:${h.floor}`).join("|");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const layout = useMemo(() => layoutHalls(model.halls, narrow ? { perRow: 4, cols: 1 } : { perRow: model.halls.length > 60 ? 10 : 6 }), [hallsKey, narrow]);
+  const layout = useMemo(() => layoutHalls(sceneModel.halls, narrow ? { perRow: 4, cols: 1 } : { perRow: sceneModel.halls.length > 60 ? 10 : 6 }), [hallsKey, narrow]);
 
   const defaults = useMemo(() => todayDefaults(model.dayStart, model.dayEnd), [model.dayStart, model.dayEnd]);
   const [day, setDay] = useState<PulseDay | "week">(defaults.day);
@@ -601,18 +671,33 @@ export default function HallPulse(props: HallPulseProps) {
     return out;
   }, [model, occ, day, heat, viewDay, minuteShown, glowKeys, pending, manyHalls, freeGlow, activePath, mode, compare, eveningNow, evening, whatIfNet]);
   /* طبقة التسجيل فوق ما يُرى (اليوم أو الأسبوع): قاعةٌ فيها فرقٌ مفتوح تتنفّس بالبنفسجي بشارة عددها، والباقي يبهت قليلاً. */
+  /* آلة الزمن: القاعات المضغوطة فصلاً بعد فصل (بمفتاح سجلّ المواقع) ← عدد فصولها. */
+  const tmRepeated = useMemo(() => repeatedPressure(tmTerms), [tmTerms]);
+  const tmScars = useMemo(() => new Map(tmRepeated.map(item => [item.key, item.count])), [tmRepeated]);
   const shown = useMemo(() => {
-    if (!regOn || !regLayer || mode !== "halls") return visuals;
+    let base = visuals;
+    if (regOn && regLayer && mode === "halls") {
+      base = new Map<string, HallVisual>();
+      for (const [key, v] of visuals) {
+        const count = openCountOf(regLayer.byHall.get(key));
+        const h = model.hallByKey.get(key);
+        base.set(key, count
+          ? { ...v, dim: false, glow: false, pulse: false, mark: REG_HEX, badge: n(count), label: h ? h.code : v.label, showLabel: true }
+          : { ...v, color: v.occupied ? 0x6f817a : v.color, dim: true, glow: false, pulse: false, showLabel: false });
+      }
+    }
+    if (!tmOpen || mode !== "halls" || regOn) return base;
+    /* آلة الزمن: قاعةٌ لم يستعملها القسم في الفصل المعروض تذوي، والمضغوطة فصلاً بعد فصل تحمل ندوبها. */
+    const used = new Set(model.sessions.map(x => x.hallKey));
     const out = new Map<string, HallVisual>();
-    for (const [key, v] of visuals) {
-      const count = openCountOf(regLayer.byHall.get(key));
+    for (const [key, v] of base) {
       const h = model.hallByKey.get(key);
-      out.set(key, count
-        ? { ...v, dim: false, glow: false, pulse: false, mark: REG_HEX, badge: n(count), label: h ? h.code : v.label, showLabel: true }
-        : { ...v, color: v.occupied ? 0x6f817a : v.color, dim: true, glow: false, pulse: false, showLabel: false });
+      const scar = h ? tmScars.get(registryKeyOfPulseHall(h)) || 0 : 0;
+      const absent = !used.has(key) && !v.occupied;
+      out.set(key, { ...v, absent, dim: v.dim || absent, scar: scar || undefined, showLabel: v.showLabel || scar > 1 });
     }
     return out;
-  }, [visuals, regOn, regLayer, mode, model]);
+  }, [visuals, regOn, regLayer, mode, model, tmOpen, tmScars]);
   /* القاعات كما هي الآن (قبل الخطة): تُرسم يمين الفاصل بألوان الملاءمة والنوافذ واللافتات نفسها. */
   const beforeVisuals = useMemo(() => {
     if (!compare) return null;
@@ -659,7 +744,7 @@ export default function HallPulse(props: HallPulseProps) {
           onPick: (key, nb) => pickRef.current(key, nb), onHover: setHovered,
           onEnter: key => enterRef.current(key), onLeave: () => setInsideKey(null),
           /* «ماذا لو، باللمس»: السحب لمن يحفظ وحده؛ القراءة لا ترى أي مقبض. */
-          ...(canSave && !narrow ? {
+          ...(canSaveRole && !narrow ? {
             canDrag: (key: string) => dragRef.current.can(key),
             onDragStart: (key: string) => dragRef.current.start(key),
             onDragOver: (key: string | null, x: number, y: number) => dragRef.current.over(key, x, y),
@@ -680,7 +765,7 @@ export default function HallPulse(props: HallPulseProps) {
       if (labelsRef.current) labelsRef.current.innerHTML = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flat, hasHalls, layout, reduced, narrow, canSave]);
+  }, [flat, hasHalls, layout, reduced, narrow, canSaveRole]);
   useEffect(() => { sceneRef.current?.setVisuals(shown, selected); }, [shown, selected, sceneReady]);
   /* ختم الاعتماد (FR-DSH-037): أول فتحٍ للنبض بعد اعتماد التسجيل جدولَ القسم — نوافذ القاعات كلها معاً بذهب، مرةً واحدة. */
   const sealMoment = usePulseSealMoment({
@@ -1694,7 +1779,7 @@ export default function HallPulse(props: HallPulseProps) {
     const cls = selSession ? fitClass(selSession.students, selHall.capacity) : null;
     const foreign = !selSession && foreignAt(model, selHall.key, viewDay, minuteShown);
     /* الحلقة موجودةٌ في البصمة متى كان للقسم في القاعة موعدٌ واحد في الأسبوع: لا رابط إلى بصمةٍ بلا حلقتها. */
-    const fingerprintKey = props.onOpenFingerprint && model.sessions.some(x => x.hallKey === selHall.key) ? registryKeyOfPulseHall(selHall) : "";
+    const fingerprintKey = props.onOpenFingerprint && !past && model.sessions.some(x => x.hallKey === selHall.key) ? registryKeyOfPulseHall(selHall) : "";
     const needsBorrow = canSave && selSession && cls === "pressed" && !suggestions.length && !plan && !pending && Boolean(sectionId);
     return (
       <div className="hp-info">
@@ -1766,7 +1851,7 @@ export default function HallPulse(props: HallPulseProps) {
                 <span key={h.key} className="hp-chip">{h.code} · {countOf(h.capacity || 0, AR.seat)}</span>
               ))}
             </div>
-            {!canSave ? <p className="hp-fine">للاطلاع: النقل لرئيس لجنة الجدول في ورشة القسم.</p> : null}
+            {!canSave ? <p className="hp-fine">{past ? "فصلٌ سابق — للقراءة: لا نقل فيه." : "للاطلاع: النقل لرئيس لجنة الجدول في ورشة القسم."}</p> : null}
             {canSave && cls === "pressed" && sectionId ? <button data-guide-ignore="يعرض قاعات القسم المجاور الفارغة؛ الطلب لا يُرسل إلا بضغطةٍ أخرى" type="button" className="hp-link" onClick={() => startBorrow(selSession!)}>أو اطلب قاعةً من قسمٍ مجاور</button> : null}
           </div>
         ) : needsBorrow ? (
@@ -1910,6 +1995,42 @@ export default function HallPulse(props: HallPulseProps) {
     else if (e.key === "0") { scene.resetView(); e.preventDefault(); }
   };
 
+  /* الفصل السابق للقراءة: لا خطة معلّقة ولا نقلة محمولة ولا طلب استعارة ولا طبقة تسجيل (طبقة الفصل الجاري). */
+  useEffect(() => {
+    if (!past) return;
+    setPlan(null); setPending(null); setWhatIf([]); setCarry(null); setBorrow(null); setRegOn(false); setFreeGlow(false); setNotice(null);
+    setWalk(w => (w === 4 ? 0 : w)); setMoveListFor(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [past]);
+  /* «آلة الزمن» لا تُفتح فوق عملٍ لم يُحفظ: النقلات المعلّقة تُحفظ أو تُلغى أولاً. */
+  const tmBlocked = whatIf.length > 0 || Boolean(plan) || Boolean(pending) || Boolean(carry);
+  const toggleTm = () => {
+    if (tmOpen) { setTmOpen(false); tmScrub.setPlaying(false); return; }
+    if (tmBlocked) return;
+    setTmOpen(true); setRegOn(false); setMode("halls"); setPathId(null); setNearFor(null);
+  };
+  const tmPick = (key: string) => {
+    const hallKey = resolvePulseHall(key, model.halls);
+    if (!hallKey) { announce("هذه القاعة ليست في مباني النطاق الآن."); return; }
+    pickRef.current(hallKey, false);
+  };
+  const tmPanel = tmOpen && tmTerms.length >= 2 ? (
+    <div className={`hp-tm${past ? " is-past" : ""}`}>
+      <TermScrubber terms={tmTerms} position={tmScrub.position} playing={tmScrub.playing} compact
+        busy={Boolean(tmNear && !tmNear.current && !pastLoaded.has(pastKey(tmNear.termId)))}
+        onScrub={tmScrub.scrub} onRelease={tmScrub.release} onStep={tmScrub.go} onPlay={() => tmScrub.setPlaying(!tmScrub.playing)} />
+      {past ? <p className="hp-tm-note" role="status">فصلٌ سابق — للقراءة: لا ترتيب ولا «ماذا لو» ولا ضمّ مساء ولا حفظ. الألوان في اليوم والساعة نفسيهما، والقاعة الباهتة لم يستعملها القسم في ذلك الفصل.</p> : null}
+    </div>
+  ) : null;
+  /* تحت المسرح: نموّ القسم فصلاً بفصل، والقاعات المضغوطة فصلاً بعد فصل — فلا يُدفع المجسّم عن العين. */
+  const tmBelow = tmOpen && tmTerms.length >= 2 ? (
+    <div className="hp-tm-row">
+      <GrowthStrip terms={tmTerms} position={tmScrub.position} />
+      <PressureList items={tmRepeated} terms={tmTerms} nearTermId={tmNear?.termId} onPick={tmPick}
+        activeKey={(() => { const h = selected ? model.hallByKey.get(selected) : null; return h ? registryKeyOfPulseHall(h) : null; })()} />
+    </div>
+  ) : null;
+
   const heading = props.heading || (context === "dean" ? "نبض القاعات في الكلية" : "نبض القاعات");
   const dayLabel = day === "week" ? "الأسبوع كله" : PULSE_DAYS.find(x => x.key === day)!.label;
 
@@ -1927,15 +2048,22 @@ export default function HallPulse(props: HallPulseProps) {
       <div className="hp-top">
         <div className="hp-title">
           <h2>{heading}</h2>
-          <p>كل قاعة غرفةٌ تضيء حين تُشغل، ومنسوبها ولونها يقولان هل تتّسع لشعبتها.{context !== "workshop" ? " للقراءة فقط." : ""}</p>
+          <p>كل قاعة غرفةٌ تضيء حين تُشغل، ومنسوبها ولونها يقولان هل تتّسع لشعبتها.{context !== "workshop" ? " للقراءة فقط." : past && tmNear ? ` ${tmNear.termName}: فصلٌ سابق — للقراءة.` : ""}</p>
         </div>
+        {tmTerms.length >= 2 && !narrow && !phoneDevice ? (
+          <button data-guide-ignore="يُظهر شريط فصول القسم فيُعاد بناء المجسّم لكل فصل؛ الفصول السابقة للقراءة، لا يحفظ شيئاً" type="button" className="hp-tm-btn" aria-pressed={tmOpen}
+            onClick={toggleTm} disabled={!tmOpen && tmBlocked}
+            title={!tmOpen && tmBlocked ? "احفظ النقلات المعلّقة أو ألغها أولاً" : "آلة الزمن: اسحب عبر فصول القسم لترى كيف كبر وأين تكرر الضغط"}>
+            <History aria-hidden="true" />آلة الزمن
+          </button>
+        ) : null}
         {(context === "workshop" || context === "dean") && !narrow && !phoneDevice ? (
           <button data-guide-ignore="يعرض جولة نبض القاعات بملء الشاشة لاجتماع القسم؛ قراءة فقط، لا يحفظ شيئاً" type="button" className="hp-council-btn" onClick={enterCouncil}
             title="جولةٌ تلقائية بملء الشاشة لاجتماع القسم: الضغط، والهدر، والحلول المقترحة — بلا تحضير، ولا يُحفظ شيء">
             <Presentation aria-hidden="true" />وضع المجلس
           </button>
         ) : null}
-        {regContext && regList ? (
+        {regContext && regList && !past ? (
           <button data-guide-ignore="يُظهر فروق ملف التسجيل على القاعات أو يخفيها؛ عرضٌ ونسخ فقط، لا إرسال" type="button" className="hp-reg-toggle" aria-pressed={regOn} onClick={toggleReg}
             title="طبقة التسجيل: تنبض كل قاعةٍ يختلف فيها ملف التسجيل عن جدولنا">
             <span className="hp-reg-dot" aria-hidden="true" />التسجيل
@@ -1967,6 +2095,7 @@ export default function HallPulse(props: HallPulseProps) {
         <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" aria-pressed={walk === 3} onClick={() => runWalk(3)}><i>3</i> أين أضع شعبة جديدة؟</button>
         {canSave ? <button data-guide-ignore="أداة عرضٍ في نبض القاعات: تغيّر ما يُرى أو تفتح مراجعة، والحفظ وحده يكتب عبر مسار النقل المعتاد" type="button" className="is-magic" aria-pressed={walk === 4} onClick={() => runWalk(4)}><i>4</i> رتّب كل شيء بضغطة</button> : null}
       </div> : null}
+      {tmPanel}
       <p className="hp-say" aria-live="polite" hidden={regOn}>{say || "ابدأ بسؤالٍ من الأسئلة أعلاه، أو حرّك الساعة واضغط أي قاعة بنفسك."}</p>
 
       <div className={`hp-stage${narrow ? " is-narrow" : ""}`} style={(() => { const sky = skyAt(day === "week" ? model.dayStart + (model.dayEnd - model.dayStart) * 0.45 : minute, model.dayStart, model.dayEnd); return { ["--hp-sky-top" as any]: sky.top, ["--hp-sky-mid" as any]: sky.mid }; })()}>
@@ -2162,6 +2291,7 @@ export default function HallPulse(props: HallPulseProps) {
         </div>
         {planView}
       </div>
+      {tmBelow}
     </div>
   );
 }

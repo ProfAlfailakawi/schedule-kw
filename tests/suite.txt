@@ -387,5 +387,6 @@ test:public-pages
 test:term-film
 test:visual-wave-1
 test:dept-fingerprint
+test:term-timeline
 test:approval-seal
 test:my-film

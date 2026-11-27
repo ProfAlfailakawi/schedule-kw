@@ -8,6 +8,8 @@ import {
 import { fingerprintFocusHall, resolveFingerprintRing, ringFocusSlot, type PulseFocus } from "../utils/pulseLink";
 import { POSTER_SEAL, type ApprovalSeal } from "../utils/approvalSeal";
 import { SealBadge, SealMark } from "./ApprovalSeal";
+import { morphAt, morphRingAt, morphStats, prepareMorph, repeatedPressure, scarLines, timelineSpan } from "../utils/termTimeline";
+import { GrowthStrip, PressureList, TermScrubber, prefersReducedMotion, useTermScrub, useTimeline } from "./TermTimeline";
 import "../styles/dept-fingerprint.css";
 
 /**
@@ -46,17 +48,21 @@ interface PosterProps {
   ring: number | null;
   /** ختم الاعتماد (FR-DSH-032/037): يُرسم متى اعتمد التسجيل جدول هذا الفصل نهائياً، ويُنزَّل مع الملصق. */
   seal?: ApprovalSeal | null;
+  /** «أين تكرر الضغط» (FR-SCH-102): ندوبٌ في فراغ الخميس–الأحد على حلقة كل قاعةٍ ضاقت في فصلين فأكثر. */
+  scars?: ReadonlyArray<{ lines: Array<{ x1: number; y1: number; x2: number; y2: number }>; alpha: number }>;
+  /** بلا حركة الظهور: الرسم يتحوّل بين فصلين، أو ظهر مرةً من قبل. */
+  still?: boolean;
   svgRef?: React.Ref<SVGSVGElement>;
 }
 
 /** الملصق نفسه. كل لونٍ وحجمٍ فيه خاصيةٌ مكتوبة، لا صنف CSS، ليُنزَّل كما هو. */
-const Poster = React.memo(function Poster({ data, geo, palette: p, dark, span, active, ring, seal, svgRef }: PosterProps) {
+const Poster = React.memo(function Poster({ data, geo, palette: p, dark, span, active, ring, seal, scars, still, svgRef }: PosterProps) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const headlines = useMemo(() => fingerprintHeadlines(data), [data]);
   const dim = active != null || ring != null;
   const arcOpacity = (known: boolean, over: boolean) => (over ? 1 : known ? (dark ? 0.94 : 0.9) : 0.55);
   const summary = `بصمة قسم ${data.title.section}، ${data.title.term}: ${headlines.map(item => `${item.value} ${item.label}`).join("، ")}${seal ? `. مختومةٌ باعتماد التسجيل${seal.date ? ` في ${seal.date}` : ""}` : ""}`;
-  return <svg ref={svgRef} className={`dfp-svg${dim ? " has-hot" : ""}`} viewBox={`0 0 ${V.width} ${V.height}`} xmlns="http://www.w3.org/2000/svg"
+  return <svg ref={svgRef} className={`dfp-svg${dim ? " has-hot" : ""}${still ? " is-still" : ""}`} viewBox={`0 0 ${V.width} ${V.height}`} xmlns="http://www.w3.org/2000/svg"
     direction="rtl" fontFamily={FONT} role="img" aria-label={summary}>
     <defs>
       <radialGradient id={`${uid}bg`} cx="50%" cy="48%" r="78%">
@@ -96,7 +102,7 @@ const Poster = React.memo(function Poster({ data, geo, palette: p, dark, span, a
 
     {/* مسارات القاعات: خطوطٌ خافتة تجعل الفراغ يُقرأ بصمةً */}
     <g className="dfp-tracks" fill="none" stroke={p.rule} strokeLinecap="round">
-      {geo.rings.map((item, n) => <g key={n} strokeOpacity={ring === n ? 1 : dark ? 0.6 : 0.72}>
+      {geo.rings.map((item, n) => <g key={n} strokeOpacity={(ring === n ? 1 : dark ? 0.6 : 0.72) * (item.alpha ?? 1)}>
         {item.band >= 9 ? item.ridges.map((d, k) => <path key={`r${k}`} d={d} strokeWidth=".8" strokeOpacity={ring === n ? 0.7 : 0.34} />) : null}
         {item.tracks.map((d, day) => <path key={day} d={d} strokeWidth={Math.max(0.8, Math.min(1.5, item.band * 0.09))} />)}
       </g>)}
@@ -108,7 +114,7 @@ const Poster = React.memo(function Poster({ data, geo, palette: p, dark, span, a
     </g>
 
     {dark ? <g className="dfp-glow" filter={`url(#${uid}glow)`} opacity=".5" aria-hidden="true">
-      {geo.arcs.map((arc, n) => <path key={n} d={arc.d + arc.rim} fill={p.days[arc.day]} />)}
+      {geo.arcs.map((arc, n) => <path key={n} d={arc.d + arc.rim} fill={p.days[arc.day]} fillOpacity={arc.alpha ?? 1} />)}
     </g> : null}
 
     {/* زهرة القلب: حِمل كل ساعة */}
@@ -124,14 +130,23 @@ const Poster = React.memo(function Poster({ data, geo, palette: p, dark, span, a
     {/* الأقواس */}
     <g className="dfp-arcs">
       {geo.arcs.map((arc, n) => {
-        const hall = data.halls[arc.hall], slot = hall.slots[arc.slot];
+        /* بين فصلين لا يُشار إلى قوس (hall = -1): يُرى ولا يُقرأ. */
+        const slot = data.halls[arc.hall]?.slots[arc.slot];
         const hot = active === n || (active == null && ring === arc.hall);
-        const style = { ["--t" as any]: `${(arc.turn * 1.25 + arc.hall * 0.018).toFixed(3)}s` };
-        return <g key={n} className={`dfp-arc${hot ? " is-hot" : ""}`} style={style} role="graphics-symbol" aria-label={`${slot.code} ${slot.section} ${fingerprintClock(slot.start)}–${fingerprintClock(slot.end)}`}>
-          <path data-arc={n} d={arc.d} fill={p.days[arc.day]} fillOpacity={arcOpacity(arc.known, arc.over)} />
-          {arc.rim ? <path data-arc={n} d={arc.rim} fill={p.over} /> : null}
+        const alpha = arc.alpha ?? 1;
+        const style = { ["--t" as any]: `${(arc.turn * 1.25 + Math.max(0, arc.hall) * 0.018).toFixed(3)}s` };
+        return <g key={n} className={`dfp-arc${hot ? " is-hot" : ""}`} style={style} role={slot ? "graphics-symbol" : undefined} aria-label={slot ? `${slot.code} ${slot.section} ${fingerprintClock(slot.start)}–${fingerprintClock(slot.end)}` : undefined}>
+          <path data-arc={slot ? n : undefined} d={arc.d} fill={p.days[arc.day]} fillOpacity={arcOpacity(arc.known, arc.over) * alpha} />
+          {arc.rim ? <path data-arc={slot ? n : undefined} d={arc.rim} fill={p.over} fillOpacity={alpha} /> : null}
         </g>;
       })}
+    </g>
+
+    {/* ندوب «أين تكرر الضغط»: خطٌّ عبر حلقة القاعة لكل فصلٍ ضاقت فيه، في فراغ الخميس–الأحد وحده. */}
+    <g className="dfp-scars" stroke={p.over} strokeLinecap="round" aria-hidden="true">
+      {(scars || []).map((scar, n) => <g key={n} strokeOpacity={scar.alpha}>
+        {scar.lines.map((line, k) => <line key={k} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} strokeWidth="2.4" />)}
+      </g>)}
     </g>
 
     {/* الأرقام الأربعة */}
@@ -245,17 +260,31 @@ function weekNow(): { day: number; minute: number } {
 
 interface StageLink { scope: DeptFingerprintScope; onOpenPulse: (focus: PulseFocus) => void }
 
-function Stage({ data, span, dark, ring, onRing, link, label, seal, svgRef }: {
+function Stage({ data, span, dark, ring, onRing, link, label, seal, svgRef, morph, scarCounts, still }: {
   data: FingerprintData; span: { from: number; to: number }; dark: boolean; ring?: number | null; onRing?: (ring: number | null) => void;
   seal?: ApprovalSeal | null;
+  /** «آلة الزمن»: الصورة بين فصلين ومفاتيح حلقاتها. ما دامت حاضرةً لا يُشار إلى قوسٍ ولا حلقة. */
+  morph?: { geo: FingerprintGeometry; scars: NonNullable<PosterProps["scars"]> } | null;
+  /** القاعات المضغوطة فصلاً بعد فصل: مفتاحها ← عدد الفصول. */
+  scarCounts?: ReadonlyMap<string, number> | null;
+  still?: boolean;
   /** «البصمة باب للنبض»: لمن يفتح النبض وحده. بدونه تبقى التفاصيل بلا رابط، فلا طريق مسدود. */
   link?: StageLink | null; label?: string; svgRef?: React.Ref<SVGSVGElement>;
 }) {
-  const geo = useMemo(() => fingerprintGeometry(data, { span }), [data, span]);
+  const baseGeo = useMemo(() => fingerprintGeometry(data, { span }), [data, span]);
+  const geo = morph?.geo || baseGeo;
+  const scars = useMemo(() => {
+    if (morph) return morph.scars;
+    if (!scarCounts?.size) return undefined;
+    return data.halls.flatMap((hall, i) => {
+      const count = scarCounts.get(hall.key), r = baseGeo.rings[i];
+      return count && r ? [{ lines: scarLines(r.r, r.band, count), alpha: 1 }] : [];
+    });
+  }, [morph, scarCounts, data, baseGeo]);
   const [hover, setHover] = useState<number | null>(null);
   const [pinned, setPinned] = useState<number | null>(null);
   useEffect(() => { setHover(null); setPinned(null); }, [data]);
-  const active = pinned ?? hover;
+  const active = morph ? null : pinned ?? hover;
   const attr = (target: EventTarget | null, name: string) => {
     const value = (target as Element | null)?.getAttribute?.(name);
     return value == null ? null : Number(value);
@@ -264,7 +293,7 @@ function Stage({ data, span, dark, ring, onRing, link, label, seal, svgRef }: {
   const tip = arc ? fingerprintSlotLines(data.halls[arc.hall], data.halls[arc.hall].slots[arc.slot]) : null;
   const below = arc ? arc.y / V.height < 0.42 : false;
   /* الحلقة المختارة (من القائمة أو بضغطها أو من رابط النبض): بطاقتها عند أقرب محاضرةٍ فيها من الآن. */
-  const ringHall = active == null && ring != null ? data.halls[ring] || null : null;
+  const ringHall = !morph && active == null && ring != null ? data.halls[ring] || null : null;
   const ringSlot = useMemo(() => (ringHall ? ringFocusSlot(ringHall.slots, weekNow()) : null), [ringHall]);
   const ringAt = useMemo(() => {
     if (ring == null || !ringSlot || !geo.rings[ring]) return null;
@@ -289,12 +318,13 @@ function Stage({ data, span, dark, ring, onRing, link, label, seal, svgRef }: {
       onPointerOver={event => { if (event.pointerType === "mouse") setHover(attr(event.target, "data-arc")); }}
       onPointerLeave={() => setHover(null)}
       onClick={event => {
+        if (morph) return;
         const n = attr(event.target, "data-arc");
         const r = n == null ? attr(event.target, "data-ring") : null;
         if (r != null && onRing) { setPinned(null); onRing(r === ring ? null : r); return; }
         setPinned(current => (n == null || n === current ? null : n));
       }}>
-      <Poster data={data} geo={geo} palette={FINGERPRINT_PALETTES[dark ? "dark" : "light"]} dark={dark} span={span} active={active} ring={ring ?? null} seal={seal} svgRef={svgRef} />
+      <Poster data={data} geo={geo} palette={FINGERPRINT_PALETTES[dark ? "dark" : "light"]} dark={dark} span={span} active={active} ring={morph ? null : ring ?? null} seal={seal} scars={scars} still={still || Boolean(morph)} svgRef={svgRef} />
       {arc && tip ? <div className={`dfp-tip${below ? " is-below" : ""}${tip.over ? " is-over" : ""}${pinned != null && link ? " is-pinned" : ""}`} role="status"
         style={place(arc.x, arc.y)} onClick={keep}>
         <strong>{tip.title}</strong>
@@ -336,6 +366,18 @@ async function readFingerprint(scope: DeptFingerprintScope): Promise<Fingerprint
   return body as FingerprintAnswer;
 }
 
+/* «آلة الزمن»: بصمة الفصل السابق تُقرأ حين يصل إليه الشريط وحده، وتُحفظ دقيقةً كمخبأ الخادم. */
+const answerCache = new Map<string, { at: number; value: Promise<FingerprintAnswer> }>();
+function readFingerprintCached(scope: DeptFingerprintScope): Promise<FingerprintAnswer> {
+  const key = `${scope.collegeId}:${scope.sectionId}:${scope.termId}`;
+  const hit = answerCache.get(key);
+  if (hit && Date.now() - hit.at < 60_000) return hit.value;
+  const value = readFingerprint(scope);
+  answerCache.set(key, { at: Date.now(), value });
+  value.catch(() => answerCache.delete(key));
+  return value;
+}
+
 const num = (value: number) => Math.round(value).toLocaleString("ar-KW-u-nu-latn");
 
 function CopyLink({ scope }: { scope: DeptFingerprintScope }) {
@@ -374,6 +416,35 @@ export function DeptFingerprintPanel({ scope, heading = true, onOpenPulse, focus
   const [busy, setBusy] = useState<"" | "png" | "svg">("");
   const [exportError, setExportError] = useState("");
   const svgRef = useRef<SVGSVGElement>(null);
+  /* ── آلة الزمن (FR-SCH-102): شريط الفصول وما يُقرأ منها كسولاً ── */
+  const reduced = useMemo(prefersReducedMotion, []);
+  const timeline = useTimeline(scope, Boolean(answer?.earlier.length));
+  const terms = useMemo(() => timeline || [], [timeline]);
+  const [loaded, setLoaded] = useState<ReadonlyMap<number, FingerprintAnswer>>(new Map());
+  const asked = useRef(new Set<number>());
+  useEffect(() => {
+    asked.current = new Set(answer ? [scope.termId] : []);
+    setLoaded(new Map(answer ? [[scope.termId, answer]] : []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answer]);
+  const ensure = useCallback((termId: number | undefined) => {
+    if (!termId || asked.current.has(termId)) return;
+    asked.current.add(termId);
+    readFingerprintCached({ ...scope, termId })
+      .then(body => setLoaded(current => new Map(current).set(termId, body)))
+      .catch(() => { asked.current.delete(termId); });
+  }, [scope.collegeId, scope.sectionId]);
+  const loadedRef = useRef(loaded);
+  loadedRef.current = loaded;
+  const ready = useCallback((index: number) => { const id = terms[index]?.termId; return !id || loadedRef.current.has(id); }, [terms]);
+  const scrub = useTermScrub(terms.length, { reduced, ready });
+  const point = scrub.point;
+  useEffect(() => {
+    if (terms.length < 2) return;
+    ensure(terms[point.from]?.termId); ensure(terms[point.to]?.termId);
+    /* في الرحلة يُقرأ الفصل التالي قبل الوصول إليه. */
+    if (scrub.playing) ensure(terms[Math.min(terms.length - 1, point.to + 1)]?.termId);
+  }, [terms, point.from, point.to, scrub.playing, ensure]);
   /* على الشاشة الواسعة القائمة بجانب الملصق فتُفتح؛ وعلى الهاتف تبقى مطويّة تحته. */
   const [hallsOpen, setHallsOpen] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1180);
 
@@ -393,15 +464,50 @@ export function DeptFingerprintPanel({ scope, heading = true, onOpenPulse, focus
     return () => { alive = false; };
   }, [compareId, scope.collegeId, scope.sectionId, scope.termId]);
 
-  const data = answer?.fingerprint || null;
+  const tmOn = terms.length >= 2 && !compareId;
+  const tmSpan = useMemo(() => timelineSpan(terms), [terms]);
+  const fromAnswer = tmOn ? loaded.get(terms[point.from]?.termId) || null : null;
+  const toAnswer = tmOn ? loaded.get(terms[point.to]?.termId) || null : null;
+  const nearTerm = tmOn ? terms[point.nearest] : null;
+  /* المقروء: الفصل الأقرب إن وصل، وإلا أقرب ما وصل، وإلا الجاري. */
+  const shown: FingerprintAnswer | null = !tmOn ? answer
+    : (point.t < 0.5 ? fromAnswer || toAnswer : toAnswer || fromAnswer) || answer;
+  const pair = useMemo(() => (fromAnswer && toAnswer && fromAnswer !== toAnswer ? prepareMorph(fromAnswer.fingerprint, toAnswer.fingerprint, tmSpan) : null), [fromAnswer, toAnswer, tmSpan]);
+  const repeated = useMemo(() => repeatedPressure(terms), [terms]);
+  const scarCounts = useMemo(() => new Map(repeated.map(item => [item.key, item.count])), [repeated]);
+  const morphing = Boolean(pair && point.t > 0 && point.t < 1);
+  const morph = useMemo(() => {
+    if (!pair || !morphing) return null;
+    const geo = morphAt(pair, point.t);
+    const scars = pair.rings.flatMap(ring => {
+      const count = scarCounts.get(ring.key);
+      if (!count) return [];
+      const at = morphRingAt(ring, point.t);
+      return [{ lines: scarLines(at.r, at.band, count), alpha: at.alpha }];
+    });
+    return { geo, scars };
+  }, [pair, morphing, point.t, scarCounts]);
+  const morphStatsKey = morphing && fromAnswer && toAnswer ? JSON.stringify(morphStats(fromAnswer.fingerprint, toAnswer.fingerprint, point.t)) : "";
+  const data = useMemo<FingerprintData | null>(() => {
+    const base = shown?.fingerprint || null;
+    return base && morphStatsKey ? { ...base, stats: JSON.parse(morphStatsKey) } : base;
+  }, [shown, morphStatsKey]);
+  const pastView = Boolean(nearTerm && !nearTerm.current);
+  /* بعد أول سحبة لا تعود حركة الظهور: الرحلة تتحوّل ولا تُعيد رسم الملصق من أوله. */
+  const tmTouched = useRef(false);
+  if (tmOn && scrub.position !== terms.length - 1) tmTouched.current = true;
+  const tmStill = tmOn && tmTouched.current;
+  /* حلقةٌ مثبّتة رقمٌ في قائمة قاعات فصلها: تُترك حين يتبدّل الفصل المقروء. */
+  useEffect(() => { setRingPin(null); setRingHover(null); }, [nearTerm?.termId]);
   /* القادم من النبض: حلقة قاعته مبرزةٌ ببطاقتها حين تصل البصمة. */
   useEffect(() => {
     if (!data || !focusHall) return;
     const n = resolveFingerprintRing(focusHall, data.halls);
     if (n != null) setRingPin(n);
   }, [data, focusHall]);
-  const link = useMemo<StageLink | null>(() => (onOpenPulse ? { scope, onOpenPulse } : null), [onOpenPulse, scope.collegeId, scope.sectionId, scope.termId]);
-  const span = useMemo(() => (data ? (before ? unionSpan(data.span, before.span) : data.span) : { from: 480, to: 1200 }), [data, before]);
+  /* الفصل السابق للقراءة: لا «اذهب إليها في النبض» (النبض يفتح جدول الفصل الجاري). */
+  const link = useMemo<StageLink | null>(() => (onOpenPulse && !pastView ? { scope, onOpenPulse } : null), [onOpenPulse, pastView, scope.collegeId, scope.sectionId, scope.termId]);
+  const span = useMemo(() => (tmOn ? tmSpan : data ? (before ? unionSpan(data.span, before.span) : data.span) : { from: 480, to: 1200 }), [tmOn, tmSpan, data, before]);
   const delta = useMemo(() => (data && before ? fingerprintDelta(data, before) : []), [data, before]);
   const comparing = Boolean(compareId);
 
@@ -445,16 +551,25 @@ export function DeptFingerprintPanel({ scope, heading = true, onOpenPulse, focus
       <button type="button" className="dfp-btn dfp-btn-quiet" onClick={() => setCompareId(0)} data-guide-ignore="يغلق المقارنة ويعود إلى بصمة الفصل وحده؛ عرضٌ لا فعل"><X aria-hidden="true" /><span>أغلق المقارنة</span></button>
     </div> : null}
 
+    {tmOn && data ? <TermScrubber terms={terms} position={scrub.position} playing={scrub.playing}
+      busy={!toAnswer || !fromAnswer} onScrub={scrub.scrub} onRelease={scrub.release} onStep={scrub.go} onPlay={() => scrub.setPlaying(!scrub.playing)} /> : null}
+
     {error ? <p className="dfp-error" role="alert">{error}</p>
       : !data ? <div className="dfp-loading" role="status" aria-label="جاري رسم البصمة"><i aria-hidden="true" /><span>جاري رسم البصمة…</span></div>
       : <div className="dfp-body">
         <div className="dfp-stages">
-          <Stage data={data} span={span} dark={dark} ring={ring} onRing={comparing ? undefined : setRingPin} link={comparing ? null : link} label={comparing ? data.title.term : undefined} seal={answer?.seal || null} svgRef={svgRef} />
+          <Stage data={data} span={span} dark={dark} ring={ring} onRing={comparing ? undefined : setRingPin} link={comparing ? null : link} label={comparing ? data.title.term : undefined}
+            seal={(tmOn ? shown?.seal : answer?.seal) || null} svgRef={svgRef} morph={morph} scarCounts={tmOn ? scarCounts : null} still={tmStill} />
           {comparing ? (before ? <Stage data={before} span={span} dark={dark} label={before.title.term} seal={beforeSeal} />
             : compareError ? <p className="dfp-error" role="alert">{compareError}</p>
             : <div className="dfp-loading" role="status" aria-label="جاري رسم البصمة"><i aria-hidden="true" /><span>جاري رسم البصمة…</span></div>) : null}
         </div>
         {!comparing ? <aside className="dfp-notes">
+          {tmOn ? <>
+            <GrowthStrip terms={terms} position={scrub.position} />
+            <PressureList items={repeated} terms={terms} nearTermId={nearTerm?.termId} activeKey={ringPin != null ? data.halls[ringPin]?.key : null}
+              onPick={key => { const n = data.halls.findIndex(hall => hall.key === key); setRingPin(current => (n < 0 || current === n ? null : n)); }} />
+          </> : null}
           <h3>كيف تُقرأ</h3>
           <ul className="dfp-read">
             <li><i className="k-ring" aria-hidden="true" />كل حلقةٍ قاعة، وأكثرها إشغالاً في القلب.</li>
@@ -462,6 +577,7 @@ export function DeptFingerprintPanel({ scope, heading = true, onOpenPulse, focus
             <li><i className="k-fill" aria-hidden="true" />سُمك القوس امتلاء القاعة بمقاعد الشعبة.</li>
             <li><i className="k-over" aria-hidden="true" />{data.stats.overfull ? `فوق السعة: ${countOf(data.stats.overfull, AR.lecture)}.` : "لا محاضرة فوق سعة قاعتها."}</li>
             <li><i className="k-bloom" aria-hidden="true" />زهرة القلب حِمل كل ساعة، وأطول بتلةٍ ساعة الذروة.</li>
+            {tmOn && repeated.length ? <li><i className="k-scar" aria-hidden="true" />الندبة في أعلى الحلقة: قاعةٌ ضاقت بشعبها في فصلين فأكثر، خطٌّ لكل فصل.</li> : null}
           </ul>
           {data.stats.roomless ? <p className="dfp-note">خارج الحلقات لأن قاعتها لم تُختر: {countOf(data.stats.roomless, AR.appointment)}.</p> : null}
           <details className="dfp-halls" open={hallsOpen} onToggle={event => setHallsOpen((event.target as HTMLDetailsElement).open)} onMouseLeave={() => setRingHover(null)}>

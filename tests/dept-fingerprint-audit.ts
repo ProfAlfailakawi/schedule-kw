@@ -149,7 +149,7 @@ assert.equal(buildFingerprint({ sectionName: "", termName: "", rows: resolved })
 /* ── الخادم: قراءةٌ فقط، لأصحاب جدول القسم، ضمن النطاق، ومخبأٌ بمفتاح جلسة التجربة ── */
 assert.deepEqual([...DEPT_FINGERPRINT_ROLES], ["committeeChair", "departmentHead", "standard"]);
 const route = source("src/server/routes/deptFingerprintRoutes.ts");
-assert.equal((route.match(/app\.(get|post|put|patch|delete)\(/g) || []).join(), "app.get(", "مسارٌ واحد يقرأ فقط");
+assert.equal((route.match(/app\.(get|post|put|patch|delete)\(/g) || []).join(), "app.get(,app.get(", "مساران يقرآن فقط: البصمة وشريط «آلة الزمن» (FR-SCH-102)");
 assert.ok(/mayReadFingerprint\(req\)/.test(route) && /isScopeAllowed\(req, collegeId, sectionId\)/.test(route));
 assert.ok(/includes\(7\)/.test(route), "الحساب بلا صفة يحتاج شاشة الجدول");
 assert.ok(/Repository\.currentDemoSessionId\(\)/.test(route), "المخبأ بمفتاح جلسة التجربة");
