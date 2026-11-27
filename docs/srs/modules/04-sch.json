@@ -149,7 +149,11 @@
     "src/utils/hallPulseCouncil.ts",
     "src/components/hallPulse/PulseCouncil.tsx",
     "src/components/hallPulse/pulseInterior.ts",
-    "src/components/hallPulse/pulseSound.ts"
+    "src/components/hallPulse/pulseSound.ts",
+    "src/utils/campusCity.ts",
+    "src/components/hallPulse/CampusCity.tsx",
+    "src/components/hallPulse/CampusCityLazy.tsx",
+    "src/components/hallPulse/campusScene.ts"
   ],
   "screens": [
     {
@@ -5951,6 +5955,65 @@
         ],
         "tests": [
           "tests/hall-pulse-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-100",
+      "kind": "functional",
+      "title": {
+        "ar": "«الحرم كله مدينة»: أقسام الكلية أحياءً في مشهدٍ واحد يضيء بحمله، وضغطة حيٍّ تنزل إلى نبض قسمه، للقراءة وحدها",
+        "en": "«The whole campus as a city»: the college's departments as districts in one scene lit by load, with a click on a district descending into its department's hall pulse, read-only"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يضيف إلى بطاقة نبض القاعات في لوحة العميد والعميد المساعد، ولمسؤول النظام في لوحته، زرّ «الحرم كله» يعرض أقسام الكلية كلها في مشهدٍ واحد بعالم نبض القاعات نفسه (سماءٌ وشمسٌ تتبعان الساعة، وقاعاتٌ زجاجية يصعد منسوبها بلون ملاءمتها وتضيء نوافذها، وعلامة ▲ فوق كل مضغوطة): (1) كل قسمٍ حيٌّ على أرضٍ بلونه، وصاحب القاعة القسم الأكثر دقائق فيها وإلا قسمها الأساسي في سجلّ المواقع، وكل مبنى يُرسم مرةً واحدة في حيّ القسم الغالب عليه بشريطٍ مقسومٍ على نصيب أقسامه إن كان مشتركاً، وقسمٌ بلا مبنى أرضٌ فارغة تبقى، والأحياء صفوفٌ يمينها أول الأقسام. (2) كل حيٍّ يتوهّج بمزاجه في ساعة المشهد: «يختنق» إن كانت فيه مضغوطة، و«مزدحم» إن شُغل 70٪ من قاعاته فأكثر، و«هادئ» إن شُغل بعضها، و«خالٍ»؛ وبجانب المشهد ساعةٌ ومجموع الكلية (مشغولة ومضغوطة وفارغة) وقائمةُ الأحياء مرتّبةً بالضغط، ومنزلق ساعةٍ بمنحنى اليوم وأيامٌ و«شغّل اليوم»، ويُفتح على الساعة الآن أو على أزحم لحظةٍ في اليوم إن خلت. (3) المرور على حيٍّ يعرض بطاقته (القسم، والمشغولة الآن، والمضغوطة، والفارغة)، والضغط عليه يطير إليه ثم يفتح نبض ذلك القسم على أشدّ قاعاته في اليوم والساعة نفسيهما: للعميد في البطاقة نفسها بنطاقه (ويعود قسم النطاق كما كان عند الرجوع)، ولمسؤول النظام في شاشة الجدول برابط النبض (/FSchedule/Index?view=pulse&…&from=campus). (4) قائمة الأحياء أزرارٌ تُستعمل بلوحة المفاتيح ويقرؤها قارئ الشاشة كاملة، والمشهد يدور بالأسهم ويقرب بـ+ و−؛ وعلى الهاتف والشاشة الضيقة وبلا WebGL وباختيار «مسطّح» خريطةٌ مسطّحة بلا مجسّم؛ ومع تقليل الحركة لا طيران ولا تنفّس. البيانات هي مسارات بطاقة العميد نفسها (سجلّ المواقع، وإشغال القاعات، ومواعيد الكلية التي يقصرها الخادم على المعتمدة للعميد، والمقررات) على كلية القارئ وحدها، بلا مسار خادمٍ جديد ولا كتابة، ولا اسم أستاذٍ ولا رقم مدني، ولا تظهر لرئيس القسم ولا لرئيس اللجنة ولا للأستاذ ولا للطالب.",
+        "en": "The system shall add to the hall-pulse card on the dean's and vice-dean's dashboard, and for a system administrator on theirs, a «The whole campus» button that shows all the college's departments in one scene in the hall pulse's own world (a sky and sun following the clock, glass halls whose level rises in their fit colour with lit windows, and a ▲ mark over every pressed hall): (1) each department is a district on ground of its own colour; a hall belongs to the department with the most minutes in it, otherwise to its primary department in the location registry; every building is drawn once, in the district of its dominant department, with a strip split by each department's share when shared; a department without a building keeps an empty plot; districts are laid in rows with the first department on the right. (2) Each district glows with its mood at the scene clock: «choking» when it has a pressed hall, «busy» when 70% or more of its halls are occupied, «calm» when some are, and «empty»; beside the scene are a clock, the college totals (occupied, pressed, empty) and the list of districts ordered by pressure, plus a clock slider over the day's curve, day buttons and «Play the day»; it opens at the current time, or at the day's busiest moment when the current time is empty. (3) Hovering a district shows its card (department, occupied now, pressed, empty); clicking it flies the camera to it and then opens that department's hall pulse at its most pressed hall on the same day and time: for the dean inside the same card within his scope (the scope's department restored on return), and for a system administrator in the timetable screen through the pulse link (/FSchedule/Index?view=pulse&…&from=campus). (4) The district list is buttons usable by keyboard and read in full by screen readers, and the scene rotates with arrows and zooms with + and −; on phones, narrow screens, without WebGL or by choosing «Flat» a flat map replaces the 3D scene; with reduced motion there is no flight and no breathing. The data are the dean card's own routes (location registry, room load, the college's schedules which the server limits to approved rows for the dean, and courses) for the reader's own college only, with no new server route and no write, no instructor name and no civil ID, and it is not shown to department heads, committee chairs, teachers or students."
+      },
+      "rationale": {
+        "ar": "العميد يرى قسماً قسماً؛ والمدينة تريه الكلية كلها في نظرةٍ واحدة: أين تختنق وأين تفرغ، ثم تنزل به إلى القسم الذي يحتاج نظرة.",
+        "en": "The dean sees one department at a time; the city shows him the whole college at a glance — where it chokes and where it is empty — and then takes him down into the department that needs a look."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "dean",
+        "admin"
+      ],
+      "acceptance": [
+        {
+          "ar": "ثلاثة أقسام ومبنى يدرّس فيه قسمان: المبنى يُرسم مرةً في حيّ الأكثر دقائق، بشريطٍ مقسوم، وقاعة القسم الآخر فيه تبقى لقسمها.",
+          "en": "Three departments and a building taught in by two: the building is drawn once in the district with more minutes, with a split strip, and the other department's hall in it stays its own."
+        },
+        {
+          "ar": "الأحد 10:30 وفي قسمٍ قاعةٌ مضغوطة: حيّه «يختنق» وأول القائمة، وضغطه يفتح نبضه على تلك القاعة في الأحد 10:30.",
+          "en": "Sunday 10:30 with a pressed hall in one department: its district is «choking» and first in the list, and clicking it opens its pulse on that hall at Sunday 10:30."
+        },
+        {
+          "ar": "قسمٌ لم يُعتمد له موعد: حيٌّ «خالٍ» يبقى على الخريطة بقاعاته الفارغة.",
+          "en": "A department with no approved appointment: an «empty» district that stays on the map with its empty halls."
+        },
+        {
+          "ar": "على الهاتف وبلا WebGL: خريطةٌ مسطّحة وقائمة، بلا مجسّم؛ ومع تقليل الحركة يُفتح النبض بلا طيران.",
+          "en": "On a phone and without WebGL: a flat map and a list, no 3D scene; with reduced motion the pulse opens without a flight."
+        },
+        {
+          "ar": "رئيس القسم والأستاذ لا يرون الزر؛ وكليةٌ غير كلية العميد في النطاق المحفوظ تُردّ إلى كليته؛ ولا طلب كتابة من المدينة.",
+          "en": "A department head and a teacher do not see the button; another college in the dean's saved scope is coerced back to his; the city sends no write."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/campusCity.ts#buildCampusCity",
+          "src/utils/campusCity.ts#cityAt",
+          "src/utils/campusCity.ts#layoutCampus",
+          "src/components/hallPulse/CampusCity.tsx",
+          "src/components/hallPulse/campusScene.ts",
+          "src/components/hallPulse/DeanHallPulseCard.tsx",
+          "src/utils/pulseLink.ts#pulseFocusHref"
+        ],
+        "tests": [
+          "tests/campus-city-audit.ts"
         ]
       },
       "inferred": false

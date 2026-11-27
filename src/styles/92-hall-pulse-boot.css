@@ -14,6 +14,8 @@
 .hp-dean-card{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-radius:var(--r-lg,18px);border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow-sm)}
 .hp-dean-card strong{display:block;font-size:var(--ix-card,17px)}
 .hp-dean-card small{color:var(--muted);font-size:13px}
+.hp-dean-actions{display:flex;flex-wrap:wrap;gap:8px}
+.hp-dean-actions.is-end{justify-content:flex-end;margin-top:8px}
 .hp-plain-btn{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 16px;border-radius:12px;border:1px solid var(--line-strong,var(--line));background:var(--surface);color:var(--ink);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .2s}
 .hp-plain-btn:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));box-shadow:var(--shadow-sm);transform:translateY(-1px)}
 .hp-plain-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
