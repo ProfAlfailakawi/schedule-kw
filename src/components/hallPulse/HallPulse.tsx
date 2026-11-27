@@ -37,6 +37,7 @@ import type { FingerprintShape } from "../../utils/deptFingerprint";
 import { Fingerprint, Presentation } from "lucide-react";
 import { registryKeyOfPulseHall, resolvePulseHall, type PulseFocus } from "../../utils/pulseLink";
 import PulseCouncil from "./PulseCouncil";
+import { usePulseSealMoment } from "../ApprovalSeal";
 import { isPhoneDevice } from "../../utils/workspaceSize";
 
 export interface HallPulseMove {
@@ -620,6 +621,12 @@ export default function HallPulse(props: HallPulseProps) {
     };
   }, [flat, hasHalls, layout, reduced, narrow]);
   useEffect(() => { sceneRef.current?.setVisuals(shown, selected); }, [shown, selected, sceneReady]);
+  /* ختم الاعتماد (FR-DSH-037): أول فتحٍ للنبض بعد اعتماد التسجيل جدولَ القسم — نوافذ القاعات كلها معاً بذهب، مرةً واحدة. */
+  const sealMoment = usePulseSealMoment({
+    collegeId: props.collegeId, sectionId: props.sectionId, termId: props.termId,
+    enabled: props.context !== "dean" && props.sectionId > 0 && hasHalls, ready: flat || sceneReady, still: flat || reduced,
+    celebrate: ms => sceneRef.current?.celebrate(ms),
+  });
   const splitRef = useRef(split);
   splitRef.current = split;
   /* «قبل وبعد»: الفاصل يظهر مع المراجعة ويزول بزوالها؛ لا كتابة جديدة. */
@@ -1729,6 +1736,7 @@ export default function HallPulse(props: HallPulseProps) {
       <div className={`hp-stage${narrow ? " is-narrow" : ""}`} style={(() => { const sky = skyAt(day === "week" ? model.dayStart + (model.dayEnd - model.dayStart) * 0.45 : minute, model.dayStart, model.dayEnd); return { ["--hp-sky-top" as any]: sky.top, ["--hp-sky-mid" as any]: sky.mid }; })()}>
         <div className={`hp-view${insideKey ? " is-inside" : ""}${cine !== "off" ? " is-cinema" : ""}`} ref={viewRef} tabIndex={flat ? -1 : 0} onKeyDown={onStageKey}
           aria-label={flat ? undefined : "مجسّم القاعات: الأسهم للتدوير، و+ و− للتقريب، و0 للعودة"} role={flat ? undefined : "application"}>
+          {sealMoment}
           {flat ? (
             <FlatBoard model={model} visuals={shown} selected={selected} onPick={key => pickRef.current(key, false)} day={day} />
           ) : (

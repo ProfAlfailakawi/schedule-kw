@@ -18,6 +18,7 @@
  * (`FingerprintShape`): أقواسٌ فقط، ولا تُحمل إلا لمن يرى البصمة أصلاً.
  */
 import { effectiveSubmissionDate } from "./approvalWorkflow";
+import { finalAcceptance, sealDateLabel } from "./approvalSeal";
 import { AR, countOf, nounFor } from "./arabicCount";
 import { FINGERPRINT_DAYS, fingerprintClock, type FingerprintShape } from "./deptFingerprint";
 
@@ -308,12 +309,14 @@ export function earlyPhrase(daysEarly: number | null): string | null {
  */
 export function deliveryFromApproval(approval: TermFilmApprovalLike | null | undefined, termDeadline?: string): TermFilmDelivery {
   const status = approval?.status || "drafting";
-  const final = status === "accepted";
+  /* النهائي وتاريخه من المصدر الواحد الذي يقرؤه ختم الاعتماد أيضاً (src/utils/approvalSeal.ts). */
+  const acceptance = finalAcceptance(approval);
+  const final = acceptance.final;
   const sig = (stage: string) => (approval?.signatures || []).find(item => item.stage === stage);
   const rounds = (approval?.rounds || []).filter(round => !round.amendment);
   const allRounds = approval?.rounds || [];
   const firstSubmittedAt = rounds.find(round => round.submittedAt)?.submittedAt;
-  const accepted = [...allRounds].reverse().find(round => round.acceptedAt);
+  const accepted = acceptance.acceptedAt ? { number: acceptance.round, acceptedAt: acceptance.acceptedAt } : undefined;
   const committee = sig("committee"), head = sig("head");
   const committeeDone = Boolean(committee) || ["committee", "head", "submitted", "returned", "accepted"].includes(status);
   const headDone = Boolean(head) || ["head", "submitted", "returned", "accepted"].includes(status);
@@ -366,6 +369,8 @@ export interface TermFilmData {
    * لمن يرى البصمة؛ وغيابه يجعل الشاشة ترسم خلفيةً من حِمل الأسبوع وحده.
    */
   backdrop: FingerprintShape | null;
+  /** ختم الاعتماد في الختام (FR-DSH-037): لنسخة القسم حين يعتمد التسجيل جدوله نهائياً، وإلا `null`. */
+  seal?: { term: string; date: string } | null;
   generatedAt: string;
 }
 
@@ -472,6 +477,7 @@ export function deptFilm(input: DeptFilmInput): TermFilmData {
       ],
     },
     backdrop: null,
+    seal: final ? { term: input.termName, date: sealDateLabel(delivery.acceptedAt) } : null,
     generatedAt: (input.now || new Date()).toISOString(),
   };
 }
