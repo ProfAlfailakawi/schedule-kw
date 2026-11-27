@@ -20,6 +20,7 @@ import { approvalSealFrom, type ApprovalSeal } from "../../utils/approvalSeal";
 import { buildFingerprint, DEPT_FINGERPRINT_ROLES, type FingerprintRowInput } from "../../utils/deptFingerprint";
 import { roomDisplay, roomIdentityKey, roomKeyOf } from "../../utils/locationRegistry";
 import { termChronology } from "../../utils/termSequence";
+import { orderTimeline, timelineEntry, TIME_MACHINE_MAX_TERMS, type TimelineTerm } from "../../utils/termTimeline";
 import { type AuthenticatedRequest, isPowerUser, requireAuth } from "../core/auth";
 import { isScopeAllowed } from "../core/scope";
 
@@ -89,6 +90,18 @@ async function sealFor(collegeId: number, sectionId: number, termId: number, ter
   catch { return null; }
 }
 
+/** الفصول الأسبق التي للقسم فيها موعدٌ في قاعة، الأحدث أولاً (اثنا عشر على الأكثر). «قارن» و«آلة الزمن» يقرآنها معاً. */
+export function earlierTerms(terms: readonly AdTerm[], allRows: readonly FSchedule[], term: AdTerm): Array<{ termId: number; termName: string }> {
+  const termId = Number(term.AdTermId);
+  const withHalls = new Set(allRows.filter(row => Boolean(roomIdentityKey(row))).map(row => Number(row.AdTermId)));
+  const rank = termChronology(term);
+  return terms
+    .filter(row => Number(row.AdTermId) !== termId && withHalls.has(Number(row.AdTermId)) && termChronology(row) < rank)
+    .sort((a, b) => termChronology(b) - termChronology(a) || Number(b.AdTermId) - Number(a.AdTermId))
+    .slice(0, 12)
+    .map(row => ({ termId: Number(row.AdTermId), termName: String(row.AdTermName || "") }));
+}
+
 export function registerDeptFingerprintRoutes(app: Express): void {
 
 /* `brief=1` يكفي بطاقة اللوحة: هل للقسم في هذا الفصل موعدٌ في قاعة. */
@@ -121,14 +134,7 @@ app.get("/api/dept-fingerprint", requireAuth, async (req: AuthenticatedRequest, 
       if (!term || !rows.some(row => Boolean(roomIdentityKey(row)))) return null;
       const section: any = (sections as any[]).find(row => Number(row.AdSectionId) === sectionId && Number(row.AdCollegeId) === collegeId);
       const college: any = (colleges as any[]).find(row => Number(row.AdCollegeId) === collegeId);
-      /* الفصول الأسبق التي للقسم فيها موعدٌ في قاعة، الأحدث أولاً. */
-      const withHalls = new Set((allRows as FSchedule[]).filter(row => Boolean(roomIdentityKey(row))).map(row => Number(row.AdTermId)));
-      const rank = termChronology(term);
-      const earlier = (terms as AdTerm[])
-        .filter(row => Number(row.AdTermId) !== termId && withHalls.has(Number(row.AdTermId)) && termChronology(row) < rank)
-        .sort((a, b) => termChronology(b) - termChronology(a) || Number(b.AdTermId) - Number(a.AdTermId))
-        .slice(0, 12)
-        .map(row => ({ termId: Number(row.AdTermId), termName: String(row.AdTermName || "") }));
+      const earlier = earlierTerms(terms as AdTerm[], allRows as FSchedule[], term);
       return {
         seal: await sealFor(collegeId, sectionId, termId, String(term.AdTermName || "")),
         fingerprint: buildFingerprint({
@@ -143,6 +149,44 @@ app.get("/api/dept-fingerprint", requireAuth, async (req: AuthenticatedRequest, 
   } catch (error) {
     console.error("[dept-fingerprint]", error instanceof Error ? error.message : error);
     res.status(500).json({ error: "تعذّر إعداد بصمة القسم." });
+  }
+});
+
+/*
+ * ── آلة الزمن (FR-SCH-102): ملخّص فصول القسم على الشريط ──
+ * البوابة والنطاق والمخبأ هي بوابة البصمة نفسها، والقراءة نفسها (جدول القسم عبر فصوله). لا صفوف
+ * تُرسل: لكل فصلٍ أرقامه (الشعب والساعات والقاعات) ومداه وقاعاته المضغوطة وختمه — والبصمة الكاملة
+ * لفصلٍ سابق تُقرأ من المسار أعلاه حين يصل إليه الشريط وحده. لا كتابة.
+ */
+app.get("/api/dept-fingerprint/timeline", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const collegeId = Number(req.query.collegeId || 0), sectionId = Number(req.query.sectionId || 0), termId = Number(req.query.termId || 0);
+  if (!collegeId || !sectionId || !termId) { res.status(400).json({ error: "اختر الكلية والقسم والفصل أولاً." }); return; }
+  if (!mayReadFingerprint(req)) { res.status(403).json({ error: "آلة الزمن لرئيس لجنة الجدول ورئيس القسم." }); return; }
+  if (!isScopeAllowed(req, collegeId, sectionId)) { res.status(403).json({ error: "خارج صلاحيات الأقسام المسموحة لك" }); return; }
+  try {
+    const answer = await cached(`timeline:${collegeId}:${sectionId}:${termId}`, async () => {
+      const [terms, courses, rooms, allRows] = await Promise.all([
+        Repository.getTerms(), Repository.getCourses(),
+        Repository.getLocationRooms().catch(() => [] as MasterRoom[]),
+        cached(`rows:${collegeId}:${sectionId}`, () => Repository.getSchedulesByScope({ collegeId, sectionId })),
+      ]);
+      const term = (terms as AdTerm[]).find(row => Number(row.AdTermId) === termId);
+      if (!term) return null;
+      const earlier = earlierTerms(terms as AdTerm[], allRows as FSchedule[], term).slice(0, TIME_MACHINE_MAX_TERMS - 1);
+      const list = [...earlier.reverse(), { termId, termName: String(term.AdTermName || "") }];
+      const entries = await Promise.all(list.map(async item => {
+        const rows = (allRows as FSchedule[]).filter(row => Number(row.AdTermId) === item.termId);
+        if (!rows.some(row => Boolean(roomIdentityKey(row)))) return null;
+        const data = buildFingerprint({ sectionName: "", termName: item.termName, rows: fingerprintRows(rows, courses as AdCourse[], rooms as MasterRoom[]) });
+        return timelineEntry(data, { ...item, current: item.termId === termId, seal: await sealFor(collegeId, sectionId, item.termId, item.termName) });
+      }));
+      return orderTimeline(entries.filter((entry): entry is TimelineTerm => Boolean(entry)));
+    });
+    if (!answer || answer.length < 2) { res.status(404).json({ error: "لا فصول سابقة للقسم في قاعات بعد." }); return; }
+    res.json({ terms: answer });
+  } catch (error) {
+    console.error("[dept-fingerprint/timeline]", error instanceof Error ? error.message : error);
+    res.status(500).json({ error: "تعذّر إعداد آلة الزمن." });
   }
 });
 

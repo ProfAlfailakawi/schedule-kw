@@ -704,9 +704,21 @@
    ],
    "path": "/api/dept-fingerprint",
    "name": "bound dispatch",
-   "call": "5ad6ed7083d17c74",
-   "site": "src/server/routes/deptFingerprintRoutes.ts:95",
+   "call": "167a60ab3ba9b13c",
+   "site": "src/server/routes/deptFingerprintRoutes.ts:108",
    "regexp": "/^\\/api\\/dept-fingerprint\\/?$/i",
+   "end": true
+  },
+  {
+   "kind": "route",
+   "methods": [
+    "get"
+   ],
+   "path": "/api/dept-fingerprint/timeline",
+   "name": "bound dispatch",
+   "call": "0ce2613de019322b",
+   "site": "src/server/routes/deptFingerprintRoutes.ts:161",
+   "regexp": "/^\\/api\\/dept-fingerprint\\/timeline\\/?$/i",
    "end": true
   },
   {

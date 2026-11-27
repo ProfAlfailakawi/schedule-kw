@@ -83,6 +83,9 @@
 .dfp-glow{pointer-events:none;animation:dfp-fade 1.4s 1.5s ease backwards}
 @keyframes dfp-fade{from{opacity:0}}
 .dfp-svg.has-hot .dfp-arc:not(.is-hot){opacity:.36}
+/* «آلة الزمن»: بين فصلين وبعد أول سحبة يتحوّل الملصق ولا يُعاد رسمه من أوله. */
+.dfp-svg.is-still .dfp-arc,.dfp-svg.is-still .dfp-tracks,.dfp-svg.is-still .dfp-petals,.dfp-svg.is-still .dfp-glow{animation:none}
+.dfp-scars{pointer-events:none}
 .dfp-svg.has-hot .dfp-glow{opacity:.18}
 .dfp-arc.is-hot{filter:brightness(1.12) saturate(1.1)}
 .dfp-arc:focus{outline:none}
@@ -122,6 +125,7 @@
   -webkit-mask:radial-gradient(circle,transparent 4px,#000 4.5px);mask:radial-gradient(circle,transparent 4px,#000 4.5px)}
 .k-fill{width:20px;height:12px;background:linear-gradient(var(--dfp-d1),var(--dfp-d1)) left center/8px 4px no-repeat,linear-gradient(var(--dfp-d1),var(--dfp-d1)) right center/9px 12px no-repeat;border-radius:3px}
 .k-over{width:20px;height:10px;border-radius:4px;background:var(--dfp-over)}
+.k-scar{width:14px;height:16px;background:linear-gradient(90deg,var(--dfp-over) 0 2.5px,transparent 0 5.5px,var(--dfp-over) 0 8px,transparent 0 11px,var(--dfp-over) 0 13.5px,transparent 0);transform:skewX(-8deg)}
 .k-bloom{width:18px;height:18px;border-radius:50%;background:repeating-conic-gradient(var(--dfp-d0) 0 12deg,transparent 0 30deg);
   -webkit-mask:radial-gradient(circle,transparent 2.5px,#000 3px);mask:radial-gradient(circle,transparent 2.5px,#000 3px)}
 

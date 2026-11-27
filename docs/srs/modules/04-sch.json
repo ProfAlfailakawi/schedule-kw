@@ -154,7 +154,10 @@
     "src/components/hallPulse/CampusCity.tsx",
     "src/components/hallPulse/CampusCityLazy.tsx",
     "src/components/hallPulse/campusScene.ts",
-    "src/utils/pulseWhatIf.ts"
+    "src/utils/pulseWhatIf.ts",
+    "src/utils/termTimeline.ts",
+    "src/components/TermTimeline.tsx",
+    "src/styles/term-timeline.css"
   ],
   "screens": [
     {
@@ -6082,6 +6085,69 @@
         "tests": [
           "tests/hall-pulse-audit.ts",
           "tests/movement-paths-audit.ts"
+        ]
+      },
+      "inferred": false
+    },
+    {
+      "id": "FR-SCH-102",
+      "kind": "functional",
+      "title": {
+        "ar": "«آلة الزمن»: شريطٌ يُسحب عبر فصول القسم فتتحوّل بصمة القسم ونبض القاعات من فصلٍ إلى فصل، ويُرى كيف كبر القسم وأين تكرر الضغط، والفصل السابق للقراءة",
+        "en": "«Time machine»: a strip dragged across the department's terms that morphs the department fingerprint and the hall pulse from term to term, showing how the department grew and where pressure recurred, with past terms read-only"
+      },
+      "text": {
+        "ar": "يجب على النظام أن يضع في «بصمة القسم» وفي «نبض القاعات» بورشة القسم شريطاً واحداً لفصول القسم من الأقدم (يميناً) إلى الجاري (يساراً)، لمن يرى البصمة وحده (رئيس لجنة الجدول ورئيس القسم، والحساب بلا صفة إن ملك شاشة الجدول) وبنطاقه: (1) الفصول هي قائمة «قارن بفصل سابق» نفسها — ما للقسم فيه موعدٌ في قاعة، أحد عشر قبل الجاري على الأكثر — ولكل فصلٍ علامةٌ باسمه القصير («الأول 23/24»)، وفوقها خطٌّ أحمر يطول بعدد قاعاته المضغوطة، وحلقةٌ ذهبية إن كان مختوماً باعتماد التسجيل؛ والمقبض يُسحب سحباً متصلاً ثم يستقرّ على أقرب فصل، والأسهم وHome وEnd تنتقل فصلاً فصلاً بتحوّلٍ مرئي، و«شغّل الرحلة» يمضي من الأقدم إلى الجاري بوقفةٍ على كل فصل. (2) في البصمة يتحوّل الملصق بين الفصلين تحوّلاً ناعماً لا تبديلاً: كل حلقة قاعةٍ تنتقل إلى نصف قطرها في الفصل الآخر، والقوس الباقي (القاعة واليوم والوقت والمقرر والشعبة نفسها) ينتقل معها ويتبدّل سُمكه، والجديد ينمو من لا شيء والزائل يذوي، وبتلات القلب تطول وتقصر، والأرقام الأربعة تتدحرج؛ والمدى واحدٌ لكل الفصول فلا تقفز الساعة عن زاويتها؛ وبين فصلين لا يُشار إلى قوسٍ ولا حلقة. (3) في النبض يُعاد بناء المجسّم لذلك الفصل بمواعيده وإشغاله في اليوم والساعة أنفسهما: الألوان ألوان ملاءمته، والقاعة التي لم يستعملها القسم فيه تذوي حتى تكاد تختفي وتعود حين يُستعمل، والمباني لا تُبنى من جديد. (4) «أين تكرر الضغط»: القاعة التي فيها محاضرةٌ فوق سعتها في فصلين فأكثر من فصول الشريط تحمل ندبةً دائمة — خطٌّ لكل فصلٍ حتى أربعة — في فراغ الخميس–الأحد على حلقتها في البصمة وبجانب لافتتها في المجسّم، وقائمةٌ قصيرة «القاعات المضغوطة فصلاً بعد فصل» بعدد فصولها ونقطةٍ لكل فصل، تُبرز القاعة بضغطها. (5) شريط نموٍّ صغير: الشعب وساعات الأسبوع والقاعات فصلاً بفصل، بخطٍّ صغير ونقطةٍ تتبع الشريط وقيمتها والفرق من الأقدم إلى الجاري، أرقامه لاتينية. (6) الفصل السابق للقراءة وحدها، والشاشة تقول «فصلٌ سابق — للقراءة»: لا «رتّب قاعاتي» ولا «ماذا لو» ولا «ضمّ المساء» ولا استعارة ولا طبقة تسجيل ولا حفظ، ولا «اذهب إليها في النبض» من بصمته؛ والختم يظهر على الفصل المعتمد. ولا تُفتح الآلة في النبض فوق نقلاتٍ لم تُحفظ. (7) القراءة كسولة: ملخّص الفصول (الأرقام والمدى والقاعات المضغوطة والختم، بلا صفوف) من مسارٍ يقرأ فقط ببوابة البصمة ونطاقها ومخبئها (GET /api/dept-fingerprint/timeline)، وبصمة الفصل أو مواعيده وإشغاله لا تُقرأ إلا حين يصل إليه الشريط (والتالي في الرحلة قبل الوصول إليه)، وتُحفظ دقيقة. ومع تقليل الحركة كل انتقالٍ فوري؛ وعلى الهاتف الشريط في البصمة وحدها، والنبض للقراءة كما هو بلا شريط. لا يتّسع من يرى شيئاً، ولا يرى الأستاذ أسماء القاعات، ولا رقم مدني ولا اسم أستاذ، ولا كتابة.",
+        "en": "The system shall place, in the «Department fingerprint» and in the department workshop's «Hall pulse», one strip of the department's terms from the oldest (right) to the current (left), for whoever sees the fingerprint only (the schedule committee chair and the department head, and an account without a role if it holds the schedule screen) and within their scope: (1) the terms are the very list behind «Compare with an earlier term» — those where the department has an appointment in a hall, at most eleven before the current one — each with a tick carrying its short name («First 23/24»), a red bar above it growing with its pressed halls, and a gold ring if sealed by registration acceptance; the thumb is dragged continuously and then settles on the nearest term, the arrows, Home and End move one term at a time with a visible transition, and «Play the journey» runs from the oldest to the current with a pause on each term. (2) In the fingerprint the poster morphs between the two terms smoothly, not by a swap: every hall's ring moves to its radius in the other term, a surviving arc (same hall, day, time, course and section) travels with it and changes thickness, a new arc grows from nothing and a vanished one fades, the centre's petals lengthen and shorten, and the four figures roll; one span serves all terms so no hour jumps from its angle; between two terms no arc or ring can be pointed at. (3) In the pulse the scene is rebuilt for that term with its appointments and occupancy at the same weekday and clock: the colours are its fit, a hall the department did not use that term fades almost away and returns when used, and the buildings are not rebuilt. (4) «Where pressure recurred»: a hall with a lecture over its capacity in two or more of the strip's terms carries a persistent scar — one stroke per term, up to four — in the Thursday–Sunday gap on its ring in the fingerprint and beside its label in the scene, and a short list «Halls pressed term after term» gives its number of terms with a dot per term, highlighting the hall on press. (5) A small growth strip: sections, weekly hours and halls term by term, as a sparkline with a dot following the strip, its value and the change from the oldest to the current, in Latin digits. (6) A past term is read-only and the screen says «Past term — read-only»: no «Arrange my halls», no «What if», no «Gather the evening», no borrowing, no registration layer, no save, and no «go to it in the pulse» from its fingerprint; the seal shows on an accepted term. The machine does not open in the pulse over unsaved moves. (7) Reading is lazy: the terms' summary (figures, span, pressed halls and seal, no rows) comes from a read-only route with the fingerprint's own gate, scope and cache (GET /api/dept-fingerprint/timeline), and a term's fingerprint or appointments and occupancy are read only when the strip reaches it (and the next one during the journey, before arriving), kept for a minute. With reduced motion every transition is instant; on a phone the strip is in the fingerprint only, and the pulse stays read-only as before without a strip. Nobody gains visibility, a teacher never sees hall names, there is no civil ID and no teacher name, and nothing is written."
+      },
+      "rationale": {
+        "ar": "يرى رئيس القسم ورئيس اللجنة بنظرةٍ متحرّكة كيف كبر القسم فصلاً بعد فصل، وأيّ القاعات تضيق به كل مرة، فيطلب القاعة الأوسع أو يعيد التوزيع بحجّةٍ من تاريخه لا من فصلٍ واحد.",
+        "en": "The department head and the chair see, in one moving glance, how the department grew term after term and which halls keep running short, so they can ask for a larger hall or redistribute with evidence from its history rather than one term."
+      },
+      "priority": "could",
+      "status": "implemented",
+      "actors": [
+        "committeeChair",
+        "departmentHead"
+      ],
+      "acceptance": [
+        {
+          "ar": "عند 0 يطابق الملصق بصمة الفصل الأول تماماً وعند 1 بصمة الثاني؛ وفي منتصف الطريق الحلقة الباقية في منتصف نصفي قطريها، وأقواس القاعة الجديدة وحدها بين الولادة والذبول، ولا يُشار إلى قوس.",
+          "en": "At 0 the poster equals the first term's fingerprint exactly and at 1 the second's; halfway a surviving ring sits halfway between its radii, only the new hall's arcs are between birth and fading, and no arc can be pointed at."
+        },
+        {
+          "ar": "قاعةٌ ضاقت في ثلاثة فصول من أربعة تحمل ثلاث ندوب وتتصدّر القائمة بـ«ضاقت في 3 فصول»، وقاعةٌ ضاقت مرةً واحدة لا ندبة لها، والفصل لا يُعدّ مرتين؛ والندوب في فراغ الخميس–الأحد وحده.",
+          "en": "A hall pressed in three of four terms carries three scars and leads the list with «pressed in 3 terms»; a hall pressed once has no scar, and a term is never counted twice; the scars lie only in the Thursday–Sunday gap."
+        },
+        {
+          "ar": "على فصلٍ سابق في النبض لا يظهر «رتّب قاعاتي» ولا «ضمّ المساء» ولا مقبض سحب ولا طبقة التسجيل، وتقول اللوحة «فصلٌ سابق — للقراءة: لا نقل فيه»؛ والعودة إلى الجاري تعيدها كما كانت دون إعادة بناء المباني.",
+          "en": "On a past term in the pulse there is no «Arrange my halls», no «Gather the evening», no drag handle and no registration layer, and the panel says «Past term — read-only: no moves»; returning to the current term restores them without rebuilding the buildings."
+        },
+        {
+          "ar": "فتح البصمة يقرأ ملخّص الفصول وحده؛ وسحب الشريط إلى فصلٍ يقرأ بصمته هو وحده، ولا يُقرأ فصلٌ لم يصل إليه الشريط؛ والمسار يُرفض لغير من يرى البصمة وخارج نطاقه.",
+          "en": "Opening the fingerprint reads only the terms' summary; dragging the strip to a term reads that term's fingerprint alone, and no term the strip has not reached is read; the route is refused to anyone who cannot see the fingerprint and outside their scope."
+        },
+        {
+          "ar": "مع تقليل الحركة الانتقال فوري والرحلة خطواتٌ بلا تحوّل؛ وعلى الهاتف 375 الشريط في البصمة بلا تمرير أفقي، ولا زرّ «آلة الزمن» في النبض.",
+          "en": "With reduced motion the transition is instant and the journey steps without morphing; on a 375 phone the strip sits in the fingerprint with no horizontal scroll, and the pulse shows no «Time machine» button."
+        }
+      ],
+      "evidence": {
+        "code": [
+          "src/utils/termTimeline.ts#prepareMorph",
+          "src/utils/termTimeline.ts#morphAt",
+          "src/utils/termTimeline.ts#repeatedPressure",
+          "src/utils/termTimeline.ts#growthSeries",
+          "src/utils/termTimeline.ts#scrubPoint",
+          "src/components/TermTimeline.tsx",
+          "src/components/DeptFingerprint.tsx",
+          "src/components/hallPulse/HallPulse.tsx",
+          "src/components/hallPulse/pulseScene.ts",
+          "src/server/routes/deptFingerprintRoutes.ts"
+        ],
+        "tests": [
+          "tests/term-timeline-audit.ts",
+          "tests/dept-fingerprint-audit.ts"
         ]
       },
       "inferred": false

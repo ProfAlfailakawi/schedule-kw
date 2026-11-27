@@ -407,7 +407,7 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   check(/\/api\/schedules\/registrar-requests\?/.test(pulseSrc) && /registrar-requests\/\$\{encodeURIComponent\(regDoc\.id\)\}\/live/.test(pulseSrc), "الطبقة تقرأ التقرير المحفوظ ومساره الحيّ الموجودين، لا مقارنةً ثانية");
   check(/setRegReload\(value => value \+ 1\)/.test(pulseSrc) && /\[regScope, regContext, regReload\]/.test(pulseSrc), "تشغيل الطبقة يعيد قراءة الفحوص المحفوظة: فحصٌ حُفظ للتوّ يظهر بلا مغادرة");
   check(/setMode\("paths"\); setRegOn\(false\)/.test(pulseSrc) && pulseSrc.includes('{regOn && mode === "halls" ? regPanel : mode === "paths" ? pathsPanel : panel}'), "«مسارات التنقّل» تُطفئ الطبقة ولا تحجب لوحة المسارات");
-  check(/regContext = \(context === "workshop" \|\| context === "dean"\)/.test(pulseSrc) && /regContext && regList \?/.test(pulseSrc), "الزرّ في الورشة وبطاقة العميد وحدهما، وبعد أن يقبل الخادم قراءة التقرير (بوابته نفسها)");
+  check(/regContext = \(context === "workshop" \|\| context === "dean"\)/.test(pulseSrc) && /regContext && regList && !past \?/.test(pulseSrc), "الزرّ في الورشة وبطاقة العميد وحدهما، وبعد أن يقبل الخادم قراءة التقرير (بوابته نفسها)");
   check(!/civils/.test(pulseSrc), "لا رقم مدنياً في الطبقة");
 }
 
@@ -646,7 +646,7 @@ check(new Set(positions).size === positions.length, "لا قاعتان في ال
   const sceneSrc = fs.readFileSync(path.join(process.cwd(), "src/components/hallPulse/pulseScene.ts"), "utf8");
   const util = fs.readFileSync(path.join(process.cwd(), "src/utils/pulseWhatIf.ts"), "utf8");
   const sched = fs.readFileSync(path.join(process.cwd(), "src/components/Schedules.tsx"), "utf8");
-  check(/\.\.\.\(canSave && !narrow \? \{\s*canDrag:/.test(src) && /const canWhatIf = canSave && !narrow && !councilOn && cine === "off" && !insideKey && !plan && !pending && !borrow && !regOn && day !== "week"/.test(src), "السحب لرئيس اللجنة على شاشةٍ واسعة وحده: لا مقبض للعميد ولا للتقارير ولا على الهاتف");
+  check(/\.\.\.\(canSaveRole && !narrow \? \{\s*canDrag:/.test(src) && /const canSaveRole = Boolean\(props\.canSave && props\.onSaveMoves && context === "workshop"\)/.test(src) && /const canWhatIf = canSave && !narrow && !councilOn && cine === "off" && !insideKey && !plan && !pending && !borrow && !regOn && day !== "week"/.test(src), "السحب لرئيس اللجنة على شاشةٍ واسعة وحده: لا مقبض للعميد ولا للتقارير ولا على الهاتف");
   check(/can: key => canWhatIf && occ\.has\(key\)/.test(src), "تُلتقط شعبةٌ تشغل قاعتها في لحظة الساعة وحدها");
   check(/const p = whatIfPlan\(model, original, whatIf, d\)/.test(src) && /setPlanKind\("whatif"\)/.test(src) && /const ok = await props\.onSaveMoves\(savedMovesFrom\(moves\)\)/.test(src), "«راجع واحفظ» يفتح المراجعة الموجودة، والحفظ من مسارها المعتاد");
   check(!/fetch\(|XMLHttpRequest|sendBeacon/.test(util) && (src.match(/method: "POST"/g) || []).length === 1, "لا كتابة جديدة: لا طلب في حكم الإفلات، والطلب المرسَل الوحيد في الشاشة ما زال طلب الاستعارة");

@@ -29,6 +29,10 @@ export interface HallVisual {
   mark?: number;
   /** شارةٌ بجانب اللافتة: عدد الفروق. */
   badge?: string;
+  /** «آلة الزمن» (FR-SCH-102): قاعةٌ لم يستعملها القسم في الفصل المعروض — تذوي حتى تكاد تختفي، وتعود حين يُستعمل. */
+  absent?: boolean;
+  /** «أين تكرر الضغط»: عدد الفصول التي ضاقت فيها القاعة (2 فأكثر) — ندوبٌ بجانب لافتتها تبقى طوال الرحلة. */
+  scar?: number;
   label: string;
   showLabel?: boolean;
 }
@@ -61,6 +65,8 @@ interface RoomRig {
   liftWant: number;
   fadeK: number;
   fadeWant: number;
+  /** حضور القاعة في الفصل المعروض (آلة الزمن): 1 حاضرة، وتذوي إلى ظلٍّ حين لم تُستعمل. */
+  presK: number;
   /** شفافية النافذة والوهج بعد التخفيف (تُحفظ هنا لا في المادة: المادة تُرسم بحالتين عند «قبل وبعد»). */
   winO: number;
   haloO: number;
@@ -426,7 +432,7 @@ export class PulseScene {
         key: spot.key, group, shell, fill, edges, tag, win, halo,
         target: { color: 0xcfe9df, level: 0, occupied: false, label: "" },
         level: 0, color: new THREE.Color(GLASS), base: group.position.clone(), flashAt: 0,
-        building: spot.building, floorIndex: spot.floorIndex, liftY: 0, liftWant: 0, fadeK: 1, fadeWant: 1,
+        building: spot.building, floorIndex: spot.floorIndex, liftY: 0, liftWant: 0, fadeK: 1, fadeWant: 1, presK: 1,
         winO: 0, haloO: 0, alt: null, altLevel: 0, altColor: new THREE.Color(GLASS), altWinO: 0, altHaloO: 0,
       });
     }
@@ -1152,7 +1158,7 @@ export class PulseScene {
     const breathe = reduced ? 0.5 : 0.5 + 0.5 * Math.sin(now / 340);
     /* يلوّن موادّ القاعة من حالةٍ بعينها: الأساسية كل إطار، والأخرى قبل رسم جانبها من الفاصل. */
     const paint = (rig: RoomRig, v: HallVisual, level: number, color: THREE.Color, winO: number, haloO: number, fade: number, flash: boolean) => {
-      const sel = rig.key === this.selected, hov = rig.key === this.hovered, fk = rig.fadeK;
+      const sel = rig.key === this.selected, hov = rig.key === this.hovered, fk = rig.fadeK * (sel || hov ? Math.max(0.6, rig.presK) : rig.presK);
       const fillMat = rig.fill.material;
       const mark = v.mark != null ? this.markColor.setHex(v.mark) : null;
       fillMat.color.copy(color);
@@ -1191,7 +1197,10 @@ export class PulseScene {
       const ek = reduced ? 1 : 1 - Math.exp(-dt * 4.5);
       rig.liftY += (rig.liftWant - rig.liftY) * ek;
       rig.fadeK += (rig.fadeWant - rig.fadeK) * ek;
-      if (Math.abs(rig.liftWant - rig.liftY) + Math.abs(rig.fadeWant - rig.fadeK) > 0.002) busy = true;
+      /* آلة الزمن: القاعة التي لم تُستعمل في الفصل المعروض تذوي ببطء، والتي استُعملت تعود. */
+      const presWant = v.absent && !neighbour ? 0.16 : 1;
+      rig.presK += (presWant - rig.presK) * (reduced ? 1 : 1 - Math.exp(-dt * 2.6));
+      if (Math.abs(rig.liftWant - rig.liftY) + Math.abs(rig.fadeWant - rig.fadeK) + Math.abs(presWant - rig.presK) > 0.002) busy = true;
       const flash = now - rig.flashAt < 700;
       rig.winO += (((v.occupied && !v.dim ? 0.7 : 0) * fade * rig.fadeK) - rig.winO) * ck;
       rig.haloO += (((v.mark != null ? 0.5 + 0.4 * breathe : v.pulse ? 0.35 + 0.35 * breathe : sel ? 0.28 : 0) * fade * rig.fadeK) - rig.haloO) * ck;
@@ -1386,15 +1395,25 @@ export class PulseScene {
       }
       /* على الشاشة الضيّقة: لافتة المختارة والمضغوطة والمضيئة وحدها. */
       const roomy = this.W >= 560;
-      const show = fade > 0.6 && rig.fadeK > 0.5 && (sel || hov || (Boolean(v.showLabel) && (roomy || Boolean(v.pulse || v.glow || v.mark != null))));
+      const scarred = Boolean(v.scar && v.scar > 1);
+      const show = fade > 0.6 && rig.fadeK > 0.5 && (rig.presK > 0.5 || scarred || sel) && (sel || hov || (Boolean(v.showLabel) && (roomy || Boolean(v.pulse || v.glow || v.mark != null || scarred))));
       rig.tag.hidden = !show;
       if (!show) return;
-      const tagKey = `${v.badge || ""}\u0000${v.label}`;
+      const tagKey = `${v.badge || ""}\u0000${v.label}\u0000${scarred ? v.scar : 0}`;
       if (rig.tag.dataset.k !== tagKey) {
         rig.tag.dataset.k = tagKey;
         rig.tag.textContent = v.label;
         if (v.badge) { const b = document.createElement("b"); b.className = "hp-tag-badge"; b.textContent = v.badge; rig.tag.prepend(b); }
+        /* الندوب: خطٌّ لكل فصلٍ ضاقت فيه القاعة (حتى أربعة)، قبل اسمها. */
+        if (scarred) {
+          const mark = document.createElement("i");
+          mark.className = "hp-tag-scar";
+          for (let k = 0; k < Math.min(4, v.scar!); k += 1) mark.appendChild(document.createElement("i"));
+          rig.tag.prepend(mark);
+        }
       }
+      rig.tag.classList.toggle("is-scar", scarred);
+      rig.tag.classList.toggle("is-absent", rig.presK < 0.5);
       rig.tag.classList.toggle("is-selected", sel);
       rig.tag.classList.toggle("is-glow", Boolean(v.glow));
       rig.tag.classList.toggle("is-mark", v.mark != null);
