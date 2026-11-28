@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "demo-3947",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["DATA_MODE=demo", "PORT=3947", "npx", "tsx", "server.ts"],
+      "port": 3947
+    }
+  ]
+}
