@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Command,
@@ -12,6 +12,7 @@ import InstallApp from "./InstallApp";
 import ScheduleJourney from "./ScheduleJourney";
 import BrandMark from "./BrandMark";
 import { parseInvitationHash } from "../utils/invitationLink";
+const WeaveBackdrop = lazy(() => import("./WeaveBackdrop"));
 interface LoginProps {
   onLoginSuccess: (data: {
     user: any;
@@ -135,6 +136,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
   return (
     <main ref={mainRef} className="apex-login visual-minimal" dir="rtl">
+      <Suspense fallback={null}><WeaveBackdrop /></Suspense>
       <div className="apex-login-ambient" aria-hidden="true">
         <i />
         <i />
