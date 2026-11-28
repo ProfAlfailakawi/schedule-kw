@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "schedule-demo-3100",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "env": { "DATA_MODE": "demo", "PORT": "3100" },
+      "port": 3100
+    },
+    {
+      "name": "schedule-demo-3110",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "env": { "DATA_MODE": "demo", "PORT": "3110" },
+      "port": 3110
+    }
+  ]
+}
