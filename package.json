@@ -11,6 +11,7 @@
     "test:hall-pulse": "tsx tests/hall-pulse-audit.ts",
     "test:campus-city": "tsx tests/campus-city-audit.ts",
     "test:movement-paths": "tsx tests/movement-paths-audit.ts",
+    "test:student-rivers": "tsx tests/student-rivers-audit.ts",
     "test:instructor-requests-owner-notes": "tsx tests/instructor-requests-owner-notes-audit.ts",
     "test:proposal-open-row": "tsx tests/proposal-open-row-audit.ts",
     "test:term-film": "tsx tests/term-film-audit.ts",

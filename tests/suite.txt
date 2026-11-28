@@ -76,6 +76,7 @@ test:occupancy-heat
 test:hall-pulse
 test:campus-city
 test:movement-paths
+test:student-rivers
 test:occupancy-slot-panel
 test:request-handoff
 test:native-print
