@@ -28,7 +28,7 @@ import { authorityCourseCode, authorityDepartmentKeys } from "../../utils/author
 import { SCHEDULE_DAY_KEYS, schedulePayloadIssues } from "../core/scheduleRules";
 import { filterByScope, isScopeAllowed } from "../core/scope";
 import { checkRegistrarPdf, looksForeign, slimPdfRow, type RegistrarCheckResult } from "../../utils/registrarCheck";
-import { buildRequestItems, checkCrnKey, checkPairKey, liveRequestItems, requestSummary, tickRequestItem, verifyRequestItems, type LiveRequestView, type RegistrarCheckKeys, type RegistrarRequestDoc } from "../../utils/registrarRequest";
+import { buildRequestItems, checkCrnKey, checkPairKey, instructorNamesOf, liveRequestItems, personNameKey, requestSummary, tickRequestItem, verifyRequestItems, type LiveRequestView, type RegistrarCheckKeys, type RegistrarRequestDoc } from "../../utils/registrarRequest";
 import { authorityBaselineForScope, authorityDraftForScope, buildAuthorityPdfDiff, buildAuthorityPdfDiffWithHistory } from "../core/authority";
 import { isPowerUser, requireAuth } from "../core/auth";
 import { canReviewSubmissions } from "../../utils/academicRoles";
@@ -574,8 +574,27 @@ app.get("/api/schedules/registrar-requests", requireAuth, async (req: Authentica
   if(!collegeId||!sectionId||!termId){res.status(400).json({error:"حدد الكلية والقسم والفصل."});return;}
   if(!await mayReadRequests(req)){res.status(403).json({error:"ليس لديك صلاحية للوصول إلى هذا القسم"});return;}
   if(!isScopeAllowed(req,collegeId,sectionId)){res.status(403).json({error:"خارج صلاحيات الأقسام المسموحة لك"});return;}
-  const docs=await Repository.listFeatureDocs<RegistrarRequestDoc>("registrarRequests",requestPrefix(termId,collegeId,sectionId));
-  res.json({requests:docs.sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,REQUESTS_PER_SCOPE),canTick:mayTickRequests(req)});
+  const docs=(await Repository.listFeatureDocs<RegistrarRequestDoc>("registrarRequests",requestPrefix(termId,collegeId,sectionId)))
+    .sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,REQUESTS_PER_SCOPE);
+  /* الرقمُ المدني بجانب الأستاذ في الورقة المحفوظة أيضاً: بمعرّفه إن حمله البند، وإلا باسمه حين يدلّ على أستاذٍ واحدٍ فقط.
+     لأساتذة هذه التقارير وحدهم ولمن مرّ بـ mayReadRequests ونطاقه؛ لا يُخزَّن. */
+  const wantIds=new Set<number>(),wantNames=new Set<string>();
+  for(const doc of docs)for(const item of doc.items||[]){
+    for(const field of item.fields||[])for(const id of field.oursIds||[])wantIds.add(Number(id));
+    for(const name of instructorNamesOf(item))wantNames.add(name);
+  }
+  const civils:Record<string,string>={},civilsByName:Record<string,string>={};
+  if(wantIds.size||wantNames.size){
+    const byName=new Map<string,string[]>();
+    for(const person of await Repository.getInstructors()){
+      const id=Number((person as any).AdInstructorId||0),civil=String((person as any).AdInstructorCivil||"").trim();
+      if(wantIds.has(id)&&civil)civils[String(id)]=civil;
+      const name=personNameKey(String((person as any).AdInstructorName||""));
+      if(wantNames.has(name))byName.set(name,[...(byName.get(name)||[]),civil]);
+    }
+    for(const [name,list] of byName)if(list.length===1&&list[0])civilsByName[name]=list[0];
+  }
+  res.json({requests:docs,canTick:mayTickRequests(req),civils,civilsByName});
 });
 
 /** وارد التسجيل: أحدثُ طلبٍ لكل قسمٍ في جولته الجارية، بنطاق القارئ وحده. */
