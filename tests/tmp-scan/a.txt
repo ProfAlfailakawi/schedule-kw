@@ -1,0 +1,72 @@
+src/components/AcademicDecisionLabPanel.tsx:99  w.courseName
+src/components/AcademicDecisionLabPanel.tsx:122  w.courseName
+src/components/AcademicDecisionLabPanel.tsx:145  s.courseName
+src/components/AcademicDecisionLabPanel.tsx:157  active.courseName
+src/components/AcademicDecisionLabPanel.tsx:196  step.courseName
+src/components/AdvisorSeatsPanel.tsx:141  s.courseName
+src/components/ApprovalBar.tsx:924  item.courseName || "مقرر"
+src/components/CourseImpact.tsx:43  data.course.name
+src/components/CurriculumPlans.tsx:477  from?.CourseName || "مقرر قديم"
+src/components/CurriculumPlans.tsx:477  to ? `← ${to.CourseCode} ${to.CourseName}` : "أُلغي في الصحيفة الجديدة"
+src/components/CurriculumReferenceReview.tsx:98  course.name
+src/components/ImportPreviewTable.tsx:401  course.CourseName
+src/components/InstructorInbox.tsx:189  item.after?.courseName || item.before?.courseName || "البند"
+src/components/IntelligenceWorkspace.tsx:2714  guideSimulationMeta.before.AdCourseName || "المقرر المحدد"
+src/components/IntelligenceWorkspace.tsx:3548  course.name
+src/components/IntelligenceWorkspace.tsx:3631  item.courseName
+src/components/IntelligenceWorkspace.tsx:3723  fix.swapWith ? "تبديل موعدي شعبتين" : fix.courseName
+src/components/IntelligenceWorkspace.tsx:3728  fix.courseName
+src/components/IntelligenceWorkspace.tsx:3738  fix.swapWith.courseName
+src/components/IntelligenceWorkspace.tsx:3802  course.name
+src/components/IntelligenceWorkspace.tsx:5005  r.AdCourseName
+src/components/LivingScheduleLayer.tsx:957  selected.AdCourseName
+src/components/PlanReview.tsx:440  focusCourse.name
+src/components/PlanReview.tsx:521  course.name
+src/components/PlanSheetUpload.tsx:419  course.name
+src/components/Reports.tsx:445  courseName
+src/components/Reports.tsx:3369  course.courseName
+src/components/Reports.tsx:3433  row.AdCourseName
+src/components/Reports.tsx:3491  row.CourseNameSnapshot || row.AdCourseName || course?.CourseName || "—"
+src/components/Reports.tsx:4124  entry.row?.AdCourseName || `موعد ${entry.scheduleId}`
+src/components/Reports.tsx:4473  row.CourseNameSnapshot || row.AdCourseName || course?.CourseName || "—"
+src/components/Reports.tsx:4544  row.CourseNameSnapshot || row.AdCourseName || course?.CourseName || "—"
+src/components/Reports.tsx:4622  row.CourseNameSnapshot || row.AdCourseName || course?.CourseName || "—"
+src/components/Reports.tsx:4660  courseOf(row)?.CourseName || row.AdCourseName || "—"
+src/components/Reports.tsx:4707  courseOf(row)?.CourseName || row.AdCourseName || "—"
+src/components/Reports.tsx:4927  courseOf(row)?.CourseName || row.AdCourseName || "—"
+src/components/Reports.tsx:4996  courseOf(row)?.CourseName || row.AdCourseName || "—"
+src/components/RoomSuggestionCards.tsx:118  item.courseName || "المقرر نفسه"
+src/components/ScheduleExperienceLayer.tsx:622  e.decision.issue ? `${e.decision.issue.courseName} · شعبة ${e.decision.issue.sectionCo
+src/components/SchedulePhysics/ScheduleDecisionPreview.tsx:36  course?.CourseCode || row.AdCourseName
+src/components/ScheduleReview.tsx:160  course.name
+src/components/ScheduleReview.tsx:586  courseName
+src/components/Schedules.tsx:9233  x.courseName
+src/components/Schedules.tsx:9589  courseName
+src/components/Schedules.tsx:10085  courseName || "المقرر"
+src/components/Schedules.tsx:10766  guideGhostDiff.before.AdCourseName || "المقرر المحدد"
+src/components/Schedules.tsx:12721  layout.items.map((placed) => { const course = courseById.get(placed.row.AdCourse
+src/components/Schedules.tsx:13182  move.before.AdCourseName || courseById.get(move.before.AdCourseId)?.CourseName || `موعد ${move.id}`
+src/components/Schedules.tsx:13218  clash.current.AdCourseName || courseById.get(clash.current.AdCourseId)?.CourseName || "الموعد"
+src/components/Schedules.tsx:13226  courseById.get(clash.yours.AdCourseId)?.CourseName || "الموعد"
+src/components/SectionPlanning.tsx:353  row.course.name
+src/components/SectionPlanning.tsx:367  row.course.name
+src/components/SectionPlanning.tsx:513  course.name
+src/components/SectionPlanning.tsx:630  course?.name || ""
+src/components/ServiceCoursesPanel.tsx:96  course.name
+src/components/SpellingTwinsMerge.tsx:77  course.name
+src/components/StudentRegistration.tsx:173  committee ? `عدم موافقة اللجنة على «${course.name}»` : `ردّ «${course.name}»`
+src/components/StudentRegistration.tsx:265  current.course.name
+src/components/TAPhasePanel.tsx:104  course.name
+src/components/TAPhasePanel.tsx:128  row.courseName
+src/components/proposal/ProposalChecks.tsx:63  op?.target.courseName || "المادة"
+src/components/proposal/ProposalDialogs.tsx:393  op.target.courseName
+src/components/proposal/ProposalOpForm.tsx:364  ws.currentItems.find(i => i.rowId === draft.rowId)?.courseName
+src/components/proposal/ProposalOpForm.tsx:424  ws.draftFit.courseName || "محاضرة"
+src/components/proposal/ProposalOps.tsx:65  before.courseName
+src/components/proposal/ProposalQuickCard.tsx:143  editingRow?.courseName || "الموعد"
+src/components/proposal/ProposalWeekGrid.tsx:284  item.outside ? "التزام خارج القسم" : item.courseName || "موعد"
+src/components/proposal/ProposalWeekGrid.tsx:316  selected.outside ? "التزام خارج القسم" : selected.courseName
+src/components/proposal/ProposalWeekGrid.tsx:549  item.outside ? "التزام خارج القسم" : item.courseName || "موعد"
+src/components/proposal/ProposalWeekGrid.tsx:560  change.kind === "replaced" ? change.before.courseName : shortSlot(change.before)
+src/components/sectionRequests/SectionRequestsPanel.tsx:181  row.courseName
+src/components/sectionRequests/SectionRequestsPanel.tsx:410  course.name

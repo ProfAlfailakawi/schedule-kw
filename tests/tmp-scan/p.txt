@@ -1,0 +1,40 @@
+src/components/AdminUsers.tsx:1055  i.AdInstructorName
+src/components/AdminUsers.tsx:1717  linked?.AdInstructorName || "غير مربوطة"
+src/components/AllCourses.tsx:245  impact.teacher.name
+src/components/AuthorityPdfReport.tsx:212  instructor?.AdInstructorName || displayInstructorText(row.sourceInstructorText) || "—"
+src/components/DaySubstitute.tsx:181  instructorName
+src/components/ImportNameFillPanel.tsx:116  d.instructorName
+src/components/ImportNameFillPanel.tsx:116  d.instructorName
+src/components/ImportPreviewTable.tsx:475  person.AdInstructorName
+src/components/Instructors.tsx:404  x.AdInstructorName
+src/components/Instructors.tsx:454  selected.AdInstructorName
+src/components/IntelligenceVersionCanvas.tsx:53  (row as any).AdInstructorName
+src/components/IntelligenceWorkspace.tsx:3246  risk.instructorName
+src/components/IntelligenceWorkspace.tsx:3259  proposal.instructorName
+src/components/IntelligenceWorkspace.tsx:3666  slot.instructorName || "بلا أستاذ"
+src/components/IntelligenceWorkspace.tsx:4469  withVisitingSuffix(i.AdInstructorName, isVisiting(i.AdInstructorId, collegeId, sectionId))
+src/components/IntelligenceWorkspace.tsx:5803  detail.data.instructor?.AdInstructorName
+src/components/LivingScheduleLayer.tsx:1229  withVisitingSuffix(instructors.find(i => Number(i.AdInstructorId) === Number(genesisEdit?.AdInstructorId))?.Ad
+src/components/LivingScheduleLayer.tsx:1229  withVisitingSuffix(i.AdInstructorName, isVisiting(i.AdInstructorId, collegeId, sectionId))
+src/components/LivingScheduleLayer.tsx:1484  instructorById.get(selected.AdInstructorId) ?.AdInstructorName
+src/components/MeetingSlots.tsx:204  person.AdInstructorName
+src/components/QuickCreatePopover.tsx:667  teacherName
+src/components/Reports.tsx:4731  person.instructorName
+src/components/Reports.tsx:4757  teacherPages.map((page, index) => printList(page.map(teacher => ({ title: `${teacher.name}${visitingIds.has(te
+src/components/ScheduleExperienceLayer.tsx:853  topInstructor?.name || "—"
+src/components/SchedulePhysics/ScheduleDecisionPreview.tsx:36  instructor?.AdInstructorName || ""
+src/components/SchedulePhysics/SchedulePhysicsLayer.tsx:101  instructor?.AdInstructorName || ""
+src/components/ScheduleTransfer.tsx:1891  person?.AdInstructorName||`منتدب ${id}`
+src/components/ScheduleTransfer.tsx:1925  person.AdInstructorName
+src/components/ScheduleTransfer.tsx:1959  withVisitingSuffix(person.AdInstructorName, visitingInDept(person.AdInstructorId))
+src/components/ScheduleTransfer.tsx:1969  withVisitingSuffix(person.AdInstructorName, visitingInDept(person.AdInstructorId))
+src/components/Schedules.tsx:9066  i?.AdInstructorName || "بدون أستاذ"
+src/components/Schedules.tsx:11397  i?.AdInstructorName || "بدون أستاذ"
+src/components/Schedules.tsx:12417  i?.AdInstructorName || "بدون أستاذ"
+src/components/Schedules.tsx:12725  layout.items.map((placed) => { const course = courseById.get(placed.row.AdCourse
+src/components/Schedules.tsx:13570  withVisitingSuffix(instructorById.get(s.AdInstructorId)?.AdInstructorName || "", visitingIds.has(s.AdInstructo
+src/components/Schedules.tsx:13664  context.instructor?.AdInstructorName || "بدون أستاذ"
+src/components/SectionBuild.tsx:154  p.instructorName || "أستاذ؟"
+src/components/SectionBuild.tsx:160  p.instructorName
+src/components/SectionSimulator.tsx:156  impact.teacher.name
+src/components/SectionSimulator.tsx:221  card.instructorName
