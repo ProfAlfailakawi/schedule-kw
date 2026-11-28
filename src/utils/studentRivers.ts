@@ -1,5 +1,5 @@
 /**
- * ── أنهار الطلبة: من يمشي بين المباني عند تبدّل المحاضرات (نقيّ بلا React ولا three.js) ──
+ * ── حركة الطلبة: من يمشي بين المباني عند تبدّل المحاضرات (نقيّ بلا React ولا three.js) ──
  *
  * يبني على مسارات التنقّل (movementPaths): لكل دفعةٍ (شعب المستوى نفسه في الصحيفة نفسها بالرمز
  * نفسه) ولكل أستاذ، كل انتقالٍ بين محاضرتين متتاليتين تبدأ ثانيتهما خلال نافذةٍ قصيرة بعد انتهاء
@@ -200,7 +200,7 @@ export function busiestCrossing(rivers: readonly River[], minute?: number): { ri
   return { river: top(pool), live: false };
 }
 
-/** «أزحم الممرات اليوم»: أنهار الطلبة الأعرض أولاً. */
+/** «أزحم الممرات اليوم»: حركة الطلبة الأعرض أولاً. */
 export function busiestRivers(rivers: readonly River[], limit = 8): River[] {
   return rivers.filter(r => r.who === "students" && r.students > 0)
     .sort((a, b) => b.students - a.students || a.at - b.at || a.id.localeCompare(b.id))

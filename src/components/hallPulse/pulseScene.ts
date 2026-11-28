@@ -98,7 +98,7 @@ const WINDOW_WARM = new THREE.Color(0xffe2a8);
 /** ختم الاعتماد (FR-DSH-037): ذهب النوافذ حين تضيء القاعات كلها معاً. */
 const SEAL_GOLD = new THREE.Color(0xffd36e);
 const PATH_GLOW = new THREE.Color(0x7fe0ff);
-/** أنهار الطلبة (FR-SCH-103): من الهادئ (نعناعي) إلى المزدحم (مرجاني) مروراً بالكهرماني؛ والأساتذة خيطٌ نحاسي. */
+/** حركة الطلبة (FR-SCH-103): من الهادئ (نعناعي) إلى المزدحم (مرجاني) مروراً بالكهرماني؛ والأساتذة خيطٌ نحاسي. */
 const RIVER_CALM = new THREE.Color(0x6ff0d0), RIVER_BUSY = new THREE.Color(0xffc861), RIVER_CROWD = new THREE.Color(0xff6f61);
 const RIVER_TEACHER = new THREE.Color(0xe2bd76);
 function riverColor(load: number, out: THREE.Color) {
@@ -218,7 +218,7 @@ export class PulseScene {
   private sunWant = 0.3;
   private explodeOf: { building: string; floor: number } | null = null;
   private pathGroup = new THREE.Group();
-  /* ── أنهار الطلبة ── */
+  /* ── حركة الطلبة ── */
   private riverGroup = new THREE.Group();
   private rivers: Array<{
     river: River; curve: THREE.QuadraticBezierCurve3; radius: number;
@@ -817,7 +817,7 @@ export class PulseScene {
     this.pathMarker = null; this.pathHalo = null; this.markerState = null; this.markerHas = false;
   }
 
-  /* ── أنهار الطلبة (FR-SCH-103) ───────────────────────────────────────────── */
+  /* ── حركة الطلبة (FR-SCH-103) ───────────────────────────────────────────── */
   /** وسط القاعات المرسومة من قائمة؛ null إن لم تُرسم منها قاعة (قاعة فصلٍ سابق خرجت من السجل). */
   private centroid(keys: readonly string[]): THREE.Vector3 | null {
     const sum = new THREE.Vector3();
