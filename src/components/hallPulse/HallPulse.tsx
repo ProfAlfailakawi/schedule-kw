@@ -320,7 +320,7 @@ export default function HallPulse(props: HallPulseProps) {
   const [sceneReady, setSceneReady] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const [mode, setMode] = useState<"halls" | "paths">("halls");
-  /* «أنهار الطلبة» (FR-SCH-103): طبقةٌ فوق القاعات أو المسارات، لا وضعٌ ثالث — فتجري مع العرض و«ماذا لو». */
+  /* «حركة الطلبة» (FR-SCH-103): طبقةٌ فوق القاعات أو المسارات، لا وضعٌ ثالث — فتجري مع العرض و«ماذا لو». */
   const [riversOn, setRiversOn] = useState(false);
   const [pathId, setPathId] = useState<string | null>(null);
   const [nearFor, setNearFor] = useState<string | null>(null);
@@ -339,7 +339,7 @@ export default function HallPulse(props: HallPulseProps) {
   const viewDay: PulseDay = day === "week" ? defaults.day : day;
   /* مسارات التنقّل لرئيس اللجنة ورئيس القسم (الورشة) وللعميد وحدهم؛ لا تظهر في عدسة التقارير. */
   const pathsAllowed = context === "workshop" || context === "dean";
-  /* أنهار الطلبة لمن يرى المسارات نفسها، لا غيرهم. */
+  /* حركة الطلبة لمن يرى المسارات نفسها، لا غيرهم. */
   const riversOk = riversAllowed(context);
 
   /* ── طبقة التسجيل: آخر تقرير مطابقةٍ محفوظ للقسم والفصل، محسوباً على جدولنا الآن (/live) ──
@@ -607,7 +607,7 @@ export default function HallPulse(props: HallPulseProps) {
   const pathsBefore: MovePath[] = useMemo(() => (mode === "paths" && pathsAllowed && day !== "week" && whatIf.length
     ? buildPaths(model, original, layout, viewDay, { instructorName: teacherName, cohorts })
     : paths), [mode, pathsAllowed, day, whatIf.length, model, original, layout, viewDay, teacherName, cohorts, paths]);
-  /* ── أنهار الطلبة: من الإسناد الحيّ (نقلات «ماذا لو» والخطة المعروضة)، ومن الفصل المعروض في «آلة الزمن» ── */
+  /* ── حركة الطلبة: من الإسناد الحيّ (نقلات «ماذا لو» والخطة المعروضة)، ومن الفصل المعروض في «آلة الزمن» ── */
   const rivers: River[] = useMemo(() => (riversOn && riversOk && day !== "week"
     ? buildRivers(model, assignment, layout, viewDay, { cohorts, teachers: true })
     : []), [riversOn, riversOk, day, model, assignment, layout, viewDay, cohorts]);
@@ -1742,9 +1742,9 @@ export default function HallPulse(props: HallPulseProps) {
     announce(`${riverRoute(r)} عند ${clockText(r.at)}: ${aboutStudents(r.students)} ينتقلون (تقدير).`);
   };
   const riversPanel = riversOn && riversOk ? (
-    <section className="hp-rivers" aria-label="أنهار الطلبة">
+    <section className="hp-rivers" aria-label="حركة الطلبة">
       <div className="hp-path-head"><strong>أزحم الممرات اليوم</strong>{topRivers.length ? <span>{countOf(topRivers.length, CROSSING)}</span> : null}</div>
-      {day === "week" ? <p className="hp-fine">اختر يوماً لترى أنهار الطلبة فيه.</p>
+      {day === "week" ? <p className="hp-fine">اختر يوماً لترى حركة الطلبة فيه.</p>
         : !sectionId ? <p className="hp-fine">اختر قسماً: الدفعات تُقرأ من صحائف خطة القسم.</p>
           : !topRivers.length ? <p className="hp-fine">{cohortState && cohortState.scope === nameScope ? "لا دفعة تنتقل بين مبنيين أو طابقين بين محاضرتين متتاليتين في هذا اليوم." : "تُقرأ دفعات القسم من صحائف الخطة…"}</p>
             : (
@@ -2132,15 +2132,15 @@ export default function HallPulse(props: HallPulseProps) {
           </div>
         ) : null}
         {riversOk ? (
-          <button data-guide-ignore="يُظهر أنهار الطلبة بين المباني أو يخفيها؛ عرضٌ فقط، لا يحفظ شيئاً" type="button" className="hp-river-toggle" aria-pressed={riversOn}
-            title="أنهار الطلبة: خطوط ضوءٍ بين المباني عند تبدّل المحاضرات، سماكتها تقديرُ من ينتقلون"
+          <button data-guide-ignore="يُظهر حركة الطلبة بين المباني أو يخفيها؛ عرضٌ فقط، لا يحفظ شيئاً" type="button" className="hp-river-toggle" aria-pressed={riversOn}
+            title="حركة الطلبة: خطوط ضوءٍ بين المباني عند تبدّل المحاضرات، سماكتها تقديرُ من ينتقلون"
             onClick={() => {
               const next = !riversOn;
               setRiversOn(next);
-              if (next) { setRegOn(false); setSheetOpen(true); setSay("أنهار الطلبة: بين المحاضرات تجري خطوط ضوءٍ بين المباني، سماكتها تقديرُ من ينتقلون. شغّل اليوم أو اضغط ممرّاً من «أزحم الممرات اليوم»."); }
+              if (next) { setRegOn(false); setSheetOpen(true); setSay("حركة الطلبة: بين المحاضرات تجري خطوط ضوءٍ بين المباني، سماكتها تقديرُ من ينتقلون. شغّل اليوم أو اضغط ممرّاً من «أزحم الممرات اليوم»."); }
             }}>
             <svg className="hp-river-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8c3-3 6 3 9 0s6 3 9 0" /><path d="M3 14c3-3 6 3 9 0s6 3 9 0" /><path d="M3 20c3-3 6 3 9 0s6 3 9 0" opacity=".5" /></svg>
-            أنهار الطلبة
+            حركة الطلبة
             {riversOn && topRivers.length ? <b aria-label={countOf(topRivers.length, CROSSING)}>{n(topRivers.length)}</b> : null}
           </button>
         ) : null}

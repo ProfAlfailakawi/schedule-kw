@@ -1,5 +1,5 @@
 /**
- * ── أنهار الطلبة (FR-SCH-103): التجميع، والتقدير، والانتفاخ، وأزحم معبر ─────────
+ * ── حركة الطلبة (FR-SCH-103): التجميع، والتقدير، والانتفاخ، وأزحم معبر ─────────
  *
  * يحرس src/utils/studentRivers: أن الانتقال بين محاضرتين يصير نهراً حين يعبر بين مبنيين (أو
  * طابقين) وتبدأ التالية خلال النافذة، وأن الانتقالات المتقاربة للزوج نفسه من المباني تُجمع ولا
@@ -152,7 +152,7 @@ const pulse = read("src/components/hallPulse/HallPulse.tsx");
 const scene = read("src/components/hallPulse/pulseScene.ts");
 const util = read("src/utils/studentRivers.ts");
 check(/riversAllowed\(context\)/.test(pulse) && /buildRivers\(model, assignment, layout, viewDay/.test(pulse), "الأنهار من الإسناد الحيّ (يشمل نقلات «ماذا لو»)، وبوابة المسارات نفسها");
-check(/أنهار الطلبة/.test(pulse) && /أزحم الممرات اليوم/.test(pulse) && /تقدير/.test(pulse), "زرّ «أنهار الطلبة»، وقائمة «أزحم الممرات اليوم»، والسماكة موسومةٌ «تقدير»");
+check(/حركة الطلبة/.test(pulse) && /أزحم الممرات اليوم/.test(pulse) && /تقدير/.test(pulse), "زرّ «حركة الطلبة»، وقائمة «أزحم الممرات اليوم»، والسماكة موسومةٌ «تقدير»");
 check(/setRivers\(/.test(scene) && /setRiverClock\(/.test(scene) && /clearRivers\(\)/.test(scene), "المشهد يرسم الأنهار ويمحوها ويُفرغ موارده");
 check(/if \(!this\.opts\.reduced && !teacher[\s\S]{0,900}new THREE\.Points/.test(scene) && /const flow = reduced \? 0\.35/.test(scene), "تقليل الحركة: أنهارٌ ساكنة بلا جسيمات ولا ضوءٍ جارٍ");
 check(/tickRivers\(dt, now\)/.test(scene) && /this\.clearRivers\(\);\s*this\.riverTag\?\.remove\(\)/.test(scene), "الأنهار في حلقة الرسم، وتُفرغ مع المشهد");
